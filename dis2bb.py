@@ -61,6 +61,9 @@ lines = [
   if i != 0 and len(l.split()) > 1
 ]
 
+# Mapping of base 10 program counters to line indices
+pc2line = {l.pc: i for i, l in enumerate(lines)}
+
 # List of program counters (base 10) with unresolved block membership
 potential_leaders = []
 potential_splits = []
@@ -72,9 +75,6 @@ blocks = []
 current = BasicBlock(0, len(lines) - 1)
 
 for i, l in enumerate(lines):
-  if i == 0:
-    continue
-
   current.lines.append(l)
 
   if alters_flow(l.opcode):
