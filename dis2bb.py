@@ -66,6 +66,14 @@ class DisasmLine:
       self.__str__())
 
 
+def listdict_add(ldict, key, val):
+  """Adds a new value to the list in a given list-valued
+  dictionary for the given key"""
+  if key in ldict:
+    ldict[key].append(val)
+  else:
+    ldict[key] = [val]
+
 lines = [
   DisasmLine.from_raw(l)
   for i, l in enumerate(fileinput.input())
@@ -76,7 +84,7 @@ lines = [
 pc2line = {l.pc: i for i, l in enumerate(lines)}
 
 # Mapping of potential leaders (PCs) based on JUMP destinations discovered by
-# peephole analysis; in the form: dest PC => from block
+# peephole analysis; in the form: dest PC => [from blocks]
 potential_leaders = dict()
 
 # List of DisasmLines which represent JUMPs with an unresolved
@@ -95,7 +103,7 @@ for i, l in enumerate(lines):
   current.lines.append(l)
 
   if l.opcode == JUMPDEST and l.pc not in potential_leaders:
-    potential_leaders[l.pc] = None
+    potential_leaders[l.pc] = []
 
   # Flow-altering opcodes indicate end-of-block
   if alters_flow(l.opcode):
@@ -107,19 +115,19 @@ for i, l in enumerate(lines):
     if l.opcode in (JUMP, JUMPI):
       if lines[i-1].opcode.startswith(PUSH_PREFIX):
         dest = lines[i-1].value
-        potential_leaders[dest] = current
+        listdict_add(potential_leaders, dest, current)
       else:
         unresolved_jumps.append(l)
 
       # For JUMPI, the next sequential block starting at pc+1 is a possible
       # child of this block in the CFG
       if l.opcode == JUMPI:
-        potential_leaders[l.pc + 1] = current
+        listdict_add(potential_leaders, l.pc + 1, current)
 
     current = new
 
 # Link BasicBlock CFG nodes by following JUMP destinations
-for to_pc, from_block in set(potential_leaders.items()):
+for to_pc, from_blocks in list(potential_leaders.items()):
   to_line = lines[pc2line[to_pc]]
   to_block = to_line.block
 
@@ -129,7 +137,9 @@ for to_pc, from_block in set(potential_leaders.items()):
     to_block = blocks[-1]
 
   # Ignore potential leaders with no known JUMPs coming to them
-  if from_block != None:
-    from_block.children.append(to_block)
-    to_block.parents.append(from_block)
+  if len(from_blocks) > 0:
+    for from_block in from_blocks:
+      from_block.children.append(to_block)
+      to_block.parents.append(from_block)
+
     potential_leaders.pop(to_pc)
