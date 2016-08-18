@@ -36,6 +36,16 @@ class ControlFlowGraph:
   def __str__(self):
     return "\n".join(str(b) for b in self.blocks)
 
+  def edge_list(self):
+    """Returns a list of the graph's directed edges in the form
+    (src_pc, dest_pc), where each value is the base-10 program counter of the
+    first line in the corresponding block."""
+    edges = []
+    for src in self.blocks:
+      for dest in src.children:
+        edges.append((src.lines[0].pc, dest.lines[0].pc))
+    return edges
+
   def __parse_disassembly(self, disasm):
     # Construct a list of DisasmLine objects from the raw input disassembly
     # lines, ignoring the first line of input (which is the bytecode's hex
