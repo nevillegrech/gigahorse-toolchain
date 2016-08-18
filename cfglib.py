@@ -8,7 +8,12 @@ from opcodes import *
 BLOCK_SEP = "\n---"
 
 class ControlFlowGraph:
+  """Represents a Control Flow Graph (CFG) built from Ethereum VM bytecode
+  disassembly output created by the Ethereum disassembler tool (disasm)."""
   def __init__(self, disasm:iter):
+    """Builds a CFG from the provided iterable of raw disasm output lines (as
+    strings). The disasm output provided should be whole and complete,
+    including the non-assembly parts of its output (e.g. the first line)."""
     # List of BasicBlock objects contained in the CFG
     self.blocks = []
 
