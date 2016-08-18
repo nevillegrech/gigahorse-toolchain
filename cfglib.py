@@ -108,6 +108,10 @@ class ControlFlowGraph:
       to_line = lines[pc2line[to_pc]]
       to_block = to_line.block
 
+      if to_line.opcode != JUMPDEST:
+        self.potential_leaders.pop(to_pc)
+        continue
+
       # Leader is in the middle of a block, so split the block
       if pc2line[to_pc] > to_block.start:
         self.blocks.append(to_block.split(pc2line[to_pc]))
@@ -156,8 +160,8 @@ class BasicBlock:
     new_block = BasicBlock(start, self.end)
     self.end = start - 1
     # Split the disasm lines
-    new_block.lines = self.lines[start:]
-    self.lines = self.lines[:start]
+    new_block.lines = self.lines[start-self.start:]
+    self.lines = self.lines[:start-self.start]
     # Update the block pointer in each line object
     self.update_lines()
     new_block.update_lines()
