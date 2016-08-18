@@ -24,13 +24,24 @@ class BasicBlock:
     start line number. Returns the new BasicBlock."""
     new_block = BasicBlock(start, self.end)
     self.end = start - 1
+    new_block.lines = self.lines[start:]
+    self.lines = self.lines[:start]
+    self.update_lines()
+    new_block.update_lines()
     return new_block
+
+  def update_lines(self):
+    """Updates the pointer in each line to point to this block. This is called
+    by BasicBlock.split()."""
+    for l in self.lines:
+      l.block = self
 
 class DisasmLine:
   def __init__(self, pc, opcode, value=None):
     self.pc = int(pc)
     self.opcode = opcode
     self.value = int(value, 16) if value != None else value
+    self.block = None
 
   @staticmethod
   def from_raw(line):
@@ -64,30 +75,61 @@ lines = [
 # Mapping of base 10 program counters to line indices
 pc2line = {l.pc: i for i, l in enumerate(lines)}
 
-# List of program counters (base 10) with unresolved block membership
-potential_leaders = []
-potential_splits = []
+# Mapping of potential leaders (PCs) based on JUMP destinations discovered by
+# peephole analysis; in the form: dest PC => from block
+potential_leaders = dict()
+
+# List of DisasmLines which represent JUMPs with an unresolved
+# destination address
+unresolved_jumps = []
 
 # List of confirmed blocks in the tuple format described below
 blocks = []
 
-# block currently being processed: (first_line_index, last_line_index)
+# block currently being processed
 current = BasicBlock(0, len(lines) - 1)
 
+# Linear scan of all DisasmLines to create initial BasicBlocks
 for i, l in enumerate(lines):
+  l.block = current
   current.lines.append(l)
 
+  if l.opcode == JUMPDEST and l.pc not in potential_leaders:
+    potential_leaders[l.pc] = None
+
+  # Flow-altering opcodes indicate end-of-block
   if alters_flow(l.opcode):
     new = current.split(i+1)
     blocks.append(current)
 
     # For JUMPs, look for the destination in the previous line only!
     # (Peephole analysis)
-    if l.opcode in (JUMP, JUMPI) and lines[i-1].opcode.startswith(PUSH_PREFIX):
-      dest = lines[i-1].value
-      if dest > l.pc:
-        potential_leaders.append(dest)
+    if l.opcode in (JUMP, JUMPI):
+      if lines[i-1].opcode.startswith(PUSH_PREFIX):
+        dest = lines[i-1].value
+        potential_leaders[dest] = current
       else:
-        potential_splits.append(dest)
+        unresolved_jumps.append(l)
+
+      # For JUMPI, the next sequential block starting at pc+1 is a possible
+      # child of this block in the CFG
+      if l.opcode == JUMPI:
+        potential_leaders[l.pc + 1] = current
 
     current = new
+
+# Link BasicBlock CFG nodes by following JUMP destinations
+for to_pc, from_block in set(potential_leaders.items()):
+  to_line = lines[pc2line[to_pc]]
+  to_block = to_line.block
+
+  # Leader is in the middle of a block, so split the block
+  if pc2line[to_pc] > to_block.start:
+    blocks.append(to_block.split(pc2line[to_pc]))
+    to_block = blocks[-1]
+
+  # Ignore potential leaders with no known JUMPs coming to them
+  if from_block != None:
+    from_block.children.append(to_block)
+    to_block.parents.append(from_block)
+    potential_leaders.pop(to_pc)
