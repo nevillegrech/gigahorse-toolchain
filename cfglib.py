@@ -184,7 +184,7 @@ class DisasmLine:
               PC <spaces> OPCODE <spaces> => CONSTANT
     where:
             PC is the program counter (base 10 integer)
-        OPCODE is a textual representation of an EVM instruction code
+        OPCODE is an object representing an EVM instruction code
       CONSTANT is a hexadecimal value with 0x notational prefix
       <spaces> is a variable number of spaces
     For instructions with no hard-coded constant data (i.e. non-PUSH

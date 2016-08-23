@@ -1,5 +1,5 @@
-class OpCode(object):
-	def __init__(self, name:str, code:int, push:int, pop:int, argbytes:int = 0):
+class OpCode:
+	def __init__(self, name:str, code:int, pop:int, push:int, argbytes:int = 0):
 		self.name = name
 		self.code = code
 		self.push = push
@@ -18,7 +18,7 @@ class OpCode(object):
 			self.__str__()
 		)
 
-# Construct all EVM opcodes; encode yellow paper specs
+# Construct all EVM opcodes
 
 # Arithmetic Ops and STOP
 STOP       = OpCode("STOP",       0x00, 0, 0)
@@ -176,8 +176,6 @@ def opcode_by_name(name:str):
 	if name not in OPCODES:
 		raise Exception("No opcode named '{}'.".format(name))
 	return OPCODES[name]
-
-
 
 
 def is_push(opcode:OpCode):
