@@ -88,7 +88,7 @@ class ControlFlowGraph:
         # For JUMPs, look for the destination in the previous line only!
         # (Peephole analysis)
         if l.opcode in (JUMP, JUMPI):
-          if lines[i-1].opcode.startswith(PUSH_PREFIX):
+          if is_push(lines[i-1].opcode):
             dest = lines[i-1].value
             utils.listdict_add(self.potential_leaders, dest, current)
           else:
@@ -177,7 +177,7 @@ class BasicBlock:
 class DisasmLine:
   """Represents a single line of EVM bytecode disassembly as produced by the
   official Ethereum 'disasm' disassembler."""
-  def __init__(self, pc:str, opcode:str, value:str=None):
+  def __init__(self, pc:str, opcode:OpCode, value:str=None):
     """Create a new DisasmLine object from the given strings which should
     correspond to disasm output. Each line of disasm output is structured as
     follows:
@@ -222,9 +222,9 @@ class DisasmLine:
     disassembly. The line should be from Ethereum's disasm disassembler."""
     l = line.split()
     if len(l) > 3:
-      return DisasmLine(l[0], l[1], l[3])
+      return DisasmLine(l[0], opcode_by_name(l[1]), l[3])
     elif len(l) > 1:
-      return DisasmLine(l[0], l[1])
+      return DisasmLine(l[0], opcode_by_name(l[1]))
     else:
       raise Exception("Could not parse invalid disassembly format: " + str(l))
 
