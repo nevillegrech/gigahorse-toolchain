@@ -12,10 +12,9 @@ cfg = ControlFlowGraph(fileinput.input())
 
 
 entry, exit = run_analysis(cfg)
-
 for block in cfg.blocks:
-	print("----")
-	print(entry[block])
+	print("Entry stack:", entry[block])
 	print(block)
-	print(block_stack_delta(block))
-	print(exit[block])
+	print(block_stack_delta(block), "stack elements added.")
+	print("Exit stack:", exit[block])
+	print()
