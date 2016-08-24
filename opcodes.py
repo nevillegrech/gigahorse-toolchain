@@ -117,7 +117,7 @@ PUSH28 = OpCode("PUSH28", 0x7b, 0, 1)
 PUSH29 = OpCode("PUSH29", 0x7c, 0, 1)
 PUSH30 = OpCode("PUSH30", 0x7d, 0, 1)
 PUSH31 = OpCode("PUSH31", 0x7e, 0, 1)
-PUSH32 = OpCode("PUSH32", 0x7e7f, 0, 1)
+PUSH32 = OpCode("PUSH32", 0x7f, 0, 1)
 
 DUP1  = OpCode("DUP1",  0x80, 1, 2)
 DUP2  = OpCode("DUP2",  0x81, 2, 3)
@@ -173,6 +173,10 @@ SUICIDE      = OpCode("SUICIDE",      0xff, 1, 0)
 OPCODES = {code.name: code for code in globals().values() if isinstance(code, OpCode)}
 
 def opcode_by_name(name:str):
+	"""
+	Retrieves the named OpCode object.
+	"""
+	
 	if name not in OPCODES:
 		raise Exception("No opcode named '{}'.".format(name))
 	return OPCODES[name]

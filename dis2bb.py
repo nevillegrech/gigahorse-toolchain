@@ -7,3 +7,4 @@ import fileinput
 from cfglib import *
 
 cfg = ControlFlowGraph(fileinput.input())
+
