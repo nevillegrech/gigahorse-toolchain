@@ -2,8 +2,8 @@ class OpCode:
 	def __init__(self, name:str, code:int, pop:int, push:int, argbytes:int = 0):
 		self.name = name
 		self.code = code
-		self.push = push
 		self.pop = pop
+		self.push = push
 
 	def stack_delta(self):
 		return self.push - self.pop
@@ -17,6 +17,12 @@ class OpCode:
 			hex(id(self)),
 			self.__str__()
 		)
+
+	def __eq__(self, other):
+		return self.code == other.code
+
+	def __hash__(self):
+		return self.code.__hash__()
 
 # Construct all EVM opcodes
 
@@ -169,8 +175,10 @@ DELEGATECALL = OpCode("DELEGATECALL", 0xf4, 7, 1)
 SUICIDE      = OpCode("SUICIDE",      0xff, 1, 0)
 
 
-# Produce a mapping from names to opcode objects
+# Produce mappings from names and instruction codes to opcode objects
 OPCODES = {code.name: code for code in globals().values() if isinstance(code, OpCode)}
+BYTECODES = {code.code: code for code in OPCODES.values()}
+
 
 def opcode_by_name(name:str):
 	"""
@@ -181,6 +189,15 @@ def opcode_by_name(name:str):
 		raise Exception("No opcode named '{}'.".format(name))
 	return OPCODES[name]
 
+def opcode_by_value(val:int):
+	"""
+	Retrieves the OpCode object with the given value.
+	"""
+	
+	if val not in OPCODES:
+		raise Exception("No opcode with value '{}'.".format(val))
+	return OPCODES[val]
+
 
 def is_push(opcode:OpCode):
 	"""
@@ -188,6 +205,27 @@ def is_push(opcode:OpCode):
 	"""
 
 	return PUSH1.code <= opcode.code <= PUSH32.code
+
+def is_swap(opcode:OpCode):
+	"""
+	Returns True if the given opcode is a swap operation.
+	"""
+
+	return SWAP1.code <= opcode.code <= SWAP16.code
+
+def is_dup(opcode:OpCode):
+	"""
+	Returns True if the given opcode is a dup operation.
+	"""
+
+	return DUP1.code <= opcode.code <= DUP16.code
+
+
+
+
+
+def push_len(opcode:OpCode):
+	return opcode.code - PUSH1.code + 1
 
 
 def alters_flow(opcode:OpCode):
