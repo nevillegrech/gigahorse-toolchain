@@ -17,50 +17,20 @@ class Variable:
 			self.__str__()
 		)
 
-class MemLoc:
-	def __init__(self, val):
-		self.val = val
-
-	def __str__(self):
-		return "M[{}]".format(self.val)
-
-	def __repr__(self):
-		return "<{0} object {1}, {2}>".format(
-			self.__class__.__name__,
-			hex(id(self)),
-			self.__str__()
-		)
-
-class StorageLoc:
-	def __init__(self, val):
-		self.val = val
-
-	def __str__(self):
-		return "S[{}]".format(self.val)
-
-	def __repr__(self):
-		return "<{0} object {1}, {2}>".format(
-			self.__class__.__name__,
-			hex(id(self)),
-			self.__str__()
-		)
-
 class Destackifier:
 	def __init__(self):
 
 		self.__fresh_init()
 
+		# A mapping from EVM opcodes to TAC operations.
+		# Most instructions get mapped over directly, except:
+		# 	POP: generates no TAC op, but pops the symbolic stack;
+		#	PUSH: generates a CONST TAC operation;
+		#   DUP, SWAP: these simply permute the symbolic stack, generate no ops;
+		#   JUMPDEST: discarded;
+		#   LOG0 .. LOG4: all translated to a generic LOG instruction
 		self.op_actions = {
-			MLOAD: lambda var: OpMLoad(var, MemLoc(self.pop())),
-			MSTORE: lambda var: OpMStore(MemLoc(self.pop()), self.pop()),
-			MSTORE8: lambda var: OpMStore8(MemLoc(self.pop()), self.pop()),
-			SLOAD: lambda var: OpSLoad(var, StorageLoc(self.pop())),
-			SSTORE: lambda var: OpSStore(StorageLoc(self.pop()), self.pop()),
-			CODECOPY: lambda var: OpCodeCopy(*self.pop_many(3)),
-			RETURN: lambda var: OpReturn(*self.pop_many(2)),
 			STOP: lambda var: OpStop(),
-			JUMP: lambda var: OpJump(self.pop()),
-			JUMPI: lambda var: OpJumpI(*self.pop_many(2)),
 			ADD: lambda var: OpAdd(var, *self.pop_many(2)),
 			MUL: lambda var: OpMul(var, *self.pop_many(2)),
 			SUB: lambda var: OpSub(var, *self.pop_many(2)),
@@ -68,10 +38,10 @@ class Destackifier:
 			SDIV: lambda var: OpSdiv(var, *self.pop_many(2)),
 			MOD: lambda var: OpMod(var, *self.pop_many(2)),
 			SMOD: lambda var: OpSmod(var, *self.pop_many(2)),
-			EXP: lambda var: OpExp(var, *self.pop_many(2)),
-			SIGNEXTEND: lambda var: OpSignExtend(var, *self.pop_many(2)),
 			ADDMOD: lambda var: OpAddMod(var, *self.pop_many(3)),
 			MULMOD: lambda var: OpMulMod(var, *self.pop_many(3)),
+			EXP: lambda var: OpExp(var, *self.pop_many(2)),
+			SIGNEXTEND: lambda var: OpSignExtend(var, *self.pop_many(2)),
 			LT: lambda var: OpLt(var, *self.pop_many(2)),
 			GT: lambda var: OpGt(var, *self.pop_many(2)),
 			SLT: lambda var: OpSlt(var, *self.pop_many(2)),
@@ -81,10 +51,45 @@ class Destackifier:
 			AND: lambda var: OpAnd(var, *self.pop_many(2)),
 			OR: lambda var: OpOr(var, *self.pop_many(2)),
 			XOR: lambda var: OpXor(var, *self.pop_many(2)),
-			NOT: lambda var: OpNot(var, *elf.pop()),
+			NOT: lambda var: OpNot(var, *self.pop()),
 			BYTE: lambda var: OpByte(var, *self.pop_many(2)),
-			CALLDATALOAD: lambda var: OpCallDataLoad(var, self.pop())
+			SHA3: lambda var: OpSHA3(var, *self.pop_many(2)),
+			ADDRESS: lambda var: OpAddress(var),
+			BALANCE: lambda var: OpBalance(var, self.pop()),
+			ORIGIN: lambda var: OpOrigin(var),
+			CALLER: lambda var: OpCaller(var),
+			CALLVALUE: lambda var: OpCallValue(var),
+			CALLDATALOAD: lambda var: OpCallDataLoad(var, self.pop()),
+			CALLDATASIZE: lambda var: OpCallDataSize(var),
+			CALLDATACOPY: lambda var: OpCallDataCopy(*self.pop_many(3)),
+			CODECOPY: lambda var: OpCodeCopy(*self.pop_many(3)),
+			GASPRICE: lambda var: OpGasPrice(var),
+			EXTCODESIZE: lambda var: OpExtCodeSize(var),
+			EXTCODECOPY: lambda var: OpExtCodeCopy(*self.pop_many(4)),
+			BLOCKHASH: lambda var: OpBlockHash(var, self.pop()),
+			COINBASE: lambda var: OpCoinBase(var),
+			TIMESTAMP: lambda var: OpTimeStamp(var),
+			NUMBER: lambda var: OpNumber(var),
+			DIFFICULTY: lambda var: OpDifficulty(var),
+			GASLIMIT: lambda var: OpGasLimit(var),
+			MLOAD: lambda var: OpMLoad(var, self.pop()),
+			MSTORE: lambda var: OpMStore(*self.pop_many(2)),
+			MSTORE8: lambda var: OpMStore8(*self.pop_many(2)),
+			SLOAD: lambda var: OpSLoad(var, self.pop()),
+			SSTORE: lambda var: OpSStore(*self.pop_many(2)),
+			JUMP: lambda var: OpJump(self.pop()),
+			JUMPI: lambda var: OpJumpI(*self.pop_many(2)),
+			PC: lambda var: OpPC(var),
+			MSIZE: lambda var: OpMSize(var),
+			GAS: lambda var: OpGas(var),
+			CREATE: lambda var: OpCreate(var, *self.pop_many(3)),
+			CALL: lambda var: OpCall(var, *self.pop_many(7)),
+			CALLCODE: lambda var: OpCallCode(var, *self.pop_many(7)),
+			RETURN: lambda var: OpReturn(*self.pop_many(2)),
+			DELEGATECALL: lambda var: OpDelegateCall(var, *self.pop_many(7)),
+			SUICIDE: lambda var: OpSuicide(self.pop())
 		}
+
 
 
 	def __fresh_init(self):
@@ -199,6 +204,8 @@ class Destackifier:
 
 		if is_push(line.opcode):
 			inst = OpConst(var, line.value)
+		elif is_log(line.opcode):
+			inst = OpLog(*self.pop_many(2), self.pop_many(log_len(line.opcode)))
 		elif line.opcode in self.op_actions:
 			inst = self.op_actions[line.opcode](var)
 
@@ -206,32 +213,4 @@ class Destackifier:
 			self.ops.append(inst)
 		if var is not None:
 			self.push(var)
-
-
-
-
-
-
-
-
-	
-
-
-
-
-
-
-
-
-
-
-
-
-def destack_block(block:BasicBlock):
-	d = Destackifier()
-
-
-
-
-
 

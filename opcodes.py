@@ -68,7 +68,7 @@ CODESIZE     = OpCode("CODESIZE",     0x38, 0, 1)
 CODECOPY     = OpCode("CODECOPY",     0x39, 3, 0)
 GASPRICE     = OpCode("GASPRICE",     0x3a, 0, 1)
 EXTCODESIZE  = OpCode("EXTCODESIZE",  0x3b, 1, 1)
-EXTCODECOPY  = OpCode("EXTCODECOPY",  0x3c, 3, 0)
+EXTCODECOPY  = OpCode("EXTCODECOPY",  0x3c, 4, 0)
 
 # Block Information
 BLOCKHASH  = OpCode("BLOCKHASH",  0x40, 1, 1)
@@ -201,31 +201,40 @@ def opcode_by_value(val:int):
 
 def is_push(opcode:OpCode):
 	"""
-	Returns True if the given opcode is a push operation.
+	Predicate: opcode is a push operation.
 	"""
 
 	return PUSH1.code <= opcode.code <= PUSH32.code
 
 def is_swap(opcode:OpCode):
 	"""
-	Returns True if the given opcode is a swap operation.
+	Predicate: opcode is a swap operation.
 	"""
 
 	return SWAP1.code <= opcode.code <= SWAP16.code
 
 def is_dup(opcode:OpCode):
 	"""
-	Returns True if the given opcode is a dup operation.
+	Predicate: opcode is a dup operation.
 	"""
 
 	return DUP1.code <= opcode.code <= DUP16.code
 
+def is_log(opcode:OpCode):
+	"""
+	Predicate: opcode is a log operation.
+	"""
+
+	return LOG0.code <= opcode.code <= LOG4.code
 
 
 
 
 def push_len(opcode:OpCode):
 	return opcode.code - PUSH1.code + 1
+
+def log_len(opcode:OpCode):
+	return opcode.code - LOG0.code
 
 
 def alters_flow(opcode:OpCode):
