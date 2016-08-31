@@ -6,9 +6,9 @@ This project contains the source code for our Ethereum VM bytecode disassembly d
 
 - Use two spaces for indentation
 - Every public method and class must have a Python docstring
-- Every public method/function definition should have [type hints](https://docs.python.org/3/library/typing.html)
+- Every public method/function definition should have Python 3 [type hints](https://docs.python.org/3/library/typing.html)
 - Don't pollute the global scope
-- Don't override reserved words
+- Don't override Python 3 reserved words or built-ins
 - Keep line lengths to a maximum of 79 characters
 - Do not leave trailing whitespace at the end of a line
 - Avoid `from _ import *` wherever possible
