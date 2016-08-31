@@ -12,6 +12,8 @@ This project contains the source code for our Ethereum VM bytecode disassembly d
 - Keep line lengths to a maximum of 79 characters
 - Do not leave trailing whitespace at the end of a line
 - Avoid `from _ import *` wherever possible
+- Use meaningful variable names. Single letters are OK iff the meaning is clear and unambiguous, e.g. `for l in lines`
+- Use inline comments to explain complicated sections of code
 
 ## Git/Trello Development Workflow
 
@@ -25,3 +27,5 @@ Most development should happen on *feature branches*. Here's our git workflow:
   - Otherwise, if no changes are needed, the reviewer will **merge** the pull request and move your **Trello** card to *complete*
     
 You should ensure your pull request does not contain merge conflicts with the `master` branch. If it does, you need to manually resolve these conflicts by merging `master` **into your feature branch**.
+
+If you need to explain any code to your reviewer, it should have comments with the explanation.
