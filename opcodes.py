@@ -1,11 +1,21 @@
+# opcodes.py: Definitions of all EVM opcodes, and related utility functions.
+
 class OpCode:
+	"""An EVM opcode."""
+
 	def __init__(self, name:str, code:int, pop:int, push:int, argbytes:int = 0):
+		# Human-readable opcode.
 		self.name = name
+
+		# The instruction byte itself.
 		self.code = code
+
+		# The number of stack elements this op pops and pushes.
 		self.pop = pop
 		self.push = push
 
 	def stack_delta(self):
+		"""Return the net effect on the stack size of running this operation."""
 		return self.push - self.pop
 
 	def __str__(self):
@@ -23,6 +33,7 @@ class OpCode:
 
 	def __hash__(self):
 		return self.code.__hash__()
+
 
 # Construct all EVM opcodes
 
@@ -181,68 +192,44 @@ BYTECODES = {code.code: code for code in OPCODES.values()}
 
 
 def opcode_by_name(name:str):
-	"""
-	Retrieves the named OpCode object.
-	"""
-	
+	"""Mapping: Retrieves the named OpCode object."""
 	if name not in OPCODES:
 		raise Exception("No opcode named '{}'.".format(name))
 	return OPCODES[name]
 
 def opcode_by_value(val:int):
-	"""
-	Retrieves the OpCode object with the given value.
-	"""
-	
+	"""Mapping: Retrieves the OpCode object with the given value."""
 	if val not in OPCODES:
 		raise Exception("No opcode with value '{}'.".format(val))
 	return OPCODES[val]
 
-
 def is_push(opcode:OpCode):
-	"""
-	Predicate: opcode is a push operation.
-	"""
-
+	"""Predicate: opcode is a push operation."""
 	return PUSH1.code <= opcode.code <= PUSH32.code
 
 def is_swap(opcode:OpCode):
-	"""
-	Predicate: opcode is a swap operation.
-	"""
-
+	"""Predicate: opcode is a swap operation."""
 	return SWAP1.code <= opcode.code <= SWAP16.code
 
 def is_dup(opcode:OpCode):
-	"""
-	Predicate: opcode is a dup operation.
-	"""
-
+	"""Predicate: opcode is a dup operation."""
 	return DUP1.code <= opcode.code <= DUP16.code
 
 def is_log(opcode:OpCode):
-	"""
-	Predicate: opcode is a log operation.
-	"""
-
+	"""Predicate: opcode is a log operation."""
 	return LOG0.code <= opcode.code <= LOG4.code
 
-
-
-
 def push_len(opcode:OpCode):
+	"""Return the number of bytes the given PUSH instruction pushes."""
 	return opcode.code - PUSH1.code + 1
 
 def log_len(opcode:OpCode):
+	"""Return the number of topics the given LOG instruction includes."""
 	return opcode.code - LOG0.code
 
-
 def alters_flow(opcode:OpCode):
-  """
-  Returns True if the given opcode alters EVM control flow.
-  """
+  """Returns True if the given opcode alters EVM control flow."""
   return opcode in [
     JUMP, JUMPI, RETURN,
     SUICIDE, STOP
   ]
-

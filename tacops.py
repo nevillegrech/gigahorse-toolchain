@@ -1,7 +1,23 @@
+# tacops.py: Definitions of all Three-Address Code operations, related functions, objects.
+
+class Variable:
+	"""A symbolic variable whose value is supposed to be the result of some TAC operation."""
+
+	def __init__(self, ident):
+		self.identifier = ident
+
+	def __str__(self):
+		return self.identifier
+
+	def __repr__(self):
+		return "<{0} object {1}, {2}>".format(
+			self.__class__.__name__,
+			hex(id(self)),
+			self.__str__()
+		)
+
 class MemLoc:
-	"""
-	A one byte cell from memory.
-	"""
+	"""A symbolic one byte cell from memory."""
 
 	def __init__(self, val):
 		self.val = val
@@ -17,9 +33,7 @@ class MemLoc:
 		)
 
 class StorageLoc:
-	"""
-	A one word static storage location.
-	"""
+	"""A symbolic one word static storage location."""
 
 	def __init__(self, val):
 		self.val = val
@@ -36,6 +50,11 @@ class StorageLoc:
 
 
 class Op:
+	"""
+	A Three-Address Code operation.
+	Each operation consists of a name, and a list of arguments; typically Variables.
+	"""
+
 	name = "OP"
 	def __init__(self, args):
 		self.args = args
@@ -52,6 +71,11 @@ class Op:
 		)
 
 class AssignOp(Op):
+	"""
+	A TAC operation that additionally takes a variable to which
+	this operation's result is implicitly bound.
+	"""
+
 	name = "ASSIGNOP"
 	def __init__(self, lhs, args):
 		super().__init__(args)
@@ -69,9 +93,15 @@ class AssignOp(Op):
 		)
 
 class OpConst(AssignOp):
+	"""Assignment of a constant value to a variable."""
 	name = "CONST"
 	def __init__(self, lhs, val):
 		super().__init__(lhs, [val])
+
+class OpStop(Op):
+	name = "STOP"
+	def __init__(self):
+		super().__init__([])
 
 class OpAdd(AssignOp):
 	name = "ADD"
@@ -183,18 +213,6 @@ class OpByte(AssignOp):
 	def __init__(self, lhs, index, val):
 		super().__init__(lhs, [index, val])
 
-
-class OpCodeCopy(Op):
-	name = "CODECOPY"
-	def __init__(self, mem_addr, code_addr, length):
-		super().__init__([mem_addr, code_addr, length])
-
-
-class OpStop(Op):
-	name = "STOP"
-	def __init__(self):
-		super().__init__([])
-
 class OpSHA3(AssignOp):
 	name = "SHA3"
 	def __init__(self, lhs, address, length):
@@ -245,6 +263,11 @@ class OpCallDataCopy(Op):
 	def __init__(self, mem_addr, data_addr, length):
 		super().__init__([mem_addr, data_addr, length])
 
+class OpCodeCopy(Op):
+	name = "CODECOPY"
+	def __init__(self, mem_addr, code_addr, length):
+		super().__init__([mem_addr, code_addr, length])
+
 class OpGasPrice(AssignOp):
 	name = "GASPRICE"
 	def __init__(self, lhs):
@@ -290,6 +313,7 @@ class OpGasLimit(AssignOp):
 	def __init__(self, lhs):
 		super().__init__(lhs, [])
 
+# MLoad, MStore, SLoad, SStore operations have their own address spaces.
 class OpMLoad(AssignOp):
 	name = "MLOAD"
 	def __init__(self, lhs, address):

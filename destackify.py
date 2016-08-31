@@ -1,35 +1,27 @@
-from cfglib import BasicBlock
+# destackify.py: Destackifier object for converting basic blocks to Three-Address Code.
+
 from tacops import *
 from opcodes import *
 
-class Variable:
-	def __init__(self, ident):
-		self.identifier = ident
-
-	def __str__(self):
-		return self.identifier
-
-
-	def __repr__(self):
-		return "<{0} object {1}, {2}>".format(
-			self.__class__.__name__,
-			hex(id(self)),
-			self.__str__()
-		)
-
 class Destackifier:
+	"""Converts BasicBlocks into corresponding TAC operation sequences."""
+
 	def __init__(self):
+		"""
+		Initialise a mapping from EVM opcodes to TAC operation constructors.
+		This is in the constructor because the constructors manipulate the instance stack.
+		"""
 
 		self.__fresh_init()
 
-		# A mapping from EVM opcodes to TAC operations.
+		# A mapping from EVM opcodes to TAC operation constructors.
 		# Most instructions get mapped over directly, except:
-		# 	POP: generates no TAC op, but pops the symbolic stack;
-		#	PUSH: generates a CONST TAC operation;
-		#   DUP, SWAP: these simply permute the symbolic stack, generate no ops;
-		#   JUMPDEST: discarded;
-		#   LOG0 .. LOG4: all translated to a generic LOG instruction
-		self.op_actions = {
+		#     POP: generates no TAC op, but pops the symbolic stack;
+		#     PUSH: generates a CONST TAC operation;
+		#     DUP, SWAP: these simply permute the symbolic stack, generate no ops;
+		#     JUMPDEST: discarded;
+		#     LOG0 ... LOG4: all translated to a generic LOG instruction
+		self.op_constructors = {
 			STOP: lambda var: OpStop(),
 			ADD: lambda var: OpAdd(var, *self.pop_many(2)),
 			MUL: lambda var: OpMul(var, *self.pop_many(2)),
@@ -91,8 +83,9 @@ class Destackifier:
 		}
 
 
-
 	def __fresh_init(self):
+		"""Reinitialise all structures in preparation for converting a new block."""
+
 		# A sequence of three-address operations
 		self.ops = []
 
@@ -108,16 +101,15 @@ class Destackifier:
 		# we pop and the main stack is empty.
 		self.extern_pops = 0
 
+
 	def new_var(self):
+		"""Construct and return a new variable with the next free identifier."""
 		var = Variable("V{}".format(self.stack_vars))
 		self.stack_vars += 1
 		return var
 
 	def pop_extern(self):
-		"""
-		Generate and return a variable from the external stack.
-		"""
-
+		"""Generate and return the next variable from the external stack."""
 		var = Variable("S{}".format(self.extern_pops))
 		self.extern_pops += 1
 		return var
@@ -127,7 +119,6 @@ class Destackifier:
 		Pop an item off our symbolic stack if one exists, otherwise 
 		generate an external stack variable.
 		"""
-
 		if len(self.stack):
 			return self.stack.pop()
 		else:
@@ -138,7 +129,6 @@ class Destackifier:
 		Pop and return n items from the stack.
 		First-popped elements inhabit low indices.
 		"""
-
 		res = []
 		for _ in range(n):
 			res.append(self.pop())
@@ -146,10 +136,7 @@ class Destackifier:
 		return res
 
 	def push(self, element):
-		"""
-		Push an element to the stack.
-		"""
-
+		"""Push an element to the stack."""
 		self.stack.append(element)
 
 	def push_many(self, elements):
@@ -161,8 +148,13 @@ class Destackifier:
 		for element in elements:
 			self.push(element)
 
-
 	def convert_block(self, block):
+		"""
+		Given a BasicBlock, convert its instructions to Three-Address Code.
+		Return the converted sequence of operations,
+		the final state of the stack,
+		and the number of items that have been removed from the external stack.
+		"""
 		self.__fresh_init()
 
 		for line in block.lines:
@@ -171,23 +163,23 @@ class Destackifier:
 		return (self.ops, self.stack, self.extern_pops)
 
 	def dup(self, n):
-		"""
-		Place a copy of stack[n-1] on the top of the stack.
-		"""
-
+		"""Place a copy of stack[n-1] on the top of the stack."""
 		items = self.pop_many(n)
 		duplicated = [items[-1]] + items
 		self.push_many(reversed(duplicated))
 
 	def swap(self, n):
-		"""
-		Swap stack[0] with stack[n].
-		"""
+		"""Swap stack[0] with stack[n]."""
 		items = self.pop_many(n+1)
 		swapped = [items[-1]] + items[1:-1] + [items[0]]
 		self.push_many(reversed(swapped))
 
 	def handle_line(self, line):
+		"""
+		Convert a line to its corresponding instruction, if there is one,
+		and manipulate the stack in any needful way.
+		"""
+
 		if is_swap(line.opcode):
 			self.swap(line.opcode.pop)
 		elif is_dup(line.opcode):
@@ -197,20 +189,26 @@ class Destackifier:
 		else:
 			self.gen_instruction(line)
 
-
 	def gen_instruction(self, line):
+		"""
+		Given a line, generate its corresponding TAC operation,
+		append it to the op sequence, and push any generated
+		variables to the stack.
+		"""
+
 		inst = None
+		# All instructions that push anything push exactly
+		# one word to the stack. Assign that symbolic variable here.
 		var = self.new_var() if line.opcode.push >= 1 else None
 
 		if is_push(line.opcode):
 			inst = OpConst(var, line.value)
 		elif is_log(line.opcode):
 			inst = OpLog(*self.pop_many(2), self.pop_many(log_len(line.opcode)))
-		elif line.opcode in self.op_actions:
-			inst = self.op_actions[line.opcode](var)
+		elif line.opcode in self.op_constructors:
+			inst = self.op_constructors[line.opcode](var)
 
 		if inst is not None:
 			self.ops.append(inst)
 		if var is not None:
 			self.push(var)
-
