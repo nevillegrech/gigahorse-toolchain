@@ -23,9 +23,9 @@ Most development should happen on *feature branches*. Here's our git workflow:
 2. Commit to your new feature branch early and often.
 3. When the feature is complete, submit a **Bitbucket pull request** to merge your feature branch into the master branch. Move the corresponding **Trello** card to *Code Review*.
 4. Someone else will review the pull request.
-  - If changes are needed, the reviewer will comment with necessary changes and move the **Trello** card back to *In Progress*
-  - Otherwise, if no changes are needed, the reviewer will **merge** the pull request and move your **Trello** card to *complete*
+  - If changes are needed, the reviewer will comment with necessary changes and move the **Trello** card back to *In Progress*. Continue committing to your feature branch - the pull request will be updated automatically.
+  - Otherwise, if no changes are needed, the reviewer will **merge** the pull request and move your **Trello** card to *complete*. 
     
-You should ensure your pull request does not contain merge conflicts with the `master` branch. If it does, you need to manually resolve these conflicts by merging `master` **into your feature branch**.
+You should ensure your pull request does not contain merge conflicts with the `master` branch. If it does, you need to manually resolve these conflicts by merging `master` ***into* your feature branch**.
 
-If you need to explain any code to your reviewer, it should have comments with the explanation.
+If you need to explain any code to a reviewer then it should have comments with the explanation.
