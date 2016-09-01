@@ -15,7 +15,7 @@ This project contains the source code for our Ethereum VM bytecode disassembly d
 - Use meaningful variable names. Single letters are OK ***iff*** the meaning is clear and unambiguous, e.g. `for l in lines` where `l` could have no other meaning
 - Use inline comments to explain complicated sections of code
 
-## Git/Trello Development Workflow
+## Git / Trello Development Workflow
 
 Most development should happen on *feature branches*. Here's our git workflow:
 
