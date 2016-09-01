@@ -12,7 +12,7 @@ This project contains the source code for our Ethereum VM bytecode disassembly d
 - Keep line lengths to a maximum of 79 characters
 - Do not leave trailing whitespace at the end of a line
 - Avoid `from _ import *` wherever possible
-- Use meaningful variable names. Single letters are OK iff the meaning is clear and unambiguous, e.g. `for l in lines`
+- Use meaningful variable names. Single letters are OK ***iff*** the meaning is clear and unambiguous, e.g. `for l in lines` where `l` could have no other meaning
 - Use inline comments to explain complicated sections of code
 
 ## Git/Trello Development Workflow
