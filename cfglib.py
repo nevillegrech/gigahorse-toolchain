@@ -1,4 +1,5 @@
-# cfglib.py: Classes for processing Ethereum disasm output and building a CFG
+"""cfglib.py: Classes for processing Ethereum disasm output and building a
+CFG"""
 
 # Local project imports
 import utils
