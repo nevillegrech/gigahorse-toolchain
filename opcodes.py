@@ -189,7 +189,8 @@ SUICIDE      = OpCode("SUICIDE",      0xff, 1, 0)
 
 
 # Produce mappings from names and instruction codes to opcode objects
-OPCODES = {code.name: code for code in globals().values() if isinstance(code, OpCode)}
+OPCODES = {code.name: code for code in globals().values() \
+           if isinstance(code, OpCode)}
 BYTECODES = {code.code: code for code in OPCODES.values()}
 
 

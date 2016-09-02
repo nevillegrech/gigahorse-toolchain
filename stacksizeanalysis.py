@@ -1,7 +1,12 @@
+# stacksizeanalysis.py: fixed-point static analysis to determine 
+# stack sizes in a CFG
+
 from cfglib import *
 from lattice import *
 
 def block_stack_delta(block:BasicBlock):
+  """Calculate the net effect on the stack size of executing
+  the instruction sequence within a block."""
   delta = 0
 
   for line in block.lines:
@@ -10,13 +15,24 @@ def block_stack_delta(block:BasicBlock):
   return delta
 
 def run_analysis(cfg:ControlFlowGraph):
+  """Determine the stack size for each basic block within the given CFG
+  at both entry and exit points, if it can be known. If there are multiple
+  possible stack sizes a value of BOTTOM is instead assigned.
+
+  To calculate this information the entry point of the CFG is assigned a
+  stack size of zero, and all others are given an "unknown" value, TOP.
+  Then for each block, calculate its entry size by taking the meet of
+  the exit sizes of its predecessors. Its own exit size is then its 
+  entry size plus the delta incurred by the instructions in its body.
+  """
+
   # Stack size information per block at entry and exit points.
   entry_info = {block: TOP for block in cfg.blocks}
   exit_info = {block: TOP for block in cfg.blocks}
   block_deltas = {block: IntLatticeElement(block_stack_delta(block)) \
                   for block in cfg.blocks}
 
-  # Add a distinguished start block which does nothing.
+  # Add a distinguished empty-stack start block which does nothing.
   start_block = BasicBlock()
   exit_info[start_block] = IntLatticeElement(0)
 

@@ -1,7 +1,8 @@
 # tacops.py: Definitions of Three-Address Code operations and related objects.
 
 class Variable:
-  """A symbolic variable whose value is supposed to be the result of some TAC operation."""
+  """A symbolic variable whose value is supposed to be 
+  the result of some TAC operation."""
 
   def __init__(self, ident:str):
     self.identifier = ident
@@ -55,7 +56,7 @@ class SLoc(Location):
 class TACOp:
   """
   A Three-Address Code operation.
-  Each operation consists of a name, and a list of arguments; typically Variables.
+  Each operation consists of a name, and a list of argument variables.
   """
 
   def __init__(self, name, args):
@@ -64,7 +65,8 @@ class TACOp:
 
   def __str__(self):
     return "{} {}".format(self.name, 
-                " ".join([str(arg) for arg in self.args]))
+                " ".join([hex(arg) if isinstance(arg, int) else str(arg) \
+                          for arg in self.args]))
 
   def __repr__(self):
     return "<{0} object {1}, {2}>".format(
@@ -86,6 +88,7 @@ class TACAssignOp(TACOp):
 
   def __str__(self):
     arglist = ([str(self.name)] if self.print_name else []) \
-              + [hex(arg) if isinstance(arg, int) else str(arg) for arg in self.args]
+              + [hex(arg) if isinstance(arg, int) else str(arg) \
+                 for arg in self.args]
     return "{} = {}".format(self.lhs, " ".join(arglist))
 

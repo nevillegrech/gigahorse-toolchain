@@ -1,4 +1,4 @@
-# destackify.py: Destackifier object for converting basic blocks to Three-Address Code.
+# destackify.py: Destackifier converts basic blocks to Three-Address Code.
 
 from tacops import *
 from opcodes import *
@@ -8,18 +8,18 @@ class Destackifier:
 
   Most instructions get mapped over directly, except:
       POP: generates no TAC op, but pops the symbolic stack;
-      PUSH: generates a CONST TAC operation;
+      PUSH: generates a CONST TAC assignment operation;
       DUP, SWAP: these simply permute the symbolic stack, generate no ops;
       LOG0 ... LOG4: all translated to a generic LOG instruction
   """
 
   def _fresh_init(self):
-    """Reinitialise all structures in preparation for converting a new block."""
+    """Reinitialise all structures in preparation for converting a block."""
 
     # A sequence of three-address operations
     self.ops = []
 
-    # The stack we'll be symbolically operating on.
+    # The symbolic variable stack we'll be operating on.
     self.stack = []
 
     # The number of TAC variables we've assigned,
@@ -127,23 +127,24 @@ class Destackifier:
     # one word to the stack. Assign that symbolic variable here.
     var = self._new_var() if line.opcode.push == 1 else None
     
-    # TODO: Work out the rules for MLOAD/MSTORE properly,
-    # since stack items are words, while memory locations are bytes.
-
     if is_push(line.opcode):
       inst = TACAssignOp(var, "CONST", [line.value], print_name=False)
     elif is_log(line.opcode):
       inst = TACOp("LOG", self._pop_many(line.opcode.pop))
     elif line.opcode == MLOAD:
-      inst = TACAssignOp(var, line.opcode.name, [MLoc(self._pop())], print_name=False)
+      inst = TACAssignOp(var, line.opcode.name, [MLoc(self._pop())],
+                         print_name=False)
     elif line.opcode == MSTORE:
       args = self._pop_many(2)
-      inst = TACAssignOp(MLoc(args[0]), line.opcode.name, args[1:], print_name=False)
+      inst = TACAssignOp(MLoc(args[0]), line.opcode.name, args[1:],
+                         print_name=False)
     elif line.opcode == MSTORE8:
       args = self._pop_many(2)
-      inst = TACAssignOp(MLoc8(args[0]), line.opcode.name, args[1:], print_name=False)
+      inst = TACAssignOp(MLoc8(args[0]), line.opcode.name, args[1:],
+                         print_name=False)
     elif line.opcode == SLOAD:
-      inst = TACAssignOp(var, SLOAD.name, [SLoc(self._pop())], print_name=False)
+      inst = TACAssignOp(var, SLOAD.name, [SLoc(self._pop())],
+                         print_name=False)
     elif line.opcode == SSTORE:
       args = self._pop_many(2)
       inst = TACAssignOp(SLoc(args[0]), line.opcode.name, args[1:])
@@ -152,7 +153,7 @@ class Destackifier:
     else:
       inst = TACOp(line.opcode.name, self._pop_many(line.opcode.pop))
 
-    # This var must be pushed after the operation is performed.
+    # This var must only be pushed after the operation is performed.
     if var is not None:
       self._push(var)
     self.ops.append(inst)
