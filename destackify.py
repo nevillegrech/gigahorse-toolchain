@@ -3,7 +3,7 @@
 from typing import List, Tuple
 
 from cfglib import BasicBlock, DisasmLine
-from tacops import *
+from tac import *
 from opcodes import *
 
 
@@ -132,7 +132,7 @@ class Destackifier:
     var = self._new_var() if line.opcode.push == 1 else None
     
     # Generate the appropriate TAC operation.
-    # Special cases first, followed by the fallback cases.
+    # Special cases first, followed by the fallback to generic instructions.
     if is_push(line.opcode):
       inst = TACAssignOp(var, "CONST", [Constant(line.value)],
                          line.pc, print_name=False)
@@ -154,7 +154,8 @@ class Destackifier:
                          line.pc, print_name=False)
     elif line.opcode == SSTORE:
       args = self._pop_many(2)
-      inst = TACAssignOp(SLoc(args[0]), line.opcode.name, args[1:], line.pc)
+      inst = TACAssignOp(SLoc(args[0]), line.opcode.name, args[1:],
+                         line.pc, print_name=False)
     elif var is not None:
       inst = TACAssignOp(var, line.opcode.name,
                          self._pop_many(line.opcode.pop), line.pc)

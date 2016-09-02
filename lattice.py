@@ -9,7 +9,7 @@ class IntLatticeElement:
 	the (unordered) set of integers with top and bottom elements.
 
 	Integers are incomparable with one another, while top and bottom
-	are compare superior and inferior with every other element, respectively."""
+	compare superior and inferior with every other element, respectively."""
 
 	def __init__(self, value:int=None, top:bool=False, bottom:bool=False) -> None:
 		"""Construct a lattice element with the given value."""

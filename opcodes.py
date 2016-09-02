@@ -4,7 +4,7 @@
 class OpCode:
   """An EVM opcode."""
 
-  def __init__(self, name:str, code:int, pop:int, push:int, argbytes:int = 0):
+  def __init__(self, name:str, code:int, pop:int, push:int):
     """
     Args:
       name (str): Human-readable opcode.

@@ -1,6 +1,7 @@
-# tacops.py: Definitions of Three-Address Code operations and related objects.
+# tac.py: Definitions of Three-Address Code operations and related objects.
 
 from typing import List
+
 
 class Variable:
   """A symbolic variable whose value is supposed to be 
@@ -52,21 +53,25 @@ class Location:
       self.__str__()
     )
 
+
 class MLoc(Location):
   """A symbolic memory region 32 bytes in length."""
   def __init__(self, address:Variable):
     super().__init__("M", 32, address)
+
 
 class MLoc8(Location):
   """ A symbolic one-byte cell from memory."""
   def __init__(self, address:Variable):
     super().__init__("M8", 1, address)
 
+
 class SLoc(Location):
   """A symbolic one word static storage location."""
 
   def __init__(self, address:Variable):
     super().__init__("S", 32, address)
+
 
 class TACOp:
   """
@@ -90,6 +95,7 @@ class TACOp:
       self.__str__()
     )
 
+
 class TACAssignOp(TACOp):
   """
   A TAC operation that additionally takes a variable to which
@@ -106,4 +112,3 @@ class TACAssignOp(TACOp):
     arglist = ([str(self.name)] if self.print_name else []) \
               + [str(arg) for arg in self.args]
     return "{}: {} = {}".format(hex(self.address), self.lhs, " ".join(arglist))
-
