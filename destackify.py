@@ -195,16 +195,35 @@ class Destackifier:
     inst = None
     # All instructions that push anything push exactly
     # one word to the stack. Assign that symbolic variable here.
-    var = self.new_var() if line.opcode.push >= 1 else None
+    var = self.new_var() if line.opcode.push == 1 else None
+    
+    # TODO: Work out the rules for MLOAD/MSTORE properly,
+    # since stack items are words, while memory locations are bytes.
 
     if is_push(line.opcode):
-      inst = OpConst(var, line.value)
+      inst = TACAssignOp(var, "CONST", [line.value], print_name=False)
     elif is_log(line.opcode):
-      inst = OpLog(*self.pop_many(2), self.pop_many(log_len(line.opcode)))
-    elif line.opcode in self.op_constructors:
-      inst = self.op_constructors[line.opcode](var)
+      inst = TACOp("LOG", self.pop_many(line.opcode.pop))
+    elif line.opcode == MLOAD:
+      inst = TACAssignOp(var, line.opcode.name, [MLoc(self.pop())], print_name=False)
+    elif line.opcode == MSTORE:
+      args = self.pop_many(2)
+      inst = TACAssignOp(MLoc(args[0]), line.opcode.name, args[1:], print_name=False)
+    elif line.opcode == MSTORE8:
+      args = self.pop_many(2)
+      inst = TACAssignOp(MLoc8(args[0]), line.opcode.name, args[1:], print_name=False)
+    elif line.opcode == SLOAD:
+      inst = TACAssignOp(var, SLOAD.name, [SLoc(self.pop())], print_name=False)
+    elif line.opcode == SSTORE:
+      args = self.pop_many(2)
+      inst = TACAssignOp(SLoc(args[0]), line.opcode.name, args[1:])
+    elif var is not None:
+      inst = TACAssignOp(var, line.opcode.name, self.pop_many(line.opcode.pop))
+    else:
+      inst = TACOp(line.opcode.name, self.pop_many(line.opcode.pop))
 
-    if inst is not None:
-      self.ops.append(inst)
+    # This var must be pushed after the operation is performed.
     if var is not None:
       self.push(var)
+    self.ops.append(inst)
+    
