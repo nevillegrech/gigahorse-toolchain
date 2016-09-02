@@ -1,8 +1,12 @@
 # tacops.py: Definitions of Three-Address Code operations and related objects.
 
+from typing import List
+
 class Variable:
   """A symbolic variable whose value is supposed to be 
-  the result of some TAC operation."""
+  the result of some TAC operation. Its size is 32 bytes."""
+
+  size = 32
 
   def __init__(self, ident:str):
     self.identifier = ident
@@ -17,8 +21,19 @@ class Variable:
       self.__str__()
     )
 
+
+class Constant(Variable):
+  """A specialised variable whose value is a constant integer."""
+
+  def __init__(self, value:int):
+    self.value = value
+
+  def __str__(self):
+    return hex(self.value)
+
+
 class Location:
-  """A symbolic storage location."""
+  """A generic storage location."""
 
   def __init__(self, space_id:str, size:int, address:Variable):
     """Construct a location from the name of the space,
@@ -59,14 +74,14 @@ class TACOp:
   Each operation consists of a name, and a list of argument variables.
   """
 
-  def __init__(self, name, args):
+  def __init__(self, name:str, args:List[Variable], address:int):
     self.name = name
     self.args = args
+    self.address = address
 
   def __str__(self):
-    return "{} {}".format(self.name, 
-                " ".join([hex(arg) if isinstance(arg, int) else str(arg) \
-                          for arg in self.args]))
+    return "{}: {} {}".format(hex(self.address), self.name, 
+                " ".join([str(arg) for arg in self.args]))
 
   def __repr__(self):
     return "<{0} object {1}, {2}>".format(
@@ -81,14 +96,14 @@ class TACAssignOp(TACOp):
   this operation's result is implicitly bound.
   """
 
-  def __init__(self, lhs, name, args, print_name=True):
-    super().__init__(name, args)
+  def __init__(self, lhs:Variable, name:str,
+               args:List[Variable], address:int, print_name=True):
+    super().__init__(name, args, address)
     self.lhs = lhs
     self.print_name = print_name
 
   def __str__(self):
     arglist = ([str(self.name)] if self.print_name else []) \
-              + [hex(arg) if isinstance(arg, int) else str(arg) \
-                 for arg in self.args]
-    return "{} = {}".format(self.lhs, " ".join(arglist))
+              + [str(arg) for arg in self.args]
+    return "{}: {} = {}".format(hex(self.address), self.lhs, " ".join(arglist))
 

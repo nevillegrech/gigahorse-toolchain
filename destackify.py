@@ -134,30 +134,32 @@ class Destackifier:
     # Generate the appropriate TAC operation.
     # Special cases first, followed by the fallback cases.
     if is_push(line.opcode):
-      inst = TACAssignOp(var, "CONST", [line.value], print_name=False)
+      inst = TACAssignOp(var, "CONST", [Constant(line.value)],
+                         line.pc, print_name=False)
     elif is_log(line.opcode):
-      inst = TACOp("LOG", self._pop_many(line.opcode.pop))
+      inst = TACOp("LOG", self._pop_many(line.opcode.pop), line.pc)
     elif line.opcode == MLOAD:
       inst = TACAssignOp(var, line.opcode.name, [MLoc(self._pop())],
-                         print_name=False)
+                         line.pc, print_name=False)
     elif line.opcode == MSTORE:
       args = self._pop_many(2)
       inst = TACAssignOp(MLoc(args[0]), line.opcode.name, args[1:],
-                         print_name=False)
+                         line.pc, print_name=False)
     elif line.opcode == MSTORE8:
       args = self._pop_many(2)
       inst = TACAssignOp(MLoc8(args[0]), line.opcode.name, args[1:],
-                         print_name=False)
+                         line.pc, print_name=False)
     elif line.opcode == SLOAD:
       inst = TACAssignOp(var, SLOAD.name, [SLoc(self._pop())],
-                         print_name=False)
+                         line.pc, print_name=False)
     elif line.opcode == SSTORE:
       args = self._pop_many(2)
-      inst = TACAssignOp(SLoc(args[0]), line.opcode.name, args[1:])
+      inst = TACAssignOp(SLoc(args[0]), line.opcode.name, args[1:], line.pc)
     elif var is not None:
-      inst = TACAssignOp(var, line.opcode.name, self._pop_many(line.opcode.pop))
+      inst = TACAssignOp(var, line.opcode.name,
+                         self._pop_many(line.opcode.pop), line.pc)
     else:
-      inst = TACOp(line.opcode.name, self._pop_many(line.opcode.pop))
+      inst = TACOp(line.opcode.name, self._pop_many(line.opcode.pop), line.pc)
 
     # This var must only be pushed after the operation is performed.
     if var is not None:
