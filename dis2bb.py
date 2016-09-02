@@ -4,28 +4,15 @@
 import fileinput
 
 # Local project imports
-from cfglib import *
-
-from destackify import *
+from cfglib import ControlFlowGraph
+from stacksizeanalysis import run_analysis, block_stack_delta
 
 cfg = ControlFlowGraph(fileinput.input())
-
-#print(cfg)
-
-destack = Destackifier()
+entry, exit = run_analysis(cfg)
 
 for block in cfg.blocks:
-	print(block)
-
-	ops, stack, num = destack.convert_block(block)
-
-	for op in ops:
-		print(str(op))
-
-	print()
-	print(stack)
-	print(num)
-
-	print("\n-----\n")
-
-
+  print("Entry stack:", entry[block])
+  print(block)
+  print(block_stack_delta(block), "stack elements added.")
+  print("Exit stack:", exit[block])
+  print()
