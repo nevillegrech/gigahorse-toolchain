@@ -129,11 +129,7 @@ class Destackifier:
 		Pop and return n items from the stack.
 		First-popped elements inhabit low indices.
 		"""
-		res = []
-		for _ in range(n):
-			res.append(self.pop())
-
-		return res
+		return [self.pop() for _ in range(n)]
 
 	def push(self, element):
 		"""Push an element to the stack."""

@@ -4,13 +4,15 @@ class OpCode:
 	"""An EVM opcode."""
 
 	def __init__(self, name:str, code:int, pop:int, push:int, argbytes:int = 0):
-		# Human-readable opcode.
+		"""
+		Args:
+			name (str): Human-readable opcode.
+			code (int): The instruction byte itself.
+			pop (int): The number of stack elements this op pops.
+			push (int): The number of stack elements this op pushes.
+		"""
 		self.name = name
-
-		# The instruction byte itself.
 		self.code = code
-
-		# The number of stack elements this op pops and pushes.
 		self.pop = pop
 		self.push = push
 
