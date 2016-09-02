@@ -1,22 +1,41 @@
+# opcodes.py: Definitions of all EVM opcodes, and related utility functions.
+
 class OpCode:
-	def __init__(self, name:str, code:int, pop:int, push:int, argbytes:int = 0):
-		self.name = name
-		self.code = code
-		self.push = push
-		self.pop = pop
+  """An EVM opcode."""
 
-	def stack_delta(self):
-		return self.push - self.pop
+  def __init__(self, name:str, code:int, pop:int, push:int, argbytes:int = 0):
+    """
+    Args:
+      name (str): Human-readable opcode.
+      code (int): The instruction byte itself.
+      pop (int): The number of stack elements this op pops.
+      push (int): The number of stack elements this op pushes.
+    """
+    self.name = name
+    self.code = code
+    self.pop = pop
+    self.push = push
 
-	def __str__(self):
-		return self.name
+  def stack_delta(self):
+    """Return the net effect on the stack size of running this operation."""
+    return self.push - self.pop
 
-	def __repr__(self):
-		return "<{0} object {1}, {2}>".format(
-			self.__class__.__name__,
-			hex(id(self)),
-			self.__str__()
-		)
+  def __str__(self):
+    return self.name
+
+  def __repr__(self):
+    return "<{0} object {1}, {2}>".format(
+      self.__class__.__name__,
+      hex(id(self)),
+      self.__str__()
+    )
+
+  def __eq__(self, other):
+    return self.code == other.code
+
+  def __hash__(self):
+    return self.code.__hash__()
+
 
 # Construct all EVM opcodes
 
@@ -62,7 +81,7 @@ CODESIZE     = OpCode("CODESIZE",     0x38, 0, 1)
 CODECOPY     = OpCode("CODECOPY",     0x39, 3, 0)
 GASPRICE     = OpCode("GASPRICE",     0x3a, 0, 1)
 EXTCODESIZE  = OpCode("EXTCODESIZE",  0x3b, 1, 1)
-EXTCODECOPY  = OpCode("EXTCODECOPY",  0x3c, 3, 0)
+EXTCODECOPY  = OpCode("EXTCODECOPY",  0x3c, 4, 0)
 
 # Block Information
 BLOCKHASH  = OpCode("BLOCKHASH",  0x40, 1, 1)
@@ -169,33 +188,50 @@ DELEGATECALL = OpCode("DELEGATECALL", 0xf4, 7, 1)
 SUICIDE      = OpCode("SUICIDE",      0xff, 1, 0)
 
 
-# Produce a mapping from names to opcode objects
+# Produce mappings from names and instruction codes to opcode objects
 OPCODES = {code.name: code for code in globals().values() if isinstance(code, OpCode)}
+BYTECODES = {code.code: code for code in OPCODES.values()}
+
 
 def opcode_by_name(name:str):
-	"""
-	Retrieves the named OpCode object.
-	"""
-	
-	if name not in OPCODES:
-		raise Exception("No opcode named '{}'.".format(name))
-	return OPCODES[name]
+  """Mapping: Retrieves the named OpCode object."""
+  if name not in OPCODES:
+    raise Exception("No opcode named '{}'.".format(name))
+  return OPCODES[name]
 
+def opcode_by_value(val:int):
+  """Mapping: Retrieves the OpCode object with the given value."""
+  if val not in OPCODES:
+    raise Exception("No opcode with value '{}'.".format(val))
+  return OPCODES[val]
 
 def is_push(opcode:OpCode):
-	"""
-	Returns True if the given opcode is a push operation.
-	"""
+  """Predicate: opcode is a push operation."""
+  return PUSH1.code <= opcode.code <= PUSH32.code
 
-	return PUSH1.code <= opcode.code <= PUSH32.code
+def is_swap(opcode:OpCode):
+  """Predicate: opcode is a swap operation."""
+  return SWAP1.code <= opcode.code <= SWAP16.code
 
+def is_dup(opcode:OpCode):
+  """Predicate: opcode is a dup operation."""
+  return DUP1.code <= opcode.code <= DUP16.code
+
+def is_log(opcode:OpCode):
+  """Predicate: opcode is a log operation."""
+  return LOG0.code <= opcode.code <= LOG4.code
+
+def push_len(opcode:OpCode):
+  """Return the number of bytes the given PUSH instruction pushes."""
+  return opcode.code - PUSH1.code + 1
+
+def log_len(opcode:OpCode):
+  """Return the number of topics the given LOG instruction includes."""
+  return opcode.code - LOG0.code
 
 def alters_flow(opcode:OpCode):
-  """
-  Returns True if the given opcode alters EVM control flow.
-  """
+  """Returns True if the given opcode alters EVM control flow."""
   return opcode in [
     JUMP, JUMPI, RETURN,
     SUICIDE, STOP
   ]
-
