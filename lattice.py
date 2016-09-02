@@ -1,6 +1,8 @@
 # lattice.py: define lattices for use in meet-over-paths calculations.
 
+from typing import List
 from functools import reduce
+
 
 class IntLatticeElement:
 	"""An element of the meet-semilattice defined by augmenting
@@ -9,7 +11,7 @@ class IntLatticeElement:
 	Integers are incomparable with one another, while top and bottom
 	are compare superior and inferior with every other element, respectively."""
 
-	def __init__(self, value:int=None, top:bool=False, bottom:bool=False):
+	def __init__(self, value:int=None, top:bool=False, bottom:bool=False) -> None:
 		"""Construct a lattice element with the given value."""
 		self.value = value
 		self.is_top = top
@@ -20,17 +22,17 @@ class IntLatticeElement:
 		elif bottom or not self.is_num():
 			self.value = "BOTTOM"
 
-	def is_num(self):
+	def is_num(self) -> bool:
 		"""True iff the value of this element is an integer."""
 		return isinstance(self.value, int)
 
-	def __eq__(self, other):
+	def __eq__(self, other) -> bool:
 		return self.value == other.value
 
-	def __str__(self):
+	def __str__(self) -> str:
 		return str(self.value)
 
-	def __repr__(self):
+	def __repr__(self) -> str:
 		return "<{0} object {1}, {2}>".format(
 			self.__class__.__name__,
 			hex(id(self)),
@@ -44,7 +46,8 @@ class IntLatticeElement:
 			return IntLatticeElement(bottom=True)
 		return IntLatticeElement(top=True)
 
-def meet(a:IntLatticeElement, b:IntLatticeElement):
+
+def meet(a:IntLatticeElement, b:IntLatticeElement) -> IntLatticeElement:
 	"""Return the infimum of the given elements."""
 
 	if a.is_bottom or b.is_bottom:
@@ -57,7 +60,7 @@ def meet(a:IntLatticeElement, b:IntLatticeElement):
 
 	return a if a.value == b.value else IntLatticeElement(bottom=True)
 
-def meet_all(elements):
+def meet_all(elements:List[IntLatticeElement]) -> IntLatticeElement:
 	"""Return the infimum of the given iterable of elements."""
 	return reduce(lambda a, b: meet(a, b), elements, IntLatticeElement(top=True))
 
