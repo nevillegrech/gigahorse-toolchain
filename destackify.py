@@ -104,7 +104,7 @@ class Destackifier:
 
     return (self.ops, self.stack, self.extern_pops)
 
-    def _handle_line(self, line:DisasmLine) -> None:
+  def _handle_line(self, line:DisasmLine) -> None:
     """
     Convert a line to its corresponding instruction, if there is one,
     and manipulate the stack in any needful way.
