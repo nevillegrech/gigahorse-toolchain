@@ -9,13 +9,7 @@ from stacksizeanalysis import run_analysis, block_stack_delta
 from destackify import Destackifier
 import optimise
 
-lines = []
-
-with open("examples/basic.disasm", 'r') as evm_file:
-  lines = evm_file.readlines()
-
-
-cfg = ControlFlowGraph(lines) #fileinput.input())
+cfg = ControlFlowGraph(fileinput.input())
 entry, exit = run_analysis(cfg)
 destack = Destackifier()
 
