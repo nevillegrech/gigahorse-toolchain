@@ -22,6 +22,15 @@ class Variable:
       self.__str__()
     )
 
+  def copy(self):
+    return type(self)(self.identifier)
+
+  def __eq__(self, other):
+    return self.identifier == other.identifier
+
+  def __hash__(self):
+    return hash(self.identifier)
+
 
 class Constant(Variable):
   """A specialised variable whose value is a constant integer."""
@@ -34,6 +43,15 @@ class Constant(Variable):
 
   def __str__(self):
     return hex(self.value)
+
+  def __eq__(self, other):
+    return self.value == other.value
+
+  def __hash__(self):
+    return self.value
+
+  def copy(self):
+    return type(self)(self.value)
 
   def signed(self):
     if self.value & (self.max_val - 1):
@@ -157,11 +175,17 @@ class Location:
       self.__str__()
     )
 
+  def copy(self):
+    return type(self)(self.space_id, self.size, self.address)
+
 
 class MLoc(Location):
   """A symbolic memory region 32 bytes in length."""
   def __init__(self, address:Variable):
     super().__init__("M", 32, address)
+
+  def copy(self):
+    return type(self)(self.address)
 
 
 class MLoc8(Location):
@@ -169,13 +193,17 @@ class MLoc8(Location):
   def __init__(self, address:Variable):
     super().__init__("M8", 1, address)
 
+  def copy(self):
+    return type(self)(self.address)
+
 
 class SLoc(Location):
   """A symbolic one word static storage location."""
-
   def __init__(self, address:Variable):
     super().__init__("S", 32, address)
 
+  def copy(self):
+    return type(self)(self.address)
 
 class TACOp:
   """
