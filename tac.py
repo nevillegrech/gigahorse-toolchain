@@ -26,11 +26,115 @@ class Variable:
 class Constant(Variable):
   """A specialised variable whose value is a constant integer."""
 
+  bits = 256
+  max_val = 2**bits
+
   def __init__(self, value:int):
-    self.value = value
+    self.value = value % self.max_val
 
   def __str__(self):
     return hex(self.value)
+
+  def signed(self):
+    if self.value & (self.max_val - 1):
+      return max_val - self.value
+
+  # EVM arithmetic ops.
+  @classmethod
+  def ADD(cls, l, r):
+    return cls((l.value + r.value))
+
+  @classmethod
+  def MUL(cls, l, r):
+    return cls((l.value * r.value))
+
+  @classmethod
+  def SUB(cls, l, r):
+    return cls((l.value - r.value))
+
+  @classmethod
+  def DIV(cls, l, r):
+    return cls(0 if r.value == 0 else l.value // r.value)
+
+  @classmethod
+  def SDIV(cls, l, r):
+    s_val, o_val = l.signed(), r.signed()
+    sign = 1 if s_val * o_val >= 0 else -1
+    return cls(0 if o_val == 0 else sign * (abs(s_val) // abs(o_val)))
+
+  @classmethod
+  def MOD(cls, l, r):
+    return cls(0 if r.value == 0 else l.value % r.value)
+
+  @classmethod
+  def SMOD(cls, l, r):
+    s_val, o_val = l.signed(), r.signed()
+    sign = 1 if s_val >= 0 else -1
+    return cls(0 if r.value == 0 else sign * (abs(s_val) % abs(o_val)))
+
+  @classmethod
+  def ADDMOD(cls, l, r, m):
+    return cls(0 if m.value == 0 else (l.value + r.value) % m.value)
+
+  @classmethod
+  def MULMOD(cls, l, r, m):
+    return cls(0 if m.value == 0 else (l.value * r.value) % m.value)
+
+  @classmethod
+  def EXP(cls, b, e):
+    return cls(b.value ** e.value)
+
+  @classmethod
+  def SIGNEXTEND(cls, l, v):
+    pos = 8(l.value + 1)
+    mask = int("1"*(self.bits - pos) + "0"*pos, 2)
+    val = 1 if (v.value & (1 << (pos - 1))) > 0 else 0
+
+    return cls((v.value & mask) if val == 0 else (v.value | ~mask))
+
+  @classmethod
+  def LT(cls, l, r):
+    return cls(1 if l.value < r.value else 0)
+
+  @classmethod
+  def GT(cls, l, r):
+    return cls(1 if l.value < r.value else 0)
+
+  @classmethod
+  def SLT(cls, l, r):
+    return cls(1 if l.signed() < r.signed() else 0)
+
+  @classmethod
+  def SGT(cls, l, r):
+    return cls(1 if l.signed() > r.signed() else 0)
+
+  @classmethod
+  def EQ(cls, l, r):
+    return cls(1 if l.value == r.value else 0)
+
+  @classmethod
+  def ISZERO(cls, v):
+    return cls(1 if v.value == 0 else 0)
+
+  @classmethod
+  def AND(cls, l, r):
+    return cls(l.value & r.value)
+
+  @classmethod
+  def OR(cls, l, r):
+    return cls(l.value | r.value)
+
+  @classmethod
+  def XOR(cls, l, r):
+    return cls(l.value ^ r.value)
+
+  @classmethod
+  def NOT(cls, v):
+    return cls(~l.value)
+
+  @classmethod
+  def BYTE(cls, b, v):
+    return cls((v >> (bits - b*8)) & 0xFF)
 
 
 class Location:
@@ -112,3 +216,43 @@ class TACAssignOp(TACOp):
     arglist = ([str(self.name)] if self.print_name else []) \
               + [str(arg) for arg in self.args]
     return "{}: {} = {}".format(hex(self.address), self.lhs, " ".join(arglist))
+
+
+class TACBlock:
+  def __init__(self, ops, stack_additions, stack_pops):
+    self.ops = ops
+    self.stack_additions = stack_additions
+    self.stack_pops = stack_pops
+    self.predecessors = []
+    self.successors = []
+    self.has_unresolved_jump = False
+
+
+class TACCFG:
+  def __init__(self, cfg):
+    destack = destackify.Destackifier()
+
+    # Convert all EVM blocks to TAC blocks.
+    converted_map = {block: destack.convert_block(block) \
+                     for block in cfg.blocks}
+
+    # Determine which blocks have indeterminate jump destinations.
+    for line in cfg.unresolved_jumps:
+      converted_map[line.block].has_unresolved_jump = True
+
+    # Connect all the edges.
+    for block in converted_map:
+      converted = converted_map[block]
+      converted.predecessors = [converted_map[parent] \
+                                for parent in block.parents]
+      converted.successors = [converted_map[child] \
+                              for child in block.children]
+
+    self.blocks = converted_map.values()
+
+
+def is_arithmetic(op:TACOp) -> bool:
+  return op.name in ["ADD", "MUL", "SUB", "DIV", "SDIV", "MOD", "SMOD",
+                     "ADDMOD", "MULMOD", "EXP", "SIGNEXTEND", "LT", "GT",
+                     "SLT", "SGT", "EQ", "ISZERO", "AND", "OR", "XOR",
+                     "NOT", "BYTE"]

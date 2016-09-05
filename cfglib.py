@@ -154,6 +154,9 @@ class BasicBlock:
     # with the BLOCK_SEP appended after the last line
     return "\n".join(str(l) for l in self.lines) + BLOCK_SEP
 
+  def __hash__(self):
+    return id(self)
+
   def split(self, start:int):
     """Splits this block into a new block, starting at the specified
     start line number. Returns the new BasicBlock."""

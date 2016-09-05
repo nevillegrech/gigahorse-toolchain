@@ -102,7 +102,7 @@ class Destackifier:
     for line in block.lines:
       self._handle_line(line)
 
-    return (self.ops, self.stack, self.extern_pops)
+    return TACBlock(self.ops, self.stack, self.extern_pops)
 
   def _handle_line(self, line:DisasmLine) -> None:
     """

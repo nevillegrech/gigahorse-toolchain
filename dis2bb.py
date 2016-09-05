@@ -7,6 +7,7 @@ import fileinput
 from cfglib import ControlFlowGraph
 from stacksizeanalysis import run_analysis, block_stack_delta
 from destackify import Destackifier
+import optimise
 
 cfg = ControlFlowGraph(fileinput.input())
 entry, exit = run_analysis(cfg)
@@ -21,9 +22,16 @@ for block in cfg.blocks:
   print()
 
   print("TAC code:\n")
-  ops, stack, num = destack.convert_block(block)
-  for op in ops:
+  converted_block = destack.convert_block(block)
+  for op in converted_block.ops:
     print(str(op))
-  print("\nNew stack head:", [str(var) for var in stack])
-  print("Popped from initial stack:", num)
+  print("\nNew stack head:", [str(var) for var \
+                              in converted_block.stack_additions])
+  print("Popped from initial stack:", converted_block.stack_pops)
+  print("Constant Optimised:\n")
+  optimise.fold_block_constants(converted_block)
+  for op in converted_block.ops:
+    print(str(op))
+
   print("\n-----\n")
+
