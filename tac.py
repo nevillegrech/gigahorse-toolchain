@@ -175,6 +175,14 @@ class Location:
       self.__str__()
     )
 
+  def __eq__(self, other):
+    return (self.space_id == other.space_id) \
+           and (self.address == other.address) \
+           and (self.size == other.size)
+
+  def __hash__(self):
+    return hash(self.space_id) ^ hash(self.size) ^ hash(self.address)
+
   def copy(self):
     return type(self)(self.space_id, self.size, self.address)
 
@@ -211,10 +219,12 @@ class TACOp:
   Each operation consists of a name, and a list of argument variables.
   """
 
-  def __init__(self, name:str, args:List[Variable], address:int):
+  def __init__(self, name:str, args:List[Variable], \
+               address:int, block:TACBlock=None):
     self.name = name
     self.args = args
     self.address = address
+    self.block = block
 
   def __str__(self):
     return "{}: {} {}".format(hex(self.address), self.name, 
@@ -226,6 +236,15 @@ class TACOp:
       hex(id(self)),
       self.__str__()
     )
+  
+  def is_arithmetic(self) -> bool:
+    return self.name in ["ADD", "MUL", "SUB", "DIV", "SDIV", "MOD", "SMOD",
+                         "ADDMOD", "MULMOD", "EXP", "SIGNEXTEND", "LT", "GT",
+                         "SLT", "SGT", "EQ", "ISZERO", "AND", "OR", "XOR",
+                         "NOT", "BYTE"]
+
+  def const_args(self):
+    return all([isinstance(arg, Constant) for arg in self.args])
 
 
 class TACAssignOp(TACOp):
@@ -278,9 +297,11 @@ class TACCFG:
 
     self.blocks = converted_map.values()
 
+  def get_op_by_id(self, address:int):
+    for block in self.blocks:
+      for op in block.ops:
+        if op.address == address:
+          return op
+    return None
 
-def is_arithmetic(op:TACOp) -> bool:
-  return op.name in ["ADD", "MUL", "SUB", "DIV", "SDIV", "MOD", "SMOD",
-                     "ADDMOD", "MULMOD", "EXP", "SIGNEXTEND", "LT", "GT",
-                     "SLT", "SGT", "EQ", "ISZERO", "AND", "OR", "XOR",
-                     "NOT", "BYTE"]
+

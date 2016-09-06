@@ -37,6 +37,34 @@ class OpCode:
   def __hash__(self) -> int:
     return self.code.__hash__()
 
+  def is_push(self) -> bool:
+    """Predicate: opcode is a push operation."""
+    return PUSH1.code <= self.code <= PUSH32.code
+
+  def is_swap(self) -> bool:
+    """Predicate: opcode is a swap operation."""
+    return SWAP1.code <= self.code <= SWAP16.code
+
+  def is_dup(self) -> bool:
+    """Predicate: opcode is a dup operation."""
+    return DUP1.code <= self.code <= DUP16.code
+
+  def is_log(self) -> bool:
+    """Predicate: opcode is a log operation."""
+    return LOG0.code <= self.code <= LOG4.code
+
+  def push_len(self) -> int:
+    """Return the number of bytes the given PUSH instruction pushes."""
+    return self.code - PUSH1.code + 1 if self.is_push() else 0
+
+  def log_len(self) -> int:
+    """Return the number of topics the given LOG instruction includes."""
+    return self.code - LOG0.code if self.is_log() else 0
+
+  def alters_flow(self) -> bool:
+    """Returns True if the given opcode alters EVM control flow."""
+    return self.code in [JUMP.code, JUMPI.code, RETURN.code, 
+                         SUICIDE.code, STOP.code]
 
 # Construct all EVM opcodes
 
@@ -209,37 +237,3 @@ def opcode_by_value(val:int) -> OpCode:
   return OPCODES[val]
 
 
-def is_push(opcode:OpCode) -> bool:
-  """Predicate: opcode is a push operation."""
-  return PUSH1.code <= opcode.code <= PUSH32.code
-
-
-def is_swap(opcode:OpCode) -> bool:
-  """Predicate: opcode is a swap operation."""
-  return SWAP1.code <= opcode.code <= SWAP16.code
-
-
-def is_dup(opcode:OpCode) -> bool:
-  """Predicate: opcode is a dup operation."""
-  return DUP1.code <= opcode.code <= DUP16.code
-
-
-def is_log(opcode:OpCode) -> bool:
-  """Predicate: opcode is a log operation."""
-  return LOG0.code <= opcode.code <= LOG4.code
-
-
-def push_len(opcode:OpCode) -> int:
-  """Return the number of bytes the given PUSH instruction pushes."""
-  return opcode.code - PUSH1.code + 1
-
-def log_len(opcode:OpCode) -> int:
-  """Return the number of topics the given LOG instruction includes."""
-  return opcode.code - LOG0.code
-
-def alters_flow(opcode:OpCode) -> bool:
-  """Returns True if the given opcode alters EVM control flow."""
-  return opcode in [
-    JUMP, JUMPI, RETURN,
-    SUICIDE, STOP
-  ]

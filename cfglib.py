@@ -82,14 +82,14 @@ class ControlFlowGraph:
         self.potential_leaders[l.pc] = []
 
       # Flow-altering opcodes indicate end-of-block
-      if alters_flow(l.opcode):
+      if l.opcode.alters_flow():
         new = current.split(i+1)
         self.blocks.append(current)
 
         # For JUMPs, look for the destination in the previous line only!
         # (Peephole analysis)
         if l.opcode in (JUMP, JUMPI):
-          if is_push(lines[i-1].opcode):
+          if lines[i-1].opcode.is_push():
             dest = lines[i-1].value
             utils.listdict_add(self.potential_leaders, dest, current)
           else:

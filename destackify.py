@@ -102,7 +102,10 @@ class Destackifier:
     for line in block.lines:
       self._handle_line(line)
 
-    return TACBlock(self.ops, self.stack, self.extern_pops)
+    new_block = TACBlock(self.ops, self.stack, self.extern_pops)
+    for op in self.ops:
+      op.block = new_block
+    return new_block
 
   def _handle_line(self, line:DisasmLine) -> None:
     """
@@ -110,9 +113,9 @@ class Destackifier:
     and manipulate the stack in any needful way.
     """
 
-    if is_swap(line.opcode):
+    if line.opcode.is_swap():
       self._swap(line.opcode.pop)
-    elif is_dup(line.opcode):
+    elif line.opcode.is_dup():
       self._dup(line.opcode.pop)
     elif line.opcode == POP:
       self._pop()
@@ -133,10 +136,10 @@ class Destackifier:
     
     # Generate the appropriate TAC operation.
     # Special cases first, followed by the fallback to generic instructions.
-    if is_push(line.opcode):
+    if line.opcode.is_push():
       inst = TACAssignOp(var, "CONST", [Constant(line.value)],
                          line.pc, print_name=False)
-    elif is_log(line.opcode):
+    elif line.opcode.is_log():
       inst = TACOp("LOG", self._pop_many(line.opcode.pop), line.pc)
     elif line.opcode == MLOAD:
       inst = TACAssignOp(var, line.opcode.name, [MLoc(self._pop())],
