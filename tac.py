@@ -1,6 +1,7 @@
 # tac.py: Definitions of Three-Address Code operations and related objects.
 
 from typing import List
+import destackify
 
 
 class Variable:
@@ -31,6 +32,9 @@ class Variable:
   def __hash__(self):
     return hash(self.identifier)
 
+  def is_const(self):
+    return False
+
 
 class Constant(Variable):
   """A specialised variable whose value is a constant integer."""
@@ -52,6 +56,9 @@ class Constant(Variable):
 
   def copy(self):
     return type(self)(self.value)
+
+  def is_const(self):
+    return True
 
   def signed(self):
     if self.value & (self.max_val - 1):
@@ -148,7 +155,7 @@ class Constant(Variable):
 
   @classmethod
   def NOT(cls, v):
-    return cls(~l.value)
+    return cls(~v.value)
 
   @classmethod
   def BYTE(cls, b, v):
@@ -186,6 +193,8 @@ class Location:
   def copy(self):
     return type(self)(self.space_id, self.size, self.address)
 
+  def is_const(self):
+    return False
 
 class MLoc(Location):
   """A symbolic memory region 32 bytes in length."""
@@ -220,7 +229,7 @@ class TACOp:
   """
 
   def __init__(self, name:str, args:List[Variable], \
-               address:int, block:TACBlock=None):
+               address:int, block=None):
     self.name = name
     self.args = args
     self.address = address
@@ -244,7 +253,16 @@ class TACOp:
                          "NOT", "BYTE"]
 
   def const_args(self):
-    return all([isinstance(arg, Constant) for arg in self.args])
+    return all([arg.is_const() for arg in self.args])
+
+  @classmethod
+  def jump_to_throw(cls, op):
+    if op.name not in ["JUMP", "JUMPI"]:
+      return None
+    elif op.name == "JUMP":
+      return TACOp("THROW", [], op.address, op.block)
+    elif op.name == "JUMPI":
+      return TACOp("THROWI", [op.args[1]], op.address, op.block)
 
 
 class TACAssignOp(TACOp):
@@ -266,7 +284,9 @@ class TACAssignOp(TACOp):
 
 
 class TACBlock:
-  def __init__(self, ops, stack_additions, stack_pops):
+  def __init__(self, entry, exit, ops, stack_additions, stack_pops):
+    self.entry = entry
+    self.exit = exit
     self.ops = ops
     self.stack_additions = stack_additions
     self.stack_pops = stack_pops
@@ -274,6 +294,18 @@ class TACBlock:
     self.successors = []
     self.has_unresolved_jump = False
 
+  def __str__(self):
+    head = "Block [{}:{}]".format(hex(self.entry), hex(self.exit))
+    op_seq = "\n".join(str(op) for op in self.ops)
+    stack_state = "Stack pops: {}\nStack additions: {}".format(self.stack_pops,
+                                                         self.stack_additions)
+    pred = "Predecessors: [{}]".format(", ".join(hex(block.entry) \
+                                               for block in self.predecessors))
+    succ = "Successors: [{}]".format(", ".join(hex(block.entry) \
+                                               for block in self.successors))
+    unresolved = "Unresolved Jump" if self.has_unresolved_jump else ""
+    return "\n".join([head, "---", op_seq, "---", \
+                      stack_state, pred, succ, unresolved])
 
 class TACCFG:
   def __init__(self, cfg):
@@ -297,11 +329,95 @@ class TACCFG:
 
     self.blocks = converted_map.values()
 
-  def get_op_by_id(self, address:int):
+  def edge_list(self):
+    edges = []
+    for src in self.blocks:
+      for dest in src.successors:
+        edges.append((src.entry, dest.entry))
+
+    return edges
+
+  def recalc_predecessors(self):
+    for block in self.blocks:
+      block.predecessors = []
+    for block in self.blocks:
+      for successor in block.successors:
+        successor.predecessors.append(block)
+
+  def recheck_jumps(self):
+    for block in self.blocks:
+      # TODO: Add new block containing a STOP if JUMPI fallthrough is from 
+      # the very last instruction and no instruction is next.
+      # (Maybe add this anyway as a common exit point during CFG construction?)
+      jumpdest = None
+      fallthrough = None
+      final_op = block.ops[-1]
+      invalid_jump = False
+      unresolved = True
+
+      if final_op.name == "JUMPI":
+        dest = final_op.args[0]
+        cond = final_op.args[1]
+
+        # If the condition is constant, there is only one jump destination.
+        if cond.is_const():
+          # If the condition can never be true, ignore the jump dest.
+          if cond.value == 0:
+            fallthrough = self.get_block_by_address(final_op.address + 1)
+            unresolved = False
+          # If the condition is always true, 
+          # check that the dest is constant and/or valid
+          elif dest.is_const():
+            if self.is_valid_jump_dest(dest.value):
+              jumpdest = self.get_op_by_address(dest.value).block
+            else:
+              invalid_jump = True
+            unresolved = False
+          # Otherwise, the jump has not been resolved.
+        elif dest.is_const():
+          # We've already covered the case that both cond and dest are const
+          # So only handle a variable condition
+          unresolved = False
+          fallthrough = self.get_block_by_address(final_op.address + 1)
+          if self.is_valid_jump_dest(dest.value):
+            jumpdest = self.get_op_by_address(dest.value).block
+          else:
+            invalid_jump = True
+
+      elif final_op.name == "JUMP":
+        dest = final_op.args[0]
+        if dest.is_const():
+          unresolved = False
+          if self.is_valid_jump_dest(dest.value):
+            jumpdest = self.get_op_by_address(dest.value).block
+          else:
+            invalid_jump = True
+
+      else:
+        unresolved = False
+
+      # Block's jump went to an invalid location, replace the jump with a throw
+      if invalid_jump:
+        block.ops[-1] = TACOp.jump_to_throw(final_op)
+      block.has_unresolved_jump = unresolved
+      block.successors = [d for d in {jumpdest, fallthrough} if d is not None]
+
+    # Having recalculated all the successors, hook up predecessors
+    self.recalc_predecessors()
+
+  def is_valid_jump_dest(self, address:int) -> bool:
+    op = self.get_op_by_address(address)
+    return (op is not None) and (op.name == "JUMPDEST")
+
+  def get_block_by_address(self, address:int):
+    for block in self.blocks:
+      if block.entry <= address <= block.exit:
+        return block
+    return None
+
+  def get_op_by_address(self, address:int):
     for block in self.blocks:
       for op in block.ops:
         if op.address == address:
           return op
     return None
-
-

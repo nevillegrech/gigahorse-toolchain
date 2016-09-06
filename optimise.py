@@ -20,8 +20,8 @@ from tac import Constant, Location, TACAssignOp
 # CONSTANT FOLDING AND PROPAGATION
 
 def fold_constants(cfg):
-	for block in cfg:
-		fold_block_contants(block)
+	for block in cfg.blocks:
+		fold_block_constants(block)
 
 def convert_constant(var_values, var):
 	if isinstance(var, Location):
@@ -56,7 +56,7 @@ def fold_block_constants(block):
 			if op.name in ["CONST"]:
 					var_values[op.lhs] = op.args[0]
 
-		if op.is_arithmetic() and op.const_args():
-				block.stack_additions = [convert_constant(var_values, var) \
+	# Convert the stack with the final mapping.
+	block.stack_additions = [convert_constant(var_values, var) \
 													 for var in block.stack_additions]
 

@@ -85,11 +85,10 @@ class Destackifier:
 
   def _swap(self, n:int) -> None:
     """Swap stack[0] with stack[n]."""
-    items = self._pop_many(n+1)
+    items = self._pop_many(n)
     swapped = [items[-1]] + items[1:-1] + [items[0]]
     self._push_many(reversed(swapped))
 
-  TACBlock = Tuple[List[TACOp], List[Variable], int]
   def convert_block(self, block:BasicBlock) -> TACBlock:
     """
     Given a BasicBlock, convert its instructions to Three-Address Code.
@@ -102,7 +101,10 @@ class Destackifier:
     for line in block.lines:
       self._handle_line(line)
 
-    new_block = TACBlock(self.ops, self.stack, self.extern_pops)
+    start = block.lines[0].pc if len(block.lines) > 0 else -1
+    end = block.lines[-1].pc if len(block.lines) > 0 else -1
+
+    new_block = TACBlock(start, end, self.ops, self.stack, self.extern_pops)
     for op in self.ops:
       op.block = new_block
     return new_block
