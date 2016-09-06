@@ -85,7 +85,7 @@ class Destackifier:
 
   def _swap(self, n:int) -> None:
     """Swap stack[0] with stack[n]."""
-    items = self._pop_many(n+1)
+    items = self._pop_many(n)
     swapped = [items[-1]] + items[1:-1] + [items[0]]
     self._push_many(reversed(swapped))
 
