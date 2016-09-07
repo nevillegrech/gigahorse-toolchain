@@ -101,10 +101,11 @@ class Destackifier:
     for line in block.lines:
       self._handle_line(line)
 
-    start = block.lines[0].pc if len(block.lines) > 0 else -1
-    end = block.lines[-1].pc if len(block.lines) > 0 else -1
+    entry = block.lines[0].pc if len(block.lines) > 0 else -1
+    exit = block.lines[-1].pc + block.lines[-1].opcode.push_len() \
+           if len(block.lines) > 0 else -1
 
-    new_block = TACBlock(start, end, self.ops, self.stack, self.extern_pops)
+    new_block = TACBlock(entry, exit, self.ops, self.stack, self.extern_pops)
     for op in self.ops:
       op.block = new_block
     return new_block

@@ -401,12 +401,7 @@ class TACCFG:
 
         # No terminating jump or a halt; fall through to next block.
         if not final_op.halts_execution():
-          delta = 1
-          next_block = self.get_block_by_address(final_op.address + delta)
-          while next_block is not None and next_block == block:
-            delta += 1
-            next_block = self.get_block_by_address(final_op.address + delta)
-          fallthrough = next_block
+          fallthrough = self.get_block_by_address(block.exit + 1)
 
       # Block's jump went to an invalid location, replace the jump with a throw
       if invalid_jump:
