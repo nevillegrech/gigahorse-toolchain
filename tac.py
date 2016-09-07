@@ -252,6 +252,9 @@ class TACOp:
                          "SLT", "SGT", "EQ", "ISZERO", "AND", "OR", "XOR",
                          "NOT", "BYTE"]
 
+  def halts_execution(self) -> bool:
+    return self.name in ["RETURN", "STOP", "SUICIDE"]
+
   def const_args(self):
     return all([arg.is_const() for arg in self.args])
 
@@ -395,6 +398,15 @@ class TACCFG:
 
       else:
         unresolved = False
+
+        # No terminating jump or a halt; fall through to next block.
+        if not final_op.halts_execution():
+          delta = 1
+          next_block = self.get_block_by_address(final_op.address + delta)
+          while next_block is not None and next_block == block:
+            delta += 1
+            next_block = self.get_block_by_address(final_op.address + delta)
+          fallthrough = next_block
 
       # Block's jump went to an invalid location, replace the jump with a throw
       if invalid_jump:
