@@ -23,9 +23,6 @@ class Variable:
       self.__str__()
     )
 
-  def copy(self):
-    return type(self)(self.identifier)
-
   def __eq__(self, other):
     return self.identifier == other.identifier
 
@@ -53,9 +50,6 @@ class Constant(Variable):
 
   def __hash__(self):
     return self.value
-
-  def copy(self):
-    return type(self)(self.value)
 
   def is_const(self):
     return True
@@ -190,9 +184,6 @@ class Location:
   def __hash__(self):
     return hash(self.space_id) ^ hash(self.size) ^ hash(self.address)
 
-  def copy(self):
-    return type(self)(self.space_id, self.size, self.address)
-
   def is_const(self):
     return False
 
@@ -201,26 +192,17 @@ class MLoc(Location):
   def __init__(self, address:Variable):
     super().__init__("M", 32, address)
 
-  def copy(self):
-    return type(self)(self.address)
-
 
 class MLoc8(Location):
   """ A symbolic one-byte cell from memory."""
   def __init__(self, address:Variable):
     super().__init__("M8", 1, address)
 
-  def copy(self):
-    return type(self)(self.address)
-
 
 class SLoc(Location):
   """A symbolic one word static storage location."""
   def __init__(self, address:Variable):
     super().__init__("S", 32, address)
-
-  def copy(self):
-    return type(self)(self.address)
 
 class TACOp:
   """

@@ -24,14 +24,15 @@ def fold_constants(cfg):
 		fold_block_constants(block)
 
 def convert_constant(var_values, var):
+	from copy import copy
 	if isinstance(var, Location):
-		copy_loc = var.copy()
+		copy_loc = copy(var)
 		copy_loc.address = convert_constant(var_values, copy_loc.address)
 		return copy_loc
 	elif var in var_values:
-		return var_values[var].copy()
+		return copy(var_values[var])
 	else:
-		return var.copy()
+		return copy(var)
 
 def fold_block_constants(block):
 	var_values = {}
