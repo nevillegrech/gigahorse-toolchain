@@ -13,7 +13,7 @@ import utils
 
 cfg = ControlFlowGraph(fileinput.input())
 
-taccfg = tac.TACCFG(cfg)
+taccfg = tac.TacCfg(cfg)
 optimise.fold_constants(taccfg)
 taccfg.recheck_jumps()
 
