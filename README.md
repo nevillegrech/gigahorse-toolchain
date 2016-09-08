@@ -73,3 +73,9 @@ called `test/test_MODULE.py`, where MODULE is the name of the corresponding
 Python module from `src/`.
 
 Test fixtures and `pytest` settings are defined in `test/conftest.py`.
+
+## Documentation Generation
+
+Sphinx is used for documentation generation with documentation source files in
+`doc/source/`. For details on building the documentation, see
+[`src/doc/README.md`](https://bitbucket.org/blockchain3600/decompiler/src/master/doc/README.md).
