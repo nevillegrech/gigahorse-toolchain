@@ -23,6 +23,9 @@ $ pip install -r requirements.txt
 - Avoid `from _ import *` wherever possible
 - Use meaningful variable names. Single letters are OK ***iff*** the meaning is clear and unambiguous, e.g. `for l in lines` where `l` could have no other meaning
 - Use inline comments to explain complicated sections of code
+- Use consistent variable naming across modules to avoid confusion
+- When building on an existing `class`, favour inheritance over wrapping
+- Use classes whenever practical
 
 ## Git / Trello Development Workflow
 
