@@ -1,4 +1,4 @@
-# utils.py: misc. functions used by other Python files in this project
+"""utils.py: misc. functions used by other Python files in this project"""
 
 def listdict_add(ldict:dict, key:object, val:object):
   """Adds a given value (val) to the list in a given list-valued dictionary
@@ -9,11 +9,13 @@ def listdict_add(ldict:dict, key:object, val:object):
     ldict[key] = [val]
 
 def cfg2dot(cfg, out_filename:str="cfg.dot"):
-  """Outputs the given CFG in the Graphviz dot format, with output being saved
+  """
+  Outputs the given CFG in the Graphviz dot format, with output being saved
   in the file given as out_filename (or $PWD/cfg.dot by default).
+
   This function depends on the following extra Python libraries:
-    networkx
-    pygraphviz
+    - networkx
+    - pydotplus
   """
   import networkx as nx
   from networkx.drawing.nx_pydot import write_dot

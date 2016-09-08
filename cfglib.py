@@ -182,18 +182,23 @@ class DisasmLine:
   """Represents a single line of EVM bytecode disassembly as produced by the
   official Ethereum 'disasm' disassembler."""
   def __init__(self, pc:str, opcode:OpCode, value:str=None):
-    """Create a new DisasmLine object from the given strings which should
+    """
+    Create a new DisasmLine object from the given strings which should
     correspond to disasm output. Each line of disasm output is structured as
     follows:
-              PC <spaces> OPCODE <spaces> => CONSTANT
+
+    PC <spaces> OPCODE <spaces> => CONSTANT
+
     where:
-            PC is the program counter (base 10 integer)
-        OPCODE is an object representing an EVM instruction code
-      CONSTANT is a hexadecimal value with 0x notational prefix
-      <spaces> is a variable number of spaces
+      - PC is the program counter (base 10 integer)
+      - OPCODE is an object representing an EVM instruction code
+      - CONSTANT is a hexadecimal value with 0x notational prefix
+      - <spaces> is a variable number of spaces
+
     For instructions with no hard-coded constant data (i.e. non-PUSH
     instructions), the disasm output only includes PC and OPCODE; i.e.
-              PC <spaces> OPCODE
+
+    PC <spaces> OPCODE
 
     If None is passed to the value parameter, the instruction is assumed to
     contain no CONSTANT (as in the second example above).

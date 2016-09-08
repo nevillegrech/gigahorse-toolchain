@@ -1,5 +1,4 @@
-# opcodes.py: Definitions of all EVM opcodes, and related utility functions.
-
+"""opcodes.py: Definitions of all EVM opcodes, and related utility functions."""
 
 class OpCode:
   """An EVM opcode."""
@@ -63,7 +62,7 @@ class OpCode:
 
   def alters_flow(self) -> bool:
     """Returns True if the given opcode alters EVM control flow."""
-    return self.code in [JUMP.code, JUMPI.code, RETURN.code, 
+    return self.code in [JUMP.code, JUMPI.code, RETURN.code,
                          SUICIDE.code, STOP.code]
 
 # Construct all EVM opcodes

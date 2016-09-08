@@ -1,5 +1,5 @@
-# stacksizeanalysis.py: fixed-point static analysis to determine 
-# stack sizes in a CFG
+"""stacksizeanalysis.py: fixed-point static analysis to determine stack sizes
+in a CFG"""
 
 from cfglib import *
 from lattice import *
@@ -22,7 +22,7 @@ def run_analysis(cfg:ControlFlowGraph):
   To calculate this information the entry point of the CFG is assigned a
   stack size of zero, and all others are given an "unknown" value, TOP.
   Then for each block, calculate its entry size by taking the meet of
-  the exit sizes of its predecessors. Its own exit size is then its 
+  the exit sizes of its predecessors. Its own exit size is then its
   entry size plus the delta incurred by the instructions in its body.
   """
 
