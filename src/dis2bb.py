@@ -17,7 +17,7 @@ taccfg = tac.TACCFG(cfg)
 optimise.fold_constants(taccfg)
 taccfg.recheck_jumps()
 
-blocks = zip(sorted(cfg.blocks, key=lambda block: block.lines[0].pc), 
+blocks = zip(sorted(cfg.blocks, key=lambda block: block.lines[0].pc),
              sorted(taccfg.blocks, key=lambda block: block.entry))
 
 for evm, tac in blocks:

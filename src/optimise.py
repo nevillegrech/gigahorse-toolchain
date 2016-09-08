@@ -1,4 +1,4 @@
-# optimise.py: transformers that optimise TAC CFGs
+"""optimise.py: transformers that optimise TAC CFGs"""
 
 from tac import Constant, Location, TACAssignOp
 

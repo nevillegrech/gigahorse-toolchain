@@ -1,11 +1,12 @@
-# tac.py: Definitions of Three-Address Code operations and related objects.
+"""tac.py: Definitions of Three-Address Code operations and related
+objects."""
 
 from typing import List
 import destackify
 
 
 class Variable:
-  """A symbolic variable whose value is supposed to be 
+  """A symbolic variable whose value is supposed to be
   the result of some TAC operation. Its size is 32 bytes."""
 
   size = 32
@@ -245,7 +246,7 @@ class TACOp:
       hex(id(self)),
       self.__str__()
     )
-  
+
   def is_arithmetic(self) -> bool:
     """True iff this operation's output can be calculated just from its inputs."""
     return self.name in ["ADD", "MUL", "SUB", "DIV", "SDIV", "MOD", "SMOD",
@@ -415,7 +416,7 @@ class TacCfg:
     since edges are deduced from constant-valued jumps.
     """
     for block in self.blocks:
-      # TODO: Add new block containing a STOP if JUMPI fallthrough is from 
+      # TODO: Add new block containing a STOP if JUMPI fallthrough is from
       # the very last instruction and no instruction is next.
       # (Maybe add this anyway as a common exit point during CFG construction?)
 
@@ -437,7 +438,7 @@ class TacCfg:
           if cond.value == 0:
             fallthrough = self.get_block_by_pc(final_op.pc + 1)
             unresolved = False
-          # If the condition is always true, 
+          # If the condition is always true,
           # check that the dest is constant and/or valid
           elif dest.is_const():
             if self.is_valid_jump_dest(dest.value):
