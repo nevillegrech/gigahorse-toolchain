@@ -2,6 +2,11 @@
 
 This project contains the source code for our Ethereum VM bytecode disassembly decompiler. It takes output from disasm, the Ethereum bytecode dissassembler, as input, and outputs a three-address code representation.
 
+## Requirements
+
+* Python 3.5+ 
+* networkx and pygraphviz for drawing graphs
+
 ## Code Style
 
 - Use two spaces for indentation

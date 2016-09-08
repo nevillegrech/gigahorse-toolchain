@@ -11,10 +11,10 @@ class Variable:
   size = 32
 
   def __init__(self, ident:str):
-    self.identifier = ident
+    self.ident = ident
 
   def __str__(self):
-    return self.identifier
+    return self.ident
 
   def __repr__(self):
     return "<{0} object {1}, {2}>".format(
@@ -24,10 +24,10 @@ class Variable:
     )
 
   def __eq__(self, other):
-    return self.identifier == other.identifier
+    return self.ident == other.ident
 
   def __hash__(self):
-    return hash(self.identifier)
+    return hash(self.ident)
 
   def is_const(self):
     return False
@@ -54,11 +54,14 @@ class Constant(Variable):
   def is_const(self):
     return True
 
-  def signed(self):
+  def signed(self) -> int:
+    """Return the two's complement interpretation of this constant's value."""
     if self.value & (self.max_val - 1):
       return max_val - self.value
 
-  # EVM arithmetic ops.
+
+  # EVM arithmetic operations for descriptions of these, see the yellow paper.
+
   @classmethod
   def ADD(cls, l, r):
     return cls((l.value + r.value))
@@ -160,8 +163,15 @@ class Location:
   """A generic storage location."""
 
   def __init__(self, space_id:str, size:int, address:Variable):
-    """Construct a location from the name of the space,
-    and the size of the storage location in bytes."""
+    """
+    Construct a location from the name of the space,
+    and the size of the storage location in bytes.
+
+    Args:
+      space_id: The identifier of an address space.
+      size: Size of this location in bytes.
+      address: Either a variable or a constant indicating the location.
+    """
     self.space_id = space_id
     self.size = size
     self.address = address
@@ -211,14 +221,22 @@ class TACOp:
   """
 
   def __init__(self, name:str, args:List[Variable], \
-               address:int, block=None):
+               pc:int, block=None):
+    """
+    Args:
+      name: the operation being performed (mostly the same as EVM op names)
+      args: variables or constants that are operated upon
+      pc: the program counter at the corresponding instruction in the 
+          original bytecode
+      block: the block this operation belongs to
+    """
     self.name = name
     self.args = args
-    self.address = address
+    self.pc = pc
     self.block = block
 
   def __str__(self):
-    return "{}: {} {}".format(hex(self.address), self.name, 
+    return "{}: {} {}".format(hex(self.pc), self.name, 
                 " ".join([str(arg) for arg in self.args]))
 
   def __repr__(self):
@@ -229,25 +247,31 @@ class TACOp:
     )
   
   def is_arithmetic(self) -> bool:
+    """True iff this operation's output can be calculated just from its inputs."""
     return self.name in ["ADD", "MUL", "SUB", "DIV", "SDIV", "MOD", "SMOD",
                          "ADDMOD", "MULMOD", "EXP", "SIGNEXTEND", "LT", "GT",
                          "SLT", "SGT", "EQ", "ISZERO", "AND", "OR", "XOR",
                          "NOT", "BYTE"]
 
   def halts_execution(self) -> bool:
+    """True iff this instruction causes the EVM to halt."""
     return self.name in ["RETURN", "STOP", "SUICIDE"]
 
   def const_args(self):
+    """True iff each of this operations arguments is a constant value."""
     return all([arg.is_const() for arg in self.args])
 
   @classmethod
   def jump_to_throw(cls, op):
+    """
+    Given a jump, convert it to a throw, preserving the condition var if JUMPI.
+    """
     if op.name not in ["JUMP", "JUMPI"]:
       return None
     elif op.name == "JUMP":
-      return TACOp("THROW", [], op.address, op.block)
+      return TACOp("THROW", [], op.pc, op.block)
     elif op.name == "JUMPI":
-      return TACOp("THROWI", [op.args[1]], op.address, op.block)
+      return TACOp("THROWI", [op.args[1]], op.pc, op.block)
 
 
 class TACAssignOp(TACOp):
@@ -257,43 +281,90 @@ class TACAssignOp(TACOp):
   """
 
   def __init__(self, lhs:Variable, name:str,
-               args:List[Variable], address:int, print_name=True):
-    super().__init__(name, args, address)
+               args:List[Variable], pc:int, block=None, 
+               print_name=True):
+    """
+    Args:
+      lhs: The variable that will receive the result of this operation.
+      name: The operation being performed (mostly the same as EVM op names).
+      args: Variables or constants that are operated upon.
+      pc: The program counter at this instruction in the original bytecode.
+      block: The block this operation belongs to.
+      print_name: Some operations (e.g. CONST) don't need to print their 
+                  name in order to be readable.
+    """
+    super().__init__(name, args, pc, block)
     self.lhs = lhs
     self.print_name = print_name
 
   def __str__(self):
     arglist = ([str(self.name)] if self.print_name else []) \
               + [str(arg) for arg in self.args]
-    return "{}: {} = {}".format(hex(self.address), self.lhs, " ".join(arglist))
+    return "{}: {} = {}".format(hex(self.pc), self.lhs, " ".join(arglist))
 
 
 class TACBlock:
-  def __init__(self, entry, exit, ops, stack_additions, stack_pops):
+  def __init__(self, entry:int, exit:int, ops:List[TACOp],
+               stack_adds:List[Variable], stack_pops:int):
+    """
+    Args:
+      entry: The program counter of the first byte in the source EVM block
+      exit: The pc of the last byte in the source EVM block
+      ops: A sequence of TACOps whose execution is equivalent to the source EVM
+      stack_adds: A sequence of new items inhabiting the top of stack after
+                       this block is executed. The new head is last in sequence.
+      stack_pops: the number of items removed from the stack over the course of
+                  block execution.
+      predecessors: A list of blocks that could branch to this block
+      successors: A list of blocks that this one could branch to.
+      has_unresolved_jump: True if the last instruction is a jump whose
+                           destination is computed.
+      
+      Entry and exit variables should span the entire range of values enclosed
+      in this block, taking care to note that the exit address may not be an
+      instruction, but an argument of a POP.
+      The range of pc values spanned by all blocks in the CFG should be a
+      continuous range from 0 to the maximum value with no gaps between blocks.
+
+      The stack_adds and stack_pops members together describe the change
+      in the stack state as a result of running this block. That is, delete the
+      top stack_pops items from the entry stack, then add the stack_additions
+      items, to obtain the new stack.
+    """
+
     self.entry = entry
     self.exit = exit
     self.ops = ops
-    self.stack_additions = stack_additions
+    self.stack_adds = stack_adds
     self.stack_pops = stack_pops
-    self.predecessors = []
-    self.successors = []
+    self.preds = []
+    self.succs = []
     self.has_unresolved_jump = False
 
   def __str__(self):
     head = "Block [{}:{}]".format(hex(self.entry), hex(self.exit))
     op_seq = "\n".join(str(op) for op in self.ops)
     stack_state = "Stack pops: {}\nStack additions: {}".format(self.stack_pops,
-                                                         self.stack_additions)
+                                                         self.stack_adds)
     pred = "Predecessors: [{}]".format(", ".join(hex(block.entry) \
-                                               for block in self.predecessors))
+                                               for block in self.preds))
     succ = "Successors: [{}]".format(", ".join(hex(block.entry) \
-                                               for block in self.successors))
+                                               for block in self.succs))
     unresolved = "Unresolved Jump" if self.has_unresolved_jump else ""
     return "\n".join([head, "---", op_seq, "---", \
                       stack_state, pred, succ, unresolved])
 
-class TACCFG:
+class TacCfg:
+  """
+  A control flow graph holding Three-Address Code blocks and
+  the edges between them.
+  """
+
   def __init__(self, cfg):
+    """
+    Args:
+      cfg: an EVM control flow graph to convert into three-address form.
+    """
     destack = destackify.Destackifier()
 
     # Convert all EVM blocks to TAC blocks.
@@ -307,33 +378,49 @@ class TACCFG:
     # Connect all the edges.
     for block in converted_map:
       converted = converted_map[block]
-      converted.predecessors = [converted_map[parent] \
+      converted.preds = [converted_map[parent] \
                                 for parent in block.parents]
-      converted.successors = [converted_map[child] \
+      converted.succs = [converted_map[child] \
                               for child in block.children]
 
     self.blocks = converted_map.values()
 
   def edge_list(self):
+    """Return a list of all edges in the graph."""
     edges = []
     for src in self.blocks:
-      for dest in src.successors:
+      for dest in src.succs:
         edges.append((src.entry, dest.entry))
 
     return edges
 
-  def recalc_predecessors(self):
+  def recalc_preds(self):
+    """
+    Given a cfg where block successor lists are populated,
+    also populate the predecessor lists.
+    """
     for block in self.blocks:
-      block.predecessors = []
+      block.preds = []
     for block in self.blocks:
-      for successor in block.successors:
-        successor.predecessors.append(block)
+      for successor in block.succs:
+        successor.preds.append(block)
 
   def recheck_jumps(self):
+    """
+    Connect all edges in the graph that can be inferred given any constant
+    values of jump destinations and conditions.
+    Invalid jumps are replaced with THROW instructions.
+
+    This is assumed to be performed after constant propagation and/or folding,
+    since edges are deduced from constant-valued jumps.
+    """
     for block in self.blocks:
       # TODO: Add new block containing a STOP if JUMPI fallthrough is from 
       # the very last instruction and no instruction is next.
       # (Maybe add this anyway as a common exit point during CFG construction?)
+
+      # TODO: Translate JUMPIs with constant conditions to JUMPS, or remove them
+
       jumpdest = None
       fallthrough = None
       final_op = block.ops[-1]
@@ -348,13 +435,13 @@ class TACCFG:
         if cond.is_const():
           # If the condition can never be true, ignore the jump dest.
           if cond.value == 0:
-            fallthrough = self.get_block_by_address(final_op.address + 1)
+            fallthrough = self.get_block_by_pc(final_op.pc + 1)
             unresolved = False
           # If the condition is always true, 
           # check that the dest is constant and/or valid
           elif dest.is_const():
             if self.is_valid_jump_dest(dest.value):
-              jumpdest = self.get_op_by_address(dest.value).block
+              jumpdest = self.get_op_by_pc(dest.value).block
             else:
               invalid_jump = True
             unresolved = False
@@ -363,9 +450,9 @@ class TACCFG:
           # We've already covered the case that both cond and dest are const
           # So only handle a variable condition
           unresolved = False
-          fallthrough = self.get_block_by_address(final_op.address + 1)
+          fallthrough = self.get_block_by_pc(final_op.pc + 1)
           if self.is_valid_jump_dest(dest.value):
-            jumpdest = self.get_op_by_address(dest.value).block
+            jumpdest = self.get_op_by_pc(dest.value).block
           else:
             invalid_jump = True
 
@@ -374,7 +461,7 @@ class TACCFG:
         if dest.is_const():
           unresolved = False
           if self.is_valid_jump_dest(dest.value):
-            jumpdest = self.get_op_by_address(dest.value).block
+            jumpdest = self.get_op_by_pc(dest.value).block
           else:
             invalid_jump = True
 
@@ -383,7 +470,7 @@ class TACCFG:
 
         # No terminating jump or a halt; fall through to next block.
         if not final_op.halts_execution():
-          fallthrough = self.get_block_by_address(block.exit + 1)
+          fallthrough = self.get_block_by_pc(block.exit + 1)
 
       # Block's jump went to an invalid location, replace the jump with a throw
       if invalid_jump:
@@ -392,21 +479,24 @@ class TACCFG:
       block.successors = [d for d in {jumpdest, fallthrough} if d is not None]
 
     # Having recalculated all the successors, hook up predecessors
-    self.recalc_predecessors()
+    self.recalc_preds()
 
-  def is_valid_jump_dest(self, address:int) -> bool:
-    op = self.get_op_by_address(address)
+  def is_valid_jump_dest(self, pc:int) -> bool:
+    """True iff the given program counter is a proper jumpdest."""
+    op = self.get_op_by_pc(pc)
     return (op is not None) and (op.name == "JUMPDEST")
 
-  def get_block_by_address(self, address:int):
+  def get_block_by_pc(self, pc:int):
+    """Return the block whose span includes the given program counter value."""
     for block in self.blocks:
-      if block.entry <= address <= block.exit:
+      if block.entry <= pc <= block.exit:
         return block
     return None
 
-  def get_op_by_address(self, address:int):
+  def get_op_by_pc(self, pc:int):
+    """Return the operation with the given program counter, if it exists."""
     for block in self.blocks:
       for op in block.ops:
-        if op.address == address:
+        if op.pc == pc:
           return op
     return None

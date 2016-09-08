@@ -3,8 +3,6 @@
 from tac import Constant, Location, TACAssignOp
 
 # Things to Add
-# Constant Propagation - DONE
-# recalculate jump destinations (should only add new dests to unresolved jumps)
 # jump optimisations
 # basic block stratification
 # Recompute graph from jump dests
@@ -20,10 +18,16 @@ from tac import Constant, Location, TACAssignOp
 # CONSTANT FOLDING AND PROPAGATION
 
 def fold_constants(cfg):
+	"""
+	Within blocks, propagate constant values and evaluate arithmetic ops on constants.
+	"""
 	for block in cfg.blocks:
 		fold_block_constants(block)
 
 def convert_constant(var_values, var):
+	"""
+	Apply a mapping from variables and/or storage locations to constant values.
+	"""
 	from copy import copy
 	if isinstance(var, Location):
 		copy_loc = copy(var)
@@ -35,6 +39,9 @@ def convert_constant(var_values, var):
 		return copy(var)
 
 def fold_block_constants(block):
+	"""
+	Propagate constants and evaluate arithmetic ops with constant args in a block.
+	"""
 	var_values = {}
 
 	for op in block.ops:
@@ -51,13 +58,13 @@ def fold_block_constants(block):
 				op.name = "CONST"
 				op.args = [val]
 
-			# Here could add MSTORE, MSTORE8, SSTORE dests to the environment
+			# Here we could add MSTORE, MSTORE8, SSTORE dests to the environment
 			# if we could be assured there were no calculated addresses, since
 			# such addresses could potentially overwrite any data in memory.
 			if op.name in ["CONST"]:
 					var_values[op.lhs] = op.args[0]
 
 	# Convert the stack with the final mapping.
-	block.stack_additions = [convert_constant(var_values, var) \
-													 for var in block.stack_additions]
+	block.stack_adds = [convert_constant(var_values, var) \
+											for var in block.stack_adds]
 
