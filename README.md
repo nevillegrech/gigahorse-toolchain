@@ -14,6 +14,11 @@ packages. The recommended way to install all package dependencies is using
 $ pip install -r requirements.txt
 ```
 
+## Requirements
+
+* Python 3.5+ 
+* networkx and pygraphviz for drawing graphs
+
 ## Code Style
 
 - Use two spaces for indentation
