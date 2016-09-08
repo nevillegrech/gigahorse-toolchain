@@ -9,5 +9,8 @@ __pycache__/
 # Documentation build dir
 doc/build/
 
+# Documentation auto-generated sources
+doc/source/stubs
+
 # Cache dir used by pytest
 .cache/
