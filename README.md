@@ -2,6 +2,15 @@
 
 This project contains the source code for our Ethereum VM bytecode disassembly decompiler. It takes output from disasm, the Ethereum bytecode dissassembler, as input, and outputs a three-address code representation.
 
+## Development Environment
+
+You need to install the required Python dependencies. The recommended way is
+with `pip` reading the dependencies from `requirements.txt`::
+
+```
+$ pip install -r requirements.txt
+```
+
 ## Code Style
 
 - Use two spaces for indentation
@@ -24,8 +33,23 @@ Most development should happen on *feature branches*. Here's our git workflow:
 3. When the feature is complete, submit a **Bitbucket pull request** to merge your feature branch into the master branch. Move the corresponding **Trello** card to *Code Review*.
 4. Someone else will review the pull request:
     - If changes are needed, the reviewer will comment with necessary changes and move the **Trello** card back to *In Progress*. Continue committing to your feature branch - the pull request will be updated automatically.
-    - Otherwise, if no changes are needed, the reviewer will **merge** the pull request and move your **Trello** card to *Complete*. 
-    
+    - Otherwise, if no changes are needed, the reviewer will **merge** the pull request and move your **Trello** card to *Complete*.
+
 You should ensure your pull request does not contain merge conflicts with the `master` branch. If it does, you need to manually resolve these conflicts by merging `master` ***into* your feature branch**.
 
 If you need to explain any code to a reviewer then it probably needs comments with the explanation.
+
+## Unit Testing
+
+Our testing framework is [pytest](http://doc.pytest.org/). Tests can be run
+from the repository root or the `test/` subdirectory like so:
+
+```
+$ pytest
+```
+
+All modules should be comprehensively unit-tested, with tests placed in a file
+called `tests/test_MODULE.py`, where MODULE is the name of the corresponding
+Python module from `src/`.
+
+Test fixtures and `pytest` settings are defined in `test/conftest.py`.
