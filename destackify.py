@@ -1,4 +1,4 @@
-# destackify.py: Destackifier converts basic blocks to Three-Address Code.
+"destackify.py: Destackifier converts basic blocks to Three-Address Code."
 
 from typing import List, Tuple
 
@@ -49,7 +49,7 @@ class Destackifier:
 
   def _pop(self) -> Variable:
     """
-    Pop an item off our symbolic stack if one exists, otherwise 
+    Pop an item off our symbolic stack if one exists, otherwise
     generate an external stack variable.
     """
     if len(self.stack):
@@ -76,7 +76,7 @@ class Destackifier:
 
     for element in elements:
       self._push(element)
-  
+
   def _dup(self, n:int) -> None:
     """Place a copy of stack[n-1] on the top of the stack."""
     items = self._pop_many(n)
@@ -136,7 +136,7 @@ class Destackifier:
     # All instructions that push anything push exactly
     # one word to the stack. Assign that symbolic variable here.
     var = self._new_var() if line.opcode.push == 1 else None
-    
+
     # Generate the appropriate TAC operation.
     # Special cases first, followed by the fallback to generic instructions.
     if line.opcode.is_push():
@@ -172,4 +172,4 @@ class Destackifier:
     if var is not None:
       self._push(var)
     self.ops.append(inst)
-    
+

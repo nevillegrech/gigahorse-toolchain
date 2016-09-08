@@ -1,4 +1,4 @@
-# lattice.py: define lattices for use in meet-over-paths calculations.
+"""lattice.py: define lattices for use in meet-over-paths calculations."""
 
 from typing import List
 from functools import reduce
