@@ -9,13 +9,13 @@ as input, and outputs a three-address code representation.
 Currently, only one executable exists: `bin/decompile`. Call it like this:
 
 ```
-$ bin/decompile /path/to/disassembly.dasm
+$ bin/decompile ./examples/empty.dasm
 ```
 
 or like this:
 
 ```
-$ cat /path/to/evm_bytecode.bin | disasm | bin/decompile
+$ cat ./examples/empty.dasm | disasm | bin/decompile
 ```
 
 ## Requirements
