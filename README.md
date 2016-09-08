@@ -5,7 +5,7 @@ This project contains the source code for our Ethereum VM bytecode disassembly d
 ## Development Environment
 
 You need to install the required Python dependencies. The recommended way is
-with `pip` reading the dependencies from `requirements.txt`::
+with `pip` reading the dependencies from `requirements.txt`:
 
 ```
 $ pip install -r requirements.txt
@@ -42,14 +42,15 @@ If you need to explain any code to a reviewer then it probably needs comments wi
 ## Unit Testing
 
 Our testing framework is [pytest](http://doc.pytest.org/). Tests can be run
-from the repository root or the `test/` subdirectory like so:
+from the repository root or the `test/` subdirectory like so (or with the `-v`
+flag for more detail on each test):
 
 ```
 $ pytest
 ```
 
 All modules should be comprehensively unit-tested, with tests placed in a file
-called `tests/test_MODULE.py`, where MODULE is the name of the corresponding
+called `test/test_MODULE.py`, where MODULE is the name of the corresponding
 Python module from `src/`.
 
 Test fixtures and `pytest` settings are defined in `test/conftest.py`.
