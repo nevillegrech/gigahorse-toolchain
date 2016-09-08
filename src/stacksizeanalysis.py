@@ -1,10 +1,10 @@
 """stacksizeanalysis.py: fixed-point static analysis to determine stack sizes
 in a CFG"""
 
-from cfglib import *
-from lattice import *
+import cfglib
+import lattice
 
-def block_stack_delta(block:BasicBlock):
+def block_stack_delta(block:cfglib.BasicBlock):
   """Calculate the net effect on the stack size of executing
   the instruction sequence within a block."""
   delta = 0
@@ -14,7 +14,7 @@ def block_stack_delta(block:BasicBlock):
 
   return delta
 
-def run_analysis(cfg:ControlFlowGraph):
+def run_analysis(cfg:cfglib.ControlFlowGraph):
   """Determine the stack size for each basic block within the given CFG
   at both entry and exit points, if it can be known. If there are multiple
   possible stack sizes a value of BOTTOM is instead assigned.
@@ -27,14 +27,14 @@ def run_analysis(cfg:ControlFlowGraph):
   """
 
   # Stack size information per block at entry and exit points.
-  entry_info = {block: TOP for block in cfg.blocks}
-  exit_info = {block: TOP for block in cfg.blocks}
-  block_deltas = {block: IntLatticeElement(block_stack_delta(block)) \
+  entry_info = {block: lattice.TOP for block in cfg.blocks}
+  exit_info = {block: lattice.TOP for block in cfg.blocks}
+  block_deltas = {block: lattice.IntLatticeElement(block_stack_delta(block)) \
                   for block in cfg.blocks}
 
   # Add a distinguished empty-stack start block which does nothing.
-  start_block = BasicBlock()
-  exit_info[start_block] = IntLatticeElement(0)
+  start_block = cfglib.BasicBlock()
+  exit_info[start_block] = lattice.IntLatticeElement(0)
 
   # We will initialise entry stack size of all blocks with no predecesors
   # to zero in order to reason about the stack within a connected component.
@@ -50,7 +50,7 @@ def run_analysis(cfg:ControlFlowGraph):
     current = queue.pop()
 
     # Calculate the new entry value for the current block.
-    new_entry = meet_all([exit_info[parent] for parent in current.parents])
+    new_entry = lattice.meet_all([exit_info[parent] for parent in current.parents])
 
     # If the entry value changed, we have to recompute
     # its exit value, and the entry value for its children, eventually.

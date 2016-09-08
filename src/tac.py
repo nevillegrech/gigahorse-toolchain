@@ -1,9 +1,7 @@
 """tac.py: Definitions of Three-Address Code operations and related
 objects."""
 
-from typing import List
-import destackify
-
+import typing
 
 class Variable:
   """A symbolic variable whose value is supposed to be
@@ -58,7 +56,7 @@ class Constant(Variable):
   def signed(self) -> int:
     """Return the two's complement interpretation of this constant's value."""
     if self.value & (self.max_val - 1):
-      return max_val - self.value
+      return self.max_val - self.value
 
 
   # EVM arithmetic operations for descriptions of these, see the yellow paper.
@@ -221,13 +219,13 @@ class TACOp:
   Each operation consists of a name, and a list of argument variables.
   """
 
-  def __init__(self, name:str, args:List[Variable], \
+  def __init__(self, name:str, args:typing.List[Variable], \
                pc:int, block=None):
     """
     Args:
       name: the operation being performed (mostly the same as EVM op names)
       args: variables or constants that are operated upon
-      pc: the program counter at the corresponding instruction in the 
+      pc: the program counter at the corresponding instruction in the
           original bytecode
       block: the block this operation belongs to
     """
@@ -237,7 +235,7 @@ class TACOp:
     self.block = block
 
   def __str__(self):
-    return "{}: {} {}".format(hex(self.pc), self.name, 
+    return "{}: {} {}".format(hex(self.pc), self.name,
                 " ".join([str(arg) for arg in self.args]))
 
   def __repr__(self):
@@ -282,7 +280,7 @@ class TACAssignOp(TACOp):
   """
 
   def __init__(self, lhs:Variable, name:str,
-               args:List[Variable], pc:int, block=None, 
+               args:typing.List[Variable], pc:int, block=None,
                print_name=True):
     """
     Args:
@@ -291,7 +289,7 @@ class TACAssignOp(TACOp):
       args: Variables or constants that are operated upon.
       pc: The program counter at this instruction in the original bytecode.
       block: The block this operation belongs to.
-      print_name: Some operations (e.g. CONST) don't need to print their 
+      print_name: Some operations (e.g. CONST) don't need to print their
                   name in order to be readable.
     """
     super().__init__(name, args, pc, block)
@@ -305,8 +303,8 @@ class TACAssignOp(TACOp):
 
 
 class TACBlock:
-  def __init__(self, entry:int, exit:int, ops:List[TACOp],
-               stack_adds:List[Variable], stack_pops:int):
+  def __init__(self, entry:int, exit:int, ops:typing.List[TACOp],
+               stack_adds:typing.List[Variable], stack_pops:int):
     """
     Args:
       entry: The program counter of the first byte in the source EVM block
@@ -320,7 +318,7 @@ class TACBlock:
       successors: A list of blocks that this one could branch to.
       has_unresolved_jump: True if the last instruction is a jump whose
                            destination is computed.
-      
+
       Entry and exit variables should span the entire range of values enclosed
       in this block, taking care to note that the exit address may not be an
       instruction, but an argument of a POP.
@@ -501,3 +499,5 @@ class TacCfg:
         if op.pc == pc:
           return op
     return None
+
+import destackify
