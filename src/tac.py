@@ -500,4 +500,6 @@ class TacCfg:
           return op
     return None
 
+# We must import this here instead of at the top to resolve a circular
+# dependency issue. Don't move this import. Beware dragons, etc.
 import destackify
