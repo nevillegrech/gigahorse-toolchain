@@ -6,7 +6,7 @@ as input, and outputs a three-address code representation.
 
 ## Development Environment
 
-An installation of Python **3.5** or later is required, alongside various
+An installation of **Python 3.5** or later is required, alongside various
 packages. The recommended way to install all dependencies is using `pip` and
 our provided `requirements.txt`, like so:
 
