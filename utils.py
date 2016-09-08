@@ -15,7 +15,6 @@ def cfg2dot(cfg, out_filename:str="cfg.dot"):
 
   This function depends on the following extra Python libraries:
     - networkx
-    - pygraphviz
     - pydotplus
   """
   import networkx as nx
