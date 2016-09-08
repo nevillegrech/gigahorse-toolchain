@@ -4,7 +4,21 @@ This project contains the source code for our Ethereum VM bytecode disassembly
 decompiler. It takes output from disasm, the Ethereum bytecode dissassembler,
 as input, and outputs a three-address code representation.
 
-## Development Environment
+## Usage
+
+Currently, only one executable exists: `bin/decompile`. Call it like this:
+
+```
+$ bin/decompile /path/to/disassembly.dasm
+```
+
+or like this:
+
+```
+$ cat /path/to/evm_bytecode.bin | disasm | bin/decompile
+```
+
+## Requirements
 
 An installation of **Python 3.5** or later is required, alongside various
 packages. The recommended way to install all package dependencies is using
@@ -13,11 +27,6 @@ packages. The recommended way to install all package dependencies is using
 ```
 $ pip install -r requirements.txt
 ```
-
-## Requirements
-
-* Python 3.5+ 
-* networkx and pygraphviz for drawing graphs
 
 ## Code Style
 
