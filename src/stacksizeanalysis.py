@@ -27,8 +27,8 @@ def run_analysis(cfg:cfglib.ControlFlowGraph):
   """
 
   # Stack size information per block at entry and exit points.
-  entry_info = {block: lattice.TOP for block in cfg.blocks}
-  exit_info = {block: lattice.TOP for block in cfg.blocks}
+  entry_info = {block: lattice.IntLatticeElement.top() for block in cfg.blocks}
+  exit_info = {block: lattice.IntLatticeElement.top() for block in cfg.blocks}
   block_deltas = {block: lattice.IntLatticeElement(block_stack_delta(block)) \
                   for block in cfg.blocks}
 
@@ -50,7 +50,7 @@ def run_analysis(cfg:cfglib.ControlFlowGraph):
     current = queue.pop()
 
     # Calculate the new entry value for the current block.
-    new_entry = lattice.meet_all([exit_info[parent] for parent in current.parents])
+    new_entry = lattice.IntLatticeElement.meet_all([exit_info[parent] for parent in current.parents])
 
     # If the entry value changed, we have to recompute
     # its exit value, and the entry value for its children, eventually.

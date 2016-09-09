@@ -7,9 +7,20 @@ class Variable:
   """A symbolic variable whose value is supposed to be
   the result of some TAC operation. Its size is 32 bytes."""
 
-  size = 32
+  SIZE = 32
+  """Variables are 32 bytes in size."""
+
+  CARDINALITY = 2**(SIZE * 8)
+  """
+  The number of distinct values representable by this variable.
+  The maximum integer representable by this Variable is then CARDINALITY - 1.
+  """
 
   def __init__(self, ident:str):
+    """
+    Args:
+      ident: the name that uniquely identifies this variable.
+    """
     self.ident = ident
 
   def __str__(self):
@@ -25,21 +36,24 @@ class Variable:
   def __eq__(self, other):
     return self.ident == other.ident
 
+  # This needs to be a hashable type, in order to be used as a dict key;
+  # Defining __eq__ requires us to redefine __hash__.
   def __hash__(self):
     return hash(self.ident)
 
-  def is_const(self):
+  def is_const(self) -> bool:
+    """
+    True if this variable is an instance of Constant.
+    Neater and more meaningful than using isinstance().
+    """
     return False
 
 
 class Constant(Variable):
   """A specialised variable whose value is a constant integer."""
 
-  bits = 256
-  max_val = 2**bits
-
   def __init__(self, value:int):
-    self.value = value % self.max_val
+    self.value = value % self.CARDINALITY
 
   def __str__(self):
     return hex(self.value)
@@ -47,115 +61,149 @@ class Constant(Variable):
   def __eq__(self, other):
     return self.value == other.value
 
+  # This needs to be a hashable type, in order to be used as a dict key;
+  # Defining __eq__ requires us to redefine __hash__.
   def __hash__(self):
     return self.value
 
-  def is_const(self):
+  def is_const(self) -> bool:
+    """True if this Variable is a Constant."""
     return True
 
-  def signed(self) -> int:
-    """Return the two's complement interpretation of this constant's value."""
-    if self.value & (self.max_val - 1):
-      return self.max_val - self.value
+  def twos_compl(self) -> int:
+    """
+    Return the signed two's complement interpretation of this constant's value.
+    """
+    if self.value & (self.CARDINALITY - 1):
+      return self.CARDINALITY - self.value
 
 
-  # EVM arithmetic operations for descriptions of these, see the yellow paper.
+  # EVM arithmetic operations.
+  # Each takes in two Constant arguments, and returns a new Constant
+  # whose value is the result of applying the operation to the argument values.
+  # For comparison operators, "True" and "False" are represented by Constants
+  # with the value 1 and 0 respectively.
 
   @classmethod
-  def ADD(cls, l, r):
+  def ADD(cls, l: 'Constant', r: 'Constant') -> 'Constant':
+    """Return the sum of the inputs."""
     return cls((l.value + r.value))
 
   @classmethod
-  def MUL(cls, l, r):
+  def MUL(cls, l: 'Constant', r: 'Constant') -> 'Constant':
+    """Return the product of the inputs."""
     return cls((l.value * r.value))
 
   @classmethod
-  def SUB(cls, l, r):
+  def SUB(cls, l: 'Constant', r: 'Constant') -> 'Constant':
+    """Return the difference of the inputs."""
     return cls((l.value - r.value))
 
   @classmethod
-  def DIV(cls, l, r):
+  def DIV(cls, l: 'Constant', r: 'Constant') -> 'Constant':
+    """Return the quotient of the inputs."""
     return cls(0 if r.value == 0 else l.value // r.value)
 
   @classmethod
-  def SDIV(cls, l, r):
-    s_val, o_val = l.signed(), r.signed()
-    sign = 1 if s_val * o_val >= 0 else -1
-    return cls(0 if o_val == 0 else sign * (abs(s_val) // abs(o_val)))
+  def SDIV(cls, l: 'Constant', r: 'Constant') -> 'Constant':
+    """Return the signed quotient of the inputs."""
+    l_val, r_val = l.twos_compl(), r.twos_compl()
+    sign = 1 if l_val * r_val >= 0 else -1
+    return cls(0 if r_val == 0 else sign * (abs(l_val) // abs(r_val)))
 
   @classmethod
-  def MOD(cls, l, r):
-    return cls(0 if r.value == 0 else l.value % r.value)
+  def MOD(cls, v: 'Constant', m: 'Constant') -> 'Constant':
+    """Modulo operator."""
+    return cls(0 if m.value == 0 else v.value % m.value)
 
   @classmethod
-  def SMOD(cls, l, r):
-    s_val, o_val = l.signed(), r.signed()
-    sign = 1 if s_val >= 0 else -1
-    return cls(0 if r.value == 0 else sign * (abs(s_val) % abs(o_val)))
+  def SMOD(cls, v: 'Constant', m: 'Constant') -> 'Constant':
+    """Signed modulo operator. The output takes the sign of v."""
+    v_val, m_val = v.twos_compl(), m.twos_compl()
+    sign = 1 if v_val >= 0 else -1
+    return cls(0 if m.value == 0 else sign * (abs(v_val) % abs(m_val)))
 
   @classmethod
-  def ADDMOD(cls, l, r, m):
+  def ADDMOD(cls, l: 'Constant', r: 'Constant', m: 'Constant') -> 'Constant':
+    """Modular addition: return (l + r) modulo m."""
     return cls(0 if m.value == 0 else (l.value + r.value) % m.value)
 
   @classmethod
-  def MULMOD(cls, l, r, m):
+  def MULMOD(cls, l: 'Constant', r: 'Constant', m: 'Constant') -> 'Constant':
+    """Modular multiplication: return (l * r) modulo m."""
     return cls(0 if m.value == 0 else (l.value * r.value) % m.value)
 
   @classmethod
-  def EXP(cls, b, e):
+  def EXP(cls, b: 'Constant', e: 'Constant') -> 'Constant':
+    """Exponentiation: return b to the power of e."""
     return cls(b.value ** e.value)
 
   @classmethod
-  def SIGNEXTEND(cls, l, v):
-    pos = 8(l.value + 1)
-    mask = int("1"*(self.bits - pos) + "0"*pos, 2)
+  def SIGNEXTEND(cls, b: 'Constant', v: 'Constant') -> 'Constant':
+    """
+    Return v, but with the high bit of its b'th byte extended all the way
+    to the most significant bit of the output.
+    """
+    pos = 8 * (b.value + 1)
+    mask = int("1"*((self.SIZE * 8) - pos) + "0"*pos, 2)
     val = 1 if (v.value & (1 << (pos - 1))) > 0 else 0
 
     return cls((v.value & mask) if val == 0 else (v.value | ~mask))
 
   @classmethod
-  def LT(cls, l, r):
+  def LT(cls, l: 'Constant', r: 'Constant') -> 'Constant':
+    """Less-than comparison."""
     return cls(1 if l.value < r.value else 0)
 
   @classmethod
-  def GT(cls, l, r):
-    return cls(1 if l.value < r.value else 0)
+  def GT(cls, l: 'Constant', r: 'Constant') -> 'Constant':
+    """Greater-than comparison."""
+    return cls(1 if l.value > r.value else 0)
 
   @classmethod
-  def SLT(cls, l, r):
-    return cls(1 if l.signed() < r.signed() else 0)
+  def SLT(cls, l: 'Constant', r: 'Constant') -> 'Constant':
+    """Signed less-than comparison."""
+    return cls(1 if l.twos_compl() < r.twos_compl() else 0)
 
   @classmethod
-  def SGT(cls, l, r):
-    return cls(1 if l.signed() > r.signed() else 0)
+  def SGT(cls, l: 'Constant', r: 'Constant') -> 'Constant':
+    """Signed greater-than comparison."""
+    return cls(1 if l.twos_compl() > r.twos_compl() else 0)
 
   @classmethod
-  def EQ(cls, l, r):
+  def EQ(cls, l: 'Constant', r: 'Constant') -> 'Constant':
+    """Equality comparison."""
     return cls(1 if l.value == r.value else 0)
 
   @classmethod
-  def ISZERO(cls, v):
+  def ISZERO(cls, v: 'Constant') -> 'Constant':
+    """1 if the input is zero, 0 otherwise."""
     return cls(1 if v.value == 0 else 0)
 
   @classmethod
-  def AND(cls, l, r):
+  def AND(cls, l: 'Constant', r: 'Constant') -> 'Constant':
+    """Bitwise AND."""
     return cls(l.value & r.value)
 
   @classmethod
-  def OR(cls, l, r):
+  def OR(cls, l: 'Constant', r: 'Constant') -> 'Constant':
+    """Bitwise OR."""
     return cls(l.value | r.value)
 
   @classmethod
-  def XOR(cls, l, r):
+  def XOR(cls, l: 'Constant', r: 'Constant') -> 'Constant':
+    """Bitwise XOR."""
     return cls(l.value ^ r.value)
 
   @classmethod
-  def NOT(cls, v):
+  def NOT(cls, v: 'Constant') -> 'Constant':
+    """Bitwise NOT."""
     return cls(~v.value)
 
   @classmethod
-  def BYTE(cls, b, v):
-    return cls((v >> (bits - b*8)) & 0xFF)
+  def BYTE(cls, b: 'Constant', v: 'Constant') -> 'Constant':
+    """Return the b'th byte of v."""
+    return cls((v >> ((self.SIZE - b)*8)) & 0xFF)
 
 
 class Location:
@@ -190,10 +238,16 @@ class Location:
            and (self.address == other.address) \
            and (self.size == other.size)
 
+  # This needs to be a hashable type, in order to be used as a dict key;
+  # Defining __eq__ requires us to redefine __hash__.
   def __hash__(self):
     return hash(self.space_id) ^ hash(self.size) ^ hash(self.address)
 
-  def is_const(self):
+  def is_const(self) -> bool:
+    """
+    True if this variable is an instance of Constant.
+    Neater and more meaningful than using isinstance().
+    """
     return False
 
 class MLoc(Location):
@@ -202,10 +256,10 @@ class MLoc(Location):
     super().__init__("M", 32, address)
 
 
-class MLoc8(Location):
+class MLocByte(Location):
   """ A symbolic one-byte cell from memory."""
   def __init__(self, address:Variable):
-    super().__init__("M8", 1, address)
+    super().__init__("M1", 1, address)
 
 
 class SLoc(Location):
@@ -256,21 +310,21 @@ class TACOp:
     """True iff this instruction causes the EVM to halt."""
     return self.name in ["RETURN", "STOP", "SUICIDE"]
 
-  def const_args(self):
+  def const_args(self) -> bool:
     """True iff each of this operations arguments is a constant value."""
     return all([arg.is_const() for arg in self.args])
 
   @classmethod
-  def jump_to_throw(cls, op):
+  def convert_jump_to_throw(cls, op: 'TACOp') -> 'TACOp':
     """
     Given a jump, convert it to a throw, preserving the condition var if JUMPI.
     """
     if op.name not in ["JUMP", "JUMPI"]:
       return None
     elif op.name == "JUMP":
-      return TACOp("THROW", [], op.pc, op.block)
+      return cls("THROW", [], op.pc, op.block)
     elif op.name == "JUMPI":
-      return TACOp("THROWI", [op.args[1]], op.pc, op.block)
+      return cls("THROWI", [op.args[1]], op.pc, op.block)
 
 
 class TACAssignOp(TACOp):
@@ -473,7 +527,7 @@ class TacCfg:
 
       # Block's jump went to an invalid location, replace the jump with a throw
       if invalid_jump:
-        block.ops[-1] = TACOp.jump_to_throw(final_op)
+        block.ops[-1] = TACOp.convert_jump_to_throw(final_op)
       block.has_unresolved_jump = unresolved
       block.successors = [d for d in {jumpdest, fallthrough} if d is not None]
 

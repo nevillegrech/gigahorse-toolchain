@@ -215,7 +215,6 @@ RETURN       = OpCode("RETURN",       0xf3, 2, 0)
 DELEGATECALL = OpCode("DELEGATECALL", 0xf4, 7, 1)
 SUICIDE      = OpCode("SUICIDE",      0xff, 1, 0)
 
-
 # Produce mappings from names and instruction codes to opcode objects
 OPCODES = {code.name: code for code in globals().values() \
            if isinstance(code, OpCode)}
@@ -233,6 +232,4 @@ def opcode_by_value(val:int) -> OpCode:
   """Mapping: Retrieves the OpCode object with the given value."""
   if val not in OPCODES:
     raise Exception("No opcode with value '{}'.".format(val))
-  return OPCODES[val]
-
-
+  return OPCODES[val] 

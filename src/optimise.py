@@ -2,17 +2,6 @@
 
 import tac
 
-# Things to Add
-# jump optimisations
-# basic block stratification
-# Recompute graph from jump dests
-# block straightening
-# Algebraic Simplifications
-# Copy propagation
-# Dead code
-# Unreachable Code
-
-
 # Intra-block optimisations
 
 # CONSTANT FOLDING AND PROPAGATION
