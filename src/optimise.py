@@ -42,7 +42,7 @@ def fold_block_constants(block):
 
     # Evaluate arithmetic ops and update the mapping if we can
     if op.const_args():
-      if op.is_arithmetic():
+      if op.opcode.is_arithmetic():
         val = getattr(tac.Constant, op.opcode.name)(*op.args)
         var_values[op.lhs] = val
         op.opcode = opcodes.CONST

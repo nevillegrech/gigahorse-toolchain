@@ -302,16 +302,6 @@ class TACOp:
       self.__str__()
     )
 
-  def is_arithmetic(self) -> bool:
-    """True iff this operation's output can be calculated just from its inputs."""
-    return self.opcode in [ADD, MUL, SUB, DIV, SDIV, MOD, SMOD, ADDMOD, MULMOD,
-                           EXP, SIGNEXTEND, LT, GT, SLT, SGT, EQ, ISZERO, AND,
-                           OR, XOR, NOT, BYTE]
-
-  def halts_execution(self) -> bool:
-    """True iff this instruction causes the EVM to halt."""
-    return self.opcode in [RETURN, STOP, SUICIDE]
-
   def const_args(self) -> bool:
     """True iff each of this operations arguments is a constant value."""
     return all([arg.is_const() for arg in self.args])
@@ -525,7 +515,7 @@ class TacCfg:
         unresolved = False
 
         # No terminating jump or a halt; fall through to next block.
-        if not final_op.halts_execution():
+        if not final_op.opcode.halts():
           fallthrough = self.get_block_by_pc(block.exit + 1)
           print(hex(block.entry))
           print(hex(fallthrough.entry) if fallthrough is not None else None)
