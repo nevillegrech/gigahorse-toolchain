@@ -310,9 +310,10 @@ class TACOp:
   def convert_jump_to_throw(cls, op: 'TACOp') -> 'TACOp':
     """
     Given a jump, convert it to a throw, preserving the condition var if JUMPI.
+    Otherwise, return the given operation unchanged.
     """
     if op.opcode not in [opcodes.JUMP, opcodes.JUMPI]:
-      return None
+      return op
     elif op.opcode == opcodes.JUMP:
       return cls(opcodes.THROW, [], op.pc, op.block)
     elif op.opcode == opcodes.JUMPI:
@@ -465,8 +466,6 @@ class TacCfg:
       # the very last instruction and no instruction is next.
       # (Maybe add this anyway as a common exit point during CFG construction?)
 
-      # TODO: Translate JUMPIs with constant conditions to JUMPS, or remove them
-
       jumpdest = None
       fallthrough = None
       final_op = block.ops[-1]
@@ -479,13 +478,16 @@ class TacCfg:
 
         # If the condition is constant, there is only one jump destination.
         if cond.is_const():
-          # If the condition can never be true, ignore the jump dest.
+          # If the condition can never be true, remove the jump.
           if cond.value == 0:
+            block.ops.pop()
             fallthrough = self.get_block_by_pc(final_op.pc + 1)
             unresolved = False
-          # If the condition is always true,
-          # check that the dest is constant and/or valid
+          # If the condition is always true, the JUMPI behaves like a JUMP.
+          # Check that the dest is constant and/or valid
           elif dest.is_const():
+            final_op.opcode = opcodes.JUMP
+            final_op.args.pop()
             if self.is_valid_jump_dest(dest.value):
               jumpdest = self.get_op_by_pc(dest.value).block
             else:
@@ -517,16 +519,12 @@ class TacCfg:
         # No terminating jump or a halt; fall through to next block.
         if not final_op.opcode.halts():
           fallthrough = self.get_block_by_pc(block.exit + 1)
-          print(hex(block.entry))
-          print(hex(fallthrough.entry) if fallthrough is not None else None)
-          print()
 
       # Block's jump went to an invalid location, replace the jump with a throw
       if invalid_jump:
         block.ops[-1] = TACOp.convert_jump_to_throw(final_op)
       block.has_unresolved_jump = unresolved
       block.succs = [d for d in {jumpdest, fallthrough} if d is not None]
-      print([hex(b.entry) for b in block.succs])
 
     # Having recalculated all the successors, hook up predecessors
     self.recalc_preds()
