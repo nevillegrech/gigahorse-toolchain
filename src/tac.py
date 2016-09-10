@@ -2,6 +2,7 @@
 objects."""
 
 import typing
+from opcodes import *
 
 class Variable:
   """A symbolic variable whose value is supposed to be
@@ -270,26 +271,28 @@ class SLoc(Location):
 class TACOp:
   """
   A Three-Address Code operation.
-  Each operation consists of a name, and a list of argument variables.
+  Each operation consists of an opcode object defining its function, 
+  a list of argument variables, and the unique program counter address 
+  of the EVM instruction it was derived from.
   """
 
-  def __init__(self, name:str, args:typing.List[Variable], \
+  def __init__(self, opcode:OpCode, args:typing.List[Variable], \
                pc:int, block=None):
     """
     Args:
-      name: the operation being performed (mostly the same as EVM op names)
-      args: variables or constants that are operated upon
+      opcode: the operation being performed.
+      args: variables or constants that are operated upon.
       pc: the program counter at the corresponding instruction in the
-          original bytecode
-      block: the block this operation belongs to
+          original bytecode.
+      block: the block this operation belongs to.
     """
-    self.name = name
+    self.opcode = opcode
     self.args = args
     self.pc = pc
     self.block = block
 
   def __str__(self):
-    return "{}: {} {}".format(hex(self.pc), self.name,
+    return "{}: {} {}".format(hex(self.pc), self.opcode,
                 " ".join([str(arg) for arg in self.args]))
 
   def __repr__(self):
@@ -301,14 +304,13 @@ class TACOp:
 
   def is_arithmetic(self) -> bool:
     """True iff this operation's output can be calculated just from its inputs."""
-    return self.name in ["ADD", "MUL", "SUB", "DIV", "SDIV", "MOD", "SMOD",
-                         "ADDMOD", "MULMOD", "EXP", "SIGNEXTEND", "LT", "GT",
-                         "SLT", "SGT", "EQ", "ISZERO", "AND", "OR", "XOR",
-                         "NOT", "BYTE"]
+    return self.opcode in [ADD, MUL, SUB, DIV, SDIV, MOD, SMOD, ADDMOD, MULMOD,
+                           EXP, SIGNEXTEND, LT, GT, SLT, SGT, EQ, ISZERO, AND,
+                           OR, XOR, NOT, BYTE]
 
   def halts_execution(self) -> bool:
     """True iff this instruction causes the EVM to halt."""
-    return self.name in ["RETURN", "STOP", "SUICIDE"]
+    return self.opcode in [RETURN, STOP, SUICIDE]
 
   def const_args(self) -> bool:
     """True iff each of this operations arguments is a constant value."""
@@ -319,12 +321,12 @@ class TACOp:
     """
     Given a jump, convert it to a throw, preserving the condition var if JUMPI.
     """
-    if op.name not in ["JUMP", "JUMPI"]:
+    if op.opcode not in [JUMP, JUMPI]:
       return None
-    elif op.name == "JUMP":
-      return cls("THROW", [], op.pc, op.block)
-    elif op.name == "JUMPI":
-      return cls("THROWI", [op.args[1]], op.pc, op.block)
+    elif op.opcode == JUMP:
+      return cls(THROW, [], op.pc, op.block)
+    elif op.opcode == JUMPI:
+      return cls(THROWI, [op.args[1]], op.pc, op.block)
 
 
 class TACAssignOp(TACOp):
@@ -333,25 +335,25 @@ class TACAssignOp(TACOp):
   this operation's result is implicitly bound.
   """
 
-  def __init__(self, lhs:Variable, name:str,
+  def __init__(self, lhs:Variable, opcode:OpCode,
                args:typing.List[Variable], pc:int, block=None,
                print_name=True):
     """
     Args:
       lhs: The variable that will receive the result of this operation.
-      name: The operation being performed (mostly the same as EVM op names).
+      opcode: The operation being performed.
       args: Variables or constants that are operated upon.
       pc: The program counter at this instruction in the original bytecode.
       block: The block this operation belongs to.
       print_name: Some operations (e.g. CONST) don't need to print their
                   name in order to be readable.
     """
-    super().__init__(name, args, pc, block)
+    super().__init__(opcode, args, pc, block)
     self.lhs = lhs
     self.print_name = print_name
 
   def __str__(self):
-    arglist = ([str(self.name)] if self.print_name else []) \
+    arglist = ([str(self.opcode)] if self.print_name else []) \
               + [str(arg) for arg in self.args]
     return "{}: {} = {}".format(hex(self.pc), self.lhs, " ".join(arglist))
 
@@ -397,8 +399,9 @@ class TACBlock:
   def __str__(self):
     head = "Block [{}:{}]".format(hex(self.entry), hex(self.exit))
     op_seq = "\n".join(str(op) for op in self.ops)
-    stack_state = "Stack pops: {}\nStack additions: {}".format(self.stack_pops,
-                                                         self.stack_adds)
+    stack_state = "Stack pops: {}\nStack additions: [{}]".format( \
+                              self.stack_pops, \
+                              ", ".join([str(add) for add in self.stack_adds]))
     pred = "Predecessors: [{}]".format(", ".join(hex(block.entry) \
                                                for block in self.preds))
     succ = "Successors: [{}]".format(", ".join(hex(block.entry) \
@@ -480,7 +483,7 @@ class TacCfg:
       invalid_jump = False
       unresolved = True
 
-      if final_op.name == "JUMPI":
+      if final_op.opcode == JUMPI:
         dest = final_op.args[0]
         cond = final_op.args[1]
 
@@ -509,7 +512,7 @@ class TacCfg:
           else:
             invalid_jump = True
 
-      elif final_op.name == "JUMP":
+      elif final_op.opcode == JUMP:
         dest = final_op.args[0]
         if dest.is_const():
           unresolved = False
@@ -524,12 +527,16 @@ class TacCfg:
         # No terminating jump or a halt; fall through to next block.
         if not final_op.halts_execution():
           fallthrough = self.get_block_by_pc(block.exit + 1)
+          print(hex(block.entry))
+          print(hex(fallthrough.entry) if fallthrough is not None else None)
+          print()
 
       # Block's jump went to an invalid location, replace the jump with a throw
       if invalid_jump:
         block.ops[-1] = TACOp.convert_jump_to_throw(final_op)
       block.has_unresolved_jump = unresolved
-      block.successors = [d for d in {jumpdest, fallthrough} if d is not None]
+      block.succs = [d for d in {jumpdest, fallthrough} if d is not None]
+      print([hex(b.entry) for b in block.succs])
 
     # Having recalculated all the successors, hook up predecessors
     self.recalc_preds()
@@ -537,7 +544,7 @@ class TacCfg:
   def is_valid_jump_dest(self, pc:int) -> bool:
     """True iff the given program counter is a proper jumpdest."""
     op = self.get_op_by_pc(pc)
-    return (op is not None) and (op.name == "JUMPDEST")
+    return (op is not None) and (op.opcode == JUMPDEST)
 
   def get_block_by_pc(self, pc:int):
     """Return the block whose span includes the given program counter value."""

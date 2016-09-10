@@ -117,7 +117,7 @@ COINBASE   = OpCode("COINBASE",   0x41, 0, 1)
 TIMESTAMP  = OpCode("TIMESTAMP",  0x42, 0, 1)
 NUMBER     = OpCode("NUMBER",     0x43, 0, 1)
 DIFFICULTY = OpCode("DIFFICULTY", 0x44, 0, 1)
-GASLIMIT   = OpCode("GASLIMTI",   0x45, 0, 1)
+GASLIMIT   = OpCode("GASLIMIT",   0x45, 0, 1)
 
 # Stack, Memory, Storage, Flow
 POP      = OpCode("POP",      0x50, 1, 0)
@@ -214,6 +214,14 @@ CALLCODE     = OpCode("CALLCODE",     0xf2, 7, 1)
 RETURN       = OpCode("RETURN",       0xf3, 2, 0)
 DELEGATECALL = OpCode("DELEGATECALL", 0xf4, 7, 1)
 SUICIDE      = OpCode("SUICIDE",      0xff, 1, 0)
+
+# TAC Operations
+# These are not EVM opcodes, but they are used by the three-address code
+CONST  = OpCode("CONST", -1, 0, 0)
+LOG    = OpCode("LOG", -2, 0, 0)
+THROW  = OpCode("THROW", -3, 0, 0)
+THROWI = OpCode("THROWI", -4, 0, 0)
+
 
 # Produce mappings from names and instruction codes to opcode objects
 OPCODES = {code.name: code for code in globals().values() \

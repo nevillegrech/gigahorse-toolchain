@@ -140,33 +140,33 @@ class Destackifier:
     # Generate the appropriate TAC operation.
     # Special cases first, followed by the fallback to generic instructions.
     if line.opcode.is_push():
-      inst = tac.TACAssignOp(var, "CONST", [tac.Constant(line.value)],
+      inst = tac.TACAssignOp(var, opcodes.CONST, [tac.Constant(line.value)],
                          line.pc, print_name=False)
     elif line.opcode.is_log():
-      inst = tac.TACOp("LOG", self.__pop_many(line.opcode.pop), line.pc)
+      inst = tac.TACOp(opcodes.LOG, self.__pop_many(line.opcode.pop), line.pc)
     elif line.opcode == opcodes.MLOAD:
-      inst = tac.TACAssignOp(var, line.opcode.name, [tac.MLoc(self.__pop())],
+      inst = tac.TACAssignOp(var, line.opcode, [tac.MLoc(self.__pop())],
                          line.pc, print_name=False)
     elif line.opcode == opcodes.MSTORE:
       args = self.__pop_many(2)
-      inst = tac.TACAssignOp(tac.MLoc(args[0]), line.opcode.name, args[1:],
+      inst = tac.TACAssignOp(tac.MLoc(args[0]), line.opcode, args[1:],
                          line.pc, print_name=False)
     elif line.opcode == opcodes.MSTORE8:
       args = self.__pop_many(2)
-      inst = tac.TACAssignOp(tac.MLocByte(args[0]), line.opcode.name, args[1:],
+      inst = tac.TACAssignOp(tac.MLocByte(args[0]), line.opcode, args[1:],
                          line.pc, print_name=False)
     elif line.opcode == opcodes.SLOAD:
-      inst = tac.TACAssignOp(var, opcodes.SLOAD.name, [tac.SLoc(self.__pop())],
+      inst = tac.TACAssignOp(var, line.opcode, [tac.SLoc(self.__pop())],
                          line.pc, print_name=False)
     elif line.opcode == opcodes.SSTORE:
       args = self.__pop_many(2)
-      inst = tac.TACAssignOp(tac.SLoc(args[0]), line.opcode.name, args[1:],
+      inst = tac.TACAssignOp(tac.SLoc(args[0]), line.opcode, args[1:],
                          line.pc, print_name=False)
     elif var is not None:
-      inst = tac.TACAssignOp(var, line.opcode.name,
+      inst = tac.TACAssignOp(var, line.opcode,
                          self.__pop_many(line.opcode.pop), line.pc)
     else:
-      inst = tac.TACOp(line.opcode.name, self.__pop_many(line.opcode.pop), line.pc)
+      inst = tac.TACOp(line.opcode, self.__pop_many(line.opcode.pop), line.pc)
 
     # This var must only be pushed after the operation is performed.
     if var is not None:

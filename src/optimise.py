@@ -1,6 +1,7 @@
 """optimise.py: transformers that optimise TAC CFGs"""
 
 import tac
+import opcodes
 
 # Intra-block optimisations
 
@@ -42,15 +43,15 @@ def fold_block_constants(block):
     # Evaluate arithmetic ops and update the mapping if we can
     if op.const_args():
       if op.is_arithmetic():
-        val = getattr(tac.Constant, op.name)(*op.args)
+        val = getattr(tac.Constant, op.opcode.name)(*op.args)
         var_values[op.lhs] = val
-        op.name = "CONST"
+        op.opcode = opcodes.CONST
         op.args = [val]
 
       # Here we could add MSTORE, MSTORE8, SSTORE dests to the environment
       # if we could be assured there were no calculated addresses, since
       # such addresses could potentially overwrite any data in memory.
-      if op.name in ["CONST"]:
+      if op.opcode == opcodes.CONST:
           var_values[op.lhs] = op.args[0]
 
   # Convert the stack with the final mapping.

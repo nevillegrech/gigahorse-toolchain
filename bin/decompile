@@ -15,7 +15,6 @@ from stacksizeanalysis import run_analysis, block_stack_delta
 from destackify import Destackifier
 import optimise
 import tac
-import utils
 
 cfg = ControlFlowGraph(fileinput.input())
 

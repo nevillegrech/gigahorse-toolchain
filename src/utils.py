@@ -1,5 +1,8 @@
 """utils.py: misc. functions used by other Python files in this project"""
 
+import opcodes
+
+
 def listdict_add(ldict:dict, key:object, val:object):
   """Adds a given value (val) to the list in a given list-valued dictionary
   (ldict) for the given key"""
@@ -38,13 +41,13 @@ def taccfg2dot(cfg, out_filename:str="cfg.dot"):
                                             if block.has_unresolved_jump)
 
   returns = {hex(block.entry): "green" for block in cfg.blocks
-             if block.ops[-1].name == "RETURN"}
+             if block.ops[-1].opcode == opcodes.RETURN}
   stops = {hex(block.entry): "blue" for block in cfg.blocks
-             if block.ops[-1].name == "STOP"}
+             if block.ops[-1].opcode == opcodes.STOP}
   throws = {hex(block.entry): "red" for block in cfg.blocks
-             if block.ops[-1].name in ["THROW", "THROWI"]}
+             if block.ops[-1].opcode in [opcodes.THROW, opcodes.THROWI]}
   suicides = {hex(block.entry): "purple" for block in cfg.blocks
-               if block.ops[-1].name == "SUICIDE"}
+               if block.ops[-1].opcode == opcodes.SUICIDE}
   color_dict = {**returns, **stops, **throws, **suicides}
   nx.set_node_attributes(G, "color", color_dict)
   write_dot(G, out_filename)
