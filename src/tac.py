@@ -2,7 +2,7 @@
 objects."""
 
 import typing
-from opcodes import *
+import opcodes
 
 class Variable:
   """A symbolic variable whose value is supposed to be
@@ -276,7 +276,7 @@ class TACOp:
   of the EVM instruction it was derived from.
   """
 
-  def __init__(self, opcode:OpCode, args:typing.List[Variable], \
+  def __init__(self, opcode:opcodes.OpCode, args:typing.List[Variable], \
                pc:int, block=None):
     """
     Args:
@@ -311,12 +311,12 @@ class TACOp:
     """
     Given a jump, convert it to a throw, preserving the condition var if JUMPI.
     """
-    if op.opcode not in [JUMP, JUMPI]:
+    if op.opcode not in [opcodes.JUMP, opcodes.JUMPI]:
       return None
-    elif op.opcode == JUMP:
-      return cls(THROW, [], op.pc, op.block)
-    elif op.opcode == JUMPI:
-      return cls(THROWI, [op.args[1]], op.pc, op.block)
+    elif op.opcode == opcodes.JUMP:
+      return cls(opcodes.THROW, [], op.pc, op.block)
+    elif op.opcode == opcodes.JUMPI:
+      return cls(opcodes.THROWI, [op.args[1]], op.pc, op.block)
 
 
 class TACAssignOp(TACOp):
@@ -325,7 +325,7 @@ class TACAssignOp(TACOp):
   this operation's result is implicitly bound.
   """
 
-  def __init__(self, lhs:Variable, opcode:OpCode,
+  def __init__(self, lhs:Variable, opcode:opcodes.OpCode,
                args:typing.List[Variable], pc:int, block=None,
                print_name=True):
     """
@@ -473,7 +473,7 @@ class TacCfg:
       invalid_jump = False
       unresolved = True
 
-      if final_op.opcode == JUMPI:
+      if final_op.opcode == opcodes.JUMPI:
         dest = final_op.args[0]
         cond = final_op.args[1]
 
@@ -502,7 +502,7 @@ class TacCfg:
           else:
             invalid_jump = True
 
-      elif final_op.opcode == JUMP:
+      elif final_op.opcode == opcodes.JUMP:
         dest = final_op.args[0]
         if dest.is_const():
           unresolved = False
@@ -534,7 +534,7 @@ class TacCfg:
   def is_valid_jump_dest(self, pc:int) -> bool:
     """True iff the given program counter is a proper jumpdest."""
     op = self.get_op_by_pc(pc)
-    return (op is not None) and (op.opcode == JUMPDEST)
+    return (op is not None) and (op.opcode == opcodes.JUMPDEST)
 
   def get_block_by_pc(self, pc:int):
     """Return the block whose span includes the given program counter value."""
