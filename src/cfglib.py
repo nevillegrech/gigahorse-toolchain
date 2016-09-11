@@ -207,8 +207,8 @@ class DasmLine:
     """
     l = line.split()
     if len(l) > 3:
-      return type(cls)(l[0], opcodes.opcode_by_name(l[1]), l[3])
+      return cls(l[0], opcodes.opcode_by_name(l[1]), l[3])
     elif len(l) > 1:
-      return type(cls)(l[0], opcodes.opcode_by_name(l[1]))
+      return cls(l[0], opcodes.opcode_by_name(l[1]))
     else:
       raise NotImplementedError("Could not parse unknown disassembly format: " + str(l))

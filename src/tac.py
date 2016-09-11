@@ -271,8 +271,8 @@ class SLoc(Location):
 class TACOp:
   """
   A Three-Address Code operation.
-  Each operation consists of an opcode object defining its function, 
-  a list of argument variables, and the unique program counter address 
+  Each operation consists of an opcode object defining its function,
+  a list of argument variables, and the unique program counter address
   of the EVM instruction it was derived from.
   """
 
@@ -426,9 +426,9 @@ class TacCfg:
     for block in converted_map:
       converted = converted_map[block]
       converted.preds = [converted_map[parent] \
-                                for parent in block.parents]
+                                for parent in block.predecessors]
       converted.succs = [converted_map[child] \
-                              for child in block.children]
+                              for child in block.successors]
 
     self.blocks = converted_map.values()
 
