@@ -1,10 +1,9 @@
-# opcodes.py: Definitions of all EVM opcodes, and related utility functions.
-
+"""opcodes.py: Definitions of all EVM opcodes, and related utility functions."""
 
 class OpCode:
   """An EVM opcode."""
 
-  def __init__(self, name:str, code:int, pop:int, push:int, argbytes:int = 0):
+  def __init__(self, name:str, code:int, pop:int, push:int):
     """
     Args:
       name (str): Human-readable opcode.
@@ -36,6 +35,44 @@ class OpCode:
 
   def __hash__(self) -> int:
     return self.code.__hash__()
+
+  def is_push(self) -> bool:
+    """Predicate: opcode is a push operation."""
+    return PUSH1.code <= self.code <= PUSH32.code
+
+  def is_swap(self) -> bool:
+    """Predicate: opcode is a swap operation."""
+    return SWAP1.code <= self.code <= SWAP16.code
+
+  def is_dup(self) -> bool:
+    """Predicate: opcode is a dup operation."""
+    return DUP1.code <= self.code <= DUP16.code
+
+  def is_log(self) -> bool:
+    """Predicate: opcode is a log operation."""
+    return LOG0.code <= self.code <= LOG4.code
+
+  def is_arithmetic(self) -> bool:
+    """Predicate: opcode's result can be calculated from its inputs alone."""
+    return (ADD.code <= self.code <= SIGNEXTEND.code) or \
+           (LT.code <= self.code <= BYTE.code)
+
+  def alters_flow(self) -> bool:
+    """Predicate: opcode alters EVM control flow."""
+    return self.code in [JUMP.code, JUMPI.code, RETURN.code,
+                         SUICIDE.code, STOP.code]
+
+  def halts(self) -> bool:
+    """Predicate: opcode causes the EVM to halt."""
+    return self.code in [STOP.code, RETURN.code, SUICIDE.code]
+
+  def push_len(self) -> int:
+    """Return the number of bytes the given PUSH instruction pushes."""
+    return self.code - PUSH1.code + 1 if self.is_push() else 0
+
+  def log_len(self) -> int:
+    """Return the number of topics the given LOG instruction includes."""
+    return self.code - LOG0.code if self.is_log() else 0
 
 
 # Construct all EVM opcodes
@@ -90,7 +127,7 @@ COINBASE   = OpCode("COINBASE",   0x41, 0, 1)
 TIMESTAMP  = OpCode("TIMESTAMP",  0x42, 0, 1)
 NUMBER     = OpCode("NUMBER",     0x43, 0, 1)
 DIFFICULTY = OpCode("DIFFICULTY", 0x44, 0, 1)
-GASLIMIT   = OpCode("GASLIMTI",   0x45, 0, 1)
+GASLIMIT   = OpCode("GASLIMIT",   0x45, 0, 1)
 
 # Stack, Memory, Storage, Flow
 POP      = OpCode("POP",      0x50, 1, 0)
@@ -188,6 +225,13 @@ RETURN       = OpCode("RETURN",       0xf3, 2, 0)
 DELEGATECALL = OpCode("DELEGATECALL", 0xf4, 7, 1)
 SUICIDE      = OpCode("SUICIDE",      0xff, 1, 0)
 
+# TAC Operations
+# These are not EVM opcodes, but they are used by the three-address code
+CONST  = OpCode("CONST", -1, 0, 0)
+LOG    = OpCode("LOG", -2, 0, 0)
+THROW  = OpCode("THROW", -3, 0, 0)
+THROWI = OpCode("THROWI", -4, 0, 0)
+
 
 # Produce mappings from names and instruction codes to opcode objects
 OPCODES = {code.name: code for code in globals().values() \
@@ -206,40 +250,4 @@ def opcode_by_value(val:int) -> OpCode:
   """Mapping: Retrieves the OpCode object with the given value."""
   if val not in OPCODES:
     raise Exception("No opcode with value '{}'.".format(val))
-  return OPCODES[val]
-
-
-def is_push(opcode:OpCode) -> bool:
-  """Predicate: opcode is a push operation."""
-  return PUSH1.code <= opcode.code <= PUSH32.code
-
-
-def is_swap(opcode:OpCode) -> bool:
-  """Predicate: opcode is a swap operation."""
-  return SWAP1.code <= opcode.code <= SWAP16.code
-
-
-def is_dup(opcode:OpCode) -> bool:
-  """Predicate: opcode is a dup operation."""
-  return DUP1.code <= opcode.code <= DUP16.code
-
-
-def is_log(opcode:OpCode) -> bool:
-  """Predicate: opcode is a log operation."""
-  return LOG0.code <= opcode.code <= LOG4.code
-
-
-def push_len(opcode:OpCode) -> int:
-  """Return the number of bytes the given PUSH instruction pushes."""
-  return opcode.code - PUSH1.code + 1
-
-def log_len(opcode:OpCode) -> int:
-  """Return the number of topics the given LOG instruction includes."""
-  return opcode.code - LOG0.code
-
-def alters_flow(opcode:OpCode) -> bool:
-  """Returns True if the given opcode alters EVM control flow."""
-  return opcode in [
-    JUMP, JUMPI, RETURN,
-    SUICIDE, STOP
-  ]
+  return OPCODES[val] 

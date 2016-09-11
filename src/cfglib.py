@@ -3,7 +3,7 @@ CFG"""
 
 # Local project imports
 import utils
-from opcodes import *
+import opcodes
 
 # Separator to be used for string representation of blocks
 BLOCK_SEP = "\n---"
@@ -78,18 +78,18 @@ class ControlFlowGraph:
       l.block = current
       current.lines.append(l)
 
-      if l.opcode == JUMPDEST and l.pc not in self.potential_leaders:
+      if l.opcode == opcodes.JUMPDEST and l.pc not in self.potential_leaders:
         self.potential_leaders[l.pc] = []
 
       # Flow-altering opcodes indicate end-of-block
-      if alters_flow(l.opcode):
+      if l.opcode.alters_flow():
         new = current.split(i+1)
         self.blocks.append(current)
 
         # For JUMPs, look for the destination in the previous line only!
         # (Peephole analysis)
-        if l.opcode in (JUMP, JUMPI):
-          if is_push(lines[i-1].opcode):
+        if l.opcode in (opcodes.JUMP, opcodes.JUMPI):
+          if lines[i-1].opcode.is_push():
             dest = lines[i-1].value
             utils.listdict_add(self.potential_leaders, dest, current)
           else:
@@ -97,7 +97,7 @@ class ControlFlowGraph:
 
           # For JUMPI, the next sequential block starting at pc+1 is a
           # possible child of this block in the CFG
-          if l.opcode == JUMPI:
+          if l.opcode == opcodes.JUMPI:
             utils.listdict_add(self.potential_leaders, l.pc + 1, current)
 
         # Process the next sequential block in our next iteration
@@ -109,7 +109,7 @@ class ControlFlowGraph:
       to_line = lines[pc2line[to_pc]]
       to_block = to_line.block
 
-      if to_line.opcode != JUMPDEST:
+      if to_line.opcode != opcodes.JUMPDEST:
         self.potential_leaders.pop(to_pc)
         continue
 
@@ -154,6 +154,9 @@ class BasicBlock:
     # with the BLOCK_SEP appended after the last line
     return "\n".join(str(l) for l in self.lines) + BLOCK_SEP
 
+  def __hash__(self):
+    return id(self)
+
   def split(self, start:int):
     """Splits this block into a new block, starting at the specified
     start line number. Returns the new BasicBlock."""
@@ -178,19 +181,24 @@ class BasicBlock:
 class DisasmLine:
   """Represents a single line of EVM bytecode disassembly as produced by the
   official Ethereum 'disasm' disassembler."""
-  def __init__(self, pc:str, opcode:OpCode, value:str=None):
-    """Create a new DisasmLine object from the given strings which should
+  def __init__(self, pc:str, opcode:opcodes.OpCode, value:str=None):
+    """
+    Create a new DisasmLine object from the given strings which should
     correspond to disasm output. Each line of disasm output is structured as
     follows:
-              PC <spaces> OPCODE <spaces> => CONSTANT
+
+    PC <spaces> OPCODE <spaces> => CONSTANT
+
     where:
-            PC is the program counter (base 10 integer)
-        OPCODE is an object representing an EVM instruction code
-      CONSTANT is a hexadecimal value with 0x notational prefix
-      <spaces> is a variable number of spaces
+      - PC is the program counter (base 10 integer)
+      - OPCODE is an object representing an EVM instruction code
+      - CONSTANT is a hexadecimal value with 0x notational prefix
+      - <spaces> is a variable number of spaces
+
     For instructions with no hard-coded constant data (i.e. non-PUSH
     instructions), the disasm output only includes PC and OPCODE; i.e.
-              PC <spaces> OPCODE
+
+    PC <spaces> OPCODE
 
     If None is passed to the value parameter, the instruction is assumed to
     contain no CONSTANT (as in the second example above).
@@ -223,9 +231,9 @@ class DisasmLine:
     disassembly. The line should be from Ethereum's disasm disassembler."""
     l = line.split()
     if len(l) > 3:
-      return DisasmLine(l[0], opcode_by_name(l[1]), l[3])
+      return DisasmLine(l[0], opcodes.opcode_by_name(l[1]), l[3])
     elif len(l) > 1:
-      return DisasmLine(l[0], opcode_by_name(l[1]))
+      return DisasmLine(l[0], opcodes.opcode_by_name(l[1]))
     else:
       raise Exception("Could not parse invalid disassembly format: " + str(l))
 
