@@ -100,6 +100,10 @@ class DasmCFG(cfg.ControlFlowGraph):
         # Process the next sequential block in our next iteration
         current = new
 
+      # Always add last block if its last instruction does not alter flow
+      elif i == len(lines) - 1:
+        self.blocks.append(current)
+
   def __create_edges(self, lines, pc2line):
     # Link EVMBasicBlock CFG nodes by following JUMP destinations
     for to_pc, from_blocks in list(self.potential_leaders.items()):
