@@ -4,7 +4,7 @@ import typing
 
 import opcodes
 import dasmcfg
-import tac
+import taccfg
 
 
 class Destackifier:
@@ -35,19 +35,19 @@ class Destackifier:
     # we pop and the main stack is empty.
     self.extern_pops = 0
 
-  def __new_var(self) -> tac.Variable:
+  def __new_var(self) -> taccfg.Variable:
     """Construct and return a new variable with the next free identifier."""
-    var = tac.Variable("V{}".format(self.stack_vars))
+    var = taccfg.Variable("V{}".format(self.stack_vars))
     self.stack_vars += 1
     return var
 
-  def __pop_extern(self) -> tac.Variable:
+  def __pop_extern(self) -> taccfg.Variable:
     """Generate and return the next variable from the external stack."""
-    var = tac.Variable("S{}".format(self.extern_pops))
+    var = taccfg.Variable("S{}".format(self.extern_pops))
     self.extern_pops += 1
     return var
 
-  def __pop(self) -> tac.Variable:
+  def __pop(self) -> taccfg.Variable:
     """
     Pop an item off our symbolic stack if one exists, otherwise
     generate an external stack variable.
@@ -57,18 +57,18 @@ class Destackifier:
     else:
       return self.__pop_extern()
 
-  def __pop_many(self, n:int) -> typing.List[tac.Variable]:
+  def __pop_many(self, n:int) -> typing.List[taccfg.Variable]:
     """
     Pop and return n items from the stack.
     First-popped elements inhabit low indices.
     """
     return [self.__pop() for _ in range(n)]
 
-  def __push(self, element:tac.Variable) -> None:
+  def __push(self, element:taccfg.Variable) -> None:
     """Push an element to the stack."""
     self.stack.append(element)
 
-  def __push_many(self, elements:typing.List[tac.Variable]) -> None:
+  def __push_many(self, elements:typing.List[taccfg.Variable]) -> None:
     """
     Push a sequence of elements in the stack.
     Low index elements are pushed first.
@@ -89,7 +89,7 @@ class Destackifier:
     swapped = [items[-1]] + items[1:-1] + [items[0]]
     self.__push_many(reversed(swapped))
 
-  def convert_block(self, block:dasmcfg.EVMBasicBlock) -> tac.TACBlock:
+  def convert_block(self, block:dasmcfg.EVMBasicBlock) -> taccfg.TACBlock:
     """
     Given a EVMBasicBlock, convert its instructions to Three-Address Code.
     Return the converted sequence of operations,
@@ -105,7 +105,7 @@ class Destackifier:
     exit = block.lines[-1].pc + block.lines[-1].opcode.push_len() \
            if len(block.lines) > 0 else -1
 
-    new_block = tac.TACBlock(entry, exit, self.ops, self.stack, self.extern_pops)
+    new_block = taccfg.TACBlock(entry, exit, self.ops, self.stack, self.extern_pops)
     for op in self.ops:
       op.block = new_block
     return new_block
@@ -140,33 +140,33 @@ class Destackifier:
     # Generate the appropriate TAC operation.
     # Special cases first, followed by the fallback to generic instructions.
     if line.opcode.is_push():
-      inst = tac.TACAssignOp(var, opcodes.CONST, [tac.Constant(line.value)],
+      inst = taccfg.TACAssignOp(var, opcodes.CONST, [taccfg.Constant(line.value)],
                          line.pc, print_name=False)
     elif line.opcode.is_log():
-      inst = tac.TACOp(opcodes.LOG, self.__pop_many(line.opcode.pop), line.pc)
+      inst = taccfg.TACOp(opcodes.LOG, self.__pop_many(line.opcode.pop), line.pc)
     elif line.opcode == opcodes.MLOAD:
-      inst = tac.TACAssignOp(var, line.opcode, [tac.MLoc(self.__pop())],
+      inst = taccfg.TACAssignOp(var, line.opcode, [taccfg.MLoc(self.__pop())],
                          line.pc, print_name=False)
     elif line.opcode == opcodes.MSTORE:
       args = self.__pop_many(2)
-      inst = tac.TACAssignOp(tac.MLoc(args[0]), line.opcode, args[1:],
+      inst = taccfg.TACAssignOp(taccfg.MLoc(args[0]), line.opcode, args[1:],
                          line.pc, print_name=False)
     elif line.opcode == opcodes.MSTORE8:
       args = self.__pop_many(2)
-      inst = tac.TACAssignOp(tac.MLocByte(args[0]), line.opcode, args[1:],
+      inst = taccfg.TACAssignOp(taccfg.MLocByte(args[0]), line.opcode, args[1:],
                          line.pc, print_name=False)
     elif line.opcode == opcodes.SLOAD:
-      inst = tac.TACAssignOp(var, line.opcode, [tac.SLoc(self.__pop())],
+      inst = taccfg.TACAssignOp(var, line.opcode, [taccfg.SLoc(self.__pop())],
                          line.pc, print_name=False)
     elif line.opcode == opcodes.SSTORE:
       args = self.__pop_many(2)
-      inst = tac.TACAssignOp(tac.SLoc(args[0]), line.opcode, args[1:],
+      inst = taccfg.TACAssignOp(taccfg.SLoc(args[0]), line.opcode, args[1:],
                          line.pc, print_name=False)
     elif var is not None:
-      inst = tac.TACAssignOp(var, line.opcode,
+      inst = taccfg.TACAssignOp(var, line.opcode,
                          self.__pop_many(line.opcode.pop), line.pc)
     else:
-      inst = tac.TACOp(line.opcode, self.__pop_many(line.opcode.pop), line.pc)
+      inst = taccfg.TACOp(line.opcode, self.__pop_many(line.opcode.pop), line.pc)
 
     # This var must only be pushed after the operation is performed.
     if var is not None:

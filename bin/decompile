@@ -14,11 +14,11 @@ from dasmcfg import DasmCFG
 from stacksizeanalysis import run_analysis, block_stack_delta
 from destackify import Destackifier
 import optimise
-import tac
+import taccfg
 
 cfg = DasmCFG(fileinput.input())
 
-taccfg = tac.TacCfg(cfg)
+taccfg = taccfg.TacCfg(cfg)
 optimise.fold_constants(taccfg)
 taccfg.recheck_jumps()
 
