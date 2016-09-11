@@ -19,19 +19,19 @@ class DasmCFG(cfg.ControlFlowGraph):
     """
     super().__init__()
 
+    self.potential_leaders = dict()
     """
     Mapping of potential leaders (stored as base-10 PC values) based on JUMP
     destinations discovered by peephole analysis; in the form:
       PC => list(EVMBasicBlocks)
     """
-    self.potential_leaders = dict()
 
+    self.unresolved_jumps = []
     """
     List of DasmLines which represent JUMPs with an unresolved destination
     address Either these jumps use computed addresses, or the destination is
     pushed to the stack in a previous block.
     """
-    self.unresolved_jumps = []
 
     # Parse disassembly and set root/entry block of the CFG, containing PC 0
     self.root = self.__parse_disassembly(disasm)
@@ -181,14 +181,18 @@ class DasmLine:
     If None is passed to the value parameter, the instruction is assumed to
     contain no CONSTANT (as in the second example above).
     """
-    # Program counter, stored as a base-10 int
+
     self.pc = int(pc)
-    # VM operation code, stored as a string
+    """Program counter, stored as a base-10 int"""
+
     self.opcode = opcode
-    # Constant value, stored as a base-10 int or None
+    """VM operation code, stored as a string"""
+
     self.value = int(value, 16) if value != None else value
-    # EVMBasicBlock object to which this line belongs
+    """Constant value, stored as a base-10 int or None"""
+
     self.block = None
+    """EVMBasicBlock object to which this line belongs"""
 
   def __str__(self):
     if self.value is None:
