@@ -3,7 +3,7 @@
 import typing
 
 import opcodes
-import cfglib
+import dasmcfg
 import tac
 
 
@@ -89,7 +89,7 @@ class Destackifier:
     swapped = [items[-1]] + items[1:-1] + [items[0]]
     self.__push_many(reversed(swapped))
 
-  def convert_block(self, block:cfglib.EVMBasicBlock) -> tac.TACBlock:
+  def convert_block(self, block:dasmcfg.EVMBasicBlock) -> tac.TACBlock:
     """
     Given a EVMBasicBlock, convert its instructions to Three-Address Code.
     Return the converted sequence of operations,
@@ -110,7 +110,7 @@ class Destackifier:
       op.block = new_block
     return new_block
 
-  def __handle_line(self, line:cfglib.DasmLine) -> None:
+  def __handle_line(self, line:dasmcfg.DasmLine) -> None:
     """
     Convert a line to its corresponding instruction, if there is one,
     and manipulate the stack in any needful way.
@@ -125,7 +125,7 @@ class Destackifier:
     else:
       self.__gen_instruction(line)
 
-  def __gen_instruction(self, line:cfglib.DasmLine) -> None:
+  def __gen_instruction(self, line:dasmcfg.DasmLine) -> None:
     """
     Given a line, generate its corresponding TAC operation,
     append it to the op sequence, and push any generated

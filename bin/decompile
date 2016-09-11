@@ -10,7 +10,7 @@ src_path = join(dirname(abspath(__file__)), "../src")
 sys.path.insert(0, src_path)
 
 # Local project imports
-from cfglib import DasmCFG
+from dasmcfg import DasmCFG
 from stacksizeanalysis import run_analysis, block_stack_delta
 from destackify import Destackifier
 import optimise
