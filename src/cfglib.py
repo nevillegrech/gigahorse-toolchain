@@ -22,7 +22,7 @@ class DasmCFG(cfg.ControlFlowGraph):
     """
     Mapping of potential leaders (stored as base-10 PC values) based on JUMP
     destinations discovered by peephole analysis; in the form:
-      PC => list(BasicBlocks)
+      PC => list(EVMBasicBlocks)
     """
     self.potential_leaders = dict()
 
@@ -68,9 +68,9 @@ class DasmCFG(cfg.ControlFlowGraph):
 
   def __create_blocks(self, lines, pc2line):
     # block currently being processed
-    current = BasicBlock(0, len(lines) - 1)
+    current = EVMBasicBlock(0, len(lines) - 1)
 
-    # Linear scan of all DasmLines to create initial BasicBlocks
+    # Linear scan of all DasmLines to create initial EVMBasicBlocks
     for i, l in enumerate(lines):
       l.block = current
       current.lines.append(l)
@@ -101,7 +101,7 @@ class DasmCFG(cfg.ControlFlowGraph):
         current = new
 
   def __create_edges(self, lines, pc2line):
-    # Link BasicBlock CFG nodes by following JUMP destinations
+    # Link EVMBasicBlock CFG nodes by following JUMP destinations
     for to_pc, from_blocks in list(self.potential_leaders.items()):
       to_line = lines[pc2line[to_pc]]
       to_block = to_line.block
