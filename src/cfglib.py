@@ -1,60 +1,57 @@
-"""cfglib.py: Classes for processing Ethereum disasm output and building a
-CFG"""
+"""cfglib.py: Classes for processing disasm output and building a CFG"""
 
-# Local project imports
+import typing
+
+import cfg
 import utils
 import opcodes
 
-# Separator to be used for string representation of blocks
-BLOCK_SEP = "\n---"
-
-class ControlFlowGraph:
-  """Represents a Control Flow Graph (CFG) built from Ethereum VM bytecode
-  disassembly output created by the Ethereum disassembler tool (disasm)."""
-  def __init__(self, disasm:iter):
-    """Builds a CFG from the provided iterable of raw disasm output lines (as
+class DasmCFG(cfg.ControlFlowGraph):
+  """
+  Represents a Control Flow Graph (CFG) built from Ethereum VM bytecode
+  disassembly output created by the Ethereum disassembler tool (disasm).
+  """
+  def __init__(self, disasm:typing.Iterable):
+    """
+    Builds a CFG from the provided iterable of raw disasm output lines (as
     strings). The disasm output provided should be whole and complete,
-    including the non-assembly parts of its output (e.g. the first line)."""
-    # List of BasicBlock objects contained in the CFG
-    self.blocks = []
+    including the non-assembly parts of its output (e.g. the first line).
+    """
+    super().__init__()
 
-    # Mapping of potential leaders (stored as base-10 PC values) based on JUMP
-    # destinations discovered by peephole analysis; in the form:
-    #   PC => list(BasicBlocks)
+    """
+    Mapping of potential leaders (stored as base-10 PC values) based on JUMP
+    destinations discovered by peephole analysis; in the form:
+      PC => list(BasicBlocks)
+    """
     self.potential_leaders = dict()
 
-    # List of DisasmLines which represent JUMPs with an unresolved destination
-    # address Either these jumps use computed addresses, or the destination is
-    # pushed to the stack in a previous block.
+    """
+    List of DasmLines which represent JUMPs with an unresolved destination
+    address Either these jumps use computed addresses, or the destination is
+    pushed to the stack in a previous block.
+    """
     self.unresolved_jumps = []
 
     # Parse disassembly and set root/entry block of the CFG, containing PC 0
     self.root = self.__parse_disassembly(disasm)
 
-  def __len__(self):
-    return len(self.blocks)
-
-  def __str__(self):
-    return "\n".join(str(b) for b in self.blocks)
-
   def edge_list(self):
-    """Returns a list of the graph's directed edges in the form
+    """
+    Returns a list of the graph's directed edges in the form
     (src_pc, dest_pc), where each value is the base-10 program counter of the
-    first line in the corresponding block."""
-    edges = []
-    for src in self.blocks:
-      for dest in src.children:
-        edges.append((src.lines[0].pc, dest.lines[0].pc))
-    return edges
+    first line in the corresponding block.
+    """
+    return [(p.lines[0].pc, s.lines[0].pc) for p, s in super().edge_list()]
 
   def __parse_disassembly(self, disasm):
-    # Construct a list of DisasmLine objects from the raw input disassembly
+    # Construct a list of DasmLine objects from the raw input disassembly
     # lines, ignoring the first line of input (which is the bytecode's hex
     # representation when using Ethereum's disasm tool). Any line which does
     # not produce enough tokens to be valid disassembly after being split() is
     # also ignored.
     lines = [
-      DisasmLine.from_raw(l)
+      DasmLine.from_raw(l)
       for i, l in enumerate(disasm)
       if i != 0 and len(l.split()) > 1
     ]
@@ -73,7 +70,7 @@ class ControlFlowGraph:
     # block currently being processed
     current = BasicBlock(0, len(lines) - 1)
 
-    # Linear scan of all DisasmLines to create initial BasicBlocks
+    # Linear scan of all DasmLines to create initial BasicBlocks
     for i, l in enumerate(lines):
       l.block = current
       current.lines.append(l)
@@ -121,13 +118,13 @@ class ControlFlowGraph:
       # Ignore potential leaders with no known JUMPs coming to them
       if len(from_blocks) > 0:
         for from_block in from_blocks:
-          from_block.children.append(to_block)
-          to_block.parents.append(from_block)
+          from_block.successors.append(to_block)
+          to_block.predecessors.append(from_block)
 
         # We've dealt with this leader, remove it from potential_leaders
         self.potential_leaders.pop(to_pc)
 
-class BasicBlock:
+class EVMBasicBlock(cfg.CFGNode):
   """
   Represents a single basic block in the control flow graph (CFG), including
   its parent and child nodes in the graph structure.
@@ -135,55 +132,32 @@ class BasicBlock:
   def __init__(self, start:int=None, end:int=None):
     """Creates a new basic block containing disassembly lines between the
     specified start index and the specified end index (inclusive)."""
-    self.start = start
-    self.end = end
-    # DisasmLine objects contained in this block's range
-    self.lines = []
-    # BasicBlock objects which pass control to this block
-    self.parents = []
-    # BasicBlock objects which this block passes control to
-    self.children = []
+    super().__init__(start, end)
 
-  def __len__(self):
-    """Returns the number of DisasmLines contained within this block."""
-    return self.end - self.start
-
-  def __str__(self):
-    """Returns a string representation of this block and all lines in it."""
-    # str(BasicBlock) is as a newline-separated list of str(DisasmLine)
-    # with the BLOCK_SEP appended after the last line
-    return "\n".join(str(l) for l in self.lines) + BLOCK_SEP
-
-  def __hash__(self):
-    return id(self)
-
-  def split(self, start:int):
-    """Splits this block into a new block, starting at the specified
-    start line number. Returns the new BasicBlock."""
-    # Create the new block and assign the line ranges
-    new_block = BasicBlock(start, self.end)
-    self.end = start - 1
-    # Split the disasm lines
-    new_block.lines = self.lines[start-self.start:]
-    self.lines = self.lines[:start-self.start]
+  def split(self, start:int) -> 'EVMBasicBlock':
+    """
+    Splits this block into a new block, starting at the specified
+    start line number. Returns the new EVMBasicBlock.
+    """
+    new = super().split(start)
     # Update the block pointer in each line object
     self.update_lines()
-    new_block.update_lines()
-    return new_block
+    new.update_lines()
+    return new
 
   def update_lines(self):
-    """Updates the pointer in each DisasmLine object to point to this block.
-    This is called by BasicBlock.split() after a split to correct any
+    """Updates the pointer in each DasmLine object to point to this block.
+    This is called by EVMBasicBlock.split() after a split to correct any
     references to the original (pre-split) block."""
     for l in self.lines:
       l.block = self
 
-class DisasmLine:
+class DasmLine:
   """Represents a single line of EVM bytecode disassembly as produced by the
   official Ethereum 'disasm' disassembler."""
   def __init__(self, pc:str, opcode:opcodes.OpCode, value:str=None):
     """
-    Create a new DisasmLine object from the given strings which should
+    Create a new DasmLine object from the given strings which should
     correspond to disasm output. Each line of disasm output is structured as
     follows:
 
@@ -209,7 +183,7 @@ class DisasmLine:
     self.opcode = opcode
     # Constant value, stored as a base-10 int or None
     self.value = int(value, 16) if value != None else value
-    # BasicBlock object to which this line belongs
+    # EVMBasicBlock object to which this line belongs
     self.block = None
 
   def __str__(self):
@@ -225,15 +199,16 @@ class DisasmLine:
       self.__str__()
     )
 
-  @staticmethod
-  def from_raw(line:str):
-    """Creates and returns a new BasicBlock object from a raw line of
-    disassembly. The line should be from Ethereum's disasm disassembler."""
+  @classmethod
+  def from_raw(cls, line:str) -> 'DasmLine':
+    """
+    Creates and returns a new EVMBasicBlock object from a raw line of
+    disassembly. The line should be from Ethereum's disasm disassembler.
+    """
     l = line.split()
     if len(l) > 3:
-      return DisasmLine(l[0], opcodes.opcode_by_name(l[1]), l[3])
+      return type(cls)(l[0], opcodes.opcode_by_name(l[1]), l[3])
     elif len(l) > 1:
-      return DisasmLine(l[0], opcodes.opcode_by_name(l[1]))
+      return type(cls)(l[0], opcodes.opcode_by_name(l[1]))
     else:
-      raise Exception("Could not parse invalid disassembly format: " + str(l))
-
+      raise NotImplementedError("Could not parse unknown disassembly format: " + str(l))
