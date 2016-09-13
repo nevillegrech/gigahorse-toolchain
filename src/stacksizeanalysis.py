@@ -39,9 +39,9 @@ def run_analysis(cfg:evm_cfg.EVMGraph):
   # We will initialise entry stack size of all blocks with no predecesors
   # to zero in order to reason about the stack within a connected component.
   init_blocks = {cfg.root} | {block for block in cfg.blocks \
-                              if len(block.predecessors) == 0}
+                              if len(block.preds) == 0}
   for block in init_blocks:
-    block.predecessors.append(start_block)
+    block.preds.append(start_block)
 
   # Find the fixed point that is the meet-over-paths solution
   queue = list(cfg.blocks)
@@ -50,17 +50,17 @@ def run_analysis(cfg:evm_cfg.EVMGraph):
     current = queue.pop()
 
     # Calculate the new entry value for the current block.
-    new_entry = lattice.IntLatticeElement.meet_all([exit_info[parent] for parent in current.predecessors])
+    new_entry = lattice.IntLatticeElement.meet_all([exit_info[parent] for parent in current.preds])
 
     # If the entry value changed, we have to recompute
     # its exit value, and the entry value for its successors, eventually.
     if new_entry != entry_info[current]:
       entry_info[current] = new_entry
       exit_info[current] = new_entry + block_deltas[current]
-      queue += current.successors
+      queue += current.succs
 
   # Remove the start block that was added.
   for block in init_blocks:
-    block.predecessors.pop()
+    block.preds.pop()
 
   return (entry_info, exit_info)
