@@ -361,10 +361,6 @@ class TACBlock:
                        this block is executed. The new head is last in sequence.
       stack_pops: the number of items removed from the stack over the course of
                   block execution.
-      predecessors: A list of blocks that could branch to this block
-      successors: A list of blocks that this one could branch to.
-      has_unresolved_jump: True if the last instruction is a jump whose
-                           destination is computed.
 
       Entry and exit variables should span the entire range of values enclosed
       in this block, taking care to note that the exit address may not be an
@@ -379,13 +375,31 @@ class TACBlock:
     """
 
     self.entry = entry
+    """The program counter of the first byte in the source EVM block"""
+
     self.exit = exit
+    """The pc of the last byte in the source EVM block"""
+
     self.ops = ops
+    """A sequence of TACOps whose execution is equivalent to the source EVM
+       code"""
+
     self.stack_adds = stack_adds
+    """A sequence of new items inhabiting the top of stack after this block is
+       executed. The new head is last in sequence."""
+
     self.stack_pops = stack_pops
+    """Number of items removed from the stack during block execution."""
+
     self.preds = []
+    """List of predecessor blocks that could branch to this block."""
+
     self.succs = []
+    """List of successor blocks that this one could branch to."""
+
     self.has_unresolved_jump = False
+    """True if the last instruction is a jump whose destination is
+       computed."""
 
   def __str__(self):
     head = "Block [{}:{}]".format(hex(self.entry), hex(self.exit))
@@ -426,9 +440,9 @@ class TacCfg:
     for block in converted_map:
       converted = converted_map[block]
       converted.preds = [converted_map[parent] \
-                                for parent in block.predecessors]
+                                for parent in block.preds]
       converted.succs = [converted_map[child] \
-                              for child in block.successors]
+                              for child in block.succs]
 
     self.blocks = converted_map.values()
 
@@ -526,7 +540,7 @@ class TacCfg:
       block.has_unresolved_jump = unresolved
       block.succs = [d for d in {jumpdest, fallthrough} if d is not None]
 
-    # Having recalculated all the successors, hook up predecessors
+    # Having recalculated all the succs, hook up preds
     self.recalc_preds()
 
   def is_valid_jump_dest(self, pc:int) -> bool:

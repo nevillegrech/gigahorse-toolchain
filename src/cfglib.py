@@ -115,15 +115,15 @@ class DasmCFG(cfg.ControlFlowGraph):
         continue
 
       # Leader is in the middle of a block, so split the block
-      if pc2line[to_pc] > to_block.start:
+      if pc2line[to_pc] > to_block.entry:
         self.blocks.append(to_block.split(pc2line[to_pc]))
         to_block = self.blocks[-1]
 
       # Ignore potential leaders with no known JUMPs coming to them
       if len(from_blocks) > 0:
         for from_block in from_blocks:
-          from_block.successors.append(to_block)
-          to_block.predecessors.append(from_block)
+          from_block.succs.append(to_block)
+          to_block.preds.append(from_block)
 
         # We've dealt with this leader, remove it from potential_leaders
         self.potential_leaders.pop(to_pc)
@@ -133,10 +133,10 @@ class EVMBasicBlock(cfg.CFGNode):
   Represents a single basic block in the control flow graph (CFG), including
   its parent and child nodes in the graph structure.
   """
-  def __init__(self, start:int=None, end:int=None):
+  def __init__(self, entry:int=None, exit:int=None):
     """Creates a new basic block containing disassembly lines between the
-    specified start index and the specified end index (inclusive)."""
-    super().__init__(start, end)
+    specified entry index and the specified exit index (inclusive)."""
+    super().__init__(entry, exit)
 
   def split(self, start:int) -> 'EVMBasicBlock':
     """
