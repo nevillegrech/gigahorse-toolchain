@@ -10,13 +10,13 @@ src_path = join(dirname(abspath(__file__)), "../src")
 sys.path.insert(0, src_path)
 
 # Local project imports
-from cfglib import EVMOpCFG
+from cfglib import EVMGraph
 from stacksizeanalysis import run_analysis, block_stack_delta
 from destackify import Destackifier
 import optimise
 import tac
 
-cfg = EVMOpCFG(fileinput.input())
+cfg = EVMGraph(fileinput.input())
 
 taccfg = tac.TacCfg(cfg)
 optimise.fold_constants(taccfg)

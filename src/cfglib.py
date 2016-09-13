@@ -6,7 +6,7 @@ import cfg
 import utils
 import opcodes
 
-class EVMOpCFG(cfg.ControlFlowGraph):
+class EVMGraph(cfg.ControlFlowGraph):
   """
   Represents a Control Flow Graph (CFG) built from Ethereum VM bytecode
   disassembly output created by the Ethereum disassembler tool (disasm).
