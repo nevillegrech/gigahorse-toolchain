@@ -1,6 +1,6 @@
 """optimise.py: transformers that optimise TAC CFGs"""
 
-import taccfg
+import tac_cfg
 import opcodes
 
 # Intra-block optimisations
@@ -19,7 +19,7 @@ def convert_constant(var_values, var):
   Apply a mapping from variables and/or storage locations to constant values.
   """
   from copy import copy
-  if isinstance(var, taccfg.Location):
+  if isinstance(var, tac_cfg.Location):
     copy_loc = copy(var)
     copy_loc.address = convert_constant(var_values, copy_loc.address)
     return copy_loc
@@ -37,13 +37,13 @@ def fold_block_constants(block):
   for op in block.ops:
     # Evaluate constant values in args and mem locations
     op.args = [convert_constant(var_values, arg) for arg in op.args]
-    if isinstance(op, taccfg.TACAssignOp):
+    if isinstance(op, tac_cfg.TACAssignOp):
       op.lhs = convert_constant(var_values, op.lhs)
 
     # Evaluate arithmetic ops and update the mapping if we can
     if op.const_args():
       if op.opcode.is_arithmetic():
-        val = getattr(taccfg.Constant, op.opcode.name)(*op.args)
+        val = getattr(tac_cfg.Constant, op.opcode.name)(*op.args)
         var_values[op.lhs] = val
         op.opcode = opcodes.CONST
         op.args = [val]
@@ -57,4 +57,3 @@ def fold_block_constants(block):
   # Convert the stack with the final mapping.
   block.stack_adds = [convert_constant(var_values, var)
                       for var in block.stack_adds]
-

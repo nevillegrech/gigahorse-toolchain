@@ -14,16 +14,16 @@ from evm_cfg import EVMOpCFG
 from stacksizeanalysis import run_analysis, block_stack_delta
 from destackify import Destackifier
 import optimise
-import taccfg
+import tac_cfg
 
 cfg = EVMOpCFG(fileinput.input())
 
-taccfg = taccfg.TacCfg(cfg)
-optimise.fold_constants(taccfg)
-taccfg.recheck_jumps()
+tac_cfg = tac_cfg.TacCfg(cfg)
+optimise.fold_constants(tac_cfg)
+tac_cfg.recheck_jumps()
 
 blocks = zip(sorted(cfg.blocks, key=lambda block: block.lines[0].pc),
-             sorted(taccfg.blocks, key=lambda block: block.entry))
+             sorted(tac_cfg.blocks, key=lambda block: block.entry))
 
 for evm, tac in blocks:
   print(evm)
