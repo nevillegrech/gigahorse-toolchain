@@ -1,10 +1,10 @@
 """stacksizeanalysis.py: fixed-point static analysis to determine stack sizes
 in a CFG"""
 
-import cfglib
+import evm_cfg
 import lattice
 
-def block_stack_delta(block:cfglib.EVMBasicBlock):
+def block_stack_delta(block:evm_cfg.EVMBasicBlock):
   """Calculate the net effect on the stack size of executing
   the instruction sequence within a block."""
   delta = 0
@@ -14,7 +14,7 @@ def block_stack_delta(block:cfglib.EVMBasicBlock):
 
   return delta
 
-def run_analysis(cfg:cfglib.EVMGraph):
+def run_analysis(cfg:evm_cfg.EVMGraph):
   """Determine the stack size for each basic block within the given CFG
   at both entry and exit points, if it can be known. If there are multiple
   possible stack sizes a value of BOTTOM is instead assigned.
@@ -33,7 +33,7 @@ def run_analysis(cfg:cfglib.EVMGraph):
                   for block in cfg.blocks}
 
   # Add a distinguished empty-stack start block which does nothing.
-  start_block = cfglib.EVMBasicBlock()
+  start_block = evm_cfg.EVMBasicBlock()
   exit_info[start_block] = lattice.IntLatticeElement(0)
 
   # We will initialise entry stack size of all blocks with no predecesors
