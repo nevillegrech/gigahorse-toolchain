@@ -14,7 +14,7 @@ def block_stack_delta(block:cfglib.EVMBasicBlock):
 
   return delta
 
-def run_analysis(cfg:cfglib.DasmCFG):
+def run_analysis(cfg:cfglib.EVMOpCFG):
   """Determine the stack size for each basic block within the given CFG
   at both entry and exit points, if it can be known. If there are multiple
   possible stack sizes a value of BOTTOM is instead assigned.

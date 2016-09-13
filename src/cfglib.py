@@ -6,7 +6,7 @@ import cfg
 import utils
 import opcodes
 
-class DasmCFG(cfg.ControlFlowGraph):
+class EVMOpCFG(cfg.ControlFlowGraph):
   """
   Represents a Control Flow Graph (CFG) built from Ethereum VM bytecode
   disassembly output created by the Ethereum disassembler tool (disasm).
@@ -23,6 +23,7 @@ class DasmCFG(cfg.ControlFlowGraph):
     """
     Mapping of potential leaders (stored as base-10 PC values) based on JUMP
     destinations discovered by peephole analysis; in the form:
+
       PC => list(EVMBasicBlocks)
     """
 
