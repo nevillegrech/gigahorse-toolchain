@@ -10,13 +10,13 @@ src_path = join(dirname(abspath(__file__)), "../src")
 sys.path.insert(0, src_path)
 
 # Local project imports
-from dasmcfg import DasmCFG
+from dasmcfg import EVMOpCFG
 from stacksizeanalysis import run_analysis, block_stack_delta
 from destackify import Destackifier
 import optimise
 import taccfg
 
-cfg = DasmCFG(fileinput.input())
+cfg = EVMOpCFG(fileinput.input())
 
 taccfg = taccfg.TacCfg(cfg)
 optimise.fold_constants(taccfg)
