@@ -5,7 +5,15 @@ import abc
 import cfg
 import patterns
 
-class CFGExporter(patterns.Visitor):
+class Exporter(abc.ABC):
+  @abc.abstractmethod
+  def export(self):
+    """
+    Abstract method which performs the final export using state collected
+    during visitations.
+    """
+
+class CFGExporter(Exporter, patterns.Visitor):
   """
   Abstract base visitor for exporting CFGs.
   """
@@ -16,13 +24,6 @@ class CFGExporter(patterns.Visitor):
 
     Args:
       cfg_node: the CFG node to be visited.
-    """
-
-  @abc.abstractmethod
-  def export(self):
-    """
-    Abstract method which performs the final export using state collected
-    during visitations.
     """
 
 class PrintExporter(CFGExporter):
