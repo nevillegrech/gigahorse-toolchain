@@ -25,9 +25,9 @@ def cfg2dot(cfg, out_filename:str="cfg.dot"):
   G = nx.DiGraph()
   G.add_edges_from((hex(a), hex(b)) for a, b in cfg.edge_list())
   G.add_nodes_from(hex(b.lines[0].pc) for b in cfg.blocks)
-  if len(cfg.unresolved_jumps) > 0:
-    for l in cfg.unresolved_jumps:
-      G.add_edge(hex(l.block.lines[0].pc), "?")
+  for b in cfg.blocks:
+    if b.has_unresolved_jump:
+      G.add_edge(hex(b.lines[0].pc), "?")
   write_dot(G, out_filename)
 
 
