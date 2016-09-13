@@ -11,7 +11,7 @@ class DasmCFG(cfg.ControlFlowGraph):
   Represents a Control Flow Graph (CFG) built from Ethereum VM bytecode
   disassembly output created by the Ethereum disassembler tool (disasm).
   """
-  def __init__(self, disasm:typing.Iterable):
+  def __init__(self, disasm:typing.Iterable[EVMOp]):
     """
     Builds a CFG from the provided iterable of raw disasm output lines (as
     strings). The disasm output provided should be whole and complete,
@@ -28,7 +28,7 @@ class DasmCFG(cfg.ControlFlowGraph):
 
     self.unresolved_jumps = []
     """
-    List of DasmLines which represent JUMPs with an unresolved destination
+    List of EVMOps which represent JUMPs with an unresolved destination
     address Either these jumps use computed addresses, or the destination is
     pushed to the stack in a previous block.
     """
@@ -45,13 +45,13 @@ class DasmCFG(cfg.ControlFlowGraph):
     return [(p.lines[0].pc, s.lines[0].pc) for p, s in super().edge_list()]
 
   def __parse_disassembly(self, disasm):
-    # Construct a list of DasmLine objects from the raw input disassembly
+    # Construct a list of EVMOp objects from the raw input disassembly
     # lines, ignoring the first line of input (which is the bytecode's hex
     # representation when using Ethereum's disasm tool). Any line which does
     # not produce enough tokens to be valid disassembly after being split() is
     # also ignored.
     lines = [
-      DasmLine.from_raw(l)
+      EVMOp.from_raw(l)
       for i, l in enumerate(disasm)
       if i != 0 and len(l.split()) > 1
     ]
@@ -70,7 +70,7 @@ class DasmCFG(cfg.ControlFlowGraph):
     # block currently being processed
     current = EVMBasicBlock(0, len(lines) - 1)
 
-    # Linear scan of all DasmLines to create initial EVMBasicBlocks
+    # Linear scan of all EVMOps to create initial EVMBasicBlocks
     for i, l in enumerate(lines):
       l.block = current
       current.lines.append(l)
@@ -150,18 +150,18 @@ class EVMBasicBlock(cfg.CFGNode):
     return new
 
   def update_lines(self):
-    """Updates the pointer in each DasmLine object to point to this block.
+    """Updates the pointer in each EVMOp object to point to this block.
     This is called by EVMBasicBlock.split() after a split to correct any
     references to the original (pre-split) block."""
     for l in self.lines:
       l.block = self
 
-class DasmLine:
+class EVMOp:
   """Represents a single line of EVM bytecode disassembly as produced by the
   official Ethereum 'disasm' disassembler."""
   def __init__(self, pc:str, opcode:opcodes.OpCode, value:str=None):
     """
-    Create a new DasmLine object from the given strings which should
+    Create a new EVMOp object from the given strings which should
     correspond to disasm output. Each line of disasm output is structured as
     follows:
 
@@ -208,7 +208,7 @@ class DasmLine:
     )
 
   @classmethod
-  def from_raw(cls, line:str) -> 'DasmLine':
+  def from_raw(cls, line:str) -> 'EVMOp':
     """
     Creates and returns a new EVMBasicBlock object from a raw line of
     disassembly. The line should be from Ethereum's disasm disassembler.
