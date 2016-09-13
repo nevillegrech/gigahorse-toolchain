@@ -8,7 +8,7 @@ import tac
 
 
 class Destackifier:
-  """Converts BasicBlocks into corresponding TAC operation sequences.
+  """Converts EVMBasicBlocks into corresponding TAC operation sequences.
 
   Most instructions get mapped over directly, except:
       POP: generates no TAC op, but pops the symbolic stack;
@@ -89,9 +89,9 @@ class Destackifier:
     swapped = [items[-1]] + items[1:-1] + [items[0]]
     self.__push_many(reversed(swapped))
 
-  def convert_block(self, block:cfglib.BasicBlock) -> tac.TACBlock:
+  def convert_block(self, block:cfglib.EVMBasicBlock) -> tac.TACBlock:
     """
-    Given a BasicBlock, convert its instructions to Three-Address Code.
+    Given a EVMBasicBlock, convert its instructions to Three-Address Code.
     Return the converted sequence of operations,
     the final state of the stack,
     and the number of items that have been removed from the external stack.
@@ -110,7 +110,7 @@ class Destackifier:
       op.block = new_block
     return new_block
 
-  def __handle_line(self, line:cfglib.DisasmLine) -> None:
+  def __handle_line(self, line:cfglib.EVMOp) -> None:
     """
     Convert a line to its corresponding instruction, if there is one,
     and manipulate the stack in any needful way.
@@ -125,7 +125,7 @@ class Destackifier:
     else:
       self.__gen_instruction(line)
 
-  def __gen_instruction(self, line:cfglib.DisasmLine) -> None:
+  def __gen_instruction(self, line:cfglib.EVMOp) -> None:
     """
     Given a line, generate its corresponding TAC operation,
     append it to the op sequence, and push any generated
