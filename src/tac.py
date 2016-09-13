@@ -433,8 +433,8 @@ class TacCfg:
                      for block in cfg.blocks}
 
     # Determine which blocks have indeterminate jump destinations.
-    for line in cfg.unresolved_jumps:
-      converted_map[line.block].has_unresolved_jump = True
+    for b in cfg.blocks:
+      converted_map[b].has_unresolved_jump = b.has_unresolved_jump
 
     # Connect all the edges.
     for block in converted_map:

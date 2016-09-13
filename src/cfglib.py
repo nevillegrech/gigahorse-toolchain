@@ -26,14 +26,6 @@ class EVMGraph(cfg.ControlFlowGraph):
 
       PC => list(EVMBasicBlocks)
     """
-
-    self.unresolved_jumps = []
-    """
-    List of EVMOps which represent JUMPs with an unresolved destination
-    address Either these jumps use computed addresses, or the destination is
-    pushed to the stack in a previous block.
-    """
-
     # Parse disassembly and set root/entry block of the CFG, containing PC 0
     self.root = self.__parse_disassembly(disasm)
 
@@ -91,7 +83,7 @@ class EVMGraph(cfg.ControlFlowGraph):
             dest = lines[i-1].value
             utils.listdict_add(self.potential_leaders, dest, current)
           else:
-            self.unresolved_jumps.append(l)
+              current.has_unresolved_jump = True
 
           # For JUMPI, the next sequential block starting at pc+1 is a
           # possible child of this block in the CFG
