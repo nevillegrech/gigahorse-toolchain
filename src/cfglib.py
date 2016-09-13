@@ -159,16 +159,22 @@ class EVMBasicBlock(cfg.CFGNode):
 class EVMOp:
   """Represents a single line of EVM bytecode disassembly as produced by the
   official Ethereum 'disasm' disassembler."""
-  def __init__(self, pc:str, opcode:opcodes.OpCode, value:str=None):
+  def __init__(self, pc:int, opcode:opcodes.OpCode, value:int=None):
     """
-    Create a new EVMOp object from the given strings which should
-    correspond to disasm output. Each line of disasm output is structured as
-    follows:
+    Create a new EVMOp object from the given params which should correspond to
+    disasm output.
+
+    Args:
+      pc: program counter of this operation
+      opcode: VM operation code
+      value: constant int value or None in case of non-PUSH operations
+
+    Each line of disasm output is structured as follows:
 
     PC <spaces> OPCODE <spaces> => CONSTANT
 
     where:
-      - PC is the program counter (base 10 integer)
+      - PC is the program counter
       - OPCODE is an object representing an EVM instruction code
       - CONSTANT is a hexadecimal value with 0x notational prefix
       - <spaces> is a variable number of spaces
@@ -182,14 +188,14 @@ class EVMOp:
     contain no CONSTANT (as in the second example above).
     """
 
-    self.pc = int(pc)
-    """Program counter, stored as a base-10 int"""
+    self.pc = pc
+    """Program counter of this operation"""
 
     self.opcode = opcode
-    """VM operation code, stored as a string"""
+    """VM operation code"""
 
-    self.value = int(value, 16) if value != None else value
-    """Constant value, stored as a base-10 int or None"""
+    self.value = value
+    """Constant int value or None"""
 
     self.block = None
     """EVMBasicBlock object to which this line belongs"""
@@ -210,13 +216,13 @@ class EVMOp:
   @classmethod
   def from_raw(cls, line:str) -> 'EVMOp':
     """
-    Creates and returns a new EVMBasicBlock object from a raw line of
-    disassembly. The line should be from Ethereum's disasm disassembler.
+    Creates and returns a new EVMOp object from a raw line of disassembly.
+    The line should be from Ethereum's disasm disassembler.
     """
     l = line.split()
     if len(l) > 3:
-      return cls(l[0], opcodes.opcode_by_name(l[1]), l[3])
+      return cls(int(l[0]), opcodes.opcode_by_name(l[1]), int(l[3], 16))
     elif len(l) > 1:
-      return cls(l[0], opcodes.opcode_by_name(l[1]))
+      return cls(int(l[0]), opcodes.opcode_by_name(l[1]))
     else:
       raise NotImplementedError("Could not parse unknown disassembly format: " + str(l))
