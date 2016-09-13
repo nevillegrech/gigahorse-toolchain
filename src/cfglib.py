@@ -11,7 +11,7 @@ class DasmCFG(cfg.ControlFlowGraph):
   Represents a Control Flow Graph (CFG) built from Ethereum VM bytecode
   disassembly output created by the Ethereum disassembler tool (disasm).
   """
-  def __init__(self, disasm:typing.Iterable[EVMOp]):
+  def __init__(self, disasm:typing.Iterable['EVMOp']):
     """
     Builds a CFG from the provided iterable of raw disasm output lines (as
     strings). The disasm output provided should be whole and complete,
