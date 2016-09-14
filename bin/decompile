@@ -13,8 +13,10 @@ sys.path.insert(0, src_path)
 from stacksizeanalysis import run_analysis, block_stack_delta
 import optimise
 import tac_cfg
+import blockparse
 
-tac_cfg = tac_cfg.TACGraph(fileinput.input())
+evm_blocks = blockparse.EVMBlockParser(fileinput.input()).parse()
+tac_cfg = tac_cfg.TACGraph(evm_blocks)
 optimise.fold_constants(tac_cfg)
 print(tac_cfg)
 tac_cfg.recheck_jumps()

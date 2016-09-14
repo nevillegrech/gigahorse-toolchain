@@ -4,7 +4,6 @@ import typing
 
 import abc
 import cfg
-import utils
 import evm_cfg
 import opcodes
 
