@@ -14,13 +14,26 @@ class BlockParser(abc.ABC):
   @abc.abstractmethod
   def __init__(self, raw:object):
     """
+    Constructs a new BlockParser for parsing the given raw input object.
+
+    Args:
+      raw: parser-specific object containing raw input to be parsed.
     """
+
     self._raw = raw
+    """raw: parser-specific object containing raw input to be parsed."""
+
     self._ops = []
+    """
+    List of program operations extracted from the raw input object.
+    Indices from this list are used as unique identifiers for program
+    operations when constructing BasicBlocks.
+    """
 
   @abc.abstractmethod
   def parse(self) -> typing.Iterable[cfg.BasicBlock]:
     """
+    Parses the raw input object and returns an iterable of BasicBlocks.
     """
 
   @classmethod
@@ -32,8 +45,7 @@ class BlockParser(abc.ABC):
     Args:
       raw: parser-specific object containing raw input to be parsed.
     """
-    parser = cls(raw)
-    return parser.parse()
+    return cls(raw).parse()
 
 class EVMBlockParser(BlockParser):
   def __init__(self, dasm:typing.Iterable[str]):
