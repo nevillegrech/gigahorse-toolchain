@@ -91,7 +91,8 @@ class EVMBlockParser(BlockParser):
 
       # Flow-altering opcodes indicate end-of-block
       if op.opcode.alters_flow() or op.opcode == opcodes.JUMPDEST:
-        new = current.split(i+1)
+        index = i if op.opcode == opcodes.JUMPDEST else i+1
+        new = current.split(index)
         self.__blocks.append(current)
 
         # Mark all JUMPs as unresolved
