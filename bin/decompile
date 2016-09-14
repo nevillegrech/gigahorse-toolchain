@@ -10,20 +10,20 @@ src_path = join(dirname(abspath(__file__)), "../src")
 sys.path.insert(0, src_path)
 
 # Local project imports
-from cfglib import EVMGraph
+from evm_cfg import EVMGraph
 from stacksizeanalysis import run_analysis, block_stack_delta
 from destackify import Destackifier
 import optimise
-import tac
+import tac_cfg
 
 cfg = EVMGraph(fileinput.input())
 
-taccfg = tac.TacCfg(cfg)
-optimise.fold_constants(taccfg)
-taccfg.recheck_jumps()
+tac_cfg = tac_cfg.TacCfg(cfg)
+optimise.fold_constants(tac_cfg)
+tac_cfg.recheck_jumps()
 
 blocks = zip(sorted(cfg.blocks, key=lambda block: block.lines[0].pc),
-             sorted(taccfg.blocks, key=lambda block: block.entry))
+             sorted(tac_cfg.blocks, key=lambda block: block.entry))
 
 for evm, tac in blocks:
   print(evm)
