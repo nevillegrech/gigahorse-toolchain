@@ -3,6 +3,7 @@
 import typing
 
 import tac_cfg
+import memtypes as mem
 import opcodes
 
 # Intra-block optimisations
@@ -16,14 +17,14 @@ def fold_constants(cfg:tac_cfg.TACGraph):
   for block in cfg.blocks:
     fold_block_constants(block)
 
-VarOrLoc = typing.Union[tac_cfg.Location, tac_cfg.Variable]
-VarValMapping = typing.Mapping[VarOrLoc, tac_cfg.Constant]
+VarOrLoc = typing.Union[mem.Location, mem.Variable]
+VarValMapping = typing.Mapping[VarOrLoc, mem.Constant]
 def convert_constant(var_values:VarValMapping, var:VarOrLoc):
   """
   Apply a mapping from variables and/or storage locations to constant values.
   """
   from copy import copy
-  if isinstance(var, tac_cfg.Location):
+  if isinstance(var, mem.Location):
     copy_loc = copy(var)
     copy_loc.address = convert_constant(var_values, copy_loc.address)
     return copy_loc
@@ -47,7 +48,7 @@ def fold_block_constants(block:tac_cfg.TACBasicBlock):
     # Evaluate arithmetic ops and update the mapping if we can
     if op.const_args():
       if op.opcode.is_arithmetic():
-        val = getattr(tac_cfg.Constant, op.opcode.name)(*op.args)
+        val = getattr(mem.Constant, op.opcode.name)(*op.args)
         var_values[op.lhs] = val
         op.opcode = opcodes.CONST
         op.args = [val]

@@ -10,7 +10,6 @@ src_path = join(dirname(abspath(__file__)), "../src")
 sys.path.insert(0, src_path)
 
 # Local project imports
-from stacksizeanalysis import run_analysis, block_stack_delta
 import optimise
 import tac_cfg
 import blockparse
