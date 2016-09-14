@@ -18,12 +18,12 @@ class CFGExporter(Exporter, patterns.Visitor):
   Abstract base visitor for exporting CFGs.
   """
   @abc.abstractmethod
-  def visit(self, cfg_node:cfg.CFGNode):
+  def visit(self, cfg_node:cfg.BasicBlock):
     """
     Abstract method which visits a given CFG node.
 
     Args:
-      cfg_node: the CFG node to be visited.
+      cfg_node: the CFG node (basic block) to be visited.
     """
 
 class PrintExporter(CFGExporter):
