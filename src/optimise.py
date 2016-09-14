@@ -1,5 +1,7 @@
 """optimise.py: transformers that optimise TAC CFGs"""
 
+import typing
+
 import tac_cfg
 import opcodes
 
@@ -7,14 +9,16 @@ import opcodes
 
 # CONSTANT FOLDING AND PROPAGATION
 
-def fold_constants(cfg):
+def fold_constants(cfg:tac_cfg.TACGraph):
   """
   Within blocks, propagate constant values and evaluate arithmetic ops on constants.
   """
   for block in cfg.blocks:
     fold_block_constants(block)
 
-def convert_constant(var_values, var):
+VarOrLoc = typing.Union[tac_cfg.Location, tac_cfg.Variable]
+VarValMapping = typing.Mapping[VarOrLoc, tac_cfg.Constant]
+def convert_constant(var_values:VarValMapping, var:VarOrLoc):
   """
   Apply a mapping from variables and/or storage locations to constant values.
   """
@@ -28,13 +32,13 @@ def convert_constant(var_values, var):
   else:
     return copy(var)
 
-def fold_block_constants(block):
+def fold_block_constants(block:tac_cfg.TACBasicBlock):
   """
   Propagate constants and evaluate arithmetic ops with constant args in a block.
   """
   var_values = {}
 
-  for op in block.ops:
+  for op in block.tac_ops:
     # Evaluate constant values in args and mem locations
     op.args = [convert_constant(var_values, arg) for arg in op.args]
     if isinstance(op, tac_cfg.TACAssignOp):
