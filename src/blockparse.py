@@ -86,7 +86,7 @@ class EVMBlockParser(BlockParser):
 
       # Flow-altering opcodes indicate end-of-block
       if op.opcode.alters_flow():
-        current, new = self.__split_block(current, i+1)
+        new = current.split(i+1)
         self.__blocks.append(current)
 
         # Mark all JUMPs as unresolved
@@ -99,32 +99,6 @@ class EVMBlockParser(BlockParser):
       # Always add last block if its last instruction does not alter flow
       elif i == len(self._ops) - 1:
         self.__blocks.append(current)
-
-  def __split_block(self, block, entry:int) -> \
-      typing.Tuple[evm_cfg.EVMBasicBlock, evm_cfg.EVMBasicBlock]:
-    """
-    Splits given block into a new block, starting at the specified
-    entry line number. Returns two EVMBasicBlocks.
-    """
-    # Create the new block and assign the code line ranges
-    new = type(block)(entry, block.exit)
-    block.exit = entry - 1
-
-    # Split the code lines between the two nodes
-    new.evm_ops = block.evm_ops[entry-block.entry:]
-    block.evm_ops = block.evm_ops[:entry-block.entry]
-
-    # Update the block pointer in each line object
-    self.__update_evmop_block_refs(block)
-    self.__update_evmop_block_refs(new)
-
-    return block, new
-
-  def __update_evmop_block_refs(self, block):
-    # Update references back to parent block for each opcode
-    # This needs to be done when a block is split
-    for op in block.evm_ops:
-      op.block = block
 
   @staticmethod
   def evm_op_from_dasm(line:str) -> evm_cfg.EVMOp:
