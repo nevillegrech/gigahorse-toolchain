@@ -1,6 +1,7 @@
 """stacksizeanalysis.py: fixed-point static analysis to determine stack sizes
 in a CFG"""
 
+import cfg
 import evm_cfg
 import lattice
 
@@ -14,7 +15,7 @@ def block_stack_delta(block:evm_cfg.EVMBasicBlock):
 
   return delta
 
-def run_analysis(cfg:evm_cfg.EVMGraph):
+def run_analysis(cfg:cfg.ControlFlowGraph):
   """Determine the stack size for each basic block within the given CFG
   at both entry and exit points, if it can be known. If there are multiple
   possible stack sizes a value of BOTTOM is instead assigned.
