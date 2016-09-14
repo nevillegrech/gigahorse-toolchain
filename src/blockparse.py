@@ -90,9 +90,8 @@ class EVMBlockParser(BlockParser):
       current.evm_ops.append(op)
 
       # Flow-altering opcodes indicate end-of-block
-      if op.opcode.alters_flow() or op.opcode == opcodes.JUMPDEST:
-        index = i if op.opcode == opcodes.JUMPDEST else i+1
-        new = current.split(index)
+      if op.opcode.alters_flow():
+        new = current.split(i+1)
         self.__blocks.append(current)
 
         # Mark all JUMPs as unresolved
@@ -100,6 +99,14 @@ class EVMBlockParser(BlockParser):
           current.has_unresolved_jump = True
 
         # Process the next sequential block in our next iteration
+        current = new
+
+      # JUMPDESTs indicate the start of a block.
+      # A JUMPDEST should be split on only if it's not already the first operation in a block.
+      # In this way we avoid producing empty blocks if JUMPDESTs follow flow-altering operations.
+      elif op.opcode == opcodes.JUMPDEST and len(current.evm_ops) > 1:
+        new = current.split(i)
+        self.__blocks.append(current)
         current = new
 
       # Always add last block if its last instruction does not alter flow
