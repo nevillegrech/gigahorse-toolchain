@@ -59,12 +59,6 @@ class EVMBlockParser(BlockParser):
     """
     super().__init__(dasm)
 
-    self.__pc2op = dict()
-    """
-    Mapping of program counters to line indices (Used for mapping jump
-    destinations to actual disassembly lines)
-    """
-
     self.__blocks = []
 
   def parse(self):
@@ -82,7 +76,6 @@ class EVMBlockParser(BlockParser):
     ]
 
     self.__blocks = []
-    self.__pc2op = {l.pc: i for i, l in enumerate(self._ops)}
     self.__create_blocks()
 
     return self.__blocks
@@ -97,7 +90,7 @@ class EVMBlockParser(BlockParser):
       current.evm_ops.append(op)
 
       # Flow-altering opcodes indicate end-of-block
-      if op.opcode.alters_flow():
+      if op.opcode.alters_flow() or op.opcode == opcodes.JUMPDEST:
         new = current.split(i+1)
         self.__blocks.append(current)
 
