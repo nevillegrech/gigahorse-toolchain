@@ -250,4 +250,4 @@ def opcode_by_value(val:int) -> OpCode:
   """Mapping: Retrieves the OpCode object with the given value."""
   if val not in OPCODES:
     raise Exception("No opcode with value '{}'.".format(val))
-  return OPCODES[val] 
+  return OPCODES[val]
