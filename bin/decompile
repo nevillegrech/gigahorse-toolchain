@@ -17,7 +17,6 @@ import blockparse
 evm_blocks = blockparse.EVMBlockParser(fileinput.input()).parse()
 tac_cfg = tac_cfg.TACGraph(evm_blocks)
 optimise.fold_constants(tac_cfg)
-print(tac_cfg)
 tac_cfg.recheck_jumps()
 
 print(tac_cfg)
