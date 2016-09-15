@@ -101,8 +101,8 @@ class EVMBlockParser(BlockParser):
         current = new
 
       # JUMPDESTs indicate the start of a block.
-      # A JUMPDEST should be split on only if it's not already the first 
-      # operation in a block. In this way we avoid producing empty blocks if 
+      # A JUMPDEST should be split on only if it's not already the first
+      # operation in a block. In this way we avoid producing empty blocks if
       # JUMPDESTs follow flow-altering operations.
       elif op.opcode == opcodes.JUMPDEST and len(current.evm_ops) > 1:
         new = current.split(i)

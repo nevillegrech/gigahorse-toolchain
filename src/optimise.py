@@ -58,7 +58,7 @@ def fold_block_constants(block:tac_cfg.TACBasicBlock):
     # Evaluate arithmetic ops and update the mapping if we can
     if op.const_args():
       if op.opcode.is_arithmetic():
-        
+
         # Obtain the appropriate arithmetic operation by name from the Constant class methods
         # and apply it to the op arguments.
         val = getattr(mem.Constant, op.opcode.name)(*op.args)
