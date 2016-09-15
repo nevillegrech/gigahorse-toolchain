@@ -13,6 +13,10 @@ import opcodes
 def fold_constants(cfg:tac_cfg.TACGraph):
   """
   Within blocks, propagate constant values and evaluate arithmetic ops on constants.
+  Modifies the graph in-place.
+
+  Args:
+    tac_cfg: an input graph to be transformed.
   """
   for block in cfg.blocks:
     fold_block_constants(block)
@@ -22,6 +26,11 @@ VarValMapping = typing.Mapping[VarOrLoc, mem.Constant]
 def convert_constant(var_values:VarValMapping, var:VarOrLoc):
   """
   Apply a mapping from variables and/or storage locations to constant values.
+  Return the variable itself if no mapping is available.
+
+  Args:
+    var_values: a mapping from variables and locations to constants that they are equivalent to.
+    var: the variable to map.
   """
   from copy import copy
   if isinstance(var, mem.Location):
@@ -36,6 +45,7 @@ def convert_constant(var_values:VarValMapping, var:VarOrLoc):
 def fold_block_constants(block:tac_cfg.TACBasicBlock):
   """
   Propagate constants and evaluate arithmetic ops with constant args in a block.
+  Modifies the block in place.
   """
   var_values = {}
 
@@ -48,7 +58,11 @@ def fold_block_constants(block:tac_cfg.TACBasicBlock):
     # Evaluate arithmetic ops and update the mapping if we can
     if op.const_args():
       if op.opcode.is_arithmetic():
+        
+        # Obtain the appropriate arithmetic operation by name from the Constant class methods
+        # and apply it to the op arguments.
         val = getattr(mem.Constant, op.opcode.name)(*op.args)
+
         var_values[op.lhs] = val
         op.opcode = opcodes.CONST
         op.args = [val]
