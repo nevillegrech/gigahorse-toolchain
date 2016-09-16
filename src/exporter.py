@@ -32,16 +32,19 @@ class CFGTsvExporter(Exporter, patterns.Visitor):
     self.nodes.append(node)
 
     for tac in node.tac_ops:
-      # Add opcode relations
       self.ops.append((hex(tac.pc), tac.opcode))
 
-      # Add definition relations
       if isinstance(tac, tac_cfg.TACAssignOp):
-        # TODO -- Add notion of blockchain and local memory
-        self.defined.append((hex(tac.pc), 'V' + str(tac.pc)))
 
-      # Add read relations
+        # Memory assignments are not considered as 'variable definitions'
+        if not isinstance(tac.lhs, memtypes.Location):
+          self.defined.append((hex(tac.pc), tac.lhs))
+
+        # TODO -- Add notion of blockchain and local memory
+        self.writes.append((hex(tac.pc), tac.lhs))
+
       for arg in tac.args:
+
         # Only include variable reads; ignore constants
         if not arg.is_const:
           self.reads.append((hex(tac.pc), arg))
@@ -57,6 +60,7 @@ class CFGTsvExporter(Exporter, patterns.Visitor):
     generate('op.facts', self.ops)
     generate('defined.facts', self.defined)
     generate('read.facts', self.reads)
+    generate('write.facts', self.writes)
 
     # Note: Start and End are currently singletons
     # TODO -- Update starts and ends to be based on function boundaries
