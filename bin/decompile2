@@ -1,0 +1,25 @@
+#!/usr/bin/env python3
+
+# Standard lib imports
+from os.path import abspath, dirname, join
+import sys
+import fileinput
+
+# Prepend ../src to $PATH so the project modules can be imported below
+src_path = join(dirname(abspath(__file__)), "../src")
+sys.path.insert(0, src_path)
+
+# Local project imports
+import optimise
+import tac_cfg
+import blockparse
+import exporter
+
+tac_cfg = tac_cfg.TACGraph.from_dasm(fileinput.input())
+optimise.fold_constants(tac_cfg)
+tac_cfg.recheck_jumps()
+
+# Export TSV files
+exporter = exporter.CFGTsvExporter()
+tac_cfg.accept(exporter)
+exporter.export()
