@@ -22,19 +22,33 @@ class CFGTsvExporter(Exporter, patterns.Visitor):
   def __init__(self):
     self.nodes = []
     self.ops = []
+    self.edges = []
+    self.defined = []
+    self.reads = []
+    self.writes = []
 
   def visit(self, node):
     self.nodes.append(node)
+
     for tac in node.tac_ops:
+      # Add opcode relations
       self.ops.append((hex(tac.pc), tac.opcode))
 
-  def export(self):
-    # Generate opcode relations (op.facts)
-    with open('op.facts', 'w') as f:
-      writer = csv.writer(f, delimiter='\t', quotechar='"', quoting=csv.QUOTE_NONE)
-      for l in self.ops:
-        writer.writerow(l)
+      # Add definition relations
+      if isinstance(tac, tac_cfg.TACAssignOp):
+        # TODO: Add notion of blockchain and local memory
+        self.defined.append((hex(tac.pc), 'V' + str(tac.pc)))
 
+
+  def export(self):
+    # Inner function for DRYness
+    def generate(filename, entries):
+      with open(filename, 'w') as f:
+        writer = csv.writer(f, delimiter='\t')
+        for e in entries:
+          writer.writerow(e)
+    generate('op.facts', self.ops)
+    generate('defined.facts', self.defined)
 
 class CFGPrintExporter(Exporter, patterns.Visitor):
   def __init__(self, ordered=True):
