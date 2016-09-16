@@ -31,22 +31,43 @@ class CFGTsvExporter(Exporter, patterns.Visitor):
   def visit(self, node):
     self.nodes.append(node)
 
+    # Add edges from predecessor exits to this node's entry
+    for pred in node.preds:
+      # Generating edge.facts
+      self.edges.append((hex(pred.exit), hex(node.entry)))
+
+    # Keep track of previous TACOp for building edges
+    prev_tac = None
+
     for tac in node.tac_ops:
+
+      # Add edges between TACOps (generate edge.facts)
+      if prev_tac != None:
+        # Generating edge.facts
+        self.edges.append((hex(prev_tac.pc), hex(tac.pc)))
+      prev_tac = tac
+
+      # Generate op.facts
       self.ops.append((hex(tac.pc), tac.opcode))
 
       if isinstance(tac, tac_cfg.TACAssignOp):
 
         # Memory assignments are not considered as 'variable definitions'
         if not isinstance(tac.lhs, memtypes.Location):
+
+          # Generate defined.facts
           self.defined.append((hex(tac.pc), tac.lhs))
 
         # TODO -- Add notion of blockchain and local memory
+        # Generate write.facts
         self.writes.append((hex(tac.pc), tac.lhs))
 
       for arg in tac.args:
 
         # Only include variable reads; ignore constants
         if not arg.is_const:
+
+          # Generate read.facts
           self.reads.append((hex(tac.pc), arg))
 
   def export(self):
@@ -61,6 +82,7 @@ class CFGTsvExporter(Exporter, patterns.Visitor):
     generate('defined.facts', self.defined)
     generate('read.facts', self.reads)
     generate('write.facts', self.writes)
+    generate('edge.facts', self.edges)
 
     # Note: Start and End are currently singletons
     # TODO -- Update starts and ends to be based on function boundaries
@@ -68,6 +90,7 @@ class CFGTsvExporter(Exporter, patterns.Visitor):
       print(hex(self.nodes[0].entry), file=f)
     with open('end.facts', 'w') as f:
       print(hex(self.nodes[-1].exit), file=f)
+
 
 class CFGPrintExporter(Exporter, patterns.Visitor):
   def __init__(self, ordered=True):
