@@ -74,7 +74,7 @@ class CFGTsvExporter(Exporter, patterns.Visitor):
     # Inner function for DRYness
     def generate(filename, entries):
       with open(filename, 'w') as f:
-        writer = csv.writer(f, delimiter='\t')
+        writer = csv.writer(f, delimiter='\t', lineterminator='\n')
         for e in entries:
           writer.writerow(e)
 
