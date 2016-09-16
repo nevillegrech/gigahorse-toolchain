@@ -47,8 +47,16 @@ class CFGTsvExporter(Exporter, patterns.Visitor):
         writer = csv.writer(f, delimiter='\t')
         for e in entries:
           writer.writerow(e)
+
     generate('op.facts', self.ops)
     generate('defined.facts', self.defined)
+
+    # Note: Start and End are currently singletons
+    # TODO: Update starts and ends to be based on function boundaries
+    with open('start.facts', 'w') as f:
+      print(hex(self.nodes[0].tac_ops[0].pc), file=f)
+    with open('end.facts', 'w') as f:
+      print(hex(self.nodes[-1].tac_ops[-1].pc), file=f)
 
 class CFGPrintExporter(Exporter, patterns.Visitor):
   def __init__(self, ordered=True):
