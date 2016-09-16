@@ -7,6 +7,8 @@ import tac_cfg
 import patterns
 import opcodes
 
+import csv
+
 class Exporter(abc.ABC):
   @abc.abstractmethod
   def export(self):
@@ -14,6 +16,24 @@ class Exporter(abc.ABC):
     Abstract method which performs the final export using state collected
     during visitations.
     """
+
+
+class CFGTsvExporter(Exporter, patterns.Visitor):
+  def __init__(self):
+    self.nodes = []
+    self.ops = []
+
+  def visit(self, node):
+    self.nodes.append(node)
+    for tac in node.tac_ops:
+      self.ops.append((hex(tac.pc), tac.opcode))
+
+  def export(self):
+    # Generate opcode relations (op.facts)
+    with open('op.facts', 'w') as f:
+      writer = csv.writer(f, delimiter='\t', quotechar='"', quoting=csv.QUOTE_NONE)
+      for l in self.ops:
+        writer.writerow(l)
 
 
 class CFGPrintExporter(Exporter, patterns.Visitor):
