@@ -6,6 +6,7 @@ import cfg
 import tac_cfg
 import patterns
 import opcodes
+import memtypes
 
 import csv
 
@@ -36,9 +37,14 @@ class CFGTsvExporter(Exporter, patterns.Visitor):
 
       # Add definition relations
       if isinstance(tac, tac_cfg.TACAssignOp):
-        # TODO: Add notion of blockchain and local memory
+        # TODO -- Add notion of blockchain and local memory
         self.defined.append((hex(tac.pc), 'V' + str(tac.pc)))
 
+      # Add read relations
+      for arg in tac.args:
+        # Only include variable reads; ignore constants
+        if not arg.is_const:
+          self.reads.append((hex(tac.pc), arg))
 
   def export(self):
     # Inner function for DRYness
@@ -50,9 +56,10 @@ class CFGTsvExporter(Exporter, patterns.Visitor):
 
     generate('op.facts', self.ops)
     generate('defined.facts', self.defined)
+    generate('read.facts', self.reads)
 
     # Note: Start and End are currently singletons
-    # TODO: Update starts and ends to be based on function boundaries
+    # TODO -- Update starts and ends to be based on function boundaries
     with open('start.facts', 'w') as f:
       print(hex(self.nodes[0].tac_ops[0].pc), file=f)
     with open('end.facts', 'w') as f:
