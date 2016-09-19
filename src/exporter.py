@@ -34,41 +34,41 @@ class CFGTsvExporter(Exporter, patterns.Visitor):
     # Add edges from predecessor exits to this node's entry
     for pred in node.preds:
       # Generating edge.facts
-      self.edges.append((hex(pred.exit), hex(node.entry)))
+      self.edges.append((hex(pred.tac_ops[-1].pc), hex(node.tac_ops[0].pc)))
 
     # Keep track of previous TACOp for building edges
-    prev_tac = None
+    prev_op = None
 
-    for tac in node.tac_ops:
+    for op in node.tac_ops:
 
       # Add edges between TACOps (generate edge.facts)
-      if prev_tac != None:
-        # Generating edge.facts
-        self.edges.append((hex(prev_tac.pc), hex(tac.pc)))
-      prev_tac = tac
+      if prev_op != None:
+        # Generating edge relations (edge.facts)
+        self.edges.append((hex(prev_op.pc), hex(op.pc)))
+      prev_op = op
 
-      # Generate op.facts
-      self.ops.append((hex(tac.pc), tac.opcode))
+      # Generate opcode relations (op.facts)
+      self.ops.append((hex(op.pc), op.opcode))
 
-      if isinstance(tac, tac_cfg.TACAssignOp):
+      if isinstance(op, tac_cfg.TACAssignOp):
 
         # Memory assignments are not considered as 'variable definitions'
-        if not isinstance(tac.lhs, memtypes.Location):
+        if not isinstance(op.lhs, memtypes.Location):
 
-          # Generate defined.facts
-          self.defined.append((hex(tac.pc), tac.lhs))
+          # Generate variable definition relations (defined.facts)
+          self.defined.append((hex(op.pc), op.lhs))
 
         # TODO -- Add notion of blockchain and local memory
-        # Generate write.facts
-        self.writes.append((hex(tac.pc), tac.lhs))
+        # Generate variable write relations (write.facts)
+        self.writes.append((hex(op.pc), op.lhs))
 
-      for arg in tac.args:
+      for arg in op.args:
 
         # Only include variable reads; ignore constants
         if not arg.is_const:
 
-          # Generate read.facts
-          self.reads.append((hex(tac.pc), arg))
+          # Generate variable read relations (read.facts)
+          self.reads.append((hex(op.pc), arg))
 
   def export(self):
     # Inner function for DRYness
