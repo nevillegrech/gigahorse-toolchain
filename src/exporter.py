@@ -34,7 +34,7 @@ class CFGPrintExporter(Exporter, patterns.DynamicVisitor):
   __BLOCK_SEP = "\n\n================================\n\n"
 
   def __init__(self, cfg:cfg.ControlFlowGraph, ordered:bool=True):
-    super().__init__(source)
+    super().__init__(cfg)
     self.ordered = ordered
     self.nodes = []
     self.source.accept(self)
