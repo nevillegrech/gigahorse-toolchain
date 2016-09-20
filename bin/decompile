@@ -8,7 +8,10 @@ import fileinput
 # User-friendly command-line interface
 import argparse
 parser = argparse.ArgumentParser(description='An EVM bytecode disassembly decompiler that generates files for program analysis.')
-parser.add_argument('--file', '-f', type=open)
+parser.add_argument('-f', '--file', type=open, help='input EVM bytecode disassembly file to decompile')
+parser.add_argument('-p', '--print', action='store_true', help='display Three-Address code output')
+parser.add_argument('-g', '--graph', action='store_true', help='generate .dot file of basic block relationships')
+parser.add_argument('-t', '--tsv', action='store_true', help='generate tab-separated .facts files for Souffle')
 args = parser.parse_args()
 
 # Prepend ../src to $PATH so the project modules can be imported below
@@ -22,12 +25,20 @@ import blockparse
 
 cfg = None
 
+# Determine method of file input
 if args.file == None:
     cfg = tac_cfg.TACGraph.from_dasm(fileinput.input())
 else:
     cfg = tac_cfg.TACGraph.from_dasm(args.file)
 
+# Apply optimisations
 optimise.fold_constants(cfg)
 cfg.recheck_jumps()
 
-print(cfg)
+# Process command-line arguments to determine outputs
+if args.graph:
+    print('Output .dot file')
+if args.tsv:
+    print('Output .facts files')
+if args.print or (not args.graph and not args.tsv):
+    print(cfg)
