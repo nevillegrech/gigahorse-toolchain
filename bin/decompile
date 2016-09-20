@@ -9,7 +9,7 @@ import fileinput
 import argparse
 parser = argparse.ArgumentParser(description='An EVM bytecode disassembly decompiler that generates files for program analysis.')
 parser.add_argument('-f', '--file', type=open, help='input EVM bytecode disassembly file to decompile')
-parser.add_argument('-p', '--print', action='store_true', help='display Three-Address code output')
+parser.add_argument('-p', '--print', action='store_true', help='display Three-Address code output (default if no other output specified)')
 parser.add_argument('-g', '--graph', action='store_true', help='generate .dot file of basic block relationships')
 parser.add_argument('-t', '--tsv', action='store_true', help='generate tab-separated .facts files for Souffle')
 args = parser.parse_args()
@@ -22,6 +22,7 @@ sys.path.insert(0, src_path)
 import optimise
 import tac_cfg
 import blockparse
+import exporter
 
 cfg = None
 
@@ -37,7 +38,8 @@ cfg.recheck_jumps()
 
 # Process command-line arguments to determine outputs
 if args.graph:
-    print('Output .dot file')
+    exporter = exporter.CFGDotExporter()
+    exporter.export(cfg)
 if args.tsv:
     print('Output .facts files')
 if args.print or (not args.graph and not args.tsv):
