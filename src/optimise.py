@@ -21,9 +21,11 @@ def fold_constants(cfg:tac_cfg.TACGraph):
   for block in cfg.blocks:
     fold_block_constants(block)
 
-VarOrLoc = typing.Union[mem.Location, mem.Variable]
-VarValMapping = typing.Mapping[VarOrLoc, mem.Constant]
-def convert_constant(var_values:VarValMapping, var:VarOrLoc):
+def convert_constant(var_values:typing.Union[mem.Location, mem.Variable],
+                     var:typing.Mapping[
+                       typing.Union[mem.Location, mem.Variable],
+                       mem.Constant
+                     ]):
   """
   Apply a mapping from variables and/or storage locations to constant values.
   Return the variable itself if no mapping is available.
