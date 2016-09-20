@@ -5,6 +5,15 @@ from os.path import abspath, dirname, join
 import sys
 import fileinput
 
+# User-friendly command-line interface
+import argparse
+parser = argparse.ArgumentParser(description='An EVM bytecode disassembly decompiler that generates files for program analysis.')
+parser.add_argument('-f', '--file', type=open, help='input EVM bytecode disassembly file to decompile')
+parser.add_argument('-p', '--print', action='store_true', help='display Three-Address code output (default if no other output specified)')
+parser.add_argument('-g', '--graph', action='store_true', help='generate .dot file of basic block relationships')
+parser.add_argument('-t', '--tsv', action='store_true', help='generate tab-separated .facts files for Souffle')
+args = parser.parse_args()
+
 # Prepend ../src to $PATH so the project modules can be imported below
 src_path = join(dirname(abspath(__file__)), "../src")
 sys.path.insert(0, src_path)
@@ -13,9 +22,27 @@ sys.path.insert(0, src_path)
 import optimise
 import tac_cfg
 import blockparse
+import exporter
 
-tac_cfg = tac_cfg.TACGraph.from_dasm(fileinput.input())
-optimise.fold_constants(tac_cfg)
-tac_cfg.recheck_jumps()
+cfg = None
 
-print(tac_cfg)
+# Determine method of file input
+if args.file == None:
+    cfg = tac_cfg.TACGraph.from_dasm(fileinput.input())
+else:
+    cfg = tac_cfg.TACGraph.from_dasm(args.file)
+
+# Apply optimisations
+optimise.fold_constants(cfg)
+cfg.recheck_jumps()
+
+# Process command-line arguments to determine outputs
+if args.graph:
+    graph_exporter = exporter.CFGDotExporter()
+    graph_exporter.export(cfg)
+if args.tsv:
+    tsv_exporter = exporter.CFGTsvExporter()
+    cfg.accept(tsv_exporter)
+    tsv_exporter.export()
+if args.print or (not args.graph and not args.tsv):
+    print(cfg)
