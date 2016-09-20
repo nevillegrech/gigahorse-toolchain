@@ -5,6 +5,12 @@ from os.path import abspath, dirname, join
 import sys
 import fileinput
 
+# User-friendly command-line interface
+import argparse
+parser = argparse.ArgumentParser(description='An EVM bytecode disassembly decompiler that generates files for program analysis.')
+parser.add_argument('--file', '-f', type=open)
+args = parser.parse_args()
+
 # Prepend ../src to $PATH so the project modules can be imported below
 src_path = join(dirname(abspath(__file__)), "../src")
 sys.path.insert(0, src_path)
@@ -14,8 +20,14 @@ import optimise
 import tac_cfg
 import blockparse
 
-tac_cfg = tac_cfg.TACGraph.from_dasm(fileinput.input())
-optimise.fold_constants(tac_cfg)
-tac_cfg.recheck_jumps()
+cfg = None
 
-print(tac_cfg)
+if args.file == None:
+    cfg = tac_cfg.TACGraph.from_dasm(fileinput.input())
+else:
+    cfg = tac_cfg.TACGraph.from_dasm(args.file)
+
+optimise.fold_constants(cfg)
+cfg.recheck_jumps()
+
+print(cfg)
