@@ -19,10 +19,10 @@ src_path = join(dirname(abspath(__file__)), "../src")
 sys.path.insert(0, src_path)
 
 # Local project imports
-import optimise
-import tac_cfg
 import blockparse
 import exporter
+import optimise
+import tac_cfg
 
 cfg = None
 
@@ -45,4 +45,4 @@ if args.tsv:
     cfg.accept(tsv_exporter)
     tsv_exporter.export()
 if args.print or (not args.graph and not args.tsv):
-    print(cfg)
+    exporter.CFGPrintExporter(cfg).export()
