@@ -81,7 +81,7 @@ class CFGDotExporter(Exporter):
 
     G = nx.DiGraph()
     G.add_nodes_from(b.ident() for b in cfg.blocks)
-    G.add_edges_from((p, s) for p, s in cfg.edge_list())
+    G.add_edges_from((p.ident(), s.ident()) for p, s in cfg.edge_list())
     G.add_edges_from((block.ident(), "?") for block in cfg.blocks \
                      if block.has_unresolved_jump)
 
