@@ -41,8 +41,6 @@ if args.graph:
     graph_exporter = exporter.CFGDotExporter()
     graph_exporter.export(cfg)
 if args.tsv:
-    tsv_exporter = exporter.CFGTsvExporter()
-    cfg.accept(tsv_exporter)
-    tsv_exporter.export()
+    exporter.CFGTsvExporter(cfg).export()
 if args.print or (not args.graph and not args.tsv):
     exporter.CFGPrintExporter(cfg).export()

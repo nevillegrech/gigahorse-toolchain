@@ -25,27 +25,32 @@ class Exporter(abc.ABC):
     """
 
 
-class CFGTsvExporter(Exporter, patterns.Visitor):
-  def __init__(self):
-    self.nodes = []
+class CFGTsvExporter(Exporter, patterns.DynamicVisitor):
+  def __init__(self, cfg:tac_cfg.TACGraph):
+    super().__init__(cfg)
+    self.blocks = []
     self.ops = []
     self.edges = []
     self.defined = []
     self.reads = []
     self.writes = []
+    cfg.accept(self)
 
-  def visit(self, node):
-    self.nodes.append(node)
+  def visit_TACGraph(self, cfg):
+    pass
 
-    # Add edges from predecessor exits to this node's entry
-    for pred in node.preds:
+  def visit_TACBasicBlock(self, block):
+    self.blocks.append(block)
+
+    # Add edges from predecessor exits to this blocks's entry
+    for pred in block.preds:
       # Generating edge.facts
-      self.edges.append((hex(pred.tac_ops[-1].pc), hex(node.tac_ops[0].pc)))
+      self.edges.append((hex(pred.tac_ops[-1].pc), hex(block.tac_ops[0].pc)))
 
     # Keep track of previous TACOp for building edges
     prev_op = None
 
-    for op in node.tac_ops:
+    for op in block.tac_ops:
 
       # Add edges between TACOps (generate edge.facts)
       if prev_op != None:
@@ -92,10 +97,11 @@ class CFGTsvExporter(Exporter, patterns.Visitor):
 
     # Note: Start and End are currently singletons
     # TODO -- Update starts and ends to be based on function boundaries
-    with open('start.facts', 'w') as f:
-      print(hex(self.nodes[0].entry), file=f)
-    with open('end.facts', 'w') as f:
-      print(hex(self.nodes[-1].exit), file=f)
+    if len(self.blocks) > 0:
+      with open('start.facts', 'w') as f:
+        print(hex(self.blocks[0].entry), file=f)
+      with open('end.facts', 'w') as f:
+        print(hex(self.blocks[-1].exit), file=f)
 
 
 class CFGPrintExporter(Exporter, patterns.DynamicVisitor):
@@ -112,7 +118,7 @@ class CFGPrintExporter(Exporter, patterns.DynamicVisitor):
   def __init__(self, cfg:cfg.ControlFlowGraph, ordered:bool=True):
     super().__init__(cfg)
     self.ordered = ordered
-    self.nodes = []
+    self.blocks = []
     self.source.accept(self)
 
   def visit_ControlFlowGraph(self, cfg):
@@ -121,19 +127,19 @@ class CFGPrintExporter(Exporter, patterns.DynamicVisitor):
     """
     pass
 
-  def visit_BasicBlock(self, node):
+  def visit_BasicBlock(self, block):
     """
     Visit a BasicBlock in the CFG
     """
-    self.nodes.append((node.entry, str(node)))
+    self.blocks.append((block.entry, str(block)))
 
   def export(self):
     """
     Print a textual representation of the input CFG to stdout.
     """
     if self.ordered:
-      self.nodes.sort(key=lambda n: n[0])
-    print(self.__BLOCK_SEP.join(n[1] for n in self.nodes))
+      self.blocks.sort(key=lambda n: n[0])
+    print(self.__BLOCK_SEP.join(n[1] for n in self.blocks))
 
 
 class CFGDotExporter(Exporter):
