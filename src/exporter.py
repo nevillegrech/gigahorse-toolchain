@@ -82,16 +82,16 @@ class CFGDotExporter(Exporter):
     G = nx.DiGraph()
     G.add_nodes_from(b.ident() for b in cfg.blocks)
     G.add_edges_from((p.ident(), s.ident()) for p, s in cfg.edge_list())
-    G.add_edges_from((block.ident(), "?") for block in cfg.blocks \
+    G.add_edges_from((block.ident(), "?") for block in cfg.blocks
                      if block.has_unresolved_jump)
 
-    returns = {block.ident(): "green" for block in cfg.blocks \
+    returns = {block.ident(): "green" for block in cfg.blocks
                if block.tac_ops[-1].opcode == opcodes.RETURN}
-    stops = {block.ident(): "blue" for block in cfg.blocks \
+    stops = {block.ident(): "blue" for block in cfg.blocks
              if block.tac_ops[-1].opcode == opcodes.STOP}
-    throws = {block.ident(): "red" for block in cfg.blocks \
+    throws = {block.ident(): "red" for block in cfg.blocks
              if block.tac_ops[-1].opcode in [opcodes.THROW, opcodes.THROWI]}
-    suicides = {block.ident(): "purple" for block in cfg.blocks \
+    suicides = {block.ident(): "purple" for block in cfg.blocks
                 if block.tac_ops[-1].opcode == opcodes.SUICIDE}
     color_dict = {**returns, **stops, **throws, **suicides}
     nx.set_node_attributes(G, "color", color_dict)
