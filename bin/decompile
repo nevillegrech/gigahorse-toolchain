@@ -12,7 +12,6 @@ sys.path.insert(0, src_path)
 # Local project imports
 import optimise
 import tac_cfg
-import blockparse
 
 tac_cfg = tac_cfg.TACGraph.from_dasm(fileinput.input())
 optimise.fold_constants(tac_cfg)
