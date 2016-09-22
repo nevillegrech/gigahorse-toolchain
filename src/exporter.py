@@ -3,42 +3,85 @@
 import abc
 
 import cfg
-import tac_cfg
-import patterns
 import opcodes
+import patterns
+import tac_cfg
 
 class Exporter(abc.ABC):
+  def __init__(self, source:object):
+    """
+    Args:
+      source: object instance to be exported
+    """
+    self.source = source
+
   @abc.abstractmethod
   def export(self):
     """
-    Abstract method which performs the final export using state collected
-    during visitations.
+    Exports the source object to an implementation-specific format.
     """
 
 
-class CFGPrintExporter(Exporter, patterns.Visitor):
-  def __init__(self, ordered=True):
+class CFGPrintExporter(Exporter, patterns.DynamicVisitor):
+  """
+  Prints a textual representation of the given CFG to stdout.
+
+  Args:
+    cfg: source CFG to be printed.
+    ordered: if True (default), print BasicBlocks in order of entry.
+  """
+
+  __BLOCK_SEP = "\n\n================================\n\n"
+
+  def __init__(self, cfg:cfg.ControlFlowGraph, ordered:bool=True):
+    super().__init__(cfg)
     self.ordered = ordered
     self.nodes = []
+    self.source.accept(self)
 
-  def visit(self, node):
+  def visit_ControlFlowGraph(self, cfg):
+    """Visit the CFG root"""
+    pass
+
+  def visit_BasicBlock(self, node):
+    """
+    Visit a BasicBlock in the CFG"""
     self.nodes.append((node.entry, str(node)))
 
   def export(self):
+    """
+    Print a textual representation of the input CFG to stdout.
+    """
     if self.ordered:
       self.nodes.sort(key=lambda n: n[0])
-    for n in self.nodes:
-      print(n[1])
+    print(self.__BLOCK_SEP.join(n[1] for n in self.nodes))
 
 
 class CFGDotExporter(Exporter):
-  def export(self, cfg:tac_cfg.TACGraph, out_filename:str="cfg.dot"):
-    """From a CFG, generate a dotfile for drawing a pretty picture of it."""
+  """
+  Generates a dot file for drawing a pretty picture of the given CFG.
+
+  Args:
+    cfg: source CFG to be exported to dot format.
+  """
+  def __init__(self, cfg:cfg.ControlFlowGraph):
+    super.__init__(cfg)
+
+  def export(self, out_filename:str="cfg.dot"):
+    """
+    Export the CFG to a dot file.
+
+    Args:
+      out_filename: path to the file where dot output should be written.
+    """
     import networkx as nx
     from networkx.drawing.nx_pydot import write_dot
+
+    cfg = self.source
+
     G = nx.DiGraph()
     G.add_nodes_from(b.ident() for b in cfg.blocks)
-    G.add_edges_from((p, s) for p, s in cfg.edge_list())
+    G.add_edges_from((p.ident(), s.ident()) for p, s in cfg.edge_list())
     G.add_edges_from((block.ident(), "?") for block in cfg.blocks \
                      if block.has_unresolved_jump)
 

@@ -35,16 +35,6 @@ class BlockParser(abc.ABC):
     Parses the raw input object and returns an iterable of BasicBlocks.
     """
 
-  @classmethod
-  def do_parse(cls, raw:object) -> typing.Iterable[cfg.BasicBlock]:
-    """
-    Convenience method which instantiates this BlockParser with the given raw
-    input object and returns the result of parse().
-
-    Args:
-      raw: parser-specific object containing raw input to be parsed.
-    """
-    return cls(raw).parse()
 
 class EVMBlockParser(BlockParser):
   def __init__(self, dasm:typing.Iterable[str]):

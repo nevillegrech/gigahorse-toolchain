@@ -10,11 +10,13 @@ src_path = join(dirname(abspath(__file__)), "../src")
 sys.path.insert(0, src_path)
 
 # Local project imports
+import blockparse
+import exporter
 import optimise
 import tac_cfg
 
-tac_cfg = tac_cfg.TACGraph.from_dasm(fileinput.input())
-optimise.fold_constants(tac_cfg)
-tac_cfg.recheck_jumps()
+cfg = tac_cfg.TACGraph.from_dasm(fileinput.input())
+optimise.fold_constants(cfg)
+cfg.recheck_jumps()
 
-print(tac_cfg)
+exporter.CFGPrintExporter(cfg).export()
