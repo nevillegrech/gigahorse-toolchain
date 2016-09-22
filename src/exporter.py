@@ -26,6 +26,12 @@ class Exporter(abc.ABC):
 
 
 class CFGTsvExporter(Exporter, patterns.DynamicVisitor):
+  """
+  Generates .facts files of the given TAC CFG to local directory.
+
+  Args:
+    cfg: source TAC CFG to be exported to separate fact files.
+  """
   def __init__(self, cfg:tac_cfg.TACGraph):
     super().__init__(cfg)
     self.blocks = []
@@ -37,9 +43,15 @@ class CFGTsvExporter(Exporter, patterns.DynamicVisitor):
     cfg.accept(self)
 
   def visit_TACGraph(self, cfg):
+    """
+    Visit the TAC CFG root
+    """
     pass
 
   def visit_TACBasicBlock(self, block):
+    """
+    Visit a TAC BasicBlock in the CFG
+    """
     self.blocks.append(block)
 
     # Add edges from predecessor exits to this blocks's entry
@@ -82,6 +94,9 @@ class CFGTsvExporter(Exporter, patterns.DynamicVisitor):
           self.reads.append((hex(op.pc), arg))
 
   def export(self):
+    """
+    Export the CFG to separate fact files.
+    """
     # Inner function for DRYness
     def generate(filename, entries):
       with open(filename, 'w') as f:
