@@ -34,7 +34,6 @@ class CFGTsvExporter(Exporter, patterns.DynamicVisitor):
   """
   def __init__(self, cfg:tac_cfg.TACGraph):
     super().__init__(cfg)
-    self.blocks = []
     self.ops = []
     self.edges = []
     self.defined = []
@@ -52,7 +51,6 @@ class CFGTsvExporter(Exporter, patterns.DynamicVisitor):
     """
     Visit a TAC BasicBlock in the CFG
     """
-    self.blocks.append(block)
 
     # Add edges from predecessor exits to this blocks's entry
     for pred in block.preds:
@@ -63,7 +61,6 @@ class CFGTsvExporter(Exporter, patterns.DynamicVisitor):
     prev_op = None
 
     for op in block.tac_ops:
-
       # Add edges between TACOps (generate edge.facts)
       if prev_op != None:
         # Generating edge relations (edge.facts)
@@ -86,7 +83,6 @@ class CFGTsvExporter(Exporter, patterns.DynamicVisitor):
         self.writes.append((hex(op.pc), op.lhs))
 
       for arg in op.args:
-
         # Only include variable reads; ignore constants
         if not arg.is_const:
 
@@ -97,7 +93,6 @@ class CFGTsvExporter(Exporter, patterns.DynamicVisitor):
     """
     Export the CFG to separate fact files.
     """
-    # Inner function for DRYness
     def generate(filename, entries):
       with open(filename, 'w') as f:
         writer = csv.writer(f, delimiter='\t', lineterminator='\n')
@@ -112,11 +107,11 @@ class CFGTsvExporter(Exporter, patterns.DynamicVisitor):
 
     # Note: Start and End are currently singletons
     # TODO -- Update starts and ends to be based on function boundaries
-    if len(self.blocks) > 0:
+    if len(self.source.blocks) > 0:
       with open('start.facts', 'w') as f:
-        print(hex(self.blocks[0].entry), file=f)
+        print(hex(self.source.blocks[0].entry), file=f)
       with open('end.facts', 'w') as f:
-        print(hex(self.blocks[-1].exit), file=f)
+        print(hex(self.source.blocks[-1].exit), file=f)
 
 
 class CFGPrintExporter(Exporter, patterns.DynamicVisitor):
