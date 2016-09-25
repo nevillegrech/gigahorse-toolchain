@@ -48,17 +48,17 @@ class CFGTsvExporter(Exporter, patterns.DynamicVisitor):
 
     self.defined = []
     """
-    A list of pairs (op.pc, memlocation) that specify memory-writing sites.
+    A list of pairs (op.pc, variable) that specify variable definition sites.
     """
 
     self.reads = []
     """
-    A list of pairs (op.pc, variable) that specify variable usage sites.
+    A list of pairs (op.pc, variable) that specify all usage sites.
     """
 
     self.writes = []
     """
-    A list of pairs (op.pc, variable) that specify variable definition sites.
+    A list of pairs (op.pc, variable) that specify all write locations.
     """
 
     # Visit the graph.
@@ -94,7 +94,6 @@ class CFGTsvExporter(Exporter, patterns.DynamicVisitor):
       self.ops.append((hex(op.pc), op.opcode))
 
       if isinstance(op, tac_cfg.TACAssignOp):
-
         # Memory assignments are not considered as 'variable definitions'
         if not isinstance(op.lhs, memtypes.Location):
           # Generate variable definition relations (defined.facts)
@@ -107,7 +106,6 @@ class CFGTsvExporter(Exporter, patterns.DynamicVisitor):
       for arg in op.args:
         # Only include variable reads; ignore constants
         if not arg.is_const:
-
           # Generate variable read relations (read.facts)
           self.reads.append((hex(op.pc), arg))
 
@@ -116,9 +114,9 @@ class CFGTsvExporter(Exporter, patterns.DynamicVisitor):
     Export the CFG to separate fact files.
 
     op.facts:       (program counter, operation) pairs
-    defined.facts:  memory write locations
-    read.facts:     variable use locations
-    write.facts:    variable definition locations
+    defined.facts:  variable definition locations
+    read.facts:     var/loc use locations
+    write.facts:    var/loc write locations
     edge.facts:     instruction-level CFG edges
     start.facts:    the first location of the CFG
     end.facts:      the last location of the CFG
