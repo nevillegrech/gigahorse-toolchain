@@ -25,7 +25,7 @@ def fold_constants(cfg:tac_cfg.TACGraph):
 def convert_constant(var_values:typing.Union[mem.Location, mem.Variable],
                      var:typing.Mapping[
                        typing.Union[mem.Location, mem.Variable],
-                       mem.Constant
+                       mem.Variable
                      ]):
   """
   Apply a mapping from variables and/or storage locations to constant values.
@@ -63,7 +63,7 @@ def fold_block_constants(block:tac_cfg.TACBasicBlock):
 
         # Obtain the appropriate arithmetic operation by name from the Constant class methods
         # and apply it to the op arguments.
-        val = getattr(mem.Constant, op.opcode.name)(*op.args)
+        val = mem.Variable.arith_op(op.opcode.name, op.args)
 
         var_values[op.lhs] = val
         op.opcode = opcodes.CONST
