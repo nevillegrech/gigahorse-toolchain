@@ -1,6 +1,7 @@
 """optimise.py: transformers that optimise TAC CFGs"""
 
 import typing
+import copy
 
 import tac_cfg
 import memtypes as mem
@@ -34,15 +35,14 @@ def convert_constant(var_values:typing.Union[mem.Location, mem.Variable],
     var_values: a mapping from variables and locations to constants that they are equivalent to.
     var: the variable to map.
   """
-  from copy import copy
   if isinstance(var, mem.Location):
-    copy_loc = copy(var)
+    copy_loc = copy.copy(var)
     copy_loc.address = convert_constant(var_values, copy_loc.address)
     return copy_loc
   elif var in var_values:
-    return copy(var_values[var])
+    return copy.copy(var_values[var])
   else:
-    return copy(var)
+    return copy.copy(var)
 
 def fold_block_constants(block:tac_cfg.TACBasicBlock):
   """
