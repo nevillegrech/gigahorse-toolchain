@@ -165,7 +165,7 @@ class CFGDotExporter(Exporter):
     cfg: source CFG to be exported to dot format.
   """
   def __init__(self, cfg:cfg.ControlFlowGraph):
-    super.__init__(cfg)
+    super().__init__(cfg)
 
   def export(self, out_filename:str="cfg.dot"):
     """

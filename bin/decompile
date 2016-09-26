@@ -38,8 +38,8 @@ cfg.recheck_jumps()
 
 # Process command-line arguments to determine outputs
 if args.graph:
-    graph_exporter = exporter.CFGDotExporter()
-    graph_exporter.export(cfg)
+    graph_exporter = exporter.CFGDotExporter(cfg)
+    graph_exporter.export()
 if args.tsv:
     exporter.CFGTsvExporter(cfg).export()
 if args.print or (not args.graph and not args.tsv):
