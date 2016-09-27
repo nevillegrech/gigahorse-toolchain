@@ -33,7 +33,7 @@ else:
     cfg = tac_cfg.TACGraph.from_dasm(args.file)
 
 # Apply optimisations
-optimise.fold_constants(cfg)
+optimise.apply_operations(cfg)
 cfg.recheck_jumps()
 
 # Process command-line arguments to determine outputs

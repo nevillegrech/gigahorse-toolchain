@@ -78,3 +78,16 @@ def fold_block_constants(block:tac_cfg.TACBasicBlock):
   # Convert the stack with the final mapping.
   block.stack_adds = [convert_constant(var_values, var)
                       for var in block.stack_adds]
+
+
+
+# TODO: update the const_args concept to include many-valued vars
+def apply_operations(cfg):
+  for block in cfg.blocks:
+    for op in block.tac_ops:
+      if op.opcode == opcodes.CONST:
+        op.lhs.values = op.args[0].values
+      elif op.const_args() and op.opcode.is_arithmetic():
+        result = mem.Variable.arith_op(op.opcode.name, op.args)
+        op.lhs.values = result.values
+
