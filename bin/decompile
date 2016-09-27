@@ -19,7 +19,6 @@ src_path = join(dirname(abspath(__file__)), "../src")
 sys.path.insert(0, src_path)
 
 # Local project imports
-import blockparse
 import exporter
 import optimise
 import tac_cfg
