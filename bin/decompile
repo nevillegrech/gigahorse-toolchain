@@ -22,6 +22,7 @@ sys.path.insert(0, src_path)
 import exporter
 import optimise
 import tac_cfg
+import dataflow
 
 cfg = None
 
@@ -34,6 +35,7 @@ else:
 # Apply optimisations
 optimise.apply_operations(cfg)
 cfg.recheck_jumps()
+dataflow.stack_analysis(cfg)
 
 # Process command-line arguments to determine outputs
 if args.graph:
