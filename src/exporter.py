@@ -167,7 +167,7 @@ class CFGDotExporter(Exporter):
   def __init__(self, cfg:cfg.ControlFlowGraph):
     super().__init__(cfg)
 
-  def export(self, out_filename:str="cfg.dot"):
+  def export(self, out_filename: str="cfg", img_type: str=None):
     """
     Export the CFG to a dot file.
 
@@ -176,6 +176,7 @@ class CFGDotExporter(Exporter):
     """
     import networkx as nx
     from networkx.drawing.nx_pydot import write_dot
+    import subprocess
 
     cfg = self.source
 
@@ -195,4 +196,12 @@ class CFGDotExporter(Exporter):
                 if block.tac_ops[-1].opcode == opcodes.SUICIDE}
     color_dict = {**returns, **stops, **throws, **suicides}
     nx.set_node_attributes(G, "color", color_dict)
-    write_dot(G, out_filename)
+
+    dot_name = out_filename + ".dot"
+    write_dot(G, dot_name)
+    if img_type is not None:
+      img_name = out_filename + "." + img_type
+      subprocess.run(["dot", dot_name, "-T{}".format(img_type), "-o", img_name])
+
+
+
