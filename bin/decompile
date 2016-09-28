@@ -20,7 +20,6 @@ sys.path.insert(0, src_path)
 
 # Local project imports
 import exporter
-import optimise
 import tac_cfg
 import dataflow
 
@@ -32,15 +31,12 @@ if args.file == None:
 else:
     cfg = tac_cfg.TACGraph.from_dasm(args.file)
 
-# Apply optimisations
-optimise.apply_operations(cfg)
-cfg.recheck_jumps()
+# Apply data flow analysis
 dataflow.stack_analysis(cfg)
 
 # Process command-line arguments to determine outputs
 if args.graph:
-    graph_exporter = exporter.CFGDotExporter(cfg)
-    graph_exporter.export()
+    exporter.CFGDotExporter(cfg).export()
 if args.tsv:
     exporter.CFGTsvExporter(cfg).export()
 if args.print or (not args.graph and not args.tsv):
