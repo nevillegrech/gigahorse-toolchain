@@ -113,13 +113,20 @@ class CFGTsvExporter(Exporter, patterns.DynamicVisitor):
     """
     Export the CFG to separate fact files.
 
-    op.facts:       (program counter, operation) pairs
-    defined.facts:  variable definition locations
-    read.facts:     var/loc use locations
-    write.facts:    var/loc write locations
-    edge.facts:     instruction-level CFG edges
-    start.facts:    the first location of the CFG
-    end.facts:      the last location of the CFG
+    ``op.facts``
+      (program counter, operation) pairs
+    ``defined.facts``
+      variable definition locations
+    ``read.facts``
+      var/loc use locations
+    ``write.facts``
+      var/loc write locations
+    ``edge.facts``
+      instruction-level CFG edges
+    ``start.facts``
+      the first location of the CFG
+    ``end.facts``
+      the last location of the CFG
     """
 
     # Create the target directory.
