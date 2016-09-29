@@ -3,7 +3,7 @@
 class OpCode:
   """An EVM opcode."""
 
-  def __init__(self, name: str, code: int, pop: int, push: int):
+  def __init__(self, name:str, code:int, pop:int, push:int):
     """
     Args:
       name (str): Human-readable opcode.
@@ -245,14 +245,14 @@ BYTECODES = {code.code: code for code in OPCODES.values()}
 """Dictionary mapping of byte representations to EVM OpCode objects"""
 
 
-def opcode_by_name(name: str) -> OpCode:
+def opcode_by_name(name:str) -> OpCode:
   """Mapping: Retrieves the named OpCode object."""
   if name not in OPCODES:
     raise Exception("No opcode named '{}'.".format(name))
   return OPCODES[name]
 
 
-def opcode_by_value(val: int) -> OpCode:
+def opcode_by_value(val:int) -> OpCode:
   """Mapping: Retrieves the OpCode object with the given value."""
   if val not in OPCODES:
     raise Exception("No opcode with value '{}'.".format(val))

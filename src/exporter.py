@@ -167,7 +167,7 @@ class CFGDotExporter(Exporter):
   def __init__(self, cfg:cfg.ControlFlowGraph):
     super().__init__(cfg)
 
-  def export(self, out_filename: str="cfg", img_type: str=None):
+  def export(self, out_filename:str="cfg", img_type:str=None):
     """
     Export the CFG to a dot file.
 
