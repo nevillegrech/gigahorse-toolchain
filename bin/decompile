@@ -7,12 +7,12 @@ import fileinput
 
 # User-friendly command-line interface
 import argparse
-parser = argparse.ArgumentParser(description='An EVM bytecode disassembly decompiler that generates files for program analysis.')
-parser.add_argument('-f', '--file', type=open, help='input EVM bytecode disassembly file to decompile')
-parser.add_argument('-o', '--out', help='specify output file')
-parser.add_argument('-p', '--print', action='store_true', help='display Three-Address code output (default if no other output specified)')
-parser.add_argument('-g', '--graph', action='store_true', help='generate .dot file of basic block relationships')
-parser.add_argument('-t', '--tsv', action='store_true', help='generate tab-separated .facts files for Souffle')
+parser = argparse.ArgumentParser(description="An EVM bytecode disassembly decompiler that generates files for program analysis.")
+parser.add_argument("-f", "--file", type=open, help="input EVM bytecode disassembly file to decompile")
+parser.add_argument("-o", "--out", help="specify output file")
+parser.add_argument("-p", "--print", action="store_true", help="display Three-Address code output (default if no other output specified)")
+parser.add_argument("-g", "--graph", action="store_true", help="generate .dot file of basic block relationships")
+parser.add_argument("-t", "--tsv", action="store_true", help="generate tab-separated .facts files for Souffle")
 args = parser.parse_args()
 
 # Prepend ../src to $PATH so the project modules can be imported below
@@ -46,7 +46,7 @@ if args.tsv:
 if args.print or (not args.graph and not args.tsv):
   result = exporter.CFGStringExporter(cfg).export()
   if args.out:
-    with open(args.out, 'w') as f:
+    with open(args.out, "w") as f:
       f.write(result)
   else:
     print(result)
