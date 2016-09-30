@@ -9,6 +9,7 @@ import fileinput
 import argparse
 parser = argparse.ArgumentParser(description='An EVM bytecode disassembly decompiler that generates files for program analysis.')
 parser.add_argument('-f', '--file', type=open, help='input EVM bytecode disassembly file to decompile')
+parser.add_argument('-o', '--out', help='specify output file')
 parser.add_argument('-p', '--print', action='store_true', help='display Three-Address code output (default if no other output specified)')
 parser.add_argument('-g', '--graph', action='store_true', help='generate .dot file of basic block relationships')
 parser.add_argument('-t', '--tsv', action='store_true', help='generate tab-separated .facts files for Souffle')
@@ -26,18 +27,28 @@ import dataflow
 cfg = None
 
 # Determine method of file input
-if args.file == None:
-    cfg = tac_cfg.TACGraph.from_dasm(fileinput.input())
+if args.file:
+  cfg = tac_cfg.TACGraph.from_dasm(args.file)
 else:
-    cfg = tac_cfg.TACGraph.from_dasm(args.file)
+  cfg = tac_cfg.TACGraph.from_dasm(fileinput.input())
 
 # Apply data flow analysis
 dataflow.stack_analysis(cfg)
 
 # Process command-line arguments to determine outputs
 if args.graph:
-    exporter.CFGDotExporter(cfg).export()
+  out_file = args.out if args.out else "cfg.dot"
+  exporter.CFGDotExporter(cfg).export(out_file)
+
 if args.tsv:
-    exporter.CFGTsvExporter(cfg).export()
+  exporter.CFGTsvExporter(cfg).export()
+
 if args.print or (not args.graph and not args.tsv):
-    exporter.CFGPrintExporter(cfg).export()
+  result = exporter.CFGStringExporter(cfg).export()
+  if args.out:
+    with open(args.out, 'w') as f:
+      f.write(result)
+  else:
+    print(result)
+
+

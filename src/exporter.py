@@ -119,7 +119,7 @@ class CFGTsvExporter(Exporter, patterns.DynamicVisitor):
         print(hex(self.blocks[-1].exit), file=f)
 
 
-class CFGPrintExporter(Exporter, patterns.DynamicVisitor):
+class CFGStringExporter(Exporter, patterns.DynamicVisitor):
   """
   Prints a textual representation of the given CFG to stdout.
 
@@ -154,7 +154,7 @@ class CFGPrintExporter(Exporter, patterns.DynamicVisitor):
     """
     if self.ordered:
       self.blocks.sort(key=lambda n: n[0])
-    print(self.__BLOCK_SEP.join(n[1] for n in self.blocks))
+    return self.__BLOCK_SEP.join(n[1] for n in self.blocks)
 
 
 class CFGDotExporter(Exporter):
@@ -162,12 +162,14 @@ class CFGDotExporter(Exporter):
   Generates a dot file for drawing a pretty picture of the given CFG.
 
   Args:
-    cfg: source CFG to be exported to dot format.
+    cfg: source CFG to be exported to dot format. If the file extension is
+         a supported image format, attempt to generate an image using
+         the `dot` program, if it is in the user's `$PATH`.
   """
   def __init__(self, cfg:cfg.ControlFlowGraph):
     super().__init__(cfg)
 
-  def export(self, out_filename:str="cfg", img_type:str=None):
+  def export(self, out_filename:str="cfg.dot"):
     """
     Export the CFG to a dot file.
 
@@ -177,6 +179,7 @@ class CFGDotExporter(Exporter):
     import networkx as nx
     from networkx.drawing.nx_pydot import write_dot
     import subprocess
+    import os
 
     cfg = self.source
 
@@ -197,11 +200,17 @@ class CFGDotExporter(Exporter):
     color_dict = {**returns, **stops, **throws, **suicides}
     nx.set_node_attributes(G, "color", color_dict)
 
-    dot_name = out_filename + ".dot"
-    write_dot(G, dot_name)
-    if img_type is not None:
-      img_name = out_filename + "." + img_type
-      subprocess.run(["dot", dot_name, "-T{}".format(img_type), "-o", img_name])
 
-
-
+    if "." in out_filename and not out_filename.endswith(".dot"):
+      name, extension = out_filename.rsplit(".", 1)
+      dot_name = ".{}_tmp.dot".format(name)
+      write_dot(G, dot_name)
+      try:
+        subprocess.run(["dot", dot_name,
+                        "-T{}".format(extension),
+                        "-o", out_filename]).check_returncode()
+      except subprocess.CalledProcessError:
+        raise TypeError("Unsupported file extension '{}'.".format(extension))
+      os.remove(dot_name)
+    else:
+      write_dot(G, out_filename)
