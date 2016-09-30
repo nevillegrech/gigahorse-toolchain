@@ -2,6 +2,7 @@
 
 import abc
 import csv
+import os
 
 import cfg
 import memtypes
@@ -34,12 +35,33 @@ class CFGTsvExporter(Exporter, patterns.DynamicVisitor):
   """
   def __init__(self, cfg:tac_cfg.TACGraph):
     super().__init__(cfg)
-    self.blocks = []
     self.ops = []
+    """
+    A list of pairs (op.pc, op.opcode), associating to each pc address the
+    operation performed at that address.
+    """
+
     self.edges = []
+    """
+    A list of edges between instructions defining a control flow graph.
+    """
+
     self.defined = []
+    """
+    A list of pairs (op.pc, variable) that specify variable definition sites.
+    """
+
     self.reads = []
+    """
+    A list of pairs (op.pc, variable) that specify all usage sites.
+    """
+
     self.writes = []
+    """
+    A list of pairs (op.pc, variable) that specify all write locations.
+    """
+
+    # Visit the graph.
     cfg.accept(self)
 
   def visit_TACGraph(self, cfg):
@@ -52,7 +74,6 @@ class CFGTsvExporter(Exporter, patterns.DynamicVisitor):
     """
     Visit a TAC BasicBlock in the CFG
     """
-    self.blocks.append(block)
 
     # Add edges from predecessor exits to this blocks's entry
     for pred in block.preds:
@@ -63,7 +84,6 @@ class CFGTsvExporter(Exporter, patterns.DynamicVisitor):
     prev_op = None
 
     for op in block.tac_ops:
-
       # Add edges between TACOps (generate edge.facts)
       if prev_op != None:
         # Generating edge relations (edge.facts)
@@ -74,10 +94,8 @@ class CFGTsvExporter(Exporter, patterns.DynamicVisitor):
       self.ops.append((hex(op.pc), op.opcode))
 
       if isinstance(op, tac_cfg.TACAssignOp):
-
         # Memory assignments are not considered as 'variable definitions'
         if not isinstance(op.lhs, memtypes.Location):
-
           # Generate variable definition relations (defined.facts)
           self.defined.append((hex(op.pc), op.lhs))
 
@@ -86,37 +104,54 @@ class CFGTsvExporter(Exporter, patterns.DynamicVisitor):
         self.writes.append((hex(op.pc), op.lhs))
 
       for arg in op.args:
-
         # Only include variable reads; ignore constants
         if not arg.is_const:
-
           # Generate variable read relations (read.facts)
           self.reads.append((hex(op.pc), arg))
 
-  def export(self):
+  def export(self, output_dir:str=""):
     """
     Export the CFG to separate fact files.
+
+    ``op.facts``
+      (program counter, operation) pairs
+    ``defined.facts``
+      variable definition locations
+    ``read.facts``
+      var/loc use locations
+    ``write.facts``
+      var/loc write locations
+    ``edge.facts``
+      instruction-level CFG edges
+    ``start.facts``
+      the first location of the CFG
+    ``end.facts``
+      the last location of the CFG
     """
-    # Inner function for DRYness
+
+    # Create the target directory.
+    if output_dir != "":
+      os.makedirs(output_dir, exist_ok=True)
+
     def generate(filename, entries):
-      with open(filename, 'w') as f:
+      path = os.path.join(output_dir, filename)
+
+      with open(path, 'w') as f:
         writer = csv.writer(f, delimiter='\t', lineterminator='\n')
         for e in entries:
           writer.writerow(e)
 
-    generate('op.facts', self.ops)
-    generate('defined.facts', self.defined)
-    generate('read.facts', self.reads)
-    generate('write.facts', self.writes)
-    generate('edge.facts', self.edges)
+    generate("op.facts", self.ops)
+    generate("defined.facts", self.defined)
+    generate("read.facts", self.reads)
+    generate("write.facts", self.writes)
+    generate("edge.facts", self.edges)
 
     # Note: Start and End are currently singletons
     # TODO -- Update starts and ends to be based on function boundaries
-    if len(self.blocks) > 0:
-      with open('start.facts', 'w') as f:
-        print(hex(self.blocks[0].entry), file=f)
-      with open('end.facts', 'w') as f:
-        print(hex(self.blocks[-1].exit), file=f)
+    if len(self.source.blocks) > 0:
+      generate("start.facts", [[hex(self.source.blocks[0].entry)]])
+      generate("end.facts", [[hex(self.source.blocks[-1].exit)]])
 
 
 class CFGPrintExporter(Exporter, patterns.DynamicVisitor):
