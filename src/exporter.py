@@ -162,9 +162,7 @@ class CFGDotExporter(Exporter):
   Generates a dot file for drawing a pretty picture of the given CFG.
 
   Args:
-    cfg: source CFG to be exported to dot format. If the file extension is
-         a supported image format, attempt to generate an image using
-         the `dot` program, if it is in the user's `$PATH`.
+    cfg: source CFG to be exported to dot format.
   """
   def __init__(self, cfg:cfg.ControlFlowGraph):
     super().__init__(cfg)
@@ -175,6 +173,9 @@ class CFGDotExporter(Exporter):
 
     Args:
       out_filename: path to the file where dot output should be written.
+                    If the file extension is a supported image format,
+                    attempt to generate an image using the `dot` program,
+                    if it is in the user's `$PATH`.
     """
     import networkx as nx
     from networkx.drawing.nx_pydot import write_dot
@@ -199,7 +200,6 @@ class CFGDotExporter(Exporter):
                 if block.tac_ops[-1].opcode == opcodes.SUICIDE}
     color_dict = {**returns, **stops, **throws, **suicides}
     nx.set_node_attributes(G, "color", color_dict)
-
 
     if "." in out_filename and not out_filename.endswith(".dot"):
       name, extension = out_filename.rsplit(".", 1)
