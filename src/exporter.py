@@ -148,10 +148,10 @@ class CFGTsvExporter(Exporter, patterns.DynamicVisitor):
     generate("edge.facts", self.edges)
 
     # Retrieve sorted list of blocks based on program counter
-    # Note: Start and End are currently singletons
-    # TODO -- Update starts and ends to be based on function boundaries
     ordered_blocks = list(self.source.get_blocks())
     if len(ordered_blocks) > 0:
+      # Note: Start and End are currently singletons
+      # TODO -- Update starts and ends to be based on function boundaries
       generate("start.facts", [[hex(ordered_blocks[0].entry)]])
       generate("end.facts", [[hex(ordered_blocks[-1].exit)]])
 
