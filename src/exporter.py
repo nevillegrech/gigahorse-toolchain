@@ -62,7 +62,7 @@ class CFGTsvExporter(Exporter, patterns.DynamicVisitor):
     """
 
     # Visit the graph.
-    cfg.accept(self)
+    cfg.accept(self, generator=cfg.sorted_traversal())
 
   def visit_TACGraph(self, cfg):
     """
@@ -148,12 +148,10 @@ class CFGTsvExporter(Exporter, patterns.DynamicVisitor):
     generate("edge.facts", self.edges)
 
     # Retrieve sorted list of blocks based on program counter
-    ordered_blocks = list(self.source.sorted_blocks())
-    if len(ordered_blocks) > 0:
-      # Note: Start and End are currently singletons
-      # TODO -- Update starts and ends to be based on function boundaries
-      generate("start.facts", [[hex(ordered_blocks[0].entry)]])
-      generate("end.facts", [[hex(ordered_blocks[-1].exit)]])
+    # Note: Start and End are currently singletons
+    # TODO -- Update starts and ends to be based on function boundaries
+    generate("start.facts", [[hex(self.source.blocks[0].entry)]])
+    generate("end.facts", [[hex(self.source.blocks[-1].exit)]])
 
 
 class CFGPrintExporter(Exporter, patterns.DynamicVisitor):
