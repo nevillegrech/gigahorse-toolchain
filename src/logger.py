@@ -1,4 +1,4 @@
-"""logging.py: global debug output logging"""
+"""logger.py: global debug output logging"""
 
 import sys
 

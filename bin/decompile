@@ -47,11 +47,11 @@ import blockparse
 import exporter
 import optimise
 import tac_cfg
-import logging
+import logger
 
 # Set global LOG_LEVEL if --verbose flag given
 if args.verbose:
-  logging.LOG_LEVEL = logging.Verbosity.HIGH
+  logger.LOG_LEVEL = logger.Verbosity.HIGH
 
 cfg = None
 

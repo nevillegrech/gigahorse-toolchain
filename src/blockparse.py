@@ -6,7 +6,7 @@ import typing
 import cfg
 import evm_cfg
 import opcodes
-import logging
+import logger
 
 class BlockParser(abc.ABC):
   """
@@ -63,7 +63,7 @@ class EVMBlockParser(BlockParser):
     # also ignored.
     for i, l in enumerate(self._raw):
       if len(l.split()) == 1:
-        logging.log("Warning (line {}): skipping invalid disassembly:\n   {}"
+        logger.log("Warning (line {}): skipping invalid disassembly:\n   {}"
                     .format(i+1, l.rstrip()))
         continue
       elif len(l.split()) < 1:
