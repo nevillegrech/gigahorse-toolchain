@@ -1,11 +1,12 @@
 """blockparse.py: Parse operation sequences and construct basic blocks"""
 
+import abc
 import typing
 
-import abc
 import cfg
 import evm_cfg
 import opcodes
+import logging
 
 class BlockParser(abc.ABC):
   """
@@ -53,16 +54,21 @@ class EVMBlockParser(BlockParser):
   def parse(self):
     super().parse()
 
+    self._ops = []
+
     # Construct a list of EVMOp objects from the raw input disassembly
     # lines, ignoring the first line of input (which is the bytecode's hex
     # representation when using Ethereum's disasm tool). Any line which does
     # not produce enough tokens to be valid disassembly after being split() is
     # also ignored.
-    self._ops = [
-      self.evm_op_from_dasm(l)
-      for i, l in enumerate(self._raw)
-      if i != 0 and len(l.split()) > 1
-    ]
+    for i, l in enumerate(self._raw):
+      if len(l.split()) == 1:
+        logging.log("Warning (line {}): skipping invalid disassembly:\n   {}"
+                    .format(i+1, l.rstrip()))
+        continue
+      elif len(l.split()) < 1:
+        continue
+      self._ops.append(self.evm_op_from_dasm(l))
 
     self.__blocks = []
     self.__create_blocks()
