@@ -71,7 +71,9 @@ class EVMBlockParser(BlockParser):
 
   def __create_blocks(self):
     # block currently being processed
-    current = evm_cfg.EVMBasicBlock(0, len(self._ops) - 1)
+    entry, exit = (0, len(self._ops) - 1) if len(self._ops) > 0 \
+                  else (None, None)
+    current = evm_cfg.EVMBasicBlock(entry, exit)
 
     # Linear scan of all EVMOps to create initial EVMBasicBlocks
     for i, op in enumerate(self._ops):
