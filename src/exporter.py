@@ -61,7 +61,22 @@ class CFGTsvExporter(Exporter, patterns.DynamicVisitor):
     A list of pairs (op.pc, variable) that specify all write locations.
     """
 
-    # Visit the graph.
+    self.__prev_op = None
+    """
+    Previously visited TACOp.
+    """
+
+    self.__start_block = None
+    """
+    First BasicBlock visited, or None.
+    """
+
+    self.__end_block = None
+    """
+    Last BasicBlock visited, or None.
+    """
+
+    # Recursively visit the graph using a sorted traversal
     cfg.accept(self, generator=cfg.sorted_traversal())
 
   def visit_TACGraph(self, cfg):
@@ -74,40 +89,44 @@ class CFGTsvExporter(Exporter, patterns.DynamicVisitor):
     """
     Visit a TAC BasicBlock in the CFG
     """
+    # Track the start and end blocks
+    if self.__start_block is None:
+      self.__start_block = block
+    self.__end_block = block
 
     # Add edges from predecessor exits to this blocks's entry
     for pred in block.preds:
       # Generating edge.facts
       self.edges.append((hex(pred.tac_ops[-1].pc), hex(block.tac_ops[0].pc)))
 
-    # Keep track of previous TACOp for building edges
-    prev_op = None
+  def visit_TACOp(self, op):
+    """
+    Visit a TACOp in a BasicBlock of the CFG.
+    """
+    # Add edges between TACOps (generate edge.facts)
+    if self.__prev_op != None:
+      # Generating edge relations (edge.facts)
+      self.edges.append((hex(self.__prev_op.pc), hex(op.pc)))
+    self.__prev_op = op
 
-    for op in block.tac_ops:
-      # Add edges between TACOps (generate edge.facts)
-      if prev_op != None:
-        # Generating edge relations (edge.facts)
-        self.edges.append((hex(prev_op.pc), hex(op.pc)))
-      prev_op = op
+    # Generate opcode relations (op.facts)
+    self.ops.append((hex(op.pc), op.opcode))
 
-      # Generate opcode relations (op.facts)
-      self.ops.append((hex(op.pc), op.opcode))
+    if isinstance(op, tac_cfg.TACAssignOp):
+      # Memory assignments are not considered as 'variable definitions'
+      if not isinstance(op.lhs, memtypes.Location):
+        # Generate variable definition relations (defined.facts)
+        self.defined.append((hex(op.pc), op.lhs))
 
-      if isinstance(op, tac_cfg.TACAssignOp):
-        # Memory assignments are not considered as 'variable definitions'
-        if not isinstance(op.lhs, memtypes.Location):
-          # Generate variable definition relations (defined.facts)
-          self.defined.append((hex(op.pc), op.lhs))
+      # TODO: Add notion of blockchain and local memory
+      # Generate variable write relations (write.facts)
+      self.writes.append((hex(op.pc), op.lhs))
 
-        # TODO -- Add notion of blockchain and local memory
-        # Generate variable write relations (write.facts)
-        self.writes.append((hex(op.pc), op.lhs))
-
-      for arg in op.args:
-        # Only include variable reads; ignore constants
-        if not arg.is_const:
-          # Generate variable read relations (read.facts)
-          self.reads.append((hex(op.pc), arg))
+    for arg in op.args:
+      # Only include variable reads; ignore constants
+      if not arg.is_const:
+        # Generate variable read relations (read.facts)
+        self.reads.append((hex(op.pc), arg))
 
   def export(self, output_dir:str=""):
     """
@@ -127,8 +146,10 @@ class CFGTsvExporter(Exporter, patterns.DynamicVisitor):
       the first location of the CFG
     ``end.facts``
       the last location of the CFG
-    """
 
+    Args:
+      output_dir: the output directory where fact files should be written.
+    """
     # Create the target directory.
     if output_dir != "":
       os.makedirs(output_dir, exist_ok=True)
@@ -150,9 +171,10 @@ class CFGTsvExporter(Exporter, patterns.DynamicVisitor):
     # Retrieve sorted list of blocks based on program counter
     # Note: Start and End are currently singletons
     # TODO -- Update starts and ends to be based on function boundaries
-    generate("start.facts", [[hex(self.source.blocks[0].entry)]])
-    generate("end.facts", [[hex(self.source.blocks[-1].exit)]])
-
+    start_fact = [hex(b.entry) for b in (self.__start_block,) if b is not None]
+    end_fact = [hex(b.exit) for b in (self.__end_block,) if b is not None]
+    generate("start.facts", [start_fact])
+    generate("end.facts", [end_fact])
 
 class CFGPrintExporter(Exporter, patterns.DynamicVisitor):
   """
