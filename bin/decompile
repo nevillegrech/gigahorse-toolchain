@@ -6,20 +6,49 @@ import sys
 import fileinput
 import argparse
 
+# Prepend ../src to $PATH so the project modules can be imported below
+src_path = join(dirname(abspath(__file__)), "../src")
+sys.path.insert(0, src_path)
+
+# Local project imports
+import blockparse
+import exporter
+import optimise
+import tac_cfg
+import logger
+
+ll, lm, lh = logger.log_low, logger.log_med, logger.log_high
+
+# Version string to display with -v
+VERSION = "Ethereum Decompiler v0.0.1"
+
+# Define a version() function in case we want dynamic version strings later
+def version():
+  return VERSION
+
+# Mapping of arguments to output exporters
+arg_exporters = {
+  "print": exporter.CFGPrintExporter,
+  "graph": exporter.CFGDotExporter,
+  "tsv": exporter.CFGTsvExporter,
+}
+
+# Configure argparse
 parser = argparse.ArgumentParser(
            description="An EVM bytecode disassembly decompiler that generates"
-                       " files for program analysis.")
+                       " three-address code for program analysis.")
 
-parser.add_argument("-f",
-                    "--file",
-                    type=open,
-                    help="input EVM bytecode disassembly file to decompile")
+parser.add_argument("-o",
+                    "--optimise",
+                    action="store_true",
+                    help="apply optimizations to the TAC output")
 
 parser.add_argument("-p",
                     "--print",
                     action="store_true",
-                    help="display Three-Address code output "
-                         "(default if no other output specified)")
+                    default=True,
+                    help="print three-address code to stdout "
+                         "(the default)")
 
 parser.add_argument("-g",
                     "--graph",
@@ -36,39 +65,48 @@ parser.add_argument("-v",
                     action="store_true",
                     help="produce more verbose debug output")
 
+parser.add_argument("-V",
+                    "--version",
+                    action="store_true",
+                    help="display the version number and exit")
+
+parser.add_argument('infile', nargs='?',
+                    type=argparse.FileType('r'),
+                    default=sys.stdin,
+                    help="file from which decompiler input should be read "
+                         "(stdin by default)")
+
+# Do the argparsing
 args = parser.parse_args()
 
-# Prepend ../src to $PATH so the project modules can be imported below
-src_path = join(dirname(abspath(__file__)), "../src")
-sys.path.insert(0, src_path)
-
-# Local project imports
-import blockparse
-import exporter
-import optimise
-import tac_cfg
-import logger
-
-# Set global LOG_LEVEL if --verbose flag given
+# Set global LOG_LEVEL to HIGH if --verbose flag given
 if args.verbose:
   logger.LOG_LEVEL = logger.Verbosity.HIGH
 
-cfg = None
+# Handle version display
+if args.version:
+  print(version())
+  sys.exit(0)
 
-# Determine method of file input
-if args.file == None:
-  cfg = tac_cfg.TACGraph.from_dasm(fileinput.input())
-else:
-  cfg = tac_cfg.TACGraph.from_dasm(args.file)
+# Always show version for log_level >= LOW
+ll(version())
 
-# Apply optimisations
-optimise.fold_constants(cfg)
-cfg.recheck_jumps()
+# Build TAC CFG from input file
+try:
+  lh("Reading from {}", args.infile.name)
+  cfg = tac_cfg.TACGraph.from_dasm(args.infile)
+except KeyboardInterrupt:
+  logger.log("\nInterrupted by user")
+  sys.exit(1)
 
-# Process command-line arguments to determine outputs
-if args.graph:
-  exporter.CFGDotExporter(cfg).export()
-if args.tsv:
-  exporter.CFGTsvExporter(cfg).export()
-if args.print or (not args.graph and not args.tsv):
-  exporter.CFGPrintExporter(cfg).export()
+# Apply optimisations to TAC CFG
+if args.optimise:
+  ll("Applying optimisation fold_constants to TAC CFG")
+  optimise.fold_constants(cfg)
+  ll("Recalculating edges in TAC CFG")
+  cfg.recheck_jumps()
+
+# Generate output using the requested exporter(s)
+for arg, exporter in arg_exporters.items():
+  if getattr(args, arg):
+    exporter(cfg).export()
