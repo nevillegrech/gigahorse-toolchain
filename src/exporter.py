@@ -2,6 +2,7 @@
 
 import abc
 import csv
+import os
 
 import cfg
 import memtypes
@@ -34,13 +35,49 @@ class CFGTsvExporter(Exporter, patterns.DynamicVisitor):
   """
   def __init__(self, cfg:tac_cfg.TACGraph):
     super().__init__(cfg)
-    self.blocks = []
     self.ops = []
+    """
+    A list of pairs (op.pc, op.opcode), associating to each pc address the
+    operation performed at that address.
+    """
+
     self.edges = []
+    """
+    A list of edges between instructions defining a control flow graph.
+    """
+
     self.defined = []
+    """
+    A list of pairs (op.pc, variable) that specify variable definition sites.
+    """
+
     self.reads = []
+    """
+    A list of pairs (op.pc, variable) that specify all usage sites.
+    """
+
     self.writes = []
-    cfg.accept(self)
+    """
+    A list of pairs (op.pc, variable) that specify all write locations.
+    """
+
+    self.__prev_op = None
+    """
+    Previously visited TACOp.
+    """
+
+    self.__start_block = None
+    """
+    First BasicBlock visited, or None.
+    """
+
+    self.__end_block = None
+    """
+    Last BasicBlock visited, or None.
+    """
+
+    # Recursively visit the graph using a sorted traversal
+    cfg.accept(self, generator=cfg.sorted_traversal())
 
   def visit_TACGraph(self, cfg):
     """
@@ -52,72 +89,92 @@ class CFGTsvExporter(Exporter, patterns.DynamicVisitor):
     """
     Visit a TAC BasicBlock in the CFG
     """
-    self.blocks.append(block)
+    # Track the start and end blocks
+    if self.__start_block is None:
+      self.__start_block = block
+    self.__end_block = block
 
     # Add edges from predecessor exits to this blocks's entry
     for pred in block.preds:
       # Generating edge.facts
       self.edges.append((hex(pred.tac_ops[-1].pc), hex(block.tac_ops[0].pc)))
 
-    # Keep track of previous TACOp for building edges
-    prev_op = None
+  def visit_TACOp(self, op):
+    """
+    Visit a TACOp in a BasicBlock of the CFG.
+    """
+    # Add edges between TACOps (generate edge.facts)
+    if self.__prev_op != None:
+      # Generating edge relations (edge.facts)
+      self.edges.append((hex(self.__prev_op.pc), hex(op.pc)))
+    self.__prev_op = op
 
-    for op in block.tac_ops:
+    # Generate opcode relations (op.facts)
+    self.ops.append((hex(op.pc), op.opcode))
 
-      # Add edges between TACOps (generate edge.facts)
-      if prev_op != None:
-        # Generating edge relations (edge.facts)
-        self.edges.append((hex(prev_op.pc), hex(op.pc)))
-      prev_op = op
+    if isinstance(op, tac_cfg.TACAssignOp):
+      # Memory assignments are not considered as 'variable definitions'
+      if not isinstance(op.lhs, memtypes.Location):
+        # Generate variable definition relations (defined.facts)
+        self.defined.append((hex(op.pc), op.lhs))
 
-      # Generate opcode relations (op.facts)
-      self.ops.append((hex(op.pc), op.opcode))
+      # TODO: Add notion of blockchain and local memory
+      # Generate variable write relations (write.facts)
+      self.writes.append((hex(op.pc), op.lhs))
 
-      if isinstance(op, tac_cfg.TACAssignOp):
+    for arg in op.args:
+      # Only include variable reads; ignore constants
+      if not arg.is_const:
+        # Generate variable read relations (read.facts)
+        self.reads.append((hex(op.pc), arg))
 
-        # Memory assignments are not considered as 'variable definitions'
-        if not isinstance(op.lhs, memtypes.Location):
-
-          # Generate variable definition relations (defined.facts)
-          self.defined.append((hex(op.pc), op.lhs))
-
-        # TODO -- Add notion of blockchain and local memory
-        # Generate variable write relations (write.facts)
-        self.writes.append((hex(op.pc), op.lhs))
-
-      for arg in op.args:
-
-        # Only include variable reads; ignore constants
-        if not arg.is_const:
-
-          # Generate variable read relations (read.facts)
-          self.reads.append((hex(op.pc), arg))
-
-  def export(self):
+  def export(self, output_dir:str=""):
     """
     Export the CFG to separate fact files.
+
+    ``op.facts``
+      (program counter, operation) pairs
+    ``defined.facts``
+      variable definition locations
+    ``read.facts``
+      var/loc use locations
+    ``write.facts``
+      var/loc write locations
+    ``edge.facts``
+      instruction-level CFG edges
+    ``start.facts``
+      the first location of the CFG
+    ``end.facts``
+      the last location of the CFG
+
+    Args:
+      output_dir: the output directory where fact files should be written.
     """
-    # Inner function for DRYness
+    # Create the target directory.
+    if output_dir != "":
+      os.makedirs(output_dir, exist_ok=True)
+
     def generate(filename, entries):
-      with open(filename, 'w') as f:
+      path = os.path.join(output_dir, filename)
+
+      with open(path, 'w') as f:
         writer = csv.writer(f, delimiter='\t', lineterminator='\n')
         for e in entries:
           writer.writerow(e)
 
-    generate('op.facts', self.ops)
-    generate('defined.facts', self.defined)
-    generate('read.facts', self.reads)
-    generate('write.facts', self.writes)
-    generate('edge.facts', self.edges)
+    generate("op.facts", self.ops)
+    generate("defined.facts", self.defined)
+    generate("read.facts", self.reads)
+    generate("write.facts", self.writes)
+    generate("edge.facts", self.edges)
 
+    # Retrieve sorted list of blocks based on program counter
     # Note: Start and End are currently singletons
     # TODO -- Update starts and ends to be based on function boundaries
-    if len(self.blocks) > 0:
-      with open('start.facts', 'w') as f:
-        print(hex(self.blocks[0].entry), file=f)
-      with open('end.facts', 'w') as f:
-        print(hex(self.blocks[-1].exit), file=f)
-
+    start_fact = [hex(b.entry) for b in (self.__start_block,) if b is not None]
+    end_fact = [hex(b.exit) for b in (self.__end_block,) if b is not None]
+    generate("start.facts", [start_fact])
+    generate("end.facts", [end_fact])
 
 class CFGStringExporter(Exporter, patterns.DynamicVisitor):
   """

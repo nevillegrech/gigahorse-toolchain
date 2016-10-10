@@ -50,5 +50,3 @@ if args.print or (not args.graph and not args.tsv):
       f.write(result)
   else:
     print(result)
-
-

@@ -14,3 +14,6 @@ doc/source/modules
 
 # Cache dir used by pytest
 .cache/
+
+# Output files from decompiler
+*.facts
