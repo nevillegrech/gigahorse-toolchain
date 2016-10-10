@@ -60,11 +60,11 @@ class OpCode:
   def alters_flow(self) -> bool:
     """Predicate: opcode alters EVM control flow."""
     return self.code in [JUMP.code, JUMPI.code, RETURN.code,
-                         SUICIDE.code, STOP.code]
+                         SUICIDE.code, STOP.code, THROW.code]
 
   def halts(self) -> bool:
     """Predicate: opcode causes the EVM to halt."""
-    return self.code in [STOP.code, RETURN.code, SUICIDE.code]
+    return self.code in [STOP.code, RETURN.code, SUICIDE.code, THROW.code]
 
   def push_len(self) -> int:
     """Return the number of bytes the given PUSH instruction pushes."""
