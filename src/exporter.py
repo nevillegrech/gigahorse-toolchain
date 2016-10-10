@@ -149,6 +149,7 @@ class CFGTsvExporter(Exporter, patterns.DynamicVisitor):
 
     Args:
       output_dir: the output directory where fact files should be written.
+      Will be created recursively if it doesn't exist.
     """
     # Create the target directory.
     if output_dir != "":
@@ -176,7 +177,7 @@ class CFGTsvExporter(Exporter, patterns.DynamicVisitor):
     generate("start.facts", [start_fact])
     generate("end.facts", [end_fact])
 
-class CFGPrintExporter(Exporter, patterns.DynamicVisitor):
+class CFGStringExporter(Exporter, patterns.DynamicVisitor):
   """
   Prints a textual representation of the given CFG to stdout.
 
@@ -211,7 +212,7 @@ class CFGPrintExporter(Exporter, patterns.DynamicVisitor):
     """
     if self.ordered:
       self.blocks.sort(key=lambda n: n[0])
-    print(self.__BLOCK_SEP.join(n[1] for n in self.blocks))
+    return self.__BLOCK_SEP.join(n[1] for n in self.blocks)
 
 
 class CFGDotExporter(Exporter):
@@ -222,7 +223,7 @@ class CFGDotExporter(Exporter):
     cfg: source CFG to be exported to dot format.
   """
   def __init__(self, cfg:cfg.ControlFlowGraph):
-    super.__init__(cfg)
+    super().__init__(cfg)
 
   def export(self, out_filename:str="cfg.dot"):
     """
@@ -230,26 +231,44 @@ class CFGDotExporter(Exporter):
 
     Args:
       out_filename: path to the file where dot output should be written.
+                    If the file extension is a supported image format,
+                    attempt to generate an image using the `dot` program,
+                    if it is in the user's `$PATH`.
     """
     import networkx as nx
     from networkx.drawing.nx_pydot import write_dot
+    import subprocess
+    import os
 
     cfg = self.source
 
     G = nx.DiGraph()
     G.add_nodes_from(b.ident() for b in cfg.blocks)
     G.add_edges_from((p.ident(), s.ident()) for p, s in cfg.edge_list())
-    G.add_edges_from((block.ident(), "?") for block in cfg.blocks \
+    G.add_edges_from((block.ident(), "?") for block in cfg.blocks
                      if block.has_unresolved_jump)
 
-    returns = {block.ident(): "green" for block in cfg.blocks \
+    returns = {block.ident(): "green" for block in cfg.blocks
                if block.tac_ops[-1].opcode == opcodes.RETURN}
-    stops = {block.ident(): "blue" for block in cfg.blocks \
+    stops = {block.ident(): "blue" for block in cfg.blocks
              if block.tac_ops[-1].opcode == opcodes.STOP}
-    throws = {block.ident(): "red" for block in cfg.blocks \
+    throws = {block.ident(): "red" for block in cfg.blocks
              if block.tac_ops[-1].opcode in [opcodes.THROW, opcodes.THROWI]}
-    suicides = {block.ident(): "purple" for block in cfg.blocks \
+    suicides = {block.ident(): "purple" for block in cfg.blocks
                 if block.tac_ops[-1].opcode == opcodes.SUICIDE}
     color_dict = {**returns, **stops, **throws, **suicides}
     nx.set_node_attributes(G, "color", color_dict)
-    write_dot(G, out_filename)
+
+    if "." in out_filename and not out_filename.endswith(".dot"):
+      name, extension = out_filename.rsplit(".", 1)
+      dot_name = ".{}_tmp.dot".format(name)
+      write_dot(G, dot_name)
+      try:
+        subprocess.run(["dot", dot_name,
+                        "-T{}".format(extension),
+                        "-o", out_filename]).check_returncode()
+      except subprocess.CalledProcessError:
+        raise TypeError("Unsupported file extension '{}'.".format(extension))
+      os.remove(dot_name)
+    else:
+      write_dot(G, out_filename)

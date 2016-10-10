@@ -11,54 +11,49 @@ src_path = join(dirname(abspath(__file__)), "../src")
 sys.path.insert(0, src_path)
 
 # Local project imports
-import blockparse
 import exporter
-import optimise
+import dataflow
 import tac_cfg
 import logger
 
 ll, lm, lh = logger.log_low, logger.log_med, logger.log_high
 
 # Version string to display with -v
-VERSION = "Ethereum Decompiler v0.0.1"
+VERSION = """\
++------------------------------+
+| Ethereum Decompiler v0.0.1   |
+| (c) The University of Sydney |
++------------------------------+\
+"""
 
 # Define a version() function in case we want dynamic version strings later
 def version():
   return VERSION
-
-# Mapping of arguments to output exporters
-arg_exporters = {
-  "print": exporter.CFGPrintExporter,
-  "graph": exporter.CFGDotExporter,
-  "tsv": exporter.CFGTsvExporter,
-}
 
 # Configure argparse
 parser = argparse.ArgumentParser(
            description="An EVM bytecode disassembly decompiler that generates"
                        " three-address code for program analysis.")
 
-parser.add_argument("-o",
-                    "--optimise",
-                    action="store_true",
-                    help="apply optimizations to the TAC output")
-
-parser.add_argument("-p",
-                    "--print",
-                    action="store_true",
-                    default=True,
-                    help="print three-address code to stdout "
-                         "(the default)")
-
 parser.add_argument("-g",
                     "--graph",
-                    action="store_true",
-                    help="generate .dot file of basic block relationships")
+                    nargs="?",
+                    const="graph.dot",
+                    metavar="FILE",
+                    default=None,
+                    help="generate .dot file of basic block relationships "
+                         "with the given filename (or `./cfg.dot` by default)")
 
 parser.add_argument("-t",
                     "--tsv",
-                    action="store_true",
-                    help="generate tab-separated .facts files for Souffle")
+                    nargs="?",
+                    const="",
+                    metavar="DIR",
+                    default=None,
+                    help="generate tab-separated .facts files for Souffle "
+                         "and write files to the specified directory, which "
+                         "will be recursively created if it does not exist "
+                         "(current working directory by default)")
 
 parser.add_argument("-v",
                     "--verbose",
@@ -68,13 +63,21 @@ parser.add_argument("-v",
 parser.add_argument("-V",
                     "--version",
                     action="store_true",
-                    help="display the version number and exit")
+                    help="show program's version number and exit")
 
-parser.add_argument('infile', nargs='?',
-                    type=argparse.FileType('r'),
+parser.add_argument("infile",
+                    nargs="?",
+                    type=argparse.FileType("r"),
                     default=sys.stdin,
                     help="file from which decompiler input should be read "
                          "(stdin by default)")
+
+parser.add_argument("outfile",
+                    nargs="?",
+                    type=argparse.FileType("w"),
+                    default=sys.stdout,
+                    help="file to which decompiler output should be written "
+                         "(stdout by default)")
 
 # Do the argparsing
 args = parser.parse_args()
@@ -83,10 +86,10 @@ args = parser.parse_args()
 if args.verbose:
   logger.LOG_LEVEL = logger.Verbosity.HIGH
 
-# Handle version display
+# Handle --version
 if args.version:
   print(version())
-  sys.exit(0)
+  sys.exit(1)
 
 # Always show version for log_level >= LOW
 ll(version())
@@ -95,18 +98,24 @@ ll(version())
 try:
   lh("Reading from {}", args.infile.name)
   cfg = tac_cfg.TACGraph.from_dasm(args.infile)
+  ll("TAC CFG generation completed")
+
+# Catch a Control-C and exit with UNIX failure status 1
 except KeyboardInterrupt:
   logger.log("\nInterrupted by user")
   sys.exit(1)
 
-# Apply optimisations to TAC CFG
-if args.optimise:
-  ll("Applying optimisation fold_constants to TAC CFG")
-  optimise.fold_constants(cfg)
-  ll("Recalculating edges in TAC CFG")
-  cfg.recheck_jumps()
+ll("Applying stack analysis TAC CFG")
+dataflow.stack_analysis(cfg)
 
 # Generate output using the requested exporter(s)
-for arg, exporter in arg_exporters.items():
-  if getattr(args, arg):
-    exporter(cfg).export()
+ll("Writing string output")
+print(exporter.CFGStringExporter(cfg).export(), file=args.outfile)
+
+if args.graph is not None:
+  ll("Writing DOT output")
+  exporter.CFGDotExporter(cfg).export(args.graph)
+
+if args.tsv is not None:
+  ll("Writing TSV output")
+  exporter.CFGTsvExporter(cfg).export(args.tsv)
