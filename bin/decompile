@@ -41,8 +41,11 @@ parser.add_argument("-g",
                     const="graph.dot",
                     metavar="FILE",
                     default=None,
-                    help="generate .dot file of basic block relationships "
-                         "with the given filename (or `./cfg.dot` by default)")
+                    help="generate a visual representation of basic block "
+                         "relationships with the format inferred from the "
+                         "given output filename (cfg.dot by default). "
+                         "Non-DOT formats like pdf, png, etc. require "
+                         "Graphviz to be installed.")
 
 parser.add_argument("-t",
                     "--tsv",
@@ -53,31 +56,31 @@ parser.add_argument("-t",
                     help="generate tab-separated .facts files for Souffle "
                          "and write files to the specified directory, which "
                          "will be recursively created if it does not exist "
-                         "(current working directory by default)")
+                         "(current working directory by default).")
 
 parser.add_argument("-v",
                     "--verbose",
                     action="store_true",
-                    help="produce more verbose debug output")
+                    help="produce more verbose debug output.")
 
 parser.add_argument("-V",
                     "--version",
                     action="store_true",
-                    help="show program's version number and exit")
+                    help="show program's version number and exit.")
 
 parser.add_argument("infile",
                     nargs="?",
                     type=argparse.FileType("r"),
                     default=sys.stdin,
                     help="file from which decompiler input should be read "
-                         "(stdin by default)")
+                         "(stdin by default).")
 
 parser.add_argument("outfile",
                     nargs="?",
                     type=argparse.FileType("w"),
                     default=sys.stdout,
                     help="file to which decompiler output should be written "
-                         "(stdout by default)")
+                         "(stdout by default).")
 
 # Do the argparsing
 args = parser.parse_args()
