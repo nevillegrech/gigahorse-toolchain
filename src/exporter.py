@@ -149,6 +149,7 @@ class CFGTsvExporter(Exporter, patterns.DynamicVisitor):
 
     Args:
       output_dir: the output directory where fact files should be written.
+      Will be created recursively if it doesn't exist.
     """
     # Create the target directory.
     if output_dir != "":
@@ -235,8 +236,6 @@ class CFGDotExporter(Exporter):
                     if it is in the user's `$PATH`.
     """
     import networkx as nx
-    from networkx.drawing.nx_pydot import write_dot
-    import subprocess
     import os
 
     cfg = self.source
@@ -258,16 +257,11 @@ class CFGDotExporter(Exporter):
     color_dict = {**returns, **stops, **throws, **suicides}
     nx.set_node_attributes(G, "color", color_dict)
 
+    # Write non-dot files using pydot and Graphviz
     if "." in out_filename and not out_filename.endswith(".dot"):
-      name, extension = out_filename.rsplit(".", 1)
-      dot_name = ".{}_tmp.dot".format(name)
-      write_dot(G, dot_name)
-      try:
-        subprocess.run(["dot", dot_name,
-                        "-T{}".format(extension),
-                        "-o", out_filename]).check_returncode()
-      except subprocess.CalledProcessError:
-        raise TypeError("Unsupported file extension '{}'.".format(extension))
-      os.remove(dot_name)
+      extension = out_filename.split(".")[-1]
+      pdG = nx.nx_pydot.to_pydot(G)
+      pdG.write(out_filename, format=extension)
+    # Otherwise, write a regular dot file using pydot
     else:
-      write_dot(G, out_filename)
+      nx.nx_pydot.write_dot(G, out_filename)

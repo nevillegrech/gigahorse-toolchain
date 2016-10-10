@@ -4,16 +4,7 @@
 from os.path import abspath, dirname, join
 import sys
 import fileinput
-
-# User-friendly command-line interface
 import argparse
-parser = argparse.ArgumentParser(description="An EVM bytecode disassembly decompiler that generates files for program analysis.")
-parser.add_argument("-f", "--file", type=open, help="input EVM bytecode disassembly file to decompile")
-parser.add_argument("-o", "--out", help="specify output file")
-parser.add_argument("-p", "--print", action="store_true", help="display Three-Address code output (default if no other output specified)")
-parser.add_argument("-g", "--graph", action="store_true", help="generate .dot file of basic block relationships")
-parser.add_argument("-t", "--tsv", action="store_true", help="generate tab-separated .facts files for Souffle")
-args = parser.parse_args()
 
 # Prepend ../src to $PATH so the project modules can be imported below
 src_path = join(dirname(abspath(__file__)), "../src")
@@ -21,32 +12,113 @@ sys.path.insert(0, src_path)
 
 # Local project imports
 import exporter
-import tac_cfg
 import dataflow
+import tac_cfg
+import logger
 
-cfg = None
+ll, lm, lh = logger.log_low, logger.log_med, logger.log_high
 
-# Determine method of file input
-if args.file:
-  cfg = tac_cfg.TACGraph.from_dasm(args.file)
-else:
-  cfg = tac_cfg.TACGraph.from_dasm(fileinput.input())
+# Version string to display with -v
+VERSION = """\
++------------------------------+
+| Ethereum Decompiler v0.0.1   |
+| (c) The University of Sydney |
++------------------------------+\
+"""
 
-# Apply data flow analysis
+# Define a version() function in case we want dynamic version strings later
+def version():
+  return VERSION
+
+# Configure argparse
+parser = argparse.ArgumentParser(
+           description="An EVM bytecode disassembly decompiler that generates"
+                       " three-address code for program analysis.")
+
+parser.add_argument("-g",
+                    "--graph",
+                    nargs="?",
+                    const="graph.dot",
+                    metavar="FILE",
+                    default=None,
+                    help="generate a visual representation of basic block "
+                         "relationships with the format inferred from the "
+                         "given output filename (cfg.dot by default). "
+                         "Non-DOT formats like pdf, png, etc. require "
+                         "Graphviz to be installed.")
+
+parser.add_argument("-t",
+                    "--tsv",
+                    nargs="?",
+                    const="",
+                    metavar="DIR",
+                    default=None,
+                    help="generate tab-separated .facts files for Souffle "
+                         "and write files to the specified directory, which "
+                         "will be recursively created if it does not exist "
+                         "(current working directory by default).")
+
+parser.add_argument("-v",
+                    "--verbose",
+                    action="store_true",
+                    help="produce more verbose debug output.")
+
+parser.add_argument("-V",
+                    "--version",
+                    action="store_true",
+                    help="show program's version number and exit.")
+
+parser.add_argument("infile",
+                    nargs="?",
+                    type=argparse.FileType("r"),
+                    default=sys.stdin,
+                    help="file from which decompiler input should be read "
+                         "(stdin by default).")
+
+parser.add_argument("outfile",
+                    nargs="?",
+                    type=argparse.FileType("w"),
+                    default=sys.stdout,
+                    help="file to which decompiler output should be written "
+                         "(stdout by default).")
+
+# Do the argparsing
+args = parser.parse_args()
+
+# Set global LOG_LEVEL to HIGH if --verbose flag given
+if args.verbose:
+  logger.LOG_LEVEL = logger.Verbosity.HIGH
+
+# Handle --version
+if args.version:
+  print(version())
+  sys.exit(1)
+
+# Always show version for log_level >= LOW
+ll(version())
+
+# Build TAC CFG from input file
+try:
+  lh("Reading from {}", args.infile.name)
+  cfg = tac_cfg.TACGraph.from_dasm(args.infile)
+  ll("TAC CFG generation completed")
+
+# Catch a Control-C and exit with UNIX failure status 1
+except KeyboardInterrupt:
+  logger.log("\nInterrupted by user")
+  sys.exit(1)
+
+ll("Applying stack analysis TAC CFG")
 dataflow.stack_analysis(cfg)
 
-# Process command-line arguments to determine outputs
-if args.graph:
-  out_file = args.out if args.out else "cfg.dot"
-  exporter.CFGDotExporter(cfg).export(out_file)
+# Generate output using the requested exporter(s)
+ll("Writing string output")
+print(exporter.CFGStringExporter(cfg).export(), file=args.outfile)
 
-if args.tsv:
-  exporter.CFGTsvExporter(cfg).export()
+if args.graph is not None:
+  ll("Writing DOT output")
+  exporter.CFGDotExporter(cfg).export(args.graph)
 
-if args.print or (not args.graph and not args.tsv):
-  result = exporter.CFGStringExporter(cfg).export()
-  if args.out:
-    with open(args.out, "w") as f:
-      f.write(result)
-  else:
-    print(result)
+if args.tsv is not None:
+  ll("Writing TSV output")
+  exporter.CFGTsvExporter(cfg).export(args.tsv)

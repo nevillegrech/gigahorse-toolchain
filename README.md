@@ -15,7 +15,7 @@ $ bin/decompile ./examples/empty.dasm
 or like this:
 
 ```
-$ cat ./examples/empty.dasm | disasm | bin/decompile
+$ cat ./examples/empty.dasm | bin/decompile
 ```
 
 ## Requirements
