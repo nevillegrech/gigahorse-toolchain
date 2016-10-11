@@ -20,3 +20,8 @@ doc/source/modules
 
 # NodeJS temp files
 .node-xmlhttprequest*
+
+# Scraper output
+0x*_creation.hex
+0x*_runtime.hex
+0x*.json
