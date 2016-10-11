@@ -61,6 +61,11 @@ class CFGTsvExporter(Exporter, patterns.DynamicVisitor):
     A list of pairs (op.pc, variable) that specify all write locations.
     """
 
+    self.block_nums = []
+    """
+    A list of pairs (op.pc, block.entry) that specify block numbers for each TACOp.
+    """
+
     self.__prev_op = None
     """
     Previously visited TACOp.
@@ -111,6 +116,9 @@ class CFGTsvExporter(Exporter, patterns.DynamicVisitor):
 
     # Generate opcode relations (op.facts)
     self.ops.append((hex(op.pc), op.opcode))
+
+    # Generate opcode to basic block relations (block.facts)
+    self.block_nums.append((hex(op.pc), hex(op.block.entry)))
 
     if isinstance(op, tac_cfg.TACAssignOp):
       # Memory assignments are not considered as 'variable definitions'
@@ -168,6 +176,7 @@ class CFGTsvExporter(Exporter, patterns.DynamicVisitor):
     generate("read.facts", self.reads)
     generate("write.facts", self.writes)
     generate("edge.facts", self.edges)
+    generate("block.facts", self.block_nums)
 
     # Retrieve sorted list of blocks based on program counter
     # Note: Start and End are currently singletons
