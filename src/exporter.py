@@ -122,7 +122,7 @@ class CFGTsvExporter(Exporter, patterns.DynamicVisitor):
 
     if isinstance(op, tac_cfg.TACAssignOp):
       # Memory assignments are not considered as 'variable definitions'
-      if not isinstance(op.lhs, memtypes.Location):
+      if not op.opcode in [opcodes.SLOAD, opcodes.MLOAD]:
         # Generate variable definition relations (defined.facts)
         self.defined.append((hex(op.pc), op.lhs))
 
