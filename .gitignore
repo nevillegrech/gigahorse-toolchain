@@ -17,3 +17,6 @@ doc/source/modules
 
 # Output files from decompiler
 *.facts
+
+# NodeJS temp files
+.node-xmlhttprequest*
