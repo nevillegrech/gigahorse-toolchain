@@ -63,7 +63,7 @@ class CFGTsvExporter(Exporter, patterns.DynamicVisitor):
 
     self.block_nums = []
     """
-    A list of pairs (op.pc, block.entry) that specify block numbers for each TACOp..
+    A list of pairs (op.pc, block.entry) that specify block numbers for each TACOp.
     """
 
     self.__prev_op = None
