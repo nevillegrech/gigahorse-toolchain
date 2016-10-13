@@ -1,4 +1,4 @@
-# This is a sample build configuration for Python.
+# This is a Bitbucket Pipelines build configuration for Python.
 # Check our guides at https://confluence.atlassian.com/x/VYk8Lw for more examples.
 # Only use spaces to indent your .yml configuration.
 # -----
@@ -11,3 +11,4 @@ pipelines:
         script: # Modify the commands below to build your repository.
           - pip install -r requirements.txt
           - make clean test doc
+          - bin/decompile examples/dao_hack.dasm
