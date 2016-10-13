@@ -25,3 +25,6 @@ doc/source/modules
 0x*_creation.hex
 0x*_runtime.hex
 0x*.json
+
+# Node modules
+node_modules/
