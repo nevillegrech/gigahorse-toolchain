@@ -12,4 +12,5 @@ pipelines:
           - pip install -r requirements.txt
           - make clean test doc
           - bin/decompile examples/dao_hack.dasm
-          - false && exit 1
+          - bin/decompile examples/mem_leak.dasm
+          - bin/decompile examples/withdraw_dao.dasm
