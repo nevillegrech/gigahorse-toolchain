@@ -12,3 +12,4 @@ pipelines:
           - pip install -r requirements.txt
           - make clean test doc
           - bin/decompile examples/dao_hack.dasm
+          - false
