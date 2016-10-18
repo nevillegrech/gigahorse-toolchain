@@ -17,3 +17,14 @@ doc/source/modules
 
 # Output files from decompiler
 *.facts
+
+# NodeJS temp files
+.node-xmlhttprequest*
+
+# Scraper output
+0x*_creation.hex
+0x*_runtime.hex
+0x*.json
+
+# Node modules
+node_modules/
