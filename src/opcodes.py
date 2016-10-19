@@ -227,10 +227,11 @@ SUICIDE      = OpCode("SUICIDE",      0xff, 1, 0)
 
 # TAC Operations
 # These are not EVM opcodes, but they are used by the three-address code
-CONST  = OpCode("CONST", -1, 0, 0)
-LOG    = OpCode("LOG", -2, 0, 0)
-THROW  = OpCode("THROW", -3, 0, 0)
-THROWI = OpCode("THROWI", -4, 0, 0)
+NOP    = OpCode("NOP", -1, 0, 0)
+CONST  = OpCode("CONST", -2, 0, 0)
+LOG    = OpCode("LOG", -3, 0, 0)
+THROW  = OpCode("THROW", -4, 0, 0)
+THROWI = OpCode("THROWI", -5, 0, 0)
 
 
 # Produce mappings from names and instruction codes to opcode objects
