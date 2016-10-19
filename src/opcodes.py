@@ -248,11 +248,12 @@ BYTECODES = {code.code: code for code in OPCODES.values()}
 
 def opcode_by_name(name:str) -> OpCode:
   """
-  Mapping: Retrieves the named OpCode object.
+  Mapping: Retrieves the named OpCode object (case-insensitive).
 
   Throws:
     LookupError: if there is no opcode defined with the given name.
   """
+  name = name.upper()
   if name not in OPCODES:
     raise LookupError("No opcode named '{}'.".format(name))
   return OPCODES[name]
