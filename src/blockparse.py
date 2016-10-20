@@ -127,12 +127,11 @@ class EVMBytecodeParser(BlockParser):
       op = opcodes.opcode_by_value(byte)
       const, const_size = None, 0
 
-      if op.is_push:
+      if op.is_push():
         const_size = op.code - opcodes.PUSH1.code + 1
 
       if const_size > 0:
-        const = self.__consume(const_size)
-        const = int.from_bytes(const, "big")
+        const = int.from_bytes(self.__consume(const_size), "big")
 
       self._ops.append(evm_cfg.EVMOp(pc, op, const))
 
