@@ -50,7 +50,12 @@ class EVMDasmParser(BlockParser):
     """
     super().__init__(dasm)
 
-  def parse(self):
+  def parse(self, strict: bool = False):
+    """
+    Args:
+      strict: if True, will fail and produce no output when given malformed
+        input (instead of producing a warning and ignoring the malformed input)
+    """
     super().parse()
 
     # Construct a list of EVMOp objects from the raw input disassembly
@@ -123,7 +128,12 @@ class EVMBytecodeParser(BlockParser):
   def __has_more_bytes(self):
     return self.__pc < len(self._raw)
 
-  def parse(self):
+  def parse(self, strict: bool = False):
+    """
+    Args:
+      strict: if True, will fail and produce no output when given malformed
+        input (instead of producing a warning and ignoring the malformed input)
+    """
     super().parse()
 
     while self.__has_more_bytes():
@@ -134,8 +144,11 @@ class EVMBytecodeParser(BlockParser):
       try:
         op = opcodes.opcode_by_value(byte)
       except LookupError as e:
+        if strict:
+          logger.warning("ERROR (strict) at PC = 0x{:02x}".format(pc))
+          raise e
         logger.warning("Warning (PC = 0x{:02x}): {}".format(pc, str(e)))
-        logger.warning("Ignoring invalid opcode")
+        logger.warning("Warning: Ignoring invalid opcode")
         continue
 
       if op.is_push():
