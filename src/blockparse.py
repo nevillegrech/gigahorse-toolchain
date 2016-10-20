@@ -10,6 +10,11 @@ import evm_cfg
 import opcodes
 import logger
 
+ENDIANNESS = "big"
+"""
+The endianness to use when parsing hexadecimal or binary files.
+"""
+
 class BlockParser(abc.ABC):
   @abc.abstractmethod
   def __init__(self, raw:object):
@@ -74,7 +79,7 @@ class EVMDasmParser(BlockParser):
       try:
         self._ops.append(self.evm_op_from_dasm(l))
       except (ValueError, LookupError) as e:
-        logger.log(traceback.format_exc())
+        logger.log(traceback.format_exc(), logger.Verbosity.HIGH)
         logger.warning("Warning (line {}): skipping invalid disassembly:\n   {}"
                     .format(i+1, l.rstrip()))
 
@@ -138,25 +143,33 @@ class EVMBytecodeParser(BlockParser):
 
     while self.__has_more_bytes():
       pc = self.__pc
-      byte = int.from_bytes(self.__consume(1), "big")
+      byte = int.from_bytes(self.__consume(1), ENDIANNESS)
       const, const_size = None, 0
 
       try:
+        # try to resolve the byte to an opcode
         op = opcodes.opcode_by_value(byte)
+
       except LookupError as e:
+        # oops, unknown opcode
+        logger.log(traceback.format_exc(), logger.Verbosity.HIGH)
         if strict:
           logger.warning("ERROR (strict) at PC = 0x{:02x}".format(pc))
           raise e
+        # not strict, so just warn:
         logger.warning("Warning (PC = 0x{:02x}): {}".format(pc, str(e)))
         logger.warning("Warning: Ignoring invalid opcode")
         continue
 
+      # push codes have an argument
       if op.is_push():
         const_size = op.push_len()
 
+      # for opcodes with an argument, consume the argument
       if const_size > 0:
-        const = int.from_bytes(self.__consume(const_size), "big")
+        const = int.from_bytes(self.__consume(const_size), ENDIANNESS)
 
       self._ops.append(evm_cfg.EVMOp(pc, op, const))
 
+    # build basic blocks from the sequence of opcodes
     return evm_cfg.blocks_from_ops(self._ops)
