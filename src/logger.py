@@ -56,3 +56,13 @@ def log_low(message:str, *args:typing.Tuple[str]) -> None:
     *args: arguments for str.format substitutions in message
   """
   log(message.format(*args), Verbosity.LOW)
+
+def warning(message:str, *args:typing.Tuple[str]) -> None:
+  """
+  Log the given warning message at the QUIET Verbosity level.
+
+  Args:
+    message: message to be logged, can be a str.format compatible
+    *args: arguments for str.format substitutions in message
+  """
+  log(message.format(*args), Verbosity.QUIET)
