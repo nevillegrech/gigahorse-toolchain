@@ -242,6 +242,9 @@ OPCODES = {
 }
 """Dictionary mapping of opcode string names to EVM OpCode objects"""
 
+# Handle incorrect opcode name from go-ethereum disasm
+OPCODES["TXGASPRICE"] = OPCODES["GASPRICE"]
+
 BYTECODES = {code.code: code for code in OPCODES.values()}
 """Dictionary mapping of byte values to EVM OpCode objects"""
 
