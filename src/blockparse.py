@@ -3,6 +3,7 @@
 import abc
 import typing
 import traceback
+import collections
 
 import cfg
 import evm_cfg
@@ -34,9 +35,10 @@ class BlockParser(abc.ABC):
     """
     Parses the raw input object and returns an iterable of BasicBlocks.
     """
+    self._ops = []
 
 
-class EVMBlockParser(BlockParser):
+class EVMDasmParser(BlockParser):
   def __init__(self, dasm:typing.Iterable[str]):
     """
     Parses raw EVM disassembly lines and creates corresponding EVMBasicBlocks.
@@ -48,12 +50,8 @@ class EVMBlockParser(BlockParser):
     """
     super().__init__(dasm)
 
-    self.__blocks = []
-
   def parse(self):
     super().parse()
-
-    self._ops = []
 
     # Construct a list of EVMOp objects from the raw input disassembly
     # lines, ignoring the first line of input (which is the bytecode's hex
@@ -75,10 +73,7 @@ class EVMBlockParser(BlockParser):
         logger.warning("Warning (line {}): skipping invalid disassembly:\n   {}"
                     .format(i+1, l.rstrip()))
 
-    self.__blocks = []
-    self.__create_blocks()
-
-    return self.__blocks
+    return evm_cfg.blocks_from_ops(self._ops)
 
   @staticmethod
   def evm_op_from_dasm(line:str) -> evm_cfg.EVMOp:
@@ -100,31 +95,31 @@ class EVMBlockParser(BlockParser):
       raise NotImplementedError("Could not parse unknown disassembly format:" +
                                 "\n    {}".format(line))
 
-class EVMBytecodeParser(EVMBlockParser):
-  def __init__(self, raw:object):
-    super().__init__(raw)
 
-    if type(raw) is str:
-      raw = bytes.fromhex(raw.replace("0x", ""))
+class EVMBytecodeParser(BlockParser):
+  def __init__(self, bytecode:str or bytes):
+    super().__init__(bytecode)
+
+    if type(bytecode) is str:
+      bytecode = bytes.fromhex(bytecode.replace("0x", ""))
     else:
-      raw = bytes(raw)
+      bytecode = bytes(bytecode)
 
-    self.raw = raw
+    self._raw = bytecode
 
+    # Track the program counter as we traverse the bytecode
     self.__pc = 0
 
   def __consume(self, n):
-    bytes_ = self.raw[self.__pc : self.__pc + n]
+    bytes_ = self._raw[self.__pc : self.__pc + n]
     self.__pc += n
     return bytes_
 
   def __has_more_bytes(self):
-    return self.__pc < len(self.raw)
+    return self.__pc < len(self._raw)
 
   def parse(self):
     super().parse()
-
-    self._ops = []
 
     while self.__has_more_bytes():
       pc = self.__pc
@@ -140,3 +135,5 @@ class EVMBytecodeParser(EVMBlockParser):
         const = int.from_bytes(const, "big")
 
       self._ops.append(evm_cfg.EVMOp(pc, op, const))
+
+    return evm_cfg.blocks_from_ops(self._ops)
