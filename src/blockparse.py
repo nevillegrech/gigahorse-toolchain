@@ -129,3 +129,44 @@ class EVMBlockParser(BlockParser):
       return evm_cfg.EVMOp(int(l[0]), opcodes.opcode_by_name(l[1]))
     else:
       raise NotImplementedError("Could not parse unknown disassembly format: " + str(l))
+
+class EVMBytecodeParser(EVMBlockParser):
+  def __init__(self, raw:object):
+    super().__init__(raw)
+
+    if type(raw) is str:
+      raw = bytes.fromhex(raw.replace("0x", ""))
+    else:
+      raw = bytes(raw)
+
+    self.raw = raw
+
+    self.__pc = 0
+
+  def __consume(self, n):
+    bytes_ = self.raw[self.__pc : self.__pc + n]
+    self.__pc += n
+    return bytes_
+
+  def __has_more_bytes(self):
+    return self.__pc < len(self.raw)
+
+  def parse(self):
+    super().parse()
+
+    self._ops = []
+
+    while self.__has_more_bytes():
+      pc = self.__pc
+      byte = int.from_bytes(self.__consume(1), "big")
+      op = opcodes.opcode_by_value(byte)
+      const, const_size = None, 0
+
+      if op.is_push:
+        const_size = op.code - opcodes.PUSH1.code + 1
+
+      if const_size > 0:
+        const = self.__consume(const_size)
+        const = int.from_bytes(const, "big")
+
+      self._ops.append(evm_cfg.EVMOp(pc, op, const))
