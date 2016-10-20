@@ -243,7 +243,7 @@ OPCODES = {
 """Dictionary mapping of opcode string names to EVM OpCode objects"""
 
 BYTECODES = {code.code: code for code in OPCODES.values()}
-"""Dictionary mapping of byte representations to EVM OpCode objects"""
+"""Dictionary mapping of byte values to EVM OpCode objects"""
 
 
 def opcode_by_name(name:str) -> OpCode:
@@ -266,6 +266,6 @@ def opcode_by_value(val:int) -> OpCode:
   Throws:
     LookupError: if there is no opcode defined with the given value.
   """
-  if val not in OPCODES:
+  if val not in BYTECODES:
     raise LookupError("No opcode with value '{}'.".format(val))
-  return OPCODES[val]
+  return BYTECODES[val]
