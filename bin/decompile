@@ -35,6 +35,12 @@ parser = argparse.ArgumentParser(
            description="An EVM bytecode disassembly decompiler that generates"
                        " three-address code for program analysis.")
 
+parser.add_argument("-b",
+                    "--bytecode",
+                    action="store_true",
+                    default=False,
+                    help="treat input as bytecode rather than disassembly")
+
 parser.add_argument("-g",
                     "--graph",
                     nargs="?",
@@ -100,7 +106,10 @@ ll(version())
 # Build TAC CFG from input file
 try:
   lh("Reading from {}", args.infile.name)
-  cfg = tac_cfg.TACGraph.from_dasm(args.infile)
+  if args.bytecode:
+    cfg = tac_cfg.TACGraph.from_bytecode(args.infile)
+  else:
+    cfg = tac_cfg.TACGraph.from_dasm(args.infile)
   ll("TAC CFG generation completed")
 
 # Catch a Control-C and exit with UNIX failure status 1
