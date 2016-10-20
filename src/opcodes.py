@@ -227,10 +227,11 @@ SUICIDE      = OpCode("SUICIDE",      0xff, 1, 0)
 
 # TAC Operations
 # These are not EVM opcodes, but they are used by the three-address code
-CONST  = OpCode("CONST", -1, 0, 0)
-LOG    = OpCode("LOG", -2, 0, 0)
-THROW  = OpCode("THROW", -3, 0, 0)
-THROWI = OpCode("THROWI", -4, 0, 0)
+NOP    = OpCode("NOP", -1, 0, 0)
+CONST  = OpCode("CONST", -2, 0, 0)
+LOG    = OpCode("LOG", -3, 0, 0)
+THROW  = OpCode("THROW", -4, 0, 0)
+THROWI = OpCode("THROWI", -5, 0, 0)
 
 
 # Produce mappings from names and instruction codes to opcode objects
@@ -241,19 +242,33 @@ OPCODES = {
 }
 """Dictionary mapping of opcode string names to EVM OpCode objects"""
 
+# Handle incorrect opcode name from go-ethereum disasm
+OPCODES["TXGASPRICE"] = OPCODES["GASPRICE"]
+
 BYTECODES = {code.code: code for code in OPCODES.values()}
-"""Dictionary mapping of byte representations to EVM OpCode objects"""
+"""Dictionary mapping of byte values to EVM OpCode objects"""
 
 
 def opcode_by_name(name:str) -> OpCode:
-  """Mapping: Retrieves the named OpCode object."""
+  """
+  Mapping: Retrieves the named OpCode object (case-insensitive).
+
+  Throws:
+    LookupError: if there is no opcode defined with the given name.
+  """
+  name = name.upper()
   if name not in OPCODES:
-    raise Exception("No opcode named '{}'.".format(name))
+    raise LookupError("No opcode named '{}'.".format(name))
   return OPCODES[name]
 
 
 def opcode_by_value(val:int) -> OpCode:
-  """Mapping: Retrieves the OpCode object with the given value."""
-  if val not in OPCODES:
-    raise Exception("No opcode with value '{}'.".format(val))
-  return OPCODES[val]
+  """
+  Mapping: Retrieves the OpCode object with the given value.
+
+  Throws:
+    LookupError: if there is no opcode defined with the given value.
+  """
+  if val not in BYTECODES:
+    raise LookupError("No opcode with value '{}'.".format(val))
+  return BYTECODES[val]
