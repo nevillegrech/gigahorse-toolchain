@@ -124,11 +124,17 @@ class EVMBytecodeParser(BlockParser):
     while self.__has_more_bytes():
       pc = self.__pc
       byte = int.from_bytes(self.__consume(1), "big")
-      op = opcodes.opcode_by_value(byte)
       const, const_size = None, 0
 
+      try:
+        op = opcodes.opcode_by_value(byte)
+      except LookupError as e:
+        logger.warning("Warning (PC = 0x{:02x}): {}".format(pc, str(e)))
+        logger.warning("Ignoring invalid opcode")
+        continue
+
       if op.is_push():
-        const_size = op.code - opcodes.PUSH1.code + 1
+        const_size = op.push_len()
 
       if const_size > 0:
         const = int.from_bytes(self.__consume(const_size), "big")

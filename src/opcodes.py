@@ -267,5 +267,5 @@ def opcode_by_value(val:int) -> OpCode:
     LookupError: if there is no opcode defined with the given value.
   """
   if val not in BYTECODES:
-    raise LookupError("No opcode with value '{}'.".format(val))
+    raise LookupError("No opcode with value '0x{:02X}'.".format(val))
   return BYTECODES[val]
