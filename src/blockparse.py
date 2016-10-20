@@ -64,7 +64,7 @@ class EVMBlockParser(BlockParser):
     # also ignored.
     for i, l in enumerate(self._raw):
       if len(l.split()) == 1:
-        logger.log("Warning (line {}): skipping invalid disassembly:\n   {}"
+        logger.warning("Warning (line {}): skipping invalid disassembly:\n   {}"
                     .format(i+1, l.rstrip()))
         continue
       elif len(l.split()) < 1:
@@ -74,7 +74,7 @@ class EVMBlockParser(BlockParser):
         self._ops.append(self.evm_op_from_dasm(l))
       except (ValueError, LookupError) as e:
         logger.log(traceback.format_exc())
-        logger.log("Warning (line {}): skipping invalid disassembly:\n   {}"
+        logger.warning("Warning (line {}): skipping invalid disassembly:\n   {}"
                     .format(i+1, l.rstrip()))
 
     self.__blocks = []
