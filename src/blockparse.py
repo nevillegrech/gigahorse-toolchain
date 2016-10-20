@@ -87,6 +87,11 @@ class EVMDasmParser(BlockParser):
       evm_cfg.EVMOp: the constructed EVMOp
     """
     toks = line.replace("=>", " ").split()
+
+    # Convert hex PCs to ints
+    if toks[0].startswith("0x"):
+      toks[0] = int(toks[0], 16)
+
     if len(toks) > 2:
       return evm_cfg.EVMOp(int(toks[0]), opcodes.opcode_by_name(toks[1]), int(toks[2], 16))
     elif len(toks) > 1:
