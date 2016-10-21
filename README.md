@@ -6,16 +6,32 @@ as input, and outputs a three-address code representation.
 
 ## Usage
 
-Currently, only one executable exists: `bin/decompile`. Call it like this:
+Use the decompiler and disassembler like this:
 
 ```
 $ bin/decompile ./examples/empty.dasm
+$ bin/disassemble ./examples/empty.hex
+$ bin/disassemble -p ./examples/empty.hex
 ```
 
 or like this:
 
 ```
 $ cat ./examples/empty.dasm | bin/decompile
+$ cat ./examples/empty.hex | bin/disassemble
+```
+
+or even like this:
+
+```
+$ bin/disassemble ./examples/empty.hex | bin/decompile
+```
+
+To view all the usage options:
+
+```
+$ bin/decompile --help
+$ bin/disassemble --help
 ```
 
 ## Requirements
