@@ -2,6 +2,7 @@
 
 import abc
 import typing
+import traceback
 
 import cfg
 import evm_cfg
@@ -63,12 +64,18 @@ class EVMBlockParser(BlockParser):
     # also ignored.
     for i, l in enumerate(self._raw):
       if len(l.split()) == 1:
-        logger.log("Warning (line {}): skipping invalid disassembly:\n   {}"
+        logger.warning("Warning (line {}): skipping invalid disassembly:\n   {}"
                     .format(i+1, l.rstrip()))
         continue
       elif len(l.split()) < 1:
         continue
-      self._ops.append(self.evm_op_from_dasm(l))
+
+      try:
+        self._ops.append(self.evm_op_from_dasm(l))
+      except (ValueError, LookupError) as e:
+        logger.log(traceback.format_exc())
+        logger.warning("Warning (line {}): skipping invalid disassembly:\n   {}"
+                    .format(i+1, l.rstrip()))
 
     self.__blocks = []
     self.__create_blocks()
@@ -122,10 +129,11 @@ class EVMBlockParser(BlockParser):
     Returns:
       evm_cfg.EVMOp: the constructed EVMOp
     """
-    l = line.split()
-    if len(l) > 3:
-      return evm_cfg.EVMOp(int(l[0]), opcodes.opcode_by_name(l[1]), int(l[3], 16))
-    elif len(l) > 1:
-      return evm_cfg.EVMOp(int(l[0]), opcodes.opcode_by_name(l[1]))
+    toks = line.replace("=>", " ").split()
+    if len(toks) > 2:
+      return evm_cfg.EVMOp(int(toks[0]), opcodes.opcode_by_name(toks[1]), int(toks[2], 16))
+    elif len(toks) > 1:
+      return evm_cfg.EVMOp(int(toks[0]), opcodes.opcode_by_name(toks[1]))
     else:
-      raise NotImplementedError("Could not parse unknown disassembly format: " + str(l))
+      raise NotImplementedError("Could not parse unknown disassembly format:" +
+                                "\n    {}".format(line))

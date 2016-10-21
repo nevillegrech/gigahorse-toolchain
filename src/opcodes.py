@@ -242,6 +242,7 @@ OPCODES = {
 }
 """Dictionary mapping of opcode string names to EVM OpCode objects"""
 
+# Handle incorrect opcode name from go-ethereum disasm
 OPCODES["TXGASPRICE"] = OPCODES["GASPRICE"]
 
 BYTECODES = {code.code: code for code in OPCODES.values()}
@@ -249,14 +250,25 @@ BYTECODES = {code.code: code for code in OPCODES.values()}
 
 
 def opcode_by_name(name:str) -> OpCode:
-  """Mapping: Retrieves the named OpCode object."""
+  """
+  Mapping: Retrieves the named OpCode object (case-insensitive).
+
+  Throws:
+    LookupError: if there is no opcode defined with the given name.
+  """
+  name = name.upper()
   if name not in OPCODES:
-    raise Exception("No opcode named '{}'.".format(name))
+    raise LookupError("No opcode named '{}'.".format(name))
   return OPCODES[name]
 
 
 def opcode_by_value(val:int) -> OpCode:
-  """Mapping: Retrieves the OpCode object with the given value."""
+  """
+  Mapping: Retrieves the OpCode object with the given value.
+
+  Throws:
+    LookupError: if there is no opcode defined with the given value.
+  """
   if val not in BYTECODES:
-    raise Exception("No opcode with value '{}'.".format(val))
+    raise LookupError("No opcode with value '{}'.".format(val))
   return BYTECODES[val]
