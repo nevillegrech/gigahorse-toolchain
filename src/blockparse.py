@@ -1,7 +1,7 @@
 """blockparse.py: Parse operation sequences and construct basic blocks"""
 
 import abc
-import typing
+import typing as t
 import traceback
 import collections
 
@@ -36,7 +36,7 @@ class BlockParser(abc.ABC):
     """
 
   @abc.abstractmethod
-  def parse(self) -> typing.Iterable[cfg.BasicBlock]:
+  def parse(self) -> t.Iterable[cfg.BasicBlock]:
     """
     Parses the raw input object and returns an iterable of BasicBlocks.
     """
@@ -44,7 +44,7 @@ class BlockParser(abc.ABC):
 
 
 class EVMDasmParser(BlockParser):
-  def __init__(self, dasm:typing.Iterable[str]):
+  def __init__(self, dasm:t.Iterable[str]):
     """
     Parses raw EVM disassembly lines and creates corresponding EVMBasicBlocks.
     This does NOT follow jumps or create graph edges - it just parses the
@@ -112,7 +112,14 @@ class EVMDasmParser(BlockParser):
 
 
 class EVMBytecodeParser(BlockParser):
-  def __init__(self, bytecode: typing.Union[str, bytes]):
+  def __init__(self, bytecode: t.Union[str, bytes]):
+    """
+    Parse EVM bytecode directly into basic blocks.
+
+    Args:
+      bytecode: EVM bytecode, either as a hexadecimal string or a bytes
+        object. If given as a hex string, it may optionally start with 0x.
+    """
     super().__init__(bytecode)
 
     if type(bytecode) is str:
@@ -133,7 +140,7 @@ class EVMBytecodeParser(BlockParser):
   def __has_more_bytes(self):
     return self.__pc < len(self._raw)
 
-  def parse(self, strict: bool = False):
+  def parse(self, strict: bool = False) -> t.Iterable[evm_cfg.EVMBasicBlock]:
     """
     Args:
       strict: if True, will fail and produce no output when given malformed
