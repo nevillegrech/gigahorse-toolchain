@@ -1,17 +1,21 @@
 """blockparse.py: Parse operation sequences and construct basic blocks"""
 
 import abc
-import typing
+import typing as t
 import traceback
+import collections
 
 import cfg
 import evm_cfg
 import opcodes
 import logger
 
+ENDIANNESS = "big"
+"""
+The endianness to use when parsing hexadecimal or binary files.
+"""
+
 class BlockParser(abc.ABC):
-  """
-  """
   @abc.abstractmethod
   def __init__(self, raw:object):
     """
@@ -32,14 +36,15 @@ class BlockParser(abc.ABC):
     """
 
   @abc.abstractmethod
-  def parse(self) -> typing.Iterable[cfg.BasicBlock]:
+  def parse(self) -> t.Iterable[cfg.BasicBlock]:
     """
     Parses the raw input object and returns an iterable of BasicBlocks.
     """
+    self._ops = []
 
 
-class EVMBlockParser(BlockParser):
-  def __init__(self, dasm:typing.Iterable[str]):
+class EVMDasmParser(BlockParser):
+  def __init__(self, dasm:t.Iterable[str]):
     """
     Parses raw EVM disassembly lines and creates corresponding EVMBasicBlocks.
     This does NOT follow jumps or create graph edges - it just parses the
@@ -50,12 +55,13 @@ class EVMBlockParser(BlockParser):
     """
     super().__init__(dasm)
 
-    self.__blocks = []
-
-  def parse(self):
+  def parse(self, strict: bool = False):
+    """
+    Args:
+      strict: if True, will fail and produce no output when given malformed
+        input (instead of producing a warning and ignoring the malformed input)
+    """
     super().parse()
-
-    self._ops = []
 
     # Construct a list of EVMOp objects from the raw input disassembly
     # lines, ignoring the first line of input (which is the bytecode's hex
@@ -73,50 +79,11 @@ class EVMBlockParser(BlockParser):
       try:
         self._ops.append(self.evm_op_from_dasm(l))
       except (ValueError, LookupError) as e:
-        logger.log(traceback.format_exc())
+        logger.log(traceback.format_exc(), logger.Verbosity.HIGH)
         logger.warning("Warning (line {}): skipping invalid disassembly:\n   {}"
                     .format(i+1, l.rstrip()))
 
-    self.__blocks = []
-    self.__create_blocks()
-
-    return self.__blocks
-
-  def __create_blocks(self):
-    # block currently being processed
-    entry, exit = (0, len(self._ops) - 1) if len(self._ops) > 0 \
-                  else (None, None)
-    current = evm_cfg.EVMBasicBlock(entry, exit)
-
-    # Linear scan of all EVMOps to create initial EVMBasicBlocks
-    for i, op in enumerate(self._ops):
-      op.block = current
-      current.evm_ops.append(op)
-
-      # Flow-altering opcodes indicate end-of-block
-      if op.opcode.alters_flow():
-        new = current.split(i+1)
-        self.__blocks.append(current)
-
-        # Mark all JUMPs as unresolved
-        if op.opcode in (opcodes.JUMP, opcodes.JUMPI):
-          current.has_unresolved_jump = True
-
-        # Process the next sequential block in our next iteration
-        current = new
-
-      # JUMPDESTs indicate the start of a block.
-      # A JUMPDEST should be split on only if it's not already the first
-      # operation in a block. In this way we avoid producing empty blocks if
-      # JUMPDESTs follow flow-altering operations.
-      elif op.opcode == opcodes.JUMPDEST and len(current.evm_ops) > 1:
-        new = current.split(i)
-        self.__blocks.append(current)
-        current = new
-
-      # Always add last block if its last instruction does not alter flow
-      elif i == len(self._ops) - 1:
-        self.__blocks.append(current)
+    return evm_cfg.blocks_from_ops(self._ops)
 
   @staticmethod
   def evm_op_from_dasm(line:str) -> evm_cfg.EVMOp:
@@ -130,6 +97,11 @@ class EVMBlockParser(BlockParser):
       evm_cfg.EVMOp: the constructed EVMOp
     """
     toks = line.replace("=>", " ").split()
+
+    # Convert hex PCs to ints
+    if toks[0].startswith("0x"):
+      toks[0] = int(toks[0], 16)
+
     if len(toks) > 2:
       return evm_cfg.EVMOp(int(toks[0]), opcodes.opcode_by_name(toks[1]), int(toks[2], 16))
     elif len(toks) > 1:
@@ -137,3 +109,74 @@ class EVMBlockParser(BlockParser):
     else:
       raise NotImplementedError("Could not parse unknown disassembly format:" +
                                 "\n    {}".format(line))
+
+
+class EVMBytecodeParser(BlockParser):
+  def __init__(self, bytecode: t.Union[str, bytes]):
+    """
+    Parse EVM bytecode directly into basic blocks.
+
+    Args:
+      bytecode: EVM bytecode, either as a hexadecimal string or a bytes
+        object. If given as a hex string, it may optionally start with 0x.
+    """
+    super().__init__(bytecode)
+
+    if type(bytecode) is str:
+      bytecode = bytes.fromhex(bytecode.replace("0x", ""))
+    else:
+      bytecode = bytes(bytecode)
+
+    self._raw = bytecode
+
+    # Track the program counter as we traverse the bytecode
+    self.__pc = 0
+
+  def __consume(self, n):
+    bytes_ = self._raw[self.__pc : self.__pc + n]
+    self.__pc += n
+    return bytes_
+
+  def __has_more_bytes(self):
+    return self.__pc < len(self._raw)
+
+  def parse(self, strict: bool = False) -> t.Iterable[evm_cfg.EVMBasicBlock]:
+    """
+    Args:
+      strict: if True, will fail and produce no output when given malformed
+        input (instead of producing a warning and ignoring the malformed input)
+    """
+    super().parse()
+
+    while self.__has_more_bytes():
+      pc = self.__pc
+      byte = int.from_bytes(self.__consume(1), ENDIANNESS)
+      const, const_size = None, 0
+
+      try:
+        # try to resolve the byte to an opcode
+        op = opcodes.opcode_by_value(byte)
+
+      except LookupError as e:
+        # oops, unknown opcode
+        logger.log(traceback.format_exc(), logger.Verbosity.HIGH)
+        if strict:
+          logger.warning("ERROR (strict) at PC = 0x{:02x}".format(pc))
+          raise e
+        # not strict, so just warn:
+        logger.warning("Warning (PC = 0x{:02x}): {}".format(pc, str(e)))
+        logger.warning("Warning: Ignoring invalid opcode")
+        continue
+
+      # push codes have an argument
+      if op.is_push():
+        const_size = op.push_len()
+
+      # for opcodes with an argument, consume the argument
+      if const_size > 0:
+        const = int.from_bytes(self.__consume(const_size), ENDIANNESS)
+
+      self._ops.append(evm_cfg.EVMOp(pc, op, const))
+
+    # build basic blocks from the sequence of opcodes
+    return evm_cfg.blocks_from_ops(self._ops)

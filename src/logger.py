@@ -13,6 +13,11 @@ LOG_FILE = sys.stderr
 File-like object where debug output will be logged.
 """
 
+exitcode = 0
+"""
+Code to use when exiting. Calling warning() sets exitcode to 3.
+"""
+
 class Verbosity:
   """enum representing the available verbosity levels for logging."""
   HIGH = 3
@@ -65,4 +70,6 @@ def warning(message:str, *args:typing.Tuple[str]) -> None:
     message: message to be logged, can be a str.format compatible
     *args: arguments for str.format substitutions in message
   """
+  global exitcode
+  exitcode = 3
   log(message.format(*args), Verbosity.QUIET)
