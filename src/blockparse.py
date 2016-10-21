@@ -112,7 +112,7 @@ class EVMDasmParser(BlockParser):
 
 
 class EVMBytecodeParser(BlockParser):
-  def __init__(self, bytecode:str or bytes):
+  def __init__(self, bytecode: typing.Union[str, bytes]):
     super().__init__(bytecode)
 
     if type(bytecode) is str:
