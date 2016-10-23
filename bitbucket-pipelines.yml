@@ -3,14 +3,39 @@
 # Only use spaces to indent your .yml configuration.
 # -----
 # You can specify a custom docker image from Docker Hub as your build environment.
-image: python:3.5.1
+image: python:3.5.2
 
 pipelines:
   default:
     - step:
         script: # Modify the commands below to build your repository.
+          - apt-get update
+          - apt-get install -y graphviz
           - pip install -r requirements.txt
           - make clean test doc
+          - bin/decompile --help
           - bin/decompile examples/dao_hack.dasm
           - bin/decompile examples/mem_leak.dasm
           - bin/decompile examples/withdraw_dao.dasm
+          - bin/decompile -b examples/dao_hack.hex
+          - bin/decompile -b examples/mem_leak.hex
+          - bin/decompile -b examples/withdraw_dao.hex
+          - bash -c '[ ! -f graph.pdf ]'
+          - bash -c '[ ! -d tsv ]'
+          - bin/decompile -g graph.pdf -t tsv -b examples/dao_hack.hex
+          - bash -c '[ -s graph.pdf ]'
+          - bash -c '[ -d tsv ]'
+          - bash -c '[ -s tsv/block.facts ]'
+          - bash -c '[ -s tsv/defined.facts ]'
+          - bash -c '[ -s tsv/edge.facts ]'
+          - bash -c '[ -s tsv/end.facts ]'
+          - bash -c '[ -s tsv/op.facts ]'
+          - bash -c '[ -s tsv/read.facts ]'
+          - bash -c '[ -s tsv/start.facts ]'
+          - bash -c '[ -s tsv/write.facts ]'
+          - bin/disassemble examples/dao_hack.hex
+          - bin/disassemble -p examples/dao_hack.hex
+          - bin/disassemble examples/dao_hack.hex | bin/decompile
+          - bash -c '[ ! -f basic.tac ]'
+          - bin/decompile examples/basic.dasm basic.tac
+          - bash -c '[ -s basic.tac ]'
