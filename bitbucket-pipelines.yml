@@ -9,8 +9,27 @@ pipelines:
   default:
     - step:
         script: # Modify the commands below to build your repository.
+          - apt-get update
+          - apt-get install -y graphviz
           - pip install -r requirements.txt
           - make clean test doc
+          - bin/decompile --help
           - bin/decompile examples/dao_hack.dasm
           - bin/decompile examples/mem_leak.dasm
           - bin/decompile examples/withdraw_dao.dasm
+          - bin/decompile -b examples/dao_hack.hex
+          - bin/decompile -b examples/mem_leak.hex
+          - bin/decompile -b examples/withdraw_dao.hex
+          - bin/decompile -g graph.pdf -t tsv -b examples/dao_hack.hex
+          - [ -f graph.pdf ]
+          - [ -d tsv ]
+          - [ -f tsv/block.facts ]
+          - [ -f tsv/defined.facts ]
+          - [ -f tsv/edge.facts ]
+          - [ -f tsv/end.facts ]
+          - [ -f tsv/op.facts ]
+          - [ -f tsv/read.facts ]
+          - [ -f tsv/start.facts ]
+          - [ -f tsv/write.facts ]
+          - bin/disassemble examples/dao_hack.hex
+          - bin/disassemble -p examples/dao_hack.hex
