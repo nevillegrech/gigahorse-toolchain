@@ -33,3 +33,4 @@ pipelines:
           - [ -f tsv/write.facts ]
           - bin/disassemble examples/dao_hack.hex
           - bin/disassemble -p examples/dao_hack.hex
+          - bin/disassemble examples/dao_hack.hex | bin/decompile
