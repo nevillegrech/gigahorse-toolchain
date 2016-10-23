@@ -37,5 +37,5 @@ pipelines:
           - bin/disassemble -p examples/dao_hack.hex
           - bin/disassemble examples/dao_hack.hex | bin/decompile
           - bash -c '[ ! -f basic.tac ]'
-          - bin/disassemble examples/basic.dasm basic.tac
+          - bin/decompile examples/basic.dasm basic.tac
           - bash -c '[ -s basic.tac ]'
