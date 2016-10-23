@@ -21,16 +21,16 @@ pipelines:
           - bin/decompile -b examples/mem_leak.hex
           - bin/decompile -b examples/withdraw_dao.hex
           - bin/decompile -g graph.pdf -t tsv -b examples/dao_hack.hex
-          - [ -f graph.pdf ]
-          - [ -d tsv ]
-          - [ -f tsv/block.facts ]
-          - [ -f tsv/defined.facts ]
-          - [ -f tsv/edge.facts ]
-          - [ -f tsv/end.facts ]
-          - [ -f tsv/op.facts ]
-          - [ -f tsv/read.facts ]
-          - [ -f tsv/start.facts ]
-          - [ -f tsv/write.facts ]
+          - bash -c '[ -f graph.pdf ]'
+          - bash -c '[ -d tsv ]'
+          - bash -c '[ -f tsv/block.facts ]'
+          - bash -c '[ -f tsv/defined.facts ]'
+          - bash -c '[ -f tsv/edge.facts ]'
+          - bash -c '[ -f tsv/end.facts ]'
+          - bash -c '[ -f tsv/op.facts ]'
+          - bash -c '[ -f tsv/read.facts ]'
+          - bash -c '[ -f tsv/start.facts ]'
+          - bash -c '[ -f tsv/write.facts ]'
           - bin/disassemble examples/dao_hack.hex
           - bin/disassemble -p examples/dao_hack.hex
           - bin/disassemble examples/dao_hack.hex | bin/decompile
