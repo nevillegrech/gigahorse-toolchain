@@ -1,30 +1,32 @@
-# EVM Decompiler (Bytecode Disassembly -> Three-Address Code)
+# EVM Decompiler (Bytecode -> Three-Address Code)
 
-This project contains the source code for our Ethereum VM bytecode disassembly
-decompiler. It takes output from disasm, the Ethereum bytecode dissassembler,
-as input, and outputs a three-address code representation.
+This project contains the source code for our Ethereum VM bytecode decompiler.
+It takes EVM bytecode or disassembly as input, and outputs a three-address
+code representation.
 
 ## Usage
 
-Use the decompiler and disassembler like this:
+Some examples of using the decompiler and disassembler below:
 
 ```
-$ bin/decompile ./examples/empty.dasm
-$ bin/disassemble ./examples/empty.hex
-$ bin/disassemble -p ./examples/empty.hex
+$ bin/decompile examples/empty.dasm
+$ bin/decompile -b examples/empty.hex
+
+$ bin/disassemble examples/empty.hex
+$ bin/disassemble -p examples/empty.hex
 ```
 
 or like this:
 
 ```
-$ cat ./examples/empty.dasm | bin/decompile
-$ cat ./examples/empty.hex | bin/disassemble
+$ cat examples/empty.dasm | bin/decompile
+$ cat examples/empty.hex | bin/disassemble
 ```
 
 or even like this:
 
 ```
-$ bin/disassemble ./examples/empty.hex | bin/decompile
+$ bin/disassemble examples/empty.hex | bin/decompile
 ```
 
 To view all the usage options:
@@ -98,6 +100,12 @@ flag for more detail on each test):
 $ pytest
 ```
 
+Alternatively, you can also use the `Makefile` in the repository root like so:
+
+```
+$ make test
+```
+
 All modules should be comprehensively unit-tested, with tests placed in a file
 called `test/test_MODULE.py`, where MODULE is the name of the corresponding
 Python module from `src/`.
@@ -107,5 +115,10 @@ Test fixtures and `pytest` settings are defined in `test/conftest.py`.
 ## Documentation Generation
 
 Sphinx is used for documentation generation with documentation source files in
-`doc/source/`. For details on building the documentation, see
-[`src/doc/README.md`](https://bitbucket.org/blockchain3600/decompiler/src/master/doc/README.md).
+`doc/source/`. To build clean HTML documentation, run:
+
+```
+$ make clean doc
+```
+
+from the repository root.
