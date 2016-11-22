@@ -28,6 +28,3 @@ doc/source/modules
 
 # Node modules
 node_modules/
-
-# Pycharm
-.idea/
