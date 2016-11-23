@@ -29,6 +29,8 @@ for filename in sliced:
     cfg = tac_cfg.TACGraph.from_bytecode(f)
     dataflow.stack_analysis(cfg)
     dataflow.stack_analysis(cfg)
+    dataflow.stack_analysis(cfg)
+    dataflow.stack_analysis(cfg)
 
     if cfg.has_unresolved_jump:
       unresolved += 1
