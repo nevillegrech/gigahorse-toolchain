@@ -132,7 +132,7 @@ class CFGTsvExporter(Exporter, patterns.DynamicVisitor):
 
     for arg in op.args:
       # Only include variable reads; ignore constants
-      if not arg.is_const:
+      if not arg.value.is_const:
         # Generate variable read relations (read.facts)
         self.reads.append((hex(op.pc), arg))
 
