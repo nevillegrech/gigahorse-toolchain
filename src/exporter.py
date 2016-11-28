@@ -132,7 +132,7 @@ class CFGTsvExporter(Exporter, patterns.DynamicVisitor):
 
     for arg in op.args:
       # Only include variable reads; ignore constants
-      if not arg.value.is_const:
+      if isinstance(arg, tac_cfg.TACArg) and not arg.value.is_const:
         # Generate variable read relations (read.facts)
         self.reads.append((hex(op.pc), arg))
 
