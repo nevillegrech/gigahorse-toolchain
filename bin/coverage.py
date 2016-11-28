@@ -27,10 +27,9 @@ for filename in sliced:
   with open(join(d, filename)) as f:
     all_contracts += 1
     cfg = tac_cfg.TACGraph.from_bytecode(f)
-    dataflow.stack_analysis(cfg)
-    dataflow.stack_analysis(cfg)
-    dataflow.stack_analysis(cfg)
-    dataflow.stack_analysis(cfg)
+    for _ in range(4):
+      dataflow.stack_analysis(cfg)
+      cfg.clone_ambiguous_jump_blocks()
 
     if cfg.has_unresolved_jump:
       unresolved += 1
