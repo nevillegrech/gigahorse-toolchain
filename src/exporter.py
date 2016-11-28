@@ -267,8 +267,10 @@ class CFGDotExporter(Exporter):
     nx.set_node_attributes(G, "color", color_dict)
     nx.set_node_attributes(G, "fillcolor", "white")
     nx.set_node_attributes(G, "style", "filled")
-    nx.set_node_attributes(G, "id", {block.ident(): block.ident() for block in cfg.blocks})
-    nx.set_node_attributes(G, "tooltip", {block.ident(): str(block) for block in cfg.blocks})
+    nx.set_node_attributes(G, "id", {block.ident(): block.ident()
+                                     for block in cfg.blocks})
+    nx.set_node_attributes(G, "tooltip", {block.ident(): str(block)
+                                          for block in cfg.blocks})
 
     # Write non-dot files using pydot and Graphviz
     if "." in out_filename and not out_filename.endswith(".dot"):
