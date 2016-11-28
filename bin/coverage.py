@@ -1,5 +1,7 @@
 from os import listdir
 from os.path import abspath, dirname, join
+from multiprocessing import Process, Manager
+import time
 import sys
 import itertools
 
@@ -11,36 +13,92 @@ import exporter
 import dataflow
 import tac_cfg
 
-d = '../../contract_dump/contracts'
-start = 0
-stop = 100
+def analyse_contract(filename, return_dict):
+  try:
+    with open(join(d, filename)) as f:
+      cfg = tac_cfg.TACGraph.from_bytecode(f, True)
+      for _ in range(4):
+        dataflow.stack_analysis(cfg)
+        cfg.clone_ambiguous_jump_blocks()
 
-runtime_files = filter(lambda f: f.endswith("runtime.hex"), listdir(d))
+      if cfg.has_unresolved_jump:
+        return_dict['status'] = "unresolved"
+      else:
+        return_dict['status'] = "resolved"
 
-sliced = itertools.islice(runtime_files, start, stop)
-
-unresolved = 0
-all_contracts = 0
-
-for filename in sliced:
-  print("Handling file {}.".format(filename))
-  with open(join(d, filename)) as f:
-    all_contracts += 1
-    cfg = tac_cfg.TACGraph.from_bytecode(f)
-    for _ in range(4):
-      dataflow.stack_analysis(cfg)
-      cfg.clone_ambiguous_jump_blocks()
-
-    if cfg.has_unresolved_jump:
-      unresolved += 1
-      for b in cfg.blocks:
-        b.preds.sort(key=lambda k: k.ident())
-        b.succs.sort(key=lambda k: k.ident())
-      print("Contains UNRESOLVED jumps!".format(filename))
-      open("unresolved/" + filename + ".txt", 'w').write(exporter.CFGStringExporter(cfg).export())
-      exporter.CFGDotExporter(cfg).export("unresolved/" + filename + ".png")
-      exporter.CFGDotExporter(cfg).export("unresolved/" + filename + ".svg")
+  except Exception as e:
+    print("Error: {}".format(e))
+    return_dict['status'] = "error"
 
 
-print(unresolved/all_contracts)
 
+if __name__ == "__main__":
+  d = '../../contract_dump/contracts'
+  start = 0
+  stop = 10000
+
+  runtime_files = filter(lambda f: f.endswith("runtime.hex"), listdir(d))
+
+  sliced = itertools.islice(runtime_files, start, stop)
+
+  timeout = 1
+
+  total_num = 0
+  resolved_num = 0
+  unresolved_num = 0
+  timeout_num = 0
+  error_num = 0
+
+  resolved_names = []
+  unresolved_names = []
+  timeout_names = []
+  error_names = []
+
+  manager = Manager()
+  return_dict = manager.dict()
+
+  for i, filename in enumerate(sliced):
+    print("{}: {}.".format(i, filename))
+    total_num += 1
+    proc = Process(target=analyse_contract, args=(filename, return_dict))
+
+    start_time = time.time()
+    proc.start()
+
+    while time.time() - start_time < timeout:
+      if proc.is_alive():
+        time.sleep(0.01)
+      else:
+        proc.join()
+
+        if return_dict['status'] == "unresolved":
+          unresolved_num += 1
+          unresolved_names.append(filename)
+          print("Unresolved.")
+        elif return_dict['status'] == "error":
+          error_num += 1
+          error_names.append(filename)
+        else:
+          resolved_num += 1
+          resolved_names.append(filename)
+
+        break
+    else:
+      proc.terminate()
+      timeout_num += 1
+      timeout_names.append(filename)
+      print("Timed out.")
+
+  print("Resolved: {}/{}".format(resolved_num, total_num))
+  print("Unresolved: {}/{}".format(unresolved_num, total_num))
+  print("Timed Out: {}/{}".format(timeout_num, total_num))
+  print("Errors: {}/{}".format(error_num, total_num))
+
+  with open("results/resolved.txt", 'w') as f:
+    f.write("\n".join(resolved_names))
+  with open("results/unresolved.txt", 'w') as f:
+    f.write("\n".join(unresolved_names))
+  with open("results/timeout.txt", 'w') as f:
+    f.write("\n".join(timeout_names))
+  with open("results/error.txt", 'w') as f:
+    f.writelines("\n".join(error_names))
