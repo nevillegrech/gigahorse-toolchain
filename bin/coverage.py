@@ -1,6 +1,8 @@
-from os import listdir
+#!/usr/bin/env python3
+
+from os import listdir, makedirs
 from os.path import abspath, dirname, join
-from multiprocessing import Process, Manager
+from multiprocessing import Process, SimpleQueue, Manager, Event
 import time
 import sys
 import itertools
@@ -12,8 +14,16 @@ sys.path.insert(0, src_path)
 import exporter
 import dataflow
 import tac_cfg
+import logger
 
-def analyse_contract(filename, return_dict):
+ll = logger.log_low
+
+unresolved = 0
+resolved = 1
+timeout = 3
+error = 4
+
+def analyse_contract(filename, result_queue):
   try:
     with open(join(d, filename)) as f:
       cfg = tac_cfg.TACGraph.from_bytecode(f, True)
@@ -22,83 +32,100 @@ def analyse_contract(filename, return_dict):
         cfg.clone_ambiguous_jump_blocks()
 
       if cfg.has_unresolved_jump:
-        return_dict['status'] = "unresolved"
+        result_queue.put((filename, unresolved))
       else:
-        return_dict['status'] = "resolved"
+        result_queue.put((filename, resolved))
 
   except Exception as e:
-    print("Error: {}".format(e))
-    return_dict['status'] = "error"
+    ll("Error: {}".format(e))
+    result_queue.put((filename, error))
 
-
+def flush_queue(period, run_signal, result_queue, result_dict):
+  while run_signal.is_set():
+    time.sleep(period)
+    while not result_queue.empty():
+      item = result_queue.get()
+      result_dict[item[1]] = result_dict[item[1]] + [item[0]]
 
 if __name__ == "__main__":
+  if "-q" in sys.argv:
+    logger.LOG_LEVEL = logger.Verbosity.SILENT
+  else:
+    logger.LOG_LEVEL = logger.Verbosity.MEDIUM
+
+
   d = '../../contract_dump/contracts'
   start = 0
-  stop = 10000
+  stop = 100
 
   runtime_files = filter(lambda f: f.endswith("runtime.hex"), listdir(d))
-
   sliced = itertools.islice(runtime_files, start, stop)
+  #sliced = runtime_files
 
-  timeout = 1
-
-  total_num = 0
-  resolved_num = 0
-  unresolved_num = 0
-  timeout_num = 0
-  error_num = 0
-
-  resolved_names = []
-  unresolved_names = []
-  timeout_names = []
-  error_names = []
+  timeout_secs = 1
+  flush_period = 3
 
   manager = Manager()
-  return_dict = manager.dict()
+  res_dict = manager.dict()
+  res_queue = SimpleQueue()
 
-  for i, filename in enumerate(sliced):
-    print("{}: {}.".format(i, filename))
-    total_num += 1
-    proc = Process(target=analyse_contract, args=(filename, return_dict))
+  res_dict[resolved] = []
+  res_dict[unresolved] = []
+  res_dict[timeout] = []
+  res_dict[error] = []
 
-    start_time = time.time()
-    proc.start()
+  run_signal = Event()
+  run_signal.set()
+  flush_proc = Process(target=flush_queue, args=(flush_period, run_signal,
+                                                 res_queue, res_dict))
+  flush_proc.start()
 
-    while time.time() - start_time < timeout:
-      if proc.is_alive():
-        time.sleep(0.01)
-      else:
-        proc.join()
+  try:
+    for i, filename in enumerate(sliced):
+      ll("{}: {}.".format(i, filename))
+      proc = Process(target=analyse_contract, args=(filename, res_queue))
 
-        if return_dict['status'] == "unresolved":
-          unresolved_num += 1
-          unresolved_names.append(filename)
-          print("Unresolved.")
-        elif return_dict['status'] == "error":
-          error_num += 1
-          error_names.append(filename)
+      start_time = time.time()
+      proc.start()
+
+      while time.time() - start_time < timeout_secs:
+        if proc.is_alive():
+          time.sleep(0.01)
         else:
-          resolved_num += 1
-          resolved_names.append(filename)
+          proc.join()
+          break
+      else:
+        res_queue.put((filename, timeout))
+        proc.terminate()
+        ll("Timed out.")
 
-        break
-    else:
-      proc.terminate()
-      timeout_num += 1
-      timeout_names.append(filename)
-      print("Timed out.")
+    ll("\nFinishing...\n")
+    run_signal.clear()
+    flush_proc.join(flush_period + 1)
 
-  print("Resolved: {}/{}".format(resolved_num, total_num))
-  print("Unresolved: {}/{}".format(unresolved_num, total_num))
-  print("Timed Out: {}/{}".format(timeout_num, total_num))
-  print("Errors: {}/{}".format(error_num, total_num))
+    outdir = "results/"
+    makedirs(outdir, exist_ok=True)
 
-  with open("results/resolved.txt", 'w') as f:
-    f.write("\n".join(resolved_names))
-  with open("results/unresolved.txt", 'w') as f:
-    f.write("\n".join(unresolved_names))
-  with open("results/timeout.txt", 'w') as f:
-    f.write("\n".join(timeout_names))
-  with open("results/error.txt", 'w') as f:
-    f.writelines("\n".join(error_names))
+    r = res_dict[resolved]
+    u = res_dict[unresolved]
+    t = res_dict[timeout]
+    e = res_dict[error]
+    total = sum(len(l) for l in res_dict.values())
+
+    with open(outdir + "resolved.txt", 'w') as f:
+      f.write("\n".join(r) + "\n")
+    with open(outdir + "unresolved.txt", 'w') as f:
+      f.write("\n".join(u) + "\n")
+    with open(outdir + "timeout.txt", 'w') as f:
+      f.write("\n".join(t) + "\n")
+    with open(outdir + "error.txt", 'w') as f:
+      f.writelines("\n".join(e) + "\n")
+
+    ll("Resolved: {}/{}".format(len(r), total))
+    ll("Unresolved: {}/{}".format(len(u), total))
+    ll("Timed Out: {}/{}".format(len(t), total))
+    ll("Errors: {}/{}".format(len(e), total))
+  except Exception as e:
+    import traceback
+    traceback.print_exc()
+    flush_proc.terminate()

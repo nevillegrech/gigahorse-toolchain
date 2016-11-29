@@ -118,9 +118,10 @@ except KeyboardInterrupt:
   sys.exit(1)
 
 ll("Applying stack analysis TAC CFG")
-dataflow.stack_analysis(cfg)
-cfg.clone_ambiguous_jump_blocks()
-dataflow.stack_analysis(cfg)
+iterations = 4
+for _ in range(iterations):
+  dataflow.stack_analysis(cfg)
+  cfg.clone_ambiguous_jump_blocks()
 
 # Generate output using the requested exporter(s)
 ll("Writing string output")
