@@ -11,7 +11,6 @@ src_path = join(dirname(abspath(__file__)), "../src")
 sys.path.insert(0, src_path)
 
 # Local project imports
-import exporter
 import dataflow
 import tac_cfg
 import logger
@@ -25,14 +24,15 @@ error = 4
 
 def analyse_contract(filename, result_queue):
   try:
-    with open(join(d, filename)) as f:
-      cfg = tac_cfg.TACGraph.from_bytecode(f, True)
+    with open(join(contract_dir, filename)) as f:
+      cfg = tac_cfg.TACGraph.from_bytecode(f)
       for _ in range(4):
         dataflow.stack_analysis(cfg)
         cfg.clone_ambiguous_jump_blocks()
 
       if cfg.has_unresolved_jump:
         result_queue.put((filename, unresolved))
+        ll("Unresolved.")
       else:
         result_queue.put((filename, resolved))
 
@@ -54,15 +54,20 @@ if __name__ == "__main__":
     logger.LOG_LEVEL = logger.Verbosity.MEDIUM
 
 
-  d = '../../contract_dump/contracts'
+  contract_dir = '../../contract_dump/contracts'
   start = 0
-  stop = 100
+  stop = 10000
 
-  runtime_files = filter(lambda f: f.endswith("runtime.hex"), listdir(d))
+  runtime_files = filter(lambda f: f.endswith("runtime.hex"),
+                         listdir(contract_dir))
+
+  with open("10kresults/timeout.txt", 'r') as f:
+    runtime_files = [l.strip() for l in f.readlines()]
+
   sliced = itertools.islice(runtime_files, start, stop)
   #sliced = runtime_files
 
-  timeout_secs = 1
+  timeout_secs = 50
   flush_period = 3
 
   manager = Manager()
