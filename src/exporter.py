@@ -265,7 +265,9 @@ class CFGDotExporter(Exporter):
                 if block.tac_ops[-1].opcode == opcodes.SUICIDE}
     color_dict = {**returns, **stops, **throws, **suicides}
     nx.set_node_attributes(G, "color", color_dict)
-    nx.set_node_attributes(G, "fillcolor", "white")
+    filldict = {b.ident(): "white" if len(b.entry_stack) <= 20 else "red"
+                for b in cfg.blocks}
+    nx.set_node_attributes(G, "fillcolor", filldict)
     nx.set_node_attributes(G, "style", "filled")
     nx.set_node_attributes(G, "id", {block.ident(): block.ident()
                                      for block in cfg.blocks})
