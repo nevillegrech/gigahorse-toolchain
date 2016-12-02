@@ -56,18 +56,18 @@ if __name__ == "__main__":
 
   contract_dir = '../../contract_dump/contracts'
   start = 0
-  stop = 10000
+  stop = 100
 
   runtime_files = filter(lambda f: f.endswith("runtime.hex"),
                          listdir(contract_dir))
 
-  with open("10kresults/timeout.txt", 'r') as f:
-    runtime_files = [l.strip() for l in f.readlines()]
+  #with open("10kresults/timeout.txt", 'r') as f:
+  #  runtime_files = [l.strip() for l in f.readlines()]
 
   sliced = itertools.islice(runtime_files, start, stop)
   #sliced = runtime_files
 
-  timeout_secs = 50
+  timeout_secs = 1
   flush_period = 3
 
   manager = Manager()

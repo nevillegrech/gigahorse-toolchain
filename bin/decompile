@@ -41,6 +41,13 @@ parser.add_argument("-b",
                     default=False,
                     help="treat input as bytecode rather than disassembly")
 
+parser.add_argument("-s",
+                   "--strict",
+                   action="store_true",
+                   default=False,
+                   help="used in conjunction with -b, unrecognised opcodes "
+                        "will not be skipped, but will result in an error.")
+
 parser.add_argument("-g",
                     "--graph",
                     nargs="?",
@@ -107,7 +114,7 @@ ll(version())
 try:
   lh("Reading from {}", args.infile.name)
   if args.bytecode:
-    cfg = tac_cfg.TACGraph.from_bytecode(args.infile)
+    cfg = tac_cfg.TACGraph.from_bytecode(args.infile, args.strict)
   else:
     cfg = tac_cfg.TACGraph.from_dasm(args.infile)
   ll("TAC CFG generation completed")
