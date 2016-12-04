@@ -25,8 +25,8 @@ error = 4
 
 def analyse_contract(filename, result_queue):
   try:
-    with open(join(contract_dir, filename)) as f:
-      cfg = tac_cfg.TACGraph.from_bytecode(f)
+    with open(join(contract_dir, filename)) as file:
+      cfg = tac_cfg.TACGraph.from_bytecode(file)
       for _ in range(4):
         dataflow.stack_analysis(cfg)
         cfg.clone_ambiguous_jump_blocks()
@@ -48,6 +48,7 @@ def flush_queue(period, run_signal, result_queue, result_dict):
     while not result_queue.empty():
       item = result_queue.get()
       result_dict[item[1]] = result_dict[item[1]] + [item[0]]
+      # NB: += doesn't work here
 
 if __name__ == "__main__":
   if "-q" in sys.argv:
@@ -60,14 +61,14 @@ if __name__ == "__main__":
   start = 0
   stop = 100
 
-  runtime_files = filter(lambda f: f.endswith("runtime.hex"),
+  runtime_files = filter(lambda filename: filename.endswith("runtime.hex"),
                          listdir(contract_dir))
 
-  #with open("10kresults/timeout.txt", 'r') as f:
-  #  runtime_files = [l.strip() for l in f.readlines()]
+  # with open("10kresults/timeout.txt", 'r') as f:
+  #   runtime_files = [l.strip() for l in f.readlines()]
 
   sliced = itertools.islice(runtime_files, start, stop)
-  #sliced = runtime_files
+  # sliced = runtime_files
 
   timeout_secs = 1
   flush_period = 3
@@ -88,9 +89,9 @@ if __name__ == "__main__":
   flush_proc.start()
 
   try:
-    for i, filename in enumerate(sliced):
-      ll("{}: {}.".format(i, filename))
-      proc = Process(target=analyse_contract, args=(filename, res_queue))
+    for i, fname in enumerate(sliced):
+      ll("{}: {}.".format(i, fname))
+      proc = Process(target=analyse_contract, args=(fname, res_queue))
 
       start_time = time.time()
       proc.start()
@@ -102,7 +103,7 @@ if __name__ == "__main__":
           proc.join()
           break
       else:
-        res_queue.put((filename, timeout))
+        res_queue.put((fname, timeout))
         proc.terminate()
         ll("Timed out.")
 
