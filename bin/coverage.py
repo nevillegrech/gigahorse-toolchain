@@ -22,6 +22,7 @@ resolved = 1
 timeout = 3
 error = 4
 
+
 def analyse_contract(filename, result_queue):
   try:
     with open(join(contract_dir, filename)) as f:
@@ -39,6 +40,7 @@ def analyse_contract(filename, result_queue):
   except Exception as e:
     ll("Error: {}".format(e))
     result_queue.put((filename, error))
+
 
 def flush_queue(period, run_signal, result_queue, result_dict):
   while run_signal.is_set():

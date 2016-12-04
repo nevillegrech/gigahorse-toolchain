@@ -42,11 +42,11 @@ parser.add_argument("-b",
                     help="treat input as bytecode rather than disassembly")
 
 parser.add_argument("-s",
-                   "--strict",
-                   action="store_true",
-                   default=False,
-                   help="used in conjunction with -b, unrecognised opcodes "
-                        "will not be skipped, but will result in an error.")
+                    "--strict",
+                    action="store_true",
+                    default=False,
+                    help="used in conjunction with -b, unrecognised opcodes "
+                         "will not be skipped, but will result in an error.")
 
 parser.add_argument("-g",
                     "--graph",
@@ -125,7 +125,7 @@ except KeyboardInterrupt:
   sys.exit(1)
 
 ll("Applying stack analysis TAC CFG")
-iterations = 4
+iterations = 2
 for _ in range(iterations):
   dataflow.stack_analysis(cfg)
   cfg.clone_ambiguous_jump_blocks()

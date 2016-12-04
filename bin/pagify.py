@@ -3,12 +3,17 @@ import sys
 filename = sys.argv[1]
 
 with open(filename + ".html", 'w') as page:
-    page.write("<html><body>\n")
-    page.write("<style>\n")
-    page.write(".node\n{\n  transition: all 0.05s ease-out;\n}\n")
-    page.write(".node:hover\n{\n  stroke-width: 1.5;\n  cursor:pointer\n}\n")
-    page.write(".node:hover\nellipse\n{\n  fill: #EEE;\n}\n")
-    page.write("</style>")
+    page.write("<html><body>\n"
+               "<style>\n"
+               ".node\n{\n  transition: all 0.05s ease-out;\n}\n"
+               ".node:hover\n{\n  stroke-width: 1.5;\n  cursor:pointer\n}\n"
+               ".node:hover\nellipse\n{\n  fill: #EEE;\n}\n"
+               "textarea#infobox {\n"
+               "  position: fixed;\n"
+               "  display: block;\n"
+               "  top: 0;\n"
+               "  right: 0;\n}\n"
+               "</style>")
 
     with open(filename, 'r') as svg:
         for line in svg.readlines()[3:]:
