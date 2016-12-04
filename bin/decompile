@@ -125,7 +125,7 @@ except KeyboardInterrupt:
   sys.exit(1)
 
 ll("Applying stack analysis TAC CFG")
-iterations = 2
+iterations = 10
 for _ in range(iterations):
   dataflow.stack_analysis(cfg)
   cfg.clone_ambiguous_jump_blocks()
