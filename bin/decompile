@@ -129,6 +129,7 @@ iterations = 10
 for _ in range(iterations):
   dataflow.stack_analysis(cfg)
   cfg.clone_ambiguous_jump_blocks()
+dataflow.stack_analysis(cfg)
 
 # Generate output using the requested exporter(s)
 ll("Writing string output")
