@@ -134,6 +134,8 @@ for _ in range(iterations):
   cfg.clone_ambiguous_jump_blocks()
 dataflow.stack_analysis(cfg, generate_throws=True)
 
+cfg.merge_duplicate_blocks(ignore_preds=True, ignore_succs=True)
+
 # Generate output using the requested exporter(s)
 ll("Writing string output")
 print(exporter.CFGStringExporter(cfg).export(), file=args.outfile)
