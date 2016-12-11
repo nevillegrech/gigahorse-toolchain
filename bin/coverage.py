@@ -26,10 +26,15 @@ error = 4
 def analyse_contract(filename, result_queue):
   try:
     with open(join(contract_dir, filename)) as file:
-      cfg = tac_cfg.TACGraph.from_bytecode(file)
-      for _ in range(4):
+      cfg = tac_cfg.TACGraph.from_bytecode(file, strict=True)
+      for _ in range(5):
         dataflow.stack_analysis(cfg)
         cfg.clone_ambiguous_jump_blocks()
+      dataflow.stack_analysis(cfg, generate_throws=True)
+
+      cfg.remove_unreachable_code()
+      cfg.merge_duplicate_blocks(ignore_preds=True)
+
 
       if cfg.has_unresolved_jump:
         result_queue.put((filename, unresolved))
@@ -59,7 +64,7 @@ if __name__ == "__main__":
 
   contract_dir = '../../contract_dump/contracts'
   start = 0
-  stop = 100
+  stop = 1000
 
   runtime_files = filter(lambda filename: filename.endswith("runtime.hex"),
                          listdir(contract_dir))
@@ -68,9 +73,9 @@ if __name__ == "__main__":
   #   runtime_files = [l.strip() for l in f.readlines()]
 
   sliced = itertools.islice(runtime_files, start, stop)
-  # sliced = runtime_files
+  #sliced = runtime_files
 
-  timeout_secs = 1
+  timeout_secs = 2
   flush_period = 3
 
   manager = Manager()
