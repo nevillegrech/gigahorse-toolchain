@@ -271,8 +271,19 @@ class CFGDotExporter(Exporter):
     nx.set_node_attributes(G, "style", "filled")
     nx.set_node_attributes(G, "id", {block.ident(): block.ident()
                                      for block in cfg.blocks})
-    nx.set_node_attributes(G, "tooltip", {block.ident(): str(block)
-                                          for block in cfg.blocks})
+
+    block_strings = {}
+    for block in cfg.blocks:
+      block_string = str(block)
+      def_site_string = "\n\nDef sites:\n"
+      for v in block.entry_stack.value:
+        def_site_string += str(v) \
+                           + ": {" \
+                           + ", ".join(hex(d) for d in v.def_sites) \
+                           + "}\n"
+      block_strings[block.ident()] = block_string + def_site_string
+
+    nx.set_node_attributes(G, "tooltip", block_strings)
 
     # Write non-dot files using pydot and Graphviz
     if "." in out_filename and not out_filename.endswith(".dot"):
