@@ -125,7 +125,7 @@ except KeyboardInterrupt:
   sys.exit(1)
 
 ll("Applying stack analysis TAC CFG")
-iterations = 10
+iterations = 3
 break_early = False
 for _ in range(iterations):
   if break_early:
