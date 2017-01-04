@@ -58,7 +58,8 @@ parser.add_argument("-g",
                          "relationships with the format inferred from the "
                          "given output filename (cfg.dot by default). "
                          "Non-DOT formats like pdf, png, etc. require "
-                         "Graphviz to be installed.")
+                         "Graphviz to be installed. Use html to generate"
+                         "an interactive web page of the graph.")
 
 parser.add_argument("-t",
                     "--tsv",
@@ -126,10 +127,7 @@ except KeyboardInterrupt:
 
 ll("Applying stack analysis TAC CFG")
 iterations = 3
-break_early = False
 for _ in range(iterations):
-  if break_early:
-    break
   dataflow.stack_analysis(cfg)
   cfg.clone_ambiguous_jump_blocks()
 cfg.hook_up_def_site_jumps()

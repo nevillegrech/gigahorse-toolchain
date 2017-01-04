@@ -7,7 +7,7 @@ import time
 import sys
 import itertools
 
-src_path = join(dirname(abspath(__file__)), "../src")
+src_path = join(dirname(abspath(__file__)), "../../src")
 sys.path.insert(0, src_path)
 
 # Local project imports
@@ -24,17 +24,19 @@ error = 4
 
 
 def analyse_contract(filename, result_queue):
+  iterations = 5
   try:
     with open(join(contract_dir, filename)) as file:
       cfg = tac_cfg.TACGraph.from_bytecode(file, strict=True)
-      for _ in range(5):
+
+      for _ in range(iterations):
         dataflow.stack_analysis(cfg)
         cfg.clone_ambiguous_jump_blocks()
+      cfg.hook_up_def_site_jumps()
       dataflow.stack_analysis(cfg, generate_throws=True)
 
       cfg.remove_unreachable_code()
       cfg.merge_duplicate_blocks(ignore_preds=True)
-
 
       if cfg.has_unresolved_jump:
         result_queue.put((filename, unresolved))
@@ -62,7 +64,7 @@ if __name__ == "__main__":
     logger.LOG_LEVEL = logger.Verbosity.MEDIUM
 
 
-  contract_dir = '../../contract_dump/contracts'
+  contract_dir = '../../../contract_dump/contracts'
   start = 0
   stop = 1000
 

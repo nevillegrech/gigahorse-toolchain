@@ -287,9 +287,20 @@ class CFGDotExporter(Exporter):
 
     # Write non-dot files using pydot and Graphviz
     if "." in out_filename and not out_filename.endswith(".dot"):
-      extension = out_filename.split(".")[-1]
       pdG = nx.nx_pydot.to_pydot(G)
-      pdG.write(out_filename, format=extension)
+      extension = out_filename.split(".")[-1]
+
+      # If we're producing an html file, write a temporary svg to build it from
+      # and then delete it.
+      if extension == "html":
+        import pagifier.pagify as p
+        tmpname = "." + out_filename + ".svg"
+        pdG.write(tmpname, format="svg")
+        p.pagify(tmpname, out_filename)
+        os.remove(tmpname)
+      else:
+        pdG.write(out_filename, format=extension)
+
     # Otherwise, write a regular dot file using pydot
     else:
       nx.nx_pydot.write_dot(G, out_filename)
