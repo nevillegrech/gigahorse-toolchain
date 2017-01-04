@@ -7,6 +7,7 @@ import time
 import sys
 import itertools
 
+# Add the source directory to the path to ensure the imports work
 src_path = join(dirname(abspath(__file__)), "../../src")
 sys.path.insert(0, src_path)
 
@@ -14,29 +15,52 @@ sys.path.insert(0, src_path)
 import dataflow
 import tac_cfg
 import logger
-
 ll = logger.log_low
 
+### Constants ###
 unresolved = 0
 resolved = 1
 timeout = 3
 error = 4
 
+# The location to grab contracts from (as bytecode files)
+contract_dir = '../../../contract_dump/contracts'
+# The location to write the results
+results_dir = "results/"
+
+# grab filenames from a specified file instead of a directory listing
+from_file = False
+filenames_file = "10kresults/timeout.txt"
+
+# If not process all, then a quantity of contracts specified by the indices
+process_all = False
+start_index = 0
+stop_index = 100
+
+# Kill the analysis after this many seconds
+timeout_secs = 2
+
+# Wait a little to flush the files and join the processes when concluding
+flush_period = 3
+
+# The number of times to run the analysis loop.
+analysis_iterations = 5
+
 
 def analyse_contract(filename, result_queue):
-  iterations = 5
+  """Perform dataflow analysis on a contract, storing the result in the queue."""
   try:
     with open(join(contract_dir, filename)) as file:
       cfg = tac_cfg.TACGraph.from_bytecode(file, strict=True)
 
-      for _ in range(iterations):
+      for _ in range(analysis_iterations):
         dataflow.stack_analysis(cfg)
         cfg.clone_ambiguous_jump_blocks()
       cfg.hook_up_def_site_jumps()
       dataflow.stack_analysis(cfg, generate_throws=True)
 
       cfg.remove_unreachable_code()
-      cfg.merge_duplicate_blocks(ignore_preds=True)
+      cfg.merge_duplicate_blocks(ignore_preds=True, ignore_succs=True)
 
       if cfg.has_unresolved_jump:
         result_queue.put((filename, unresolved))
@@ -50,6 +74,7 @@ def analyse_contract(filename, result_queue):
 
 
 def flush_queue(period, run_signal, result_queue, result_dict):
+  """For flushing the queue periodically to a dict so it doesn't fill up."""
   while run_signal.is_set():
     time.sleep(period)
     while not result_queue.empty():
@@ -63,23 +88,18 @@ if __name__ == "__main__":
   else:
     logger.LOG_LEVEL = logger.Verbosity.MEDIUM
 
-
-  contract_dir = '../../../contract_dump/contracts'
-  start = 0
-  stop = 1000
-
+  # Extract contract filenames.
   runtime_files = filter(lambda filename: filename.endswith("runtime.hex"),
                          listdir(contract_dir))
+  if from_file:
+    with open(filenames_file, 'r') as f:
+      runtime_files = [l.strip() for l in f.readlines()]
 
-  # with open("10kresults/timeout.txt", 'r') as f:
-  #   runtime_files = [l.strip() for l in f.readlines()]
+  sliced = itertools.islice(runtime_files, start_index, stop_index)
+  if process_all:
+    sliced = runtime_files
 
-  sliced = itertools.islice(runtime_files, start, stop)
-  #sliced = runtime_files
-
-  timeout_secs = 2
-  flush_period = 3
-
+  # Set up multiprocessing stuff.
   manager = Manager()
   res_dict = manager.dict()
   res_queue = SimpleQueue()
@@ -96,6 +116,7 @@ if __name__ == "__main__":
   flush_proc.start()
 
   try:
+    # Process each contract in turn, timing out if it takes too long.
     for i, fname in enumerate(sliced):
       ll("{}: {}.".format(i, fname))
       proc = Process(target=analyse_contract, args=(fname, res_queue))
@@ -114,12 +135,12 @@ if __name__ == "__main__":
         proc.terminate()
         ll("Timed out.")
 
+    # Conclude and write results to file.
     ll("\nFinishing...\n")
     run_signal.clear()
     flush_proc.join(flush_period + 1)
 
-    outdir = "results/"
-    makedirs(outdir, exist_ok=True)
+    makedirs(results_dir, exist_ok=True)
 
     r = res_dict[resolved]
     u = res_dict[unresolved]
@@ -127,13 +148,13 @@ if __name__ == "__main__":
     e = res_dict[error]
     total = sum(len(l) for l in res_dict.values())
 
-    with open(outdir + "resolved.txt", 'w') as f:
+    with open(results_dir + "resolved.txt", 'w') as f:
       f.write("\n".join(r) + "\n")
-    with open(outdir + "unresolved.txt", 'w') as f:
+    with open(results_dir + "unresolved.txt", 'w') as f:
       f.write("\n".join(u) + "\n")
-    with open(outdir + "timeout.txt", 'w') as f:
+    with open(results_dir + "timeout.txt", 'w') as f:
       f.write("\n".join(t) + "\n")
-    with open(outdir + "error.txt", 'w') as f:
+    with open(results_dir + "error.txt", 'w') as f:
       f.writelines("\n".join(e) + "\n")
 
     ll("Resolved: {}/{}".format(len(r), total))
