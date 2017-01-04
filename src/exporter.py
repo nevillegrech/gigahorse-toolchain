@@ -279,7 +279,7 @@ class CFGDotExporter(Exporter):
       for v in block.entry_stack.value:
         def_site_string += str(v) \
                            + ": {" \
-                           + ", ".join(hex(d) for d in v.def_sites) \
+                           + ", ".join(str(d) for d in v.def_sites) \
                            + "}\n"
       block_strings[block.ident()] = block_string + def_site_string
 

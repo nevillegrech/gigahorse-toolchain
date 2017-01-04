@@ -135,7 +135,8 @@ for _ in range(iterations):
 dataflow.stack_analysis(cfg, generate_throws=True)
 
 #cfg.remove_unreachable_code()
-cfg.merge_duplicate_blocks(ignore_preds=True)
+#cfg.merge_duplicate_blocks(ignore_preds=True)
+cfg.merge_duplicate_blocks(ignore_preds=True, ignore_succs=True)
 
 # Generate output using the requested exporter(s)
 ll("Writing string output")
