@@ -132,11 +132,11 @@ for _ in range(iterations):
     break
   dataflow.stack_analysis(cfg)
   cfg.clone_ambiguous_jump_blocks()
+cfg.hook_up_def_site_jumps()
 dataflow.stack_analysis(cfg, generate_throws=True)
 
-#cfg.remove_unreachable_code()
-#cfg.merge_duplicate_blocks(ignore_preds=True)
 cfg.merge_duplicate_blocks(ignore_preds=True, ignore_succs=True)
+#cfg.remove_unreachable_code()
 
 # Generate output using the requested exporter(s)
 ll("Writing string output")
