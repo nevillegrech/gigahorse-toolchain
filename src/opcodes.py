@@ -66,6 +66,10 @@ class OpCode:
     """Predicate: opcode causes the EVM to halt."""
     return self.code in [STOP.code, RETURN.code, SUICIDE.code, THROW.code]
 
+  def possibly_halts(self) -> bool:
+    """Predicate: opcode MAY cause the EVM to halt. (halts + THROWI)"""
+    return self.halts() or self.code == THROWI.code
+
   def push_len(self) -> int:
     """Return the number of bytes the given PUSH instruction pushes."""
     return self.code - PUSH1.code + 1 if self.is_push() else 0
