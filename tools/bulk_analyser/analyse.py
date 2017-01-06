@@ -61,6 +61,7 @@ def analyse_contract(filename, result_queue):
 
       cfg.remove_unreachable_code()
       cfg.merge_duplicate_blocks(ignore_preds=True, ignore_succs=True)
+      cfg.hook_up_def_site_jumps()
 
       if cfg.has_unresolved_jump:
         result_queue.put((filename, unresolved))

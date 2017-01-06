@@ -134,6 +134,7 @@ cfg.hook_up_def_site_jumps()
 dataflow.stack_analysis(cfg, generate_throws=True)
 
 cfg.merge_duplicate_blocks(ignore_preds=True, ignore_succs=True)
+cfg.hook_up_def_site_jumps()
 #cfg.remove_unreachable_code()
 
 # Generate output using the requested exporter(s)
