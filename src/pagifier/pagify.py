@@ -2,7 +2,15 @@
 import sys
 import os
 
-def pagify(filename, out_filename=None):
+def pagify(filename:str, out_filename:str=None) -> None:
+  """
+  Produces an html page from an svg image of a CFG.
+
+  Args:
+      filename: the location of the SVG to process
+      out_filename: the location to write the html file. By default,
+                    the page is written to filename + ".html"
+  """
   oname = filename + ".html" if out_filename is None else out_filename
   with open(oname, 'w') as page:
     page.write("<html><body>\n"

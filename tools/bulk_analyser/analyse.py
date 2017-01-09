@@ -26,32 +26,32 @@ error = 4
 # The location to grab contracts from (as bytecode files)
 contract_dir = '../../../contract_dump/contracts'
 # The location to write the results
-results_dir = "results/"
+results_dir = "non_error_results/"
 
 # grab filenames from a specified file instead of a directory listing
-from_file = False
-filenames_file = "10kresults/timeout.txt"
+from_file = True
+filenames_file = "results/error.txt"
 
 # If not process all, then a quantity of contracts specified by the indices
-process_all = False
+process_all = True
 start_index = 0
 stop_index = 100
 
 # Kill the analysis after this many seconds
-timeout_secs = 2
+timeout_secs = 120
 
 # Wait a little to flush the files and join the processes when concluding
 flush_period = 3
 
 # The number of times to run the analysis loop.
-analysis_iterations = 5
+analysis_iterations = 3
 
 
 def analyse_contract(filename, result_queue):
   """Perform dataflow analysis on a contract, storing the result in the queue."""
   try:
     with open(join(contract_dir, filename)) as file:
-      cfg = tac_cfg.TACGraph.from_bytecode(file, strict=True)
+      cfg = tac_cfg.TACGraph.from_bytecode(file, strict=False)
 
       for _ in range(analysis_iterations):
         dataflow.stack_analysis(cfg)

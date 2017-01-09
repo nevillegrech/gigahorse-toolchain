@@ -5,7 +5,6 @@ import csv
 import os
 
 import cfg
-import memtypes
 import opcodes
 import patterns
 import tac_cfg
@@ -237,6 +236,14 @@ class CFGDotExporter(Exporter):
   def export(self, out_filename:str="cfg.dot"):
     """
     Export the CFG to a dot file.
+
+    Certain blocks will have coloured outlines:
+      Green: contains a RETURN operation;
+      Blue: contains a STOP operation;
+      Red: contains a THROW or THROWI operation;
+      Purple: contains a SUICIDE operation;
+
+    A node with a red fill indicates that its stack size is large.
 
     Args:
       out_filename: path to the file where dot output should be written.
