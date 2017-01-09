@@ -101,7 +101,7 @@ class CFGTsvExporter(Exporter, patterns.DynamicVisitor):
     # Add edges from predecessor exits to this blocks's entry
     for pred in block.preds:
       # Generating edge.facts
-      self.edges.append((hex(pred.tac_ops[-1].pc), hex(block.tac_ops[0].pc)))
+      self.edges.append((hex(pred.last_op.pc), hex(block.tac_ops[0].pc)))
 
   def visit_TACOp(self, op):
     """
@@ -260,13 +260,13 @@ class CFGDotExporter(Exporter):
 
     # Colour-code the graph.
     returns = {block.ident(): "green" for block in cfg.blocks
-               if block.tac_ops[-1].opcode == opcodes.RETURN}
+               if block.last_op.opcode == opcodes.RETURN}
     stops = {block.ident(): "blue" for block in cfg.blocks
-             if block.tac_ops[-1].opcode == opcodes.STOP}
+             if block.last_op.opcode == opcodes.STOP}
     throws = {block.ident(): "red" for block in cfg.blocks
-             if block.tac_ops[-1].opcode in [opcodes.THROW, opcodes.THROWI]}
+             if block.last_op.opcode in [opcodes.THROW, opcodes.THROWI]}
     suicides = {block.ident(): "purple" for block in cfg.blocks
-                if block.tac_ops[-1].opcode == opcodes.SUICIDE}
+                if block.last_op.opcode == opcodes.SUICIDE}
     color_dict = {**returns, **stops, **throws, **suicides}
     nx.set_node_attributes(G, "color", color_dict)
     filldict = {b.ident(): "white" if len(b.entry_stack) <= 20 else "red"
