@@ -1,10 +1,7 @@
 """
 pagify.py: takes a CFG SVG and turns it into an interactive web page.
-
-Tightly coupled with pagify.js. In particular, the infobox id has to match up.
 """
-import sys
-import os
+
 
 def pagify(filename:str, out_filename:str=None) -> None:
   """
@@ -15,7 +12,6 @@ def pagify(filename:str, out_filename:str=None) -> None:
       out_filename: the location to write the html file. By default,
                     the page is written to filename + ".html"
   """
-  #
   oname = filename + ".html" if out_filename is None else out_filename
   with open(oname, 'w') as page:
     page.write("""
@@ -50,24 +46,18 @@ def pagify(filename:str, out_filename:str=None) -> None:
         page.write(line)
 
     page.write("""
-               <textarea id="infobox" disabled=true rows=40 cols=100>
-               </textarea>
-               """)
+               <textarea id="infobox" disabled=true rows=40 cols=100></textarea>
+               <script>
+               // Set the contents of the info textbox to the title field of the given element, with line endings replaced suitably.
+               function setInfoContents(element){
+                   document.getElementById('infobox').value = element.getAttribute('xlink:title').replace(/\\\\n/g, '\\n');
+               }
 
-    page.write("""<script>\n""")
-    folder = os.path.dirname(os.path.abspath(__file__))
-    with open(os.path.join(folder, "pagify.js"), 'r') as script:
-      for line in script.readlines():
-        page.write(" " + line)
-
-    page.write("""
+               // Make all anchor tags (nodes) in the svg clickable.
+               for (var el of document.getElementsByTagName("a")) {
+                   el.setAttribute("onclick", "setInfoContents(this);");
+               }
                </script>
                </html>
                </body>
                """)
-
-if __name__ == "__main__":
-  if len(sys.argv) < 2:
-    print("Please provide an input svg to pagify.")
-  else:
-    pagify(sys.argv[1])

@@ -298,7 +298,7 @@ class CFGDotExporter(Exporter):
       # If we're producing an html file, write a temporary svg to build it from
       # and then delete it.
       if extension == "html":
-        import pagifier.pagify as p
+        import pagify as p
         tmpname = "." + out_filename + ".svg"
         pdG.write(tmpname, format="svg")
         p.pagify(tmpname, out_filename)
