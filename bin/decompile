@@ -3,7 +3,6 @@
 # Standard lib imports
 from os.path import abspath, dirname, join
 import sys
-import fileinput
 import argparse
 
 # Prepend ../src to $PATH so the project modules can be imported below
@@ -21,7 +20,7 @@ ll, lm, lh = logger.log_low, logger.log_med, logger.log_high
 # Version string to display with -v
 VERSION = """\
 +------------------------------+
-| Ethereum Decompiler v0.0.1   |
+| Ethereum Decompiler v0.0.2   |
 | (c) The University of Sydney |
 +------------------------------+\
 """
@@ -41,6 +40,13 @@ parser.add_argument("-b",
                     default=False,
                     help="treat input as bytecode rather than disassembly")
 
+parser.add_argument("-s",
+                    "--strict",
+                    action="store_true",
+                    default=False,
+                    help="used in conjunction with -b, unrecognised opcodes "
+                         "will not be skipped, but will result in an error.")
+
 parser.add_argument("-g",
                     "--graph",
                     nargs="?",
@@ -51,7 +57,8 @@ parser.add_argument("-g",
                          "relationships with the format inferred from the "
                          "given output filename (cfg.dot by default). "
                          "Non-DOT formats like pdf, png, etc. require "
-                         "Graphviz to be installed.")
+                         "Graphviz to be installed. Use html to generate"
+                         "an interactive web page of the graph.")
 
 parser.add_argument("-t",
                     "--tsv",
@@ -63,6 +70,32 @@ parser.add_argument("-t",
                          "and write files to the specified directory, which "
                          "will be recursively created if it does not exist "
                          "(current working directory by default).")
+
+parser.add_argument("-I",
+                    "--max_iter",
+                    type=int,
+                    nargs="?",
+                    default=-1,
+                    const=-1,
+                    metavar="ITERATIONS",
+                    help="perform no more than the specified number of "
+                         "analysis iterations. Lower is faster, but "
+                         "potentially less precise. A negative value specifies "
+                         "no cap on the iteration count. No cap by default.")
+
+parser.add_argument("-T",
+                    "--bail_time",
+                    type=int,
+                    nargs="?",
+                    default=-1,
+                    const=-1,
+                    metavar="SECONDS",
+                    help="begin to terminate the analysis if it's looking to "
+                         "take more time than the specified number of seconds. "
+                         "Bailing out early may mean the analysis is not able "
+                         "to reach a fixed-point, so results may be less "
+                         "precise. A negative value means no cap on the "
+                         "running time. No cap by default.")
 
 parser.add_argument("-v",
                     "--verbose",
@@ -107,7 +140,7 @@ ll(version())
 try:
   lh("Reading from {}", args.infile.name)
   if args.bytecode:
-    cfg = tac_cfg.TACGraph.from_bytecode(args.infile)
+    cfg = tac_cfg.TACGraph.from_bytecode(args.infile, args.strict)
   else:
     cfg = tac_cfg.TACGraph.from_dasm(args.infile)
   ll("TAC CFG generation completed")
@@ -118,7 +151,8 @@ except KeyboardInterrupt:
   sys.exit(1)
 
 ll("Applying stack analysis TAC CFG")
-dataflow.stack_analysis(cfg)
+dataflow.analyse_graph(cfg, max_iterations=args.max_iter,
+                       bailout_seconds=args.bail_time)
 
 # Generate output using the requested exporter(s)
 ll("Writing string output")

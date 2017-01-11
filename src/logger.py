@@ -20,10 +20,11 @@ Code to use when exiting. Calling warning() sets exitcode to 3.
 
 class Verbosity:
   """enum representing the available verbosity levels for logging."""
-  HIGH = 3
-  MEDIUM = 2
-  LOW = 1
-  QUIET = 0
+  HIGH = 4
+  MEDIUM = 3
+  LOW = 2
+  QUIET = 1
+  SILENT = 0
 
 def log(message:str, threshold:int = Verbosity.LOW) -> None:
   """

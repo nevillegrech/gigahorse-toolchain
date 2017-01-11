@@ -5,7 +5,6 @@ import csv
 import os
 
 import cfg
-import memtypes
 import opcodes
 import patterns
 import tac_cfg
@@ -102,7 +101,7 @@ class CFGTsvExporter(Exporter, patterns.DynamicVisitor):
     # Add edges from predecessor exits to this blocks's entry
     for pred in block.preds:
       # Generating edge.facts
-      self.edges.append((hex(pred.tac_ops[-1].pc), hex(block.tac_ops[0].pc)))
+      self.edges.append((hex(pred.last_op.pc), hex(block.tac_ops[0].pc)))
 
   def visit_TACOp(self, op):
     """
@@ -132,7 +131,7 @@ class CFGTsvExporter(Exporter, patterns.DynamicVisitor):
 
     for arg in op.args:
       # Only include variable reads; ignore constants
-      if not arg.is_const:
+      if isinstance(arg, tac_cfg.TACArg) and not arg.value.is_const:
         # Generate variable read relations (read.facts)
         self.reads.append((hex(op.pc), arg))
 
@@ -238,6 +237,14 @@ class CFGDotExporter(Exporter):
     """
     Export the CFG to a dot file.
 
+    Certain blocks will have coloured outlines:
+      Green: contains a RETURN operation;
+      Blue: contains a STOP operation;
+      Red: contains a THROW or THROWI operation;
+      Purple: contains a SUICIDE operation;
+
+    A node with a red fill indicates that its stack size is large.
+
     Args:
       out_filename: path to the file where dot output should be written.
                     If the file extension is a supported image format,
@@ -249,28 +256,58 @@ class CFGDotExporter(Exporter):
 
     cfg = self.source
 
-    G = nx.DiGraph()
-    G.add_nodes_from(b.ident() for b in cfg.blocks)
-    G.add_edges_from((p.ident(), s.ident()) for p, s in cfg.edge_list())
-    G.add_edges_from((block.ident(), "?") for block in cfg.blocks
-                     if block.has_unresolved_jump)
+    G = cfg.nx_graph()
 
+    # Colour-code the graph.
     returns = {block.ident(): "green" for block in cfg.blocks
-               if block.tac_ops[-1].opcode == opcodes.RETURN}
+               if block.last_op.opcode == opcodes.RETURN}
     stops = {block.ident(): "blue" for block in cfg.blocks
-             if block.tac_ops[-1].opcode == opcodes.STOP}
+             if block.last_op.opcode == opcodes.STOP}
     throws = {block.ident(): "red" for block in cfg.blocks
-             if block.tac_ops[-1].opcode in [opcodes.THROW, opcodes.THROWI]}
+             if block.last_op.opcode in [opcodes.THROW, opcodes.THROWI]}
     suicides = {block.ident(): "purple" for block in cfg.blocks
-                if block.tac_ops[-1].opcode == opcodes.SUICIDE}
+                if block.last_op.opcode == opcodes.SUICIDE}
     color_dict = {**returns, **stops, **throws, **suicides}
     nx.set_node_attributes(G, "color", color_dict)
+    filldict = {b.ident(): "white" if len(b.entry_stack) <= 20 else "red"
+                for b in cfg.blocks}
+    nx.set_node_attributes(G, "fillcolor", filldict)
+    nx.set_node_attributes(G, "style", "filled")
+
+    # Annotate each node with its basic block's internal data for later display
+    # if rendered in html.
+    nx.set_node_attributes(G, "id", {block.ident(): block.ident()
+                                     for block in cfg.blocks})
+    block_strings = {}
+    for block in cfg.blocks:
+      block_string = str(block)
+      def_site_string = "\n\nDef sites:\n"
+      for v in block.entry_stack.value:
+        def_site_string += str(v) \
+                           + ": {" \
+                           + ", ".join(str(d) for d in v.def_sites) \
+                           + "}\n"
+      block_strings[block.ident()] = block_string + def_site_string
+    nx.set_node_attributes(G, "tooltip", block_strings)
 
     # Write non-dot files using pydot and Graphviz
     if "." in out_filename and not out_filename.endswith(".dot"):
-      extension = out_filename.split(".")[-1]
       pdG = nx.nx_pydot.to_pydot(G)
-      pdG.write(out_filename, format=extension)
+      extension = out_filename.split(".")[-1]
+
+      # If we're producing an html file, write a temporary svg to build it from
+      # and then delete it.
+      if extension == "html":
+        import pagify as p
+        tmpname = "." + out_filename + ".svg"
+        pdG.write(tmpname, format="svg")
+        p.pagify(tmpname, out_filename)
+        os.remove(tmpname)
+      else:
+        pdG.write(out_filename, format=extension)
+
     # Otherwise, write a regular dot file using pydot
     else:
+      if out_filename == "":
+        out_filename = "cfg.dot"
       nx.nx_pydot.write_dot(G, out_filename)
