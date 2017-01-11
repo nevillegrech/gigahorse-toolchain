@@ -71,6 +71,13 @@ parser.add_argument("-t",
                          "will be recursively created if it does not exist "
                          "(current working directory by default).")
 
+parser.add_argument("-d",
+                    "--dominators",
+                    action="store_true",
+                    default=False,
+                    help="If producing tsv output, also include graph "
+                         "dominator relations.")
+
 parser.add_argument("-I",
                     "--max_iter",
                     type=int,
@@ -164,4 +171,4 @@ if args.graph is not None:
 
 if args.tsv is not None:
   ll("Writing TSV output")
-  exporter.CFGTsvExporter(cfg).export(args.tsv)
+  exporter.CFGTsvExporter(cfg).export(args.tsv, args.dominators)
