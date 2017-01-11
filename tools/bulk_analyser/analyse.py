@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
+"""analyse.py: batch analyses smart contracts and categorises them."""
 
 from os import listdir, makedirs
 from os.path import abspath, dirname, join
 import argparse
+import re
 from multiprocessing import Process, SimpleQueue, Manager, Event
 import time
 import sys
@@ -21,9 +23,19 @@ ll = logger.log_low
 
 # Indices for different contract analysis categories.
 UNRESOLVED = 0
+"""Contract contains some unknown jump destination."""
 RESOLVED = 1
+"""Contract completely resolved."""
 TIMEOUT = 3
+"""Analysis was killed before it could complete."""
 ERROR = 4
+"""Some error during processing occurred."""
+
+# Filenames to write each category to.
+UNRESOLVED_FILE = "unresolved.txt"
+RESOLVED_FILE = "resolved.txt"
+TIMEOUT_FILE = "timeout.txt"
+ERROR_FILE = "error.txt"
 
 DEFAULT_CONTRACT_DIR = '../../../contract_dump/contracts'
 """Directory to fetch contract files from by default."""
@@ -40,6 +52,9 @@ DEFAULT_MAX_ITER = -1
 DEFAULT_BAILOUT = -1
 """Default analysis bailout time in seconds."""
 
+DEFAULT_PATTERN = ".*runtime.hex"
+"""Default filename pattern for contract files."""
+
 FLUSH_PERIOD = 3
 """Wait a little to flush the files and join the processes when concluding."""
 
@@ -55,6 +70,15 @@ parser.add_argument("-c",
                     metavar="DIR",
                     help="the location to grab contracts from (as bytecode "
                          "files).")
+
+parser.add_argument("-p",
+                    "--filename_pattern",
+                    nargs="?",
+                    default=DEFAULT_PATTERN,
+                    const=DEFAULT_PATTERN,
+                    metavar="REGEX",
+                    help="A regular expression. Only filenames matching it "
+                         "will be processed.")
 
 parser.add_argument("-r",
                     "--results_dir",
@@ -142,7 +166,13 @@ parser.add_argument("-s",
 
 
 def analyse_contract(filename, result_queue):
-  """Perform dataflow analysis on a contract, storing the result in the queue."""
+  """
+  Perform dataflow analysis on a contract, storing the result in the queue.
+
+  Args:
+      filename: the location of the contract bytecode file to process
+      result_queue: a multiprocessing queue in which to store the analysis results
+  """
   try:
     with open(join(args.contract_dir, filename)) as file:
       cfg = tac_cfg.TACGraph.from_bytecode(file, strict=args.strict)
@@ -161,9 +191,19 @@ def analyse_contract(filename, result_queue):
     result_queue.put((filename, ERROR))
 
 
-def flush_queue(period, run_signal, result_queue, result_dict):
-  """For flushing the queue periodically to a dict so it doesn't fill up."""
-  while run_signal.is_set():
+def flush_queue(period, run_sig,
+                result_queue, result_dict):
+  """
+  For flushing the queue periodically to a dict so it doesn't fill up.
+
+  Args:
+      period: flush the result_queue to result_dict every period seconds
+      run_sig: terminate when the Event run_sig is cleared.
+      result_queue: the queue in which results accumulate before being flushed
+                    to the dict.
+      result_dict: the final dictionary of results.
+  """
+  while run_sig.is_set():
     time.sleep(period)
     while not result_queue.empty():
       item = result_queue.get()
@@ -179,29 +219,44 @@ else:
   logger.LOG_LEVEL = logger.Verbosity.MEDIUM
 
 # Extract contract filenames.
-runtime_files = filter(lambda filename: filename.endswith("runtime.hex"),
-                       listdir(args.contract_dir))
 if args.from_file:
+  # Get contract filenames from a file if specified.
   with open(args.from_file, 'r') as f:
-    runtime_files = [l.strip() for l in f.readlines()]
+    unfiltered = [l.strip() for l in f.readlines()]
+else:
+  # Otherwise just get all contracts in the contract directory.
+  unfiltered = listdir(args.contract_dir)
+
+# Filter according to the given pattern.
+re_string = args.filename_pattern
+if not re_string.endswith("$"):
+  re_string = re_string + "$"
+pattern = re.compile(re_string)
+runtime_files = filter(lambda filename: pattern.match(filename) is not None,
+                       unfiltered)
 
 stop_index = None if args.num_contracts is None else args.skip + args.num_contracts
 to_process = itertools.islice(runtime_files, args.skip, stop_index)
 
 
-# Set up multiprocessing stuff.
+# Set up multiprocessing result dictionary and queue.
 manager = Manager()
-res_dict = manager.dict()
-res_queue = SimpleQueue()
 
+# This dictionary maps each filename to the analysis category it belongs to.
+res_dict = manager.dict()
 res_dict[RESOLVED] = []
 res_dict[UNRESOLVED] = []
 res_dict[TIMEOUT] = []
 res_dict[ERROR] = []
 
-run = Event()
-run.set()
-flush_proc = Process(target=flush_queue, args=(FLUSH_PERIOD, run,
+# Holds results transiently as (filename, category) pairs,
+# frequently flushed to res_dict.
+res_queue = SimpleQueue()
+
+# Start the periodic flush process, only run while run_signal is set.
+run_signal = Event()
+run_signal.set()
+flush_proc = Process(target=flush_queue, args=(FLUSH_PERIOD, run_signal,
                                                res_queue, res_dict))
 flush_proc.start()
 
@@ -227,7 +282,7 @@ try:
 
   # Conclude and write results to file.
   ll("\nFinishing...\n")
-  run.clear()
+  run_signal.clear()
   flush_proc.join(FLUSH_PERIOD + 1)
 
   makedirs(args.results_dir, exist_ok=True)
@@ -238,13 +293,13 @@ try:
   e = res_dict[ERROR]
   total = sum(len(l) for l in res_dict.values())
 
-  with open(join(args.results_dir, "resolved.txt"), 'w') as f:
+  with open(join(args.results_dir, RESOLVED_FILE), 'w') as f:
     f.write("\n".join(r) + "\n")
-  with open(join(args.results_dir, "unresolved.txt"), 'w') as f:
+  with open(join(args.results_dir, UNRESOLVED_FILE), 'w') as f:
     f.write("\n".join(u) + "\n")
-  with open(join(args.results_dir, "timeout.txt"), 'w') as f:
+  with open(join(args.results_dir, TIMEOUT_FILE), 'w') as f:
     f.write("\n".join(t) + "\n")
-  with open(join(args.results_dir, "error.txt"), 'w') as f:
+  with open(join(args.results_dir, ERROR_FILE), 'w') as f:
     f.writelines("\n".join(e) + "\n")
 
   ll("Resolved: {}/{}".format(len(r), total))
