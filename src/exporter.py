@@ -135,7 +135,7 @@ class CFGTsvExporter(Exporter, patterns.DynamicVisitor):
         # Generate variable read relations (read.facts)
         self.reads.append((hex(op.pc), arg))
 
-  def export(self, output_dir:str=""):
+  def export(self, output_dir:str="", dominators:bool=False):
     """
     Export the CFG to separate fact files.
 
@@ -154,9 +154,21 @@ class CFGTsvExporter(Exporter, patterns.DynamicVisitor):
     ``end.facts``
       the last location of the CFG
 
+    If dominators is true:
+
+    ``dom.facts``
+    dominance relations
+    ``imdom.facts``
+    immediate dominance relations
+    ``pdom.facts``
+    post-dominance relations
+    ``impdom.facts``
+    immediate post-dominance relations
+
     Args:
       output_dir: the output directory where fact files should be written.
-      Will be created recursively if it doesn't exist.
+                  Will be created recursively if it doesn't exist.
+      dominators: if true, also output files encoding dominance relations
     """
     # Create the target directory.
     if output_dir != "":
@@ -184,6 +196,20 @@ class CFGTsvExporter(Exporter, patterns.DynamicVisitor):
     end_fact = [hex(b.exit) for b in (self.__end_block,) if b is not None]
     generate("start.facts", [start_fact])
     generate("end.facts", [end_fact])
+
+    if dominators:
+      pairs = sorted([(k, i) for k, v in self.source.dominators().items()
+                      for i in v])
+      generate("dom.facts", pairs)
+      pairs = sorted(self.source.immediate_dominators().items())
+      generate("imdom.facts", pairs)
+
+      pairs = sorted([(k, i) for k, v in self.source.dominators(True).items()
+                      for i in v])
+      generate("pdom.facts", pairs)
+      pairs = sorted(self.source.immediate_dominators(True).items())
+      generate("impdom.facts", pairs)
+
 
 class CFGStringExporter(Exporter, patterns.DynamicVisitor):
   """
