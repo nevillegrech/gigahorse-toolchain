@@ -22,7 +22,7 @@ pipelines:
           - bin/decompile -b examples/withdraw_dao.hex
           - bash -c '[ ! -f graph.pdf ]'
           - bash -c '[ ! -d tsv ]'
-          - bin/decompile -g graph.pdf -t -d tsv -b examples/dao_hack.hex
+          - bin/decompile -g graph.pdf -t tsv -d -b examples/dao_hack.hex
           - bash -c '[ -s graph.pdf ]'
           - bash -c '[ -d tsv ]'
           - bash -c '[ -s tsv/block.facts ]'
