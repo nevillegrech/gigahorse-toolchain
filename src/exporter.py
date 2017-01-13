@@ -89,8 +89,7 @@ class CFGTsvExporter(Exporter, patterns.DynamicVisitor):
         var_name += str(op.lhs)
 
       # Memory assignments are not considered as 'variable definitions'
-      if op.opcode not in [opcodes.SLOAD, opcodes.MLOAD, opcodes.SSTORE,
-                           opcodes.MSTORE, opcodes.MSTORE8]:
+      if op.opcode not in [opcodes.SLOAD, opcodes.MLOAD]:
         # Generate variable definition relations (defined.facts)
         self.defined.append((hex(op.pc), var_name))
 
@@ -228,6 +227,8 @@ class CFGDotExporter(Exporter):
       Blue: contains a STOP operation;
       Red: contains a THROW or THROWI operation;
       Purple: contains a SUICIDE operation;
+      Orange: contains a CALL, CALLCODE, or DELEGATECALL operation;
+      Brown: contains a CREATE operation.
 
     A node with a red fill indicates that its stack size is large.
 
@@ -238,11 +239,12 @@ class CFGDotExporter(Exporter):
                     if it is in the user's `$PATH`.
     """
     import networkx as nx
-    import os
 
     cfg = self.source
 
     G = cfg.nx_graph()
+
+    callcodes = [opcodes.CALL, opcodes.CALLCODE, opcodes.DELEGATECALL]
 
     # Colour-code the graph.
     returns = {block.ident(): "green" for block in cfg.blocks
@@ -253,7 +255,11 @@ class CFGDotExporter(Exporter):
              if block.last_op.opcode in [opcodes.THROW, opcodes.THROWI]}
     suicides = {block.ident(): "purple" for block in cfg.blocks
                 if block.last_op.opcode == opcodes.SUICIDE}
-    color_dict = {**returns, **stops, **throws, **suicides}
+    creates = {block.ident(): "brown" for block in cfg.blocks
+               if any(op.opcode == opcodes.CREATE for op in block.tac_ops)}
+    calls = {block.ident(): "orange" for block in cfg.blocks
+             if any(op.opcode in callcodes for op in block.tac_ops)}
+    color_dict = {**returns, **stops, **throws, **suicides, **creates, **calls}
     nx.set_node_attributes(G, "color", color_dict)
     filldict = {b.ident(): "white" if len(b.entry_stack) <= 20 else "red"
                 for b in cfg.blocks}
