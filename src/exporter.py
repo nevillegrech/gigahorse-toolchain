@@ -8,7 +8,6 @@ import cfg
 import opcodes
 import patterns
 import tac_cfg
-import memtypes
 
 
 class Exporter(abc.ABC):
