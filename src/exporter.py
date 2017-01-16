@@ -110,14 +110,15 @@ class CFGTsvExporter(Exporter, patterns.DynamicVisitor):
             for val in op.lhs.values:
               value.append((op.lhs.name, hex(val)))
 
-        # The args constitute use sites.
-        for arg in op.args:
-          name = arg.value.name
-          if not arg.value.def_sites.is_const:
-            # Argument is a stack variable, and therefore needs to be
-            # prepended with the block id.
-            name = block.ident() + ":" + name
-          use.append((name, op.pc))
+        if op.opcode != opcodes.CONST:
+          # The args constitute use sites.
+          for arg in op.args:
+            name = arg.value.name
+            if not arg.value.def_sites.is_const:
+              # Argument is a stack variable, and therefore needs to be
+              # prepended with the block id.
+              name = block.ident() + ":" + name
+            use.append((name, hex(op.pc)))
 
       # Finally, note where each stack variable might have been defined,
       # and what values it can take on.
