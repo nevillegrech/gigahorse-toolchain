@@ -56,54 +56,6 @@ class CFGTsvExporter(Exporter, patterns.DynamicVisitor):
     A list of pairs (op.pc, variable) that specify all write locations.
     """
 
-    self.__current_block = None
-    """
-    Previously visited TACOp.
-    """
-
-    # Recursively visit the graph using a sorted traversal
-    cfg.accept(self, generator=cfg.sorted_traversal())
-
-  def visit_TACGraph(self, cfg):
-    """
-    Visit the TAC CFG root
-    """
-    pass
-
-  def visit_TACBasicBlock(self, block):
-    """
-    Visit a TAC BasicBlock in the CFG
-    """
-    self.__current_block = block
-
-  def visit_TACOp(self, op):
-    """
-    Visit a TACOp in a BasicBlock of the CFG.
-    """
-
-    if isinstance(op, tac_cfg.TACAssignOp):
-      var_name = self.__current_block.ident() + ":"
-      if isinstance(op.lhs, memtypes.Variable):
-        var_name += op.lhs.name
-      else:
-        var_name += str(op.lhs)
-
-      # Memory assignments are not considered as 'variable definitions'
-      if op.opcode not in [opcodes.SLOAD, opcodes.MLOAD]:
-        # Generate variable definition relations (defined.facts)
-        self.defined.append((hex(op.pc), var_name))
-
-      # TODO: Add notion of blockchain and local memory
-      # Generate variable write relations (write.facts)
-      self.writes.append((hex(op.pc), var_name))
-
-    for arg in op.args:
-      # Only include variable reads; ignore constants
-      if isinstance(arg, tac_cfg.TACArg) and not arg.value.is_const:
-        arg_name = self.__current_block.ident() + ":" + arg.value.name
-        # Generate variable read relations (read.facts)
-        self.reads.append((hex(op.pc), arg_name))
-
   def export(self, output_dir:str="", dominators:bool=False):
     if output_dir != "":
       os.makedirs(output_dir, exist_ok=True)
@@ -141,14 +93,49 @@ class CFGTsvExporter(Exporter, patterns.DynamicVisitor):
     exit_points = [(hex(op.pc),) for op in self.source.terminal_ops]
     generate("exit.facts", exit_points)
 
-    # Mapping from operation addresses to variable names defined there.
-    generate("defined.facts", self.defined)
+    # Mapping from variable names to the addresses they were defined at.
+    define = []
+    # Mapping from variable names to the addresses they were used at.
+    use = []
+    # Mapping from variable names to their possible values.
+    value = []
+    for block in self.source.blocks:
+      for op in block.tac_ops:
+        # If it's an assignment op, we have a def site
+        if isinstance(op, tac_cfg.TACAssignOp):
+          define.append((op.lhs.name, hex(op.pc)))
 
-    # Mapping from operation addresses to variables read there.
-    generate("read.facts", self.reads)
+          # And we can also find its values here.
+          if op.lhs.values.is_finite:
+            for val in op.lhs.values:
+              value.append((op.lhs.name, hex(val)))
 
-    # Mapping from operation addresses to variables written there.
-    generate("write.facts", self.writes)
+        # The args constitute use sites.
+        for arg in op.args:
+          name = arg.value.name
+          if not arg.value.def_sites.is_const:
+            # Argument is a stack variable, and therefore needs to be
+            # prepended with the block id.
+            name = block.ident() + ":" + name
+          use.append((name, op.pc))
+
+      # Finally, note where each stack variable might have been defined,
+      # and what values it can take on.
+      # This includes some duplication for stack variables with multiple def
+      # sites. This can be done marginally more efficiently.
+      for var in block.entry_stack:
+        if not var.def_sites.is_const and var.def_sites.is_finite:
+          name = block.ident() + ":" + var.name
+          for loc in var.def_sites:
+            define.append((name, hex(loc.pc)))
+
+          if var.values.is_finite:
+            for val in var.values:
+              value.append((name, hex(val)))
+
+    generate("def.facts", define)
+    generate("use.facts", use)
+    generate("value.facts", value)
 
     if dominators:
       pairs = sorted([(k, i) for k, v
