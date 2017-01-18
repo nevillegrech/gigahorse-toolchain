@@ -24,26 +24,21 @@ class Exporter(abc.ABC):
     Exports the source object to an implementation-specific format.
     """
 
-
 class CFGTsvExporter(Exporter, patterns.DynamicVisitor):
   """
-  Generates .facts files of the given TAC CFG to local directory.
+  Writes logical relations of the given TAC CFG to local directory.
 
   Args:
-    cfg: source TAC CFG to be exported to separate fact files.
+    cfg: the graph to be written to logical relations.
   """
   def __init__(self, cfg:tac_cfg.TACGraph):
-    super().__init__(cfg)
-    self.ops = []
     """
-    A list of pairs (op.pc, op.opcode), associating to each pc address the
-    operation performed at that address.
-    """
+    Generates .facts files of the given TAC CFG to local directory.
 
-    self.edges = []
+    Args:
+      cfg: source TAC CFG to be exported to separate fact files.
     """
-    A list of edges between instructions defining a control flow graph.
-    """
+    super().__init__(cfg)
 
     self.defined = []
     """
@@ -60,117 +55,7 @@ class CFGTsvExporter(Exporter, patterns.DynamicVisitor):
     A list of pairs (op.pc, variable) that specify all write locations.
     """
 
-    self.block_nums = []
-    """
-    A list of pairs (op.pc, block.entry) that specify block numbers for each TACOp.
-    """
-
-    self.__prev_op = None
-    """
-    Previously visited TACOp.
-    """
-
-    self.__start_block = None
-    """
-    First BasicBlock visited, or None.
-    """
-
-    self.__end_block = None
-    """
-    Last BasicBlock visited, or None.
-    """
-
-    # Recursively visit the graph using a sorted traversal
-    cfg.accept(self, generator=cfg.sorted_traversal())
-
-  def visit_TACGraph(self, cfg):
-    """
-    Visit the TAC CFG root
-    """
-    pass
-
-  def visit_TACBasicBlock(self, block):
-    """
-    Visit a TAC BasicBlock in the CFG
-    """
-    # Track the start and end blocks
-    if self.__start_block is None:
-      self.__start_block = block
-    self.__end_block = block
-
-    # Add edges from predecessor exits to this blocks's entry
-    for pred in block.preds:
-      # Generating edge.facts
-      self.edges.append((hex(pred.last_op.pc), hex(block.tac_ops[0].pc)))
-
-  def visit_TACOp(self, op):
-    """
-    Visit a TACOp in a BasicBlock of the CFG.
-    """
-    # Add edges between TACOps (generate edge.facts)
-    if self.__prev_op != None:
-      # Generating edge relations (edge.facts)
-      self.edges.append((hex(self.__prev_op.pc), hex(op.pc)))
-    self.__prev_op = op
-
-    # Generate opcode relations (op.facts)
-    self.ops.append((hex(op.pc), op.opcode))
-
-    # Generate opcode to basic block relations (block.facts)
-    self.block_nums.append((hex(op.pc), hex(op.block.entry)))
-
-    if isinstance(op, tac_cfg.TACAssignOp):
-      # Memory assignments are not considered as 'variable definitions'
-      if not op.opcode in [opcodes.SLOAD, opcodes.MLOAD]:
-        # Generate variable definition relations (defined.facts)
-        self.defined.append((hex(op.pc), op.lhs))
-
-      # TODO: Add notion of blockchain and local memory
-      # Generate variable write relations (write.facts)
-      self.writes.append((hex(op.pc), op.lhs))
-
-    for arg in op.args:
-      # Only include variable reads; ignore constants
-      if isinstance(arg, tac_cfg.TACArg) and not arg.value.is_const:
-        # Generate variable read relations (read.facts)
-        self.reads.append((hex(op.pc), arg))
-
   def export(self, output_dir:str="", dominators:bool=False):
-    """
-    Export the CFG to separate fact files.
-
-    ``op.facts``
-      (program counter, operation) pairs
-    ``defined.facts``
-      variable definition locations
-    ``read.facts``
-      var/loc use locations
-    ``write.facts``
-      var/loc write locations
-    ``edge.facts``
-      instruction-level CFG edges
-    ``start.facts``
-      the first location of the CFG
-    ``end.facts``
-      the last location of the CFG
-
-    If dominators is true:
-
-    ``dom.facts``
-    dominance relations
-    ``imdom.facts``
-    immediate dominance relations
-    ``pdom.facts``
-    post-dominance relations
-    ``impdom.facts``
-    immediate post-dominance relations
-
-    Args:
-      output_dir: the output directory where fact files should be written.
-                  Will be created recursively if it doesn't exist.
-      dominators: if true, also output files encoding dominance relations
-    """
-    # Create the target directory.
     if output_dir != "":
       os.makedirs(output_dir, exist_ok=True)
 
@@ -182,32 +67,93 @@ class CFGTsvExporter(Exporter, patterns.DynamicVisitor):
         for e in entries:
           writer.writerow(e)
 
-    generate("op.facts", self.ops)
-    generate("defined.facts", self.defined)
-    generate("read.facts", self.reads)
-    generate("write.facts", self.writes)
-    generate("edge.facts", self.edges)
-    generate("block.facts", self.block_nums)
+    # Write a mapping from operation addresses to corresponding opcode names,
+    # as well as a mapping from operation addresses to the block they inhabit.
+    ops = []
+    block_nums = []
+    for block in self.source.blocks:
+      for op in block.tac_ops:
+        ops.append((hex(op.pc), op.opcode.name))
+        block_nums.append((hex(op.pc), block.ident()))
+    generate("op.facts", ops)
+    generate("block.facts", block_nums)
 
-    # Retrieve sorted list of blocks based on program counter
-    # Note: Start and End are currently singletons
-    # TODO -- Update starts and ends to be based on function boundaries
-    start_fact = [hex(b.entry) for b in (self.__start_block,) if b is not None]
-    end_fact = [hex(b.exit) for b in (self.__end_block,) if b is not None]
-    generate("start.facts", [start_fact])
-    generate("end.facts", [end_fact])
+    # Write out the collection of edges between instructions (not basic blocks).
+    edges = [(hex(h.pc), hex(t.pc))
+             for h, t in self.source.op_edge_list()]
+    generate("edge.facts", edges)
+
+    # Entry points
+    entry_ops = [(hex(b.tac_ops[0].pc),)
+                 for b in self.source.blocks if len(b.preds) == 0]
+    generate("entry.facts", entry_ops)
+
+    # Exit points
+    exit_points = [(hex(op.pc),) for op in self.source.terminal_ops]
+    generate("exit.facts", exit_points)
+
+    # Mapping from variable names to the addresses they were defined at.
+    define = []
+    # Mapping from variable names to the addresses they were used at.
+    use = []
+    # Mapping from variable names to their possible values.
+    value = []
+    for block in self.source.blocks:
+      for op in block.tac_ops:
+        # If it's an assignment op, we have a def site
+        if isinstance(op, tac_cfg.TACAssignOp):
+          define.append((op.lhs.name, hex(op.pc)))
+
+          # And we can also find its values here.
+          if op.lhs.values.is_finite:
+            for val in op.lhs.values:
+              value.append((op.lhs.name, hex(val)))
+
+        if op.opcode != opcodes.CONST:
+          # The args constitute use sites.
+          for arg in op.args:
+            name = arg.value.name
+            if not arg.value.def_sites.is_const:
+              # Argument is a stack variable, and therefore needs to be
+              # prepended with the block id.
+              name = block.ident() + ":" + name
+            use.append((name, hex(op.pc)))
+
+      # Finally, note where each stack variable might have been defined,
+      # and what values it can take on.
+      # This includes some duplication for stack variables with multiple def
+      # sites. This can be done marginally more efficiently.
+      for var in block.entry_stack:
+        if not var.def_sites.is_const and var.def_sites.is_finite:
+          name = block.ident() + ":" + var.name
+          for loc in var.def_sites:
+            define.append((name, hex(loc.pc)))
+
+          if var.values.is_finite:
+            for val in var.values:
+              value.append((name, hex(val)))
+
+    generate("def.facts", define)
+    generate("use.facts", use)
+    generate("value.facts", value)
 
     if dominators:
-      pairs = sorted([(k, i) for k, v in self.source.dominators().items()
+      pairs = sorted([(k, i) for k, v
+                      in self.source.dominators(op_edges=True).items()
                       for i in v])
       generate("dom.facts", pairs)
-      pairs = sorted(self.source.immediate_dominators().items())
+
+      pairs = sorted(self.source.immediate_dominators(op_edges=True).items())
       generate("imdom.facts", pairs)
 
-      pairs = sorted([(k, i) for k, v in self.source.dominators(True).items()
+      pairs = sorted([(k, i) for k, v
+                      in self.source.dominators(post=True,
+                                                op_edges=True).items()
                       for i in v])
       generate("pdom.facts", pairs)
-      pairs = sorted(self.source.immediate_dominators(True).items())
+
+      pairs = sorted(self.source.immediate_dominators(post=True,
+                                                      op_edges=True).items())
       generate("impdom.facts", pairs)
 
 
@@ -268,6 +214,8 @@ class CFGDotExporter(Exporter):
       Blue: contains a STOP operation;
       Red: contains a THROW or THROWI operation;
       Purple: contains a SUICIDE operation;
+      Orange: contains a CALL, CALLCODE, or DELEGATECALL operation;
+      Brown: contains a CREATE operation.
 
     A node with a red fill indicates that its stack size is large.
 
@@ -278,11 +226,12 @@ class CFGDotExporter(Exporter):
                     if it is in the user's `$PATH`.
     """
     import networkx as nx
-    import os
 
     cfg = self.source
 
     G = cfg.nx_graph()
+
+    callcodes = [opcodes.CALL, opcodes.CALLCODE, opcodes.DELEGATECALL]
 
     # Colour-code the graph.
     returns = {block.ident(): "green" for block in cfg.blocks
@@ -293,7 +242,11 @@ class CFGDotExporter(Exporter):
              if block.last_op.opcode in [opcodes.THROW, opcodes.THROWI]}
     suicides = {block.ident(): "purple" for block in cfg.blocks
                 if block.last_op.opcode == opcodes.SUICIDE}
-    color_dict = {**returns, **stops, **throws, **suicides}
+    creates = {block.ident(): "brown" for block in cfg.blocks
+               if any(op.opcode == opcodes.CREATE for op in block.tac_ops)}
+    calls = {block.ident(): "orange" for block in cfg.blocks
+             if any(op.opcode in callcodes for op in block.tac_ops)}
+    color_dict = {**returns, **stops, **throws, **suicides, **creates, **calls}
     nx.set_node_attributes(G, "color", color_dict)
     filldict = {b.ident(): "white" if len(b.entry_stack) <= 20 else "red"
                 for b in cfg.blocks}

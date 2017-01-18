@@ -22,17 +22,21 @@ pipelines:
           - bin/decompile -b examples/withdraw_dao.hex
           - bash -c '[ ! -f graph.pdf ]'
           - bash -c '[ ! -d tsv ]'
-          - bin/decompile -g graph.pdf -t tsv -b examples/dao_hack.hex
+          - bin/decompile -g graph.pdf -t tsv -d -b examples/dao_hack.hex
           - bash -c '[ -s graph.pdf ]'
           - bash -c '[ -d tsv ]'
           - bash -c '[ -s tsv/block.facts ]'
-          - bash -c '[ -s tsv/defined.facts ]'
+          - bash -c '[ -s tsv/def.facts ]'
+          - bash -c '[ -s tsv/use.facts ]'
           - bash -c '[ -s tsv/edge.facts ]'
-          - bash -c '[ -s tsv/end.facts ]'
+          - bash -c '[ -s tsv/entry.facts ]'
+          - bash -c '[ -s tsv/exit.facts ]'
           - bash -c '[ -s tsv/op.facts ]'
-          - bash -c '[ -s tsv/read.facts ]'
-          - bash -c '[ -s tsv/start.facts ]'
-          - bash -c '[ -s tsv/write.facts ]'
+          - bash -c '[ -s tsv/value.facts ]'
+          - bash -c '[ -s tsv/dom.facts ]'
+          - bash -c '[ -s tsv/imdom.facts ]'
+          - bash -c '[ -s tsv/pdom.facts ]'
+          - bash -c '[ -s tsv/impdom.facts ]'
           - bin/disassemble examples/dao_hack.hex
           - bin/disassemble -p examples/dao_hack.hex
           - bin/disassemble examples/dao_hack.hex | bin/decompile

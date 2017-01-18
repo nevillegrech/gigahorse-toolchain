@@ -1,5 +1,6 @@
 """opcodes.py: Definitions of all EVM opcodes, and related utility functions."""
 
+
 class OpCode:
   """An EVM opcode."""
 
