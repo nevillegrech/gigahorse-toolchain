@@ -81,6 +81,7 @@ parser.add_argument("-d",
 parser.add_argument("-o",
                     "--opcodes",
                     nargs="*",
+                    default=[],
                     metavar="OPCODE",
                     help="If producing tsv output, also include relations "
                          "encoding all occurrences of the specified "
