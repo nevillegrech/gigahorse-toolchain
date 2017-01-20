@@ -55,7 +55,14 @@ class CFGTsvExporter(Exporter, patterns.DynamicVisitor):
     A list of pairs (op.pc, variable) that specify all write locations.
     """
 
-  def export(self, output_dir:str="", dominators:bool=False):
+  def export(self, output_dir:str="", dominators:bool=False, out_opcodes=[]):
+    """
+    Args:
+      output_dir: location to write the output to.
+      dominators: output relations specifying dominators
+      opcodes: a list of opcode names all occurences thereof to output,
+               with the names of all argument variables.
+    """
     if output_dir != "":
       os.makedirs(output_dir, exist_ok=True)
 
@@ -68,15 +75,25 @@ class CFGTsvExporter(Exporter, patterns.DynamicVisitor):
           writer.writerow(e)
 
     # Write a mapping from operation addresses to corresponding opcode names,
-    # as well as a mapping from operation addresses to the block they inhabit.
+    # a mapping from operation addresses to the block they inhabit,
+    # Any specified opcode listings.
     ops = []
     block_nums = []
+    op_rels = {opcode: list() for opcode in out_opcodes}
     for block in self.source.blocks:
       for op in block.tac_ops:
         ops.append((hex(op.pc), op.opcode.name))
         block_nums.append((hex(op.pc), block.ident()))
+
+        if op.opcode.name in out_opcodes:
+          output_tuple = tuple([hex(op.pc)] +
+                               [arg.value.name for arg in op.args])
+          op_rels[op.opcode.name].append(output_tuple)
     generate("op.facts", ops)
     generate("block.facts", block_nums)
+
+    for opcode in op_rels:
+      generate("op_{}.facts".format(opcode), op_rels[opcode])
 
     # Write out the collection of edges between instructions (not basic blocks).
     edges = [(hex(h.pc), hex(t.pc))

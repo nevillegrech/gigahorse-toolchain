@@ -78,6 +78,15 @@ parser.add_argument("-d",
                     help="If producing tsv output, also include graph "
                          "dominator relations.")
 
+parser.add_argument("-o",
+                    "--opcodes",
+                    nargs="*",
+                    metavar="OPCODE",
+                    help="If producing tsv output, also include relations "
+                         "encoding all occurrences of the specified "
+                         "list of opcodes. Opcode X will be stored in "
+                         "op_X.facts.")
+
 parser.add_argument("-I",
                     "--max_iter",
                     type=int,
@@ -171,4 +180,6 @@ if args.graph is not None:
 
 if args.tsv is not None:
   ll("Writing TSV output")
-  exporter.CFGTsvExporter(cfg).export(args.tsv, args.dominators)
+  exporter.CFGTsvExporter(cfg).export(output_dir=args.tsv,
+                                      dominators=args.dominators,
+                                      out_opcodes=args.opcodes)
