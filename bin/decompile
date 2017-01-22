@@ -119,6 +119,11 @@ parser.add_argument("-v",
                     action="store_true",
                     help="produce more verbose debug output.")
 
+parser.add_argument("-n",
+                    "--no_out",
+                    action="store_true",
+                    help="do not output decompiled graph.")
+
 parser.add_argument("-V",
                     "--version",
                     action="store_true",
@@ -172,8 +177,9 @@ dataflow.analyse_graph(cfg, max_iterations=args.max_iter,
                        bailout_seconds=args.bail_time)
 
 # Generate output using the requested exporter(s)
-ll("Writing string output")
-print(exporter.CFGStringExporter(cfg).export(), file=args.outfile)
+if not args.no_out:
+  ll("Writing string output")
+  print(exporter.CFGStringExporter(cfg).export(), file=args.outfile)
 
 if args.graph is not None:
   ll("Writing DOT output")
