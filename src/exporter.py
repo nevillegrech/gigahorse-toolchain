@@ -60,8 +60,8 @@ class CFGTsvExporter(Exporter, patterns.DynamicVisitor):
     Args:
       output_dir: location to write the output to.
       dominators: output relations specifying dominators
-      opcodes: a list of opcode names all occurences thereof to output,
-               with the names of all argument variables.
+      out_opcodes: a list of opcode names all occurences thereof to output,
+                   with the names of all argument variables.
     """
     if output_dir != "":
       os.makedirs(output_dir, exist_ok=True)
@@ -74,24 +74,24 @@ class CFGTsvExporter(Exporter, patterns.DynamicVisitor):
         for e in entries:
           writer.writerow(e)
 
-    # Write a mapping from operation addresses to corresponding opcode names,
-    # a mapping from operation addresses to the block they inhabit,
-    # Any specified opcode listings.
+    # Write a mapping from operation addresses to corresponding opcode names;
+    # a mapping from operation addresses to the block they inhabit;
+    # any specified opcode listings.
     ops = []
     block_nums = []
     op_rels = {opcode: list() for opcode in out_opcodes}
+
     for block in self.source.blocks:
       for op in block.tac_ops:
         ops.append((hex(op.pc), op.opcode.name))
         block_nums.append((hex(op.pc), block.ident()))
-
         if op.opcode.name in out_opcodes:
           output_tuple = tuple([hex(op.pc)] +
                                [arg.value.name for arg in op.args])
           op_rels[op.opcode.name].append(output_tuple)
+
     generate("op.facts", ops)
     generate("block.facts", block_nums)
-
     for opcode in op_rels:
       generate("op_{}.facts".format(opcode), op_rels[opcode])
 
