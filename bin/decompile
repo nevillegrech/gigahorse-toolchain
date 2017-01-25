@@ -78,6 +78,16 @@ parser.add_argument("-d",
                     help="If producing tsv output, also include graph "
                          "dominator relations.")
 
+parser.add_argument("-o",
+                    "--opcodes",
+                    nargs="*",
+                    default=[],
+                    metavar="OPCODE",
+                    help="If producing tsv output, also include relations "
+                         "encoding all occurrences of the specified "
+                         "list of opcodes. Opcode X will be stored in "
+                         "op_X.facts.")
+
 parser.add_argument("-I",
                     "--max_iter",
                     type=int,
@@ -108,6 +118,11 @@ parser.add_argument("-v",
                     "--verbose",
                     action="store_true",
                     help="produce more verbose debug output.")
+
+parser.add_argument("-n",
+                    "--no_out",
+                    action="store_true",
+                    help="do not output decompiled graph.")
 
 parser.add_argument("-V",
                     "--version",
@@ -162,8 +177,9 @@ dataflow.analyse_graph(cfg, max_iterations=args.max_iter,
                        bailout_seconds=args.bail_time)
 
 # Generate output using the requested exporter(s)
-ll("Writing string output")
-print(exporter.CFGStringExporter(cfg).export(), file=args.outfile)
+if not args.no_out:
+  ll("Writing string output")
+  print(exporter.CFGStringExporter(cfg).export(), file=args.outfile)
 
 if args.graph is not None:
   ll("Writing DOT output")
@@ -171,4 +187,6 @@ if args.graph is not None:
 
 if args.tsv is not None:
   ll("Writing TSV output")
-  exporter.CFGTsvExporter(cfg).export(args.tsv, args.dominators)
+  exporter.CFGTsvExporter(cfg).export(output_dir=args.tsv,
+                                      dominators=args.dominators,
+                                      out_opcodes=args.opcodes)
