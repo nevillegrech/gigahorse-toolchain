@@ -332,7 +332,7 @@ try:
         proc.join()
         break
     else:
-      res_queue.put((fname, TIMEOUT))
+      res_queue.put((fname, ["TIMEOUT"]))
       proc.terminate()
       ll("Timed out.")
 
