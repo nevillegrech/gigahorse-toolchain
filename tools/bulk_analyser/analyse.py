@@ -1,12 +1,7 @@
 #!/usr/bin/env python3
-"""analyse_vulns.py: batch analyses smart contracts and categorises them."""
+"""analyse.py: batch analyses smart contracts and categorises them."""
 
-
-# Fetch next contract,
-# decompile it,
-# run analysis on it,
-# add entry to mapping, with string composed of names of all non-empty output relations 
-# output mapping as json file
+## IMPORTS
 
 import os
 from os.path import abspath, dirname, join
@@ -31,8 +26,11 @@ import exporter
 import logger
 ll = logger.log_low
 
-# Location of Souffle binary
+
+## Constants
+
 DEFAULT_SOUFFLE_BIN = '../../../souffle/src/souffle'
+"""Location of the Souffle binary."""
 
 DEFAULT_CONTRACT_DIR = '../../../contract_dump/contracts'
 """Directory to fetch contract files from by default."""
@@ -70,6 +68,8 @@ OPCODES = []
 DEFAULT_NUM_JOBS = 4
 """The number of subprocesses to run at once."""
 
+
+## Command Line Arguments
 
 parser = argparse.ArgumentParser(
   description="A batch analyser for EVM bytecode programs.")
@@ -199,6 +199,9 @@ parser.add_argument("-s",
                     help="unrecognised opcodes will not be skipped, but will "
                          "result in an error.")
 
+
+## Functions
+
 def aquire_tsv_settings():
   global DOMINATORS
   global OPCODES
@@ -271,18 +274,23 @@ def analyse_contract(job_index, index, filename, result_queue):
         if os.path.getsize(fpath) != 0:
           vulns.append(fname.split(".")[0])
 
-      result_queue.put((filename, vulns))
+      flags = []
+      
+      if cfg.has_unresolved_jump:
+        flags.append("UNRESOLVED")
+
+      result_queue.put((filename, vulns, flags))
       
       # Decompile + Analysis time
       decomp_time = souffle_start - decomp_start
       souffle_time = time.time() - souffle_start
-      ll("{}: {} completed in {:.2f} + {:.2f} secs".format(index, filename,
-                                                           decomp_time,
-                                                           souffle_time))
+      ll("{}: {:.20}... completed in {:.2f} + {:.2f} secs".format(index, filename,
+                                                                  decomp_time,
+                                                                  souffle_time))
 
   except Exception as e:
     ll("Error: {}".format(e))
-    result_queue.put((filename, ["ERROR"]))
+    result_queue.put((filename, [], ["ERROR"]))
 
 def flush_queue(period, run_sig,
                 result_queue, result_dict):
@@ -300,7 +308,7 @@ def flush_queue(period, run_sig,
     time.sleep(period)
     while not result_queue.empty():
       item = result_queue.get()
-      result_dict[item[0]] = item[1]
+      result_dict[item[0]] = (item[1], item[2])
 
 args = parser.parse_args()
 
@@ -388,7 +396,7 @@ try:
         job_index = workers[i]["job_index"]
 
         if time.time() - start_time > args.timeout_secs:
-          res_queue.put((name, ["TIMEOUT"]))
+          res_queue.put((name, [], ["TIMEOUT"]))
           proc.terminate()
           ll("{} timed out.".format(name))
           to_remove.append(i)
@@ -411,15 +419,19 @@ try:
   counts_dict = {}
   total_flagged = 0
 
-  for contract, vulns in res_dict.items():
-    if len(vulns) > 0:
+  for contract, info in res_dict.items():
+    vulns, flags = info
+
+    rlist = vulns + flags
+
+    if len(rlist) > 0:
       total_flagged += 1
     
-    for vuln in vulns:
-      if vuln not in counts_dict:
-        counts_dict[vuln] = 1
+    for res in rlist:
+      if res not in counts_dict:
+        counts_dict[res] = 1
       else:
-        counts_dict[vuln] += 1
+        counts_dict[res] += 1
 
   total = len(res_dict)
 
@@ -428,8 +440,8 @@ try:
   
   ll("{} of {} contracts flagged.".format(total_flagged, total))
 
-  for vuln, count in counts_dict.items():
-    ll("{}: {:.2f}%".format(vuln, 100*count/total))
+  for res, count in counts_dict.items():
+    ll("{}: {:.2f}%".format(res, 100*count/total))
 
 except Exception as e:
   import traceback
