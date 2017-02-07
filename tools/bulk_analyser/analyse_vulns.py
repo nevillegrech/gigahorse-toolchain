@@ -46,9 +46,6 @@ DEFAULT_SPEC_DL = 'spec.dl'
 TEMP_WORKING_DIR = ".temp"
 """Scratch working directory."""
 
-TEMP_OUT_DIR = join(TEMP_WORKING_DIR, "out")
-"""Scratch output directory."""
-
 DEFAULT_TIMEOUT = 120
 """Default time before killing analysis of a contract."""
 
@@ -70,6 +67,9 @@ DOMINATORS = False
 OPCODES = []
 """A list of strings indicating which opcodes to include in the cfg relations."""
 
+DEFAULT_NUM_JOBS = 4
+"""The number of subprocesses to run at once."""
+
 
 parser = argparse.ArgumentParser(
   description="A batch analyser for EVM bytecode programs.")
@@ -90,6 +90,12 @@ parser.add_argument("-S",
                     const=DEFAULT_SOUFFLE_BIN,
                     metavar="BINARY",
                     help="the location of the souffle binary.")
+
+parser.add_argument("-C",
+                    "--compile_souffle",
+                    action="store_true",
+                    default=False,
+                    help="compile souffle step.")
 
 parser.add_argument("-p",
                     "--filename_pattern",
@@ -117,6 +123,15 @@ parser.add_argument("-f",
                          "to analyse from, rather than simply processing all "
                          "files in the contracts directory.")
 
+parser.add_argument("-j",
+                    "--jobs",
+                    type=int,
+                    nargs="?",
+                    default=DEFAULT_NUM_JOBS,
+                    const=DEFAULT_NUM_JOBS,
+                    metavar="NUM",
+                    help="The number of subprocesses to run at once.")
+
 parser.add_argument("-n",
                     "--num_contracts",
                     type=int,
@@ -135,7 +150,7 @@ parser.add_argument("-k",
                     metavar="NUM",
                     help="Skip the the analysis of the first NUM contracts.")
 
-parser.add_argument("-t",
+parser.add_argument("-T",
                     "--timeout_secs",
                     type=int,
                     nargs="?",
@@ -145,7 +160,7 @@ parser.add_argument("-t",
                     help="Forcibly halt analysing any single contact after "
                          "the specified number of seconds.")
 
-parser.add_argument("-I",
+parser.add_argument("-i",
                     "--max_iter",
                     type=int,
                     nargs="?",
@@ -157,7 +172,7 @@ parser.add_argument("-I",
                          "potentially less precise. A negative value specifies "
                          "no cap on the iteration count. No cap by default.")
 
-parser.add_argument("-T",
+parser.add_argument("-t",
                     "--bail_time",
                     type=int,
                     nargs="?",
@@ -201,12 +216,20 @@ def aquire_tsv_settings():
         if op_name.startswith("op_") and op_name[3:] in opcodes.OPCODES:
           OPCODES.append(op_name[3:])
 
-def empty_working_dirs():
-  for d_triple in os.walk(TEMP_WORKING_DIR):
+
+def working_dir(index, output_dir=False):
+  if output_dir:
+     return join(TEMP_WORKING_DIR, str(index), "out")
+  return join(TEMP_WORKING_DIR, str(index))
+
+
+def empty_working_dir(index):
+  for d_triple in os.walk(working_dir(index)):
     for fname in d_triple[2]:
       os.remove(join(d_triple[0], fname))
 
-def analyse_contract(filename, result_queue):
+
+def analyse_contract(job_index, index, filename, result_queue):
   """
   Perform dataflow analysis on a contract, storing the result in the queue.
 
@@ -216,31 +239,46 @@ def analyse_contract(filename, result_queue):
   """
   try:
     with open(join(args.contract_dir, filename)) as file:
+      decomp_start = time.time()
+
       cfg = tac_cfg.TACGraph.from_bytecode(file, strict=args.strict)
 
       dataflow.analyse_graph(cfg, max_iterations=args.max_iter,
                                   bailout_seconds=args.bail_time)
 
       # export relations to temp working directory
-      empty_working_dirs()
-      exporter.CFGTsvExporter(cfg).export(output_dir=TEMP_WORKING_DIR,
+      empty_working_dir(job_index)
+      work_dir = working_dir(job_index)
+      out_dir = working_dir(job_index, True)
+      exporter.CFGTsvExporter(cfg).export(output_dir=work_dir,
                                           dominators=DOMINATORS,
                                           out_opcodes=OPCODES)
 
+      souffle_start = time.time()
+
       # run souffle on those relations
-      subprocess.run([args.souffle_bin, "--fact-dir={}".format(TEMP_WORKING_DIR), 
-                                        "--output-dir={}".format(TEMP_OUT_DIR),
-                                        DEFAULT_SPEC_DL])
+      souffle_args = [args.souffle_bin, "--fact-dir={}".format(work_dir), 
+                                        "--output-dir={}".format(out_dir),
+                                        DEFAULT_SPEC_DL]
+      if args.compile_souffle:
+          souffle_args.append("--compile")
 
-      # examine output csv files, add nonempty relation names to the vuln list
+      subprocess.run(souffle_args)
+
       vulns = []
-
-      for fname in os.listdir(TEMP_OUT_DIR):
-        fpath = join(TEMP_OUT_DIR, fname)
+      for fname in os.listdir(out_dir):
+        fpath = join(out_dir, fname)
         if os.path.getsize(fpath) != 0:
           vulns.append(fname.split(".")[0])
 
       result_queue.put((filename, vulns))
+      
+      # Decompile + Analysis time
+      decomp_time = souffle_start - decomp_start
+      souffle_time = time.time() - souffle_start
+      ll("{}: {} completed in {:.2f} + {:.2f} secs".format(index, filename,
+                                                           decomp_time,
+                                                           souffle_time))
 
   except Exception as e:
     ll("Error: {}".format(e))
@@ -271,9 +309,10 @@ if args.quiet:
 else:
   logger.LOG_LEVEL = logger.Verbosity.MEDIUM
 
-ll("Setting up temp working directory {}.".format(TEMP_OUT_DIR))
-os.makedirs(TEMP_OUT_DIR, exist_ok=True)
-empty_working_dirs()
+ll("Setting up temp working directory {}.".format(TEMP_WORKING_DIR))
+for i in range(args.jobs):
+  os.makedirs(working_dir(i, True), exist_ok=True)
+  empty_working_dir(i)
 
 ll("Reading TSV settings.")
 aquire_tsv_settings()
@@ -316,26 +355,54 @@ flush_proc = Process(target=flush_queue, args=(FLUSH_PERIOD, run_signal,
                                                res_queue, res_dict))
 flush_proc.start()
 
+workers = []
+avail_jobs = list(range(args.jobs))
+contract_iter = enumerate(to_process)
+contracts_exhausted = False
+
 try:
-  # Process each contract in turn, timing out if it takes too long.
-  for i, fname in enumerate(to_process):
-    ll("{}: {}.".format(i, fname))
-    proc = Process(target=analyse_contract, args=(fname, res_queue))
+  while not contracts_exhausted:
+    
+    # Fill the queue.
+    while not contracts_exhausted and len(avail_jobs) > 0:
+       try:
+         index, fname = next(contract_iter)
+         job_index = avail_jobs.pop()
+         proc = Process(target=analyse_contract, args=(job_index, index, fname, res_queue))
+         proc.start()
+         start_time = time.time()
+         workers.append({"name": fname, 
+                         "proc": proc,
+                         "time": start_time,
+                         "job_index": job_index})
+       except StopIteration:
+         contracts_exhausted = True
+    
+    # Loop until some process terminates or the queue is empty if there are no contracts left
+    while len(avail_jobs) == 0 or (contracts_exhausted and 0 < len(workers)):
+      to_remove = []
+      for i in range(len(workers)):
+        start_time = workers[i]["time"]
+        proc = workers[i]["proc"]
+        name = workers[i]["name"]
+        job_index = workers[i]["job_index"]
 
-    start_time = time.time()
-    proc.start()
+        if time.time() - start_time > args.timeout_secs:
+          res_queue.put((name, ["TIMEOUT"]))
+          proc.terminate()
+          ll("{} timed out.".format(name))
+          to_remove.append(i)
+          avail_jobs.append(job_index)
+        elif not proc.is_alive():
+          to_remove.append(i)
+          proc.join()
+          avail_jobs.append(job_index)
 
-    while time.time() - start_time < args.timeout_secs:
-      if proc.is_alive():
-        time.sleep(0.01)
-      else:
-        proc.join()
-        break
-    else:
-      res_queue.put((fname, ["TIMEOUT"]))
-      proc.terminate()
-      ll("Timed out.")
+      for i in reversed(to_remove):
+        workers.pop(i)
 
+      time.sleep(0.01)
+  
   # Conclude and write results to file.
   ll("\nFinishing...\n")
   run_signal.clear()
