@@ -313,22 +313,21 @@ def analyse_contract(job_index:int, index:int, filename:str, result_queue) -> No
 
 
 def flush_queue(period, run_sig,
-                result_queue, result_dict):
+                result_queue, result_list):
   """
-  For flushing the queue periodically to a dict so it doesn't fill up.
+  For flushing the queue periodically to a list so it doesn't fill up.
 
   Args:
-      period: flush the result_queue to result_dict every period seconds
+      period: flush the result_queue to result_list every period seconds
       run_sig: terminate when the Event run_sig is cleared.
       result_queue: the queue in which results accumulate before being flushed
-                    to the dict.
-      result_dict: the final dictionary of results.
+      result_list: the final list of results.
   """
   while run_sig.is_set():
     time.sleep(period)
     while not result_queue.empty():
       item = result_queue.get()
-      result_dict[item[0]] = (item[1], item[2])
+      result_list.append(item)
 
 
 ## Main Body
@@ -370,21 +369,20 @@ stop_index = None if args.num_contracts is None else args.skip + args.num_contra
 to_process = itertools.islice(runtime_files, args.skip, stop_index)
 
 ll("Setting up workers.")
-# Set up multiprocessing result dictionary and queue.
+# Set up multiprocessing result list and queue.
 manager = Manager()
 
-# This dictionary maps each filename to the analysis category it belongs to.
-res_dict = manager.dict()
+# This list contains analysis results as (filename, category, flags) triples.
+res_list = manager.list()
 
-# Holds results transiently as (filename, category) pairs,
-# frequently flushed to res_dict.
+# Holds results transiently before flushing to res_list
 res_queue = SimpleQueue()
 
 # Start the periodic flush process, only run while run_signal is set.
 run_signal = Event()
 run_signal.set()
 flush_proc = Process(target=flush_queue, args=(FLUSH_PERIOD, run_signal,
-                                               res_queue, res_dict))
+                                               res_queue, res_list))
 flush_proc.start()
 
 workers = []
@@ -443,27 +441,26 @@ try:
   run_signal.clear()
   flush_proc.join(FLUSH_PERIOD + 1)
 
-  counts_dict = {}
+  counts = {}
   total_flagged = 0
-  for contract, info in res_dict.items():
-    vulns, flags = info
+  for contract, vulns, flags in res_list:
     rlist = vulns + flags
     if len(rlist) > 0:
       total_flagged += 1
     for res in rlist:
-      if res not in counts_dict:
-        counts_dict[res] = 1
+      if res not in counts:
+        counts[res] = 1
       else:
-        counts_dict[res] += 1
+        counts[res] += 1
 
-  total = len(res_dict)
+  total = len(res_list)
   ll("{} of {} contracts flagged.\n".format(total_flagged, total))
-  for res, count in counts_dict.items():
+  for res, count in counts.items():
     ll("  {}: {:.2f}%".format(res, 100*count/total))
 
   ll("\nWriting results to {}".format(args.results_file))
   with open(args.results_file, 'w') as f:
-    f.write(json.dumps(dict(res_dict)))
+    f.write(json.dumps(list(res_list)))
 
 except Exception as e:
   import traceback
