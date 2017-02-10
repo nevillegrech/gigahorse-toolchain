@@ -2,7 +2,7 @@
 
 `analyse.py` is used to run an analysis on many contracts at a time.
 
-The program requires (souffle)[https://github.com/souffle-lang/souffle] to be installed,
+The program requires [souffle](https://github.com/souffle-lang/souffle) to be installed,
 and a datalog specification of the properties placed in `spec.dl` by default.
 The analyser expects to find a collection of contract bytecode files in some
 specified directory, and it will run the analysis given in `spec.dl` on each one.
