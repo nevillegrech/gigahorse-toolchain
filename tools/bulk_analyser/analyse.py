@@ -32,7 +32,7 @@ ll = logger.log_low
 DEFAULT_SOUFFLE_BIN = '../../../souffle/src/souffle'
 """Location of the Souffle binary."""
 
-DEFAULT_CONTRACT_DIR = '../../../contract_dump/contracts'
+DEFAULT_CONTRACT_DIR = 'contracts'
 """Directory to fetch contract files from by default."""
 
 DEFAULT_RESULTS_FILE = 'results.json'
