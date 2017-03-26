@@ -14,6 +14,7 @@ import exporter
 import dataflow
 import tac_cfg
 import logger
+import func_extr
 
 ll, lm, lh = logger.log_low, logger.log_med, logger.log_high
 
@@ -142,6 +143,11 @@ parser.add_argument("outfile",
                     default=sys.stdout,
                     help="file to which decompiler output should be written "
                          "(stdout by default).")
+parser.add_argument("-f",
+                    "--function_extraction",
+                    action="store_true",
+                    default=False,
+                    help="Extract functions in graph before outputting")
 
 # Do the argparsing
 args = parser.parse_args()
@@ -175,6 +181,10 @@ except KeyboardInterrupt:
 ll("Applying stack analysis TAC CFG")
 dataflow.analyse_graph(cfg, max_iterations=args.max_iter,
                        bailout_seconds=args.bail_time)
+
+if args.function_extraction:
+  ll("Extracting functions")
+  cfg = func_extr.extract(cfg)
 
 # Generate output using the requested exporter(s)
 if not args.no_out:
