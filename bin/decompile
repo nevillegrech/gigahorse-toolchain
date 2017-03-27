@@ -184,7 +184,9 @@ dataflow.analyse_graph(cfg, max_iterations=args.max_iter,
 
 if args.function_extraction:
   ll("Extracting functions")
-  cfg = func_extr.extract(cfg)
+  funcs = func_extr.FunExtract(cfg)
+  funcs.extract()
+  cfg = funcs.export()
 
 # Generate output using the requested exporter(s)
 if not args.no_out:
