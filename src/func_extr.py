@@ -1,9 +1,8 @@
 import tac_cfg
 import opcodes
+import cfg
 
 import copy
-
-# Note: best to wrap some of this into a function class (am working on)
 
 class FunExtract():
   """
@@ -11,15 +10,15 @@ class FunExtract():
   """
   def __init__(self, tac:tac_cfg.TACGraph):
     self.internal_edges = {} # a mapping of internal edges, pred -> succs
-    self.tac = tac
+    self.tac = tac # the tac_cfg that this works on
 
   def extract(self):
     """
     Extracts basic functions
     """
     for block in self.tac.blocks:
-      if (self.__find_func_body(block)):
-        body, preds = self.__find_func_body(block)
+      body, preds = self.__find_func_body(block)
+      if body and preds:
         self.__remove_path(body)
         end_mapping = self.__clone_path(body, preds)
         self.__hook_up_ends(body, end_mapping)
@@ -28,47 +27,46 @@ class FunExtract():
 
   def __find_func_body(self, block):
     """
-    Determines the boundaries of a function
+    Determines the boundaries of a function - block is tested as beginning of function
     """
     # if there are multiple paths converging, this is a possible function start
     preds = list(block.preds)
     if (len(preds) <= 1):
-      return False
-
+      return None, None
+    func_succs = [] # a list of what succs to look out for.
+    for pre in preds:
+      for op in pre.evm_ops:
+        if op.opcode.is_push() and op.value != 0:
+          # Check value. If not next block or prev block we have our dest block :)
+          # Note: What about multiple jumps pushed in a block?
+          # Stack checking is also a way to do this, but then need to figure out parameters.
+          # Make sure you traverse from end of ops list to start to make sure?
+          ref_block = self.tac.get_block_by_ident(hex(op.value));
+          if ref_block and ref_block != block and ref_block not in block.succs: # no one-block functions
+            func_succs.append(hex(op.value))
+    if not func_succs: # Ensure that we did get pushed values!
+      return None, None
     # do a BFS traversal and build the function body.
-    # Traverse down levels until paths diverge again, the same amount as converged.
-    # If this never happens assume program has ended and don't extract
-    # note throws, multiple func ends not actually considered
+    # Traverse down levels until we hit a block that has the return addresses specified above
     body = []
     queue = [block]
-    cycle = False
-    end = False # to check that the 'function' ends
-
+    found_end = False
     while (len(queue) > 0):
       cur_block = queue.pop(0)
-      # possible func end checking
-      if (len(cur_block.succs) == len(preds)
-          and block.last_op.opcode in [opcodes.JUMP, opcodes.JUMPI]
-          and cur_block.ident() != block.ident()):
-        dests = block.last_op.args[0].value
-        if (dests.is_finite or dests.def_sites.is_finite):
-        # we have a function end! yay!
-          end = True
-          body.append(cur_block)
-          break
+      end = False
+      cur_succs = [b.ident() for b in cur_block.succs]
+      if ((set(func_succs)).issubset(set(cur_succs))):
+        end = True
+        found_end = True
       if cur_block not in body:
         body.append(cur_block)
-        for b in cur_block.succs:
-          queue.append(b)
-      else:
-        # Haven't considered this case yet
-        cycle = True
-        return False
+        if not end: #We don't append the succs of an end.
+          for b in cur_block.succs:
+            queue.append(b)
 
-    if end:
+    if found_end:
       return body, preds
-    else:
-      return False
+    return None, None
 
   def __remove_path(self, path):
     """
@@ -79,6 +77,7 @@ class FunExtract():
       self.internal_edges[b] = [block.ident() for block in b.succs]
     for b in path:
       self.tac.remove_block(b)
+
     return
 
   def __clone_path(self, path, preds):
@@ -95,7 +94,7 @@ class FunExtract():
     for i, b in enumerate(path):
       og_succs = self.internal_edges[b]
       for s in og_succs:
-        og = self.__get_by_ident(path, s)
+        og = self.get_block_by_ident_from_path(path, s)
         if og:
           for c in path_copies:
             self.tac.add_edge(c[i], c[path.index(og)])
@@ -103,8 +102,8 @@ class FunExtract():
     # hook up each pred to a path individually.
     end_mapping = {} # a mapping of pred to the end of its cloned path, used later
     for i, p in enumerate(preds):
-      self.tac.add_edge(p, path_copies[i][0])
-      end_mapping[p] = path_copies[i][-1]
+      self.tac.add_edge(p, path_copies[i][0]) # 0 is the first element in the path
+      end_mapping[p] = path_copies[i][-1] # likewise the last element is -1,as the last element we appended
       for b in path_copies[i]:
         b.ident_suffix += "_" + p.ident()
 
@@ -123,24 +122,21 @@ class FunExtract():
     ends = self.internal_edges[path[-1]] # the succs of the last node in the path
     dests = list(last_block.last_op.args[0].value.values)
     for site in last_block.last_op.args[0].value.values.def_sites:
+      if site.get_instruction().block in end_mapping:
         hooker = end_mapping[site.get_instruction().block]
-        print(site.get_instruction().args[0].value)
         # extremely hacky thing below
-        self.tac.add_edge(hooker, self.__get_by_address(str(site.get_instruction().args[0].value)))
+        self.tac.add_edge(hooker, self.tac.get_block_by_ident(str(site.get_instruction().args[0].value)))
 
-  def __get_by_address(self, address):
-    for block in self.tac.blocks:
-      if hex(block.entry) == address:
-        return block
-
-  def __get_by_ident(self, path, ident):
-    # ident should be unique - should I cover when it is not?
+  def get_block_by_ident_from_path(self, path, ident):
+    """Return the block with the specified identifier from in the given list of blocks, if it exists."""
     for block in path:
       if block.ident() == ident:
         return block
+    return None
+
 
   def export(self):
-      """
-      Returns the internal tac graph
-      """
-      return self.tac
+    """
+    Returns the internal tac graph
+    """
+    return self.tac
