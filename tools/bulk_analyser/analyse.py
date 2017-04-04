@@ -208,7 +208,7 @@ def aquire_tsv_settings() -> None:
   whether dominators or any particular opcode relations
   need to be produced by the decompiler as tsv files.
   """
- 
+
   global DOMINATORS
   global OPCODES
   dom_prefixes = ["dom", "pdom", "imdom", "impdom"]
@@ -226,7 +226,7 @@ def aquire_tsv_settings() -> None:
           OPCODES.append(op_name[3:])
 
 
-def working_dir(index:int, output_dir:bool=False) -> str:
+def working_dir(index: int, output_dir: bool=False) -> str:
   """
   Return a path to the working directory for the job
   indicated by index.
@@ -251,7 +251,7 @@ def empty_working_dir(index) -> None:
       os.remove(join(d_triple[0], fname))
 
 
-def analyse_contract(job_index:int, index:int, filename:str, result_queue) -> None:
+def analyse_contract(job_index: int, index: int, filename: str, result_queue) -> None:
   """
   Perform dataflow analysis on a contract, storing the result in the queue.
   This is a worker function to be passed to a subprocess.
@@ -268,8 +268,9 @@ def analyse_contract(job_index:int, index:int, filename:str, result_queue) -> No
       # Decompile and perform dataflow analysis upon the given graph
       decomp_start = time.time()
       cfg = tac_cfg.TACGraph.from_bytecode(file, strict=args.strict)
-      dataflow.analyse_graph(cfg, max_iterations=args.max_iter,
-                                  bailout_seconds=args.bail_time)
+      analytics = dataflow.analyse_graph(cfg, max_iterations=args.max_iter,
+                                              bailout_seconds=args.bail_time,
+                                              collect_analytics=True)
 
       # Export relations to temp working directory
       empty_working_dir(job_index)
@@ -281,13 +282,13 @@ def analyse_contract(job_index:int, index:int, filename:str, result_queue) -> No
 
       # Run souffle on those relations
       souffle_start = time.time()
-      souffle_args = [args.souffle_bin, "--fact-dir={}".format(work_dir), 
+      souffle_args = [args.souffle_bin, "--fact-dir={}".format(work_dir),
                                         "--output-dir={}".format(out_dir),
                                         DEFAULT_SPEC_DL]
       if args.compile_souffle:
           souffle_args.append("--compile")
       subprocess.run(souffle_args)
-      
+
       # Collect the results and put them in the result queue
       vulns = []
       for fname in os.listdir(out_dir):
@@ -295,21 +296,25 @@ def analyse_contract(job_index:int, index:int, filename:str, result_queue) -> No
         if os.path.getsize(fpath) != 0:
           vulns.append(fname.split(".")[0])
 
-      flags = []
+      meta = []
       if cfg.has_unresolved_jump:
-        flags.append("UNRESOLVED")
+        meta.append("unresolved")
 
-      result_queue.put((filename, vulns, flags))
-      
       # Decompile + Analysis time
       decomp_time = souffle_start - decomp_start
       souffle_time = time.time() - souffle_start
       ll("{}: {:.20}... completed in {:.2f} + {:.2f} secs".format(index, filename,
                                                                   decomp_time,
                                                                   souffle_time))
+
+      analytics["decomp_time"] = decomp_time
+      analytics["souffle_time"] = souffle_time
+
+      result_queue.put((filename, vulns, meta, analytics))
+
   except Exception as e:
     ll("Error: {}".format(e))
-    result_queue.put((filename, [], ["ERROR"]))
+    result_queue.put((filename, [], ["error"], {}))
 
 
 def flush_queue(period, run_sig,
@@ -372,7 +377,8 @@ ll("Setting up workers.")
 # Set up multiprocessing result list and queue.
 manager = Manager()
 
-# This list contains analysis results as (filename, category, flags) triples.
+# This list contains analysis results as
+# (filename, category, meta, analytics) quadruples.
 res_list = manager.list()
 
 # Holds results transiently before flushing to res_list
@@ -393,23 +399,23 @@ contracts_exhausted = False
 ll("Analysing...\n")
 try:
   while not contracts_exhausted:
-   
+
     # If there's both workers and contracts available, use the former to work on the latter.
     while not contracts_exhausted and len(avail_jobs) > 0:
-       try:
-         index, fname = next(contract_iter)
-         job_index = avail_jobs.pop()
-         proc = Process(target=analyse_contract, args=(job_index, index, fname, res_queue))
-         proc.start()
-         start_time = time.time()
-         workers.append({"name": fname, 
-                         "proc": proc,
-                         "time": start_time,
-                         "job_index": job_index})
-       except StopIteration:
-         contracts_exhausted = True
-    
-    # Loop until some process terminates (to retask it) or, 
+      try:
+        index, fname = next(contract_iter)
+        job_index = avail_jobs.pop()
+        proc = Process(target=analyse_contract, args=(job_index, index, fname, res_queue))
+        proc.start()
+        start_time = time.time()
+        workers.append({"name": fname,
+                        "proc": proc,
+                        "time": start_time,
+                        "job_index": job_index})
+      except StopIteration:
+        contracts_exhausted = True
+
+    # Loop until some process terminates (to retask it) or,
     # if there are no unanalysed contracts left, until currently-running contracts are done
     while len(avail_jobs) == 0 or (contracts_exhausted and 0 < len(workers)):
       to_remove = []
@@ -429,13 +435,13 @@ try:
           to_remove.append(i)
           proc.join()
           avail_jobs.append(job_index)
-      
+
       # Reverse index order so as to pop elements correctly
       for i in reversed(to_remove):
         workers.pop(i)
 
       time.sleep(0.01)
-  
+
   # Conclude and write results to file.
   ll("\nFinishing...\n")
   run_signal.clear()
@@ -443,8 +449,8 @@ try:
 
   counts = {}
   total_flagged = 0
-  for contract, vulns, flags in res_list:
-    rlist = vulns + flags
+  for contract, vulns, meta, analytics in res_list:
+    rlist = vulns + meta
     if len(rlist) > 0:
       total_flagged += 1
     for res in rlist:
@@ -470,5 +476,3 @@ except Exception as e:
 ll("Removing working directory {}".format(TEMP_WORKING_DIR))
 import shutil
 shutil.rmtree(TEMP_WORKING_DIR)
-
-
