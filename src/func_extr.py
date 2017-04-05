@@ -16,12 +16,15 @@ class FunExtract():
     """
     Extracts basic functions
     """
-    for block in self.tac.blocks:
+    func_count = 0
+    for block in reversed(self.tac.blocks):
       body, preds = self.__find_func_body(block)
       if body and preds:
-        self.__remove_path(body)
-        end_mapping = self.__clone_path(body, preds)
-        self.__hook_up_ends(body, end_mapping)
+        mark_body(body, ("F"+str(func_count)));
+        func_count += 1
+        #self.__remove_path(body)
+        #end_mapping = self.__clone_path(body, preds)
+        #self.__hook_up_ends(body, end_mapping)
     return
 
 
@@ -31,21 +34,22 @@ class FunExtract():
     """
     # if there are multiple paths converging, this is a possible function start
     preds = list(block.preds)
+    func_mapping = {}
     if (len(preds) <= 1):
       return None, None
     func_succs = [] # a list of what succs to look out for.
+    func_mapping = {}
     for pre in preds:
-      for op in pre.evm_ops:
-        if op.opcode.is_push() and op.value != 0:
-          # Check value. If not next block or prev block we have our dest block :)
-          # Note: What about multiple jumps pushed in a block?
-          # Stack checking is also a way to do this, but then need to figure out parameters.
-          # Make sure you traverse from end of ops list to start to make sure?
-          ref_block = self.tac.get_block_by_ident(hex(op.value));
-          if ref_block and ref_block != block and ref_block not in block.succs: # no one-block functions
-            func_succs.append(hex(op.value))
+      if pre not in block.succs:
+        for val in list(pre.exit_stack):
+          ref_block = self.tac.get_block_by_ident(str(val))
+          if ref_block:
+            func_mapping[pre] = ref_block
+            func_succs.append(ref_block.ident())
+            break
     if not func_succs: # Ensure that we did get pushed values!
       return None, None
+    #print(func_succs)
     # do a BFS traversal and build the function body.
     # Traverse down levels until we hit a block that has the return addresses specified above
     body = []
@@ -60,9 +64,10 @@ class FunExtract():
         found_end = True
       if cur_block not in body:
         body.append(cur_block)
-        if not end: #We don't append the succs of an end.
-          for b in cur_block.succs:
+        for b in cur_block.succs:
+          if b.ident() not in func_succs:
             queue.append(b)
+
 
     if found_end:
       return body, preds
@@ -134,9 +139,13 @@ class FunExtract():
         return block
     return None
 
-
   def export(self):
     """
     Returns the internal tac graph
     """
     return self.tac
+
+
+def mark_body(path, str):
+  for block in path:
+    block.ident_suffix += "_" + str
