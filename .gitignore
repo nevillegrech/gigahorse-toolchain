@@ -28,3 +28,6 @@ doc/source/modules
 
 # Node modules
 node_modules/
+
+# Vim swapfiles
+*.swp
