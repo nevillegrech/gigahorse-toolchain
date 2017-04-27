@@ -1,143 +1,133 @@
 import tac_cfg
-import opcodes
-import cfg
-
-import copy
 
 class FunExtract():
   """
-  A class for storing information about functions, still in progress
+  A class for extracting functions from an already generated TAC cfg
   """
-  def __init__(self, tac:tac_cfg.TACGraph):
-    self.internal_edges = {} # a mapping of internal edges, pred -> succs
-    self.tac = tac # the tac_cfg that this works on
+
+  def __init__(self, tac: tac_cfg.TACGraph):
+    self.internal_edges = {}  # a mapping of internal edges, pred -> succs
+    self.tac = tac  # the tac_cfg that this works on
 
   def extract(self):
     """
     Extracts basic functions
     """
     func_count = 0
+    start_blocks = []
+    pair_list = []
     for block in reversed(self.tac.blocks):
-      body, preds = self.__find_func_body(block)
-      if body and preds:
-        mark_body(body, ("F"+str(func_count)));
+      invoc_pairs = self.__find_func_start(block)
+      if invoc_pairs:
+        start_blocks.append(block)
+        pair_list.append(invoc_pairs)
+
+    # remove start blocks without any possible function body
+    modified = True
+    while modified:
+      modified = False
+      for i, dict in enumerate(pair_list):
+        for pred in dict:
+          succ = dict[pred]
+          if not self.reachable(pred, [succ]):
+            del dict[pred]
+            modified = True
+            break
+
+    # Find the Function body itself
+    for i, block in enumerate(start_blocks):
+      preds = pair_list[i].keys()
+      return_blocks = list(pair_list[i].values())
+      f = self.find_func_body(block, return_blocks, pair_list)
+      if not f or len(f.body) == 1:  # Can't have a function with 1 block in EVM
+        continue
+      if f:
+        mark_body(f.body, ("F" + str(func_count)));
         func_count += 1
-        #self.__remove_path(body)
-        #end_mapping = self.__clone_path(body, preds)
-        #self.__hook_up_ends(body, end_mapping)
     return
 
-
-  def __find_func_body(self, block):
+  def __find_func_start(self, block):
     """
-    Determines the boundaries of a function - block is tested as beginning of function
+    Determines the boundaries of a function - block is tested as beginning of function. Returns a mapping of invocation 
+    sites to return addresses if successful.
     """
     # if there are multiple paths converging, this is a possible function start
     preds = list(block.preds)
-    func_mapping = {}
-    if (len(preds) <= 1):
-      return None, None
-    func_succs = [] # a list of what succs to look out for.
-    func_mapping = {}
+    if (len(preds) <= 1) or len(list(block.succs)) == 0:
+      return None
+    func_succs = []  # a list of what succs to look out for.
+    func_mapping = {}  # mapping of pre -> end
+    params = []  # list of parameters
     for pre in preds:
       if pre not in block.succs:
+        # Check for at least 2 push opcodes and net stack gain
+        pushCount = 0
+        for evm_op in pre.evm_ops:
+          if evm_op.opcode.is_push():
+            pushCount += 1
+        if pushCount <= 1:
+          return None
+        if len(pre.delta_stack) == 0:
+          return None
         for val in list(pre.exit_stack):
           ref_block = self.tac.get_block_by_ident(str(val))
           if ref_block:
             func_mapping[pre] = ref_block
-            func_succs.append(ref_block.ident())
+            func_succs.append(ref_block)
             break
-    if not func_succs: # Ensure that we did get pushed values!
-      return None, None
-    #print(func_succs)
+          params.append(val)
+    if not func_succs:  # Ensure that we did get pushed values!
+      return None
+    # We have our Start
+    return func_mapping
+
+  def find_func_body(self, block, return_blocks, invoc_list):
+    """
+    Assuming the block is a definite function start, identifies all paths from start to end
+    """
     # do a BFS traversal and build the function body.
     # Traverse down levels until we hit a block that has the return addresses specified above
     body = []
     queue = [block]
-    found_end = False
+    end = False
     while (len(queue) > 0):
       cur_block = queue.pop(0)
-      end = False
-      cur_succs = [b.ident() for b in cur_block.succs]
-      if ((set(func_succs)).issubset(set(cur_succs))):
+      for dict in invoc_list:  # When we call a function, we just jump to the return address
+        if cur_block in dict:
+          body.append(cur_block)
+          cur_block = dict[cur_block]
+      cur_succs = [b for b in cur_block.succs]
+      if ((set(return_blocks)).issubset(set(cur_succs))):
         end = True
-        found_end = True
-      if cur_block not in body:
+      if cur_block not in body and self.reachable(cur_block, return_blocks):
         body.append(cur_block)
         for b in cur_block.succs:
-          if b.ident() not in func_succs:
+          if b not in return_blocks:
             queue.append(b)
 
-
-    if found_end:
-      return body, preds
-    return None, None
-
-  def __remove_path(self, path):
-    """
-    remove a given path (ie function body) from a cfg.
-    Returns a mapping of the node edges internally
-    """
-    for b in path:
-      self.internal_edges[b] = [block.ident() for block in b.succs]
-    for b in path:
-      self.tac.remove_block(b)
-
-    return
-
-  def __clone_path(self, path, preds):
-    """
-    Clone the blocks of the path with internal connections intact.
-    Hooks up with the correct predecessor
-    Based off __split_copy_path function in tac_cfg
-    """
-    # copy the path the amount of times needed
-    path_copies = [[copy.deepcopy(b) for b in path]
-                    for _ in range(len(preds))]
-
-    # Copy the nodes properly with internal_edges mapping
-    for i, b in enumerate(path):
-      og_succs = self.internal_edges[b]
-      for s in og_succs:
-        og = self.get_block_by_ident_from_path(path, s)
-        if og:
-          for c in path_copies:
-            self.tac.add_edge(c[i], c[path.index(og)])
-
-    # hook up each pred to a path individually.
-    end_mapping = {} # a mapping of pred to the end of its cloned path, used later
-    for i, p in enumerate(preds):
-      self.tac.add_edge(p, path_copies[i][0]) # 0 is the first element in the path
-      end_mapping[p] = path_copies[i][-1] # likewise the last element is -1,as the last element we appended
-      for b in path_copies[i]:
-        b.ident_suffix += "_" + p.ident()
-
-    # Add the new paths to the graph.
-    for c in path_copies:
-      for b in c:
-        self.tac.add_block(b)
-
-    return end_mapping
-
-  def __hook_up_ends(self, path, end_mapping):
-    """
-    Hooks up the end of each cloned path to the correct successor
-    """
-    last_block = path[-1]
-    ends = self.internal_edges[path[-1]] # the succs of the last node in the path
-    dests = list(last_block.last_op.args[0].value.values)
-    for site in last_block.last_op.args[0].value.values.def_sites:
-      if site.get_instruction().block in end_mapping:
-        hooker = end_mapping[site.get_instruction().block]
-        # extremely hacky thing below
-        self.tac.add_edge(hooker, self.tac.get_block_by_ident(str(site.get_instruction().args[0].value)))
-
-  def get_block_by_ident_from_path(self, path, ident):
-    """Return the block with the specified identifier from in the given list of blocks, if it exists."""
-    for block in path:
-      if block.ident() == ident:
-        return block
+    if end:
+      f = Function()
+      f.succs = return_blocks
+      f.body = body
+      return f
     return None
+
+  def reachable(self, block, dests):
+    """
+    Determine if a block can reach any of the given destination blocks
+    """
+    queue = [block]
+    traversed = []
+    while queue:
+      cur_block = queue.pop()
+      traversed.append(cur_block)
+      for b in dests:
+        if b in cur_block.succs:
+          return True
+      for b in cur_block.succs:
+        if b not in traversed:
+          queue.append(b)
+    return False
 
   def export(self):
     """
@@ -146,6 +136,37 @@ class FunExtract():
     return self.tac
 
 
-def mark_body(path, str):
+class Function:
+  """
+  A representation of a function with associated metadata
+  """
+
+  def __init__(self, body=None, mapping=None, params=None):
+    if params is None:
+      self.params = []
+    else:
+      self.params = params
+    self.body = []
+    if mapping is not None:
+      self.mapping = mapping  # a mapping of preds to succs of the function body.
+      self.preds = [b for b in mapping]
+      self.succs = [mapping[b] for b in mapping]
+      # Get all parameters if we have not gotten them yet.
+
+  @classmethod
+  def getparams(self) -> None:
+    """
+    Get arguments to function if we have not already retrieved them
+    """
+    self.params = []
+    for pred in self.mapping:
+      for val in list(pred.exit_stack):
+        ref_block = self.tac.get_block_by_ident(str(val))
+        if ref_block:
+          break
+        self.params.append(val)
+
+
+def mark_body(path, num):
   for block in path:
-    block.ident_suffix += "_" + str
+    block.ident_suffix += "_" + str(num)
