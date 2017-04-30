@@ -27,6 +27,12 @@ class FunExtract():
     while modified:
       modified = False
       for i, dict in enumerate(pair_list):
+        # Remove any function with only one invocation site
+        if len(dict) == 1:
+          modified = True
+          pair_list.remove(dict)
+          start_blocks.remove(start_blocks[i])
+          break
         for pred in dict:
           succ = dict[pred]
           if not self.reachable(pred, [succ]):
@@ -41,7 +47,7 @@ class FunExtract():
       f = self.find_func_body(block, return_blocks, pair_list)
       if not f or len(f.body) == 1:  # Can't have a function with 1 block in EVM
         continue
-      if f:
+      if f is not None:
         mark_body(f.body, ("F" + str(func_count)));
         func_count += 1
     return
@@ -71,7 +77,7 @@ class FunExtract():
           return None
         for val in list(pre.exit_stack):
           ref_block = self.tac.get_block_by_ident(str(val))
-          if ref_block:
+          if ref_block is not None and val in list(pre.delta_stack):
             func_mapping[pre] = ref_block
             func_succs.append(ref_block)
             break
@@ -162,7 +168,7 @@ class Function:
     for pred in self.mapping:
       for val in list(pred.exit_stack):
         ref_block = self.tac.get_block_by_ident(str(val))
-        if ref_block:
+        if ref_block is not None:
           break
         self.params.append(val)
 
