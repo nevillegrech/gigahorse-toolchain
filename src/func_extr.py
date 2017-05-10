@@ -1,23 +1,131 @@
 import tac_cfg
+from typing import List, Dict
 
 class FunExtract():
   """
   A class for extracting functions from an already generated TAC cfg
   """
-
   def __init__(self, tac: tac_cfg.TACGraph):
-    self.internal_edges = {}  # a mapping of internal edges, pred -> succs
     self.tac = tac  # the tac_cfg that this works on
+    self.functions = []
+    self.invoc_pairs = {} # a mapping of function invocation sites to their return addresses
 
-  def extract(self):
+  def extract(self) -> None:
     """
-    Extracts basic functions
+    Extracts private and public functions
     """
-    func_count = 0
+    self.extract_private_funcs()
+    self.extract_public_funcs()
+    for i, func in enumerate(self.functions):
+      mark_body(func.body, i)
+
+  def extract_public_funcs(self):
+    """
+    Identifies public functions
+    """
+    # We follow the JUMPI chain down from the first CALLDATALOAD
+    arr = [self.find_calldataload(self.tac.get_block_by_ident("0x0"))]
+    starts = []
+    while len(arr) > 0:
+      curblock = arr.pop(0)
+      for succ in curblock.succs:
+        found = False
+        for op in reversed(succ.evm_ops):
+          if op.opcode.name == "PUSH4":
+            arr.append(succ)
+            found = True
+            break
+        if not found:
+          starts.append(succ)
+
+    public_funcs = list()
+    for block in starts:
+      f = self.get_public_body(block)
+      public_funcs.append(f)
+      self.functions.append(f)
+
+    return public_funcs
+
+  def find_calldataload(self, block):
+    """
+    Finds the block with the first CALLDATALOAD opcode in the graph. 
+    """
+    for op in block.evm_ops:
+      if op.opcode.name == "CALLDATALOAD":
+        return block
+    for succ in block.succs:
+      for op in succ.evm_ops:
+        if op.opcode.name == "CALLDATALOAD":
+          return succ
+    return None
+
+  def get_public_body(self, block):
+    """
+    Identifies the function body starting with the given block using BFS
+    """
+    body = []
+    queue = [block]
+    cur_block = block
+    jump = False
+    pre_jump_block = cur_block
+    while len(queue) > 0:
+      prevBlock = cur_block
+      cur_block = queue.pop(0)
+      # 'Jump' over private functions
+      for f in self.functions:
+        if cur_block in f.body and not jump:
+          cur_block = self.jump_to_next_loc(cur_block, prevBlock.exit_stack)
+        if cur_block in f.body and jump:
+          cur_block = self.jump_to_next_loc(cur_block, pre_jump_block.exit_stack)
+          jump = False
+      # Do we need to apply this multiple times for multiply nested functions?
+      if cur_block in self.invoc_pairs:
+        jump = True
+        pre_jump_block = cur_block
+        if cur_block not in body:
+          body.append(cur_block)
+        cur_block = self.invoc_pairs[cur_block]
+      if cur_block not in body:
+        body.append(cur_block)
+        for b in cur_block.succs:
+            queue.append(b)
+    f = Function(body)
+    f.start_block = block
+    return f
+
+  def jump_to_next_loc(self, block, exit_stack):
+    """
+    Helper method to jump over private functions
+    """
+    queue = [block]
+    visited = [block]
+    endBlock = None;
+    while len(queue) > 0:
+      block = queue.pop();
+      if len(block.succs) == 0:
+        endBlock = block
+      visited.append(block)
+      infunc = False
+      for f in self.functions:
+        if block in f.body:
+          infunc = True
+          break
+      if not infunc and block not in self.invoc_pairs.keys() and block not in self.invoc_pairs.values() and block.ident() in str(exit_stack):
+        return block
+      for succ in block.succs:
+          if succ not in visited:
+            queue.append(succ)
+    return endBlock
+
+  def extract_private_funcs(self) -> None:
+    """
+    Extracts private functions
+    """
+    # Get invocation site -> return block mappings
     start_blocks = []
     pair_list = []
     for block in reversed(self.tac.blocks):
-      invoc_pairs = self.__find_func_start(block)
+      invoc_pairs = self.find_private_func_start(block)
       if invoc_pairs:
         start_blocks.append(block)
         pair_list.append(invoc_pairs)
@@ -26,35 +134,31 @@ class FunExtract():
     modified = True
     while modified:
       modified = False
-      for i, dict in enumerate(pair_list):
-        # Remove any function with only one invocation site
-        if len(dict) == 1:
-          modified = True
-          pair_list.remove(dict)
-          start_blocks.remove(start_blocks[i])
-          break
-        for pred in dict:
-          succ = dict[pred]
+      for i, entry in enumerate(pair_list):
+        for pred in entry:
+          succ = entry[pred]
           if not self.reachable(pred, [succ]):
-            del dict[pred]
+            del entry[pred]
             modified = True
             break
 
+    # Store invocation site - return pairs for later usage
+    for d in pair_list:
+      for key in d.keys():
+        self.invoc_pairs[key] = d[key]
     # Find the Function body itself
     for i, block in enumerate(start_blocks):
-      preds = pair_list[i].keys()
       return_blocks = list(pair_list[i].values())
       f = self.find_func_body(block, return_blocks, pair_list)
       if not f or len(f.body) == 1:  # Can't have a function with 1 block in EVM
         continue
       if f is not None:
-        mark_body(f.body, ("F" + str(func_count)));
-        func_count += 1
+        self.functions.append(f)
     return
 
-  def __find_func_start(self, block):
+  def find_private_func_start(self, block: tac_cfg.TACBasicBlock) -> Dict[tac_cfg.TACBasicBlock, tac_cfg.TACBasicBlock]:
     """
-    Determines the boundaries of a function - block is tested as beginning of function. Returns a mapping of invocation 
+    Determines the boundaries of a private function - block is tested as beginning of function. Returns a mapping of invocation 
     sites to return addresses if successful.
     """
     # if there are multiple paths converging, this is a possible function start
@@ -82,26 +186,27 @@ class FunExtract():
             func_succs.append(ref_block)
             break
           params.append(val)
-    if not func_succs:  # Ensure that we did get pushed values!
+    if not func_succs or len(func_mapping) == 1:
       return None
+
     # We have our Start
     return func_mapping
 
-  def find_func_body(self, block, return_blocks, invoc_list):
+  def find_func_body(self, block: tac_cfg.TACBasicBlock, return_blocks: List[tac_cfg.TACBasicBlock], invoc_pairs: List[tac_cfg.TACBasicBlock]) -> 'Function':
     """
-    Assuming the block is a definite function start, identifies all paths from start to end
+    Assuming the block is a definite function start, identifies all paths from start to end using BFS
     """
-    # do a BFS traversal and build the function body.
-    # Traverse down levels until we hit a block that has the return addresses specified above
+    # Traverse down levels with BFS until we hit a block that has the return addresses specified above
+
     body = []
     queue = [block]
     end = False
-    while (len(queue) > 0):
+    while len(queue) > 0:
       cur_block = queue.pop(0)
-      for dict in invoc_list:  # When we call a function, we just jump to the return address
-        if cur_block in dict:
+      for entry in invoc_pairs:  # When we call a function, we just jump to the return address
+        if cur_block in entry:
           body.append(cur_block)
-          cur_block = dict[cur_block]
+          cur_block = entry[cur_block]
       cur_succs = [b for b in cur_block.succs]
       if ((set(return_blocks)).issubset(set(cur_succs))):
         end = True
@@ -113,12 +218,19 @@ class FunExtract():
 
     if end:
       f = Function()
+      f.start_block = block
+      poss_exit_blocks = [b.preds for b in return_blocks]
+      exit_blocks = set(poss_exit_blocks[0])
+      for preds in poss_exit_blocks:
+        exit_blocks = exit_blocks & set(preds)
+      f.exit_block = exit_blocks.pop()
       f.succs = return_blocks
+      f.preds = block.preds
       f.body = body
       return f
     return None
 
-  def reachable(self, block, dests):
+  def reachable(self, block: tac_cfg.TACBasicBlock, dests: List[tac_cfg.TACBasicBlock]) -> bool:
     """
     Determine if a block can reach any of the given destination blocks
     """
@@ -135,7 +247,7 @@ class FunExtract():
           queue.append(b)
     return False
 
-  def export(self):
+  def export(self) -> tac_cfg.TACGraph:
     """
     Returns the internal tac graph
     """
@@ -147,19 +259,14 @@ class Function:
   A representation of a function with associated metadata
   """
 
-  def __init__(self, body=None, mapping=None, params=None):
-    if params is None:
-      self.params = []
-    else:
-      self.params = params
-    self.body = []
+  def __init__(self, body=[], mapping=None, params=None, start_block=None, end_block=None):
+    self.body = body
+    self.start_block = start_block
+    self.end_block = end_block
     if mapping is not None:
       self.mapping = mapping  # a mapping of preds to succs of the function body.
-      self.preds = [b for b in mapping]
-      self.succs = [mapping[b] for b in mapping]
-      # Get all parameters if we have not gotten them yet.
+    self.params = params
 
-  @classmethod
   def getparams(self) -> None:
     """
     Get arguments to function if we have not already retrieved them
@@ -173,6 +280,6 @@ class Function:
         self.params.append(val)
 
 
-def mark_body(path, num):
+def mark_body(path: List[tac_cfg.TACBasicBlock], num: int) -> None:
   for block in path:
-    block.ident_suffix += "_" + str(num)
+    block.ident_suffix += "_F" + str(num)
