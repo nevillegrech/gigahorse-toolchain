@@ -147,7 +147,14 @@ parser.add_argument("-f",
                     "--function_extraction",
                     action="store_true",
                     default=False,
-                    help="Extract functions in graph before outputting")
+                    help="Extract functions in graph before outputting.")
+
+parser.add_argument("-m",
+                    "--mark_functions",
+                    action="store_true",
+                    default=False,
+                    help="Mark function bodies in generated graph. Can"
+                         " only be used with the function extraction enabled.")
 
 # Do the argparsing
 args = parser.parse_args()
@@ -186,7 +193,8 @@ if args.function_extraction:
   ll("Extracting functions")
   funcs = func_extr.FunExtract(cfg)
   funcs.extract()
-  cfg = funcs.export()
+  print(funcs.export(args.mark_functions))
+  cfg = funcs.getCFG()
 
 # Generate output using the requested exporter(s)
 if not args.no_out:
