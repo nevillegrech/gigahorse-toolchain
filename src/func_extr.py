@@ -279,7 +279,8 @@ class FunExtract():
       exit_blocks = set(poss_exit_blocks[0])
       for preds in poss_exit_blocks:
         exit_blocks = exit_blocks & set(preds)
-      f.end_block = exit_blocks.pop()
+      # We assume the end_block is the last block in the disasm from all candidates
+      f.end_block = sorted(exit_blocks, key=lambda block: block.ident()).pop()
       f.succs = return_blocks
       f.preds = block.preds
       f.body = body
