@@ -7,7 +7,7 @@ class FunExtract():
   """A class for extracting functions from an already generated TAC cfg."""
 
   def __init__(self, tac: tac_cfg.TACGraph):
-    self.tac = tac  # the tac_cfg that this works on
+    self.tac = tac  # the tac_cfg that this operates on
     self.functions = []
     self.invoc_pairs = {} # a mapping of function invocation sites to their return addresses
 
@@ -310,16 +310,9 @@ class FunExtract():
           queue.append(b)
     return False
 
-  def getCFG(self) -> tac_cfg.TACGraph:
-    """
-    Returns:
-      The internal tac_cfg object
-    """
-    return self.tac
-
 def mark_body(path: t.List[tac_cfg.TACBasicBlock], num: int) -> None:
   """
-  Marks every block in the path with the given number. 
+  Marks every block in the path with the given number.  Used for marking function bodies.
   """
   for block in path:
     block.ident_suffix += "_F" + str(num)
