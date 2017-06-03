@@ -194,7 +194,7 @@ if args.function_extraction:
   funcs = func_extr.FunExtract(cfg)
   funcs.extract()
   print(funcs.export(args.mark_functions))
-  cfg = funcs.getCFG()
+  cfg = funcs.tac
 
 # Generate output using the requested exporter(s)
 if not args.no_out:
