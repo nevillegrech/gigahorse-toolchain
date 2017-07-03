@@ -1,4 +1,4 @@
-"""func_extr.py: Classes for identifying and exporting functions in the control flow graph"""
+"""func_extr.py: Classes for identifying and exporting functions in the control flow graph. Tested and developed on Solidity version 0.4.11"""
 
 import tac_cfg, memtypes
 import typing as t
