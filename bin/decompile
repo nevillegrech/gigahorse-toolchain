@@ -124,6 +124,18 @@ parser.add_argument("-n",
                     action="store_true",
                     help="do not output decompiled graph.")
 
+parser.add_argument("--widenlimit",
+                    type=int,
+                    nargs="?",
+                    default=20,
+                    const=20,
+                    metavar="LIMIT",
+                    help="Whenever a stack variable may take more than "
+                         "this number of possible values, then widen "
+                         "that variable's value to the Top lattice value "
+                         "(treat its value as unconstraine). "
+                         "Negative values mean no limit.")
+
 parser.add_argument("-V",
                     "--version",
                     action="store_true",
