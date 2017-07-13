@@ -1,11 +1,12 @@
 """dataflowsettings.py: a structure for manipulating dataflow analysis settings."""
 
 class DataFlowSettings:
-    def __init__(self, max_iterations:int=-1, bailout_seconds:int=-1, 
-                 remove_unreachable:bool=False, die_on_empty_pop:bool=False, 
+    def __init__(self, max_iterations:int=-1, bailout_seconds:int=-1,
+                 remove_unreachable:bool=False, die_on_empty_pop:bool=False,
                  skip_stack_on_overflow:bool=True, reinit_stacks:bool=True,
                  hook_up_stack_vars:bool=True, hook_up_jumps:bool=True,
                  mutate_jumps:bool=False, generate_throws:bool=False,
+                 final_mutate_jumps:bool=False, final_generate_throws:bool=True,
                  mutate_blockwise:bool=True, clamp_large_stacks:bool=True,
                  clamp_stack_minimum:int=20, widen_variables:bool=True,
                  widen_threshold:int=20):
@@ -35,6 +36,8 @@ class DataFlowSettings:
         mutate_jumps: JUMPIs with known conditions become JUMPs (or are deleted)
         generate_throws: JUMP and JUMPI instructions with invalid destinations
                          become THROW and THROWIs
+        final_mutate_jumps: mutate jumps in the final analysis phase
+        final_generate_throws: generate throws in the final analysis phase
         mutate_blockwise: hook up stack vars and/or hook up jumps after each
                           block rather than after the whole analysis is
                           complete.
@@ -46,6 +49,7 @@ class DataFlowSettings:
                          exceeds a given threshold, widen its value to Top.
         widen_threshold: widen if the size of a given variable exceeds this
                          value.
+
       If we have already reached complete information about our stack CFG
       structure and stack states, we can use die_on_empty_pop and reinit_stacks
       to discover places where empty stack exceptions will be thrown.
@@ -66,4 +70,6 @@ class DataFlowSettings:
       self.clamp_stack_minimum = clamp_stack_minimum
       self.widen_variables = widen_variables
       self.widen_threshold = widen_threshold
+      self.final_mutate_jumps = final_mutate_jumps
+      self.final_generate_throws = final_generate_throws
 

@@ -153,6 +153,18 @@ parser.add_argument("-C",
                          "clamped to. Providing a negative value will not "
                          "clamp the stacks.")
 
+parser.add_argument("-J",
+                    "--final_mutate_jumps",
+                    action="store_true",
+                    help="Delete or specialise jumps if jump conditions "
+                         "are known.")
+
+parser.add_argument("-H",
+                    "--final_no_throws",
+                    action="store_false",
+                    help="Do not convert JUMPs to THROWs if they are "
+                         "known to jump to invalid destinations.")
+
 parser.add_argument("-V",
                     "--version",
                     action="store_true",
@@ -211,6 +223,8 @@ settings.widen_variables = (args.widen_limit >= 0)
 settings.widen_threshold = args.widen_limit
 settings.clamp_large_stacks = (args.clamp_stack_minimum >= 0)
 settings.clamp_stack_minimum = args.clamp_stack_minimum
+settings.final_mutate_jumps = args.final_mutate_jumps
+settings.final_generate_throws = not args.final_no_throws
 
 # Run data flow analysis
 dataflow.analyse_graph(cfg, settings)
