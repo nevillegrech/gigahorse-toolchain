@@ -124,7 +124,7 @@ parser.add_argument("-n",
                     action="store_true",
                     help="do not output decompiled graph.")
 
-parser.add_argument("--widenlimit",
+parser.add_argument("--widen_limit",
                     type=int,
                     nargs="?",
                     default=20,
@@ -185,8 +185,16 @@ except KeyboardInterrupt:
   sys.exit(1)
 
 ll("Applying stack analysis TAC CFG")
-dataflow.analyse_graph(cfg, max_iterations=args.max_iter,
-                       bailout_seconds=args.bail_time)
+
+# Initialise data flow settings
+settings = dataflow.DataFlowSettings()
+settings.max_iterations = args.max_iter
+settings.bailout_seconds = args.bail_time
+settings.widen_variables = (args.widen_limit >= 0)
+settings.widen_threshold = args.widen_limit
+
+# Run data flow analysis
+dataflow.analyse_graph(cfg, settings)
 
 # Generate output using the requested exporter(s)
 if not args.no_out:
