@@ -7,7 +7,8 @@ class DataFlowSettings:
                  hook_up_stack_vars:bool=True, hook_up_jumps:bool=True,
                  mutate_jumps:bool=False, generate_throws:bool=False,
                  mutate_blockwise:bool=True, clamp_large_stacks:bool=True,
-                 widen_variables:bool=True, widen_threshold:int=20):
+                 clamp_stack_minimum:int=20, widen_variables:bool=True,
+                 widen_threshold:int=20):
       """
       A plain old data struct for holding various settings related to
       data flow analysis.
@@ -38,7 +39,9 @@ class DataFlowSettings:
                           block rather than after the whole analysis is
                           complete.
         clamp_large_stacks: if stacks start growing without bound, reduce the
-                            stack size in order to hasten convergence.
+                            maximum stack size in order to hasten convergence.
+        clamp_stack_minimum: stack sizes will not be clamped smaller than
+                             this value.
         widen_variables: if any stack variable's number of possible values
                          exceeds a given threshold, widen its value to Top.
         widen_threshold: widen if the size of a given variable exceeds this
@@ -60,7 +63,7 @@ class DataFlowSettings:
       self.generate_throws = generate_throws
       self.mutate_blockwise = mutate_blockwise
       self.clamp_large_stacks = clamp_large_stacks
+      self.clamp_stack_minimum = clamp_stack_minimum
       self.widen_variables = widen_variables
       self.widen_threshold = widen_threshold
-
 

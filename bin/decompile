@@ -124,7 +124,8 @@ parser.add_argument("-n",
                     action="store_true",
                     help="do not output decompiled graph.")
 
-parser.add_argument("--widen_limit",
+parser.add_argument("-W",
+                    "--widen_limit",
                     type=int,
                     nargs="?",
                     default=20,
@@ -135,6 +136,22 @@ parser.add_argument("--widen_limit",
                          "that variable's value to the Top lattice value "
                          "(treat its value as unconstraine). "
                          "Negative values mean no limit.")
+
+parser.add_argument("-C",
+                    "--clamp_stack_minimum",
+                    type=int,
+                    nargs="?",
+                    default=0,
+                    const=0,
+                    metavar="LIMIT",
+                    help="If stacks are growing deeper without more of the "
+                         "program's control flow graph being inferred for "
+                         "sufficiently many iterations, we can freeze the "
+                         "maximum size of these stacks in order to save "
+                         "on computation. This threshold will provide a "
+                         "lower bound to the size that these stacks can be "
+                         "clamped to. Providing a negative value will not "
+                         "clamp the stacks.")
 
 parser.add_argument("-V",
                     "--version",
@@ -192,6 +209,8 @@ settings.max_iterations = args.max_iter
 settings.bailout_seconds = args.bail_time
 settings.widen_variables = (args.widen_limit >= 0)
 settings.widen_threshold = args.widen_limit
+settings.clamp_large_stacks = (args.clamp_stack_minimum >= 0)
+settings.clamp_stack_minimum = args.clamp_stack_minimum
 
 # Run data flow analysis
 dataflow.analyse_graph(cfg, settings)
