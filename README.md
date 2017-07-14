@@ -9,8 +9,8 @@ code representation.
 Some examples of using the decompiler and disassembler below:
 
 ```
-$ bin/decompile examples/empty.dasm
-$ bin/decompile -b examples/empty.hex
+$ bin/decompile examples/empty.hex
+$ bin/decompile -a examples/empty.dasm
 
 $ bin/disassemble examples/empty.hex
 $ bin/disassemble -p examples/empty.hex
@@ -19,14 +19,14 @@ $ bin/disassemble -p examples/empty.hex
 or like this:
 
 ```
-$ cat examples/empty.dasm | bin/decompile
+$ cat examples/empty.dasm | bin/decompile -a
 $ cat examples/empty.hex | bin/disassemble
 ```
 
 or even like this:
 
 ```
-$ bin/disassemble examples/empty.hex | bin/decompile
+$ bin/disassemble examples/empty.hex | bin/decompile -a
 ```
 
 To view all the usage options:
