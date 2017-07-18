@@ -230,7 +230,7 @@ class CFGDotExporter(Exporter):
       Green: contains a RETURN operation;
       Blue: contains a STOP operation;
       Red: contains a THROW or THROWI operation;
-      Purple: contains a SUICIDE operation;
+      Purple: contains a SELFDESTRUCT operation;
       Orange: contains a CALL, CALLCODE, or DELEGATECALL operation;
       Brown: contains a CREATE operation.
 
@@ -258,7 +258,7 @@ class CFGDotExporter(Exporter):
     throws = {block.ident(): "red" for block in cfg.blocks
              if block.last_op.opcode in [opcodes.THROW, opcodes.THROWI]}
     suicides = {block.ident(): "purple" for block in cfg.blocks
-                if block.last_op.opcode == opcodes.SUICIDE}
+                if block.last_op.opcode == opcodes.SELFDESTRUCT}
     creates = {block.ident(): "brown" for block in cfg.blocks
                if any(op.opcode == opcodes.CREATE for op in block.tac_ops)}
     calls = {block.ident(): "orange" for block in cfg.blocks

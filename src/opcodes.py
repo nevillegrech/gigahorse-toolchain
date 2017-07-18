@@ -61,11 +61,11 @@ class OpCode:
   def alters_flow(self) -> bool:
     """Predicate: opcode alters EVM control flow."""
     return self.code in [JUMP.code, JUMPI.code, RETURN.code,
-                         SUICIDE.code, STOP.code, THROW.code]
+                         SELFDESTRUCT.code, STOP.code, THROW.code]
 
   def halts(self) -> bool:
     """Predicate: opcode causes the EVM to halt."""
-    return self.code in [STOP.code, RETURN.code, SUICIDE.code, THROW.code]
+    return self.code in [STOP.code, RETURN.code, SELFDESTRUCT.code, THROW.code]
 
   def possibly_halts(self) -> bool:
     """Predicate: opcode MAY cause the EVM to halt. (halts + THROWI)"""
@@ -228,7 +228,7 @@ CALL         = OpCode("CALL",         0xf1, 7, 1)
 CALLCODE     = OpCode("CALLCODE",     0xf2, 7, 1)
 RETURN       = OpCode("RETURN",       0xf3, 2, 0)
 DELEGATECALL = OpCode("DELEGATECALL", 0xf4, 7, 1)
-SUICIDE      = OpCode("SUICIDE",      0xff, 1, 0)
+SELFDESTRUCT = OpCode("SELFDESTRUCT", 0xff, 1, 0)
 
 # TAC Operations
 # These are not EVM opcodes, but they are used by the three-address code
@@ -237,7 +237,6 @@ CONST  = OpCode("CONST", -2, 0, 0)
 LOG    = OpCode("LOG", -3, 0, 0)
 THROW  = OpCode("THROW", -4, 0, 0)
 THROWI = OpCode("THROWI", -5, 0, 0)
-
 
 # Produce mappings from names and instruction codes to opcode objects
 OPCODES = {
