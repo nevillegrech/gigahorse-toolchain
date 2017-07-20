@@ -103,10 +103,11 @@ class EVMDasmParser(BlockParser):
       toks[0] = int(toks[0], 16)
     
     if len(toks) > 2:
+      val = int(toks[2], 16)
       try:
-        return evm_cfg.EVMOp(int(toks[0]), opcodes.opcode_by_name(toks[1]), int(toks[2], 16))
+        return evm_cfg.EVMOp(int(toks[0]), opcodes.opcode_by_name(toks[1]), val)
       except LookupError as e:
-        return evm_cfg.EVMOp(int(toks[0]), opcodes.missing_opcode(toks[2]), int(toks[2], 16))
+        return evm_cfg.EVMOp(int(toks[0]), opcodes.missing_opcode(val), val)
     elif len(toks) > 1:
         return evm_cfg.EVMOp(int(toks[0]), opcodes.opcode_by_name(toks[1]))
     else:
