@@ -52,10 +52,12 @@ class OpCode:
   def is_log(self) -> bool:
     """Predicate: opcode is a log operation."""
     return LOG0.code <= self.code <= LOG4.code
+  
+  def is_missing(self) -> bool:
+      return self.code not in BYTECODES
 
   def is_invalid(self) -> bool:
-      return (self.code == INVALID.code) or \
-             (self.code not in BYTECODES)
+      return (self.code == INVALID.code) or self.is_missing()
 
   def is_arithmetic(self) -> bool:
     """Predicate: opcode's result can be calculated from its inputs alone."""
@@ -69,7 +71,8 @@ class OpCode:
 
   def halts(self) -> bool:
     """Predicate: opcode causes the EVM to halt."""
-    return self.code in [STOP.code, RETURN.code, SELFDESTRUCT.code, THROW.code]
+    return (self.code in [STOP.code, RETURN.code, SELFDESTRUCT.code, THROW.code]) or \
+           self.is_invalid()
 
   def possibly_halts(self) -> bool:
     """Predicate: opcode MAY cause the EVM to halt. (halts + THROWI)"""
@@ -257,7 +260,6 @@ OPCODES["TXGASPRICE"] = OPCODES["GASPRICE"]
 BYTECODES = {code.code: code for code in OPCODES.values()}
 """Dictionary mapping of byte values to EVM OpCode objects"""
 
-
 def opcode_by_name(name:str) -> OpCode:
   """
   Mapping: Retrieves the named OpCode object (case-insensitive).
@@ -281,3 +283,15 @@ def opcode_by_value(val:int) -> OpCode:
   if val not in BYTECODES:
     raise LookupError("No opcode with value '0x{:02X}'.".format(val))
   return BYTECODES[val]
+
+def missing_opcode(val:int) -> OpCode:
+    """
+    Produces a new OpCode with the given value, as long as that is
+    an unknown code.
+
+    Throws:
+      ValueError: if there is an opcode defined with the given value.
+    """
+    if val in BYTECODES:
+        raise ValueError("Opcode {} exists.")
+    return OpCode("Missing:", val, 0, 0)

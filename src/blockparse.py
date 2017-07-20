@@ -101,14 +101,17 @@ class EVMDasmParser(BlockParser):
     # Convert hex PCs to ints
     if toks[0].startswith("0x"):
       toks[0] = int(toks[0], 16)
-
+    
     if len(toks) > 2:
-      return evm_cfg.EVMOp(int(toks[0]), opcodes.opcode_by_name(toks[1]), int(toks[2], 16))
+      try:
+        return evm_cfg.EVMOp(int(toks[0]), opcodes.opcode_by_name(toks[1]), int(toks[2], 16))
+      except LookupError as e:
+        return evm_cfg.EVMOp(int(toks[0]), opcodes.missing_opcode(toks[2]), int(toks[2], 16))
     elif len(toks) > 1:
-      return evm_cfg.EVMOp(int(toks[0]), opcodes.opcode_by_name(toks[1]))
+        return evm_cfg.EVMOp(int(toks[0]), opcodes.opcode_by_name(toks[1]))
     else:
       raise NotImplementedError("Could not parse unknown disassembly format:" +
-                                "\n    {}".format(line))
+                                  "\n    {}".format(line))
 
 
 class EVMBytecodeParser(BlockParser):
@@ -165,9 +168,10 @@ class EVMBytecodeParser(BlockParser):
           raise e
         # not strict, so just warn:
         logger.warning("Warning (PC = 0x{:02x}): {}".format(pc, str(e)))
-        logger.warning("Warning: Ignoring invalid opcode")
-        continue
-
+        logger.warning("Warning: Encountered invalid opcode")
+        op = opcodes.missing_opcode(byte)
+        const = byte
+        
       # push codes have an argument
       if op.is_push():
         const_size = op.push_len()
