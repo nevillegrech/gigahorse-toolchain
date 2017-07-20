@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.com/usyd-blockchain/decompiler.svg?token=mj2i8Mu1LikbZs2EKJyG&branch=master)](https://travis-ci.com/usyd-blockchain/decompiler)
+
 # EVM Decompiler (Bytecode -> Three-Address Code)
 
 This project contains the source code for our Ethereum VM bytecode decompiler.
