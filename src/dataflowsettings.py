@@ -9,7 +9,7 @@ class DataFlowSettings:
                  final_mutate_jumps:bool=False, final_generate_throws:bool=True,
                  mutate_blockwise:bool=True, clamp_large_stacks:bool=True,
                  clamp_stack_minimum:int=20, widen_variables:bool=True,
-                 widen_threshold:int=20):
+                 widen_threshold:int=20, set_valued_ops:bool=True):
       """
       A plain old data struct for holding various settings related to
       data flow analysis.
@@ -49,6 +49,9 @@ class DataFlowSettings:
                          exceeds a given threshold, widen its value to Top.
         widen_threshold: widen if the size of a given variable exceeds this
                          value.
+        set_valued_ops: if true, apply arithmetic operations to variables
+                        with multiple values; otherwise, only apply them
+                        to variables whose value is definite.
 
       If we have already reached complete information about our stack CFG
       structure and stack states, we can use die_on_empty_pop and reinit_stacks
@@ -72,4 +75,5 @@ class DataFlowSettings:
       self.widen_threshold = widen_threshold
       self.final_mutate_jumps = final_mutate_jumps
       self.final_generate_throws = final_generate_throws
+      self.set_valued_ops = set_valued_ops
 

@@ -134,8 +134,8 @@ parser.add_argument("-W",
                     help="Whenever a stack variable may take more than "
                          "this number of possible values, then widen "
                          "that variable's value to the Top lattice value "
-                         "(treat its value as unconstraine). "
-                         "Negative values mean no limit.")
+                         "(treat its value as unconstrained). "
+                         "Negative values mean no limit. Default value is 20.")
 
 parser.add_argument("-C",
                     "--clamp_stack_minimum",
@@ -151,13 +151,14 @@ parser.add_argument("-C",
                          "on computation. This threshold will provide a "
                          "lower bound to the size that these stacks can be "
                          "clamped to. Providing a negative value will not "
-                         "clamp the stacks.")
+                         "clamp the stacks. Default value is 0.")
 
 parser.add_argument("-J",
                     "--final_mutate_jumps",
                     action="store_true",
-                    help="Delete or specialise jumps if jump conditions "
-                         "are known.")
+                    help="In the final dataflow iteration, delete or "
+                         "specialise jumps if jump conditions are known. "
+                         "E.g. JUMPI with a true condition becomes a JUMP.")
 
 parser.add_argument("-H",
                     "--final_no_throws",
@@ -169,6 +170,13 @@ parser.add_argument("-V",
                     "--version",
                     action="store_true",
                     help="show program's version number and exit.")
+
+parser.add_argument("-S",
+                    "--disable_set_valued_ops",
+                    action="store_true",
+                    help="do not apply arithmetic operations to variables "
+                         "with multiple values; only apply them to variables "
+                         "whose value is definite.")
 
 parser.add_argument("infile",
                     nargs="?",
@@ -225,6 +233,7 @@ settings.clamp_large_stacks = (args.clamp_stack_minimum >= 0)
 settings.clamp_stack_minimum = args.clamp_stack_minimum
 settings.final_mutate_jumps = args.final_mutate_jumps
 settings.final_generate_throws = not args.final_no_throws
+settings.set_valued_ops = not args.disable_set_valued_ops
 
 # Run data flow analysis
 dataflow.analyse_graph(cfg, settings)
