@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.com/usyd-blockchain/decompiler.svg?token=mj2i8Mu1LikbZs2EKJyG&branch=master)](https://travis-ci.com/usyd-blockchain/decompiler)
+
 # EVM Decompiler (Bytecode -> Three-Address Code)
 
 This project contains the source code for our Ethereum VM bytecode decompiler.
@@ -9,8 +11,8 @@ code representation.
 Some examples of using the decompiler and disassembler below:
 
 ```
-$ bin/decompile examples/empty.dasm
-$ bin/decompile -b examples/empty.hex
+$ bin/decompile examples/empty.hex
+$ bin/decompile -a examples/empty.dasm
 
 $ bin/disassemble examples/empty.hex
 $ bin/disassemble -p examples/empty.hex
@@ -19,14 +21,14 @@ $ bin/disassemble -p examples/empty.hex
 or like this:
 
 ```
-$ cat examples/empty.dasm | bin/decompile
+$ cat examples/empty.dasm | bin/decompile -a
 $ cat examples/empty.hex | bin/disassemble
 ```
 
 or even like this:
 
 ```
-$ bin/disassemble examples/empty.hex | bin/decompile
+$ bin/disassemble examples/empty.hex | bin/decompile -a
 ```
 
 To view all the usage options:
