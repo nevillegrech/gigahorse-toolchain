@@ -9,7 +9,7 @@ class DataFlowSettings:
                  final_mutate_jumps:bool=False, final_generate_throws:bool=True,
                  mutate_blockwise:bool=True, clamp_large_stacks:bool=True,
                  clamp_stack_minimum:int=20, widen_variables:bool=True,
-                 widen_threshold:int=20, set_valued_ops:bool=True):
+                 widen_threshold:int=20, set_valued_ops:bool=False):
       """
       A plain old data struct for holding various settings related to
       data flow analysis.
