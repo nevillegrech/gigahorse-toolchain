@@ -14,6 +14,7 @@ import exporter
 import dataflow
 import tac_cfg
 import logger
+import settings
 
 ll, lm, lh = logger.log_low, logger.log_med, logger.log_high
 
@@ -231,7 +232,6 @@ except KeyboardInterrupt:
 ll("Applying stack analysis TAC CFG")
 
 # Initialise data flow settings
-settings = dataflow.DataFlowSettings()
 settings.max_iterations = args.max_iter
 settings.bailout_seconds = args.bail_time
 settings.widen_variables = (args.widen_limit >= 0)
@@ -243,7 +243,7 @@ settings.final_generate_throws = not args.final_no_throws
 settings.set_valued_ops = args.set_valued_ops
 
 # Run data flow analysis
-dataflow.analyse_graph(cfg, settings)
+dataflow.analyse_graph(cfg)
 
 # Generate output using the requested exporter(s)
 if not args.no_out:
