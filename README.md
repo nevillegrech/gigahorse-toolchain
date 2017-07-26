@@ -40,7 +40,7 @@ $ bin/disassemble --help
 
 ## Requirements
 
-An installation of **Python 3.5** or later is required, alongside various
+An installation of **Python 3.6** or later is required, alongside various
 packages. The recommended way to install all package dependencies is using
 `pip` and our provided `requirements.txt`, like so:
 
@@ -75,7 +75,7 @@ Most development should happen on *feature branches*. Here's our git workflow:
    master commit, with a sensible name (e.g. `three_address`). Move the feature's
    corresponding **Trello** card(s) to *In Progress*.
 2. Commit to the new feature branch early and often.
-3. When the feature is complete, submit a **Bitbucket pull request** to merge
+3. When the feature is complete, submit a **pull request** to merge
    the feature branch into our master branch. Move the corresponding **Trello**
    card to *Code Review*.
 4. Someone else will review the pull request:
