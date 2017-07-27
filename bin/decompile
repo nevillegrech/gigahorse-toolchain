@@ -219,7 +219,7 @@ ll(version())
 try:
   lh("Reading from {}", args.infile.name)
   if args.disassembly:
-    cfg = tac_cfg.TACGraph.from_dasm(args.infile)
+    cfg = tac_cfg.TACGraph.from_dasm(args.infile, args.strict)
   else:
     cfg = tac_cfg.TACGraph.from_bytecode(args.infile, args.strict)
   ll("TAC CFG generation completed")

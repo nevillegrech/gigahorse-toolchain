@@ -72,16 +72,24 @@ class EVMDasmParser(BlockParser):
       if len(l.split()) == 1:
         logger.warning("Warning (line {}): skipping invalid disassembly:\n   {}"
                     .format(i+1, l.rstrip()))
+        if strict:
+            raise RuntimeError("Invalid disassembly at line {}: {}"
+                               .format(i+1, l))
         continue
       elif len(l.split()) < 1:
+        if strict:
+            logger.warning("Warning (line {}): empty disassembly.".format(i+1))
+            raise RuntimeError("Empty disassembly at line {}.".format(i+1))
         continue
 
       try:
         self._ops.append(self.evm_op_from_dasm(l))
-      except (ValueError, LookupError) as e:
+      except (ValueError, LookupError, NotImplementedError) as e:
         logger.log(traceback.format_exc(), logger.Verbosity.HIGH)
         logger.warning("Warning (line {}): skipping invalid disassembly:\n   {}"
                     .format(i+1, l.rstrip()))
+        if strict:
+            raise e
 
     return evm_cfg.blocks_from_ops(self._ops)
 
