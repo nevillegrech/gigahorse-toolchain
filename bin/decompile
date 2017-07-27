@@ -14,6 +14,7 @@ import exporter
 import dataflow
 import tac_cfg
 import logger
+import settings
 
 ll, lm, lh = logger.log_low, logger.log_med, logger.log_high
 
@@ -131,10 +132,59 @@ parser.add_argument("-n",
                     action="store_true",
                     help="do not output decompiled graph.")
 
+parser.add_argument("-W",
+                    "--widen_limit",
+                    type=int,
+                    nargs="?",
+                    default=20,
+                    const=20,
+                    metavar="LIMIT",
+                    help="Whenever a stack variable may take more than "
+                         "this number of possible values, then widen "
+                         "that variable's value to the Top lattice value "
+                         "(treat its value as unconstrained). "
+                         "Negative values mean no limit. Default value is 20.")
+
+parser.add_argument("-C",
+                    "--clamp_stack_minimum",
+                    type=int,
+                    nargs="?",
+                    default=0,
+                    const=0,
+                    metavar="LIMIT",
+                    help="If stacks are growing deeper without more of the "
+                         "program's control flow graph being inferred for "
+                         "sufficiently many iterations, we can freeze the "
+                         "maximum size of these stacks in order to save "
+                         "on computation. This threshold will provide a "
+                         "lower bound to the size that these stacks can be "
+                         "clamped to. Providing a negative value will not "
+                         "clamp the stacks. Default value is 0.")
+
+parser.add_argument("-J",
+                    "--final_mutate_jumps",
+                    action="store_true",
+                    help="In the final dataflow iteration, delete or "
+                         "specialise jumps if jump conditions are known. "
+                         "E.g. JUMPI with a true condition becomes a JUMP.")
+
+parser.add_argument("-H",
+                    "--final_no_throws",
+                    action="store_false",
+                    help="Do not convert JUMPs to THROWs if they are "
+                         "known to jump to invalid destinations.")
+
 parser.add_argument("-V",
                     "--version",
                     action="store_true",
                     help="show program's version number and exit.")
+
+parser.add_argument("-S",
+                    "--set_valued_ops",
+                    action="store_true",
+                    help="apply arithmetic operations to variables with "
+                         "multiple values; by default, they are only applied "
+                         "to variables whose value is definite.")
 
 parser.add_argument("infile",
                     nargs="?",
@@ -180,8 +230,20 @@ except KeyboardInterrupt:
   sys.exit(1)
 
 ll("Applying stack analysis TAC CFG")
-dataflow.analyse_graph(cfg, max_iterations=args.max_iter,
-                       bailout_seconds=args.bail_time)
+
+# Initialise data flow settings
+settings.max_iterations = args.max_iter
+settings.bailout_seconds = args.bail_time
+settings.widen_variables = (args.widen_limit >= 0)
+settings.widen_threshold = args.widen_limit
+settings.clamp_large_stacks = (args.clamp_stack_minimum >= 0)
+settings.clamp_stack_minimum = args.clamp_stack_minimum
+settings.final_mutate_jumps = args.final_mutate_jumps
+settings.final_generate_throws = not args.final_no_throws
+settings.set_valued_ops = args.set_valued_ops
+
+# Run data flow analysis
+dataflow.analyse_graph(cfg)
 
 # Generate output using the requested exporter(s)
 if not args.no_out:
