@@ -40,7 +40,7 @@ $ bin/disassemble --help
 
 ## Requirements
 
-An installation of **Python 3.6** or later is required, alongside various
+An installation of **Python 3.5** or later is required, alongside various
 packages. The recommended way to install all package dependencies is using
 `pip` and our provided `requirements.txt`, like so:
 
