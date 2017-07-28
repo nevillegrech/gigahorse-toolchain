@@ -24,6 +24,7 @@ import tac_cfg
 import opcodes
 import exporter
 import logger
+import settings
 ll = logger.log_low
 
 
@@ -268,9 +269,9 @@ def analyse_contract(job_index: int, index: int, filename: str, result_queue) ->
       # Decompile and perform dataflow analysis upon the given graph
       decomp_start = time.time()
       cfg = tac_cfg.TACGraph.from_bytecode(file, strict=args.strict)
-      analytics = dataflow.analyse_graph(cfg, max_iterations=args.max_iter,
-                                              bailout_seconds=args.bail_time,
-                                              collect_analytics=True)
+      settings.max_iterations  = args.max_iter
+      settings.bailout_seconds = args.bail_time
+      analytics = dataflow.analyse_graph(cfg, collect_analytics=True)
 
       # Export relations to temp working directory
       empty_working_dir(job_index)
