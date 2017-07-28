@@ -72,16 +72,24 @@ class EVMDasmParser(BlockParser):
       if len(l.split()) == 1:
         logger.warning("Warning (line {}): skipping invalid disassembly:\n   {}"
                     .format(i+1, l.rstrip()))
+        if strict:
+            raise RuntimeError("Invalid disassembly at line {}: {}"
+                               .format(i+1, l))
         continue
       elif len(l.split()) < 1:
+        if strict:
+            logger.warning("Warning (line {}): empty disassembly.".format(i+1))
+            raise RuntimeError("Empty disassembly at line {}.".format(i+1))
         continue
 
       try:
         self._ops.append(self.evm_op_from_dasm(l))
-      except (ValueError, LookupError) as e:
+      except (ValueError, LookupError, NotImplementedError) as e:
         logger.log(traceback.format_exc(), logger.Verbosity.HIGH)
         logger.warning("Warning (line {}): skipping invalid disassembly:\n   {}"
                     .format(i+1, l.rstrip()))
+        if strict:
+            raise e
 
     return evm_cfg.blocks_from_ops(self._ops)
 
@@ -101,14 +109,18 @@ class EVMDasmParser(BlockParser):
     # Convert hex PCs to ints
     if toks[0].startswith("0x"):
       toks[0] = int(toks[0], 16)
-
+    
     if len(toks) > 2:
-      return evm_cfg.EVMOp(int(toks[0]), opcodes.opcode_by_name(toks[1]), int(toks[2], 16))
+      val = int(toks[2], 16)
+      try:
+        return evm_cfg.EVMOp(int(toks[0]), opcodes.opcode_by_name(toks[1]), val)
+      except LookupError as e:
+        return evm_cfg.EVMOp(int(toks[0]), opcodes.missing_opcode(val), val)
     elif len(toks) > 1:
-      return evm_cfg.EVMOp(int(toks[0]), opcodes.opcode_by_name(toks[1]))
+        return evm_cfg.EVMOp(int(toks[0]), opcodes.opcode_by_name(toks[1]))
     else:
       raise NotImplementedError("Could not parse unknown disassembly format:" +
-                                "\n    {}".format(line))
+                                  "\n    {}".format(line))
 
 
 class EVMBytecodeParser(BlockParser):
@@ -165,9 +177,10 @@ class EVMBytecodeParser(BlockParser):
           raise e
         # not strict, so just warn:
         logger.warning("Warning (PC = 0x{:02x}): {}".format(pc, str(e)))
-        logger.warning("Warning: Ignoring invalid opcode")
-        continue
-
+        logger.warning("Warning: Encountered invalid opcode")
+        op = opcodes.missing_opcode(byte)
+        const = byte
+        
       # push codes have an argument
       if op.is_push():
         const_size = op.push_len()

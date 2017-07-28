@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.com/usyd-blockchain/decompiler.svg?token=mj2i8Mu1LikbZs2EKJyG&branch=master)](https://travis-ci.com/usyd-blockchain/decompiler)
+
 # EVM Decompiler (Bytecode -> Three-Address Code)
 
 This project contains the source code for our Ethereum VM bytecode decompiler.
@@ -9,8 +11,8 @@ code representation.
 Some examples of using the decompiler and disassembler below:
 
 ```
-$ bin/decompile examples/empty.dasm
-$ bin/decompile -b examples/empty.hex
+$ bin/decompile examples/empty.hex
+$ bin/decompile -a examples/empty.dasm
 
 $ bin/disassemble examples/empty.hex
 $ bin/disassemble -p examples/empty.hex
@@ -19,14 +21,14 @@ $ bin/disassemble -p examples/empty.hex
 or like this:
 
 ```
-$ cat examples/empty.dasm | bin/decompile
+$ cat examples/empty.dasm | bin/decompile -a
 $ cat examples/empty.hex | bin/disassemble
 ```
 
 or even like this:
 
 ```
-$ bin/disassemble examples/empty.hex | bin/decompile
+$ bin/disassemble examples/empty.hex | bin/decompile -a
 ```
 
 To view all the usage options:
@@ -73,7 +75,7 @@ Most development should happen on *feature branches*. Here's our git workflow:
    master commit, with a sensible name (e.g. `three_address`). Move the feature's
    corresponding **Trello** card(s) to *In Progress*.
 2. Commit to the new feature branch early and often.
-3. When the feature is complete, submit a **Bitbucket pull request** to merge
+3. When the feature is complete, submit a **pull request** to merge
    the feature branch into our master branch. Move the corresponding **Trello**
    card to *Code Review*.
 4. Someone else will review the pull request:
