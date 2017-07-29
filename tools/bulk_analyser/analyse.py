@@ -271,7 +271,8 @@ def analyse_contract(job_index: int, index: int, filename: str, result_queue) ->
       cfg = tac_cfg.TACGraph.from_bytecode(file, strict=args.strict)
       settings.max_iterations  = args.max_iter
       settings.bailout_seconds = args.bail_time
-      analytics = dataflow.analyse_graph(cfg, collect_analytics=True)
+      settings.collect_analytics = True
+      analytics = dataflow.analyse_graph(cfg)
 
       # Export relations to temp working directory
       empty_working_dir(job_index)
