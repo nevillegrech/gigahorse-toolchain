@@ -219,8 +219,8 @@ def aquire_tsv_settings() -> None:
       splitline = line.strip().split()
       if len(splitline) < 2:
         continue
-      if splitline[0] == ".decl" and "input" in splitline:
-        op_name = splitline[1][:splitline[1].index("(")]
+      if splitline[0] == ".input":
+        op_name = splitline[1]
         if op_name in dom_prefixes:
           DOMINATORS = True
         if op_name.startswith("op_") and op_name[3:] in opcodes.OPCODES:
