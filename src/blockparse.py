@@ -2,7 +2,6 @@
 
 import abc
 import typing as t
-import traceback
 import collections
 
 import cfg
@@ -70,7 +69,7 @@ class EVMDasmParser(BlockParser):
     # also ignored.
     for i, l in enumerate(self._raw):
       if len(l.split()) == 1:
-        logger.warning("Warning (line {}): skipping invalid disassembly:\n   {}"
+        logger.log_high("Warning (line {}): skipping invalid disassembly:\n   {}"
                     .format(i+1, l.rstrip()))
         if strict:
             raise RuntimeError("Invalid disassembly at line {}: {}"
@@ -85,8 +84,7 @@ class EVMDasmParser(BlockParser):
       try:
         self._ops.append(self.evm_op_from_dasm(l))
       except (ValueError, LookupError, NotImplementedError) as e:
-        logger.log(traceback.format_exc(), logger.Verbosity.HIGH)
-        logger.warning("Warning (line {}): skipping invalid disassembly:\n   {}"
+        logger.log_high("Warning (line {}): skipping invalid disassembly:\n   {}"
                     .format(i+1, l.rstrip()))
         if strict:
             raise e
@@ -171,13 +169,12 @@ class EVMBytecodeParser(BlockParser):
 
       except LookupError as e:
         # oops, unknown opcode
-        logger.log(traceback.format_exc(), logger.Verbosity.HIGH)
         if strict:
           logger.warning("ERROR (strict) at PC = 0x{:02x}".format(pc))
           raise e
         # not strict, so just warn:
-        logger.warning("Warning (PC = 0x{:02x}): {}".format(pc, str(e)))
-        logger.warning("Warning: Encountered invalid opcode")
+        logger.log_high("Warning (PC = 0x{:02x}): {}".format(pc, str(e)))
+        logger.log_high("Warning: Encountered invalid opcode")
         op = opcodes.missing_opcode(byte)
         const = byte
         
