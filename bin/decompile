@@ -181,7 +181,7 @@ parser.add_argument("-V",
 
 parser.add_argument("-S",
                     "--disable_set_valued_ops",
-                    action="store_false",
+                    action="store_true",
                     help="do not apply arithmetic operations to variables with "
                          "multiple values; if set, they are only applied "
                          "to variables whose value is definite.")
