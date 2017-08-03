@@ -202,10 +202,6 @@ parser.add_argument("outfile",
 args = parser.parse_args()
 
 # Set up logger, with appropriate log level depending on verbosity.
-#logger    = logging.getLogger()
-#formatter = logging.Formatter(fmt='{levelname}: {message}', style='{')
-#logger.setFormatter(formatter)
-#logger.setLevel(level=logging.DEBUG if args.verbose else logging.INFO)
 logging.basicConfig(format='%(levelname)s: %(message)s',
                     level=logging.DEBUG if args.verbose else logging.INFO)
 
