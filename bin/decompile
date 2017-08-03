@@ -63,7 +63,7 @@ parser.add_argument("-g",
                          "relationships with the format inferred from the "
                          "given output filename (cfg.dot by default). "
                          "Non-DOT formats like pdf, png, etc. require "
-                         "Graphviz to be installed. Use html to generate"
+                         "Graphviz to be installed. Use html to generate "
                          "an interactive web page of the graph.")
 
 parser.add_argument("-t",

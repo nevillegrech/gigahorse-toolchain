@@ -54,7 +54,7 @@ def pagify(filename:str, out_filename:str=None) -> None:
                }
 
                // Make all anchor tags (nodes) in the svg clickable.
-               for (var el of document.getElementsByTagName("a")) {
+               for (var el of Array.from(document.getElementsByTagName("a"))) {
                    el.setAttribute("onclick", "setInfoContents(this);");
                }
                </script>
