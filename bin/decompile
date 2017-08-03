@@ -123,7 +123,14 @@ parser.add_argument("-T",
 parser.add_argument("-v",
                     "--verbose",
                     action="store_true",
-                    help="produce verbose debug output to stderr.")
+                    help="emit verbose debug output to stderr.")
+
+parser.add_argument("-vv",
+                    "--prolix",
+                    action="store_true",
+                    help="emit verbose debug output to stderr, including "
+                         "extra debug messages from dataflow analysis and "
+                         "elsewhere.")
 
 parser.add_argument("-n",
                     "--no_out",
@@ -202,8 +209,12 @@ parser.add_argument("outfile",
 args = parser.parse_args()
 
 # Set up logger, with appropriate log level depending on verbosity.
-logging.basicConfig(format='%(levelname)s: %(message)s',
-                    level=logging.DEBUG if args.verbose else logging.INFO)
+log_level = logging.NOTSET
+if args.verbose:
+  log_level = logging.INFO
+elif args.prolix:
+  log_level = logging.DEBUG
+logging.basicConfig(format='%(levelname)s: %(message)s', level=log_level)
 
 # Handle --version
 if args.version:
