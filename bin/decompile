@@ -209,11 +209,11 @@ parser.add_argument("outfile",
 args = parser.parse_args()
 
 # Set up logger, with appropriate log level depending on verbosity.
-log_level = logging.NOTSET
-if args.verbose:
-  log_level = logging.INFO
-elif args.prolix:
+log_level = logging.WARNING
+if args.prolix:
   log_level = logging.DEBUG
+elif args.verbose:
+  log_level = logging.INFO
 logging.basicConfig(format='%(levelname)s: %(message)s', level=log_level)
 
 # Handle --version
