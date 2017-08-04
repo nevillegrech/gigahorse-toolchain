@@ -1,10 +1,9 @@
-[![Build Status](https://travis-ci.com/usyd-blockchain/decompiler.svg?token=mj2i8Mu1LikbZs2EKJyG&branch=master)](https://travis-ci.com/usyd-blockchain/decompiler)
+[![Build Status](https://travis-ci.com/usyd-blockchain/vandal-decompiler.svg?token=pNXdH9q71L2RqUA87Yqx&branch=master)](https://travis-ci.com/usyd-blockchain/vandal-decompiler)
 
-# EVM Decompiler (Bytecode -> Three-Address Code)
+# Vandal Decompiler (EVM Bytecode -> IL Code + CFG)
 
 This project contains the source code for our Ethereum VM bytecode decompiler.
-It takes EVM bytecode or disassembly as input, and outputs a three-address
-code representation.
+It takes EVM bytecode or disassembly as input, and outputs an intermediate langauge code representation.
 
 ## Usage
 
