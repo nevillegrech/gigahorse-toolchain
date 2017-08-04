@@ -3,8 +3,8 @@
 # Vandal: An EVM bytecode decompiler
 
 This project contains the source code for our Ethereum VM bytecode decompiler, `vandal`.
-It takes EVM bytecode or disassembly as input, and outputs an equivalent intermediate representation, along with the program control flow graph.
-This intermediate representation removes all stack operations and, in concert with the CFG, exposes data dependencies. In concert, these allow compiled smart contract logic to be inspected more conveniently, either by hand or by machine.
+It takes EVM bytecode or disassembly as input, and outputs an equivalent intermediate representation, including the program's control flow graph.
+This intermediate representation removes all stack operations and, in concert with the CFG, exposes data dependencies. The aim of this project is to allow compiled smart contract logic to be inspected more conveniently, either by hand or by machine.
 
 ## Usage
 
