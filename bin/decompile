@@ -238,8 +238,6 @@ except KeyboardInterrupt:
   logging.critical("\nInterrupted by user")
   sys.exit(1)
 
-logging.info("Applying stack analysis TAC CFG.")
-
 # Initialise data flow settings
 settings.max_iterations = args.max_iter
 settings.bailout_seconds = args.bail_time
@@ -253,6 +251,8 @@ settings.set_valued_ops = args.set_valued_ops
 
 # Run data flow analysis
 dataflow.analyse_graph(cfg)
+
+logging.info("Produced control flow graph with %s basic blocks.", len(cfg.blocks))
 
 # Generate output using the requested exporter(s)
 if not args.no_out:
