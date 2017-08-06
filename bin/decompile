@@ -13,15 +13,13 @@ sys.path.insert(0, src_path)
 import exporter
 import dataflow
 import tac_cfg
-import logger
+import logging
 import settings
-
-ll, lm, lh = logger.log_low, logger.log_med, logger.log_high
 
 # Version string to display with -v
 VERSION = """\
 +------------------------------+
-| Ethereum Decompiler v0.0.2   |
+| Vandal EVM Decompiler v0.0.3 |
 | (c) The University of Sydney |
 +------------------------------+\
 """
@@ -65,7 +63,7 @@ parser.add_argument("-g",
                          "relationships with the format inferred from the "
                          "given output filename (cfg.dot by default). "
                          "Non-DOT formats like pdf, png, etc. require "
-                         "Graphviz to be installed. Use html to generate"
+                         "Graphviz to be installed. Use html to generate "
                          "an interactive web page of the graph.")
 
 parser.add_argument("-t",
@@ -125,7 +123,14 @@ parser.add_argument("-T",
 parser.add_argument("-v",
                     "--verbose",
                     action="store_true",
-                    help="produce more verbose debug output.")
+                    help="emit verbose debug output to stderr.")
+
+parser.add_argument("-vv",
+                    "--prolix",
+                    action="store_true",
+                    help="emit verbose debug output to stderr, including "
+                         "extra debug messages from dataflow analysis and "
+                         "elsewhere.")
 
 parser.add_argument("-n",
                     "--no_out",
@@ -203,9 +208,13 @@ parser.add_argument("outfile",
 # Do the argparsing
 args = parser.parse_args()
 
-# Set global LOG_LEVEL to HIGH if --verbose flag given
-if args.verbose:
-  logger.LOG_LEVEL = logger.Verbosity.HIGH
+# Set up logger, with appropriate log level depending on verbosity.
+log_level = logging.WARNING
+if args.prolix:
+  log_level = logging.DEBUG
+elif args.verbose:
+  log_level = logging.INFO
+logging.basicConfig(format='%(levelname)s: %(message)s', level=log_level)
 
 # Handle --version
 if args.version:
@@ -213,23 +222,21 @@ if args.version:
   sys.exit(1)
 
 # Always show version for log_level >= LOW
-ll(version())
+logging.info("\n" + version())
 
 # Build TAC CFG from input file
 try:
-  lh("Reading from {}", args.infile.name)
+  logging.info("Reading from %s", args.infile.name)
   if args.disassembly:
     cfg = tac_cfg.TACGraph.from_dasm(args.infile, args.strict)
   else:
     cfg = tac_cfg.TACGraph.from_bytecode(args.infile, args.strict)
-  ll("TAC CFG generation completed")
+  logging.info("TAC CFG generation completed.")
 
 # Catch a Control-C and exit with UNIX failure status 1
 except KeyboardInterrupt:
-  logger.log("\nInterrupted by user")
+  logging.critical("\nInterrupted by user")
   sys.exit(1)
-
-ll("Applying stack analysis TAC CFG")
 
 # Initialise data flow settings
 settings.max_iterations = args.max_iter
@@ -242,20 +249,22 @@ settings.final_mutate_jumps = args.final_mutate_jumps
 settings.final_generate_throws = not args.final_no_throws
 settings.set_valued_ops = not args.disable_set_valued_ops
 
+settings.collect_analytics = True
+
 # Run data flow analysis
 dataflow.analyse_graph(cfg)
 
 # Generate output using the requested exporter(s)
 if not args.no_out:
-  ll("Writing string output")
+  logging.info("Writing string output.")
   print(exporter.CFGStringExporter(cfg).export(), file=args.outfile)
 
 if args.graph is not None:
-  ll("Writing DOT output")
+  logging.info("Drawing CFG image.")
   exporter.CFGDotExporter(cfg).export(args.graph)
 
 if args.tsv is not None:
-  ll("Writing TSV output")
+  logging.info("Writing TSV output.")
   exporter.CFGTsvExporter(cfg).export(output_dir=args.tsv,
                                       dominators=args.dominators,
                                       out_opcodes=args.opcodes)
