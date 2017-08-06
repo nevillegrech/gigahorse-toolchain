@@ -141,14 +141,14 @@ parser.add_argument("-W",
                     "--widen_limit",
                     type=int,
                     nargs="?",
-                    default=20,
-                    const=20,
+                    default=10,
+                    const=10,
                     metavar="LIMIT",
-                    help="Whenever a stack variable may take more than "
-                         "this number of possible values, then widen "
-                         "that variable's value to the Top lattice value "
-                         "(treat its value as unconstrained). "
-                         "Negative values mean no limit. Default value is 20.")
+                    help="Whenever the result of an operation may take more "
+                         "than this number of possible values, then widen "
+                         "the result variable's value to the Top lattice "
+                         "value (treat its value as unconstrained). "
+                         "Negative values mean no limit. Default value is 10.")
 
 parser.add_argument("-C",
                     "--clamp_stack_minimum",
@@ -185,10 +185,10 @@ parser.add_argument("-V",
                     help="show program's version number and exit.")
 
 parser.add_argument("-S",
-                    "--set_valued_ops",
+                    "--disable_set_valued_ops",
                     action="store_true",
-                    help="apply arithmetic operations to variables with "
-                         "multiple values; by default, they are only applied "
+                    help="do not apply arithmetic operations to variables with "
+                         "multiple values; if set, they are only applied "
                          "to variables whose value is definite.")
 
 parser.add_argument("infile",
@@ -247,7 +247,7 @@ settings.clamp_large_stacks = (args.clamp_stack_minimum >= 0)
 settings.clamp_stack_minimum = args.clamp_stack_minimum
 settings.final_mutate_jumps = args.final_mutate_jumps
 settings.final_generate_throws = not args.final_no_throws
-settings.set_valued_ops = args.set_valued_ops
+settings.set_valued_ops = not args.disable_set_valued_ops
 
 # Run data flow analysis
 dataflow.analyse_graph(cfg)
