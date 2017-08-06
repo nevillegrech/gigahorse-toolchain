@@ -231,7 +231,7 @@ try:
     cfg = tac_cfg.TACGraph.from_dasm(args.infile, args.strict)
   else:
     cfg = tac_cfg.TACGraph.from_bytecode(args.infile, args.strict)
-  logging.info("TAC CFG generation completed.")
+  logging.info("Initial CFG generation completed.")
 
 # Catch a Control-C and exit with UNIX failure status 1
 except KeyboardInterrupt:
