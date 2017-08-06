@@ -7,7 +7,7 @@ import collections
 import cfg
 import evm_cfg
 import opcodes
-import logger
+import logging
 
 ENDIANNESS = "big"
 """
@@ -69,23 +69,20 @@ class EVMDasmParser(BlockParser):
     # also ignored.
     for i, l in enumerate(self._raw):
       if len(l.split()) == 1:
-        logger.log_high("Warning (line {}): skipping invalid disassembly:\n   {}"
-                    .format(i+1, l.rstrip()))
+        logging.debug("Line %s: invalid disassembly:\n   %s", i+1, l.rstrip())
         if strict:
-            raise RuntimeError("Invalid disassembly at line {}: {}"
-                               .format(i+1, l))
+          raise RuntimeError("Line {}: invalid disassembly {}".format(i+1, l))
         continue
       elif len(l.split()) < 1:
         if strict:
-            logger.warning("Warning (line {}): empty disassembly.".format(i+1))
-            raise RuntimeError("Empty disassembly at line {}.".format(i+1))
+          logging.warning("Line %s: empty disassembly.", i+1)
+          raise RuntimeError("Line {}: empty disassembly.".format(i+1))
         continue
 
       try:
         self._ops.append(self.evm_op_from_dasm(l))
       except (ValueError, LookupError, NotImplementedError) as e:
-        logger.log_high("Warning (line {}): skipping invalid disassembly:\n   {}"
-                    .format(i+1, l.rstrip()))
+        logging.debug("Line %s: invalid disassembly:\n   %s", i+1, l.rstrip())
         if strict:
             raise e
 
@@ -170,11 +167,10 @@ class EVMBytecodeParser(BlockParser):
       except LookupError as e:
         # oops, unknown opcode
         if strict:
-          logger.warning("ERROR (strict) at PC = 0x{:02x}".format(pc))
+          logging.warning("(strict) Invalid opcode at PC = %#02x: %s", pc, str(e))
           raise e
-        # not strict, so just warn:
-        logger.log_high("Warning (PC = 0x{:02x}): {}".format(pc, str(e)))
-        logger.log_high("Warning: Encountered invalid opcode")
+        # not strict, so just log:
+        logging.debug("Invalid opcode at PC = %#02x: %s", pc, str(e))
         op = opcodes.missing_opcode(byte)
         const = byte
         
