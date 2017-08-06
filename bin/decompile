@@ -248,7 +248,6 @@ settings.clamp_stack_minimum = args.clamp_stack_minimum
 settings.final_mutate_jumps = args.final_mutate_jumps
 settings.final_generate_throws = not args.final_no_throws
 settings.set_valued_ops = not args.disable_set_valued_ops
-
 settings.collect_analytics = True
 
 # Run data flow analysis
