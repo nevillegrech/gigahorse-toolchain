@@ -245,6 +245,8 @@ except KeyboardInterrupt:
   sys.exit(1)
 
 # Initialise data flow settings
+settings.import_config()
+"""
 settings.max_iterations = args.max_iter
 settings.bailout_seconds = args.bail_time
 settings.widen_variables = (args.widen_limit >= 0)
@@ -255,6 +257,7 @@ settings.final_mutate_jumps = args.final_mutate_jumps
 settings.final_generate_throws = not args.final_no_throws
 settings.set_valued_ops = not args.disable_set_valued_ops
 settings.analytics = not args.no_analytics
+"""
 
 # Run data flow analysis
 dataflow.analyse_graph(cfg)
