@@ -137,6 +137,12 @@ parser.add_argument("-n",
                     action="store_true",
                     help="do not output decompiled graph.")
 
+parser.add_argument("-y",
+                    "--no_analytics",
+                    action="store_true",
+                    help="disable the collection of analytics during dataflow "
+                         "analysis. Might give a small speed improvement.")
+
 parser.add_argument("-W",
                     "--widen_limit",
                     type=int,
@@ -248,7 +254,7 @@ settings.clamp_stack_minimum = args.clamp_stack_minimum
 settings.final_mutate_jumps = args.final_mutate_jumps
 settings.final_generate_throws = not args.final_no_throws
 settings.set_valued_ops = not args.disable_set_valued_ops
-settings.collect_analytics = True
+settings.analytics = not args.no_analytics
 
 # Run data flow analysis
 dataflow.analyse_graph(cfg)
