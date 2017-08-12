@@ -13,6 +13,7 @@ import time
 import sys
 import itertools
 import json
+import logging
 
 # Add the source directory to the path to ensure the imports work
 src_path = join(dirname(abspath(__file__)), "../../src")
@@ -23,9 +24,7 @@ import dataflow
 import tac_cfg
 import opcodes
 import exporter
-import logger
 import settings
-ll = logger.log_low
 
 
 ## Constants
@@ -75,7 +74,7 @@ DEFAULT_NUM_JOBS = 4
 parser = argparse.ArgumentParser(
   description="A batch analyser for EVM bytecode programs.")
 
-parser.add_argument("-c",
+parser.add_argument("-d",
                     "--contract_dir",
                     nargs="?",
                     default=DEFAULT_CONTRACT_DIR,
@@ -92,7 +91,7 @@ parser.add_argument("-S",
                     metavar="BINARY",
                     help="the location of the souffle binary.")
 
-parser.add_argument("-C",
+parser.add_argument("-M",
                     "--compile_souffle",
                     action="store_true",
                     default=False,
@@ -150,6 +149,20 @@ parser.add_argument("-k",
                     const=0,
                     metavar="NUM",
                     help="Skip the the analysis of the first NUM contracts.")
+
+parser.add_argument("-c",
+                    "--config",
+                    metavar="CFG_STRING",
+                    help="override settings from the configuration files "
+                         "in the format \"key1=value1, key2=value2...\" "
+                         "(with the quotation marks).")
+
+parser.add_argument("-C",
+                    "--config_file",
+                    default=settings._CONFIG_LOC_,
+                    metavar="FILE",
+                    help="read the settings from the given file; "
+                         "any given settings will override the defaults.")
 
 parser.add_argument("-T",
                     "--timeout_secs",
@@ -269,9 +282,6 @@ def analyse_contract(job_index: int, index: int, filename: str, result_queue) ->
       # Decompile and perform dataflow analysis upon the given graph
       decomp_start = time.time()
       cfg = tac_cfg.TACGraph.from_bytecode(file, strict=args.strict)
-      settings.max_iterations  = args.max_iter
-      settings.bailout_seconds = args.bail_time
-      settings.collect_analytics = True
       analytics = dataflow.analyse_graph(cfg)
 
       # Export relations to temp working directory
@@ -305,7 +315,7 @@ def analyse_contract(job_index: int, index: int, filename: str, result_queue) ->
       # Decompile + Analysis time
       decomp_time = souffle_start - decomp_start
       souffle_time = time.time() - souffle_start
-      ll("{}: {:.20}... completed in {:.2f} + {:.2f} secs".format(index, filename,
+      log("{}: {:.20}... completed in {:.2f} + {:.2f} secs".format(index, filename,
                                                                   decomp_time,
                                                                   souffle_time))
 
@@ -315,7 +325,7 @@ def analyse_contract(job_index: int, index: int, filename: str, result_queue) ->
       result_queue.put((filename, vulns, meta, analytics))
 
   except Exception as e:
-    ll("Error: {}".format(e))
+    log("Error: {}".format(e))
     result_queue.put((filename, [], ["error"], {}))
 
 
@@ -340,22 +350,32 @@ def flush_queue(period, run_sig,
 ## Main Body
 
 args = parser.parse_args()
+settings.import_config(args.config_file)
+# Override config file with any provided settings.
+if args.config is not None:
+  pairs = [pair.split("=") for pair in args.config.replace(" ", "").split(",")]
+  for k,v in pairs:
+    settings.set_from_string(k, v)
 
-if args.quiet:
-  logger.LOG_LEVEL = logger.Verbosity.SILENT
-else:
-  logger.LOG_LEVEL = logger.Verbosity.MEDIUM
+settings.max_iterations  = args.max_iter
+settings.bailout_seconds = args.bail_time
+# Force analytics to be turned on.
+settings.collect_analytics = True
 
-ll("Setting up working directory {}.".format(TEMP_WORKING_DIR))
+log_level = logging.WARNING if args.quiet else logging.INFO + 1
+log = lambda msg: logging.log(logging.INFO + 1, msg)
+logging.basicConfig(format='%(message)s', level=log_level)
+
+log("Setting up working directory {}.".format(TEMP_WORKING_DIR))
 for i in range(args.jobs):
   os.makedirs(working_dir(i, True), exist_ok=True)
   empty_working_dir(i)
 
-ll("Reading TSV settings.")
+log("Reading TSV settings.")
 aquire_tsv_settings()
 
 # Extract contract filenames.
-ll("Processing contract names.")
+log("Processing contract names.")
 if args.from_file:
   # Get contract filenames from a file if specified.
   with open(args.from_file, 'r') as f:
@@ -375,7 +395,7 @@ runtime_files = filter(lambda filename: pattern.match(filename) is not None,
 stop_index = None if args.num_contracts is None else args.skip + args.num_contracts
 to_process = itertools.islice(runtime_files, args.skip, stop_index)
 
-ll("Setting up workers.")
+log("Setting up workers.")
 # Set up multiprocessing result list and queue.
 manager = Manager()
 
@@ -398,7 +418,7 @@ avail_jobs = list(range(args.jobs))
 contract_iter = enumerate(to_process)
 contracts_exhausted = False
 
-ll("Analysing...\n")
+log("Analysing...\n")
 try:
   while not contracts_exhausted:
 
@@ -428,9 +448,9 @@ try:
         job_index = workers[i]["job_index"]
 
         if time.time() - start_time > args.timeout_secs:
-          res_queue.put((name, [], ["TIMEOUT"]))
+          res_queue.put((name, [], ["TIMEOUT"], {}))
           proc.terminate()
-          ll("{} timed out.".format(name))
+          log("{} timed out.".format(name))
           to_remove.append(i)
           avail_jobs.append(job_index)
         elif not proc.is_alive():
@@ -445,7 +465,7 @@ try:
       time.sleep(0.01)
 
   # Conclude and write results to file.
-  ll("\nFinishing...\n")
+  log("\nFinishing...\n")
   run_signal.clear()
   flush_proc.join(FLUSH_PERIOD + 1)
 
@@ -462,11 +482,11 @@ try:
         counts[res] += 1
 
   total = len(res_list)
-  ll("{} of {} contracts flagged.\n".format(total_flagged, total))
+  log("{} of {} contracts flagged.\n".format(total_flagged, total))
   for res, count in counts.items():
-    ll("  {}: {:.2f}%".format(res, 100*count/total))
+    log("  {}: {:.2f}%".format(res, 100*count/total))
 
-  ll("\nWriting results to {}".format(args.results_file))
+  log("\nWriting results to {}".format(args.results_file))
   with open(args.results_file, 'w') as f:
     f.write(json.dumps(list(res_list)))
 
@@ -475,6 +495,6 @@ except Exception as e:
   traceback.print_exc()
   flush_proc.terminate()
 
-ll("Removing working directory {}".format(TEMP_WORKING_DIR))
+log("Removing working directory {}".format(TEMP_WORKING_DIR))
 import shutil
 shutil.rmtree(TEMP_WORKING_DIR)
