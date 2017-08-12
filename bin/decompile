@@ -94,31 +94,11 @@ parser.add_argument("-o",
                          "list of opcodes. Opcode X will be stored in "
                          "op_X.facts.")
 
-parser.add_argument("-I",
-                    "--max_iter",
-                    type=int,
-                    nargs="?",
-                    default=-1,
-                    const=-1,
-                    metavar="ITERATIONS",
-                    help="perform no more than the specified number of "
-                         "analysis iterations. Lower is faster, but "
-                         "potentially less precise. A negative value specifies "
-                         "no cap on the iteration count. No cap by default.")
-
-parser.add_argument("-T",
-                    "--bail_time",
-                    type=int,
-                    nargs="?",
-                    default=-1,
-                    const=-1,
-                    metavar="SECONDS",
-                    help="begin to terminate the analysis if it's looking to "
-                         "take more time than the specified number of seconds. "
-                         "Bailing out early may mean the analysis is not able "
-                         "to reach a fixed-point, so results may be less "
-                         "precise. A negative value means no cap on the "
-                         "running time. No cap by default.")
+parser.add_argument("-c",
+                    "--config",
+                    default="",
+                    help="override settings from the configuration file "
+                         "in the format \"key1=value1, key2=value2...\".")
 
 parser.add_argument("-v",
                     "--verbose",
@@ -137,65 +117,10 @@ parser.add_argument("-n",
                     action="store_true",
                     help="do not output decompiled graph.")
 
-parser.add_argument("-y",
-                    "--no_analytics",
-                    action="store_true",
-                    help="disable the collection of analytics during dataflow "
-                         "analysis. Might give a small speed improvement.")
-
-parser.add_argument("-W",
-                    "--widen_limit",
-                    type=int,
-                    nargs="?",
-                    default=10,
-                    const=10,
-                    metavar="LIMIT",
-                    help="Whenever the result of an operation may take more "
-                         "than this number of possible values, then widen "
-                         "the result variable's value to the Top lattice "
-                         "value (treat its value as unconstrained). "
-                         "Negative values mean no limit. Default value is 10.")
-
-parser.add_argument("-C",
-                    "--clamp_stack_minimum",
-                    type=int,
-                    nargs="?",
-                    default=0,
-                    const=0,
-                    metavar="LIMIT",
-                    help="If stacks are growing deeper without more of the "
-                         "program's control flow graph being inferred for "
-                         "sufficiently many iterations, we can freeze the "
-                         "maximum size of these stacks in order to save "
-                         "on computation. This threshold will provide a "
-                         "lower bound to the size that these stacks can be "
-                         "clamped to. Providing a negative value will not "
-                         "clamp the stacks. Default value is 0.")
-
-parser.add_argument("-J",
-                    "--final_mutate_jumps",
-                    action="store_true",
-                    help="In the final dataflow iteration, delete or "
-                         "specialise jumps if jump conditions are known. "
-                         "E.g. JUMPI with a true condition becomes a JUMP.")
-
-parser.add_argument("-H",
-                    "--final_no_throws",
-                    action="store_false",
-                    help="Do not convert JUMPs to THROWs if they are "
-                         "known to jump to invalid destinations.")
-
 parser.add_argument("-V",
                     "--version",
                     action="store_true",
                     help="show program's version number and exit.")
-
-parser.add_argument("-S",
-                    "--disable_set_valued_ops",
-                    action="store_true",
-                    help="do not apply arithmetic operations to variables with "
-                         "multiple values; if set, they are only applied "
-                         "to variables whose value is definite.")
 
 parser.add_argument("infile",
                     nargs="?",
@@ -244,20 +169,13 @@ except KeyboardInterrupt:
   logging.critical("\nInterrupted by user")
   sys.exit(1)
 
-# Initialise data flow settings
+# Initialise data flow settings.
 settings.import_config()
-"""
-settings.max_iterations = args.max_iter
-settings.bailout_seconds = args.bail_time
-settings.widen_variables = (args.widen_limit >= 0)
-settings.widen_threshold = args.widen_limit
-settings.clamp_large_stacks = (args.clamp_stack_minimum >= 0)
-settings.clamp_stack_minimum = args.clamp_stack_minimum
-settings.final_mutate_jumps = args.final_mutate_jumps
-settings.final_generate_throws = not args.final_no_throws
-settings.set_valued_ops = not args.disable_set_valued_ops
-settings.analytics = not args.no_analytics
-"""
+
+# Override config file with any provided settings.
+pairs = [pair.split("=") for pair in args.config.replace(" ", "").split(",")]
+for k,v in pairs:
+  settings.set_from_string(k, v)
 
 # Run data flow analysis
 dataflow.analyse_graph(cfg)
