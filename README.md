@@ -67,7 +67,7 @@ $ bin/decompile -n -v -c "remove_unreachable=1" -g loop.html loop.hex
 ```
 
 And the resulting graph:
-![The derived control flow graph.](.loop.png)
+![The derived control flow graph.](.loop.svg)
 
 
 ## Requirements
