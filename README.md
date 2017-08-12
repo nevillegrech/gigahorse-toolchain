@@ -78,8 +78,7 @@ $ solc --bin-runtime loop.sol | tail -n 1 > loop.hex
 $ bin/decompile -n -v -c "remove_unreachable=1" -g loop.html loop.hex
 ```
 
-And the resulting graph:
-![The derived control flow graph.](.loop.svg)
+And the [resulting graph](.loop.html).
 
 
 ## Documentation
