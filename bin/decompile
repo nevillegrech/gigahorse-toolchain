@@ -96,9 +96,17 @@ parser.add_argument("-o",
 
 parser.add_argument("-c",
                     "--config",
-                    default="",
-                    help="override settings from the configuration file "
-                         "in the format \"key1=value1, key2=value2...\".")
+                    metavar="CFG_STRING",
+                    help="override settings from the configuration files "
+                         "in the format \"key1=value1, key2=value2...\" "
+                         "(with the quotation marks).")
+
+parser.add_argument("-C",
+                    "--config_file",
+                    default=settings._CONFIG_LOC_,
+                    metavar="FILE",
+                    help="read the settings from the given file; "
+                         "any given settings will override the defaults.")
 
 parser.add_argument("-v",
                     "--verbose",
@@ -108,9 +116,8 @@ parser.add_argument("-v",
 parser.add_argument("-vv",
                     "--prolix",
                     action="store_true",
-                    help="emit verbose debug output to stderr, including "
-                         "extra debug messages from dataflow analysis and "
-                         "elsewhere.")
+                    help="higher verbosity level, including extra debug "
+                         "messages from dataflow analysis and elsewhere.")
 
 parser.add_argument("-n",
                     "--no_out",
@@ -170,12 +177,13 @@ except KeyboardInterrupt:
   sys.exit(1)
 
 # Initialise data flow settings.
-settings.import_config()
+settings.import_config(args.config_file)
 
 # Override config file with any provided settings.
-pairs = [pair.split("=") for pair in args.config.replace(" ", "").split(",")]
-for k,v in pairs:
-  settings.set_from_string(k, v)
+if args.config is not None:
+  pairs = [pair.split("=") for pair in args.config.replace(" ", "").split(",")]
+  for k,v in pairs:
+    settings.set_from_string(k, v)
 
 # Run data flow analysis
 dataflow.analyse_graph(cfg)
