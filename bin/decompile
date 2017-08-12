@@ -106,7 +106,8 @@ parser.add_argument("-C",
                     default=settings._CONFIG_LOC_,
                     metavar="FILE",
                     help="read the settings from the given file; "
-                         "any given settings will override the defaults.")
+                         "any given settings will override the defaults. "
+                         "Read from config.ini if not set.")
 
 parser.add_argument("-v",
                     "--verbose",

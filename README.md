@@ -13,7 +13,7 @@ either by hand or by machine.
 
 ## Usage
 
-The decompiler and disassembler are invoked as follows:
+The decompiler and disassembler are invoked at their simplest as follows:
 
 ```
 $ bin/decompile examples/dao_hack.hex
@@ -117,8 +117,8 @@ from the repository root. There are also notes on the github wiki.
 Most development should happen on *feature branches*. Here's our git workflow:
 
 1. To work on a new feature, create a new **git** branch based on the latest
-   master commit, with a sensible name (e.g. `three_address`). Move the feature's
-   corresponding project card(s) to *In Progress*.
+   master commit, with a sensible name. Move the feature's corresponding
+   project card(s) to *In Progress*.
 2. Commit to the new feature branch early and often.
 3. When the feature is complete, submit a **pull request** to merge
    the feature branch into our master branch. Move the corresponding project
