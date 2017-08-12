@@ -11,6 +11,18 @@ with the CFG, exposes data dependencies. The aim of this project is to allow
 compiled smart contract logic to be inspected more conveniently,
 either by hand or by machine.
 
+
+## Requirements
+
+An installation of **Python 3.5** or later is required, alongside various
+packages. The recommended way to install all package dependencies is using
+`pip` and our provided `requirements.txt`, like so:
+
+```
+$ pip install -r requirements.txt
+```
+
+
 ## Usage
 
 The decompiler and disassembler are invoked at their simplest as follows:
@@ -68,17 +80,6 @@ $ bin/decompile -n -v -c "remove_unreachable=1" -g loop.html loop.hex
 
 And the resulting graph:
 ![The derived control flow graph.](.loop.svg)
-
-
-## Requirements
-
-An installation of **Python 3.5** or later is required, alongside various
-packages. The recommended way to install all package dependencies is using
-`pip` and our provided `requirements.txt`, like so:
-
-```
-$ pip install -r requirements.txt
-```
 
 
 ## Documentation
