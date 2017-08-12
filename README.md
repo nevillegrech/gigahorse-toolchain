@@ -37,7 +37,7 @@ page displays the code in the basic block it represents, an equivalent
 decompiled block of code, and some accompanying information.
 
 
-Further invocation options are detailed when the `--help` flag is supplied.
+Further invocation options are detailed when the `--help` flag is supplied:
 
 ```
 $ bin/decompile --help
@@ -90,7 +90,10 @@ Sphinx is used for documentation generation with documentation source files in
 $ make clean doc
 ```
 
-from the repository root. There are also notes on the github wiki.
+from the repository root. The documentation index will be placed at
+`doc/build/html/index.html`.
+
+There are also some notes on the github wiki.
 
 
 ## Code Style
