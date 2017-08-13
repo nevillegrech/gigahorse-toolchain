@@ -64,6 +64,18 @@ class OpCode:
     return (ADD.code <= self.code <= SIGNEXTEND.code) or \
            (LT.code <= self.code <= BYTE.code)
 
+  def is_memory(self) -> bool:
+    """Predicate: opcode operates on memory"""
+    return MLOAD.code <= self.code <= MSTORE8.code
+
+  def is_storage(self) -> bool:
+    """Predicate: opcode operates on storage ('the tape')"""
+    return SLOAD.code <= self.code <= SSTORE.code
+
+  def is_call(self) -> bool:
+    """Predicate: opcode calls an external contract"""
+    return self in (CALL, CALLCODE, DELEGATECALL)
+
   def alters_flow(self) -> bool:
     """Predicate: opcode alters EVM control flow."""
     return (self.code in [JUMP.code, JUMPI.code]) or self.possibly_halts()
