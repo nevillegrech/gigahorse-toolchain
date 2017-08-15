@@ -95,6 +95,16 @@ parser.add_argument("-o",
                          "list of opcodes. Opcode X will be stored in "
                          "op_X.facts.")
 
+parser.add_argument("-f",
+                    "--function_extraction",
+                    action="store_true",
+                    help="Extract functions in graph before outputting.")
+
+parser.add_argument("-m",
+                    "--mark_functions",
+                    action="store_true",
+                    help="Mark function bodies in generated graph.")
+
 parser.add_argument("-c",
                     "--config",
                     metavar="CFG_STRING",
@@ -144,18 +154,6 @@ parser.add_argument("outfile",
                     default=sys.stdout,
                     help="file to which decompiler output should be written "
                          "(stdout by default).")
-parser.add_argument("-f",
-                    "--function_extraction",
-                    action="store_true",
-                    default=False,
-                    help="Extract functions in graph before outputting.")
-
-parser.add_argument("-m",
-                    "--mark_functions",
-                    action="store_true",
-                    default=False,
-                    help="Mark function bodies in generated graph. Can"
-                         " only be used with the function extraction enabled.")
 
 # Do the argparsing
 args = parser.parse_args()
@@ -202,12 +200,14 @@ if args.config is not None:
 # Run data flow analysis
 dataflow.analyse_graph(cfg)
 
-if args.function_extraction:
+# Perform function analysis
+if args.function_extraction or args.mark_functions:
   logging.info("Extracting functions")
   funcs = func_extr.FunExtract(cfg)
   funcs.extract()
-  print(funcs.export(args.mark_functions))
   cfg = funcs.tac
+  if not args.no_out:
+    print(funcs.export(args.mark_functions))
 
 # Generate output using the requested exporter(s)
 if not args.no_out:
