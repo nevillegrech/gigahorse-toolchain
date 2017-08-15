@@ -12,10 +12,10 @@ sys.path.insert(0, src_path)
 # Local project imports
 import exporter
 import dataflow
+import function
 import tac_cfg
 import logging
 import settings
-import func_extr
 
 # Version string to display with -v
 VERSION = """\
