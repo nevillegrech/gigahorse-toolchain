@@ -52,20 +52,38 @@ class OpCode:
   def is_log(self) -> bool:
     """Predicate: opcode is a log operation."""
     return LOG0.code <= self.code <= LOG4.code
+  
+  def is_missing(self) -> bool:
+      return self.code not in BYTECODES
+
+  def is_invalid(self) -> bool:
+      return (self.code == INVALID.code) or self.is_missing()
 
   def is_arithmetic(self) -> bool:
     """Predicate: opcode's result can be calculated from its inputs alone."""
     return (ADD.code <= self.code <= SIGNEXTEND.code) or \
            (LT.code <= self.code <= BYTE.code)
 
+  def is_memory(self) -> bool:
+    """Predicate: opcode operates on memory"""
+    return MLOAD.code <= self.code <= MSTORE8.code
+
+  def is_storage(self) -> bool:
+    """Predicate: opcode operates on storage ('the tape')"""
+    return SLOAD.code <= self.code <= SSTORE.code
+
+  def is_call(self) -> bool:
+    """Predicate: opcode calls an external contract"""
+    return self in (CALL, CALLCODE, DELEGATECALL)
+
   def alters_flow(self) -> bool:
     """Predicate: opcode alters EVM control flow."""
-    return self.code in [JUMP.code, JUMPI.code, RETURN.code,
-                         SUICIDE.code, STOP.code, THROW.code]
+    return (self.code in [JUMP.code, JUMPI.code]) or self.possibly_halts()
 
   def halts(self) -> bool:
     """Predicate: opcode causes the EVM to halt."""
-    return self.code in [STOP.code, RETURN.code, SUICIDE.code, THROW.code]
+    return (self.code in [STOP.code, RETURN.code, SELFDESTRUCT.code, THROW.code]) or \
+           self.is_invalid()
 
   def possibly_halts(self) -> bool:
     """Predicate: opcode MAY cause the EVM to halt. (halts + THROWI)"""
@@ -228,7 +246,8 @@ CALL         = OpCode("CALL",         0xf1, 7, 1)
 CALLCODE     = OpCode("CALLCODE",     0xf2, 7, 1)
 RETURN       = OpCode("RETURN",       0xf3, 2, 0)
 DELEGATECALL = OpCode("DELEGATECALL", 0xf4, 7, 1)
-SUICIDE      = OpCode("SUICIDE",      0xff, 1, 0)
+INVALID      = OpCode("INVALID",      0xfe, 0, 0)
+SELFDESTRUCT = OpCode("SELFDESTRUCT", 0xff, 1, 0)
 
 # TAC Operations
 # These are not EVM opcodes, but they are used by the three-address code
@@ -237,7 +256,6 @@ CONST  = OpCode("CONST", -2, 0, 0)
 LOG    = OpCode("LOG", -3, 0, 0)
 THROW  = OpCode("THROW", -4, 0, 0)
 THROWI = OpCode("THROWI", -5, 0, 0)
-
 
 # Produce mappings from names and instruction codes to opcode objects
 OPCODES = {
@@ -252,7 +270,6 @@ OPCODES["TXGASPRICE"] = OPCODES["GASPRICE"]
 
 BYTECODES = {code.code: code for code in OPCODES.values()}
 """Dictionary mapping of byte values to EVM OpCode objects"""
-
 
 def opcode_by_name(name:str) -> OpCode:
   """
@@ -277,3 +294,15 @@ def opcode_by_value(val:int) -> OpCode:
   if val not in BYTECODES:
     raise LookupError("No opcode with value '0x{:02X}'.".format(val))
   return BYTECODES[val]
+
+def missing_opcode(val:int) -> OpCode:
+    """
+    Produces a new OpCode with the given value, as long as that is
+    an unknown code.
+
+    Throws:
+      ValueError: if there is an opcode defined with the given value.
+    """
+    if val in BYTECODES:
+        raise ValueError("Opcode {} exists.")
+    return OpCode("MISSING", val, 0, 0)

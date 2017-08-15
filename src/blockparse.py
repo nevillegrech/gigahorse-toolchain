@@ -2,13 +2,12 @@
 
 import abc
 import typing as t
-import traceback
 import collections
 
 import cfg
 import evm_cfg
 import opcodes
-import logger
+import logging
 
 ENDIANNESS = "big"
 """
@@ -70,18 +69,22 @@ class EVMDasmParser(BlockParser):
     # also ignored.
     for i, l in enumerate(self._raw):
       if len(l.split()) == 1:
-        logger.warning("Warning (line {}): skipping invalid disassembly:\n   {}"
-                    .format(i+1, l.rstrip()))
+        logging.debug("Line %s: invalid disassembly:\n   %s", i+1, l.rstrip())
+        if strict:
+          raise RuntimeError("Line {}: invalid disassembly {}".format(i+1, l))
         continue
       elif len(l.split()) < 1:
+        if strict:
+          logging.warning("Line %s: empty disassembly.", i+1)
+          raise RuntimeError("Line {}: empty disassembly.".format(i+1))
         continue
 
       try:
         self._ops.append(self.evm_op_from_dasm(l))
-      except (ValueError, LookupError) as e:
-        logger.log(traceback.format_exc(), logger.Verbosity.HIGH)
-        logger.warning("Warning (line {}): skipping invalid disassembly:\n   {}"
-                    .format(i+1, l.rstrip()))
+      except (ValueError, LookupError, NotImplementedError) as e:
+        logging.debug("Line %s: invalid disassembly:\n   %s", i+1, l.rstrip())
+        if strict:
+            raise e
 
     return evm_cfg.blocks_from_ops(self._ops)
 
@@ -101,14 +104,18 @@ class EVMDasmParser(BlockParser):
     # Convert hex PCs to ints
     if toks[0].startswith("0x"):
       toks[0] = int(toks[0], 16)
-
+    
     if len(toks) > 2:
-      return evm_cfg.EVMOp(int(toks[0]), opcodes.opcode_by_name(toks[1]), int(toks[2], 16))
+      val = int(toks[2], 16)
+      try:
+        return evm_cfg.EVMOp(int(toks[0]), opcodes.opcode_by_name(toks[1]), val)
+      except LookupError as e:
+        return evm_cfg.EVMOp(int(toks[0]), opcodes.missing_opcode(val), val)
     elif len(toks) > 1:
-      return evm_cfg.EVMOp(int(toks[0]), opcodes.opcode_by_name(toks[1]))
+        return evm_cfg.EVMOp(int(toks[0]), opcodes.opcode_by_name(toks[1]))
     else:
       raise NotImplementedError("Could not parse unknown disassembly format:" +
-                                "\n    {}".format(line))
+                                  "\n    {}".format(line))
 
 
 class EVMBytecodeParser(BlockParser):
@@ -159,15 +166,14 @@ class EVMBytecodeParser(BlockParser):
 
       except LookupError as e:
         # oops, unknown opcode
-        logger.log(traceback.format_exc(), logger.Verbosity.HIGH)
         if strict:
-          logger.warning("ERROR (strict) at PC = 0x{:02x}".format(pc))
+          logging.warning("(strict) Invalid opcode at PC = %#02x: %s", pc, str(e))
           raise e
-        # not strict, so just warn:
-        logger.warning("Warning (PC = 0x{:02x}): {}".format(pc, str(e)))
-        logger.warning("Warning: Ignoring invalid opcode")
-        continue
-
+        # not strict, so just log:
+        logging.debug("Invalid opcode at PC = %#02x: %s", pc, str(e))
+        op = opcodes.missing_opcode(byte)
+        const = byte
+        
       # push codes have an argument
       if op.is_push():
         const_size = op.push_len()

@@ -13,15 +13,14 @@ sys.path.insert(0, src_path)
 import exporter
 import dataflow
 import tac_cfg
-import logger
+import logging
+import settings
 import func_extr
-
-ll, lm, lh = logger.log_low, logger.log_med, logger.log_high
 
 # Version string to display with -v
 VERSION = """\
 +------------------------------+
-| Ethereum Decompiler v0.0.2   |
+| Vandal EVM Decompiler v0.0.3 |
 | (c) The University of Sydney |
 +------------------------------+\
 """
@@ -35,11 +34,18 @@ parser = argparse.ArgumentParser(
            description="An EVM bytecode disassembly decompiler that generates"
                        " three-address code for program analysis.")
 
+parser.add_argument("-a",
+                    "--disassembly",
+                    action="store_true",
+                    default=False,
+                    help="decompile dissassembled input. Overrides '-b'.")
+
 parser.add_argument("-b",
                     "--bytecode",
                     action="store_true",
                     default=False,
-                    help="treat input as bytecode rather than disassembly")
+                    help="disassemble and decompile bytecode input. This is "
+                         "the default mode.")
 
 parser.add_argument("-s",
                     "--strict",
@@ -58,7 +64,7 @@ parser.add_argument("-g",
                          "relationships with the format inferred from the "
                          "given output filename (cfg.dot by default). "
                          "Non-DOT formats like pdf, png, etc. require "
-                         "Graphviz to be installed. Use html to generate"
+                         "Graphviz to be installed. Use html to generate "
                          "an interactive web page of the graph.")
 
 parser.add_argument("-t",
@@ -89,36 +95,31 @@ parser.add_argument("-o",
                          "list of opcodes. Opcode X will be stored in "
                          "op_X.facts.")
 
-parser.add_argument("-I",
-                    "--max_iter",
-                    type=int,
-                    nargs="?",
-                    default=-1,
-                    const=-1,
-                    metavar="ITERATIONS",
-                    help="perform no more than the specified number of "
-                         "analysis iterations. Lower is faster, but "
-                         "potentially less precise. A negative value specifies "
-                         "no cap on the iteration count. No cap by default.")
+parser.add_argument("-c",
+                    "--config",
+                    metavar="CFG_STRING",
+                    help="override settings from the configuration files "
+                         "in the format \"key1=value1, key2=value2...\" "
+                         "(with the quotation marks).")
 
-parser.add_argument("-T",
-                    "--bail_time",
-                    type=int,
-                    nargs="?",
-                    default=-1,
-                    const=-1,
-                    metavar="SECONDS",
-                    help="begin to terminate the analysis if it's looking to "
-                         "take more time than the specified number of seconds. "
-                         "Bailing out early may mean the analysis is not able "
-                         "to reach a fixed-point, so results may be less "
-                         "precise. A negative value means no cap on the "
-                         "running time. No cap by default.")
+parser.add_argument("-C",
+                    "--config_file",
+                    default=settings._CONFIG_LOC_,
+                    metavar="FILE",
+                    help="read the settings from the given file; "
+                         "any given settings will override the defaults. "
+                         "Read from config.ini if not set.")
 
 parser.add_argument("-v",
                     "--verbose",
                     action="store_true",
-                    help="produce more verbose debug output.")
+                    help="emit verbose debug output to stderr.")
+
+parser.add_argument("-vv",
+                    "--prolix",
+                    action="store_true",
+                    help="higher verbosity level, including extra debug "
+                         "messages from dataflow analysis and elsewhere.")
 
 parser.add_argument("-n",
                     "--no_out",
@@ -159,9 +160,13 @@ parser.add_argument("-m",
 # Do the argparsing
 args = parser.parse_args()
 
-# Set global LOG_LEVEL to HIGH if --verbose flag given
-if args.verbose:
-  logger.LOG_LEVEL = logger.Verbosity.HIGH
+# Set up logger, with appropriate log level depending on verbosity.
+log_level = logging.WARNING
+if args.prolix:
+  log_level = logging.DEBUG
+elif args.verbose:
+  log_level = logging.INFO
+logging.basicConfig(format='%(levelname)s: %(message)s', level=log_level)
 
 # Handle --version
 if args.version:
@@ -169,28 +174,36 @@ if args.version:
   sys.exit(1)
 
 # Always show version for log_level >= LOW
-ll(version())
+logging.info("\n" + version())
 
 # Build TAC CFG from input file
 try:
-  lh("Reading from {}", args.infile.name)
-  if args.bytecode:
-    cfg = tac_cfg.TACGraph.from_bytecode(args.infile, args.strict)
+  logging.info("Reading from %s", args.infile.name)
+  if args.disassembly:
+    cfg = tac_cfg.TACGraph.from_dasm(args.infile, args.strict)
   else:
-    cfg = tac_cfg.TACGraph.from_dasm(args.infile)
-  ll("TAC CFG generation completed")
+    cfg = tac_cfg.TACGraph.from_bytecode(args.infile, args.strict)
+  logging.info("Initial CFG generation completed.")
 
 # Catch a Control-C and exit with UNIX failure status 1
 except KeyboardInterrupt:
-  logger.log("\nInterrupted by user")
+  logging.critical("\nInterrupted by user")
   sys.exit(1)
 
-ll("Applying stack analysis TAC CFG")
-dataflow.analyse_graph(cfg, max_iterations=args.max_iter,
-                       bailout_seconds=args.bail_time)
+# Initialise data flow settings.
+settings.import_config(args.config_file)
+
+# Override config file with any provided settings.
+if args.config is not None:
+  pairs = [pair.split("=") for pair in args.config.replace(" ", "").split(",")]
+  for k,v in pairs:
+    settings.set_from_string(k, v)
+
+# Run data flow analysis
+dataflow.analyse_graph(cfg)
 
 if args.function_extraction:
-  ll("Extracting functions")
+  logging.info("Extracting functions")
   funcs = func_extr.FunExtract(cfg)
   funcs.extract()
   print(funcs.export(args.mark_functions))
@@ -198,15 +211,15 @@ if args.function_extraction:
 
 # Generate output using the requested exporter(s)
 if not args.no_out:
-  ll("Writing string output")
+  logging.info("Writing string output.")
   print(exporter.CFGStringExporter(cfg).export(), file=args.outfile)
 
 if args.graph is not None:
-  ll("Writing DOT output")
+  logging.info("Drawing CFG image.")
   exporter.CFGDotExporter(cfg).export(args.graph)
 
 if args.tsv is not None:
-  ll("Writing TSV output")
+  logging.info("Writing TSV output.")
   exporter.CFGTsvExporter(cfg).export(output_dir=args.tsv,
                                       dominators=args.dominators,
                                       out_opcodes=args.opcodes)
