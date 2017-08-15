@@ -203,7 +203,7 @@ dataflow.analyse_graph(cfg)
 # Perform function analysis
 if args.function_extraction or args.mark_functions:
   logging.info("Extracting functions")
-  funcs = func_extr.FunExtract(cfg)
+  funcs = function.FunExtract(cfg)
   funcs.extract()
   cfg = funcs.cfg
   if not args.no_out:
