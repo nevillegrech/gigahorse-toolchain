@@ -205,7 +205,7 @@ if args.function_extraction or args.mark_functions:
   logging.info("Extracting functions")
   funcs = func_extr.FunExtract(cfg)
   funcs.extract()
-  cfg = funcs.tac
+  cfg = funcs.cfg
   if not args.no_out:
     print(funcs.export(args.mark_functions))
 

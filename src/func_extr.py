@@ -6,8 +6,8 @@ import typing as t
 class FunExtract():
   """A class for extracting functions from an already generated TAC cfg."""
 
-  def __init__(self, tac: tac_cfg.TACGraph):
-    self.tac = tac  # the tac_cfg that this operates on
+  def __init__(self, cfg: tac_cfg.TACGraph):
+    self.cfg = cfg  # the tac_cfg that this operates on
     self.functions = []
     self.invoc_pairs = {} # a mapping of function invocation sites to their return addresses
 
@@ -71,7 +71,7 @@ class FunExtract():
       The block with the first CALLDATALOAD opcode in the graph
     """
     # CALLDATALOAD is either in first block or one of its successors
-    block = self.tac.get_block_by_ident("0x0")
+    block = self.cfg.get_block_by_ident("0x0")
     for op in block.evm_ops:
       if op.opcode.name == "CALLDATALOAD":
         return block
@@ -176,7 +176,7 @@ class FunExtract():
     # Get invocation site -> return block mappings
     start_blocks = []
     pair_list = []
-    for block in reversed(self.tac.blocks):
+    for block in reversed(self.cfg.blocks):
       invoc_pairs = self.is_private_func_start(block)
       if invoc_pairs:
         start_blocks.append(block)
@@ -228,7 +228,7 @@ class FunExtract():
         if len(pre.delta_stack) == 0:
           return None
         for val in list(pre.delta_stack):
-          ref_block = self.tac.get_block_by_ident(str(val))
+          ref_block = self.cfg.get_block_by_ident(str(val))
           # Ensure that the block pointed to by the block exists and is reachable
           if ref_block is not None and self.reachable(pre, [ref_block]):
             func_mapping[pre] = ref_block
