@@ -2,7 +2,6 @@
 
 import abc
 import typing as t
-import collections
 
 import cfg
 import evm_cfg
@@ -13,6 +12,7 @@ ENDIANNESS = "big"
 """
 The endianness to use when parsing hexadecimal or binary files.
 """
+
 
 class BlockParser(abc.ABC):
   @abc.abstractmethod
@@ -104,7 +104,7 @@ class EVMDasmParser(BlockParser):
     # Convert hex PCs to ints
     if toks[0].startswith("0x"):
       toks[0] = int(toks[0], 16)
-    
+
     if len(toks) > 2:
       val = int(toks[2], 16)
       try:
@@ -173,7 +173,7 @@ class EVMBytecodeParser(BlockParser):
         logging.debug("Invalid opcode at PC = %#02x: %s", pc, str(e))
         op = opcodes.missing_opcode(byte)
         const = byte
-        
+
       # push codes have an argument
       if op.is_push():
         const_size = op.push_len()

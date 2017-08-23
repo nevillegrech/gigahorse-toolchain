@@ -25,9 +25,11 @@ VERSION = """\
 +------------------------------+\
 """
 
+
 # Define a version() function in case we want dynamic version strings later
 def version():
   return VERSION
+
 
 # Configure argparse
 parser = argparse.ArgumentParser(
@@ -155,7 +157,7 @@ parser.add_argument("outfile",
                     help="file to which decompiler output should be written "
                          "(stdout by default).")
 
-# Do the argparsing
+# Parse the arguments.
 args = parser.parse_args()
 
 # Set up logger, with appropriate log level depending on verbosity.
@@ -194,7 +196,7 @@ settings.import_config(args.config_file)
 # Override config file with any provided settings.
 if args.config is not None:
   pairs = [pair.split("=") for pair in args.config.replace(" ", "").split(",")]
-  for k,v in pairs:
+  for k, v in pairs:
     settings.set_from_string(k, v)
 
 # Run data flow analysis

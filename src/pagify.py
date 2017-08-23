@@ -12,8 +12,8 @@ def pagify(filename:str, out_filename:str=None) -> None:
       out_filename: the location to write the html file. By default,
                     the page is written to filename + ".html"
   """
-  oname = filename + ".html" if out_filename is None else out_filename
-  with open(oname, 'w') as page:
+  out_name = filename + ".html" if out_filename is None else out_filename
+  with open(out_name, 'w') as page:
     page.write("""
                <html>
                <body>
