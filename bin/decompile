@@ -204,15 +204,13 @@ dataflow.analyse_graph(cfg)
 
 # Perform function analysis
 if args.function_extraction or args.mark_functions:
+  # TODO: Move these into the config file.
   logging.info("Extracting functions")
-  funcs = function.FunctionExtractor(cfg)
-  funcs.extract()
-  cfg = funcs.cfg
-
-  logging.info("Detected %s public functions.", len(funcs.functions))
+  cfg.extract_functions()
+  logging.info("Detected %s functions.", len(cfg.function_extractor.functions))
 
   if not args.no_out:
-    print(funcs.export(args.mark_functions))
+    print(cfg.function_extractor.export(args.mark_functions))
 
 # Generate output using the requested exporter(s)
 if not args.no_out:
