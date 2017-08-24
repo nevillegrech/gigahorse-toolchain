@@ -208,6 +208,9 @@ if args.function_extraction or args.mark_functions:
   funcs = function.FunctionExtractor(cfg)
   funcs.extract()
   cfg = funcs.cfg
+
+  logging.info("Detected %s public functions.", len(funcs.functions))
+
   if not args.no_out:
     print(funcs.export(args.mark_functions))
 
