@@ -210,7 +210,11 @@ class CFGStringExporter(Exporter, patterns.DynamicVisitor):
     """
     if self.ordered:
       self.blocks.sort(key=lambda n: n[0])
-    return self.__BLOCK_SEP.join(n[1] for n in self.blocks)
+    blocks = self.__BLOCK_SEP.join(n[1] for n in self.blocks)
+    functions = ""
+    if self.source.function_extractor is not None:
+      functions = self.__BLOCK_SEP + str(self.source.function_extractor)
+    return blocks + functions
 
 
 class CFGDotExporter(Exporter):

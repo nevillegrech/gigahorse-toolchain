@@ -192,9 +192,6 @@ if args.config is not None:
 # Run data flow analysis
 dataflow.analyse_graph(cfg)
 
-if not args.no_out:
-  print(cfg.function_extractor.export())
-
 # Generate output using the requested exporter(s)
 if not args.no_out:
   logging.info("Writing string output.")
