@@ -192,14 +192,8 @@ if args.config is not None:
 # Run data flow analysis
 dataflow.analyse_graph(cfg)
 
-# Perform function analysis
-if settings.extract_functions or settings.mark_functions:
-  logging.info("Extracting functions")
-  cfg.extract_functions()
-  logging.info("Detected %s functions.", len(cfg.function_extractor.functions))
-
-  if not args.no_out:
-    print(cfg.function_extractor.export())
+if not args.no_out:
+  print(cfg.function_extractor.export())
 
 # Generate output using the requested exporter(s)
 if not args.no_out:
