@@ -56,6 +56,12 @@ $ bin/decompile --help
 $ bin/disassemble --help
 ```
 
+### Configuration
+
+Configuration options can be set in `bin/config.ini`. A default value and brief
+description of each possible value is provided in `src/default_config.ini`. Any of
+these settings may be overridden with the `-c` flag in a `"key=value"` fashion.
+
 ### Example
 
 A contract, `loop.sol`: 
