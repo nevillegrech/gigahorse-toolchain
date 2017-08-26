@@ -319,7 +319,7 @@ class CFGDotExporter(Exporter):
         import pagify as p
         tmpname = out_filename + ".svg.tmp"
         pdG.write(tmpname, format="svg")
-        p.pagify(tmpname, out_filename)
+        p.pagify(tmpname, cfg.function_extractor, out_filename)
         os.remove(tmpname)
       else:
         pdG.write(out_filename, format=extension)
