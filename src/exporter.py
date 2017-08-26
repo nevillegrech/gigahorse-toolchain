@@ -155,6 +155,22 @@ class CFGTsvExporter(Exporter, patterns.DynamicVisitor):
     generate("use.facts", use)
     generate("value.facts", value)
 
+    if self.source.function_extractor is not None:
+      # Mapping from blocks to the solidity function they're in (if any)
+      in_function = []
+      # A function id appears in this relation if it's private.
+      private_function = []
+
+      f_e = self.source.function_extractor
+      for i, f in enumerate(f_e.functions):
+        for b in f.body:
+          in_function.append((b.ident(), i))
+        if f.is_private:
+          private_function.append((i,))
+
+      generate("in_function.facts", in_function)
+      generate("private_function.facts", private_function)
+
     if dominators:
       pairs = sorted([(k, i) for k, v
                       in self.source.dominators(op_edges=True).items()
