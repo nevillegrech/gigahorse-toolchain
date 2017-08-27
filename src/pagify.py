@@ -126,28 +126,61 @@ def pagify(filename:str,
                    el.setAttribute("onclick", "setInfoContents(this);");
                }
                
+               const svg = document.querySelector('svg')
+               const NS = "http://www.w3.org/2000/svg";
+               const defs = document.createElementNS( NS, "defs" );
+
                // IIFE add filter to svg to allow shadows to be added to nodes within it
                (function(){
-                 const svg = document.querySelector('svg')
-                 const NS = "http://www.w3.org/2000/svg";
-                 const defs = document.createElementNS( NS, "defs" );
-
-                 defs.innerHTML = `
-                     <filter id="shadow" x="-40%" y="-40%" width="250%" height="250%">
-                       <feOffset result="offOut" in="SourceAlpha" dx="0" dy="2" />
-                       <feGaussianBlur result="blurOut" in="offOut" stdDeviation="3" />
-                       <feBlend in="SourceGraphic" in2="blurOut" mode="normal" />
-                     </filter>
-                 `
+                 defs.innerHTML = makeShadowFilter()
                  svg.insertBefore(defs,svg.children[0])
                })()
                
-               // Shadow toggle functions
-               function addShadow(el){
-                 el.style.filter = "url('#shadow')"
+               function colorToID(color){
+                 return color.replace(/[^a-zA-Z0-9]/g,'_')
+               }
+
+               function makeShadowFilter({color = 'black',x = 0,y = 0, blur = 3} = {}){
+                 return `
+                 <filter id="filter_${colorToID(color)}" x="-40%" y="-40%" width="250%" height="250%">
+                   <feGaussianBlur in="SourceAlpha" stdDeviation="${blur}"/>
+                   <feOffset dx="${x}" dy="${y}" result="offsetblur"/>
+                   <feFlood flood-color="${color}"/>
+                   <feComposite in2="offsetblur" operator="in"/>
+                   <feMerge>
+                     <feMergeNode/>
+                     <feMergeNode in="SourceGraphic"/>
+                   </feMerge>
+                 </filter>
+                 `
+               }
+
+               // Shadow toggle functions, with filter caching
+               function addShadow(el, {color = 'black',x = 0,y = 0, blur = 3}){
+                 const id = colorToID(color)
+                 if(!defs.querySelector(`#filter_${id}`)){
+                   const filter = document.createElementNS(NS,'filter')
+                   defs.appendChild(filter)
+                   filter.outerHTML = makeShadowFilter({color,x,y,blur})
+                 }
+                 el.style.filter = `url(#filter_${id})`
                }
                function removeShadow(el){
                  el.style.filter = ''
+               }  
+               
+               function hash(n) {
+                 var str = n + "rainbows" + n + "please" + n
+                 var hash = 0;
+                 for (var i = 0; i < str.length; i++) {
+                   hash = (((hash << 5) - hash) + str.charCodeAt(i)) | 0;
+                 }
+                 return hash > 0 ? hash : -hash;
+               }; 
+               
+               function getColor(n, sat="60%", light="60%") {
+                 const hue = hash(n) % 360;
+                 return `hsl(${hue}, ${sat}, ${light})`;
                }
                 
                // Add shadows to function body nodes, and highlight functions in the dropdown list
@@ -157,14 +190,21 @@ def pagify(filename:str,
                  }
                  
                  func_highlighted[i] = !func_highlighted[i];
-                 const queryString = ".dropdown-content a[id='f_" + i + "']";
-                 document.querySelector(queryString).classList.toggle("dropdown-content-highlight");
+                 const entry = document.querySelector(`.dropdown-content a[id='f_${i}']`)
+                 if (entry.style.backgroundColor) {
+                   entry.style.backgroundColor = null;
+                 } else {
+                   entry.style.backgroundColor = getColor(i, "60%", "90%");
+                 }
+                 
+                 //.classList.toggle("dropdown-content-highlight");
                  
                  for (var j = 0; j < func_highlighted.length; j++) {
                    if (func_highlighted[j]) {
+                     const col = getColor(j);
                      for (var id of func_map[j]) {
-                       var n = document.querySelector(".node[id='" + id + "'] ellipse");
-                       addShadow(n);
+                       var n = document.querySelector(`.node[id='${id}'] ellipse`);
+                       addShadow(n, {color:`${col}`});
                      }
                    }
                  }
@@ -176,11 +216,9 @@ def pagify(filename:str,
                }
                window.onclick = function(event) {
                  if (!event.target.matches('.dropbutton')) {
-                   var dropdowns = document.getElementsByClassName("dropdown-content");
-                   for (var i = 0; i < dropdowns.length; i++) {
-                     if (dropdowns[i].classList.contains('show')) {
-                       dropdowns[i].classList.remove('show');
-                     }
+                   var items = document.getElementsByClassName("dropdown-content");
+                   for (var item of items) {
+                     item.classList.remove('show');
                    }
                  }
                } 
