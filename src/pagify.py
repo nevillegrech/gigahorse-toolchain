@@ -74,10 +74,6 @@ def pagify(filename:str,
                  display: block;
                }
                
-               .dropdown-content-highlight {
-                 background-color: #f9eeee;
-               }
-               
                .dropdown-content a:hover { background-color: #f1f1f1; }
                
                .show { display:block; }
@@ -112,11 +108,11 @@ def pagify(filename:str,
       func_map = {i: [b.ident() for b in f.body]
                   for i, f in enumerate(function_extractor.functions)}
       page.write("var func_map = {};".format(func_map))
-      page.write("var func_highlighted = new Array({}).fill(0);".format(len(func_map)))
+      page.write("var highlight = new Array({}).fill(0);".format(len(func_map)))
 
     page.write("""
                
-               // Set the contents of the info textbox to the title field of the given element, with line endings replaced suitably.
+               // Set info textbox contents to the title of the given element, with line endings replaced suitably.
                function setInfoContents(element){
                    document.getElementById('infobox').value = element.getAttribute('xlink:title').replace(/\\\\n/g, '\\n');
                }
@@ -178,7 +174,7 @@ def pagify(filename:str,
                  return hash > 0 ? hash : -hash;
                }; 
                
-               function getColor(n, sat="60%", light="60%") {
+               function getColor(n, sat="80%", light="50%") {
                  const hue = hash(n) % 360;
                  return `hsl(${hue}, ${sat}, ${light})`;
                }
@@ -189,7 +185,7 @@ def pagify(filename:str,
                    removeShadow(n);
                  }
                  
-                 func_highlighted[i] = !func_highlighted[i];
+                 highlight[i] = !highlight[i];
                  const entry = document.querySelector(`.dropdown-content a[id='f_${i}']`)
                  if (entry.style.backgroundColor) {
                    entry.style.backgroundColor = null;
@@ -197,10 +193,8 @@ def pagify(filename:str,
                    entry.style.backgroundColor = getColor(i, "60%", "90%");
                  }
                  
-                 //.classList.toggle("dropdown-content-highlight");
-                 
-                 for (var j = 0; j < func_highlighted.length; j++) {
-                   if (func_highlighted[j]) {
+                 for (var j = 0; j < highlight.length; j++) {
+                   if (highlight[j]) {
                      const col = getColor(j);
                      for (var id of func_map[j]) {
                        var n = document.querySelector(`.node[id='${id}'] ellipse`);
