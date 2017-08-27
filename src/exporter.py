@@ -296,6 +296,7 @@ class CFGDotExporter(Exporter):
     # if rendered in html.
     nx.set_node_attributes(G, "id", {block.ident(): block.ident()
                                      for block in cfg.blocks})
+
     block_strings = {}
     for block in cfg.blocks:
       block_string = str(block)
