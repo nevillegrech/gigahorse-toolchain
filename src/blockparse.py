@@ -2,12 +2,12 @@
 
 import abc
 import typing as t
-import collections
+import logging
 
 import cfg
 import evm_cfg
 import opcodes
-import logging
+import settings
 
 ENDIANNESS = "big"
 """
@@ -54,12 +54,12 @@ class EVMDasmParser(BlockParser):
     """
     super().__init__(dasm)
 
-  def parse(self, strict: bool = False):
+  def parse(self):
     """
-    Args:
-      strict: if True, will fail and produce no output when given malformed
-        input (instead of producing a warning and ignoring the malformed input)
+    Parses the raw input object containing EVM disassembly
+    and returns an iterable of EVMBasicBlocks.
     """
+
     super().parse()
 
     # Construct a list of EVMOp objects from the raw input disassembly
@@ -70,11 +70,11 @@ class EVMDasmParser(BlockParser):
     for i, l in enumerate(self._raw):
       if len(l.split()) == 1:
         logging.debug("Line %s: invalid disassembly:\n   %s", i+1, l.rstrip())
-        if strict:
+        if settings.strict:
           raise RuntimeError("Line {}: invalid disassembly {}".format(i+1, l))
         continue
       elif len(l.split()) < 1:
-        if strict:
+        if settings.strict:
           logging.warning("Line %s: empty disassembly.", i+1)
           raise RuntimeError("Line {}: empty disassembly.".format(i+1))
         continue
@@ -83,7 +83,7 @@ class EVMDasmParser(BlockParser):
         self._ops.append(self.evm_op_from_dasm(l))
       except (ValueError, LookupError, NotImplementedError) as e:
         logging.debug("Line %s: invalid disassembly:\n   %s", i+1, l.rstrip())
-        if strict:
+        if settings.strict:
             raise e
 
     return evm_cfg.blocks_from_ops(self._ops)
@@ -104,7 +104,7 @@ class EVMDasmParser(BlockParser):
     # Convert hex PCs to ints
     if toks[0].startswith("0x"):
       toks[0] = int(toks[0], 16)
-    
+
     if len(toks) > 2:
       val = int(toks[2], 16)
       try:
@@ -147,12 +147,12 @@ class EVMBytecodeParser(BlockParser):
   def __has_more_bytes(self):
     return self.__pc < len(self._raw)
 
-  def parse(self, strict: bool = False) -> t.Iterable[evm_cfg.EVMBasicBlock]:
+  def parse(self) -> t.Iterable[evm_cfg.EVMBasicBlock]:
     """
-    Args:
-      strict: if True, will fail and produce no output when given malformed
-        input (instead of producing a warning and ignoring the malformed input)
+    Parses the raw input object containing EVM bytecode
+    and returns an iterable of EVMBasicBlocks.
     """
+
     super().parse()
 
     while self.__has_more_bytes():
@@ -166,14 +166,14 @@ class EVMBytecodeParser(BlockParser):
 
       except LookupError as e:
         # oops, unknown opcode
-        if strict:
+        if settings.strict:
           logging.warning("(strict) Invalid opcode at PC = %#02x: %s", pc, str(e))
           raise e
         # not strict, so just log:
         logging.debug("Invalid opcode at PC = %#02x: %s", pc, str(e))
         op = opcodes.missing_opcode(byte)
         const = byte
-        
+
       # push codes have an argument
       if op.is_push():
         const_size = op.push_len()

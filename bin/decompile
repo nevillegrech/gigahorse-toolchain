@@ -4,6 +4,7 @@
 from os.path import abspath, dirname, join
 import sys
 import argparse
+import logging
 
 # Prepend ../src to $PATH so the project modules can be imported below
 src_path = join(dirname(abspath(__file__)), "../src")
@@ -13,7 +14,6 @@ sys.path.insert(0, src_path)
 import exporter
 import dataflow
 import tac_cfg
-import logging
 import settings
 
 # Version string to display with -v
@@ -45,13 +45,6 @@ parser.add_argument("-b",
                     default=False,
                     help="disassemble and decompile bytecode input. This is "
                          "the default mode.")
-
-parser.add_argument("-s",
-                    "--strict",
-                    action="store_true",
-                    default=False,
-                    help="used in conjunction with -b, unrecognised opcodes "
-                         "will not be skipped, but will result in an error.")
 
 parser.add_argument("-g",
                     "--graph",
@@ -163,20 +156,6 @@ if args.version:
 # Always show version for log_level >= LOW
 logging.info("\n" + version())
 
-# Build TAC CFG from input file
-try:
-  logging.info("Reading from %s", args.infile.name)
-  if args.disassembly:
-    cfg = tac_cfg.TACGraph.from_dasm(args.infile, args.strict)
-  else:
-    cfg = tac_cfg.TACGraph.from_bytecode(args.infile, args.strict)
-  logging.info("Initial CFG generation completed.")
-
-# Catch a Control-C and exit with UNIX failure status 1
-except KeyboardInterrupt:
-  logging.critical("\nInterrupted by user")
-  sys.exit(1)
-
 # Initialise data flow settings.
 settings.import_config(args.config_file)
 
@@ -185,6 +164,20 @@ if args.config is not None:
   pairs = [pair.split("=") for pair in args.config.replace(" ", "").split(",")]
   for k,v in pairs:
     settings.set_from_string(k, v)
+
+# Build TAC CFG from input file
+try:
+  logging.info("Reading from %s", args.infile.name)
+  if args.disassembly:
+    cfg = tac_cfg.TACGraph.from_dasm(args.infile)
+  else:
+    cfg = tac_cfg.TACGraph.from_bytecode(args.infile)
+  logging.info("Initial CFG generation completed.")
+
+# Catch a Control-C and exit with UNIX failure status 1
+except KeyboardInterrupt:
+  logging.critical("\nInterrupted by user")
+  sys.exit(1)
 
 # Run data flow analysis
 dataflow.analyse_graph(cfg)
