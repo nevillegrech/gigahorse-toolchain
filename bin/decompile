@@ -24,14 +24,17 @@ VERSION = """\
 +------------------------------+\
 """
 
+
 # Define a version() function in case we want dynamic version strings later
 def version():
   return VERSION
 
+
 # Configure argparse
 parser = argparse.ArgumentParser(
-           description="An EVM bytecode disassembly decompiler that generates"
-                       " three-address code for program analysis.")
+           description="An EVM bytecode disassembly decompiler that generates "
+                       "three-address code for program analysis. Use config.ini "
+                       "to set further configuration options.")
 
 parser.add_argument("-a",
                     "--disassembly",
@@ -137,7 +140,7 @@ parser.add_argument("outfile",
                     help="file to which decompiler output should be written "
                          "(stdout by default).")
 
-# Do the argparsing
+# Parse the arguments.
 args = parser.parse_args()
 
 # Set up logger, with appropriate log level depending on verbosity.
@@ -178,6 +181,15 @@ try:
 except KeyboardInterrupt:
   logging.critical("\nInterrupted by user")
   sys.exit(1)
+
+# Initialise data flow settings.
+settings.import_config(args.config_file)
+
+# Override config file with any provided settings.
+if args.config is not None:
+  pairs = [pair.split("=") for pair in args.config.replace(" ", "").split(",")]
+  for k, v in pairs:
+    settings.set_from_string(k, v)
 
 # Run data flow analysis
 dataflow.analyse_graph(cfg)

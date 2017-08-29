@@ -14,6 +14,7 @@ ENDIANNESS = "big"
 The endianness to use when parsing hexadecimal or binary files.
 """
 
+
 class BlockParser(abc.ABC):
   @abc.abstractmethod
   def __init__(self, raw:object):

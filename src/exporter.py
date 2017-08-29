@@ -24,6 +24,7 @@ class Exporter(abc.ABC):
     Exports the source object to an implementation-specific format.
     """
 
+
 class CFGTsvExporter(Exporter, patterns.DynamicVisitor):
   """
   Writes logical relations of the given TAC CFG to local directory.
@@ -154,6 +155,22 @@ class CFGTsvExporter(Exporter, patterns.DynamicVisitor):
     generate("use.facts", use)
     generate("value.facts", value)
 
+    if self.source.function_extractor is not None:
+      # Mapping from blocks to the solidity function they're in (if any)
+      in_function = []
+      # A function id appears in this relation if it's private.
+      private_function = []
+
+      f_e = self.source.function_extractor
+      for i, f in enumerate(f_e.functions):
+        for b in f.body:
+          in_function.append((b.ident(), i))
+        if f.is_private:
+          private_function.append((i,))
+
+      generate("in_function.facts", in_function)
+      generate("private_function.facts", private_function)
+
     if dominators:
       pairs = sorted([(k, i) for k, v
                       in self.source.dominators(op_edges=True).items()
@@ -209,7 +226,11 @@ class CFGStringExporter(Exporter, patterns.DynamicVisitor):
     """
     if self.ordered:
       self.blocks.sort(key=lambda n: n[0])
-    return self.__BLOCK_SEP.join(n[1] for n in self.blocks)
+    blocks = self.__BLOCK_SEP.join(n[1] for n in self.blocks)
+    functions = ""
+    if self.source.function_extractor is not None:
+      functions = self.__BLOCK_SEP + str(self.source.function_extractor)
+    return blocks + functions
 
 
 class CFGDotExporter(Exporter):
@@ -275,6 +296,7 @@ class CFGDotExporter(Exporter):
     # if rendered in html.
     nx.set_node_attributes(G, "id", {block.ident(): block.ident()
                                      for block in cfg.blocks})
+
     block_strings = {}
     for block in cfg.blocks:
       block_string = str(block)
@@ -298,7 +320,7 @@ class CFGDotExporter(Exporter):
         import pagify as p
         tmpname = out_filename + ".svg.tmp"
         pdG.write(tmpname, format="svg")
-        p.pagify(tmpname, out_filename)
+        p.pagify(tmpname, cfg.function_extractor, out_filename)
         os.remove(tmpname)
       else:
         pdG.write(out_filename, format=extension)
