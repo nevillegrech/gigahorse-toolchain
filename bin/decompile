@@ -188,6 +188,7 @@ if args.config is not None:
 
 # Run data flow analysis
 dataflow.analyse_graph(cfg)
+cfg.merge_unreachable_blocks()
 
 # Generate output using the requested exporter(s)
 if not args.no_out:
