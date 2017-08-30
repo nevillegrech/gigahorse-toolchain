@@ -69,7 +69,7 @@ DEFAULT_NUM_JOBS = 4
 """The number of subprocesses to run at once."""
 
 
-## Command Line Arguments
+# Command Line Arguments
 
 parser = argparse.ArgumentParser(
   description="A batch analyser for EVM bytecode programs.")
@@ -214,9 +214,9 @@ parser.add_argument("-s",
                          "result in an error.")
 
 
-## Functions
+# Functions
 
-def aquire_tsv_settings() -> None:
+def acquire_tsv_settings() -> None:
   """
   Determine, by examining the input datalog spec,
   whether dominators or any particular opcode relations
@@ -347,14 +347,14 @@ def flush_queue(period, run_sig,
       result_list.append(item)
 
 
-## Main Body
+# Main Body
 
 args = parser.parse_args()
 settings.import_config(args.config_file)
 # Override config file with any provided settings.
 if args.config is not None:
   pairs = [pair.split("=") for pair in args.config.replace(" ", "").split(",")]
-  for k,v in pairs:
+  for k, v in pairs:
     settings.set_from_string(k, v)
 
 settings.max_iterations  = args.max_iter
@@ -372,7 +372,7 @@ for i in range(args.jobs):
   empty_working_dir(i)
 
 log("Reading TSV settings.")
-aquire_tsv_settings()
+acquire_tsv_settings()
 
 # Extract contract filenames.
 log("Processing contract names.")

@@ -52,7 +52,7 @@ class OpCode:
   def is_log(self) -> bool:
     """Predicate: opcode is a log operation."""
     return LOG0.code <= self.code <= LOG4.code
-  
+
   def is_missing(self) -> bool:
       return self.code not in BYTECODES
 
@@ -271,6 +271,7 @@ OPCODES["TXGASPRICE"] = OPCODES["GASPRICE"]
 BYTECODES = {code.code: code for code in OPCODES.values()}
 """Dictionary mapping of byte values to EVM OpCode objects"""
 
+
 def opcode_by_name(name:str) -> OpCode:
   """
   Mapping: Retrieves the named OpCode object (case-insensitive).
@@ -294,6 +295,7 @@ def opcode_by_value(val:int) -> OpCode:
   if val not in BYTECODES:
     raise LookupError("No opcode with value '0x{:02X}'.".format(val))
   return BYTECODES[val]
+
 
 def missing_opcode(val:int) -> OpCode:
     """

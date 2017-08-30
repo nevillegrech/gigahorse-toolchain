@@ -4,6 +4,7 @@
 from os.path import abspath, dirname, join
 import sys
 import argparse
+import logging
 
 # Prepend ../src to $PATH so the project modules can be imported below
 src_path = join(dirname(abspath(__file__)), "../src")
@@ -13,7 +14,6 @@ sys.path.insert(0, src_path)
 import exporter
 import dataflow
 import tac_cfg
-import logging
 import settings
 
 # Version string to display with -v
@@ -24,14 +24,17 @@ VERSION = """\
 +------------------------------+\
 """
 
+
 # Define a version() function in case we want dynamic version strings later
 def version():
   return VERSION
 
+
 # Configure argparse
 parser = argparse.ArgumentParser(
-           description="An EVM bytecode disassembly decompiler that generates"
-                       " three-address code for program analysis.")
+           description="An EVM bytecode disassembly decompiler that generates "
+                       "three-address code for program analysis. Use config.ini "
+                       "to set further configuration options.")
 
 parser.add_argument("-a",
                     "--disassembly",
@@ -45,13 +48,6 @@ parser.add_argument("-b",
                     default=False,
                     help="disassemble and decompile bytecode input. This is "
                          "the default mode.")
-
-parser.add_argument("-s",
-                    "--strict",
-                    action="store_true",
-                    default=False,
-                    help="used in conjunction with -b, unrecognised opcodes "
-                         "will not be skipped, but will result in an error.")
 
 parser.add_argument("-g",
                     "--graph",
@@ -144,7 +140,7 @@ parser.add_argument("outfile",
                     help="file to which decompiler output should be written "
                          "(stdout by default).")
 
-# Do the argparsing
+# Parse the arguments.
 args = parser.parse_args()
 
 # Set up logger, with appropriate log level depending on verbosity.
@@ -163,13 +159,22 @@ if args.version:
 # Always show version for log_level >= LOW
 logging.info("\n" + version())
 
+# Initialise data flow settings.
+settings.import_config(args.config_file)
+
+# Override config file with any provided settings.
+if args.config is not None:
+  pairs = [pair.split("=") for pair in args.config.replace(" ", "").split(",")]
+  for k,v in pairs:
+    settings.set_from_string(k, v)
+
 # Build TAC CFG from input file
 try:
   logging.info("Reading from %s", args.infile.name)
   if args.disassembly:
-    cfg = tac_cfg.TACGraph.from_dasm(args.infile, args.strict)
+    cfg = tac_cfg.TACGraph.from_dasm(args.infile)
   else:
-    cfg = tac_cfg.TACGraph.from_bytecode(args.infile, args.strict)
+    cfg = tac_cfg.TACGraph.from_bytecode(args.infile)
   logging.info("Initial CFG generation completed.")
 
 # Catch a Control-C and exit with UNIX failure status 1
@@ -183,7 +188,7 @@ settings.import_config(args.config_file)
 # Override config file with any provided settings.
 if args.config is not None:
   pairs = [pair.split("=") for pair in args.config.replace(" ", "").split(",")]
-  for k,v in pairs:
+  for k, v in pairs:
     settings.set_from_string(k, v)
 
 # Run data flow analysis
