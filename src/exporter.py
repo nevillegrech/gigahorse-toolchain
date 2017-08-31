@@ -318,10 +318,7 @@ class CFGDotExporter(Exporter):
       # and then delete it.
       if extension == "html":
         import pagify as p
-        tmpname = out_filename + ".svg.tmp"
-        pdG.write(tmpname, format="svg")
-        p.pagify(tmpname, cfg.function_extractor, out_filename)
-        os.remove(tmpname)
+        p.pagify(pdG.create_svg(), cfg.function_extractor, out_filename)
       else:
         pdG.write(out_filename, format=extension)
 

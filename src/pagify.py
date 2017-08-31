@@ -5,21 +5,26 @@ pagify.py: takes a CFG SVG and turns it into an interactive web page.
 from function import FunctionExtractor
 
 
-def pagify(filename:str,
+def pagify(svg:str,
            function_extractor:FunctionExtractor=None,
            out_filename:str=None) -> None:
   """
   Produces an html page from an svg image of a CFG.
 
   Args:
-      filename: the location of the SVG to process
+      svg: the bytestring of the SVG to process
       function_extractor: a FunctionExtractor object containing functions
                           to annotate the graph with.
       out_filename: the location to write the html file. By default,
                     the page is written to filename + ".html"
   """
-  out_name = filename + ".html" if out_filename is None else out_filename
-  with open(out_name, 'w') as page:
+  svg_str = svg.decode("utf-8")
+
+  if not out_filename.endswith(".html"):
+    out_filename += ".html"
+
+  with open(out_filename, 'w') as page:
+    lines = svg_str.split("\n")
     page.write("""
                <html>
                <body>
@@ -80,9 +85,8 @@ def pagify(filename:str,
                </style>
                """)
 
-    with open(filename, 'r') as svg:
-      for line in svg.readlines()[3:]:
-        page.write(line)
+    for line in lines[3:]:
+      page.write(line)
 
     page.write("""<textarea id="infobox" disabled=true rows=40 cols=80></textarea>""")
 
