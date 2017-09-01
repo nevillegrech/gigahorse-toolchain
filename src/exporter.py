@@ -484,21 +484,22 @@ def svg_to_html(svg:str, function_extractor:function.FunctionExtractor=None) -> 
                }
 
                // Shadow toggle functions, with filter caching
-               function addShadow(el, {color = 'black',x = 0,y = 0, blur = 3}){
-                 const id = colorToID(color)
+               function addShadow(el, {color = 'black', x = 0, y = 0, blur = 3}){
+                 const id = colorToID(color);
                  if(!defs.querySelector(`#filter_${id}`)){
-                   const filter = document.createElementNS(NS,'filter')
-                   defs.appendChild(filter)
-                   filter.outerHTML = makeShadowFilter({color,x,y,blur})
+                   const d = document.createElementNS(NS, 'div');
+                   d.innerHTML = makeShadowFilter({color, x, y, blur});
+                   defs.appendChild(d.children[0]);
                  }
                  el.style.filter = `url(#filter_${id})`
                }
+
                function removeShadow(el){
                  el.style.filter = ''
                }  
                
                function hash(n) {
-                 var str = n + "rainbows" + n + "please" + n
+                 var str = n + "rainbows" + n + "please" + n;
                  var hash = 0;
                  for (var i = 0; i < str.length; i++) {
                    hash = (((hash << 5) - hash) + str.charCodeAt(i)) | 0;
@@ -513,7 +514,7 @@ def svg_to_html(svg:str, function_extractor:function.FunctionExtractor=None) -> 
                 
                // Add shadows to function body nodes, and highlight functions in the dropdown list
                function highlightFunction(i) {
-                 for (var n of document.querySelectorAll(".node ellipse")) {
+                 for (var n of Array.from(document.querySelectorAll(".node ellipse"))) {
                    removeShadow(n);
                  }
                  
@@ -542,7 +543,7 @@ def svg_to_html(svg:str, function_extractor:function.FunctionExtractor=None) -> 
                }
                window.onclick = function(event) {
                  if (!event.target.matches('.dropbutton')) {
-                   var items = document.getElementsByClassName("dropdown-content");
+                   var items = Array.from(document.getElementsByClassName("dropdown-content"));
                    for (var item of items) {
                      item.classList.remove('show');
                    }
