@@ -159,7 +159,9 @@ parser.add_argument("-c",
 
 parser.add_argument("-C",
                     "--config_file",
+                    nargs="?",
                     default=settings._CONFIG_LOC_,
+                    const=settings._CONFIG_LOC_,
                     metavar="FILE",
                     help="read the settings from the given file; "
                          "any given settings will override the defaults.")
