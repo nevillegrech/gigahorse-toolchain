@@ -52,7 +52,7 @@ parser.add_argument("-b",
 parser.add_argument("-g",
                     "--graph",
                     nargs="?",
-                    const="graph.dot",
+                    const="cfg.html",
                     metavar="FILE",
                     default=None,
                     help="generate a visual representation of basic block "

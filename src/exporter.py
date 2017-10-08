@@ -332,10 +332,17 @@ class CFGDotExporter(Exporter):
 
     # Otherwise, write a regular dot file using pydot
     else:
-      if out_filename == "":
-        out_filename = "cfg.dot"
-      logging.info("Drawing CFG image to '%s'.", out_filename)
-      nx.nx_pydot.write_dot(G, out_filename)
+      try:
+        if out_filename == "":
+          out_filename = "cfg.html"
+        nx.nx_pydot.write_dot(G, out_filename)
+        logging.info("Drawing CFG image to '%s'.", out_filename)
+      except:
+        logging.info("Graphviz missing. Falling back to dot.")
+        if out_filename == "":
+          out_filename = "cfg.dot"
+        nx.nx_pydot.write_dot(G, out_filename)
+        logging.info("Drawing CFG image to '%s'.", out_filename)
 
 
 def svg_to_html(svg:str, function_extractor:function.FunctionExtractor=None) -> str:
