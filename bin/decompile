@@ -52,7 +52,7 @@ parser.add_argument("-b",
 parser.add_argument("-g",
                     "--graph",
                     nargs="?",
-                    const="graph.dot",
+                    const="cfg.html",
                     metavar="FILE",
                     default=None,
                     help="generate a visual representation of basic block "
@@ -170,7 +170,7 @@ if args.config is not None:
 
 # Build TAC CFG from input file
 try:
-  logging.info("Reading from %s", args.infile.name)
+  logging.info("Reading from '%s'.", args.infile.name)
   if args.disassembly:
     cfg = tac_cfg.TACGraph.from_dasm(args.infile)
   else:
@@ -200,7 +200,6 @@ if not args.no_out:
   print(exporter.CFGStringExporter(cfg).export(), file=args.outfile)
 
 if args.graph is not None:
-  logging.info("Drawing CFG image.")
   exporter.CFGDotExporter(cfg).export(args.graph)
 
 if args.tsv is not None:
