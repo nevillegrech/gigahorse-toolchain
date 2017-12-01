@@ -159,7 +159,9 @@ parser.add_argument("-c",
 
 parser.add_argument("-C",
                     "--config_file",
+                    nargs="?",
                     default=settings._CONFIG_LOC_,
+                    const=settings._CONFIG_LOC_,
                     metavar="FILE",
                     help="read the settings from the given file; "
                          "any given settings will override the defaults.")
@@ -205,14 +207,6 @@ parser.add_argument("-q",
                     action="store_true",
                     default=False,
                     help="Silence output.")
-
-parser.add_argument("-s",
-                    "--strict",
-                    action="store_true",
-                    default=False,
-                    help="unrecognised opcodes will not be skipped, but will "
-                         "result in an error.")
-
 
 # Functions
 
@@ -281,7 +275,7 @@ def analyse_contract(job_index: int, index: int, filename: str, result_queue) ->
     with open(join(args.contract_dir, filename)) as file:
       # Decompile and perform dataflow analysis upon the given graph
       decomp_start = time.time()
-      cfg = tac_cfg.TACGraph.from_bytecode(file, strict=args.strict)
+      cfg = tac_cfg.TACGraph.from_bytecode(file)
       analytics = dataflow.analyse_graph(cfg)
 
       # Export relations to temp working directory
