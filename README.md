@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.com/usyd-blockchain/vandal-decompiler.svg?token=pNXdH9q71L2RqUA87Yqx&branch=master)](https://travis-ci.com/usyd-blockchain/vandal-decompiler)
+[![Build Status](https://travis-ci.com/usyd-blockchain/vandal.svg?token=mj2i8Mu1LikbZs2EKJyG&branch=master)](https://travis-ci.com/usyd-blockchain/vandal)
 
 # Vandal: An EVM bytecode decompiler
 
