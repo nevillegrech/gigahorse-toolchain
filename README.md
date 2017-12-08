@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/usyd-blockchain/vandal.svg?branch=master)](https://travis-ci.org/usyd-blockchain/vandal)
+
 # Vandal: An EVM bytecode decompiler
 
 This project contains the source code for our Ethereum VM bytecode decompiler,
