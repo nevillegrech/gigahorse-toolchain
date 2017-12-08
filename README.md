@@ -1,5 +1,3 @@
-[![Build Status](https://travis-ci.com/usyd-blockchain/vandal.svg?token=mj2i8Mu1LikbZs2EKJyG&branch=master)](https://travis-ci.com/usyd-blockchain/vandal)
-
 # Vandal: An EVM bytecode decompiler
 
 This project contains the source code for our Ethereum VM bytecode decompiler,
@@ -64,7 +62,7 @@ these settings may be overridden with the `-c` flag in a `"key=value"` fashion.
 
 ### Example
 
-A contract, `loop.sol`: 
+A contract, `loop.sol`:
 ```javascript
 contract TestLoop {
     function test() returns (uint) {
