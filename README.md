@@ -1,13 +1,12 @@
 # Vandal: An EVM bytecode decompiler
 
 This project contains the source code for our Ethereum VM bytecode decompiler,
-`vandal`.
-It takes EVM bytecode or disassembly as input, and outputs an equivalent
-intermediate representation, including the program's control flow graph.
-This intermediate representation removes all stack operations and, in concert
-with the CFG, exposes data dependencies. The aim of this project is to allow
-compiled smart contract logic to be inspected more conveniently,
-either by hand or by machine.
+`vandal`. It takes EVM bytecode or disassembly as input, and outputs an
+equivalent intermediate representation, including the program's control flow
+graph. This intermediate representation removes all stack operations and, in
+concert with the CFG, exposes data dependencies. The aim of this project is to
+allow compiled smart contract logic to be inspected more conveniently, either
+by hand or by machine.
 
 
 ## Requirements
@@ -85,7 +84,7 @@ $ bin/decompile -n -v -c "remove_unreachable=1" -g loop.html loop.hex
 
 ## Documentation
 
-Sphinx is used for documentation generation with documentation source files in
+Sphinx is used for code documentation generation. Sphinx source files are in
 `doc/source/`. To build clean HTML documentation, run:
 
 ```
@@ -94,8 +93,6 @@ $ make clean doc
 
 from the repository root. The documentation index will be placed at
 `doc/build/html/index.html`.
-
-There are also some notes on the github wiki.
 
 
 ## Code Style
@@ -119,33 +116,30 @@ There are also some notes on the github wiki.
 
 ## Development Workflow
 
-Most development should happen on *feature branches*. Here's our git workflow:
+Most development should happen on *feature branches* in personal forks. Here's
+our git workflow:
 
-1. To work on a new feature, create a new **git** branch based on the latest
-   master commit, with a sensible name. Move the feature's corresponding
-   project card(s) to *In Progress*.
-2. Commit to the new feature branch early and often.
-3. When the feature is complete, submit a **pull request** to merge
-   the feature branch into our master branch. Move the corresponding project
-   card to *Code Review*.
-4. Someone else will review the pull request:
+1. Fork our repository to your own account, and create a new git branch for
+   your feature.
+2. Commit to the feature branch early and often.
+3. When the feature is complete, submit a **pull request** to merge your fork's
+   feature branch into our repository's master branch.
+4. A project member will review the pull request:
     - If changes are needed, the reviewer will comment with necessary changes
-      and move the project card back to *In Progress*. Continue committing to
-      the feature branch - the pull request will be updated automatically.
-    - Otherwise, if no changes are needed, the reviewer will **merge** the pull
-      request and move the project card to *Complete*.
+      Continue committing to the feature branch - the pull request will be
+      updated automatically.
+    - Otherwise, if no changes are needed, the reviewer will approve the pull
+      request for merging.
+    - Note: all Travis-CI status checks are required to pass before a PR is
+      merged, and the feature branch must be up to date with master.
 
-Please ensure the pull request does not indicate merge conflicts with the
-`master` branch. If it does, manually resolve these conflicts by merging
-`master` into the feature branch.
-
-If any code needs to be explainer to a reviewer, then it probably needs
-comments with the explanation.
+If any code needs to be explained to a reviewer, then it probably needs
+more comments containing the explanation or may need re-factoring.
 
 ## Unit Testing
 
 Our testing framework is [pytest](http://doc.pytest.org/). Tests can be run
-from the repository root or the `test/` subdirectory like so (or with the `-v`
+from the repository root or the `test/` sub-directory like so (or with the `-v`
 flag for more detail on each test):
 
 ```
@@ -158,8 +152,8 @@ Alternatively, you can also use the `Makefile` in the repository root like so:
 $ make test
 ```
 
-All modules should be comprehensively unit-tested, with tests placed in a file
-called `test/test_MODULE.py`, where MODULE is the name of the corresponding
-Python module from `src/`.
+The goal is for all modules to be comprehensively unit-tested, with tests
+placed in a file called `test/test_MODULE.py`, where MODULE is the name of the
+corresponding Python module from `src/`.
 
 Test fixtures and `pytest` settings are defined in `test/conftest.py`.
