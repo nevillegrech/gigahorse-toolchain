@@ -1,3 +1,32 @@
+# BSD 3-Clause License
+#
+# Copyright (c) 2016, 2017, The University of Sydney. All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#
+# * Redistributions of source code must retain the above copyright notice, this
+#   list of conditions and the following disclaimer.
+#
+# * Redistributions in binary form must reproduce the above copyright notice,
+#   this list of conditions and the following disclaimer in the documentation
+#   and/or other materials provided with the distribution.
+#
+# * Neither the name of the copyright holder nor the names of its
+#   contributors may be used to endorse or promote products derived from
+#   this software without specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+# DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+# OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+# OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
 """exporter.py: abstract classes for exporting decompiler state"""
 
 import abc
@@ -385,7 +414,7 @@ def svg_to_html(svg:str, function_extractor:function.FunctionExtractor=None) -> 
                 top: 0;
                 right: 0;
               }
- 
+
               .dropbutton {
                 padding: 10px;
                 border: none;
@@ -414,9 +443,9 @@ def svg_to_html(svg:str, function_extractor:function.FunctionExtractor=None) -> 
                 font-size: 10px;
                 display: block;
               }
- 
+
               .dropdown-content a:hover { background-color: #f1f1f1; }
- 
+
               .show { display:block; }
               </style>
               """)
@@ -460,7 +489,7 @@ def svg_to_html(svg:str, function_extractor:function.FunctionExtractor=None) -> 
                for (var el of Array.from(document.querySelectorAll(".node a"))) {
                    el.setAttribute("onclick", "setInfoContents(this);");
                }
-               
+
                const svg = document.querySelector('svg')
                const NS = "http://www.w3.org/2000/svg";
                const defs = document.createElementNS( NS, "defs" );
@@ -470,7 +499,7 @@ def svg_to_html(svg:str, function_extractor:function.FunctionExtractor=None) -> 
                  defs.innerHTML = makeShadowFilter()
                  svg.insertBefore(defs,svg.children[0])
                })()
-               
+
                function colorToID(color){
                  return color.replace(/[^a-zA-Z0-9]/g,'_')
                }
@@ -503,8 +532,8 @@ def svg_to_html(svg:str, function_extractor:function.FunctionExtractor=None) -> 
 
                function removeShadow(el){
                  el.style.filter = ''
-               }  
-               
+               }
+
                function hash(n) {
                  var str = n + "rainbows" + n + "please" + n;
                  var hash = 0;
@@ -512,19 +541,19 @@ def svg_to_html(svg:str, function_extractor:function.FunctionExtractor=None) -> 
                    hash = (((hash << 5) - hash) + str.charCodeAt(i)) | 0;
                  }
                  return hash > 0 ? hash : -hash;
-               }; 
-               
+               };
+
                function getColor(n, sat="80%", light="50%") {
                  const hue = hash(n) % 360;
                  return `hsl(${hue}, ${sat}, ${light})`;
                }
-                
+
                // Add shadows to function body nodes, and highlight functions in the dropdown list
                function highlightFunction(i) {
                  for (var n of Array.from(document.querySelectorAll(".node ellipse"))) {
                    removeShadow(n);
                  }
-                 
+
                  highlight[i] = !highlight[i];
                  const entry = document.querySelector(`.dropdown-content a[id='f_${i}']`)
                  if (entry.style.backgroundColor) {
@@ -532,7 +561,7 @@ def svg_to_html(svg:str, function_extractor:function.FunctionExtractor=None) -> 
                  } else {
                    entry.style.backgroundColor = getColor(i, "60%", "90%");
                  }
-                 
+
                  for (var j = 0; j < highlight.length; j++) {
                    if (highlight[j]) {
                      const col = getColor(j);
@@ -543,7 +572,7 @@ def svg_to_html(svg:str, function_extractor:function.FunctionExtractor=None) -> 
                    }
                  }
                }
-               
+
                // Show the dropdown elements when it's clicked.
                function showDropdown() {
                  document.getElementById("func-list").classList.toggle("show");
@@ -555,7 +584,7 @@ def svg_to_html(svg:str, function_extractor:function.FunctionExtractor=None) -> 
                      item.classList.remove('show');
                    }
                  }
-               } 
+               }
               </script>
               </html>
               </body>
