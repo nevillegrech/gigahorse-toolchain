@@ -30,20 +30,20 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # Standard lib imports
-from os.path import abspath, dirname, join
-import sys
 import argparse
 import logging
+import sys
+from os.path import abspath, dirname, join
 
 # Prepend ../src to $PATH so the project modules can be imported below
 src_path = join(dirname(abspath(__file__)), "../src")
 sys.path.insert(0, src_path)
 
 # Local project imports
-import exporter
-import dataflow
-import tac_cfg
-import settings
+import src.exporter as exporter
+import src.dataflow as dataflow
+import src.tac_cfg as tac_cfg
+import src.settings as settings
 
 # Version string to display with -v
 VERSION = """\
@@ -56,14 +56,14 @@ VERSION = """\
 
 # Define a version() function in case we want dynamic version strings later
 def version():
-  return VERSION
+    return VERSION
 
 
 # Configure argparse
 parser = argparse.ArgumentParser(
-           description="An EVM bytecode disassembly decompiler that generates "
-                       "three-address code for program analysis. Use config.ini "
-                       "to set further configuration options.")
+    description="An EVM bytecode disassembly decompiler that generates "
+                "three-address code for program analysis. Use config.ini "
+                "to set further configuration options.")
 
 parser.add_argument("-a",
                     "--disassembly",
@@ -175,15 +175,15 @@ args = parser.parse_args()
 # Set up logger, with appropriate log level depending on verbosity.
 log_level = logging.WARNING
 if args.prolix:
-  log_level = logging.DEBUG
+    log_level = logging.DEBUG
 elif args.verbose:
-  log_level = logging.INFO
+    log_level = logging.INFO
 logging.basicConfig(format='%(levelname)s: %(message)s', level=log_level)
 
 # Handle --version
 if args.version:
-  print(version())
-  sys.exit(1)
+    print(version())
+    sys.exit(1)
 
 # Always show version for log_level >= LOW
 logging.info("\n" + version())
@@ -193,46 +193,46 @@ settings.import_config(args.config_file)
 
 # Override config file with any provided settings.
 if args.config is not None:
-  pairs = [pair.split("=") for pair in args.config.replace(" ", "").split(",")]
-  for k,v in pairs:
-    settings.set_from_string(k, v)
+    pairs = [pair.split("=") for pair in args.config.replace(" ", "").split(",")]
+    for k, v in pairs:
+        settings.set_from_string(k, v)
 
 # Build TAC CFG from input file
 try:
-  logging.info("Reading from '%s'.", args.infile.name)
-  if args.disassembly:
-    cfg = tac_cfg.TACGraph.from_dasm(args.infile)
-  else:
-    cfg = tac_cfg.TACGraph.from_bytecode(args.infile)
-  logging.info("Initial CFG generation completed.")
+    logging.info("Reading from '%s'.", args.infile.name)
+    if args.disassembly:
+        cfg = tac_cfg.TACGraph.from_dasm(args.infile)
+    else:
+        cfg = tac_cfg.TACGraph.from_bytecode(args.infile)
+    logging.info("Initial CFG generation completed.")
 
 # Catch a Control-C and exit with UNIX failure status 1
 except KeyboardInterrupt:
-  logging.critical("\nInterrupted by user")
-  sys.exit(1)
+    logging.critical("\nInterrupted by user")
+    sys.exit(1)
 
 # Initialise data flow settings.
 settings.import_config(args.config_file)
 
 # Override config file with any provided settings.
 if args.config is not None:
-  pairs = [pair.split("=") for pair in args.config.replace(" ", "").split(",")]
-  for k, v in pairs:
-    settings.set_from_string(k, v)
+    pairs = [pair.split("=") for pair in args.config.replace(" ", "").split(",")]
+    for k, v in pairs:
+        settings.set_from_string(k, v)
 
 # Run data flow analysis
 dataflow.analyse_graph(cfg)
 
 # Generate output using the requested exporter(s)
 if not args.no_out:
-  logging.info("Writing string output.")
-  print(exporter.CFGStringExporter(cfg).export(), file=args.outfile)
+    logging.info("Writing string output.")
+    print(exporter.CFGStringExporter(cfg).export(), file=args.outfile)
 
 if args.graph is not None:
-  exporter.CFGDotExporter(cfg).export(args.graph)
+    exporter.CFGDotExporter(cfg).export(args.graph)
 
 if args.tsv is not None:
-  logging.info("Writing TSV output.")
-  exporter.CFGTsvExporter(cfg).export(output_dir=args.tsv,
-                                      dominators=args.dominators,
-                                      out_opcodes=args.opcodes)
+    logging.info("Writing TSV output.")
+    exporter.CFGTsvExporter(cfg).export(output_dir=args.tsv,
+                                        dominators=args.dominators,
+                                        out_opcodes=args.opcodes)
