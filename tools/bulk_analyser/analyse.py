@@ -33,29 +33,28 @@
 
 ## IMPORTS
 
-import os
-from os.path import abspath, dirname, join
 import argparse
-import re
-from multiprocessing import Process, SimpleQueue, Manager, Event
-import subprocess
-import time
-import sys
 import itertools
 import json
 import logging
+import os
+import re
+import subprocess
+import sys
+import time
+from multiprocessing import Process, SimpleQueue, Manager, Event
+from os.path import abspath, dirname, join
 
 # Add the source directory to the path to ensure the imports work
 src_path = join(dirname(abspath(__file__)), "../../src")
 sys.path.insert(0, src_path)
 
 # Local project imports
-import dataflow
-import tac_cfg
-import opcodes
-import exporter
-import settings
-
+import src.dataflow as dataflow
+import src.tac_cfg as tac_cfg
+import src.opcodes as opcodes
+import src.exporter as exporter
+import src.settings as settings
 
 ## Constants
 
@@ -98,11 +97,10 @@ OPCODES = []
 DEFAULT_NUM_JOBS = 4
 """The number of subprocesses to run at once."""
 
-
 # Command Line Arguments
 
 parser = argparse.ArgumentParser(
-  description="A batch analyser for EVM bytecode programs.")
+    description="A batch analyser for EVM bytecode programs.")
 
 parser.add_argument("-d",
                     "--contract_dir",
@@ -238,137 +236,138 @@ parser.add_argument("-q",
                     default=False,
                     help="Silence output.")
 
+
 # Functions
 
 def acquire_tsv_settings() -> None:
-  """
-  Determine, by examining the input datalog spec,
-  whether dominators or any particular opcode relations
-  need to be produced by the decompiler as tsv files.
-  """
+    """
+    Determine, by examining the input datalog spec,
+    whether dominators or any particular opcode relations
+    need to be produced by the decompiler as tsv files.
+    """
 
-  global DOMINATORS
-  global OPCODES
-  dom_prefixes = ["dom", "pdom", "imdom", "impdom"]
+    global DOMINATORS
+    global OPCODES
+    dom_prefixes = ["dom", "pdom", "imdom", "impdom"]
 
-  with open(DEFAULT_SPEC_DL, 'r') as dl:
-    for line in dl:
-      splitline = line.strip().split()
-      if len(splitline) < 2:
-        continue
-      if splitline[0] == ".input":
-        op_name = splitline[1]
-        if op_name in dom_prefixes:
-          DOMINATORS = True
-        if op_name.startswith("op_") and op_name[3:] in opcodes.OPCODES:
-          OPCODES.append(op_name[3:])
+    with open(DEFAULT_SPEC_DL, 'r') as dl:
+        for line in dl:
+            splitline = line.strip().split()
+            if len(splitline) < 2:
+                continue
+            if splitline[0] == ".input":
+                op_name = splitline[1]
+                if op_name in dom_prefixes:
+                    DOMINATORS = True
+                if op_name.startswith("op_") and op_name[3:] in opcodes.OPCODES:
+                    OPCODES.append(op_name[3:])
 
 
-def working_dir(index: int, output_dir: bool=False) -> str:
-  """
-  Return a path to the working directory for the job
-  indicated by index.
+def working_dir(index: int, output_dir: bool = False) -> str:
+    """
+    Return a path to the working directory for the job
+    indicated by index.
 
-  Args:
-   index: return the directory specifically for this index.
-   output_dir: if true, return the output subdir, which souffle writes to.
-  """
+    Args:
+     index: return the directory specifically for this index.
+     output_dir: if true, return the output subdir, which souffle writes to.
+    """
 
-  if output_dir:
-     return join(TEMP_WORKING_DIR, str(index), "out")
-  return join(TEMP_WORKING_DIR, str(index))
+    if output_dir:
+        return join(TEMP_WORKING_DIR, str(index), "out")
+    return join(TEMP_WORKING_DIR, str(index))
 
 
 def empty_working_dir(index) -> None:
-  """
-  Empty the working directory for the job indicated by index.
-  """
+    """
+    Empty the working directory for the job indicated by index.
+    """
 
-  for d_triple in os.walk(working_dir(index)):
-    for fname in d_triple[2]:
-      os.remove(join(d_triple[0], fname))
+    for d_triple in os.walk(working_dir(index)):
+        for fname in d_triple[2]:
+            os.remove(join(d_triple[0], fname))
 
 
 def analyse_contract(job_index: int, index: int, filename: str, result_queue) -> None:
-  """
-  Perform dataflow analysis on a contract, storing the result in the queue.
-  This is a worker function to be passed to a subprocess.
+    """
+    Perform dataflow analysis on a contract, storing the result in the queue.
+    This is a worker function to be passed to a subprocess.
 
-  Args:
-      job_index: the job number for this invocation of analyse_contract
-      index: the number of the particular contract being analysed
-      filename: the location of the contract bytecode file to process
-      result_queue: a multiprocessing queue in which to store the analysis results
-  """
+    Args:
+        job_index: the job number for this invocation of analyse_contract
+        index: the number of the particular contract being analysed
+        filename: the location of the contract bytecode file to process
+        result_queue: a multiprocessing queue in which to store the analysis results
+    """
 
-  try:
-    with open(join(args.contract_dir, filename)) as file:
-      # Decompile and perform dataflow analysis upon the given graph
-      decomp_start = time.time()
-      cfg = tac_cfg.TACGraph.from_bytecode(file)
-      analytics = dataflow.analyse_graph(cfg)
+    try:
+        with open(join(args.contract_dir, filename)) as file:
+            # Decompile and perform dataflow analysis upon the given graph
+            decomp_start = time.time()
+            cfg = tac_cfg.TACGraph.from_bytecode(file)
+            analytics = dataflow.analyse_graph(cfg)
 
-      # Export relations to temp working directory
-      empty_working_dir(job_index)
-      work_dir = working_dir(job_index)
-      out_dir = working_dir(job_index, True)
-      exporter.CFGTsvExporter(cfg).export(output_dir=work_dir,
-                                          dominators=DOMINATORS,
-                                          out_opcodes=OPCODES)
+            # Export relations to temp working directory
+            empty_working_dir(job_index)
+            work_dir = working_dir(job_index)
+            out_dir = working_dir(job_index, True)
+            exporter.CFGTsvExporter(cfg).export(output_dir=work_dir,
+                                                dominators=DOMINATORS,
+                                                out_opcodes=OPCODES)
 
-      # Run souffle on those relations
-      souffle_start = time.time()
-      souffle_args = [args.souffle_bin, "--fact-dir={}".format(work_dir),
-                                        "--output-dir={}".format(out_dir),
-                                        DEFAULT_SPEC_DL]
-      if args.compile_souffle:
-          souffle_args.append("--compile")
-      subprocess.run(souffle_args)
+            # Run souffle on those relations
+            souffle_start = time.time()
+            souffle_args = [args.souffle_bin, "--fact-dir={}".format(work_dir),
+                            "--output-dir={}".format(out_dir),
+                            DEFAULT_SPEC_DL]
+            if args.compile_souffle:
+                souffle_args.append("--compile")
+            subprocess.run(souffle_args)
 
-      # Collect the results and put them in the result queue
-      vulns = []
-      for fname in os.listdir(out_dir):
-        fpath = join(out_dir, fname)
-        if os.path.getsize(fpath) != 0:
-          vulns.append(fname.split(".")[0])
+            # Collect the results and put them in the result queue
+            vulns = []
+            for fname in os.listdir(out_dir):
+                fpath = join(out_dir, fname)
+                if os.path.getsize(fpath) != 0:
+                    vulns.append(fname.split(".")[0])
 
-      meta = []
-      if cfg.has_unresolved_jump:
-        meta.append("unresolved")
+            meta = []
+            if cfg.has_unresolved_jump:
+                meta.append("unresolved")
 
-      # Decompile + Analysis time
-      decomp_time = souffle_start - decomp_start
-      souffle_time = time.time() - souffle_start
-      log("{}: {:.20}... completed in {:.2f} + {:.2f} secs".format(index, filename,
-                                                                  decomp_time,
-                                                                  souffle_time))
+            # Decompile + Analysis time
+            decomp_time = souffle_start - decomp_start
+            souffle_time = time.time() - souffle_start
+            log("{}: {:.20}... completed in {:.2f} + {:.2f} secs".format(index, filename,
+                                                                         decomp_time,
+                                                                         souffle_time))
 
-      analytics["decomp_time"] = decomp_time
-      analytics["souffle_time"] = souffle_time
+            analytics["decomp_time"] = decomp_time
+            analytics["souffle_time"] = souffle_time
 
-      result_queue.put((filename, vulns, meta, analytics))
+            result_queue.put((filename, vulns, meta, analytics))
 
-  except Exception as e:
-    log("Error: {}".format(e))
-    result_queue.put((filename, [], ["error"], {}))
+    except Exception as e:
+        log("Error: {}".format(e))
+        result_queue.put((filename, [], ["error"], {}))
 
 
 def flush_queue(period, run_sig,
                 result_queue, result_list):
-  """
-  For flushing the queue periodically to a list so it doesn't fill up.
+    """
+    For flushing the queue periodically to a list so it doesn't fill up.
 
-  Args:
-      period: flush the result_queue to result_list every period seconds
-      run_sig: terminate when the Event run_sig is cleared.
-      result_queue: the queue in which results accumulate before being flushed
-      result_list: the final list of results.
-  """
-  while run_sig.is_set():
-    time.sleep(period)
-    while not result_queue.empty():
-      item = result_queue.get()
-      result_list.append(item)
+    Args:
+        period: flush the result_queue to result_list every period seconds
+        run_sig: terminate when the Event run_sig is cleared.
+        result_queue: the queue in which results accumulate before being flushed
+        result_list: the final list of results.
+    """
+    while run_sig.is_set():
+        time.sleep(period)
+        while not result_queue.empty():
+            item = result_queue.get()
+            result_list.append(item)
 
 
 # Main Body
@@ -377,11 +376,11 @@ args = parser.parse_args()
 settings.import_config(args.config_file)
 # Override config file with any provided settings.
 if args.config is not None:
-  pairs = [pair.split("=") for pair in args.config.replace(" ", "").split(",")]
-  for k, v in pairs:
-    settings.set_from_string(k, v)
+    pairs = [pair.split("=") for pair in args.config.replace(" ", "").split(",")]
+    for k, v in pairs:
+        settings.set_from_string(k, v)
 
-settings.max_iterations  = args.max_iter
+settings.max_iterations = args.max_iter
 settings.bailout_seconds = args.bail_time
 # Force analytics to be turned on.
 settings.collect_analytics = True
@@ -392,8 +391,8 @@ logging.basicConfig(format='%(message)s', level=log_level)
 
 log("Setting up working directory {}.".format(TEMP_WORKING_DIR))
 for i in range(args.jobs):
-  os.makedirs(working_dir(i, True), exist_ok=True)
-  empty_working_dir(i)
+    os.makedirs(working_dir(i, True), exist_ok=True)
+    empty_working_dir(i)
 
 log("Reading TSV settings.")
 acquire_tsv_settings()
@@ -401,17 +400,17 @@ acquire_tsv_settings()
 # Extract contract filenames.
 log("Processing contract names.")
 if args.from_file:
-  # Get contract filenames from a file if specified.
-  with open(args.from_file, 'r') as f:
-    unfiltered = [l.strip() for l in f.readlines()]
+    # Get contract filenames from a file if specified.
+    with open(args.from_file, 'r') as f:
+        unfiltered = [l.strip() for l in f.readlines()]
 else:
-  # Otherwise just get all contracts in the contract directory.
-  unfiltered = os.listdir(args.contract_dir)
+    # Otherwise just get all contracts in the contract directory.
+    unfiltered = os.listdir(args.contract_dir)
 
 # Filter according to the given pattern.
 re_string = args.filename_pattern
 if not re_string.endswith("$"):
-  re_string = re_string + "$"
+    re_string = re_string + "$"
 pattern = re.compile(re_string)
 runtime_files = filter(lambda filename: pattern.match(filename) is not None,
                        unfiltered)
@@ -444,81 +443,83 @@ contracts_exhausted = False
 
 log("Analysing...\n")
 try:
-  while not contracts_exhausted:
+    while not contracts_exhausted:
 
-    # If there's both workers and contracts available, use the former to work on the latter.
-    while not contracts_exhausted and len(avail_jobs) > 0:
-      try:
-        index, fname = next(contract_iter)
-        job_index = avail_jobs.pop()
-        proc = Process(target=analyse_contract, args=(job_index, index, fname, res_queue))
-        proc.start()
-        start_time = time.time()
-        workers.append({"name": fname,
-                        "proc": proc,
-                        "time": start_time,
-                        "job_index": job_index})
-      except StopIteration:
-        contracts_exhausted = True
+        # If there's both workers and contracts available, use the former to work on the latter.
+        while not contracts_exhausted and len(avail_jobs) > 0:
+            try:
+                index, fname = next(contract_iter)
+                job_index = avail_jobs.pop()
+                proc = Process(target=analyse_contract, args=(job_index, index, fname, res_queue))
+                proc.start()
+                start_time = time.time()
+                workers.append({"name": fname,
+                                "proc": proc,
+                                "time": start_time,
+                                "job_index": job_index})
+            except StopIteration:
+                contracts_exhausted = True
 
-    # Loop until some process terminates (to retask it) or,
-    # if there are no unanalysed contracts left, until currently-running contracts are done
-    while len(avail_jobs) == 0 or (contracts_exhausted and 0 < len(workers)):
-      to_remove = []
-      for i in range(len(workers)):
-        start_time = workers[i]["time"]
-        proc = workers[i]["proc"]
-        name = workers[i]["name"]
-        job_index = workers[i]["job_index"]
+        # Loop until some process terminates (to retask it) or,
+        # if there are no unanalysed contracts left, until currently-running contracts are done
+        while len(avail_jobs) == 0 or (contracts_exhausted and 0 < len(workers)):
+            to_remove = []
+            for i in range(len(workers)):
+                start_time = workers[i]["time"]
+                proc = workers[i]["proc"]
+                name = workers[i]["name"]
+                job_index = workers[i]["job_index"]
 
-        if time.time() - start_time > args.timeout_secs:
-          res_queue.put((name, [], ["TIMEOUT"], {}))
-          proc.terminate()
-          log("{} timed out.".format(name))
-          to_remove.append(i)
-          avail_jobs.append(job_index)
-        elif not proc.is_alive():
-          to_remove.append(i)
-          proc.join()
-          avail_jobs.append(job_index)
+                if time.time() - start_time > args.timeout_secs:
+                    res_queue.put((name, [], ["TIMEOUT"], {}))
+                    proc.terminate()
+                    log("{} timed out.".format(name))
+                    to_remove.append(i)
+                    avail_jobs.append(job_index)
+                elif not proc.is_alive():
+                    to_remove.append(i)
+                    proc.join()
+                    avail_jobs.append(job_index)
 
-      # Reverse index order so as to pop elements correctly
-      for i in reversed(to_remove):
-        workers.pop(i)
+            # Reverse index order so as to pop elements correctly
+            for i in reversed(to_remove):
+                workers.pop(i)
 
-      time.sleep(0.01)
+            time.sleep(0.01)
 
-  # Conclude and write results to file.
-  log("\nFinishing...\n")
-  run_signal.clear()
-  flush_proc.join(FLUSH_PERIOD + 1)
+    # Conclude and write results to file.
+    log("\nFinishing...\n")
+    run_signal.clear()
+    flush_proc.join(FLUSH_PERIOD + 1)
 
-  counts = {}
-  total_flagged = 0
-  for contract, vulns, meta, analytics in res_list:
-    rlist = vulns + meta
-    if len(rlist) > 0:
-      total_flagged += 1
-    for res in rlist:
-      if res not in counts:
-        counts[res] = 1
-      else:
-        counts[res] += 1
+    counts = {}
+    total_flagged = 0
+    for contract, vulns, meta, analytics in res_list:
+        rlist = vulns + meta
+        if len(rlist) > 0:
+            total_flagged += 1
+        for res in rlist:
+            if res not in counts:
+                counts[res] = 1
+            else:
+                counts[res] += 1
 
-  total = len(res_list)
-  log("{} of {} contracts flagged.\n".format(total_flagged, total))
-  for res, count in counts.items():
-    log("  {}: {:.2f}%".format(res, 100*count/total))
+    total = len(res_list)
+    log("{} of {} contracts flagged.\n".format(total_flagged, total))
+    for res, count in counts.items():
+        log("  {}: {:.2f}%".format(res, 100 * count / total))
 
-  log("\nWriting results to {}".format(args.results_file))
-  with open(args.results_file, 'w') as f:
-    f.write(json.dumps(list(res_list)))
+    log("\nWriting results to {}".format(args.results_file))
+    with open(args.results_file, 'w') as f:
+        f.write(json.dumps(list(res_list)))
 
 except Exception as e:
-  import traceback
-  traceback.print_exc()
-  flush_proc.terminate()
+    import traceback
+
+    traceback.print_exc()
+    flush_proc.terminate()
 
 log("Removing working directory {}".format(TEMP_WORKING_DIR))
 import shutil
+
 shutil.rmtree(TEMP_WORKING_DIR)
