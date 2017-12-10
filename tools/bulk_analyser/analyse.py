@@ -46,7 +46,7 @@ from multiprocessing import Process, SimpleQueue, Manager, Event
 from os.path import abspath, dirname, join
 
 # Add the source directory to the path to ensure the imports work
-src_path = join(dirname(abspath(__file__)), "../../src")
+src_path = join(dirname(abspath(__file__)), "../../")
 sys.path.insert(0, src_path)
 
 # Local project imports
