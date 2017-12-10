@@ -99,7 +99,7 @@ from the repository root. The documentation index will be placed at
 
 ## Code Style
 
-- Use two spaces for indentation
+- Use four spaces for indentation
 - Every public method and class must have a Python docstring
 - Every public method/function definition should have Python 3
   [type hints](https://docs.python.org/3/library/typing.html)
