@@ -1,15 +1,18 @@
 [![Build Status](https://travis-ci.org/usyd-blockchain/vandal.svg?branch=master)](https://travis-ci.org/usyd-blockchain/vandal)
 
-# Vandal: An EVM bytecode decompiler
+# Vandal: A static program analysis framework for EVM bytecode
 
-This project contains the source code for our Ethereum VM bytecode decompiler,
-`vandal`. It takes EVM bytecode or disassembly as input, and outputs an
-equivalent intermediate representation, including the program's control flow
-graph. This intermediate representation removes all stack operations and, in
-concert with the CFG, exposes data dependencies. The aim of this project is to
-allow compiled smart contract logic to be inspected more conveniently, either
-by hand or by machine.
+This repository contains an Ethereum VM bytecode analysis framework, vandal.
+It takes EVM bytecode or disassembly as input, and outputs an equivalent
+intermediate representation, including the program's control flow
+graph. This intermediate representation removes all stack operations and
+thereby exposes data dependencies which are otherwise obscured.
+This information can then be fed into an analysis pipeline for the
+extraction of program properties.
 
+Vandal allows compiled smart contract logic to be inspected more conveniently,
+either by hand or by machine, to the aim of characterising their correctness,
+security, and efficiency.
 
 ## Requirements
 
