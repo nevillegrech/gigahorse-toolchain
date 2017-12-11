@@ -2,7 +2,7 @@
 
 # Vandal: A static program analysis framework for EVM bytecode
 
-This repository contains an Ethereum VM bytecode analysis framework, vandal.
+This repository contains an Ethereum VM bytecode analysis framework called Vandal.
 It takes EVM bytecode or disassembly as input, and outputs an equivalent
 intermediate representation, including the program's control flow
 graph. This intermediate representation removes all stack operations and
