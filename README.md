@@ -3,9 +3,9 @@
 # Vandal
 
 Vandal is an Ethereum VM static program analysis framework.
-It takes EVM bytecode or disassembly as input, and outputs an equivalent
-decompiled intermediate representation, including the program's control flow
-graph. This representation removes all stack operations and
+It takes EVM bytecode or disassembly as input, and decompiles it to an
+equivalent intermediate representation, including the program's control
+flow graph. This representation removes all stack operations and
 thereby exposes data dependencies which are otherwise obscured.
 This information can then be fed into an analysis pipeline for the
 extraction of program properties.
