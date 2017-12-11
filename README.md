@@ -2,17 +2,19 @@
 
 # Vandal
 
-Vandal is an Ethereum VM static program analysis framework.
-It takes EVM bytecode or disassembly as input, and decompiles it to an
-equivalent intermediate representation, including the program's control
+Vandal is a static program analysis framework for Ethereum smart contract
+bytecode. It decompiles EVM bytecode or disassembly to an
+equivalent intermediate representation, including the contract's control
 flow graph. This representation removes all stack operations and
 thereby exposes data dependencies which are otherwise obscured.
-This information can then be fed into an analysis pipeline for the
-extraction of program properties.
+This information is then fed, with a Datalog specification, into an analysis
+engine for the extraction of program properties.
 
-Vandal allows compiled smart contract logic to be inspected more conveniently,
-either by hand or by machine, in service of characterising their correctness,
-security, and efficiency.
+Vandal provides a platform for detecting potential security vulnerabilities
+in compiled contract bytecode, and supports rapid development of prototyping
+of new vulnerability specifications written in Datalog.
+In a similar fashion, smart contract logic can be more conveniently inspected
+and analysed in other areas, such as correctness and efficiency.
 
 ## Requirements
 
