@@ -1,11 +1,11 @@
 [![Build Status](https://travis-ci.org/usyd-blockchain/vandal.svg?branch=master)](https://travis-ci.org/usyd-blockchain/vandal)
 
-# Vandal: A static program analysis framework for EVM bytecode
+# Vandal
 
-This repository contains an Ethereum VM bytecode analysis framework called Vandal.
+Vandal is an Ethereum VM static program analysis framework.
 It takes EVM bytecode or disassembly as input, and outputs an equivalent
-intermediate representation, including the program's control flow
-graph. This intermediate representation removes all stack operations and
+decompiled intermediate representation, including the program's control flow
+graph. This representation removes all stack operations and
 thereby exposes data dependencies which are otherwise obscured.
 This information can then be fed into an analysis pipeline for the
 extraction of program properties.
