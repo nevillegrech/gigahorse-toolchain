@@ -11,7 +11,7 @@ This information can then be fed into an analysis pipeline for the
 extraction of program properties.
 
 Vandal allows compiled smart contract logic to be inspected more conveniently,
-either by hand or by machine, to the aim of characterising their correctness,
+either by hand or by machine, in service of characterising their correctness,
 security, and efficiency.
 
 ## Requirements
