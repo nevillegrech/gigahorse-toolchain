@@ -357,6 +357,7 @@ class CFGDotExporter(Exporter):
                     logging.info("Drawing CFG image to '%s'.", out_filename)
                     page.write(html)
             else:
+                pdG.set_margin(0)
                 pdG.write(out_filename, format=extension)
 
         # Otherwise, write a regular dot file using pydot
