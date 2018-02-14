@@ -278,6 +278,12 @@ DELEGATECALL = OpCode("DELEGATECALL", 0xf4, 7, 1)
 INVALID = OpCode("INVALID", 0xfe, 0, 0)
 SELFDESTRUCT = OpCode("SELFDESTRUCT", 0xff, 1, 0)
 
+# New Byzantinium OpCodes for block.number >= BYZANTIUM_FORK_BLKNUM
+REVERT = OpCode("REVERT", 0xfd, 2, 0) 
+RETURNDATASIZE = OpCode("RETURNDATASIZE", 0x3d, 0, 1)
+RETURNDATACOPY = OpCode("RETURNDATACOPY", 0x3e, 3, 0)
+STATICCALL = OpCode("STATICCALL", 0xfa, 6, 1)
+
 # TAC Operations
 # These are not EVM opcodes, but they are used by the three-address code
 NOP = OpCode("NOP", -1, 0, 0)
