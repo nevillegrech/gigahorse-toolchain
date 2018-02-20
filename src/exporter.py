@@ -303,8 +303,6 @@ class CFGDotExporter(Exporter):
 
         G = cfg.nx_graph()
 
-        callcodes = [opcodes.CALL, opcodes.CALLCODE, opcodes.DELEGATECALL]
-
         # Colour-code the graph.
         returns = {block.ident(): "green" for block in cfg.blocks
                    if block.last_op.opcode == opcodes.RETURN}
@@ -318,7 +316,7 @@ class CFGDotExporter(Exporter):
         creates = {block.ident(): "brown" for block in cfg.blocks
                    if any(op.opcode == opcodes.CREATE for op in block.tac_ops)}
         calls = {block.ident(): "orange" for block in cfg.blocks
-                 if any(op.opcode in callcodes for op in block.tac_ops)}
+                 if any(op.opcode.is_call() for op in block.tac_ops)}
         color_dict = {**returns, **stops, **throws, **suicides, **creates, **calls}
         nx.set_node_attributes(G, "color", color_dict)
         filldict = {b.ident(): "white" if len(b.entry_stack) <= 20 else "red"

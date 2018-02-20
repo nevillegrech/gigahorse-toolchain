@@ -103,16 +103,22 @@ class OpCode:
 
     def is_call(self) -> bool:
         """Predicate: opcode calls an external contract"""
-        return self in (CALL, CALLCODE, DELEGATECALL)
+        return self in (CALL, CALLCODE, DELEGATECALL, STATICCALL,)
 
     def alters_flow(self) -> bool:
         """Predicate: opcode alters EVM control flow."""
-        return (self.code in [JUMP.code, JUMPI.code]) or self.possibly_halts()
+        return (self.code in (JUMP.code, JUMPI.code,)) or self.possibly_halts()
 
     def halts(self) -> bool:
         """Predicate: opcode causes the EVM to halt."""
-        return (self.code in [STOP.code, RETURN.code, SELFDESTRUCT.code, THROW.code]) or \
-               self.is_invalid()
+        halt_codes = (
+            STOP.code,
+            RETURN.code,
+            SELFDESTRUCT.code,
+            THROW.code,
+            REVERT.code,
+        )
+        return (self.code in halt_codes) or self.is_invalid()
 
     def possibly_halts(self) -> bool:
         """Predicate: opcode MAY cause the EVM to halt. (halts + THROWI)"""
@@ -279,7 +285,7 @@ INVALID = OpCode("INVALID", 0xfe, 0, 0)
 SELFDESTRUCT = OpCode("SELFDESTRUCT", 0xff, 1, 0)
 
 # New Byzantinium OpCodes for block.number >= BYZANTIUM_FORK_BLKNUM
-REVERT = OpCode("REVERT", 0xfd, 2, 0) 
+REVERT = OpCode("REVERT", 0xfd, 2, 0)
 RETURNDATASIZE = OpCode("RETURNDATASIZE", 0x3d, 0, 1)
 RETURNDATACOPY = OpCode("RETURNDATACOPY", 0x3e, 3, 0)
 STATICCALL = OpCode("STATICCALL", 0xfa, 6, 1)
