@@ -161,13 +161,14 @@ class CFGTsvExporter(Exporter, patterns.DynamicVisitor):
 
                 if op.opcode != opcodes.CONST:
                     # The args constitute use sites.
-                    for arg in op.args:
+                    for i, arg in enumerate(op.args):
                         name = arg.value.name
                         if not arg.value.def_sites.is_const:
                             # Argument is a stack variable, and therefore needs to be
                             # prepended with the block id.
                             name = block.ident() + ":" + name
-                        use.append((name, hex(op.pc)))
+                        # relation format: use(Var, PC, ArgIndex)
+                        use.append((name, hex(op.pc), i+1))
 
             # Finally, note where each stack variable might have been defined,
             # and what values it can take on.
@@ -357,6 +358,7 @@ class CFGDotExporter(Exporter):
                     logging.info("Drawing CFG image to '%s'.", out_filename)
                     page.write(html)
             else:
+                pdG.set_margin(0)
                 pdG.write(out_filename, format=extension)
 
         # Otherwise, write a regular dot file using pydot
