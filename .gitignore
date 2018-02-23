@@ -37,3 +37,7 @@ node_modules/
 
 # script-generated bats test files
 *.generated.bats
+
+.temp
+
+results.json

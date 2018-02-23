@@ -42,6 +42,7 @@ import re
 import subprocess
 import sys
 import time
+import shutil
 from multiprocessing import Process, SimpleQueue, Manager, Event
 from os.path import abspath, dirname, join
 
@@ -279,14 +280,19 @@ def working_dir(index: int, output_dir: bool = False) -> str:
 
 
 def empty_working_dir(index) -> None:
-    """
-    Empty the working directory for the job indicated by index.
-    """
-
-    for d_triple in os.walk(working_dir(index)):
+   """
+   Empty the working directory for the job indicated by index.
+   """
+   for d_triple in os.walk(working_dir(index)):
         for fname in d_triple[2]:
             os.remove(join(d_triple[0], fname))
 
+def backup_and_empty_working_dir(index) -> None:
+   # copy 
+   shutil.copytree(working_dir(index), working_dir(index) + str(time.time()))
+
+   empty_working_dir(index)
+            
 
 def analyse_contract(job_index: int, index: int, filename: str, result_queue) -> None:
     """
@@ -308,7 +314,7 @@ def analyse_contract(job_index: int, index: int, filename: str, result_queue) ->
             analytics = dataflow.analyse_graph(cfg)
 
             # Export relations to temp working directory
-            empty_working_dir(job_index)
+            backup_and_empty_working_dir(job_index)
             work_dir = working_dir(job_index)
             out_dir = working_dir(job_index, True)
             exporter.CFGTsvExporter(cfg).export(output_dir=work_dir,
@@ -522,4 +528,4 @@ except Exception as e:
 log("Removing working directory {}".format(TEMP_WORKING_DIR))
 import shutil
 
-shutil.rmtree(TEMP_WORKING_DIR)
+# shutil.rmtree(TEMP_WORKING_DIR)
