@@ -322,7 +322,7 @@ def analyse_contract(job_index: int, index: int, filename: str, result_queue) ->
                                                 out_opcodes=OPCODES)
             with open(work_dir+'/contract-file.txt', 'w') as f:
                 f.write(filename)
-            #os.symlink(filename, os.path.join(work_dir, 'contract.hex'))
+            os.symlink(os.path.join(args.contract_dir, filename), os.path.join(work_dir, 'contract.hex'))
             # Run souffle on those relations
             souffle_start = time.time()
             souffle_args = [args.souffle_bin, "--fact-dir={}".format(work_dir),
