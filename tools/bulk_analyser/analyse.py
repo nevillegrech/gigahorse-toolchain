@@ -320,9 +320,7 @@ def analyse_contract(job_index: int, index: int, filename: str, result_queue) ->
             exporter.CFGTsvExporter(cfg).export(output_dir=work_dir,
                                                 dominators=DOMINATORS,
                                                 out_opcodes=OPCODES)
-            with open(work_dir+'/contract-file.txt', 'w') as f:
-                f.write(filename)
-            os.symlink(os.path.join(args.contract_dir, filename), os.path.join(work_dir, 'contract.hex'))
+            os.symlink(os.path.join(os.path.join(os.getcwd(), args.contract_dir), filename), os.path.join(os.getcwd(),os.path.join(work_dir, 'contract.hex')))
             # Run souffle on those relations
             souffle_start = time.time()
             souffle_args = [args.souffle_bin, "--fact-dir={}".format(work_dir),
