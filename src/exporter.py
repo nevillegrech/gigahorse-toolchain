@@ -161,13 +161,14 @@ class CFGTsvExporter(Exporter, patterns.DynamicVisitor):
 
                 if op.opcode != opcodes.CONST:
                     # The args constitute use sites.
-                    for arg in op.args:
+                    for i, arg in enumerate(op.args):
                         name = arg.value.name
                         if not arg.value.def_sites.is_const:
                             # Argument is a stack variable, and therefore needs to be
                             # prepended with the block id.
                             name = block.ident() + ":" + name
-                        use.append((name, hex(op.pc)))
+                        # relation format: use(Var, PC, ArgIndex)
+                        use.append((name, hex(op.pc), i+1))
 
             # Finally, note where each stack variable might have been defined,
             # and what values it can take on.
@@ -306,8 +307,6 @@ class CFGDotExporter(Exporter):
 
         G = cfg.nx_graph()
 
-        callcodes = [opcodes.CALL, opcodes.CALLCODE, opcodes.DELEGATECALL]
-
         # Colour-code the graph.
         returns = {block.ident(): "green" for block in cfg.blocks
                    if block.last_op.opcode == opcodes.RETURN}
@@ -321,7 +320,7 @@ class CFGDotExporter(Exporter):
         creates = {block.ident(): "brown" for block in cfg.blocks
                    if any(op.opcode == opcodes.CREATE for op in block.tac_ops)}
         calls = {block.ident(): "orange" for block in cfg.blocks
-                 if any(op.opcode in callcodes for op in block.tac_ops)}
+                 if any(op.opcode.is_call() for op in block.tac_ops)}
         color_dict = {**returns, **stops, **throws, **suicides, **creates, **calls}
         nx.set_node_attributes(G, "color", color_dict)
         filldict = {b.ident(): "white" if len(b.entry_stack) <= 20 else "red"
@@ -361,6 +360,7 @@ class CFGDotExporter(Exporter):
                     logging.info("Drawing CFG image to '%s'.", out_filename)
                     page.write(html)
             else:
+                pdG.set_margin(0)
                 pdG.write(out_filename, format=extension)
 
         # Otherwise, write a regular dot file using pydot
