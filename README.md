@@ -1,24 +1,26 @@
 # Using this repo
 
 To pull new hotness from the public repo:
-
-cd private-repo
-git remote add public https://github.com/exampleuser/public-repo.git
+```
+cd vandal-client
+git remote add public https://github.com/usyd-blockchain/vandal.git
 git pull public master # Creates a merge commit
 git push origin master
+```
 Awesome, your private repo now has the latest code from the public repo plus your changes.
 
 Finally, to create a pull request private repo -> public repo:
 
 The only way to create a pull request is to have push access to the public repo. This is because you need to push to a branch there (here's why).
-
-git clone https://github.com/exampleuser/public-repo.git
-cd public-repo
-git remote add private_repo_yourname https://github.com/yourname/private-repo.git
+```
+git clone https://github.com/usyd-blockchain/vandal.git
+cd vandal
+git remote add private_repo_yourname https://github.com/plast-lab/vandal-client.git
 git checkout -b pull_request_yourname
 git pull private_repo_yourname master
 git push origin pull_request_yourname
-Now simply create a pull request via the Github UI for public-repo, as described here.
+```
+Now simply create a pull request via the Github UI for vandal.
 
 # Vandal
 
