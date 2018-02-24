@@ -78,6 +78,14 @@ parser.add_argument("-b",
                     help="disassemble and decompile bytecode input. This is "
                          "the default mode.")
 
+parser.add_argument("-i",
+                    "--instruction_facts",
+                    nargs="?",
+                    const="",
+                    metavar="DIR",
+                    default=None,
+                    help="produce facts for original bytecode input.")
+
 parser.add_argument("-g",
                     "--graph",
                     nargs="?",
@@ -98,7 +106,8 @@ parser.add_argument("-t",
                     metavar="DIR",
                     default=None,
                     help="generate tab-separated .facts files for Souffle "
-                         "and write files to the specified directory, which "
+                         "that represents the control flow graph. "
+                         "Write files to the specified directory, which "
                          "will be recursively created if it does not exist "
                          "(current working directory by default).")
 
@@ -236,3 +245,7 @@ if args.tsv is not None:
     exporter.CFGTsvExporter(cfg).export(output_dir=args.tsv,
                                         dominators=args.dominators,
                                         out_opcodes=args.opcodes)
+if args.instruction_facts is not None:
+    logging.info("Writing TSV output.")
+    exporter.InstructionTsvExporter(cfg).export(output_dir=args.instruction_facts)
+    

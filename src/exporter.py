@@ -592,3 +592,72 @@ def svg_to_html(svg: str, function_extractor: function.FunctionExtractor = None)
               """)
 
     return "\n".join(page)
+
+class InstructionTsvExporter(Exporter, patterns.DynamicVisitor):
+    """
+    Prints a textual representation of the given CFG to stdout.
+
+    Args:
+      cfg: source CFG to be printed.
+      ordered: if True (default), print BasicBlocks in order of entry.
+    """
+
+
+    def __init__(self, cfg: cfg.ControlFlowGraph, ordered: bool = True):
+        super().__init__(cfg)
+        self.ordered = ordered
+        self.blocks = []
+        self.source.accept(self)
+        self.cfg = cfg
+
+    def visit_ControlFlowGraph(self, cfg):
+        """
+        Visit the CFG root
+        """
+        pass
+
+    def visit_BasicBlock(self, block):
+        """
+        Visit a BasicBlock in the CFG
+        """
+        self.blocks.append((block.entry, str(block)))
+
+    def export(self, output_dir = ""):
+        """
+        Print basic block info to tsv.
+        """
+        if output_dir != "":
+            os.makedirs(output_dir, exist_ok=True)
+
+        def generate(filename, entries):
+            path = os.path.join(output_dir, filename)
+
+            with open(path, 'w') as f:
+                writer = csv.writer(f, delimiter='\t', lineterminator='\n')
+                for e in entries:
+                    writer.writerow(e)
+        ops = []
+        block_nums = []
+        for block in self.cfg.blocks:
+            for op in block.evm_ops:
+                ops.append((hex(op.pc), op.opcode.name, op.value))
+                block_nums.append((hex(op.pc), block.ident()))
+        generate("ops.facts", ops)
+        generate("block.facts", block_nums)
+        opcode_output = {'alters_flow':bool, 'halts':bool, 'is_arithmetic':bool,
+                         'is_call':bool, 'is_dup':bool, 'is_invalid':bool,
+                         'is_log':bool, 'is_memory':bool, 'is_missing':bool,
+                         'is_push':bool, 'is_storage':bool, 'is_swap':bool,
+                         'log_len':int, 'possibly_halts':bool, 'push_len':int,
+                         'stack_delta':int
+        }
+        opcode_key = 'name'
+        for prop, typ in opcode_output.items():
+            opcode_property = []
+            for k, opcode in opcodes.OPCODES.items():
+                prop_val = getattr(opcode, prop)()
+                if typ is bool and prop_val:
+                    opcode_property.append((getattr(opcode, opcode_key), ))
+                if typ is int:
+                    opcode_property.append((getattr(opcode, opcode_key), prop_val))
+                generate('opcode_'+prop+'.facts', opcode_property)
