@@ -57,7 +57,3 @@ loop4.Edge(x, y) :- loop3.NextEdge(x, y).
 .output loop3.NextEdge
 .output loop4.BlockInLoop
 
-
-.decl AssertNotMoreThan2Edges(x: Block)                 
-AssertNotMoreThan2Edges(x) :- loop0.Edge(x, y), loop0.Edge(x, z), loop0.Edge(x, p), y!=z, z!=p, p!=y.
-.output AssertNotMoreThan2Edges
