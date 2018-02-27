@@ -1,0 +1,41 @@
+// The most general definition of a loop-like structure: in same SCC
+.decl InLoop(s:Statement, t:Statement)
+InLoop(s,t) :-
+  CanReach(s,t),
+  CanReach(t,s),
+  s != t.
+
+//// ASSERTION
+.decl AssertStatementsReachable(s:Statement)
+.output AssertStatementsReachable
+.decl HelperStatementsReachable(s:Statement)
+// there may be multiple entries
+HelperStatementsReachable(s) :-
+  CanReach(entry,s), Entry(entry).
+
+AssertStatementsReachable(s) :-
+  IsStatement(s), !HelperStatementsReachable(s).
+
+
+//// ASSERTION
+.decl AssertSuccessorWellDefined(s:Statement)
+.output AssertSuccessorWellDefined
+AssertSuccessorWellDefined(s) :- SuccessorBB(s,_), !BasicBlockHead(_,s).
+
+//// ASSERTION
+.decl AssertLoopsAreStructured(s:Statement)
+.output AssertLoopsAreStructured
+AssertLoopsAreStructured(h) :-
+  BasicBlockHead(_,h),
+  InLoop(h,_),
+  !InStructuredLoop(h,_).
+
+
+.decl AssertLoopNoInductionVariable(stmt: Statement)
+.output AssertLoopNoInductionVariable
+AssertLoopNoInductionVariable(loop) :-        
+  InStructuredLoop(_, loop),
+  !InductionVariable(_, loop).
+      
+    
+
