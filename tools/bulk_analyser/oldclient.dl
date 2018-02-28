@@ -176,7 +176,7 @@ conditionVar(var, stmt) :- op(stmt, "THROWI"), use(var, stmt, _).
 conditionVar(var, stmt) :- op_JUMPI(stmt, _, var).
 
 // x controls whether y executes by the value in cond
-.decl controlsWit(x:Statement, y:Statement, cond:Variable)
+.decl controlsWith(x:Statement, y:Statement, cond:Variable)
 controlsWith(x, y, cond) :- controls(x, y), conditionVar(cond, x).
 
 // A statement is inaccessible if some condition controls it which is not manipulable by the caller.
