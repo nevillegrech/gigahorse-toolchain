@@ -197,3 +197,23 @@ usedInStateOrCond(var, stmt) :- stateWriteUse(var, stmt).
 reaches(p, p) :- op(p, _).
 reaches(p, q) :- edge(p, q).
 reaches(p, q) :- edge(p, u), reaches(u, q).
+
+
+
+// UNSECURED BALANCE
+
+.decl fromCallValue(var:Variable)
+fromCallValue(var) :- depends(var, callValVar), def(callValVar, callValStmt), op(callValStmt, "CALLVALUE").
+.decl usefulValue(var:Variable)
+usefulValue(var) :- !value(var, "0x0"), !fromCallValue(var), def(var, _).
+
+// A call statement satisfies this relation if its target can be manipulated (and is not constant), it actually sends some value, and it's actually callable.
+.decl unsecuredValueSend(stmt:Statement)
+.output unsecuredValueSend
+unsecuredValueSend(stmt) :- op_CALL(stmt, _, target, val, _, _, _, _), nonConstManipulable(target), usefulValue(val), !inaccessible(stmt).
+
+// SUICIDE
+.decl accessibleSuicide(stmt:Statement)
+.output accessibleSuicide
+accessibleSuicide(stmt) :- !inaccessible(stmt), op(stmt, "SUICIDE").
+
