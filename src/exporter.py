@@ -313,8 +313,7 @@ class CFGDotExporter(Exporter):
         stops = {block.ident(): "blue" for block in cfg.blocks
                  if block.last_op.opcode == opcodes.STOP}
         throws = {block.ident(): "red" for block in cfg.blocks
-                  if (block.last_op.opcode in [opcodes.THROW, opcodes.THROWI] or \
-                      block.last_op.opcode.is_invalid())}
+                  if block.last_op.opcode.is_exception()}
         suicides = {block.ident(): "purple" for block in cfg.blocks
                     if block.last_op.opcode == opcodes.SELFDESTRUCT}
         creates = {block.ident(): "brown" for block in cfg.blocks
