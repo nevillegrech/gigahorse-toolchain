@@ -1,0 +1,152 @@
+//
+// *** INSTRUCTIONS ***
+//
+
+// Requires CALL, JUMPI, SSTORE relations.
+
+      
+
+// Place opcodes into various categories.
+.decl unaryArith(opcode:Opcode)
+unaryArith("ISZERO").
+unaryArith("NOT").
+
+.decl binArith(opcode:Opcode)
+binArith("ADD").
+binArith("MUL").
+binArith("SUB").
+binArith("DIV").
+binArith("SDIV").
+binArith("MOD").
+binArith("SMOD").
+binArith("EXP").
+binArith("SIGNEXTEND").
+binArith("LT").
+binArith("GT").
+binArith("SLT").
+binArith("SGT").
+binArith("EQ").
+binArith("AND").
+binArith("OR").
+binArith("XOR").
+binArith("BYTE").
+
+.decl ternArith(opcode:Opcode)
+ternArith("ADDMOD").
+ternArith("MULMOD").
+
+.decl RuntimeKnowable(opcode:Opcode)
+RuntimeKnowable("ADDRESS").
+RuntimeKnowable("ORIGIN").
+RuntimeKnowable("CALLER").
+RuntimeKnowable("CALLVALUE").
+RuntimeKnowable("CALLDATASIZE").
+RuntimeKnowable("CODESIZE").
+RuntimeKnowable("GASPRICE").
+RuntimeKnowable("RETURNDATASIZE").
+
+.decl IsThrow(stmt:Statement)
+IsThrow(stmt) :- op(stmt, "THROW").
+IsThrow(stmt) :- op(stmt, "THROWI").
+
+.decl SHA3(stmt: Statement, ret: Variable, start: Variable, size: Variable)
+SHA3(stmt, ret, start, size) :-
+  op(stmt,"SHA3"),
+  use(start, stmt, 1),
+  use(size, stmt, 2),
+  def(ret, stmt).
+
+.decl MSTORE(stmt: Statement, index: Variable, var: Variable)
+
+MSTORE(stmt, index, var) :-
+  op(stmt,"MSTORE"),
+  use(index, stmt, 1),
+  use(var, stmt, 2).
+
+.decl SSTORE(stmt: Statement, index: Variable, var: Variable)
+
+SSTORE(stmt, index, var) :-
+  op(stmt,"SSTORE"),
+  use(index, stmt, 1),
+  use(var, stmt, 2).
+
+.decl SLOAD(stmt: Statement, index: Variable, var: Variable)
+
+SLOAD(stmt, index, var) :-
+  op(stmt,"SLOAD"),
+  use(index, stmt, 1),
+  def(var, stmt).
+
+.decl MLOAD(stmt: Statement, index: Variable, var: Variable)
+
+MLOAD(stmt, index, var) :-
+  op(stmt,"MLOAD"),
+  use(index, stmt, 1),
+  def(var, stmt).
+
+.decl AND(stmt: Statement, a: Variable, b: Variable, to: Variable)
+
+AND(stmt, a, b, to) :-
+  op(stmt, "AND"),
+  def(to, stmt),
+  use(a, stmt, 1),
+  use(b, stmt, 2).
+
+.decl ADD(stmt: Statement, a: Variable, b: Variable, to: Variable)
+ADD(stmt, a, b, to) :-
+  op(stmt, "ADD"),
+  def(to, stmt),
+  use(a, stmt, 1),
+  use(b, stmt, 2).
+
+.decl CALL(stmt:Statement, gas:Variable, target:Variable, value:Variable, data_start:Variable,
+           data_length:Variable, return_start:Variable, return_length:Variable, success: Variable)
+
+
+CALL(stmt, gas, target, value, data_start, data_length, return_start, return_length, success) :-
+  op(stmt, "CALL"),
+  def(success, stmt),
+  use(gas, stmt, 1),
+  use(target, stmt, 2),
+  use(value, stmt, 3),
+  use(data_start, stmt, 4),
+  use(data_length, stmt, 5),
+  use(return_start, stmt, 6),
+  use(return_length, stmt, 7).
+
+.decl JUMPI(stmt:Statement, dest:Variable, condVar:Variable)
+JUMPI(stmt, dest, condVar) :-
+  op(stmt, "JUMPI"),
+  use(dest, stmt, 2),
+  use(condVar, stmt, 1).
+
+.decl FlowOp(op: Opcode)
+// Represents operations through which data can "flow"      
+FlowOp(op) :- binArith(op).
+FlowOp(op) :- unaryArith(op).
+FlowOp(op) :- ternArith(op).
+
+// var is the result of a CALL operation, stmt
+.decl CallStmt(stmt:Statement)
+CallStmt(stmt) :- op(stmt, "CALL").
+CallStmt(stmt) :- op(stmt, "CALLCODE").
+CallStmt(stmt) :- op(stmt, "DELEGATECALL").
+CallStmt(stmt) :- op(stmt, "STATICCALL").
+
+
+// var is the result of a CALL operation, stmt
+.decl CallResult(var:Variable, stmt:Statement)
+
+CallResult(var, stmt) :- CallStmt(stmt), def(var, stmt).
+
+// var holds the result of executing the GAS opcode
+.decl GAS(stmt: Statement, var: Variable)
+GAS(stmt, var) :- op(stmt, "GAS"), def(var, stmt).
+
+.decl IsJump(s:Statement)
+IsJump(s) :- op(s, "JUMP").
+IsJump(s) :- op(s, "JUMPI").
+
+.decl JUMPDEST(s:Statement)
+JUMPDEST(s) :- op(s, "JUMPDEST").
+

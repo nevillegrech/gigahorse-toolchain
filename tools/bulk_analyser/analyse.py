@@ -71,6 +71,9 @@ DEFAULT_RESULTS_FILE = 'results.json'
 DEFAULT_SPEC_DL = 'spec.dl'
 """Vulnerability specification file."""
 
+DEFAULT_SOUFFLE_EXECUTABLE = 'spec_compiled'
+"""Compiled vulnerability specification file."""
+
 TEMP_WORKING_DIR = ".temp"
 """Scratch working directory."""
 
@@ -119,12 +122,6 @@ parser.add_argument("-S",
                     const=DEFAULT_SOUFFLE_BIN,
                     metavar="BINARY",
                     help="the location of the souffle binary.")
-
-parser.add_argument("-M",
-                    "--compile_souffle",
-                    action="store_true",
-                    default=False,
-                    help="compile souffle step.")
 
 parser.add_argument("-p",
                     "--filename_pattern",
@@ -293,7 +290,13 @@ def backup_and_empty_working_dir(index) -> None:
 
    empty_working_dir(index)
             
-
+def compile_datalog():
+    compilation_command = [args.souffle_bin, '-c', '-o', DEFAULT_SOUFFLE_EXECUTABLE, DEFAULT_SPEC_DL]
+    log("Compiling Datalog to C++ program and executable")
+    process = subprocess.run(compilation_command, universal_newlines=True)
+    assert not(process.returncode), "Compilation failed. Stopping."
+    
+    
 def analyse_contract(job_index: int, index: int, filename: str, result_queue) -> None:
     """
     Perform dataflow analysis on a contract, storing the result in the queue.
@@ -326,12 +329,9 @@ def analyse_contract(job_index: int, index: int, filename: str, result_queue) ->
             os.symlink(contract_filename, os.path.join(os.getcwd(),os.path.join(work_dir, 'contract.hex')))
             # Run souffle on those relations
             souffle_start = time.time()
-            souffle_args = [args.souffle_bin, "--fact-dir={}".format(work_dir),
-                            "--output-dir={}".format(out_dir),
-                            DEFAULT_SPEC_DL]
-            if args.compile_souffle:
-                souffle_args.append("--compile")
-            subprocess.run(souffle_args)
+            analysis_args = [os.path.join(os.getcwd(), DEFAULT_SOUFFLE_EXECUTABLE), "--facts={}".format(work_dir),
+                            "--output={}".format(out_dir)]
+            subprocess.run(analysis_args)
 
             # Collect the results and put them in the result queue
             vulns = []
@@ -397,6 +397,8 @@ settings.collect_analytics = True
 log_level = logging.WARNING if args.quiet else logging.INFO + 1
 log = lambda msg: logging.log(logging.INFO + 1, msg)
 logging.basicConfig(format='%(message)s', level=log_level)
+
+compile_datalog()
 
 log("Setting up working directory {}.".format(TEMP_WORKING_DIR))
 for i in range(args.jobs):
