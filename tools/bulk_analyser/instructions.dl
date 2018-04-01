@@ -2,10 +2,6 @@
 // *** INSTRUCTIONS ***
 //
 
-// Requires CALL, JUMPI, SSTORE relations.
-
-      
-
 // Place opcodes into various categories.
 .decl unaryArith(opcode:Opcode)
 unaryArith("ISZERO").
@@ -117,8 +113,8 @@ CALL(stmt, gas, target, value, data_start, data_length, return_start, return_len
 .decl JUMPI(stmt:Statement, dest:Variable, condVar:Variable)
 JUMPI(stmt, dest, condVar) :-
   op(stmt, "JUMPI"),
-  use(dest, stmt, 2),
-  use(condVar, stmt, 1).
+  use(dest, stmt, 1),
+  use(condVar, stmt, 2).
 
 .decl FlowOp(op: Opcode)
 // Represents operations through which data can "flow"      

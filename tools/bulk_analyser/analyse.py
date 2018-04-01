@@ -329,8 +329,10 @@ def analyse_contract(job_index: int, index: int, filename: str, result_queue) ->
             os.symlink(contract_filename, os.path.join(os.getcwd(),os.path.join(work_dir, 'contract.hex')))
             # Run souffle on those relations
             souffle_start = time.time()
-            analysis_args = [os.path.join(os.getcwd(), DEFAULT_SOUFFLE_EXECUTABLE), "--facts={}".format(work_dir),
-                            "--output={}".format(out_dir)]
+            analysis_args = [os.path.join(os.getcwd(), DEFAULT_SOUFFLE_EXECUTABLE),
+                             "--facts={}".format(work_dir),
+                             "--output={}".format(out_dir)
+            ]
             subprocess.run(analysis_args)
 
             # Collect the results and put them in the result queue
