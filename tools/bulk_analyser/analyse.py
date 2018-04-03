@@ -328,7 +328,7 @@ def analyse_contract(job_index: int, index: int, filename: str, result_queue, ti
             souffle_start = time.time()
             souffle_args = [args.souffle_bin, "--fact-dir={}".format(work_dir),
                             "--output-dir={}".format(out_dir),
-                            DEFAULT_SPEC_DL]
+                            args.spec]
             if args.compile_souffle:
                 souffle_args.append("--compile")
             souffle_proc = subprocess.Popen(souffle_args)
