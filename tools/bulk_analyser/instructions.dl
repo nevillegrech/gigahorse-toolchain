@@ -45,8 +45,8 @@ RuntimeKnowable("RETURNDATASIZE").
 IsThrow(stmt) :- op(stmt, "THROW").
 IsThrow(stmt) :- op(stmt, "THROWI").
 
-.decl SHA3(stmt: Statement, ret: Variable, start: Variable, size: Variable)
-SHA3(stmt, ret, start, size) :-
+.decl SHA3(stmt: Statement, start: Variable, size: Variable, ret: Variable)
+SHA3(stmt, start, size, ret) :-
   op(stmt,"SHA3"),
   use(start, stmt, 1),
   use(size, stmt, 2),
