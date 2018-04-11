@@ -41,8 +41,10 @@ import os
 import re
 import subprocess
 import sys
+import signal
 import time
 import shutil
+import sys
 from multiprocessing import Process, SimpleQueue, Manager, Event
 from os.path import abspath, dirname, join
 
@@ -92,10 +94,10 @@ DEFAULT_PATTERN = ".*runtime.hex"
 FLUSH_PERIOD = 3
 """Wait a little to flush the files and join the processes when concluding."""
 
-DOMINATORS = False
+DOMINATORS = True
 """Whether or not the cfg relations should include dominators"""
 
-OPCODES = []
+OPCODES = ["CALL", "JUMPI" ,"SSTORE" ,"SLOAD" ,"MLOAD" ,"MSTORE"]
 """A list of strings indicating which opcodes to include in the cfg relations."""
 
 DEFAULT_NUM_JOBS = 4
@@ -234,6 +236,13 @@ parser.add_argument("-q",
                     default=False,
                     help="Silence output.")
 
+parser.add_argument("spec",
+                    nargs="?",
+                    type=argparse.FileType("r"),
+                    default=DEFAULT_SPEC_DL,
+                    help="file containing Souffle specifications"
+                         "(spec.dl by default).")
+
 
 # Functions
 
@@ -248,7 +257,7 @@ def acquire_tsv_settings() -> None:
     global OPCODES
     dom_prefixes = ["dom", "pdom", "imdom", "impdom"]
 
-    with open(DEFAULT_SPEC_DL, 'r') as dl:
+    with args.spec as dl:
         for line in dl:
             splitline = line.strip().split()
             if len(splitline) < 2:
@@ -297,7 +306,8 @@ def compile_datalog():
     assert not(process.returncode), "Compilation failed. Stopping."
     
     
-def analyse_contract(job_index: int, index: int, filename: str, result_queue) -> None:
+
+def analyse_contract(job_index: int, index: int, filename: str, result_queue, timeout: int) -> None:
     """
     Perform dataflow analysis on a contract, storing the result in the queue.
     This is a worker function to be passed to a subprocess.
@@ -308,7 +318,7 @@ def analyse_contract(job_index: int, index: int, filename: str, result_queue) ->
         filename: the location of the contract bytecode file to process
         result_queue: a multiprocessing queue in which to store the analysis results
     """
-
+    global souffle_proc
     try:
         with open(join(args.contract_dir, filename)) as file:
             # Decompile and perform dataflow analysis upon the given graph
@@ -358,8 +368,14 @@ def analyse_contract(job_index: int, index: int, filename: str, result_queue) ->
 
             result_queue.put((filename, vulns, meta, analytics))
 
+    except subprocess.TimeoutExpired as e:
+        souffle_proc.terminate()
+        log("{} timed out after {} secs (limit {} secs).".format(filename,
+            time.time() - souffle_start, e.timeout))
+        res_queue.put((filename, [], ["TIMEOUT"], {}))
+
     except Exception as e:
-        log("Error: {}".format(e))
+        log("Error ({}): {}".format(filename, e))
         result_queue.put((filename, [], ["error"], {}))
 
 
@@ -454,16 +470,34 @@ avail_jobs = list(range(args.jobs))
 contract_iter = enumerate(to_process)
 contracts_exhausted = False
 
+# Track the souffle process started by the current fork so we can kill it in
+# the signal handler.
+souffle_proc = None
+
+# Register signal handler for current fork so it will DIE like it should upon
+# receiving SIGINT or SIGTERM.
+def handle_signal(signal, frame):
+    global souffle_proc
+    log("Terminating!")
+    if souffle_proc:
+        log("Terminating Souffle")
+        souffle_proc.terminate()
+    sys.exit(1)
+
+signal.signal(signal.SIGINT, handle_signal)
+signal.signal(signal.SIGTERM, handle_signal)
+
 log("Analysing...\n")
 try:
     while not contracts_exhausted:
-
         # If there's both workers and contracts available, use the former to work on the latter.
         while not contracts_exhausted and len(avail_jobs) > 0:
             try:
                 index, fname = next(contract_iter)
                 job_index = avail_jobs.pop()
-                proc = Process(target=analyse_contract, args=(job_index, index, fname, res_queue))
+                proc = Process(
+                        target=analyse_contract,
+                        args=(job_index, index, fname, res_queue, args.timeout_secs))
                 proc.start()
                 start_time = time.time()
                 workers.append({"name": fname,
@@ -483,13 +517,7 @@ try:
                 name = workers[i]["name"]
                 job_index = workers[i]["job_index"]
 
-                if time.time() - start_time > args.timeout_secs:
-                    res_queue.put((name, [], ["TIMEOUT"], {}))
-                    proc.terminate()
-                    log("{} timed out.".format(name))
-                    to_remove.append(i)
-                    avail_jobs.append(job_index)
-                elif not proc.is_alive():
+                if not proc.is_alive():
                     to_remove.append(i)
                     proc.join()
                     avail_jobs.append(job_index)

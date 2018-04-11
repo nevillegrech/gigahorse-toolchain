@@ -193,6 +193,7 @@ class CFGTsvExporter(Exporter, patterns.DynamicVisitor):
             in_function = []
             # A function id appears in this relation if it's private.
             private_function = []
+            public_function_sigs = []
 
             f_e = self.source.function_extractor
             for i, f in enumerate(f_e.functions):
@@ -200,9 +201,12 @@ class CFGTsvExporter(Exporter, patterns.DynamicVisitor):
                     in_function.append((b.ident(), i))
                 if f.is_private:
                     private_function.append((i,))
+                else:
+                    public_function_sigs.append((i, f.signature))
 
             generate("in_function.facts", in_function)
             generate("private_function.facts", private_function)
+            generate("public_function_sigs.facts", public_function_sigs)
 
         if dominators:
             pairs = sorted([(k, i) for k, v
@@ -309,8 +313,7 @@ class CFGDotExporter(Exporter):
         stops = {block.ident(): "blue" for block in cfg.blocks
                  if block.last_op.opcode == opcodes.STOP}
         throws = {block.ident(): "red" for block in cfg.blocks
-                  if (block.last_op.opcode in [opcodes.THROW, opcodes.THROWI] or \
-                      block.last_op.opcode.is_invalid())}
+                  if block.last_op.opcode.is_exception()}
         suicides = {block.ident(): "purple" for block in cfg.blocks
                     if block.last_op.opcode == opcodes.SELFDESTRUCT}
         creates = {block.ident(): "brown" for block in cfg.blocks

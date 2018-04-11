@@ -108,6 +108,11 @@ class OpCode:
     def alters_flow(self) -> bool:
         """Predicate: opcode alters EVM control flow."""
         return (self.code in (JUMP.code, JUMPI.code,)) or self.possibly_halts()
+    
+    def is_exception(self) -> bool:
+        """Predicate: opcode causes the EVM to throw an exception."""
+        return (self.code in (THROW.code, THROWI.code, REVERT.code)) \
+                or self.is_invalid()
 
     def halts(self) -> bool:
         """Predicate: opcode causes the EVM to halt."""
