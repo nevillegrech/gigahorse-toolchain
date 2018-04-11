@@ -94,10 +94,10 @@ DEFAULT_PATTERN = ".*runtime.hex"
 FLUSH_PERIOD = 3
 """Wait a little to flush the files and join the processes when concluding."""
 
-DOMINATORS = True
+DOMINATORS = False
 """Whether or not the cfg relations should include dominators"""
 
-OPCODES = ["CALL", "JUMPI" ,"SSTORE" ,"SLOAD" ,"MLOAD" ,"MSTORE"]
+OPCODES = []
 """A list of strings indicating which opcodes to include in the cfg relations."""
 
 DEFAULT_NUM_JOBS = 4
