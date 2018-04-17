@@ -43,6 +43,7 @@ RuntimeKnowable("RETURNDATASIZE").
 
 .decl IsThrow(stmt:Statement)
 IsThrow(stmt) :- op(stmt, "THROW").
+IsThrow(stmt) :- op(stmt, "REVERT").
 IsThrow(stmt) :- op(stmt, "THROWI").
 
 .decl SHA3(stmt: Statement, start: Variable, size: Variable, ret: Variable)
