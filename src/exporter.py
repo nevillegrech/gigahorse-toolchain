@@ -677,7 +677,12 @@ class InstructionTsvExporter(Exporter, patterns.DynamicVisitor):
         opcode_key = 'name'
         for prop, typ in opcode_output.items():
             relname = ''.join(map(lambda a : a[0].upper()+ a[1:], ('instruction_'+prop).split('_')))
-            f.write('.decl %s(instruction: Instruction)\n'%relname)
+            if typ == bool:
+                f.write('.decl %s(instruction: Instruction)\n'%relname)
+            elif typ == int:
+                f.write('.decl %s(instruction: Instruction, n: number)\n'%relname)
+            else:
+                raise NotImplementedError('')
             f.write('.input %s\n'%relname)
             f.write('\n')
             opcode_property = []
