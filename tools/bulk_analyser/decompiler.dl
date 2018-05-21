@@ -3,10 +3,12 @@
 .type Statement
 .type Block
 .type Value
-.type Instruction
+.type Opcode
 
-.decl Statement_Instruction(statement: Statement, instruction: Instruction)
-.input Statement_Instruction
+.decl Statement_Opcode(statement: Statement, opcode: Opcode)
+.input Statement_Opcode
+
+       
 
 /*
        

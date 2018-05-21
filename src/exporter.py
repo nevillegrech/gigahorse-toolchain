@@ -664,7 +664,7 @@ class InstructionTsvExporter(Exporter, patterns.DynamicVisitor):
         for k, v in statements.items():
             generate(k+'.facts', v)
 
-        generate('Statement_Instruction.facts', instructions)
+        generate('Statement_Opcode.facts', instructions)
                     
         opcode_output = {'alters_flow':bool, 'halts':bool, 'is_arithmetic':bool,
                          'is_call':bool, 'is_dup':bool, 'is_invalid':bool,
@@ -676,11 +676,11 @@ class InstructionTsvExporter(Exporter, patterns.DynamicVisitor):
         
         opcode_key = 'name'
         for prop, typ in opcode_output.items():
-            relname = ''.join(map(lambda a : a[0].upper()+ a[1:], ('instruction_'+prop).split('_')))
+            relname = ''.join(map(lambda a : a[0].upper()+ a[1:], ('opcode_'+prop).split('_')))
             if typ == bool:
-                f.write('.decl %s(instruction: Instruction)\n'%relname)
+                f.write('.decl %s(instruction: Opcode)\n'%relname)
             elif typ == int:
-                f.write('.decl %s(instruction: Instruction, n: number)\n'%relname)
+                f.write('.decl %s(instruction: Opcode, n: number)\n'%relname)
             else:
                 raise NotImplementedError('')
             f.write('.input %s\n'%relname)
