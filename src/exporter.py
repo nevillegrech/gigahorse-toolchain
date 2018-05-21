@@ -646,7 +646,7 @@ class InstructionTsvExporter(Exporter, patterns.DynamicVisitor):
         statements = {'MISSING': []}
         for k, opcode in opcodes.OPCODES.items():
             statements[k] = []
-            if opcode.is_push:
+            if opcode.is_push():
                 f.write('.decl %s(stmt: Statement, value: Value)\n'%k)
             else:
                 f.write('.decl %s(stmt: Statement)\n'%k)
