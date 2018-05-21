@@ -639,14 +639,33 @@ class InstructionTsvExporter(Exporter, patterns.DynamicVisitor):
                 writer = csv.writer(f, delimiter='\t', lineterminator='\n')
                 for e in entries:
                     writer.writerow(e)
-        ops = []
-        block_nums = []
+
+        #generate("ops.facts", ops)
+
+        f = open('decompiler_inputs.dl', 'w')
+        statements = {'MISSING': []}
+        for k, opcode in opcodes.OPCODES.items():
+            statements[k] = []
+            if opcode.is_push:
+                f.write('.decl %s(stmt: Statement, value: Value)\n'%k)
+            else:
+                f.write('.decl %s(stmt: Statement)\n'%k)
+            f.write('.input %s\n'%k)
+            f.write('\n')
+        instructions = []
         for block in self.cfg.blocks:
             for op in block.evm_ops:
-                ops.append((hex(op.pc), op.opcode.name, op.value))
-                block_nums.append((hex(op.pc), block.ident()))
-        generate("ops.facts", ops)
-        generate("block.facts", block_nums)
+                instructions.append((hex(op.pc), op.opcode.name))
+                if op.opcode.is_push():
+                    statements[op.opcode.name].append((hex(op.pc), hex(op.value)))
+                else:
+                    statements[op.opcode.name].append((hex(op.pc),))
+
+        for k, v in statements.items():
+            generate(k+'.facts', v)
+
+        generate('Statement_Instruction.facts', instructions)
+                    
         opcode_output = {'alters_flow':bool, 'halts':bool, 'is_arithmetic':bool,
                          'is_call':bool, 'is_dup':bool, 'is_invalid':bool,
                          'is_log':bool, 'is_memory':bool, 'is_missing':bool,
@@ -654,8 +673,13 @@ class InstructionTsvExporter(Exporter, patterns.DynamicVisitor):
                          'log_len':int, 'possibly_halts':bool, 'push_len':int,
                          'stack_delta':int
         }
+        
         opcode_key = 'name'
         for prop, typ in opcode_output.items():
+            relname = ''.join(map(lambda a : a[0].upper()+ a[1:], ('instruction_'+prop).split('_')))
+            f.write('.decl %s(instruction: Instruction)\n'%relname)
+            f.write('.input %s\n'%relname)
+            f.write('\n')
             opcode_property = []
             for k, opcode in opcodes.OPCODES.items():
                 prop_val = getattr(opcode, prop)()
@@ -663,4 +687,4 @@ class InstructionTsvExporter(Exporter, patterns.DynamicVisitor):
                     opcode_property.append((getattr(opcode, opcode_key), ))
                 if typ is int:
                     opcode_property.append((getattr(opcode, opcode_key), prop_val))
-                generate('opcode_'+prop+'.facts', opcode_property)
+                generate(relname +'.facts', opcode_property)

@@ -1,0 +1,54 @@
+#include "decompiler_inputs.dl"
+
+.type Statement
+.type Block
+.type Value
+.type Instruction
+
+.decl Statement_Instruction(statement: Statement, instruction: Instruction)
+.input Statement_Instruction
+
+/*
+       
+BlockStackContains(statement, n, symbol)
+
+BlockStackDelta(statement, n).
+
+
+// check buggy
+BlockStackDelta(statement, n+m) :-
+  PreviousStatementInBlock(statement, prevStatement),
+  BlockStackDelta(prevStatement, n),
+  Statement_Instruction(statement, inst),
+  Instruction_Delta(inst, m),
+  n > m. // or something of this sort
+
+StackContains(statement, n, symbol) :-
+  BlockStackContains(statement, n, symbol).
+
+StackContains(statement, n+m, symbol) :-
+  BlockStackDelta(statement, n),
+  PreviousBlock(statement, prevBlock),
+  BlockOutputStack(prevBlock, m),
+  n+m < 20.
+
+BlockOutputStack(block, n, symbol) :-
+  StackContains(statement, n, symbol),
+  LastStatementInBlock(block, statement).
+
+BlockStackContains(statement, m, symbol) :-
+  PreviousStatementInBlock(statement, prevStatement),
+  CopyOrMove(statement, n, m),
+  StackContains(prevStatement, n, symbol).
+
+CopyOrMove(statement, 0, 1) :-
+  DUP_TOP(statement).
+
+CopyOrMove(statement, 0, 1) :-
+  TRIP_TOP(statement).
+
+CopyOrMove(statement, 0, 2) :-
+  TRIP_TOP(statement).
+  
+*/
+
