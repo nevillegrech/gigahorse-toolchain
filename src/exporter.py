@@ -653,8 +653,10 @@ class InstructionTsvExporter(Exporter, patterns.DynamicVisitor):
             f.write('.input %s\n'%k)
             f.write('\n')
         instructions = []
+        instructions_order = []
         for block in self.cfg.blocks:
             for op in block.evm_ops:
+                instructions_order.append(int(op.pc))
                 instructions.append((hex(op.pc), op.opcode.name))
                 if op.opcode.is_push():
                     statements[op.opcode.name].append((hex(op.pc), hex(op.value)))
@@ -663,6 +665,10 @@ class InstructionTsvExporter(Exporter, patterns.DynamicVisitor):
 
         for k, v in statements.items():
             generate(k+'.facts', v)
+
+        instructions_order = sorted(instructions_order)
+        hexify = lambda a : map(hex, a)
+        generate('Statement_Next.facts', zip(hexify(instructions_order), hexify(instructions_order[1:])))
 
         generate('Statement_Opcode.facts', instructions)
                     
