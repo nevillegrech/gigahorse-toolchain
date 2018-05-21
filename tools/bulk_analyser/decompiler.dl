@@ -1,14 +1,65 @@
 #include "decompiler_inputs.dl"
 
 .type Statement
-.type Block
+.type Block = [ head:Statement ]
 .type Value
 .type Opcode
 
 .decl Statement_Opcode(statement: Statement, opcode: Opcode)
 .input Statement_Opcode
 
-       
+.decl Statement_Next(statement: Statement, statementNext: Statement)
+.input Statement_Next
+
+
+/*
+ ***********
+ * Define basic blocks
+ ***********
+ */
+ 
+// Textbook material.
+// A basic block starts:
+//   - at a label
+//   - after a jump.
+// A basic block ends:
+//   - at a jump
+//   - before a label.
+.decl IsBasicBlockHead(statement:Statement)
+IsBasicBlockHead(statement) :-
+  JUMPDEST(statement).
+IsBasicBlockHead(statement) :-
+  Statement_Opcode(prevStatement, opcode),
+  OpcodeAltersFlow(opcode),
+  Statement_Next(prevStatement, statement).
+IsBasicBlockHead(statement) :-
+  Statement_Opcode(statement, _),
+  !Statement_Next(_, statement).  
+
+.decl IsBasicBlockTail(statement:Statement)
+IsBasicBlockTail(statement) :-
+  Statement_Opcode(statement, opcode),
+  OpcodeAltersFlow(opcode).
+IsBasicBlockTail(statement) :-
+  JUMPDEST(labelstatement),
+  Statement_Next(statement, labelstatement).
+
+.output IsBasicBlockHead
+.output IsBasicBlockTail
+
+.decl Stmt_BasicBlock(statement:Statement, block:Block)
+Stmt_BasicBlock(stmt, [stmt]) :-
+  IsBasicBlockHead(stmt).
+Stmt_BasicBlock(stmt, block) :-
+  Stmt_BasicBlockHead(prevstmt, block),
+  Statement_Next(prevstmt, stmt),
+  !IsBasicBlockHead(stmt).
+
+// Our main relations are:
+// StackContents(context, stmt, index, value)
+
+.type Context = [ fst:Block, rest:Context ]
+
 
 /*
        
