@@ -7,8 +7,10 @@
 .type Value
 .type Opcode
 .type Alias = number
-.type ValueOrAlias = Alias | Value
-      
+
+// We want a sum, but sum types crash, so we use a product
+.type ValueOrAlias = [ alias:Alias, value:Value ]
+
 .decl Statement_Opcode(statement: Statement, opcode: Opcode)
 .input Statement_Opcode
 
@@ -63,8 +65,10 @@ AnyValue("Any").
 IsBasicBlockHead(statement) :-
   JUMPDEST(statement).
 IsBasicBlockHead(statement) :-
-  Statement_Opcode(prevStatement, opcode),
-  OpcodeAltersFlow(opcode),
+  JUMPI(prevStatement),
+//// REVIEW: check that this is equivalent
+//  Statement_Opcode(prevStatement, opcode),
+//  OpcodeAltersFlow(opcode),
   Statement_Next(prevStatement, statement).
 IsBasicBlockHead(statement) :-
   Statement_Opcode(statement, _),
@@ -105,9 +109,10 @@ Stmt_BasicBlock(stmt, head) :-
  ***********
  */
  
-.type Context = [ fst:Block, rest:Context ]
+.type Context = [ block:Block ]
 
 .decl BlockOutputContents(context:Context, block:Block, index:number, value:Value)
+.decl BlockJumpTarget(context:Context, block:Block, value:Value)
 
 // A summary of all the effects of the basic block up to a statement. The
 // summary cannot contain only values, it will also refer symbolically to
@@ -149,23 +154,45 @@ BlockOutputContents(calleeCtx, callee, index+delta, value) :-
   BlockStackDelta(callee, delta).
 
 // Handle the proper values pushed by this basic block
-BlockOutputContents(calleeCtx, callee, index, value) :-
-  LocalStackContents(stmt, index, value),
+BlockOutputContents(ctx, block, index, value) :-
+  LocalStackContents(stmt, index, valueOrAlias),
   IsBasicBlockTail(stmt),
-  !IsAlias(value),
-  Stmt_BasicBlock(stmt, callee),
-  ReachableContext(calleeCtx, callee).
+  valueOrAlias = [alias, value], alias = alias,
+  value != "invalid",
+  Stmt_BasicBlock(stmt, block),
+  ReachableContext(ctx, block).
 
 // Handle the aliases pushed by this basic block
-BlockOutputContents(calleeCtx, callee, index, value) :-
-  LocalStackContents(stmt, index, alias),
+BlockOutputContents(calleeCtx, callee, index, realValue) :-
+  LocalStackContents(stmt, index, valueOrAlias),
   IsBasicBlockTail(stmt),
-  IsAlias(alias),
+  valueOrAlias = [alias, value],
+  value = "invalid",
   Stmt_BasicBlock(stmt, callee),
   BlockEdge(callerCtx, caller, calleeCtx, callee),
-  BlockOutputContents(callerCtx, caller, alias, value).
+  BlockOutputContents(callerCtx, caller, alias, realValue).
 
 .output BlockOutputContents
+
+// REVIEW: need to handle THROW. Maybe others?
+BlockJumpTarget(ctx, block, value) :-
+  BeforeLocalStackContents(stmt, 0, valueOrAlias),
+  (JUMP(stmt); JUMPI(stmt)),
+  valueOrAlias = [alias, value],
+  value != "invalid",
+  Stmt_BasicBlock(stmt, block),
+  ReachableContext(ctx, block).
+
+BlockJumpTarget(calleeCtx, callee, realValue) :-
+  BeforeLocalStackContents(stmt, 0, valueOrAlias),
+  (JUMP(stmt); JUMPI(stmt)),
+  valueOrAlias = [alias, value],
+  value = "invalid",
+  Stmt_BasicBlock(stmt, block),
+  BlockEdge(callerCtx, caller, calleeCtx, callee),
+  BlockOutputContents(callerCtx, caller, alias, realValue).
+
+.output BlockJumpTarget
 
 /*
  ***********
@@ -186,39 +213,104 @@ DynamicStatement(stmt) :-
 // Represents stack contents at previous location in the same block
 
 // Constant values. Example of implementation of push1 to push32.
-LocalStackContents(stmt, 0, value) :-
+LocalStackContents(stmt, 0, [-1, value]) :-
   PushValue(stmt, value).
 
 // Dynamic values.
-LocalStackContents(stmt, 0, value) :-
+LocalStackContents(stmt, 0, [-1, value]) :-
   DynamicStatement(stmt),
   DynamicValue(value).
 
 // Values unaffected by this instruction.
-LocalStackContents(stmt, n + delta, value) :-
-  BeforeLocalStackContents(stmt, n, value),
+// Pop is modeled as a side-effect!
+LocalStackContents(stmt, n + delta, valueOrAlias) :-
+  BeforeLocalStackContents(stmt, n, valueOrAlias),
   n >= numRemoved,
   Statement_Opcode(stmt, opcode),
   OpcodeStackDelta(opcode, delta),
   OpcodePopWords(opcode, numRemoved).
 
+// Arithmetic
+LocalStackContents(stmt, 0, [ -1, anyvalue] ) :-
+  AnyValue(anyvalue),
+  Statement_Opcode(stmt, opcode),
+  OpcodeIsArithmetic(opcode).
 
+LocalStackContents(stmt, 0, [ -1, dynamicvalue] ) :-
+  DynamicValue(dynamicvalue),
+  Statement_Opcode(stmt, opcode),
+  OpcodeIsArithmetic(opcode),
+  (BeforeLocalStackContents(stmt, 0, [alias, dynamicvalue]);
+   BeforeLocalStackContents(stmt, 1, [alias, dynamicvalue])).
+
+// Dup
+LocalStackContents(stmt, 0, valueOrAlias) :-
+  DUP1(stmt), BeforeLocalStackContents(stmt, 0, valueOrAlias).
+LocalStackContents(stmt, 0, valueOrAlias) :-
+  DUP2(stmt), BeforeLocalStackContents(stmt, 1, valueOrAlias).
+LocalStackContents(stmt, 0, valueOrAlias) :-
+  DUP3(stmt), BeforeLocalStackContents(stmt, 2, valueOrAlias).
+LocalStackContents(stmt, 0, valueOrAlias) :-
+  DUP4(stmt), BeforeLocalStackContents(stmt, 3, valueOrAlias).
+LocalStackContents(stmt, 0, valueOrAlias) :-
+  DUP5(stmt), BeforeLocalStackContents(stmt, 4, valueOrAlias).
+LocalStackContents(stmt, 0, valueOrAlias) :-
+  DUP6(stmt), BeforeLocalStackContents(stmt, 5, valueOrAlias).
+LocalStackContents(stmt, 0, valueOrAlias) :-
+  DUP7(stmt), BeforeLocalStackContents(stmt, 6, valueOrAlias).
+LocalStackContents(stmt, 0, valueOrAlias) :-
+  DUP8(stmt), BeforeLocalStackContents(stmt, 7, valueOrAlias).
+LocalStackContents(stmt, 0, valueOrAlias) :-
+  DUP9(stmt), BeforeLocalStackContents(stmt, 8, valueOrAlias).
+LocalStackContents(stmt, 0, valueOrAlias) :-
+  DUP10(stmt), BeforeLocalStackContents(stmt, 9, valueOrAlias).
+LocalStackContents(stmt, 0, valueOrAlias) :-
+  DUP11(stmt), BeforeLocalStackContents(stmt, 10, valueOrAlias).
+LocalStackContents(stmt, 0, valueOrAlias) :-
+  DUP12(stmt), BeforeLocalStackContents(stmt, 11, valueOrAlias).
+LocalStackContents(stmt, 0, valueOrAlias) :-
+  DUP13(stmt), BeforeLocalStackContents(stmt, 12, valueOrAlias).
+LocalStackContents(stmt, 0, valueOrAlias) :-
+  DUP14(stmt), BeforeLocalStackContents(stmt, 13, valueOrAlias).
+LocalStackContents(stmt, 0, valueOrAlias) :-
+  DUP15(stmt), BeforeLocalStackContents(stmt, 14, valueOrAlias).
+LocalStackContents(stmt, 0, valueOrAlias) :-
+  DUP16(stmt), BeforeLocalStackContents(stmt, 15, valueOrAlias).
+
+.output LocalStackContents
 
 /*
  ***********
  * CFG edges and reachable contexts
  ***********
  */
-
-ReachableContext(nil, block) :-
-  IsBasicBlockHead(stmt),
-  !Statement_Next(_, stmt),
-  block = [stmt].
+.output BlockEdge
 
 ReachableContext(calleeCtx, callee) :-
   BlockEdge(_, _, calleeCtx, callee).
   
-//BlockEdge(callerCtx:Context, caller:Block, calleeCtx:Context, callee:Block)
+.decl OriginalBlock(block:Block)
+OriginalBlock([stmt]) :-
+  IsBasicBlockHead(stmt),
+  !Statement_Next(_, stmt).
+
+ReachableContext( [["Dummy"]], block) :-
+  OriginalBlock(block).
+
+BlockEdge(callerCtx, caller, ?mergeContextMacro, [fallthrough]) :-
+  JUMPI(jumpStmt),
+  Stmt_BasicBlock(jumpStmt, caller),
+  ReachableContext(callerCtx, caller),
+  Statement_Next(jumpStmt, fallthrough),
+  ?mergeContextMacro = [caller].
+
+BlockEdge(callerCtx, caller, ?mergeContextMacro, [callee]) :-
+  (JUMP(jumpStmt); JUMPI(jumpStmt)),
+  Stmt_BasicBlock(jumpStmt, caller),
+  BlockJumpTarget(callerCtx, caller, value),
+  IsBasicBlockHead(callee),
+  ord(callee) = ord(value),
+  ?mergeContextMacro = [caller].
 
 
 /*
@@ -233,8 +325,10 @@ BeforeLocalStackContents(stmt, n, value) :-
   !IsBasicBlockTail(prevStmt),
   LocalStackContents(prevStmt, n, value).
 
-// Special case for block head (contains only aliases) 
-BeforeLocalStackContents(stmt, alias, alias) :-
+// Special case for block head (contains only aliases). Initialize all
+// stack positions, from zero to max consumed (from the caller's stack) by
+// the basic block. They are initialized to symbolic aliases.
+BeforeLocalStackContents(stmt, alias, [alias, "invalid"]) :-
   IsBasicBlockHead(stmt),
   Stmt_BasicBlock(stmt, block),
   BlockPopDelta(block, delta),
