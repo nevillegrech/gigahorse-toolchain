@@ -143,6 +143,9 @@ class OpCode:
     def push_words(self) -> int:
         return self.push
 
+    def ord(self) -> int:
+        return self.code
+
 # Construct all EVM opcodes
 
 # Arithmetic Ops and STOP

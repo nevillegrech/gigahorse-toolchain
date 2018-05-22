@@ -676,7 +676,8 @@ class InstructionTsvExporter(Exporter, patterns.DynamicVisitor):
                          'is_log':bool, 'is_memory':bool, 'is_missing':bool,
                          'is_push':bool, 'is_storage':bool, 'is_swap':bool,
                          'log_len':int, 'possibly_halts':bool, 'push_len':int,
-                         'stack_delta':int, 'pop_words':int, 'push_words':int
+                         'stack_delta':int, 'pop_words':int, 'push_words':int,
+                         'ord':int
         }
         
         opcode_key = 'name'
