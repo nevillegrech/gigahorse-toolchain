@@ -137,6 +137,11 @@ class OpCode:
         """Return the number of topics the given LOG instruction includes."""
         return self.code - LOG0.code if self.is_log() else 0
 
+    def pop_words(self) -> int:
+        return self.pop
+
+    def push_words(self) -> int:
+        return self.push
 
 # Construct all EVM opcodes
 

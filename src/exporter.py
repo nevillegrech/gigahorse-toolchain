@@ -666,7 +666,7 @@ class InstructionTsvExporter(Exporter, patterns.DynamicVisitor):
         for k, v in statements.items():
             generate(k+'.facts', v)
 
-        instructions_order = map(hex, sorted(instructions_order))
+        instructions_order = list(map(hex, sorted(instructions_order)))
         generate('Statement_Next.facts', zip(instructions_order, instructions_order[1:]))
 
         generate('Statement_Opcode.facts', instructions)
@@ -676,7 +676,7 @@ class InstructionTsvExporter(Exporter, patterns.DynamicVisitor):
                          'is_log':bool, 'is_memory':bool, 'is_missing':bool,
                          'is_push':bool, 'is_storage':bool, 'is_swap':bool,
                          'log_len':int, 'possibly_halts':bool, 'push_len':int,
-                         'stack_delta':int
+                         'stack_delta':int, 'pop_words':int, 'push_words':int
         }
         
         opcode_key = 'name'
