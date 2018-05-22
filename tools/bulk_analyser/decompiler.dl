@@ -4,13 +4,22 @@
 .type Block = [ head:Statement ]
 .type Value
 .type Opcode
-
+.type Alias = number
+.type ValueOrAlias = Alias | Value
+      
 .decl Statement_Opcode(statement: Statement, opcode: Opcode)
 .input Statement_Opcode
 
 .decl Statement_Next(statement: Statement, statementNext: Statement)
 .input Statement_Next
 
+.decl IsAlias(n:Alias)
+      
+IsAlias(0).
+
+IsAlias(n+1) :-
+  IsAlias(n),
+  n+1 < 1024. // max stack depth
 
 /*
  ***********
@@ -50,6 +59,7 @@ IsBasicBlockTail(statement) :-
 .decl Stmt_BasicBlock(statement:Statement, block:Block)
 Stmt_BasicBlock(stmt, [stmt]) :-
   IsBasicBlockHead(stmt).
+
 Stmt_BasicBlock(stmt, block) :-
   Stmt_BasicBlockHead(prevstmt, block),
   Statement_Next(prevstmt, stmt),
@@ -60,6 +70,77 @@ Stmt_BasicBlock(stmt, block) :-
 
 .type Context = [ fst:Block, rest:Context ]
 
+.decl BlockOutputContents(context:Context, block:Block, index:number, value:Value)
+
+.decl LocalStackContents(stmt:Statement, index:number, value:ValueOrAlias)
+
+.decl ReachableContext(stmt:Statement, context:Context)
+
+.decl PreviousLocalStackContents(stmt:Statement, n:number, value:ValueOrAlias)
+
+.decl BlockEdge(callerCtx: Context, caller: Block, calleeCtx: Context, callee: Block)
+
+// Fallthrough case      
+BlockOutputContents(calleeCtx, stmt, index+delta, value) :-
+  BlockEdge(callerCtx, caller, calleeCtx, callee),
+  BlockOutputContents(callerCtx, caller, index, value),
+  index > calleePopLen,
+  BlockPopLen(callee, calleePopLen),
+  BlockDelta(callee, delta).
+
+BlockOutputContents(calleeCtx, stmt, index, value)
+  LocalStackContents(stmt, index, value),
+  Stmt_BasicBlockTail(stmt)
+  !Alias(value).
+
+// Example of implementation of push1 to push32  
+LocalStackContents(stmt, 0, value) :-
+  Push_Value(stmt, value).
+
+// Represents stack contents at previous location in the same block
+// General case
+PreviousLocalStackContents(stmt, n, value) :-
+  Statement_Next(prevStmt, stmt),
+  Stmt_BasicBlock(stmt, block),
+  Stmt_BasicBlock(prevStmt, block),
+  LocalStackContents(prevStmt, n, value).
+
+// Special case for block head (contains only aliases) 
+PreviousLocalStackContents(stmt, n, alias) :-
+  Stmt_BasicBlockHead(stmt, block),
+  BlockPopsLen(block, len),
+  IsAlias(alias),
+  alias < len.
+  
+// TODO General case
+LocalStackContents(stmt, n+, value) :-
+  LocalStackContents(prevStmt, n, value),
+  Statement_Next(prevStmt, stmt),
+  Stmt_Opcode(stmt, opcode),
+  OpcodePushLen(opcode, len).
+
+// Part of computation to find the number of stack elements
+// that this basic block pops from the input stack
+BlockPops(block, len-delta, stmt) :-
+  Stmt_Opcode(stmt, opcode),
+  OpcodePopLen(opcode, len),       
+  Stmt_BasicBlock(stmt, block),
+  Statement_Next(prevStmt, stmt),
+  Stmt_BasicBlock(prevStmt, block),
+  BlockDelta(block, delta, prevStmt).
+
+BlockPops(block, len, stmt) :-
+  Stmt_Opcode(stmt, opcode),
+  OpcodePopLen(opcode, len),       
+  Stmt_BasicBlockHead(stmt, block).
+
+BlockPopLen(block, maxLen) :-
+  maxLen = max (len): BlockPops(block, len, *).
+  
+// By how many elements does the current block shift the stack
+BlockDelta(block, n, stmt) :-
+  TODO.           
+          
 
 /*
        

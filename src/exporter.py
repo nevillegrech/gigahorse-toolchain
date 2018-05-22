@@ -666,9 +666,8 @@ class InstructionTsvExporter(Exporter, patterns.DynamicVisitor):
         for k, v in statements.items():
             generate(k+'.facts', v)
 
-        instructions_order = sorted(instructions_order)
-        hexify = lambda a : map(hex, a)
-        generate('Statement_Next.facts', zip(hexify(instructions_order), hexify(instructions_order[1:])))
+        instructions_order = map(hex, sorted(instructions_order))
+        generate('Statement_Next.facts', zip(instructions_order, instructions_order[1:]))
 
         generate('Statement_Opcode.facts', instructions)
                     
