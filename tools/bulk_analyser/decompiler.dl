@@ -1,5 +1,7 @@
 #include "decompiler_inputs.dl"
 
+#define MaxStackHeight 1024
+
 .type Statement
 .type Block = [ head:Statement ]
 .type Value
@@ -19,7 +21,30 @@ IsAlias(0).
 
 IsAlias(n+1) :-
   IsAlias(n),
-  n+1 < 1024. // max stack depth
+  n+1 < MaxStackHeight.
+
+.decl IsValue(v:Value)
+.decl PushValue(stmt:Statement, v:Value)
+
+IsValue(v),
+PushValue(stmt, v) :-
+  PUSH1(stmt,v);PUSH2(stmt,v);PUSH3(stmt,v);PUSH4(stmt,v);PUSH5(stmt,v);
+  PUSH6(stmt,v);PUSH7(stmt,v);PUSH8(stmt,v);PUSH9(stmt,v);PUSH10(stmt,v);
+  PUSH11(stmt,v);PUSH12(stmt,v);PUSH13(stmt,v);PUSH14(stmt,v);PUSH15(stmt,v);
+  PUSH16(stmt,v);PUSH17(stmt,v);PUSH18(stmt,v);PUSH19(stmt,v);PUSH20(stmt,v);
+  PUSH21(stmt,v);PUSH22(stmt,v);PUSH23(stmt,v);PUSH24(stmt,v);PUSH25(stmt,v);
+  PUSH26(stmt,v);PUSH27(stmt,v);PUSH28(stmt,v);PUSH29(stmt,v);PUSH30(stmt,v);
+  PUSH31(stmt,v);PUSH32(stmt,v).
+
+IsValue(v) :-
+  DynamicValue(v); AnyValue(v).
+
+// Distinguished from all constant values
+.decl DynamicValue(v:Value)
+DynamicValue("Dynamic").
+// Top of the lattice
+.decl AnyValue(v:Value)
+AnyValue("Any").
 
 /*
  ***********
@@ -57,132 +82,214 @@ IsBasicBlockTail(statement) :-
 .output IsBasicBlockTail
 
 .decl Stmt_BasicBlock(statement:Statement, block:Block)
+.decl Stmt_BasicBlockHead(statement:Statement, head:Statement)
+
+Stmt_BasicBlockHead(stmt, stmt),
 Stmt_BasicBlock(stmt, [stmt]) :-
   IsBasicBlockHead(stmt).
 
 Stmt_BasicBlock(stmt, block) :-
-  Stmt_BasicBlockHead(prevstmt, block),
+  Stmt_BasicBlock(prevstmt, block),
   Statement_Next(prevstmt, stmt),
   !IsBasicBlockHead(stmt).
 
-// Our main relations are:
-// StackContents(context, stmt, index, value)
+Stmt_BasicBlock(stmt, head) :-
+  Stmt_BasicBlock(prevstmt, head),
+  Statement_Next(prevstmt, stmt),
+  !IsBasicBlockHead(stmt).
 
+
+/*
+ ***********
+ * Key definitions
+ ***********
+ */
+ 
 .type Context = [ fst:Block, rest:Context ]
 
 .decl BlockOutputContents(context:Context, block:Block, index:number, value:Value)
 
+// A summary of all the effects of the basic block up to a statement. The
+// summary cannot contain only values, it will also refer symbolically to
+// other locations (aliases) on the stack at the beginning of the basic block.
 .decl LocalStackContents(stmt:Statement, index:number, value:ValueOrAlias)
 
-.decl ReachableContext(stmt:Statement, context:Context)
+.decl BeforeLocalStackContents(stmt:Statement, n:number, value:ValueOrAlias)
 
-.decl PreviousLocalStackContents(stmt:Statement, n:number, value:ValueOrAlias)
+.decl BlockEdge(callerCtx:Context, caller:Block, calleeCtx:Context, callee:Block)
+.decl ReachableContext(ctx:Context, block:Block)
 
-.decl BlockEdge(callerCtx: Context, caller: Block, calleeCtx: Context, callee: Block)
+// How many items the basic block will pop from the stack that existed at
+// the beginning of its execution. I.e., how many items it will consume
+// from its caller.
+.decl BlockPopDelta(block:Block, delta:number)
 
-// Fallthrough case      
-BlockOutputContents(calleeCtx, stmt, index+delta, value) :-
+// What is the difference in stack height effected by the basic block
+.decl BlockStackDelta(block:Block, delta:number)
+
+// Same for the effects up to a statement, since the beginning of the
+// containing basic block.
+.decl StatementPopDelta(statement:Statement, delta:number)
+.decl StatementStackDelta(statement:Statement, delta:number)
+
+
+/*
+ ***********
+ * Define block's behavior based on constituents
+ ***********
+ */
+
+// Copy the stack values untouched by the callee basic block
+BlockOutputContents(calleeCtx, callee, index+delta, value) :-
   BlockEdge(callerCtx, caller, calleeCtx, callee),
   BlockOutputContents(callerCtx, caller, index, value),
-  index > calleePopLen,
-  BlockPopLen(callee, calleePopLen),
-  BlockDelta(callee, delta).
+  index >= calleePopLen,
+  index+delta <= MaxStackHeight,
+  BlockPopDelta(callee, calleePopLen),
+  BlockStackDelta(callee, delta).
 
-BlockOutputContents(calleeCtx, stmt, index, value)
+// Handle the proper values pushed by this basic block
+BlockOutputContents(calleeCtx, callee, index, value) :-
   LocalStackContents(stmt, index, value),
-  Stmt_BasicBlockTail(stmt)
-  !Alias(value).
+  IsBasicBlockTail(stmt),
+  !IsAlias(value),
+  Stmt_BasicBlock(stmt, callee),
+  ReachableContext(calleeCtx, callee).
 
-// Example of implementation of push1 to push32  
-LocalStackContents(stmt, 0, value) :-
-  Push_Value(stmt, value).
+// Handle the aliases pushed by this basic block
+BlockOutputContents(calleeCtx, callee, index, value) :-
+  LocalStackContents(stmt, index, alias),
+  IsBasicBlockTail(stmt),
+  IsAlias(alias),
+  Stmt_BasicBlock(stmt, callee),
+  BlockEdge(callerCtx, caller, calleeCtx, callee),
+  BlockOutputContents(callerCtx, caller, alias, value).
 
+.output BlockOutputContents
+
+/*
+ ***********
+ * Define semantics of instructions
+ ***********
+ */
+
+.decl DynamicStatement(stmt:Statement)
+DynamicStatement(stmt) :-
+  ADDRESS(stmt); BALANCE(stmt); BLOCKHASH(stmt); CALLDATALOAD(stmt);
+  CALLDATASIZE(stmt); CALLER(stmt); CALLVALUE(stmt); CODESIZE(stmt);
+  COINBASE(stmt); DIFFICULTY(stmt); EXTCODESIZE(stmt); GAS(stmt);
+  GASLIMIT(stmt); GASPRICE(stmt); NUMBER(stmt); ORIGIN(stmt);
+  RETURNDATASIZE(stmt); TIMESTAMP(stmt).
+// CALLDATACOPY and CODECOPY don't leave anything on the stack.
+// GAS is not an environmental instruction, but it's still dynamic.
+// RETURNDATASIZE is a new instruction, not in the Yellow Paper.
 // Represents stack contents at previous location in the same block
+
+// Constant values. Example of implementation of push1 to push32.
+LocalStackContents(stmt, 0, value) :-
+  PushValue(stmt, value).
+
+// Dynamic values.
+LocalStackContents(stmt, 0, value) :-
+  DynamicStatement(stmt),
+  DynamicValue(value).
+
+// Values unaffected by this instruction.
+LocalStackContents(stmt, n + delta, value) :-
+  BeforeLocalStackContents(stmt, n, value),
+  n >= numRemoved,
+  Statement_Opcode(stmt, opcode),
+  OpcodeStackDelta(opcode, delta),
+  OpcodePopWords(opcode, numRemoved).
+
+
+
+/*
+ ***********
+ * CFG edges and reachable contexts
+ ***********
+ */
+
+ReachableContext(nil, block) :-
+  IsBasicBlockHead(stmt),
+  !Statement_Next(_, stmt),
+  block = [stmt].
+
+ReachableContext(calleeCtx, callee) :-
+  BlockEdge(_, _, calleeCtx, callee).
+  
+//BlockEdge(callerCtx:Context, caller:Block, calleeCtx:Context, callee:Block)
+
+
+/*
+ ***********
+ * Auxiliary relations: BeforeLocalStackContents
+ ***********
+ */
+
 // General case
-PreviousLocalStackContents(stmt, n, value) :-
+BeforeLocalStackContents(stmt, n, value) :-
   Statement_Next(prevStmt, stmt),
-  Stmt_BasicBlock(stmt, block),
-  Stmt_BasicBlock(prevStmt, block),
+  !IsBasicBlockTail(prevStmt),
   LocalStackContents(prevStmt, n, value).
 
 // Special case for block head (contains only aliases) 
-PreviousLocalStackContents(stmt, n, alias) :-
-  Stmt_BasicBlockHead(stmt, block),
-  BlockPopsLen(block, len),
-  IsAlias(alias),
-  alias < len.
-  
-// TODO General case
-LocalStackContents(stmt, n+, value) :-
-  LocalStackContents(prevStmt, n, value),
-  Statement_Next(prevStmt, stmt),
-  Stmt_Opcode(stmt, opcode),
-  OpcodePushLen(opcode, len).
-
-// Part of computation to find the number of stack elements
-// that this basic block pops from the input stack
-BlockPops(block, len-delta, stmt) :-
-  Stmt_Opcode(stmt, opcode),
-  OpcodePopLen(opcode, len),       
+BeforeLocalStackContents(stmt, alias, alias) :-
+  IsBasicBlockHead(stmt),
   Stmt_BasicBlock(stmt, block),
-  Statement_Next(prevStmt, stmt),
-  Stmt_BasicBlock(prevStmt, block),
-  BlockDelta(block, delta, prevStmt).
+  BlockPopDelta(block, delta),
+  IsAlias(alias),
+  alias < delta.
 
-BlockPops(block, len, stmt) :-
-  Stmt_Opcode(stmt, opcode),
-  OpcodePopLen(opcode, len),       
-  Stmt_BasicBlockHead(stmt, block).
-
-BlockPopLen(block, maxLen) :-
-  maxLen = max (len): BlockPops(block, len, *).
-  
-// By how many elements does the current block shift the stack
-BlockDelta(block, n, stmt) :-
-  TODO.           
-          
 
 /*
-       
-BlockStackContains(statement, n, symbol)
+ ***********
+ * Auxiliary relations: block/statement pop deltas and total stack effects
+ ***********
+ */
 
-BlockStackDelta(statement, n).
+StatementStackDelta(stmt, delta) :-
+  IsBasicBlockHead(stmt),
+  Statement_Opcode(stmt, opcode),
+  OpcodeStackDelta(opcode, delta).
+StatementStackDelta(stmt, prevdelta + newdelta) :-
+  StatementStackDelta(prevstmt, prevdelta),
+  !IsBasicBlockTail(prevstmt),
+  Statement_Next(prevstmt, stmt),
+  Statement_Opcode(stmt, opcode),
+  OpcodeStackDelta(opcode, newdelta).
 
+// Need to keep a running maximum of elements consumed from the stack
+// as it was at the beginning of the basic block.
+StatementPopDelta(stmt, delta) :-
+  IsBasicBlockHead(stmt),
+  Statement_Opcode(stmt, opcode),
+  OpcodePopWords(opcode, delta).
+StatementPopDelta(stmt, popdelta - prevStackDelta) :-
+  StatementStackDelta(prevstmt, prevStackDelta),
+  StatementPopDelta(prevstmt, prevPopDelta),
+  !IsBasicBlockTail(prevstmt),
+  Statement_Next(prevstmt, stmt),
+  Statement_Opcode(stmt, opcode),
+  OpcodePopWords(opcode, popdelta),
+  popdelta - prevStackDelta > prevPopDelta.
+StatementPopDelta(stmt, prevPopDelta) :-
+  StatementStackDelta(prevstmt, prevStackDelta),
+  StatementPopDelta(prevstmt, prevPopDelta),
+  !IsBasicBlockTail(prevstmt),
+  Statement_Next(prevstmt, stmt),
+  Statement_Opcode(stmt, opcode),
+  OpcodePopWords(opcode, popdelta),
+  popdelta - prevStackDelta <= prevPopDelta.
 
-// check buggy
-BlockStackDelta(statement, n+m) :-
-  PreviousStatementInBlock(statement, prevStatement),
-  BlockStackDelta(prevStatement, n),
-  Statement_Instruction(statement, inst),
-  Instruction_Delta(inst, m),
-  n > m. // or something of this sort
+BlockStackDelta(block, delta) :-
+  IsBasicBlockTail(stmt),
+  StatementStackDelta(stmt, delta),
+  Stmt_BasicBlock(stmt, block).
 
-StackContains(statement, n, symbol) :-
-  BlockStackContains(statement, n, symbol).
+BlockPopDelta(block, delta) :-
+  IsBasicBlockTail(stmt),
+  StatementPopDelta(stmt, delta),
+  Stmt_BasicBlock(stmt, block).
 
-StackContains(statement, n+m, symbol) :-
-  BlockStackDelta(statement, n),
-  PreviousBlock(statement, prevBlock),
-  BlockOutputStack(prevBlock, m),
-  n+m < 20.
-
-BlockOutputStack(block, n, symbol) :-
-  StackContains(statement, n, symbol),
-  LastStatementInBlock(block, statement).
-
-BlockStackContains(statement, m, symbol) :-
-  PreviousStatementInBlock(statement, prevStatement),
-  CopyOrMove(statement, n, m),
-  StackContains(prevStatement, n, symbol).
-
-CopyOrMove(statement, 0, 1) :-
-  DUP_TOP(statement).
-
-CopyOrMove(statement, 0, 1) :-
-  TRIP_TOP(statement).
-
-CopyOrMove(statement, 0, 2) :-
-  TRIP_TOP(statement).
-  
-*/
 
