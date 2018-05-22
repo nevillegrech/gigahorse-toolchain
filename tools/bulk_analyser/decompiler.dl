@@ -1,4 +1,5 @@
 #include "decompiler_inputs.dl"
+#include "decompiler_statistics.dl"
 
 #define MAX_STACK_HEIGHT 1024
 #define MAKE_VALUE(v) ([-1, (v)])
@@ -34,6 +35,7 @@ IsAliasLessThan(n, maximum) :-
   n < maximum.
  
 .decl IsValue(v:Value)
+.decl ConcreteValue(v:Value)
 .decl PushValue(stmt:Statement, v:Value)
 
 IsValue(v),
@@ -48,6 +50,9 @@ PushValue(stmt, v) :-
 
 IsValue(v) :-
   DynamicValue(v); AnyValue(v).
+
+ConcreteValue(v) :- IsValue(v), !DynamicValue(v), !AnyValue(v).
+               
 
 // Distinguished from all constant values
 .decl DynamicValue(v:Value)
@@ -110,6 +115,12 @@ Stmt_BasicBlock(stmt, head) :-
   Statement_Next(prevstmt, stmt),
   !IsBasicBlockHead(stmt).
 
+.decl BasicBlock_Tail(block:Block, tail:Statement)
+
+BasicBlock_Tail(block, tail) :-
+  Stmt_BasicBlock(tail, block),
+  IsBasicBlockTail(tail).
+
 
 /*
  ***********
@@ -169,20 +180,18 @@ BlockOutputContents(calleeCtx, callee, index+delta, value) :-
 // Handle the proper values pushed by this basic block
 BlockOutputContents(ctx, block, index, value) :-
   ReachableContext(ctx, block),
-  Stmt_BasicBlock(stmt, block),
-  IsBasicBlockTail(stmt),
+  BasicBlock_Tail(block, stmt),
   LocalStackContents(stmt, index, valueOrAlias),
   valueOrAlias = [alias, value], alias = alias,
   value != "invalid".
 
 // Handle the aliases pushed by this basic block
-BlockOutputContents(calleeCtx, callee, index, realValue) :-
-  BlockInputContents(calleeCtx, callee, alias, realValue),
+BlockOutputContents(ctx, block, index, realValue) :-
+  BlockInputContents(ctx, block, alias, realValue),
+  BasicBlock_Tail(block, stmt),
   LocalStackContents(stmt, index, valueOrAlias),
-  IsBasicBlockTail(stmt),
   valueOrAlias = [alias, value],
-  value = "invalid",
-  Stmt_BasicBlock(stmt, callee).
+  value = "invalid".
 
 .output BlockOutputContents
 
@@ -193,16 +202,15 @@ BlockJumpTarget(ctx, block, value) :-
   (JUMP(stmt); JUMPI(stmt)),
   BeforeLocalStackContents(stmt, 0, valueOrAlias),
   valueOrAlias = [alias, value],
-  value != "invalid".
+  ConcreteValue(value).
 
 BlockJumpTarget(calleeCtx, callee, realValue) :-
   BlockInputContents(calleeCtx, callee, alias, realValue),
   Stmt_BasicBlock(stmt, callee),
   (JUMP(stmt); JUMPI(stmt)),
-  BlockEdge(callerCtx, caller, calleeCtx, callee),
   BeforeLocalStackContents(stmt, 0, valueOrAlias),
   valueOrAlias = [alias, value],
-  value = "invalid".
+  ConcreteValue(value).
 
 .output BlockJumpTarget
 
@@ -273,13 +281,14 @@ DUPN(opcode, dupn - dup1) :-
   OpcodeIsDup(opcode),
   OpcodeOrd("DUP1", dup1).
 
+LocalStackContents(stmt, 0, duplicated) :-
+  Statement_Opcode(stmt, opcode),
+  DUPN(opcode, n),
+  BeforeLocalStackContents(stmt, n, duplicated).
 
-//TODO: Make rules faster by separating these out
-LocalStackContents(stmt, 0, duplicated),
 LocalStackContents(stmt, m+1, other) :-
   Statement_Opcode(stmt, opcode),
   DUPN(opcode, n),
-  BeforeLocalStackContents(stmt, n, duplicated),
   IsAliasLessThan(m, n+1),
   BeforeLocalStackContents(stmt, m, other).
 
@@ -292,12 +301,15 @@ SWAPN(opcode, swapn - swap1 + 1) :-
   OpcodeOrd("SWAP1", swap1).
 
 LocalStackContents(stmt, n, value0),
-LocalStackContents(stmt, 0, valueN),
-LocalStackContents(stmt, m, other) :-
+LocalStackContents(stmt, 0, valueN) :-
   Statement_Opcode(stmt, opcode),
   SWAPN(opcode, n),
   BeforeLocalStackContents(stmt, n, valueN),
-  BeforeLocalStackContents(stmt, 0, value0),
+  BeforeLocalStackContents(stmt, 0, value0).
+
+LocalStackContents(stmt, m, other) :-
+  Statement_Opcode(stmt, opcode),
+  SWAPN(opcode, n),
   IsAliasLessThan(m, n), m > 0,
   BeforeLocalStackContents(stmt, m, other).
 
@@ -305,6 +317,11 @@ LocalStackContents(stmt, m, other) :-
 LocalStackContents(stmt, 0, MAKE_VALUE(dynamicvalue)) :-
   DynamicValue(dynamicvalue),
   MLOAD(stmt).
+
+// SLOAD
+LocalStackContents(stmt, 0, MAKE_VALUE(dynamicvalue)) :-
+  DynamicValue(dynamicvalue),
+  SLOAD(stmt).
 
 .output LocalStackContents
 
@@ -408,12 +425,10 @@ StatementPopDelta(stmt, prevPopDelta) :-
   popdelta - prevStackDelta <= prevPopDelta.
 
 BlockStackDelta(block, delta) :-
-  IsBasicBlockTail(stmt),
-  StatementStackDelta(stmt, delta),
-  Stmt_BasicBlock(stmt, block).
+  BasicBlock_Tail(block, stmt),
+  StatementStackDelta(stmt, delta).
 
 BlockPopDelta(block, delta) :-
-  IsBasicBlockTail(stmt),
-  StatementPopDelta(stmt, delta),
-  Stmt_BasicBlock(stmt, block).
+  BasicBlock_Tail(block, stmt),
+  StatementPopDelta(stmt, delta).
 
