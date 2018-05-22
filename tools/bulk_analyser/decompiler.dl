@@ -202,15 +202,14 @@ BlockJumpTarget(ctx, block, value) :-
   (JUMP(stmt); JUMPI(stmt)),
   BeforeLocalStackContents(stmt, 0, valueOrAlias),
   valueOrAlias = [alias, value],
-  ConcreteValue(value).
+  value != "invalid".
 
 BlockJumpTarget(calleeCtx, callee, realValue) :-
   BlockInputContents(calleeCtx, callee, alias, realValue),
   Stmt_BasicBlock(stmt, callee),
   (JUMP(stmt); JUMPI(stmt)),
   BeforeLocalStackContents(stmt, 0, valueOrAlias),
-  valueOrAlias = [alias, value],
-  ConcreteValue(value).
+  valueOrAlias = [alias, "invalid"].
 
 .output BlockJumpTarget
 

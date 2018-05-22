@@ -5,25 +5,8 @@ BlockJumpNoTarget(headStmt) :-
   block = [headStmt],
   ReachableContext(ctx, block),
   BasicBlock_Tail(block, stmt),
-  JUMP(stmt),
-  !BlockJumpTarget(_, block, _).
-
-.decl HasAlternateTarget(ctx:Context, block:Block, stmt:Statement)
-     
-HasAlternateTarget(ctx, block, stmt) :-
-  ReachableContext(ctx, block),
-  BasicBlock_Tail(block, stmt),
-  JUMPI(stmt),
-  BlockJumpTarget(ctx, block, realValue),
-  BlockJumpTarget(ctx, block, realValue2),
-  realValue != realValue2.
-
-BlockJumpNoTarget(headStmt) :-
-  block = [headStmt],
-  ReachableContext(ctx, block),
-  BasicBlock_Tail(block, stmt),
-  JUMPI(stmt),
-  !HasAlternateTarget(_, block, stmt).
+  (JUMP(stmt) ; JUMPI(stmt)),
+  !BlockJumpTarget(ctx, block, _).
 
 .decl InsensBlockInputContents(block:Block, index:number, value:Value)
 .output InsensBlockInputContents
