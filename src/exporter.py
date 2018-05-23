@@ -42,6 +42,7 @@ import src.tac_cfg as tac_cfg
 
 
 class Exporter(abc.ABC):
+    generate_dl = False
     def __init__(self, source: object):
         """
         Args:
@@ -624,6 +625,11 @@ class InstructionTsvExporter(Exporter, patterns.DynamicVisitor):
         Visit a BasicBlock in the CFG
         """
         self.blocks.append((block.entry, str(block)))
+    def get_file_handle(self):
+        if self.generate_dl:
+            return open('decompiler_inputs.dl', 'w')
+        else:
+            return open('/tmp/tmp', 'w')
 
     def export(self, output_dir = ""):
         """
@@ -639,10 +645,9 @@ class InstructionTsvExporter(Exporter, patterns.DynamicVisitor):
                 writer = csv.writer(f, delimiter='\t', lineterminator='\n')
                 for e in entries:
                     writer.writerow(e)
-
+        f=self.get_file_handle()
         #generate("ops.facts", ops)
 
-        f = open('decompiler_inputs.dl', 'w')
         statements = {'MISSING': []}
         for k, opcode in opcodes.OPCODES.items():
             statements[k] = []

@@ -1,3 +1,24 @@
+.output IsBasicBlockHead
+.output IsBasicBlockTail
+
+// Fills disk too quickly
+//.output BlockOutputContents
+
+.output BlockJumpTarget
+.output LocalStackContents
+.output BlockEdge
+
+
+.decl InsBlockEdge(from: Statement, to:Statement)
+.output InsBlockEdge
+
+        
+InsBlockEdge(from, to) :-
+   BlockEdge(_, [from], _, [to]).
+
+.output Stmt_BasicBlockHead
+.output Statement_Opcode
+        
 .decl InsBlockJumpTarget(stmt:Statement, target: symbol)
 .output InsBlockJumpTarget       
 
@@ -20,7 +41,14 @@ PolymorphicTarget(headStmt) :-
 
 BlockJumpValidTarget(ctx, block, target) :-
   BlockJumpTarget(ctx, block, target),
-  ConcreteValue(target).                    
+  ConcreteValue(target).
+
+.decl BlockJumpAnyTarget(headStmt:Statement)
+.output BlockJumpAnyTarget
+
+BlockJumpAnyTarget(headStmt) :-
+  BlockJumpTarget(ctx, [headStmt], target),
+  (DynamicValue(target) ; AnyValue(target)).
 
 .decl InsensBlockInputContents(block:Block, index:number, value:Value)
 .output InsensBlockInputContents

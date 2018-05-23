@@ -1,7 +1,7 @@
 #include "decompiler_inputs.dl"
 #include "decompiler_statistics.dl"
 
-#define MAX_STACK_HEIGHT 1024
+#define MAX_STACK_HEIGHT 100
 #define MAKE_VALUE(v) ([-1, (v)])
 
 .type Statement = symbol
@@ -53,7 +53,6 @@ IsValue(v) :-
 
 ConcreteValue(v) :- IsValue(v), !DynamicValue(v), !AnyValue(v).
                
-
 // Distinguished from all constant values
 .decl DynamicValue(v:Value)
 DynamicValue("Dynamic").
@@ -95,8 +94,6 @@ IsBasicBlockTail(statement) :-
   JUMPDEST(labelstatement),
   Statement_Next(statement, labelstatement).
 
-.output IsBasicBlockHead
-.output IsBasicBlockTail
 
 .decl Stmt_BasicBlock(statement:Statement, block:Block)
 .decl Stmt_BasicBlockHead(statement:Statement, head:Statement)
@@ -105,10 +102,12 @@ Stmt_BasicBlockHead(stmt, stmt),
 Stmt_BasicBlock(stmt, [stmt]) :-
   IsBasicBlockHead(stmt).
 
+Stmt_BasicBlockHead(stmt, blockHead),
 Stmt_BasicBlock(stmt, block) :-
   Stmt_BasicBlock(prevstmt, block),
   Statement_Next(prevstmt, stmt),
-  !IsBasicBlockHead(stmt).
+  !IsBasicBlockHead(stmt),
+  block = [blockHead].
 
 Stmt_BasicBlock(stmt, head) :-
   Stmt_BasicBlock(prevstmt, head),
@@ -193,7 +192,6 @@ BlockOutputContents(ctx, block, index, realValue) :-
   valueOrAlias = [alias, value],
   value = "invalid".
 
-.output BlockOutputContents
 
 // REVIEW: need to handle THROW. Maybe others?
 BlockJumpTarget(ctx, block, value) :-
@@ -211,7 +209,6 @@ BlockJumpTarget(calleeCtx, callee, realValue) :-
   BeforeLocalStackContents(stmt, 0, valueOrAlias),
   valueOrAlias = [alias, "invalid"].
 
-.output BlockJumpTarget
 
 /*
  ***********
@@ -322,14 +319,12 @@ LocalStackContents(stmt, 0, MAKE_VALUE(dynamicvalue)) :-
   DynamicValue(dynamicvalue),
   SLOAD(stmt).
 
-.output LocalStackContents
 
 /*
  ***********
  * CFG edges and reachable contexts
  ***********
  */
-.output BlockEdge
 
 ReachableContext(calleeCtx, callee) :-
   BlockEdge(_, _, calleeCtx, callee).
@@ -342,11 +337,20 @@ OriginalBlock([stmt]) :-
 ReachableContext( [["Dummy"]], block) :-
   OriginalBlock(block).
 
+.decl FallThroughStmt(stmt:Statement)
+
+FallThroughStmt(stmt) :-
+  IsBasicBlockTail(stmt),
+  !JUMP(stmt),
+  Statement_Opcode(stmt, opcode),
+  !OpcodePossiblyHalts(opcode).   
+
 BlockEdge(callerCtx, caller, ?mergeContextMacro, [fallthrough]) :-
   ReachableContext(callerCtx, caller),
-  JUMPI(jumpStmt),
-  Stmt_BasicBlock(jumpStmt, caller),
-  Statement_Next(jumpStmt, fallthrough),
+  FallThroughStmt(stmt),
+  Stmt_BasicBlock(stmt, caller),
+  Statement_Next(stmt, fallthrough),
+  IsBasicBlockHead(fallthrough),
   ?mergeContextMacro = [caller].
 
 BlockEdge(callerCtx, caller, ?mergeContextMacro, [callee]) :-

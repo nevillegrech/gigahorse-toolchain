@@ -41,3 +41,8 @@ node_modules/
 .temp
 
 results.json
+
+spec_compiled
+decompiler_compiled
+spec_compiled.cpp
+decompiler_compiled.cpp
