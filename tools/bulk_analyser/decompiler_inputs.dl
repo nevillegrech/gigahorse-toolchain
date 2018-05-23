@@ -1,0 +1,480 @@
+.decl SMOD(stmt: Statement)
+.input SMOD
+
+.decl CALLVALUE(stmt: Statement)
+.input CALLVALUE
+
+.decl SWAP3(stmt: Statement)
+.input SWAP3
+
+.decl XOR(stmt: Statement)
+.input XOR
+
+.decl PUSH25(stmt: Statement, value: Value)
+.input PUSH25
+
+.decl OR(stmt: Statement)
+.input OR
+
+.decl SWAP13(stmt: Statement)
+.input SWAP13
+
+.decl LOG3(stmt: Statement)
+.input LOG3
+
+.decl SWAP7(stmt: Statement)
+.input SWAP7
+
+.decl COINBASE(stmt: Statement)
+.input COINBASE
+
+.decl SWAP4(stmt: Statement)
+.input SWAP4
+
+.decl JUMPDEST(stmt: Statement)
+.input JUMPDEST
+
+.decl PUSH10(stmt: Statement, value: Value)
+.input PUSH10
+
+.decl CODECOPY(stmt: Statement)
+.input CODECOPY
+
+.decl PUSH5(stmt: Statement, value: Value)
+.input PUSH5
+
+.decl RETURNDATACOPY(stmt: Statement)
+.input RETURNDATACOPY
+
+.decl CALL(stmt: Statement)
+.input CALL
+
+.decl DUP7(stmt: Statement)
+.input DUP7
+
+.decl POP(stmt: Statement)
+.input POP
+
+.decl DUP14(stmt: Statement)
+.input DUP14
+
+.decl SWAP12(stmt: Statement)
+.input SWAP12
+
+.decl DELEGATECALL(stmt: Statement)
+.input DELEGATECALL
+
+.decl DUP2(stmt: Statement)
+.input DUP2
+
+.decl GAS(stmt: Statement)
+.input GAS
+
+.decl ADD(stmt: Statement)
+.input ADD
+
+.decl MOD(stmt: Statement)
+.input MOD
+
+.decl PUSH13(stmt: Statement, value: Value)
+.input PUSH13
+
+.decl INVALID(stmt: Statement)
+.input INVALID
+
+.decl SSTORE(stmt: Statement)
+.input SSTORE
+
+.decl MUL(stmt: Statement)
+.input MUL
+
+.decl PUSH12(stmt: Statement, value: Value)
+.input PUSH12
+
+.decl PC(stmt: Statement)
+.input PC
+
+.decl MULMOD(stmt: Statement)
+.input MULMOD
+
+.decl PUSH15(stmt: Statement, value: Value)
+.input PUSH15
+
+.decl TIMESTAMP(stmt: Statement)
+.input TIMESTAMP
+
+.decl PUSH17(stmt: Statement, value: Value)
+.input PUSH17
+
+.decl SWAP14(stmt: Statement)
+.input SWAP14
+
+.decl LOG1(stmt: Statement)
+.input LOG1
+
+.decl JUMPI(stmt: Statement)
+.input JUMPI
+
+.decl SWAP8(stmt: Statement)
+.input SWAP8
+
+.decl DUP16(stmt: Statement)
+.input DUP16
+
+.decl SLOAD(stmt: Statement)
+.input SLOAD
+
+.decl PUSH23(stmt: Statement, value: Value)
+.input PUSH23
+
+.decl PUSH11(stmt: Statement, value: Value)
+.input PUSH11
+
+.decl THROWI(stmt: Statement)
+.input THROWI
+
+.decl ADDRESS(stmt: Statement)
+.input ADDRESS
+
+.decl STOP(stmt: Statement)
+.input STOP
+
+.decl EQ(stmt: Statement)
+.input EQ
+
+.decl PUSH3(stmt: Statement, value: Value)
+.input PUSH3
+
+.decl MLOAD(stmt: Statement)
+.input MLOAD
+
+.decl SWAP16(stmt: Statement)
+.input SWAP16
+
+.decl PUSH27(stmt: Statement, value: Value)
+.input PUSH27
+
+.decl NOT(stmt: Statement)
+.input NOT
+
+.decl PUSH16(stmt: Statement, value: Value)
+.input PUSH16
+
+.decl BALANCE(stmt: Statement)
+.input BALANCE
+
+.decl SWAP5(stmt: Statement)
+.input SWAP5
+
+.decl LOG0(stmt: Statement)
+.input LOG0
+
+.decl CREATE(stmt: Statement)
+.input CREATE
+
+.decl MSIZE(stmt: Statement)
+.input MSIZE
+
+.decl GASPRICE(stmt: Statement)
+.input GASPRICE
+
+.decl PUSH9(stmt: Statement, value: Value)
+.input PUSH9
+
+.decl MSTORE(stmt: Statement)
+.input MSTORE
+
+.decl EXP(stmt: Statement)
+.input EXP
+
+.decl CONST(stmt: Statement)
+.input CONST
+
+.decl PUSH2(stmt: Statement, value: Value)
+.input PUSH2
+
+.decl PUSH8(stmt: Statement, value: Value)
+.input PUSH8
+
+.decl DUP15(stmt: Statement)
+.input DUP15
+
+.decl SWAP15(stmt: Statement)
+.input SWAP15
+
+.decl CALLER(stmt: Statement)
+.input CALLER
+
+.decl PUSH31(stmt: Statement, value: Value)
+.input PUSH31
+
+.decl LOG2(stmt: Statement)
+.input LOG2
+
+.decl SIGNEXTEND(stmt: Statement)
+.input SIGNEXTEND
+
+.decl DIV(stmt: Statement)
+.input DIV
+
+.decl PUSH1(stmt: Statement, value: Value)
+.input PUSH1
+
+.decl TXGASPRICE(stmt: Statement)
+.input TXGASPRICE
+
+.decl SWAP2(stmt: Statement)
+.input SWAP2
+
+.decl GASLIMIT(stmt: Statement)
+.input GASLIMIT
+
+.decl THROW(stmt: Statement)
+.input THROW
+
+.decl PUSH30(stmt: Statement, value: Value)
+.input PUSH30
+
+.decl DIFFICULTY(stmt: Statement)
+.input DIFFICULTY
+
+.decl CALLDATALOAD(stmt: Statement)
+.input CALLDATALOAD
+
+.decl LOG(stmt: Statement)
+.input LOG
+
+.decl ISZERO(stmt: Statement)
+.input ISZERO
+
+.decl DUP9(stmt: Statement)
+.input DUP9
+
+.decl JUMP(stmt: Statement)
+.input JUMP
+
+.decl PUSH20(stmt: Statement, value: Value)
+.input PUSH20
+
+.decl SUB(stmt: Statement)
+.input SUB
+
+.decl STATICCALL(stmt: Statement)
+.input STATICCALL
+
+.decl PUSH19(stmt: Statement, value: Value)
+.input PUSH19
+
+.decl CALLDATASIZE(stmt: Statement)
+.input CALLDATASIZE
+
+.decl PUSH32(stmt: Statement, value: Value)
+.input PUSH32
+
+.decl RETURNDATASIZE(stmt: Statement)
+.input RETURNDATASIZE
+
+.decl PUSH24(stmt: Statement, value: Value)
+.input PUSH24
+
+.decl PUSH28(stmt: Statement, value: Value)
+.input PUSH28
+
+.decl SWAP10(stmt: Statement)
+.input SWAP10
+
+.decl BYTE(stmt: Statement)
+.input BYTE
+
+.decl DUP10(stmt: Statement)
+.input DUP10
+
+.decl SWAP9(stmt: Statement)
+.input SWAP9
+
+.decl PUSH21(stmt: Statement, value: Value)
+.input PUSH21
+
+.decl SLT(stmt: Statement)
+.input SLT
+
+.decl GT(stmt: Statement)
+.input GT
+
+.decl SWAP6(stmt: Statement)
+.input SWAP6
+
+.decl RETURN(stmt: Statement)
+.input RETURN
+
+.decl NUMBER(stmt: Statement)
+.input NUMBER
+
+.decl PUSH6(stmt: Statement, value: Value)
+.input PUSH6
+
+.decl PUSH7(stmt: Statement, value: Value)
+.input PUSH7
+
+.decl LOG4(stmt: Statement)
+.input LOG4
+
+.decl EXTCODECOPY(stmt: Statement)
+.input EXTCODECOPY
+
+.decl NOP(stmt: Statement)
+.input NOP
+
+.decl DUP13(stmt: Statement)
+.input DUP13
+
+.decl SDIV(stmt: Statement)
+.input SDIV
+
+.decl CALLCODE(stmt: Statement)
+.input CALLCODE
+
+.decl PUSH26(stmt: Statement, value: Value)
+.input PUSH26
+
+.decl DUP8(stmt: Statement)
+.input DUP8
+
+.decl SHA3(stmt: Statement)
+.input SHA3
+
+.decl SELFDESTRUCT(stmt: Statement)
+.input SELFDESTRUCT
+
+.decl PUSH14(stmt: Statement, value: Value)
+.input PUSH14
+
+.decl MSTORE8(stmt: Statement)
+.input MSTORE8
+
+.decl REVERT(stmt: Statement)
+.input REVERT
+
+.decl DUP5(stmt: Statement)
+.input DUP5
+
+.decl DUP12(stmt: Statement)
+.input DUP12
+
+.decl DUP4(stmt: Statement)
+.input DUP4
+
+.decl PUSH18(stmt: Statement, value: Value)
+.input PUSH18
+
+.decl DUP11(stmt: Statement)
+.input DUP11
+
+.decl CODESIZE(stmt: Statement)
+.input CODESIZE
+
+.decl SWAP11(stmt: Statement)
+.input SWAP11
+
+.decl BLOCKHASH(stmt: Statement)
+.input BLOCKHASH
+
+.decl ORIGIN(stmt: Statement)
+.input ORIGIN
+
+.decl DUP1(stmt: Statement)
+.input DUP1
+
+.decl AND(stmt: Statement)
+.input AND
+
+.decl EXTCODESIZE(stmt: Statement)
+.input EXTCODESIZE
+
+.decl LT(stmt: Statement)
+.input LT
+
+.decl DUP3(stmt: Statement)
+.input DUP3
+
+.decl SGT(stmt: Statement)
+.input SGT
+
+.decl PUSH4(stmt: Statement, value: Value)
+.input PUSH4
+
+.decl SWAP1(stmt: Statement)
+.input SWAP1
+
+.decl ADDMOD(stmt: Statement)
+.input ADDMOD
+
+.decl PUSH29(stmt: Statement, value: Value)
+.input PUSH29
+
+.decl DUP6(stmt: Statement)
+.input DUP6
+
+.decl PUSH22(stmt: Statement, value: Value)
+.input PUSH22
+
+.decl CALLDATACOPY(stmt: Statement)
+.input CALLDATACOPY
+
+.decl OpcodeIsStorage(instruction: Opcode)
+.input OpcodeIsStorage
+
+.decl OpcodePopWords(instruction: Opcode, n: number)
+.input OpcodePopWords
+
+.decl OpcodeStackDelta(instruction: Opcode, n: number)
+.input OpcodeStackDelta
+
+.decl OpcodeIsDup(instruction: Opcode)
+.input OpcodeIsDup
+
+.decl OpcodeIsMemory(instruction: Opcode)
+.input OpcodeIsMemory
+
+.decl OpcodeIsMissing(instruction: Opcode)
+.input OpcodeIsMissing
+
+.decl OpcodeIsLog(instruction: Opcode)
+.input OpcodeIsLog
+
+.decl OpcodeIsArithmetic(instruction: Opcode)
+.input OpcodeIsArithmetic
+
+.decl OpcodeIsPush(instruction: Opcode)
+.input OpcodeIsPush
+
+.decl OpcodeAltersFlow(instruction: Opcode)
+.input OpcodeAltersFlow
+
+.decl OpcodeHalts(instruction: Opcode)
+.input OpcodeHalts
+
+.decl OpcodePossiblyHalts(instruction: Opcode)
+.input OpcodePossiblyHalts
+
+.decl OpcodeLogLen(instruction: Opcode, n: number)
+.input OpcodeLogLen
+
+.decl OpcodePushWords(instruction: Opcode, n: number)
+.input OpcodePushWords
+
+.decl OpcodeOrd(instruction: Opcode, n: number)
+.input OpcodeOrd
+
+.decl OpcodePushLen(instruction: Opcode, n: number)
+.input OpcodePushLen
+
+.decl OpcodeIsSwap(instruction: Opcode)
+.input OpcodeIsSwap
+
+.decl OpcodeIsInvalid(instruction: Opcode)
+.input OpcodeIsInvalid
+
+.decl OpcodeIsCall(instruction: Opcode)
+.input OpcodeIsCall
+
