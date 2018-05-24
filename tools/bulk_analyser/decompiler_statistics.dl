@@ -37,12 +37,6 @@ PolymorphicTarget(headStmt) :-
   InsBlockJumpTarget(headStmt, target2),
   target1 != target2.
 
-.decl BlockJumpValidTarget(ctx:Context, block:Block, target:Value)
-
-BlockJumpValidTarget(ctx, block, target) :-
-  BlockJumpTarget(ctx, block, target),
-  ConcreteValue(target).
-
 .decl BlockJumpAnyTarget(headStmt:Statement)
 .output BlockJumpAnyTarget
 
@@ -72,3 +66,9 @@ MissingInfo(stmt, opcode) :-
   OpcodePushWords(opcode, n), n>0,
   !LocalStackContents(stmt, 0, _),
   !OpcodePossiblyHalts(opcode).
+
+.decl PublicFunctionEntryOut(stmt: Statement, sigHash: Value)
+.output PublicFunctionEntryOut
+
+PublicFunctionEntryOut(stmt, sigHash) :-
+   PublicFunctionEntry([stmt], sigHash).

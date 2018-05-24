@@ -1,8 +1,10 @@
 #include "decompiler_inputs.dl"
 #include "decompiler_statistics.dl"
+#define MAKE_VALUE(v) ([-1, (v)])
+
+#include "functions.dl"
 
 #define MAX_STACK_HEIGHT 100
-#define MAKE_VALUE(v) ([-1, (v)])
 
 .type Statement = symbol
 .type Block = [ head:Statement ]
@@ -90,9 +92,10 @@ IsBasicBlockHead(statement) :-
 IsBasicBlockTail(statement) :-
   Statement_Opcode(statement, opcode),
   OpcodeAltersFlow(opcode).
+
 IsBasicBlockTail(statement) :-
-  JUMPDEST(labelstatement),
-  Statement_Next(statement, labelstatement).
+  Statement_Next(statement, labelstatement),
+  JUMPDEST(labelstatement).
 
 
 .decl Stmt_BasicBlock(statement:Statement, block:Block)
@@ -210,6 +213,11 @@ BlockJumpTarget(calleeCtx, callee, realValue) :-
   valueOrAlias = [alias, "invalid"].
 
 
+.decl BlockJumpValidTarget(ctx:Context, block:Block, target:Value)
+
+BlockJumpValidTarget(ctx, block, target) :-
+  BlockJumpTarget(ctx, block, target),
+  ConcreteValue(target).
 /*
  ***********
  * Define semantics of instructions
