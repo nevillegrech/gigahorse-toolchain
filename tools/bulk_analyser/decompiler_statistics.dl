@@ -1,5 +1,6 @@
 .output IsBasicBlockHead
 .output IsBasicBlockTail
+.output PushValue
 
 // Fills disk too quickly
 //.output BlockOutputContents
@@ -25,9 +26,7 @@ InsBlockEdge(from, to) :-
 InsBlockJumpTarget(headStmt, target) :-
   block = [headStmt],
   ReachableContext(ctx, block),
-  BasicBlock_Tail(block, stmt),
-  (JUMP(stmt) ; JUMPI(stmt)),
-  BlockJumpValidTarget(ctx, block, target).
+  BlockJumpValidTarget(ctx, block, [target]).
 
 .decl PolymorphicTarget(headStmt: Statement)
 .output PolymorphicTarget      
@@ -39,6 +38,7 @@ PolymorphicTarget(headStmt) :-
 
 .decl BlockJumpAnyTarget(headStmt:Statement)
 .output BlockJumpAnyTarget
+
 
 BlockJumpAnyTarget(headStmt) :-
   BlockJumpTarget(ctx, [headStmt], target),

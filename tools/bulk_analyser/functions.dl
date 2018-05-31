@@ -1,3 +1,6 @@
+/******
+         Heuristics for discovering public functions
+******/
 // Special entry point to public function found heuristically
 .decl PublicFunctionEntry(basicBlock: Block, sigHash: Value)
 // Code inserted by compiler to dispatch to the correct public function
@@ -36,14 +39,114 @@ PublicFunctionEntry([stmt], sigHash) :-
   IsBasicBlockHead(stmt),
   ord(label) = ord(stmt).
 
+/******
+         Generic Reachable-from implementation
+******/
+
+
+.decl ReachableFrom(block:Block, from:Block)
+
+ReachableFrom(block, block) :- Stmt_BasicBlock(_, block).
+
+
+ReachableFrom(blockNext, blockPrev) :-
+   ReachableFrom(block, blockPrev),
+   BlockEdge(_, block, _, blockNext). 
+
+
+/******
+         Heuristics for detecting call-return patterns
+******/
+
+.decl PossibleReturnAddress(caller:Block, ret:Block, target:Block)
+
+// Possibly a return:
+// a) basic block jumps to a valid "non-locally-derived" address
+// b) address originates at a caller that can reach the
+//    returning basic block.
+PossibleReturnAddress(caller, ret, target) :-
+  BasicBlock_Tail(ret, retStmt),
+  BlockJumpValidTarget(_, ret, target),
+  BeforeLocalStackContents(retStmt, 0, [_, "invalid"]),
+  BasicBlock_Tail(caller, callerStmt),
+  IsJump(callerStmt),
+  target = [targetStmt],
+  LocalStackContents(callerStmt, _, [_, targetStmt]),
+  // Make sure target is reachable from caller
+  // Should caller dominate return target?
+  // Answer: no, since CFG is imprecise
+  ReachableFrom(ret, caller).
+
+
+.decl PolymorphicBlockTarget(block:Block)
+
+PolymorphicBlockTarget(block) :-
+  BlockJumpValidTarget(_, block, target1),
+  BlockJumpValidTarget(_, block, target2),
+  target1 != target2.
+
+
+.decl PossibleFunctionCall(caller:Block, func:Block, retBlock:Block, retTarget:Block)
+
+PossibleFunctionCall(caller, func, retBlock, retTarget) :-
+  PossibleReturnAddress(caller, retBlock, retTarget),
+  BlockJumpValidTarget(_, caller, func).
+
+.decl PossiblyInFunction(block:Block, func:Block)
+
+// Which basic blocks belong to which function
+PossiblyInFunction(func, func) :-
+   PossibleFunctionCall(_, func, _, _).
+
+// In this case we're moving onto another function
+PossiblyInFunction(next, func) :-
+   PossiblyInFunction(block, func),
+   BlockEdge(_, block, _, next),
+   !PossibleFunctionCall(block, _, _, _).
+
+// In this case we're return from a function we've just called
+PossiblyInFunction(retTarget, func) :-
+   PossiblyInFunction(block, func),
+   PossibleFunctionCall(block, _, _, retTarget).
+
+// What is a function?
+// A function has to have a single entry point
+
+.decl NotRegularFunction(func:Block)
+
+// A basic block can only belong to a single function
+// Solution: Pick one!
+NotRegularFunction([func2]) :-
+  PossiblyInFunction(block, [func1]),
+  PossiblyInFunction(block, [func2]),
+  ord(func1) > ord(func2).
+
+// A function can only be entered by calling it
+NotRegularFunction(func) :-
+  PossiblyInFunction(_, func),
+  BlockEdge(_, caller, _, func),
+  !PossibleFunctionCall(caller, func, _, _).
+
+
+.decl FunctionCallReturn(caller:Block, func:Block, retTarget:Block)
+.decl Function_Return(func:Block, retBlock:Block)
+
+Function_Return(func, retBlock),
+FunctionCallReturn(caller, func, retTarget) :-
+   PossibleFunctionCall(caller, func, retBlock, retTarget),
+   !NotRegularFunction(func).
+
+
+// Further function decomposition
+
 // Used components to break recursion through negation problem
 // we are trying to solve. Detects function boundaries, calls and returns
 // in an iterative fashion
 
 .comp FunctionDetection {
-   // An Entry to a function (private or public)
-   .decl FunctionEntry(block: Block)
-   // Same, but for previous iteration of the algorithm   
+  // An Entry to a function (private or public)
+  .decl FunctionEntry(block: Block)
+  // Same, but for previous iteration of the algorithm   
   .decl PrevFunctionEntry(block: Block)
 
   // Basic block belongs to function
@@ -52,10 +155,6 @@ PublicFunctionEntry([stmt], sigHash) :-
   .decl FunctionCall(block: Block, func: Block)
    // Same, but for previous iteration of the algorithm   
   .decl PrevFunctionCall(block: Block, func: Block)
-  // Basic block returns computation back to the supplied continuation
-  .decl PossibleFunctionReturn(block: Block, func: Block, target1: Value)
-  .decl NotFunctionReturn(block: Block, func: Block)
-  .decl FunctionReturn(block: Block, func: Block)
 
   InFunction(block, block) :-
     PrevFunctionEntry(block).
@@ -63,25 +162,12 @@ PublicFunctionEntry([stmt], sigHash) :-
   InFunction(next, func) :-
     InFunction(block, func),
     BlockEdge(_, block, _, next),
-    !PrevFunctionCall(block, next).
+    !PrevFunctionCall(block, next),
+    !Function_Return(_, block).
 
-  // Heuristic for finding return instructions
-  // 1. jumps to a polymorphic target
-  // 2. target address supplied to the function (originates in the caller)
-  PossibleFunctionReturn(block, func, target2),
-  PossibleFunctionReturn(block, func, target1) :-
-    BlockJumpValidTarget(_, block, target1),
-    BlockJumpValidTarget(_, block, target2),
-    target1 != target2,
-    InFunction(block, func).
-
-  NotFunctionReturn(block, func) :-
-    PossibleFunctionReturn(block, func, target1),
-    !BlockInputContents(_, func, _, target1).
-
-  FunctionReturn(block, func) :-
-   PossibleFunctionReturn(block, func, _),
-   !NotFunctionReturn(block, func).
+ InFunction(next, func) :-
+   InFunction(block, func),
+   FunctionCallReturn(block, _, next).
 
   // Heuristic for finding function calls
   // Execution flows to a basic block that is
@@ -92,8 +178,8 @@ PublicFunctionEntry([stmt], sigHash) :-
     InFunction(block, func2),
     func1 != func2,
     BlockEdge(_, prev, _, block),
-    !InFunction(prev, func1),
-    !FunctionReturn(prev, _).
+    !Function_Return(_, prev),
+    !(InFunction(prev, func1), InFunction(prev, func2)).
 
   FunctionCall(prev, func1) :- PrevFunctionCall(prev, func1).
 }
@@ -101,10 +187,16 @@ PublicFunctionEntry([stmt], sigHash) :-
 // Initialise and iterate the algorithm
 .init detector0 = FunctionDetection
 detector0.PrevFunctionEntry(block) :-
-  PublicFunctionEntry(block, _).
+   PublicFunctionEntry(block, _).
+detector0.PrevFunctionEntry(block) :-
+   FunctionCallReturn(_, block, _).
+
 detector0.PrevFunctionCall(prev, func) :-
   PublicFunctionEntry(func, sigHash),
   PublicFunctionDispatcher(prev, sigHash).
+
+detector0.PrevFunctionCall(prev, func) :-
+   FunctionCallReturn(prev, func, _).
   
 .init detector1 = FunctionDetection
 detector1.PrevFunctionEntry(block) :- detector0.FunctionEntry(block).
@@ -114,29 +206,63 @@ detector1.PrevFunctionCall(block, func) :- detector0.FunctionCall(block, func).
 detector2.PrevFunctionEntry(block) :- detector1.FunctionEntry(block).
 detector2.PrevFunctionCall(block, func) :- detector1.FunctionCall(block, func).
 
-.decl FunctionEntryOut(block: Statement)
+/***********
+   Collecting all function decomposition results
+***********/
+
+.decl FunctionCall(block:Block, func:Block)
+
+// Case 1: private call return
+FunctionCall(block, func) :- FunctionCallReturn(block, func, _).
+
+// Case 2: dispatch public functions
+FunctionCall(block, func) :-
+  PublicFunctionEntry(func, sigHash),
+  PublicFunctionDispatcher(block, sigHash).
+
+// Case 3: further decomposition using components
+FunctionCall(block, func) :-
+   detector0.FunctionCall(block, func) ;
+   detector1.FunctionCall(block, func) ;
+   detector2.FunctionCall(block, func).
+
+.decl Function(func:Block)
+
+// Case 1: Smart contract entry
+Function(["0x0"]).
+
+// Remaining cases handled by inputs/outputs of componenets
+Function(func) :-
+   detector0.PrevFunctionEntry(func) ;
+   detector0.FunctionEntry(func) ;
+   detector1.FunctionEntry(func) ;
+   detector2.FunctionEntry(func).
 
 
-// Collect results of function detection algorithm
-FunctionEntryOut(stmt) :-
-   detector0.PrevFunctionEntry([stmt]) ;
-   detector0.FunctionEntry([stmt]) ;
-   detector1.FunctionEntry([stmt]) ;
-   detector2.FunctionEntry([stmt]).
+/***********
+   Final outputs to visualization scripts
+***********/
+ 
 
-FunctionEntryOut("0x0").
-.output FunctionEntryOut
+.decl FunctionCall_Out(caller:symbol, func:symbol)
+.output FunctionCall_Out
 
-.decl FunctionCallOut(block: Statement, func: Statement)
-.output FunctionCallOut
+FunctionCall_Out(caller, func) :-
+  FunctionCall([caller], [func]).
 
-FunctionCallOut(block, func) :-
-   detector2.FunctionCall([block], [func]).
+.decl FunctionCallReturn_Out(caller:symbol, func:symbol, retTarget:symbol)
+.output FunctionCallReturn_Out
+        
+.decl Function_Return_Out(func:symbol, retBlock:symbol)
+.output Function_Return_Out
 
-.decl FunctionReturnOut(block: Statement, func: Statement)
-.output FunctionReturnOut
-FunctionReturnOut(block, func) :-        
-   detector0.FunctionReturn([block], [func]) ;
-   detector1.FunctionReturn([block], [func]) ;
-   detector2.FunctionReturn([block], [func]).
+.decl Function_Out(func: symbol)
+.output Function_Out
 
+FunctionCallReturn_Out(caller, func, retTarget) :-
+  FunctionCallReturn([caller], [func], [retTarget]).
+
+Function_Out(func) :- Function([func]).
+
+Function_Return_Out(func, retBlock) :-
+   Function_Return([func], [retBlock]).

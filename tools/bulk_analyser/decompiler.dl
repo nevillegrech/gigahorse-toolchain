@@ -40,6 +40,12 @@ IsAliasLessThan(n, maximum) :-
 .decl ConcreteValue(v:Value)
 .decl PushValue(stmt:Statement, v:Value)
 
+.decl IsJump(stmt:Statement)
+
+IsJump(stmt) :-
+  (JUMP(stmt); JUMPI(stmt)).
+
+
 IsValue(v),
 PushValue(stmt, v) :-
   PUSH1(stmt,v);PUSH2(stmt,v);PUSH3(stmt,v);PUSH4(stmt,v);PUSH5(stmt,v);
@@ -200,7 +206,7 @@ BlockOutputContents(ctx, block, index, realValue) :-
 BlockJumpTarget(ctx, block, value) :-
   ReachableContext(ctx, block),
   Stmt_BasicBlock(stmt, block),
-  (JUMP(stmt); JUMPI(stmt)),
+  IsJump(stmt),
   BeforeLocalStackContents(stmt, 0, valueOrAlias),
   valueOrAlias = [alias, value],
   value != "invalid".
@@ -208,16 +214,19 @@ BlockJumpTarget(ctx, block, value) :-
 BlockJumpTarget(calleeCtx, callee, realValue) :-
   BlockInputContents(calleeCtx, callee, alias, realValue),
   Stmt_BasicBlock(stmt, callee),
-  (JUMP(stmt); JUMPI(stmt)),
+  IsJump(stmt),
   BeforeLocalStackContents(stmt, 0, valueOrAlias),
   valueOrAlias = [alias, "invalid"].
 
 
-.decl BlockJumpValidTarget(ctx:Context, block:Block, target:Value)
+.decl BlockJumpValidTarget(ctx:Context, block:Block, target:Block)
 
-BlockJumpValidTarget(ctx, block, target) :-
-  BlockJumpTarget(ctx, block, target),
-  ConcreteValue(target).
+BlockJumpValidTarget(ctx, block, [target]) :-
+  BlockJumpTarget(ctx, block, value),
+  ConcreteValue(value),
+  IsValue(value),
+  ord(value) = ord(target),
+  JUMPDEST(target).
 /*
  ***********
  * Define semantics of instructions
@@ -361,12 +370,8 @@ BlockEdge(callerCtx, caller, ?mergeContextMacro, [fallthrough]) :-
   IsBasicBlockHead(fallthrough),
   ?mergeContextMacro = [caller].
 
-BlockEdge(callerCtx, caller, ?mergeContextMacro, [callee]) :-
-  BlockJumpTarget(callerCtx, caller, value),
-  (JUMP(jumpStmt); JUMPI(jumpStmt)),
-  Stmt_BasicBlock(jumpStmt, caller),
-  IsBasicBlockHead(callee),
-  ord(callee) = ord(value),
+BlockEdge(callerCtx, caller, ?mergeContextMacro, callee) :-
+  BlockJumpValidTarget(callerCtx, caller, callee),
   ?mergeContextMacro = [caller].
 
 
