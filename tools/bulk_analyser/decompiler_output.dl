@@ -1,0 +1,246 @@
+.output IsBasicBlockHead
+.output IsBasicBlockTail
+.output PushValue
+.output Variable_Value
+.output Statement_Defines
+.output Statement_Uses
+
+// Fills disk too quickly
+//.output BlockOutputContents
+
+.output BlockJumpTarget
+.output LocalStackContents
+.output BlockEdge
+
+.decl InsBlockEdge(from: Statement, to:Statement)
+.output InsBlockEdge
+
+        
+InsBlockEdge(from, to) :-
+   BlockEdge(_, [from], _, [to]).
+
+.output Statement_BlockHead
+.output Statement_Opcode
+        
+.decl InsBlockJumpTarget(stmt:Statement, target: symbol)
+.output InsBlockJumpTarget       
+
+InsBlockJumpTarget(headStmt, target) :-
+  block = [headStmt],
+  ReachableContext(ctx, block),
+  BlockJumpValidTarget(ctx, block, _, [target]).
+
+.decl PolymorphicTarget(headStmt: Statement)
+.output PolymorphicTarget      
+
+PolymorphicTarget(headStmt) :-
+  InsBlockJumpTarget(headStmt, target1),
+  InsBlockJumpTarget(headStmt, target2),
+  target1 != target2.
+
+.decl BlockJumpAnyTarget(headStmt:Statement)
+.output BlockJumpAnyTarget
+
+BlockJumpAnyTarget(headStmt) :-
+  BlockJumpTarget(ctx, [headStmt], targetVar),
+  Variable_Value(targetVar, target),
+  (DynamicValue(target) ; AnyValue(target)).
+
+.decl InsensBlockInputContents(block:Block, index:number, var:Variable)
+.output InsensBlockInputContents
+
+InsensBlockInputContents(block, index, var) :-
+  BlockInputContents(_, block, index, var).
+
+.decl TosOutput(stmt: Statement, abc:symbol, valueOrAlias:number, xyz:symbol, opcode:symbol, delta:number)
+.output TosOutput      
+
+TosOutput(stmt, "::", valueOrAlias, "<-", opcode, delta) :-
+  LocalStackContents(stmt, 0, valueOrAlias),
+  Statement_Opcode(stmt, opcode),
+  StatementStackDelta(stmt, delta).
+
+.decl MissingInfo(stmt:Statement, opcode:Opcode)
+.output MissingInfo
+
+MissingInfo(stmt, opcode) :-
+  Statement_Opcode(stmt, opcode),
+  OpcodePushWords(opcode, n), n>0,
+  !LocalStackContents(stmt, 0, _),
+  !OpcodePossiblyHalts(opcode).
+
+.decl PublicFunctionEntryOut(stmt: Statement, sigHash: Value)
+.output PublicFunctionEntryOut
+
+PublicFunctionEntryOut(stmt, sigHash) :-
+   PublicFunctionEntry([stmt], sigHash).
+
+
+/*
+ ***********
+ * Auxiliary relations: Dominance frontiers for optimal PHI instruction placement
+ ***********
+ */
+
+// Both arguments are basic block heads
+// There is a path from the entry to s that does not go through candidate
+.decl DoesNotDominate(candidate:Block, s:Block)
+
+DoesNotDominate(candidate, ["0x0"]) :-
+  Statement_Block(_, candidate),
+  candidate != ["0x0"].
+
+DoesNotDominate(candidate,s) :-
+  DoesNotDominate(candidate,other),
+  BlockEdge(_, s, _, other),
+  s != candidate.
+
+.decl Exit(block:Block)
+
+Exit(block) :- Statement_Block(_, block), !BlockEdge(_, block, _, _).
+
+// Both arguments are basic block heads
+// There is a path from s to the exit that does not go through candidate
+.decl DoesNotPostDominate(candidate: Block, s: Block)
+
+DoesNotPostDominate(candidate, exitNode) :-
+  Exit(exitNode),
+  Statement_Block(_, candidate).
+
+DoesNotPostDominate(candidate,s) :-
+  DoesNotPostDominate(candidate,other),
+  BlockEdge(_, other, _, s),
+  s != candidate.
+
+// The Dominates/PostDominates relation is defined on basic blocks,
+// represented by their first instruction (head). Defining
+// a dense quadratic relation, like Dominates, on individual
+// instructions would be expensive.
+.decl Dominates(dominator:Block, s:Block)
+
+Dominates(dominator,s) :-
+  Statement_Block(_, dominator),
+  Statement_Block(_, s),
+  !DoesNotDominate(dominator,s).
+
+.decl PostDominates(postdominator:Block, s:Block)
+PostDominates(postdominator,s) :-
+  Statement_Block(_, postdominator),
+  Statement_Block(_, s),
+  !DoesNotPostDominate(postdominator,s).
+
+.decl DominatorFrontier(block: Block, frontier: Block)
+// AFAIK a block f is a frontier of b if b dominates f
+// but not f's predecessors
+
+DominatorFrontier(block, frontier) :-
+   Dominates(block, frontier),
+   BlockEdge(_, pred, _, frontier),
+   !Dominates(block, pred).
+
+.decl AliasToString(a:Alias, s: symbol)
+
+AliasToString(0, "0").
+AliasToString(1, "1").
+AliasToString(2, "2").
+AliasToString(3, "3").
+AliasToString(4, "4").
+AliasToString(5, "5").
+AliasToString(6, "6").
+AliasToString(7, "7").
+AliasToString(8, "8").
+AliasToString(9, "9").
+AliasToString(10, "a").
+AliasToString(11, "b").
+AliasToString(12, "c").
+AliasToString(13, "d").
+AliasToString(14, "e").
+AliasToString(15, "f").
+
+AliasToString(n, cat(rst, head)) :-
+  IsAlias(n),
+  n > 15,
+  AliasToString(n / 16, rst),
+  AliasToString(n % 16, head).
+
+.decl PolymorphicAlias(block: Block, alias: Alias, newVarSymbol: symbol)
+
+// Find all polymorphic aliases
+// These need phi instructions introduced at the dominance frontier
+PolymorphicAlias(block, alias, cat(cat(stmt, "_"), aliasStr)) :-
+  BlockInputContents(_, block, alias, var1),
+  BlockInputContents(_, block, alias, var2),
+  var1 != var2,
+  block = [stmt],
+  AliasToString(alias, aliasStr).
+
+.symbol_type TACVariable
+
+// Final decompiler outputs
+.decl TAC_Op(stmt:Statement, op:Opcode)
+.output TAC_Op             
+.decl TAC_Stmt(stmt:Statement)
+.output TAC_Stmt
+.decl TAC_Use(stmt: Statement, var: TACVariable, i: number)
+.output TAC_Use
+.decl TAC_Def(stmt: Statement, var: TACVariable)
+.output TAC_Def
+.decl TAC_Var(var: TACVariable)
+.output TAC_Var
+.decl TAC_Block(block: Statement, stmt: Statement)
+.output TAC_Block
+
+// Non-nop instructions
+TAC_Stmt(stmt),
+TAC_Op(stmt, op) :-
+   Statement_Opcode(stmt, op),
+   !TACNOP(stmt).
+
+// Phi instructions
+TAC_Var(stmt),
+TAC_Def(stmt, stmt),
+TAC_Stmt(stmt),
+TAC_Op(stmt, "PHI") :-
+   PolymorphicAlias(_, _, stmt).
+
+// Non-phi, variable id same as stmt it is defined in
+TAC_Var(stmt),
+TAC_Def(stmt, stmt) :-
+   Statement_Defines(stmt, _).
+
+// Case 1: Uses locally defined variable
+TAC_Use(stmt, varStr, n) :-
+  Statement_Uses_Local(stmt, var, n),
+  CheckIsVariable(var),
+  Statement_Defines(varStr, var).
+
+// Case 2: Uses monomorphic global var
+TAC_Use(stmt, varStr, n) :-
+  Statement_Uses_Local(stmt, alias, n),
+  CheckIsAlias(alias),
+  Statement_Block(stmt, block),
+  !PolymorphicAlias(block, alias, _),
+  BlockInputContents(_, block, alias, var),
+  Statement_Defines(varStr, var).
+
+// Case 3: Is a PHI statement
+TAC_Use(varStr, varOpStr, -1),
+// Case 4: Uses polymorphic variable
+TAC_Use(stmt, varStr, n) :-
+  Statement_Uses_Local(stmt, alias, n),
+  CheckIsAlias(alias),
+  Statement_Block(stmt, block),
+  PolymorphicAlias(block, alias, varStr),
+  BlockInputContents(_, block, alias, varOp),
+  Statement_Defines(varOpStr, varOp).
+
+TAC_Block(block, stmt) :-
+   Statement_Block(stmt, [block]),
+   !TACNOP(stmt).
+
+TAC_Block(frontier, phiStmt) :-
+   PolymorphicAlias([block], _, phiStmt),
+   DominatorFrontier([block], [frontier]).
+   
+
+

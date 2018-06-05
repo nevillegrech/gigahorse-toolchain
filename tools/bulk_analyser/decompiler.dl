@@ -3,7 +3,7 @@
 #define CheckIsAlias(v) ((v) >= 0, (v) < MAX_STACK_HEIGHT)
 
 #include "decompiler_instructions.dl"
-#include "decompiler_statistics.dl"
+#include "decompiler_output.dl"
 #include "functions.dl"
 
 
@@ -65,6 +65,7 @@ ConcreteValue(v) :- IsValue(v), !DynamicValue(v), !AnyValue(v).
 // Distinguished from all constant values
 .decl DynamicValue(v:Value)
 DynamicValue("Dynamic").
+
 // Top of the lattice
 .decl AnyValue(v:Value)
 AnyValue("Any").
@@ -104,29 +105,29 @@ IsBasicBlockTail(statement) :-
   Statement_Next(statement, labelstatement),
   JUMPDEST(labelstatement).
 
-.decl Stmt_BasicBlock(statement:Statement, block:Block)
-.decl Stmt_BasicBlockHead(statement:Statement, head:Statement)
+.decl Statement_Block(statement:Statement, block:Block)
+.decl Statement_BlockHead(statement:Statement, head:Statement)
 
-Stmt_BasicBlockHead(stmt, stmt),
-Stmt_BasicBlock(stmt, [stmt]) :-
+Statement_BlockHead(stmt, stmt),
+Statement_Block(stmt, [stmt]) :-
   IsBasicBlockHead(stmt).
 
-Stmt_BasicBlockHead(stmt, blockHead),
-Stmt_BasicBlock(stmt, block) :-
-  Stmt_BasicBlock(prevstmt, block),
+Statement_BlockHead(stmt, blockHead),
+Statement_Block(stmt, block) :-
+  Statement_Block(prevstmt, block),
   Statement_Next(prevstmt, stmt),
   !IsBasicBlockHead(stmt),
   block = [blockHead].
 
-Stmt_BasicBlock(stmt, head) :-
-  Stmt_BasicBlock(prevstmt, head),
+Statement_Block(stmt, head) :-
+  Statement_Block(prevstmt, head),
   Statement_Next(prevstmt, stmt),
   !IsBasicBlockHead(stmt).
 
 .decl BasicBlock_Tail(block:Block, tail:Statement)
 
 BasicBlock_Tail(block, tail) :-
-  Stmt_BasicBlock(tail, block),
+  Statement_Block(tail, block),
   IsBasicBlockTail(tail).
 
 
@@ -143,11 +144,11 @@ BasicBlock_Tail(block, tail) :-
 .decl BlockJumpTarget(context:Context, block:Block, var:Variable)
 
 // A summary of all the effects of the basic block up to a statement. The
-// summary cannot contain only values, it will also refer symbolically to
+// summary cannot contain only variables, it will also refer symbolically to
 // other locations (aliases) on the stack at the beginning of the basic block.
-.decl LocalStackContents(stmt:Statement, index:number, value:VariableOrAlias)
+.decl LocalStackContents(stmt:Statement, index:number, variable:VariableOrAlias)
 
-.decl BeforeLocalStackContents(stmt:Statement, n:number, value:VariableOrAlias)
+.decl BeforeLocalStackContents(stmt:Statement, n:number, variable:VariableOrAlias)
 
 .decl BlockEdge(callerCtx:Context, caller:Block, calleeCtx:Context, callee:Block)
 .decl ReachableContext(ctx:Context, block:Block)
@@ -165,55 +166,52 @@ BasicBlock_Tail(block, tail) :-
 .decl StatementPopDelta(statement:Statement, delta:number)
 .decl StatementStackDelta(statement:Statement, delta:number)
 
-
 /*
  ***********
  * Define block's behavior based on constituents
  ***********
  */
 
-BlockInputContents(calleeCtx, callee, index, value) :-
-  BlockOutputContents(callerCtx, caller, index, value),
+BlockInputContents(calleeCtx, callee, index, variable) :-
+  BlockOutputContents(callerCtx, caller, index, variable),
   BlockEdge(callerCtx, caller, calleeCtx, callee).
   .plan 1:(2,1)
       
-// Copy the stack values untouched by the callee basic block
-BlockOutputContents(calleeCtx, callee, index+delta, value) :-
-  BlockInputContents(calleeCtx, callee, index, value),
+// Copy the stack variables untouched by the callee basic block
+BlockOutputContents(calleeCtx, callee, index+delta, variable) :-
+  BlockInputContents(calleeCtx, callee, index, variable),
   index >= calleePopLen,
   index+delta <= MAX_STACK_HEIGHT,
   BlockPopDelta(callee, calleePopLen),
   BlockStackDelta(callee, delta).
 
-// Handle the proper values pushed by this basic block
-BlockOutputContents(ctx, block, index, varOrAlias) :-
+// Handle the proper variables pushed by this basic block
+BlockOutputContents(ctx, block, index, var) :-
   ReachableContext(ctx, block),
   BasicBlock_Tail(block, stmt),
-  LocalStackContents(stmt, index, varOrAlias),
-  CheckIsVariable(varOrAlias).
+  LocalStackContents(stmt, index, var),
+  CheckIsVariable(var).
 
 // Handle the aliases pushed by this basic block
-BlockOutputContents(ctx, block, index, realValue) :-
-  BlockInputContents(ctx, block, varOrAlias, realValue),
+BlockOutputContents(ctx, block, index, realVariable) :-
+  BlockInputContents(ctx, block, alias, realVariable),
   BasicBlock_Tail(block, stmt),
-  LocalStackContents(stmt, index, varOrAlias),
-  CheckIsAlias(varOrAlias).
+  LocalStackContents(stmt, index, alias),
+  CheckIsAlias(alias).
 
-
-// REVIEW: need to handle THROW. Maybe others?
-BlockJumpTarget(ctx, block, varOrAlias) :-
+BlockJumpTarget(ctx, block, var) :-
   ReachableContext(ctx, block),
-  Stmt_BasicBlock(stmt, block),
+  Statement_Block(stmt, block),
   IsJump(stmt),
-  BeforeLocalStackContents(stmt, 0, varOrAlias),
-  CheckIsVariable(varOrAlias).
+  BeforeLocalStackContents(stmt, 0, var),
+  CheckIsVariable(var).
 
 BlockJumpTarget(calleeCtx, callee, realVariable) :-
-  BlockInputContents(calleeCtx, callee, varOrAlias, realVariable),
-  Stmt_BasicBlock(stmt, callee),
+  BlockInputContents(calleeCtx, callee, alias, realVariable),
+  Statement_Block(stmt, callee),
   IsJump(stmt),
-  BeforeLocalStackContents(stmt, 0, varOrAlias),
-  CheckIsAlias(varOrAlias).
+  BeforeLocalStackContents(stmt, 0, alias),
+  CheckIsAlias(alias).
 
 .decl BlockJumpValidTarget(ctx:Context, block:Block, variable: Variable, target:Block)
 
@@ -228,7 +226,7 @@ BlockJumpValidTarget(ctx, block, variable, [target]) :-
  * Define semantics of instructions
  ***********
  */
-// Values unaffected by this instruction.
+// Variables unaffected by this instruction.
 // Pop is modeled as a side-effect!
 LocalStackContents(stmt, n + delta, varOrAlias) :-
   BeforeLocalStackContents(stmt, n, varOrAlias),
@@ -294,12 +292,14 @@ Variable_Value(resVar, res) :-
   Variable_Value(var1, val1),
   (OperationIs(opcode, val0, res) ; OperationIs(opcode, val1, res)).
 
+/*
 // Arithmetic
 Variable_Value(var, anyvalue) :-
   AnyValue(anyvalue),
   Statement_Opcode(stmt, opcode),
   OpcodeIsArithmetic(opcode),
   Statement_Defines(stmt, var).
+*/
 
 Variable_Value(var, dynamicvalue) :-
   DynamicValue(dynamicvalue),
@@ -326,12 +326,12 @@ LocalStackContents(stmt, m+1, other) :-
   BeforeLocalStackContents(stmt, m, other).
 
 // SWAP
-LocalStackContents(stmt, n, value0),
-LocalStackContents(stmt, 0, valueN) :-
+LocalStackContents(stmt, n, variable0),
+LocalStackContents(stmt, 0, variableN) :-
   Statement_Opcode(stmt, opcode),
   SWAPN(opcode, n),
-  BeforeLocalStackContents(stmt, n, valueN),
-  BeforeLocalStackContents(stmt, 0, value0).
+  BeforeLocalStackContents(stmt, n, variableN),
+  BeforeLocalStackContents(stmt, 0, variable0).
 
 LocalStackContents(stmt, m, other) :-
   Statement_Opcode(stmt, opcode),
@@ -379,7 +379,7 @@ FallThroughStmt(stmt) :-
 BlockEdge(callerCtx, caller, ?mergeContextMacro, [fallthrough]) :-
   ReachableContext(callerCtx, caller),
   FallThroughStmt(stmt),
-  Stmt_BasicBlock(stmt, caller),
+  Statement_Block(stmt, caller),
   Statement_Next(stmt, fallthrough),
   IsBasicBlockHead(fallthrough),
   ?mergeContextMacro = [caller].
@@ -391,24 +391,48 @@ BlockEdge(callerCtx, caller, ?mergeContextMacro, callee) :-
 
 /*
  ***********
- * Auxiliary relations: BeforeLocalStackContents
+ * Auxiliary relations: BeforeLocalStackContents, Statement_Uses
  ***********
  */
 
 // General case
-BeforeLocalStackContents(stmt, n, value) :-
+BeforeLocalStackContents(stmt, n, variable) :-
   Statement_Next(prevStmt, stmt),
-  !IsBasicBlockTail(prevStmt),
-  LocalStackContents(prevStmt, n, value).
+  Statement_Block(prevStmt, block),
+  Statement_Block(stmt, block),
+  LocalStackContents(prevStmt, n, variable).
 
 // Special case for block head (contains only aliases). Initialize all
 // stack positions, from zero to max consumed (from the caller's stack) by
 // the basic block. They are initialized to symbolic aliases.
 BeforeLocalStackContents(stmt, alias, alias) :-
   IsBasicBlockHead(stmt),
-  Stmt_BasicBlock(stmt, block),
+  Statement_Block(stmt, block),
   BlockPopDelta(block, delta),
   IsAliasLessThan(alias, delta).
+
+.decl Statement_Uses(stmt:Statement, var:Variable, n:Alias)
+.decl Statement_Uses_Local(stmt:Statement, var:VariableOrAlias, n:Alias)
+
+Statement_Uses_Local(stmt, varOrAlias, n) :-
+   Statement_Opcode(stmt, opcode),
+   !TACNOP(stmt),
+   OpcodePopWords(opcode, m),
+   IsAliasLessThan(n, m),
+   BeforeLocalStackContents(stmt, n, varOrAlias).
+
+// Case: variable originates locally
+Statement_Uses(stmt, var, n) :-
+   Statement_Uses_Local(stmt, var, n),
+   CheckIsVariable(var).
+
+// Case: variable originates elsewhere
+Statement_Uses(stmt, var, n) :-
+   Statement_Uses_Local(stmt, alias, n),
+   CheckIsAlias(alias),
+   Statement_Block(stmt, block),
+   BlockInputContents(_, block, alias, var).
+
 
 
 /*
@@ -461,3 +485,4 @@ BlockStackDelta(block, delta) :-
 BlockPopDelta(block, delta) :-
   BasicBlock_Tail(block, stmt),
   StatementPopDelta(stmt, delta).
+

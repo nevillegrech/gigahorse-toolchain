@@ -8,22 +8,21 @@
 // (Possibly) Code inserted by compiler to compare function signature
 .decl BlockComparesSig(block: Block, sigHash: Value)
 
-// TODO: Can be strengthened by checking for flow,
-// If we define Statement_Uses(stmt, var, pos)
 BlockComparesSig(block, sigHash) :-
-  Stmt_BasicBlock(pushStmt, block),
+  Statement_Block(pushStmt, block),
   PUSH4(pushStmt, sigHash),
   Statement_Defines(pushStmt, sigHashVar),
-  Stmt_BasicBlock(eqStmt, block),
+  Statement_Block(eqStmt, block),
   EQ(eqStmt),
-  BeforeLocalStackContents(eqStmt, _, sigHashVar),
-  //Statement_Next(eqStmt, jumpiStmt), 
-  Stmt_BasicBlock(jumpiStmt, block),
-  JUMPI(jumpiStmt).
+  Statement_Uses(eqStmt, sigHashVar, _),
+  Statement_Block(jumpiStmt, block),
+  JUMPI(jumpiStmt),
+  Statement_Defines(eqStmt, pred),
+  Statement_Uses(jumpiStmt, pred, 1).
    
 // Initial case, uses CALLDATALOAD
 PublicFunctionDispatcher(block, sigHash) :-
-  Stmt_BasicBlock(stmt, block),
+  Statement_Block(stmt, block),
   CALLDATALOAD(stmt),
   BlockComparesSig(block, sigHash).
 
@@ -35,7 +34,7 @@ PublicFunctionDispatcher(block, sigHash) :-
 
 PublicFunctionEntry([stmt], sigHash) :-
   PublicFunctionDispatcher(block, sigHash),
-  Stmt_BasicBlock(jumpiStmt, block),
+  Statement_Block(jumpiStmt, block),
   JUMPI(jumpiStmt),
   BeforeLocalStackContents(jumpiStmt, _, labelvar),
   Variable_Value(labelvar, label),
@@ -49,7 +48,7 @@ PublicFunctionEntry([stmt], sigHash) :-
 
 .decl ReachableFrom(block:Block, from:Block)
 
-ReachableFrom(block, block) :- Stmt_BasicBlock(_, block).
+ReachableFrom(block, block) :- Statement_Block(_, block).
 
 
 ReachableFrom(blockNext, blockPrev) :-
@@ -73,7 +72,7 @@ PossibleReturnAddress(callerBlock, retBlock, target) :-
   callerBlock != retBlock,
   IsJump(callerStmt),
   Statement_Defines(otherCallerStatement, targetVariable),
-  Stmt_BasicBlock(otherCallerStatement, callerBlock).
+  Statement_Block(otherCallerStatement, callerBlock).
 
 
 .decl PossibleFunctionCall(caller:Block, func:Block, retBlock:Block, retTarget:Block)
