@@ -26,7 +26,7 @@ InsBlockEdge(from, to) :-
 InsBlockJumpTarget(headStmt, target) :-
   block = [headStmt],
   ReachableContext(ctx, block),
-  BlockJumpValidTarget(ctx, block, [target]).
+  BlockJumpValidTarget(ctx, block, _, [target]).
 
 .decl PolymorphicTarget(headStmt: Statement)
 .output PolymorphicTarget      
@@ -41,20 +41,21 @@ PolymorphicTarget(headStmt) :-
 
 
 BlockJumpAnyTarget(headStmt) :-
-  BlockJumpTarget(ctx, [headStmt], target),
+   BlockJumpTarget(ctx, [headStmt], targetVar),
+   Variable_Value(targetVar, target),
   (DynamicValue(target) ; AnyValue(target)).
 
-.decl InsensBlockInputContents(block:Block, index:number, value:Value)
+.decl InsensBlockInputContents(block:Block, index:number, var:Variable)
 .output InsensBlockInputContents
 
 InsensBlockInputContents(block, index, value) :-
   BlockInputContents(_, block, index, value).
 
-.decl TosOutput(stmt: Statement, abc:symbol, alias:number, value:symbol, xyz:symbol, opcode:symbol, delta:number)
+.decl TosOutput(stmt: Statement, abc:symbol, valueOrAlias:number, xyz:symbol, opcode:symbol, delta:number)
 .output TosOutput      
 
-TosOutput(stmt, "::", alias, value, "<-", opcode, delta) :-
-  LocalStackContents(stmt, 0, [alias, value]),
+TosOutput(stmt, "::", valueOrAlias, "<-", opcode, delta) :-
+  LocalStackContents(stmt, 0, valueOrAlias),
   Statement_Opcode(stmt, opcode),
   StatementStackDelta(stmt, delta).
 
