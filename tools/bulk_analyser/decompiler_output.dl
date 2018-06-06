@@ -134,9 +134,9 @@ PostDominates(postdominator,s) :-
 // but not f's predecessors
 
 DominatorFrontier(block, frontier) :-
-   Dominates(block, frontier),
+   Dominates(frontier, block),
    BlockEdge(_, pred, _, frontier),
-   !Dominates(block, pred).
+   !Dominates(pred, block).
 
 .decl AliasToString(a:Alias, s: symbol)
 
@@ -224,23 +224,26 @@ TAC_Use(stmt, varStr, n) :-
   Statement_Defines(varStr, var).
 
 // Case 3: Is a PHI statement
-TAC_Use(varStr, varOpStr, -1),
+TAC_Use(phiStmt, varOpStr, -1) :-
+  PolymorphicAlias(block, alias, phiStmt),
+  BlockInputContents(_, block, alias, varOp),
+  Statement_Defines(varOpStr, varOp).
+
+
 // Case 4: Uses polymorphic variable
 TAC_Use(stmt, varStr, n) :-
   Statement_Uses_Local(stmt, alias, n),
   CheckIsAlias(alias),
   Statement_Block(stmt, block),
-  PolymorphicAlias(block, alias, varStr),
-  BlockInputContents(_, block, alias, varOp),
-  Statement_Defines(varOpStr, varOp).
+  PolymorphicAlias(block, alias, varStr).
 
 TAC_Block(block, stmt) :-
    Statement_Block(stmt, [block]),
    !TACNOP(stmt).
 
-TAC_Block(frontier, phiStmt) :-
-   PolymorphicAlias([block], _, phiStmt),
-   DominatorFrontier([block], [frontier]).
+TAC_Block(block, phiStmt) :-
+   PolymorphicAlias([block], _, phiStmt).
+//   DominatorFrontier([block], [frontier]).
    
 
 

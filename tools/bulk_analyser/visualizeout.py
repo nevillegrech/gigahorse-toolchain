@@ -3,10 +3,39 @@
 import pydot
 from collections import defaultdict
 
+
 BLOCK_SIZE_LIMIT = 10
 def parseCsv(name):
     f = open(name+'.csv')
     return [line.strip('\n \t\r').split('\t') for line in f]
+
+def load_tac_blocks():
+    out = defaultdict(list)
+    for b, s in parseCsv('TAC_Block'):
+        out[b].append(s)
+    def sortkey(a):
+        try:
+            return int(a, 16)
+        except Exception:
+            return 0
+    return {k:sorted(ss, key = sortkey) for k, ss in out.items()}
+
+def load_tac_use():
+    out = defaultdict(list)
+    for s, v, n in parseCsv('TAC_Use'):
+        n = int(n)
+        while n > len(out[s]) - 1:
+            out[s].append('')
+        if n<0:
+            out[s].append(v)
+        else:
+            out[s][n] = v
+    return out
+
+tac_blocks = defaultdict(list,load_tac_blocks())
+tac_use = load_tac_use()
+tac_def = dict(parseCsv('TAC_Def'))
+tac_op = dict(parseCsv('TAC_Op'))
 
 special_block_colors = (
     ('Function_Out',0,"yellow"),
@@ -46,16 +75,31 @@ opcodes = dict(parseCsv('Statement_Opcode'))
 for stmt, block in stmts:
     stmtDict[block].append(stmt)
 
+def format_var(v):
+    return 'v' + v[2:]
+
+    
 def renderBlock(stmts):
-    sorted_stmts = sorted(stmts, key = lambda a : int(a, 16))
-    sorted_stmts = [s+': '+opcodes[s]+' '+stmt_value[s] for s in sorted_stmts]
+    sorted_stmts = []
+    for s in stmts:
+        op = tac_op[s]
+        if s in tac_def:
+            ret = format_var(tac_def[s]) + ' = '
+        else:
+            ret = ''
+        use = ' '.join(format_var(v) for v in tac_use[s])
+        sorted_stmts.append(ret+op+' '+use)
     if len(sorted_stmts) > BLOCK_SIZE_LIMIT:
         half_limit = int(BLOCK_SIZE_LIMIT/2)
         sorted_stmts = sorted_stmts[:half_limit] + ['...'] + sorted_stmts[-half_limit:]
     return '\\l'.join(sorted_stmts) + '\\l'
 graph = pydot.Dot(graph_type='graph')
 
-nodeDict = { k : pydot.Node(k, label=renderBlock(body), shape="rect", style="filled", fillcolor=block_colors[k]) for k, body in stmtDict.items() }
+for fro, to in edges:
+    # insert default placeholder items
+    tac_blocks[fro] ; tac_blocks[to]
+
+nodeDict = { k : pydot.Node(k, label=renderBlock(body), shape="rect", style="filled", fillcolor=block_colors[k]) for k, body in tac_blocks.items() }
 
 for _, v in nodeDict.items():
     graph.add_node(v)
