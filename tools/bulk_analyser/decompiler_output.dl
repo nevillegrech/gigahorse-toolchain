@@ -1,7 +1,6 @@
 .output IsBasicBlockHead
 .output IsBasicBlockTail
 .output PushValue
-.output Variable_Value
 .output Statement_Defines
 .output Statement_Uses
 
@@ -167,11 +166,13 @@ AliasToString(n, cat(rst, head)) :-
 
 // Find all polymorphic aliases
 // These need phi instructions introduced at the dominance frontier
-PolymorphicAlias(block, alias, cat(cat(stmt, "_"), aliasStr)) :-
+PolymorphicAlias(block, alias, cat(cat(blockStr, "_"), aliasStr)) :-
   BlockInputContents(_, block, alias, var1),
   BlockInputContents(_, block, alias, var2),
   var1 != var2,
-  block = [stmt],
+  Statement_Block(stmt, block),
+  Statement_Uses_Local(stmt, alias, _),
+  block = [blockStr],
   AliasToString(alias, aliasStr).
 
 .symbol_type TACVariable
@@ -189,6 +190,12 @@ PolymorphicAlias(block, alias, cat(cat(stmt, "_"), aliasStr)) :-
 .output TAC_Var
 .decl TAC_Block(block: Statement, stmt: Statement)
 .output TAC_Block
+.decl TAC_Variable_Value(var: TACVariable, Value: symbol)
+.output TAC_Variable_Value
+
+TAC_Variable_Value(stmt, value) :-
+   Statement_Defines(stmt, var),
+   Variable_Value(var, value).
 
 // Non-nop instructions
 TAC_Stmt(stmt),
@@ -245,5 +252,3 @@ TAC_Block(block, phiStmt) :-
    PolymorphicAlias([block], _, phiStmt).
 //   DominatorFrontier([block], [frontier]).
    
-
-

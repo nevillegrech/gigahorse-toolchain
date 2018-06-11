@@ -36,6 +36,7 @@ tac_blocks = defaultdict(list,load_tac_blocks())
 tac_use = load_tac_use()
 tac_def = dict(parseCsv('TAC_Def'))
 tac_op = dict(parseCsv('TAC_Op'))
+variable_value = dict(parseCsv('TAC_Variable_Value'))
 
 special_block_colors = (
     ('Function_Out',0,"yellow"),
@@ -76,7 +77,11 @@ for stmt, block in stmts:
     stmtDict[block].append(stmt)
 
 def format_var(v):
-    return 'v' + v[2:]
+    if v in variable_value:
+        value = '('+variable_value[v]+')'
+    else:
+        value = ''
+    return 'v' + v[2:]+value
 
     
 def renderBlock(stmts):
