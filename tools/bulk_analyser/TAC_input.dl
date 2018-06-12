@@ -1,0 +1,27 @@
+.symbol_type TACVariable
+.symbol_type Statement
+.symbol_type TACOp
+              
+// Final decompiler outputs
+.decl TAC_Op(stmt:Statement, op:Opcode)
+.input TAC_Op             
+.decl TAC_Stmt(stmt:Statement)
+.input TAC_Stmt
+.decl TAC_Use(stmt: Statement, var: TACVariable, i: number)
+.input TAC_Use
+.decl TAC_Def(stmt: Statement, var: TACVariable)
+.input TAC_Def
+.decl TAC_Var(var: TACVariable)
+.input TAC_Var
+.decl TAC_Block(block: Statement, stmt: Statement)
+.input TAC_Block
+.decl TAC_Variable_Value(var: TACVariable, Value: symbol)
+.input TAC_Variable_Value
+
+
+#define op TAC_Op
+#define use(var, stmt, n) TAC_Use(stmt, var, n-1)
+#define def(var, stmt) TAC_Def(stmt, var)
+
+#include "tac_instructions.dl"
+
