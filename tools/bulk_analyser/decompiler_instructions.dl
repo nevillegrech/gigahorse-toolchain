@@ -1,0 +1,82 @@
+#include "decompiler_inputs.dl"
+
+.type Opcode
+.type Statement = symbol
+
+.decl Statement_Opcode(statement: Statement, opcode: Opcode)
+.input Statement_Opcode
+
+.decl Statement_Next(statement: Statement, statementNext: Statement)
+.input Statement_Next
+
+.decl TACNOP(statement: Statement)
+
+TACNOP(stmt) :-
+  Statement_Opcode(stmt, opcode),
+  (OpcodeIsDup(opcode) ; OpcodeIsSwap(opcode)).
+
+TACNOP(stmt) :- POP(stmt) ; JUMPDEST(stmt).
+
+.decl PushValue(stmt:Statement, v:Value)
+
+.decl IsJump(stmt:Statement)
+
+IsJump(stmt) :-
+  (JUMP(stmt); JUMPI(stmt)).
+
+IsValue(v),
+PushValue(stmt, v) :-
+  PUSH1(stmt,v);PUSH2(stmt,v);PUSH3(stmt,v);PUSH4(stmt,v);PUSH5(stmt,v);
+  PUSH6(stmt,v);PUSH7(stmt,v);PUSH8(stmt,v);PUSH9(stmt,v);PUSH10(stmt,v);
+  PUSH11(stmt,v);PUSH12(stmt,v);PUSH13(stmt,v);PUSH14(stmt,v);PUSH15(stmt,v);
+  PUSH16(stmt,v);PUSH17(stmt,v);PUSH18(stmt,v);PUSH19(stmt,v);PUSH20(stmt,v);
+  PUSH21(stmt,v);PUSH22(stmt,v);PUSH23(stmt,v);PUSH24(stmt,v);PUSH25(stmt,v);
+  PUSH26(stmt,v);PUSH27(stmt,v);PUSH28(stmt,v);PUSH29(stmt,v);PUSH30(stmt,v);
+  PUSH31(stmt,v);PUSH32(stmt,v).
+
+.decl DynamicStatement(stmt:Statement)
+DynamicStatement(stmt) :-
+  ADDRESS(stmt); BALANCE(stmt); BLOCKHASH(stmt); CALL(stmt); CALLCODE(stmt); STATICCALL(stmt);
+  CALLDATALOAD(stmt);  CALLDATASIZE(stmt); CALLER(stmt); CALLVALUE(stmt); CODESIZE(stmt);
+  COINBASE(stmt); CREATE(stmt); DELEGATECALL(stmt); DIFFICULTY(stmt);
+  EXTCODESIZE(stmt); GAS(stmt); GASLIMIT(stmt); GASPRICE(stmt); NUMBER(stmt);
+  ORIGIN(stmt); RETURNDATASIZE(stmt); TIMESTAMP(stmt); SHA3(stmt).
+// CALLDATACOPY and CODECOPY don't leave anything on the stack.
+// GAS is not an environmental instruction, but it's still dynamic.
+// RETURNDATASIZE is a new instruction, not in the Yellow Paper.
+// Represents stack contents at previous location in the same block
+
+.decl OperationIsEq(opcode:symbol, value:Value)
+.decl OperationIs(opcode:symbol, value1:Value, value2:Value)
+
+OperationIsEq("OR", "0x0").
+OperationIsEq("XOR", "0x0").
+OperationIsEq("ADD", "0x0").
+OperationIsEq("SUB", "0x0").
+OperationIsEq("MUL", "0x1").
+OperationIsEq("DIV", "0x1").
+OperationIsEq("SDIV", "0x1").
+OperationIsEq("AND", "0xff"). // byte
+OperationIsEq("AND", "0xffff"). // 16 bit
+OperationIsEq("AND", "0xffffffff"). // 32 bit
+OperationIsEq("AND", "0xffffffffffffffff"). // 64 bit
+OperationIsEq("AND", "0xffffffffffffffffffffffffffffffff"). // 128 bit
+OperationIsEq("AND", "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"). // 256 bit
+
+OperationIs("AND", "0x0", "0x0").
+OperationIs("MUL", "0x0", "0x0").
+OperationIs("AND", "0xffffffffffffffffffffffff0000000000000000000000000000000000000000", "ADDRESS").
+
+.decl DUPN(opcode:Opcode, n:number)
+
+DUPN(opcode, dupn - dup1) :-
+  OpcodeOrd(opcode, dupn),
+  OpcodeIsDup(opcode),
+  OpcodeOrd("DUP1", dup1).
+
+.decl SWAPN(opcode:Opcode, n:number)
+
+SWAPN(opcode, swapn - swap1 + 1) :-
+  OpcodeOrd(opcode, swapn),
+  OpcodeIsSwap(opcode),
+  OpcodeOrd("SWAP1", swap1).
