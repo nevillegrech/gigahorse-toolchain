@@ -12,7 +12,6 @@
 .number_type Variable
 .number_type Alias
 
-// We want a sum, but sum types crash, so we use a product
 .type VariableOrAlias = Variable | Alias
 
 .decl Variable_Value(variable: Variable, value: Value)
