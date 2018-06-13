@@ -340,16 +340,14 @@ BlockPopDeltaWithFunctionCall(block, functionPopDelta - stackDelta) :-
   FunctionPopDelta(function, functionPopDelta),
   functionPopDelta - stackDelta > stackDelta.
 
-// Other case
-//StatementPopDelta(stmt, prevPopDelta) :-
-//  StatementStackDelta(prevstmt, prevStackDelta),
-//  StatementPopDelta(prevstmt, prevPopDelta),
-//  !IsBasicBlockTail(prevstmt),
-//  Statement_Next(prevstmt, stmt),
-//  Statement_Opcode(stmt, opcode),
-//  OpcodePopWords(opcode, popdelta),
-//  popdelta - prevStackDelta <= prevPopDelta.
 
+BlockPopDeltaWithFunctionCall(block, popDelta) :-
+  BlockPopDelta(block, popDelta),
+  BlockStackDelta(block, stackDelta),
+  FunctionCallReturn(block, function, _),
+  FunctionStackDelta(function, functionStackDelta),
+  FunctionPopDelta(function, functionPopDelta),
+  functionPopDelta - stackDelta > popDelta.
 
 // General, no function call
 BlockFunctionPopDelta(next, delta+delta2) :-
