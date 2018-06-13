@@ -255,3 +255,108 @@ Function_Out(func) :- Function([func]).
 
 Function_Return_Out(func, retBlock) :-
    Function_Return([func], [retBlock]).
+
+
+.decl LocalBlockEdge(block: Block, next: Block)
+
+LocalBlockEdge(block, next) :-
+  BlockEdge(_, block, _, next),
+  !Function(next),
+  !Function_Return(_, block).
+
+LocalBlockEdge(block, next) :-
+  BlockEdge(_, block, _, func),
+  FunctionCallReturn(block, func, next).
+
+// New Instructions
+// CALLPRIVATE(stmt, function)
+// CALLPRIVATEI(stmt, cond, function)
+// RETURNPRIVATE(stmt)
+// RETURNPRIVATEI(stmt, cond)
+
+// Compute stack deltas for arguments
+// We only do this for functions that return
+.decl BlockFunctionStackDelta(block: Block, delta: number)
+
+// Base case
+BlockFunctionStackDelta(block, delta) :-
+   FunctionCallReturn(_, block, _),
+   BlockStackDelta(block, delta).
+
+// General, no function call
+BlockFunctionStackDelta(next, newDelta) :-
+  BlockFunctionStackDelta(block, delta),
+  LocalBlockEdge(block, next),
+  BlockStackDelta(next, delta2),
+  !FunctionCallReturn(block, _, _),
+  newDelta = delta+delta2,
+  newDelta < MAX_STACK_HEIGHT,
+  -newDelta < MAX_STACK_HEIGHT.
+
+// General, w/ function call
+BlockFunctionStackDelta(next, delta+delta2+delta3) :-
+  BlockFunctionStackDelta(block, delta),
+  LocalBlockEdge(block, next),
+  BlockStackDelta(next, delta2),
+  FunctionCallReturn(block, function, _),
+  FunctionStackDelta(function, delta3),
+  newDelta = delta+delta2+delta3,
+  newDelta < MAX_STACK_HEIGHT,
+  -newDelta < MAX_STACK_HEIGHT.
+
+.decl NotBalancedFunction(function: Block)
+
+NotBalancedFunction(function) :-
+   Function_Return(function, ret1),
+   Function_Return(function, ret2),
+   BlockFunctionStackDelta(ret1, delta1),
+   BlockFunctionStackDelta(ret2, delta2),
+   delta1 != delta2.
+
+.decl FunctionStackDelta(function: Block, delta: number)
+
+FunctionStackDelta(function, delta) :-
+   Function_Return(function, ret),
+   !NotBalancedFunction(function),
+   BlockFunctionStackDelta(ret, delta).
+   
+.decl BlockFunctionPopDelta(block: Block, delta: number)
+
+// Base case
+BlockFunctionPopDelta(block, delta) :-
+   Function(block),
+   BlockPopDelta(block, delta).
+
+BlockPopDeltaWithFunctionCall(block, delta) :-
+  BlockPopDelta(block, delta),
+  BlockEdge(_, block, _, next),
+  !Function_Return(next, _).
+
+BlockPopDeltaWithFunctionCall(block, functionPopDelta - stackDelta) :-
+  BlockPopDelta(block, popDelta),
+  BlockStackDelta(block, stackDelta),
+  FunctionCallReturn(block, function, _),
+  FunctionStackDelta(function, functionStackDelta),
+  FunctionPopDelta(function, functionPopDelta),
+  functionPopDelta - stackDelta > stackDelta.
+
+// Other case
+//StatementPopDelta(stmt, prevPopDelta) :-
+//  StatementStackDelta(prevstmt, prevStackDelta),
+//  StatementPopDelta(prevstmt, prevPopDelta),
+//  !IsBasicBlockTail(prevstmt),
+//  Statement_Next(prevstmt, stmt),
+//  Statement_Opcode(stmt, opcode),
+//  OpcodePopWords(opcode, popdelta),
+//  popdelta - prevStackDelta <= prevPopDelta.
+
+
+// General, no function call
+BlockFunctionPopDelta(next, delta+delta2) :-
+  BlockFunctionStackDelta(block, delta),
+  LocalBlockEdge(block, next),
+  BlockPopDelta(next, delta2),
+  !FunctionCallReturn(block, _, _).
+
+
+
