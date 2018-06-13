@@ -154,7 +154,9 @@ BasicBlock_Tail(block, tail) :-
 
 // How many items the basic block will pop from the stack that existed at
 // the beginning of its execution. I.e., how many items it will consume
-// from its caller.
+// from its caller. This is a high-watermark kind of measure: the consumed
+// data items may be replenished during execution, but we care about how high
+// the total will go.
 .decl BlockPopDelta(block:Block, delta:number)
 
 // What is the difference in stack height effected by the basic block

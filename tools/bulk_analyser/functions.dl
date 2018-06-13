@@ -1,5 +1,9 @@
+/*****
+ * Function discovery logic
+ *****/
+
 /******
-         Heuristics for discovering public functions
+  * First, heuristics for discovering public functions
 ******/
 // Special entry point to public function found heuristically
 .decl PublicFunctionEntry(basicBlock: Block, sigHash: Value)
@@ -8,6 +12,8 @@
 // (Possibly) Code inserted by compiler to compare function signature
 .decl BlockComparesSig(block: Block, sigHash: Value)
 
+// Compares label from stack to a constant: common public function dispatch
+// pattern
 BlockComparesSig(block, sigHash) :-
   Statement_Block(pushStmt, block),
   PUSH4(pushStmt, sigHash),
@@ -41,19 +47,18 @@ PublicFunctionEntry([stmt], sigHash) :-
   IsBasicBlockHead(stmt),
   ord(label) = ord(stmt).
 
-/******
-         Generic Reachable-from implementation
-******/
 
+/******
+         Generic basic block Reachable-from implementation
+******/
 
 .decl ReachableFrom(block:Block, from:Block)
 
 ReachableFrom(block, block) :- Statement_Block(_, block).
 
-
 ReachableFrom(blockNext, blockPrev) :-
-   ReachableFrom(block, blockPrev),
-   BlockEdge(_, block, _, blockNext). 
+  ReachableFrom(block, blockPrev),
+  BlockEdge(_, block, _, blockNext). 
 
 
 /******
@@ -85,18 +90,18 @@ PossibleFunctionCall(caller, func, retBlock, retTarget) :-
 
 // Which basic blocks belong to which function
 PossiblyInFunction(func, func) :-
-   PossibleFunctionCall(_, func, _, _).
+  PossibleFunctionCall(_, func, _, _).
 
 // In this case we're moving onto another function
 PossiblyInFunction(next, func) :-
-   PossiblyInFunction(block, func),
-   BlockEdge(_, block, _, next),
-   !PossibleFunctionCall(block, _, _, _).
+  PossiblyInFunction(block, func),
+  BlockEdge(_, block, _, next),
+  !PossibleFunctionCall(block, _, _, _).
 
 // In this case we're return from a function we've just called
 PossiblyInFunction(retTarget, func) :-
-   PossiblyInFunction(block, func),
-   PossibleFunctionCall(block, _, _, retTarget).
+  PossiblyInFunction(block, func),
+  PossibleFunctionCall(block, _, _, retTarget).
 
 // What is a function?
 // A function has to have a single entry point
@@ -117,21 +122,23 @@ NotRegularFunction(func) :-
   !PossibleFunctionCall(caller, func, _, _).
 
 
+// caller calls func and func returns to retTarget
 .decl FunctionCallReturn(caller:Block, func:Block, retTarget:Block)
 .decl Function_Return(func:Block, retBlock:Block)
 
 Function_Return(func, retBlock),
 FunctionCallReturn(caller, func, retTarget) :-
-   PossibleFunctionCall(caller, func, retBlock, retTarget),
-   !NotRegularFunction(func).
+  PossibleFunctionCall(caller, func, retBlock, retTarget),
+  !NotRegularFunction(func).
 
 
-// Further function decomposition
+// Further function decomposition.
+// Detects function boundaries, calls and returns iteratively.  Main
+// heuristic: if a block is reachable by two others that have to be in
+// different functions, then that block is also in an independent
+// function.
 
 // Used components to force stratification.
-// Detects function boundaries, calls and returns
-// in an iterative fashion
-
 .comp FunctionDetection {
   // An Entry to a function (private or public)
   .decl FunctionEntry(block: Block)
@@ -173,19 +180,19 @@ FunctionCallReturn(caller, func, retTarget) :-
   FunctionCall(prev, func1) :- PrevFunctionCall(prev, func1).
 }
 
-// Initialise and iterate the algorithm
+// Initialize and iterate the algorithm
 .init detector0 = FunctionDetection
 detector0.PrevFunctionEntry(block) :-
-   PublicFunctionEntry(block, _).
+  PublicFunctionEntry(block, _).
 detector0.PrevFunctionEntry(block) :-
-   FunctionCallReturn(_, block, _).
+  FunctionCallReturn(_, block, _).
 
 detector0.PrevFunctionCall(prev, func) :-
   PublicFunctionEntry(func, sigHash),
   PublicFunctionDispatcher(prev, sigHash).
 
 detector0.PrevFunctionCall(prev, func) :-
-   FunctionCallReturn(prev, func, _).
+  FunctionCallReturn(prev, func, _).
   
 .init detector1 = FunctionDetection
 detector1.PrevFunctionEntry(block) :- detector0.FunctionEntry(block).
@@ -211,9 +218,9 @@ FunctionCall(block, func) :-
 
 // Case 3: further decomposition using components
 FunctionCall(block, func) :-
-   detector0.FunctionCall(block, func) ;
-   detector1.FunctionCall(block, func) ;
-   detector2.FunctionCall(block, func).
+  detector0.FunctionCall(block, func) ;
+  detector1.FunctionCall(block, func) ;
+  detector2.FunctionCall(block, func).
 
 .decl Function(func:Block)
 
@@ -222,41 +229,17 @@ Function(["0x0"]).
 
 // Remaining cases handled by inputs/outputs of componenets
 Function(func) :-
-   detector0.PrevFunctionEntry(func) ;
-   detector0.FunctionEntry(func) ;
-   detector1.FunctionEntry(func) ;
-   detector2.FunctionEntry(func).
+  detector0.PrevFunctionEntry(func) ;
+  detector0.FunctionEntry(func) ;
+  detector1.FunctionEntry(func) ;
+  detector2.FunctionEntry(func).
 
 
 /***********
-   Final outputs to visualization scripts
-***********/
- 
+ * Discovery of arguments accepted by a function   
+ ***********/
 
-.decl FunctionCall_Out(caller:symbol, func:symbol)
-.output FunctionCall_Out
-
-FunctionCall_Out(caller, func) :-
-  FunctionCall([caller], [func]).
-
-.decl FunctionCallReturn_Out(caller:symbol, func:symbol, retTarget:symbol)
-.output FunctionCallReturn_Out
-        
-.decl Function_Return_Out(func:symbol, retBlock:symbol)
-.output Function_Return_Out
-
-.decl Function_Out(func: symbol)
-.output Function_Out
-
-FunctionCallReturn_Out(caller, func, retTarget) :-
-  FunctionCallReturn([caller], [func], [retTarget]).
-
-Function_Out(func) :- Function([func]).
-
-Function_Return_Out(func, retBlock) :-
-   Function_Return([func], [retBlock]).
-
-
+// Intra-function edges (i.e., real CFG edges)
 .decl LocalBlockEdge(block: Block, next: Block)
 
 LocalBlockEdge(block, next) :-
@@ -264,6 +247,9 @@ LocalBlockEdge(block, next) :-
   !Function(next),
   !Function_Return(_, block).
 
+// REVIEW: basic blocks are interrupted at function call instructions
+// (unlike, say, LLVM IR) but we connect the block to the one after
+// the function return.
 LocalBlockEdge(block, next) :-
   BlockEdge(_, block, _, func),
   FunctionCallReturn(block, func, next).
@@ -274,14 +260,30 @@ LocalBlockEdge(block, next) :-
 // RETURNPRIVATE(stmt)
 // RETURNPRIVATEI(stmt, cond)
 
-// Compute stack deltas for arguments
-// We only do this for functions that return
+// REVIEW: The assumption we'll make is one of well-structured
+// bytecode.  That is, at every instruction, we will assume that
+// any path leading to the instruction yields the same stack
+// height (relative to the original, at function activation).
+
+// Up to the end of this basic block, the function (i.e., every
+// path from the function entry point to this basic block) has
+// consumed a max of "delta" items from its caller, i.e., from
+// stack positions above the initial, at function activation.
+.decl BlockFunctionPopDelta(block: Block, delta: number)
+
+// Up to the end of this basic block, the function has effected
+// a "delta" change to the stack height.
 .decl BlockFunctionStackDelta(block: Block, delta: number)
 
-// Base case
-BlockFunctionStackDelta(block, delta) :-
-   FunctionCallReturn(_, block, _),
-   BlockStackDelta(block, delta).
+// Same concepts but computed overall for a function, designated
+// by its entry-point basic block.
+.decl FunctionPopDelta(function: Block, delta: number)
+.decl FunctionStackDelta(function: Block, delta: number)
+
+// Base case: initial block of a function
+BlockFunctionStackDelta(funcHeadBlock, delta) :-
+  FunctionCallReturn(_, funcHeadBlock, _),
+  BlockStackDelta(funcHeadBlock, delta).
 
 // General, no function call
 BlockFunctionStackDelta(next, newDelta) :-
@@ -289,12 +291,16 @@ BlockFunctionStackDelta(next, newDelta) :-
   LocalBlockEdge(block, next),
   BlockStackDelta(next, delta2),
   !FunctionCallReturn(block, _, _),
-  newDelta = delta+delta2,
-  newDelta < MAX_STACK_HEIGHT,
+  newDelta = delta+delta2, 
+  newDelta < MAX_STACK_HEIGHT, // REVIEW: individual, lower limit
   -newDelta < MAX_STACK_HEIGHT.
 
+FunctionStackDelta(func, delta) :-
+  BlockFunctionStackDelta(block, delta),
+  Function_Return(func, block).
+
 // General, w/ function call
-BlockFunctionStackDelta(next, delta+delta2+delta3) :-
+BlockFunctionStackDelta(next, newDelta) :-
   BlockFunctionStackDelta(block, delta),
   LocalBlockEdge(block, next),
   BlockStackDelta(next, delta2),
@@ -304,28 +310,36 @@ BlockFunctionStackDelta(next, delta+delta2+delta3) :-
   newDelta < MAX_STACK_HEIGHT,
   -newDelta < MAX_STACK_HEIGHT.
 
+
+
+
+
+
+
+
+/*
 .decl NotBalancedFunction(function: Block)
 
 NotBalancedFunction(function) :-
-   Function_Return(function, ret1),
-   Function_Return(function, ret2),
-   BlockFunctionStackDelta(ret1, delta1),
-   BlockFunctionStackDelta(ret2, delta2),
-   delta1 != delta2.
+  Function_Return(function, ret1),
+  Function_Return(function, ret2),
+  BlockFunctionStackDelta(ret1, delta1),
+  BlockFunctionStackDelta(ret2, delta2),
+  delta1 != delta2.
 
-.decl FunctionStackDelta(function: Block, delta: number)
 
 FunctionStackDelta(function, delta) :-
-   Function_Return(function, ret),
-   !NotBalancedFunction(function),
-   BlockFunctionStackDelta(ret, delta).
-   
-.decl BlockFunctionPopDelta(block: Block, delta: number)
+  Function_Return(function, ret),
+  !NotBalancedFunction(function),
+  BlockFunctionStackDelta(ret, delta).
+*/
+
+
 
 // Base case
 BlockFunctionPopDelta(block, delta) :-
-   Function(block),
-   BlockPopDelta(block, delta).
+  Function(block),
+  BlockPopDelta(block, delta).
 
 BlockPopDeltaWithFunctionCall(block, delta) :-
   BlockPopDelta(block, delta),

@@ -16,7 +16,7 @@
 
         
 InsBlockEdge(from, to) :-
-   BlockEdge(_, [from], _, [to]).
+  BlockEdge(_, [from], _, [to]).
 
 .output Statement_BlockHead
 .output Statement_Opcode
@@ -72,7 +72,7 @@ MissingInfo(stmt, opcode) :-
 .output PublicFunctionEntryOut
 
 PublicFunctionEntryOut(stmt, sigHash) :-
-   PublicFunctionEntry([stmt], sigHash).
+  PublicFunctionEntry([stmt], sigHash).
 
 
 /*
@@ -133,9 +133,9 @@ PostDominates(postdominator,s) :-
 // but not f's predecessors
 
 DominatorFrontier(block, frontier) :-
-   Dominates(frontier, block),
-   BlockEdge(_, pred, _, frontier),
-   !Dominates(pred, block).
+  Dominates(frontier, block),
+  BlockEdge(_, pred, _, frontier),
+  !Dominates(pred, block).
 
 .decl AliasToString(a:Alias, s: symbol)
 
@@ -208,12 +208,12 @@ TAC_Var(stmt),
 TAC_Def(stmt, stmt),
 TAC_Stmt(stmt),
 TAC_Op(stmt, "PHI") :-
-   PolymorphicAlias(_, _, stmt).
+  PolymorphicAlias(_, _, stmt).
 
 // Non-phi, variable id same as stmt it is defined in
 TAC_Var(stmt),
 TAC_Def(stmt, stmt) :-
-   Statement_Defines(stmt, _).
+  Statement_Defines(stmt, _).
 
 // Case 1: Uses locally defined variable
 TAC_Use(stmt, varStr, n) :-
@@ -245,10 +245,38 @@ TAC_Use(stmt, varStr, n) :-
   PolymorphicAlias(block, alias, varStr).
 
 TAC_Block(block, stmt) :-
-   Statement_Block(stmt, [block]),
-   !TACNOP(stmt).
+  Statement_Block(stmt, [block]),
+  !TACNOP(stmt).
 
 TAC_Block(block, phiStmt) :-
-   PolymorphicAlias([block], _, phiStmt).
+  PolymorphicAlias([block], _, phiStmt).
 //   DominatorFrontier([block], [frontier]).
-   
+
+
+
+/***********
+ *  Function-discovery outputs to visualization scripts
+ ***********/
+
+.decl FunctionCall_Out(caller:symbol, func:symbol)
+.output FunctionCall_Out
+
+FunctionCall_Out(caller, func) :-
+  FunctionCall([caller], [func]).
+
+.decl FunctionCallReturn_Out(caller:symbol, func:symbol, retTarget:symbol)
+.output FunctionCallReturn_Out
+        
+.decl Function_Return_Out(func:symbol, retBlock:symbol)
+.output Function_Return_Out
+
+.decl Function_Out(func: symbol)
+.output Function_Out
+
+FunctionCallReturn_Out(caller, func, retTarget) :-
+  FunctionCallReturn([caller], [func], [retTarget]).
+
+Function_Out(func) :- Function([func]).
+
+Function_Return_Out(func, retBlock) :-
+  Function_Return([func], [retBlock]).
