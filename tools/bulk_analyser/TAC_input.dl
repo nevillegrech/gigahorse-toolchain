@@ -4,19 +4,19 @@
               
 // Final decompiler outputs
 .decl TAC_Op(stmt:Statement, op:Opcode)
-.input TAC_Op             
+.input TAC_Op(IO="file", filename="TAC_Op.csv", delimiter="\t")
 .decl TAC_Stmt(stmt:Statement)
-.input TAC_Stmt
+.input TAC_Stmt(IO="file", filename="TAC_Stmt.csv", delimiter="\t")
 .decl TAC_Use(stmt: Statement, var: Variable, i: number)
-.input TAC_Use
+.input TAC_Use(IO="file", filename="TAC_Use.csv", delimiter="\t")
 .decl TAC_Def(stmt: Statement, var: Variable)
-.input TAC_Def
+.input TAC_Def(IO="file", filename="TAC_Def.csv", delimiter="\t")
 .decl TAC_Var(var: Variable)
-.input TAC_Var
+.input TAC_Var(IO="file", filename="TAC_Var.csv", delimiter="\t")
 .decl TAC_Block(block: Statement, stmt: Statement)
-.input TAC_Block
+.input TAC_Block(IO="file", filename="TAC_Block.csv", delimiter="\t")
 .decl TAC_Variable_Value(var: Variable, Value: symbol)
-.input TAC_Variable_Value
+.input TAC_Variable_Value(IO="file", filename="TAC_VariableValue.csv", delimiter="\t")
 
 #define op TAC_Op
 #define use(var, stmt, n) TAC_Use(stmt, var, n-1)
