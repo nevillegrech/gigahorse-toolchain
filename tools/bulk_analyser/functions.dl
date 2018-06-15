@@ -260,115 +260,150 @@ LocalBlockEdge(block, next) :-
 // RETURNPRIVATE(stmt)
 // RETURNPRIVATEI(stmt, cond)
 
-// REVIEW: The assumption we'll make is one of well-structured
-// bytecode.  That is, at every instruction, we will assume that
-// any path leading to the instruction yields the same stack
-// height (relative to the original, at function activation).
+.decl InFunction(block: Block, func: Block)
+ 
+InFunction(block, block) :-
+  Function(block).
 
-// Up to the end of this basic block, the function (i.e., every
-// path from the function entry point to this basic block) has
-// consumed a max of "delta" items from its caller, i.e., from
-// stack positions above the initial, at function activation.
-.decl BlockFunctionPopDelta(block: Block, delta: number)
-
-// Up to the end of this basic block, the function has effected
-// a "delta" change to the stack height.
-.decl BlockFunctionStackDelta(block: Block, delta: number)
-
-// Same concepts but computed overall for a function, designated
-// by its entry-point basic block.
-.decl FunctionPopDelta(function: Block, delta: number)
-.decl FunctionStackDelta(function: Block, delta: number)
-
-// Base case: initial block of a function
-BlockFunctionStackDelta(funcHeadBlock, delta) :-
-  FunctionCallReturn(_, funcHeadBlock, _),
-  BlockStackDelta(funcHeadBlock, delta).
-
-// General, no function call
-BlockFunctionStackDelta(next, newDelta) :-
-  BlockFunctionStackDelta(block, delta),
-  LocalBlockEdge(block, next),
-  BlockStackDelta(next, delta2),
-  !FunctionCallReturn(block, _, _),
-  newDelta = delta+delta2, 
-  newDelta < MAX_STACK_HEIGHT, // REVIEW: individual, lower limit
-  -newDelta < MAX_STACK_HEIGHT.
-
-FunctionStackDelta(func, delta) :-
-  BlockFunctionStackDelta(block, delta),
-  Function_Return(func, block).
-
-// General, w/ function call
-BlockFunctionStackDelta(next, newDelta) :-
-  BlockFunctionStackDelta(block, delta),
-  LocalBlockEdge(block, next),
-  BlockStackDelta(next, delta2),
-  FunctionCallReturn(block, function, _),
-  FunctionStackDelta(function, delta3),
-  newDelta = delta+delta2+delta3,
-  newDelta < MAX_STACK_HEIGHT,
-  -newDelta < MAX_STACK_HEIGHT.
-
-
-
-
-
-
-
-
-/*
-.decl NotBalancedFunction(function: Block)
-
-NotBalancedFunction(function) :-
-  Function_Return(function, ret1),
-  Function_Return(function, ret2),
-  BlockFunctionStackDelta(ret1, delta1),
-  BlockFunctionStackDelta(ret2, delta2),
-  delta1 != delta2.
-
-
-FunctionStackDelta(function, delta) :-
-  Function_Return(function, ret),
-  !NotBalancedFunction(function),
-  BlockFunctionStackDelta(ret, delta).
-*/
-
-
-
-// Base case
-BlockFunctionPopDelta(block, delta) :-
-  Function(block),
-  BlockPopDelta(block, delta).
-
-BlockPopDeltaWithFunctionCall(block, delta) :-
-  BlockPopDelta(block, delta),
+InFunction(next, func) :-
+  InFunction(block, func),
   BlockEdge(_, block, _, next),
-  !Function_Return(next, _).
+  !FunctionCall(block, next),
+  !Function_Return(_, block).
 
-BlockPopDeltaWithFunctionCall(block, functionPopDelta - stackDelta) :-
-  BlockPopDelta(block, popDelta),
-  BlockStackDelta(block, stackDelta),
-  FunctionCallReturn(block, function, _),
-  FunctionStackDelta(function, functionStackDelta),
-  FunctionPopDelta(function, functionPopDelta),
-  functionPopDelta - stackDelta > stackDelta.
+InFunction(next, func) :-
+  InFunction(block, func),
+  FunctionCallReturn(block, _, next).
+
+.decl Function_ReachableBlocks(func: Block, block: Block)
+
+Function_ReachableBlocks(func, block) :-
+   InFunction(block, func).
+
+Function_ReachableBlocks(func, other) :-
+  Function_ReachableBlocks(func, block),
+  FunctionCall(block, callee),
+  Function_ReachableBlocks(callee, other).
+
+.decl Function_Uses(func: Block, var: Variable)
+
+Function_Uses(func, var) :-
+   Function_ReachableBlocks(func, block),
+   Statement_Block(stmt, block),
+   Statement_Uses(stmt, var, _).
+
+.decl Function_Defines(func: Block, var: Variable)
+
+Function_Defines(func, var) :-
+   Function_ReachableBlocks(func, block),
+   Statement_Block(stmt, block),
+   Statement_Defines(stmt, var).
 
 
-BlockPopDeltaWithFunctionCall(block, popDelta) :-
-  BlockPopDelta(block, popDelta),
-  BlockStackDelta(block, stackDelta),
-  FunctionCallReturn(block, function, _),
-  FunctionStackDelta(function, functionStackDelta),
-  FunctionPopDelta(function, functionPopDelta),
-  functionPopDelta - stackDelta > popDelta.
+// This is used to calculate an upper bound of the number of arguments
+// for a function. A more accurate number of arguments is calculated based
+// on the PerFunctionBlock*Contents information
+.decl ImpossibleFunctionArguments(func: Block, alias: Alias)
 
-// General, no function call
-BlockFunctionPopDelta(next, delta+delta2) :-
-  BlockFunctionStackDelta(block, delta),
-  LocalBlockEdge(block, next),
-  BlockPopDelta(next, delta2),
-  !FunctionCallReturn(block, _, _).
+ImpossibleFunctionArguments(func, alias) :-
+   Function(func),
+   BlockInputContents(_, func, alias, var),
+   !Function_Uses(func, var).
+
+ImpossibleFunctionArguments(func, n+1) :-
+   Function(func),
+   n = max alias: BlockInputContents(_, func, alias, _).
+
+.decl NumberOfFunctionArguments(func: Block, num: Alias)
+
+NumberOfFunctionArguments(func, n) :-
+   n = min alias: ImpossibleFunctionArguments(func, alias),
+   Function(func).
+
+// This is used to calculate an upper bound of the number of variables
+// a function may return.
+.decl ImpossibleFunctionReturnArguments(func: Block, alias: Alias)
+
+ImpossibleFunctionReturnArguments(func, alias) :-
+   BlockOutputContents(_, func, alias, var),
+   !Function_Uses(func, var),
+   !Function_Defines(func, var).
+
+ImpossibleFunctionReturnArguments(func, n+1) :-
+   Function(func),
+   n = max alias: BlockOutputContents(_, func, alias, _).
+
+.decl NumberOfFunctionReturnArguments(func: Block, num: Alias)
+
+NumberOfFunctionReturnArguments(func, n) :-
+   n = min alias: ImpossibleFunctionReturnArguments(func, alias),
+   Function(func).
+
+// Renaming variables in functions
+.decl PerFunctionBlockInputContents(block:Block, index:number, var:Variable)
+.decl PerFunctionBlockOutputContents(block:Block, index:number, var:Variable)
+
+PerFunctionBlockInputContents([funcStmt], alias, newVar) :-
+  NumberOfFunctionArguments([funcStmt], n),
+  IsAliasLessThan(alias, n),
+  FRESH_VARIABLE(newVar, funcStmt, alias).
 
 
+PerFunctionBlockInputContents(nextBlock, index, variable) :-
+  PerFunctionBlockOutputContents(block, index, variable),
+  LocalBlockEdge(block, nextBlock).
 
+// TODO: There are three cases
+// 1) Normal block to block flow, i.e. no function calls from block to block
+PerFunctionBlockOutputContents(caller, index, variable) :-
+  BeforeFunctionCallPerFunctionBlockOutputContents(caller, index, variable),
+  !FunctionCall(caller, _).
+
+// 2) First block calls a function, take return args from function call
+
+PerFunctionBlockOutputContents(caller, alias, newVar) :-
+  FunctionCall(caller, func),
+  NumberOfFunctionReturnArguments(func, n),
+  IsAliasLessThan(alias, n),
+  BasicBlock_Tail(caller, callStmt),
+  FRESH_VARIABLE(newVar, callStmt, alias).
+
+
+// 3) First block calls a function, take any remaining variables that have
+//    not been passed as arguments, and shift
+PerFunctionBlockOutputContents(caller, newIndex, variable) :-
+  FunctionCall(caller, func),
+  NumberOfFunctionReturnArguments(func, n_out),
+  NumberOfFunctionArguments(func, n_in),
+  BeforeFunctionCallPerFunctionBlockOutputContents(caller, index, variable),
+  index >= n_in,
+  newIndex = index+n_out-n_in,
+  newIndex >= 0.
+
+.decl BeforeFunctionCallPerFunctionBlockOutputContents(caller: Block, index: Alias, variable: Variable)
+
+
+// Copy the stack variables untouched by the callee basic block
+BeforeFunctionCallPerFunctionBlockOutputContents(callee, index+delta, variable) :-
+  PerFunctionBlockInputContents(callee, index, variable),
+  index >= calleePopLen,
+  index+delta <= MAX_STACK_HEIGHT,
+  BlockPopDelta(callee, calleePopLen),
+  BlockStackDelta(callee, delta).
+
+// Handle the proper variables pushed by this basic block
+BeforeFunctionCallPerFunctionBlockOutputContents(block, index, var) :-
+  InFunction(block, _),
+  BasicBlock_Tail(block, stmt),
+  LocalStackContents(stmt, index, var),
+  CheckIsVariable(var).
+
+// Handle the aliases pushed by this basic block
+BeforeFunctionCallPerFunctionBlockOutputContents(block, index, realVariable) :-
+  PerFunctionBlockInputContents(block, alias, realVariable),
+  BasicBlock_Tail(block, stmt),
+  LocalStackContents(stmt, index, alias),
+  CheckIsAlias(alias).
+
+.output PerFunctionBlockInputContents
+.output PerFunctionBlockOutputContents

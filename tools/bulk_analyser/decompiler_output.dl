@@ -7,9 +7,6 @@
 // Fills disk too quickly
 //.output BlockOutputContents
 
-.output BlockJumpTarget
-.output LocalStackContents
-.output BlockEdge
 
 .decl InsBlockEdge(from: Statement, to:Statement)
 .output InsBlockEdge
@@ -45,11 +42,11 @@ BlockJumpAnyTarget(headStmt) :-
   Variable_Value(targetVar, target),
   (DynamicValue(target) ; AnyValue(target)).
 
-.decl InsensBlockInputContents(block:Block, index:number, var:Variable)
+.decl InsensBlockInputContents(block:Statement, index:number, var:Variable)
 .output InsensBlockInputContents
 
 InsensBlockInputContents(block, index, var) :-
-  BlockInputContents(_, block, index, var).
+  BlockInputContents(_, [block], index, var).
 
 .decl TosOutput(stmt: Statement, abc:symbol, valueOrAlias:number, xyz:symbol, opcode:symbol, delta:number)
 .output TosOutput      
@@ -196,6 +193,13 @@ PolymorphicAlias(block, alias, cat(cat(blockStr, "_"), aliasStr)) :-
 TAC_Variable_Value(stmt, value) :-
    Statement_Defines(stmt, var),
    Variable_Value(var, value).
+
+// New Instructions
+// *returnArgs = CALLPRIVATE(stmt, function, *args)
+// *returnArgs = CALLPRIVATEI(cond, stmt, function, *args)
+// RETURNPRIVATE(stmt, *args)
+
+
 
 // Non-nop instructions
 TAC_Stmt(stmt),
