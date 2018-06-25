@@ -20,9 +20,9 @@ def load_tac_blocks():
             return 0
     return {k:sorted(ss, key = sortkey) for k, ss in out.items()}
 
-def load_tac_use():
+def load_tac_sorted(prop):
     out = defaultdict(list)
-    for s, v, n in parseCsv('TAC_Use'):
+    for s, v, n in parseCsv(prop):
         n = int(n)
         while n > len(out[s]) - 1:
             out[s].append('')
@@ -33,10 +33,12 @@ def load_tac_use():
     return out
 
 tac_blocks = defaultdict(list,load_tac_blocks())
-tac_use = load_tac_use()
-tac_def = dict(parseCsv('TAC_Def'))
+tac_use = load_tac_sorted('TAC_Use')
+tac_def = load_tac_sorted('TAC_Def')
+function_arguments = load_tac_sorted('FunctionArgument_Out')
 tac_op = dict(parseCsv('TAC_Op'))
 variable_value = dict(parseCsv('TAC_Variable_Value'))
+
 
 special_block_colors = (
     ('Function_Out',0,"yellow"),
@@ -53,6 +55,8 @@ for k,v in parseCsv('FunctionCall_Out'):
 
 
 function_call_return = {a[0] : (a[1], a[2]) for a in parseCsv('FunctionCallReturn_Out')}
+
+functions = {a[0]  for a in parseCsv('Function_Out')}
 
 block_colors = defaultdict(lambda : "green")
 
@@ -81,15 +85,18 @@ def format_var(v):
         value = '('+variable_value[v]+')'
     else:
         value = ''
-    return 'v' + v[2:]+value
+    return 'v' + v.replace('0x', '')+value
 
     
-def renderBlock(stmts):
+def renderBlock(k, stmts):
     sorted_stmts = []
+    if k in functions:
+        sorted_stmts.append("function %s(%s)"%(k, ', '.join(map(format_var, function_arguments[k]))))
+                            
     for s in stmts:
         op = tac_op[s]
         if s in tac_def:
-            ret = format_var(tac_def[s]) + ' = '
+            ret = ', '.join(format_var(v) for v in tac_def[s]) + ' = '
         else:
             ret = ''
         use = ' '.join(format_var(v) for v in tac_use[s])
@@ -104,7 +111,7 @@ for fro, to in edges:
     # insert default placeholder items
     tac_blocks[fro] ; tac_blocks[to]
 
-nodeDict = { k : pydot.Node(k, label=renderBlock(body), shape="rect", style="filled", fillcolor=block_colors[k]) for k, body in tac_blocks.items() }
+nodeDict = { k : pydot.Node(k, label=renderBlock(k, body), shape="rect", style="filled", fillcolor=block_colors[k]) for k, body in tac_blocks.items() }
 
 for _, v in nodeDict.items():
     graph.add_node(v)

@@ -3,12 +3,9 @@
 #define CheckIsAlias(v) ((v) >= 0, (v) < MAX_STACK_HEIGHT)
 #define FRESH_VARIABLE(var, stmt, alias) (_StatementNum((stmt), _stmtNum), var=-0xFFFF+_stmtNum*MAX_STACK_HEIGHT+(alias))
 
-
-
 #include "decompiler_instructions.dl"
 #include "decompiler_output.dl"
 #include "functions.dl"
-
 
 .type Block = [ head:Statement ]
 .type Value = symbol
@@ -395,7 +392,7 @@ BlockEdge(callerCtx, caller, ?mergeContextMacro, callee) :-
 
 /*
  ***********
- * Auxiliary relations: BeforeLocalStackContents, Statement_Uses
+ * Auxiliary relations: BeforeLocalStackContents
  ***********
  */
 
@@ -415,6 +412,28 @@ BeforeLocalStackContents(stmt, alias, alias) :-
   BlockPopDelta(block, delta),
   IsAliasLessThan(alias, delta).
 
+.decl Statement_Uses(stmt:Statement, var:Variable, n:Alias)
+.decl Statement_Uses_Local(stmt:Statement, var:VariableOrAlias, n:Alias)
+
+
+Statement_Uses_Local(stmt, varOrAlias, n) :-
+   Statement_Opcode(stmt, opcode),
+   !TACNOP(stmt),
+   OpcodePopWords(opcode, m),
+   IsAliasLessThan(n, m),
+   BeforeLocalStackContents(stmt, n, varOrAlias).
+
+// Case: variable originates locally
+Statement_Uses(stmt, var, n) :-
+   Statement_Uses_Local(stmt, var, n),
+   CheckIsVariable(var).
+
+// Case: variable originates elsewhere
+Statement_Uses(stmt, var, n) :-
+   Statement_Uses_Local(stmt, alias, n),
+   CheckIsAlias(alias),
+   Statement_Block(stmt, block),
+   BlockInputContents(_, block, alias, var).
 
 
 

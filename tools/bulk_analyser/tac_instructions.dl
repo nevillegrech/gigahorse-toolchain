@@ -147,3 +147,18 @@ IsJump(s) :- op(s, "JUMPI").
 .decl JUMPDEST(s:Statement)
 JUMPDEST(s) :- op(s, "JUMPDEST").
 
+
+// Instructions introduced by the new decompiler
+.decl PHI(s: Statement, fro: Variable, to: Variable)
+
+PHI(s, fro, to) :-
+   op(stmt, "PHI"),
+   def(to, stmt),
+   use(fro, stmt).
+
+.decl PRIVATECALL(s: Statement, f: Variable)
+.decl PRIVATECALLI(s: Statement, f: Variable, cond: Variable) 
+.decl PRIVATERETURN(s: Statement, b: Variable)
+.decl PRIVATERETURNI(s: Statement, b: Variable, cond: Variable)
+
+

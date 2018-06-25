@@ -1,5 +1,7 @@
 .symbol_type Variable
 .symbol_type Statement
+.symbol_type Block
+.symbol_type Function
 .symbol_type Opcode
               
 // Final decompiler outputs
@@ -13,10 +15,15 @@
 .input TAC_Def(IO="file", filename="TAC_Def.csv", delimiter="\t")
 .decl TAC_Var(var: Variable)
 .input TAC_Var(IO="file", filename="TAC_Var.csv", delimiter="\t")
-.decl TAC_Block(block: Statement, stmt: Statement)
+.decl TAC_Block(block: Block, stmt: Statement)
 .input TAC_Block(IO="file", filename="TAC_Block.csv", delimiter="\t")
 .decl TAC_Variable_Value(var: Variable, Value: symbol)
 .input TAC_Variable_Value(IO="file", filename="TAC_VariableValue.csv", delimiter="\t")
+.decl LocalBlockEdge(block: Block, nextBlock: Block)
+.input LocalBlockEdge(IO="file", filename="LocalBlockEdge_Out.csv", delimiter="\t")
+.decl FunctionCall(block: Block, function: Function)
+.input FunctionCall(IO="file", filename="FunctionCall_Out.csv", delimiter="\t")
+
 
 #define op TAC_Op
 #define use(var, stmt, n) TAC_Use(stmt, var, n-1)
@@ -24,3 +31,6 @@
 
 #include "tac_instructions.dl"
 
+.decl ActualArgs(s: Statement, fn: Function, a: Variable, pos: Number)                              
+.decl FormalArgs(fn: Function, a: Variable, pos: Number)
+.input FormalArgs(IO="file", filename="FunctionArgument_Out.csv", delimiter="\t")

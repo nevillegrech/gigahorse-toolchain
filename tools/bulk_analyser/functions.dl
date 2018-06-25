@@ -25,7 +25,7 @@ BlockComparesSig(block, sigHash) :-
   JUMPI(jumpiStmt),
   Statement_Defines(eqStmt, pred),
   Statement_Uses(jumpiStmt, pred, 1).
-   
+
 // Initial case, uses CALLDATALOAD
 PublicFunctionDispatcher(block, sigHash) :-
   Statement_Block(stmt, block),
@@ -302,7 +302,7 @@ Function_Defines(func, var) :-
 
 // This is used to calculate an upper bound of the number of arguments
 // for a function. A more accurate number of arguments is calculated based
-// on the PerFunctionBlock*Contents information
+// on the FunctionalBlock*Contents information
 .decl ImpossibleFunctionArguments(func: Block, alias: Alias)
 
 ImpossibleFunctionArguments(func, alias) :-
@@ -319,6 +319,49 @@ ImpossibleFunctionArguments(func, n+1) :-
 NumberOfFunctionArguments(func, n) :-
    n = min alias: ImpossibleFunctionArguments(func, alias),
    Function(func).
+
+NumberOfFunctionArguments(["0x0"], 0).
+
+//TODO
+.decl Variable_String(var:Variable, var_rep:symbol)
+.decl FunctionCallStmt(stmt: Statement)
+
+FunctionCallStmt(stmt) :-
+   FunctionCall(block, _),
+   BasicBlock_Tail(block, stmt).
+   
+.decl FunctionReturnStmt(stmt: Statement)
+
+FunctionReturnStmt(stmt) :-
+   Function_Return(_, block),
+   BasicBlock_Tail(block, stmt).
+   
+.decl FunctionArgument(func: Block, n: Alias, var: Variable)
+.decl FunctionCallReturnArgument(func: Block, n: Alias, var: Variable)
+
+.decl FunctionalStatement_Uses_Local(stmt:Statement, var:VariableOrAlias, n:Alias)
+
+.decl FunctionalStatement_Uses(stmt:Statement, var:Variable, n:Alias)
+
+Variable_String(var, var_rep) :-
+   Statement_Defines(var_rep, var).
+
+Variable_String(var, cat("arg",n_str)),
+FunctionArgument([funcStmt], n, var) :-
+  NumberOfFunctionArguments([funcStmt], n_args),
+  IsAliasLessThan(n, n_args),
+  FRESH_VARIABLE(var, funcStmt, n),
+  AliasToString(n, n_str).
+
+Variable_String(newVar, cat(callStmt, cat("_", n_str))),
+FunctionalStatement_Defines(callStmt, newVar, n),
+FunctionCallReturnArgument(caller, n, newVar) :-
+  FunctionCall(caller, func),
+  NumberOfFunctionReturnArguments(func, n_arg),
+  IsAliasLessThan(n, n_arg),
+  BasicBlock_Tail(caller, callStmt),
+  FRESH_VARIABLE(newVar, callStmt, n),
+  AliasToString(n, n_str).
 
 // This is used to calculate an upper bound of the number of variables
 // a function may return.
@@ -340,70 +383,100 @@ NumberOfFunctionReturnArguments(func, n) :-
    Function(func).
 
 // Renaming variables in functions
-.decl PerFunctionBlockInputContents(block:Block, index:number, var:Variable)
-.decl PerFunctionBlockOutputContents(block:Block, index:number, var:Variable)
+.decl FunctionalBlockInputContents(block:Block, index:number, var:Variable)
+.decl FunctionalBlockOutputContents(block:Block, index:number, var:Variable)
 
-PerFunctionBlockInputContents([funcStmt], alias, newVar) :-
-  NumberOfFunctionArguments([funcStmt], n),
-  IsAliasLessThan(alias, n),
-  FRESH_VARIABLE(newVar, funcStmt, alias).
+FunctionalBlockInputContents(func, n, var) :-
+   FunctionArgument(func, n, var).
 
-
-PerFunctionBlockInputContents(nextBlock, index, variable) :-
-  PerFunctionBlockOutputContents(block, index, variable),
+FunctionalBlockInputContents(nextBlock, index, variable) :-
+  FunctionalBlockOutputContents(block, index, variable),
   LocalBlockEdge(block, nextBlock).
 
 // TODO: There are three cases
 // 1) Normal block to block flow, i.e. no function calls from block to block
-PerFunctionBlockOutputContents(caller, index, variable) :-
-  BeforeFunctionCallPerFunctionBlockOutputContents(caller, index, variable),
+FunctionalBlockOutputContents(caller, index, variable) :-
+  BeforeFunctionCallFunctionalBlockOutputContents(caller, index, variable),
   !FunctionCall(caller, _).
 
 // 2) First block calls a function, take return args from function call
+.decl FunctionalStatement_Defines(callStmt:Statement, newVar:Variable, n: number)
 
-PerFunctionBlockOutputContents(caller, alias, newVar) :-
-  FunctionCall(caller, func),
-  NumberOfFunctionReturnArguments(func, n),
-  IsAliasLessThan(alias, n),
-  BasicBlock_Tail(caller, callStmt),
-  FRESH_VARIABLE(newVar, callStmt, alias).
-
+FunctionalBlockOutputContents(caller, n, newVar) :-
+  FunctionCallReturnArgument(caller, n, newVar).
 
 // 3) First block calls a function, take any remaining variables that have
 //    not been passed as arguments, and shift
-PerFunctionBlockOutputContents(caller, newIndex, variable) :-
+FunctionalBlockOutputContents(caller, newIndex, variable) :-
   FunctionCall(caller, func),
   NumberOfFunctionReturnArguments(func, n_out),
   NumberOfFunctionArguments(func, n_in),
-  BeforeFunctionCallPerFunctionBlockOutputContents(caller, index, variable),
+  BeforeFunctionCallFunctionalBlockOutputContents(caller, index, variable),
   index >= n_in,
   newIndex = index+n_out-n_in,
   newIndex >= 0.
 
-.decl BeforeFunctionCallPerFunctionBlockOutputContents(caller: Block, index: Alias, variable: Variable)
-
+.decl BeforeFunctionCallFunctionalBlockOutputContents(caller: Block, index: Alias, variable: Variable)
 
 // Copy the stack variables untouched by the callee basic block
-BeforeFunctionCallPerFunctionBlockOutputContents(callee, index+delta, variable) :-
-  PerFunctionBlockInputContents(callee, index, variable),
+BeforeFunctionCallFunctionalBlockOutputContents(callee, index+delta, variable) :-
+  FunctionalBlockInputContents(callee, index, variable),
   index >= calleePopLen,
   index+delta <= MAX_STACK_HEIGHT,
   BlockPopDelta(callee, calleePopLen),
   BlockStackDelta(callee, delta).
 
 // Handle the proper variables pushed by this basic block
-BeforeFunctionCallPerFunctionBlockOutputContents(block, index, var) :-
+BeforeFunctionCallFunctionalBlockOutputContents(block, index, var) :-
   InFunction(block, _),
   BasicBlock_Tail(block, stmt),
   LocalStackContents(stmt, index, var),
   CheckIsVariable(var).
 
 // Handle the aliases pushed by this basic block
-BeforeFunctionCallPerFunctionBlockOutputContents(block, index, realVariable) :-
-  PerFunctionBlockInputContents(block, alias, realVariable),
+BeforeFunctionCallFunctionalBlockOutputContents(block, index, realVariable) :-
+  FunctionalBlockInputContents(block, alias, realVariable),
   BasicBlock_Tail(block, stmt),
   LocalStackContents(stmt, index, alias),
   CheckIsAlias(alias).
 
-.output PerFunctionBlockInputContents
-.output PerFunctionBlockOutputContents
+// TODO, add defines for function call return args
+
+// TODO, check case for function call
+FunctionalStatement_Uses_Local(stmt, varOrAlias, n) :-
+  FunctionCall(block, func),
+  NumberOfFunctionArguments(func, n_in),
+  BasicBlock_Tail(block, stmt),
+  Statement_Opcode(stmt, opcode),
+  OpcodePopWords(opcode, m),
+  IsAliasLessThan(n, m+n_in),
+  BeforeLocalStackContents(stmt, n, varOrAlias).
+
+// TODO, check case for function return
+FunctionalStatement_Uses_Local(stmt, varOrAlias, n) :-
+  Function_Return(func, retBlock),
+  NumberOfFunctionReturnArguments(func, n_out),
+  BasicBlock_Tail(retBlock, stmt),
+  Statement_Opcode(stmt, opcode),
+  OpcodePopWords(opcode, m),
+  IsAliasLessThan(n, m+n_out),
+  BeforeLocalStackContents(stmt, n, varOrAlias).
+
+FunctionalStatement_Uses_Local(stmt, varOrAlias, n) :-
+   Statement_Uses_Local(stmt, varOrAlias, n).
+
+FunctionalStatement_Uses(stmt, var, n) :-
+   Statement_Uses_Local(stmt, var, n),
+   CheckIsVariable(var).
+
+FunctionalStatement_Defines(stmt, newVar, 0) :- Statement_Defines(stmt, newVar).
+
+// Case: variable originates elsewhere
+FunctionalStatement_Uses(stmt, var, n) :-
+   Statement_Uses_Local(stmt, alias, n),
+   CheckIsAlias(alias),
+   Statement_Block(stmt, block),
+   FunctionalBlockInputContents(block, alias, var).
+
+.output FunctionalBlockInputContents
+.output FunctionalBlockOutputContents

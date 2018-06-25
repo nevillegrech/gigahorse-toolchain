@@ -164,11 +164,11 @@ AliasToString(n, cat(rst, head)) :-
 // Find all polymorphic aliases
 // These need phi instructions introduced at the dominance frontier
 PolymorphicAlias(block, alias, cat(cat(blockStr, "_"), aliasStr)) :-
-  BlockInputContents(_, block, alias, var1),
-  BlockInputContents(_, block, alias, var2),
+  FunctionalBlockInputContents(block, alias, var1),
+  FunctionalBlockInputContents(block, alias, var2),
   var1 != var2,
   Statement_Block(stmt, block),
-  Statement_Uses_Local(stmt, alias, _),
+  FunctionalStatement_Uses_Local(stmt, alias, _),
   block = [blockStr],
   AliasToString(alias, aliasStr).
 
@@ -181,7 +181,7 @@ PolymorphicAlias(block, alias, cat(cat(blockStr, "_"), aliasStr)) :-
 .output TAC_Stmt
 .decl TAC_Use(stmt: Statement, var: TACVariable, i: number)
 .output TAC_Use
-.decl TAC_Def(stmt: Statement, var: TACVariable)
+.decl TAC_Def(stmt: Statement, var: TACVariable, n: number)
 .output TAC_Def
 .decl TAC_Var(var: TACVariable)
 .output TAC_Var
@@ -191,7 +191,7 @@ PolymorphicAlias(block, alias, cat(cat(blockStr, "_"), aliasStr)) :-
 .output TAC_Variable_Value
 
 TAC_Variable_Value(stmt, value) :-
-   Statement_Defines(stmt, var),
+   FunctionalStatement_Defines(stmt, var, _),
    Variable_Value(var, value).
 
 // New Instructions
@@ -199,51 +199,76 @@ TAC_Variable_Value(stmt, value) :-
 // *returnArgs = CALLPRIVATEI(cond, stmt, function, *args)
 // RETURNPRIVATE(stmt, *args)
 
-
-
 // Non-nop instructions
-TAC_Stmt(stmt),
+TAC_Stmt(stmt) :-
+  Statement_Opcode(stmt, _),
+  !TACNOP(stmt).
+
 TAC_Op(stmt, op) :-
    Statement_Opcode(stmt, op),
-   !TACNOP(stmt).
+   !TACNOP(stmt),
+   !FunctionCallStmt(stmt),
+   !FunctionReturnStmt(stmt).
 
+TAC_Op(stmt, "CALLPRIVATEI") :-
+   JUMPI(stmt),
+   FunctionCallStmt(stmt).
+
+TAC_Op(stmt, "CALLPRIVATE") :-
+   JUMP(stmt),
+   FunctionCallStmt(stmt).
+
+TAC_Op(stmt, "RETURNPRIVATEI") :-
+   JUMPI(stmt),
+   FunctionReturnStmt(stmt).
+
+TAC_Op(stmt, "RETURNPRIVATE") :-
+   JUMP(stmt),
+   FunctionReturnStmt(stmt).
+
+TAC_Op(stmt, op) :-
+   FunctionReturnStmt(stmt),
+   Statement_Opcode(stmt, op),
+   !JUMP(stmt),
+   !JUMPI(stmt).
+   
 // Phi instructions
 TAC_Var(stmt),
-TAC_Def(stmt, stmt),
+TAC_Def(stmt, stmt, 0),
 TAC_Stmt(stmt),
 TAC_Op(stmt, "PHI") :-
   PolymorphicAlias(_, _, stmt).
 
-// Non-phi, variable id same as stmt it is defined in
-TAC_Var(stmt),
-TAC_Def(stmt, stmt) :-
-  Statement_Defines(stmt, _).
+// Non-phi, non-call variable id same as stmt it is defined in
+TAC_Var(var_rep),
+TAC_Def(stmt, var_rep, n) :-
+   FunctionalStatement_Defines(stmt, var, n),
+   Variable_String(var, var_rep).
 
 // Case 1: Uses locally defined variable
-TAC_Use(stmt, varStr, n) :-
-  Statement_Uses_Local(stmt, var, n),
+TAC_Use(stmt, var_rep, n) :-
+  FunctionalStatement_Uses_Local(stmt, var, n),
   CheckIsVariable(var),
-  Statement_Defines(varStr, var).
+  Variable_String(var, var_rep).
 
 // Case 2: Uses monomorphic global var
-TAC_Use(stmt, varStr, n) :-
-  Statement_Uses_Local(stmt, alias, n),
+TAC_Use(stmt, var_rep, n) :-
+  FunctionalStatement_Uses_Local(stmt, alias, n),
   CheckIsAlias(alias),
   Statement_Block(stmt, block),
   !PolymorphicAlias(block, alias, _),
-  BlockInputContents(_, block, alias, var),
-  Statement_Defines(varStr, var).
+  FunctionalBlockInputContents(block, alias, var),
+  Variable_String(var, var_rep).
 
 // Case 3: Is a PHI statement
-TAC_Use(phiStmt, varOpStr, -1) :-
+TAC_Use(phiStmt, var_rep, -1) :-
   PolymorphicAlias(block, alias, phiStmt),
-  BlockInputContents(_, block, alias, varOp),
-  Statement_Defines(varOpStr, varOp).
-
+  FunctionalBlockInputContents(block, alias, var),
+  Variable_String(var, var_rep).
 
 // Case 4: Uses polymorphic variable
 TAC_Use(stmt, varStr, n) :-
-  Statement_Uses_Local(stmt, alias, n),
+  FunctionalStatement_Uses_Local(stmt, alias, n),
   CheckIsAlias(alias),
   Statement_Block(stmt, block),
   PolymorphicAlias(block, alias, varStr).
@@ -283,4 +308,17 @@ FunctionCallReturn_Out(caller, func, retTarget) :-
 Function_Out(func) :- Function([func]).
 
 Function_Return_Out(func, retBlock) :-
-  Function_Return([func], [retBlock]).
+   Function_Return([func], [retBlock]).
+
+.decl FunctionArgument_Out(func:symbol, var:symbol, n:number)
+.output FunctionArgument_Out
+
+FunctionArgument_Out(func, var_rep, n) :-
+   FunctionArgument([func], n, var),
+   Variable_String(var, var_rep).
+
+.decl LocalBlockEdge_Out(from: symbol, to: symbol)
+.output LocalBlockEdge
+
+LocalBlockEdge_Out(from, to) :-
+   LocalBlockEdge([from], [to]).
