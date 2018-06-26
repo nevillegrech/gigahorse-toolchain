@@ -56,12 +56,26 @@ OperationIsEq("SUB", "0x0").
 OperationIsEq("MUL", "0x1").
 OperationIsEq("DIV", "0x1").
 OperationIsEq("SDIV", "0x1").
-OperationIsEq("AND", "0xff"). // byte
-OperationIsEq("AND", "0xffff"). // 16 bit
-OperationIsEq("AND", "0xffffffff"). // 32 bit
-OperationIsEq("AND", "0xffffffffffffffff"). // 64 bit
-OperationIsEq("AND", "0xffffffffffffffffffffffffffffffff"). // 128 bit
-OperationIsEq("AND", "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"). // 256 bit
+OperationIsEq("AND", mask) :- Mask_Length(mask, length), length > 0. 
+
+.decl Mask_Length(mask: Value, bytes: number)
+.decl PreMask_Length(mask: symbol, bytes: number)
+
+Mask_Length(cat("0x", mask), bytes) :-
+   PreMask_Length(mask, bytes).
+
+PreMask_Length("1", 1).
+PreMask_Length("3", 1).
+PreMask_Length("7", 1).
+PreMask_Length("f", 1).
+PreMask_Length("1f", 1).
+PreMask_Length("3f", 1).
+PreMask_Length("7f", 1).
+PreMask_Length("ff", 1).
+
+PreMask_Length(cat("ff", mask), bytes+1) :-
+  PreMask_Length(mask, bytes),
+  bytes < 32.
 
 OperationIs("AND", "0x0", "0x0").
 OperationIs("MUL", "0x0", "0x0").
@@ -80,3 +94,28 @@ SWAPN(opcode, swapn - swap1 + 1) :-
   OpcodeOrd(opcode, swapn),
   OpcodeIsSwap(opcode),
   OpcodeOrd("SWAP1", swap1).
+
+.decl AliasToString(a:Alias, s: symbol)
+
+AliasToString(0, "0").
+AliasToString(1, "1").
+AliasToString(2, "2").
+AliasToString(3, "3").
+AliasToString(4, "4").
+AliasToString(5, "5").
+AliasToString(6, "6").
+AliasToString(7, "7").
+AliasToString(8, "8").
+AliasToString(9, "9").
+AliasToString(10, "a").
+AliasToString(11, "b").
+AliasToString(12, "c").
+AliasToString(13, "d").
+AliasToString(14, "e").
+AliasToString(15, "f").
+
+AliasToString(n, cat(rst, head)) :-
+  IsAlias(n),
+  n > 15,
+  AliasToString(n / 16, rst),
+  AliasToString(n % 16, head).

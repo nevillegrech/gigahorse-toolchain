@@ -313,8 +313,6 @@ Variable_Value(var, dynamicvalue) :-
 
 
 // DUP
-
-
 LocalStackContents(stmt, 0, duplicated) :-
   Statement_Opcode(stmt, opcode),
   DUPN(opcode, n),
@@ -487,4 +485,33 @@ BlockStackDelta(block, delta) :-
 BlockPopDelta(block, delta) :-
   BasicBlock_Tail(block, stmt),
   StatementPopDelta(stmt, delta).
+
+/*
+  Variable sizes
+*/
+
+// Inferring variable length, default is 32
+.decl Variable_Length(var: Variable, value: number)
+
+// Case 1: Pushing constants
+Variable_Length(var, value) :-
+   Statement_Defines(stmt, var, _),
+   Statement_Opcode(stmt, op),
+   OpcodePushLen(op, value).
+
+// Case 2: Masking
+Variable_Length(var, length) :-
+   Statement_Defines(andStmt, var, _),
+   AND(andStmt),
+   Statement_Uses(andStmt, v, _),
+   Statement_Defines(pushStmt, v),
+   PushValue(pushStmt, mask),
+   Mask_Size(mask, length).
+
+.decl UnknownLength(var: Variable)
+
+UnknownLength(var) :-
+   IsVariable(var),
+   !Variable_Length(var, _).
+
 

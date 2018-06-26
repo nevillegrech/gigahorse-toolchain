@@ -134,31 +134,6 @@ DominatorFrontier(block, frontier) :-
   BlockEdge(_, pred, _, frontier),
   !Dominates(pred, block).
 
-.decl AliasToString(a:Alias, s: symbol)
-
-AliasToString(0, "0").
-AliasToString(1, "1").
-AliasToString(2, "2").
-AliasToString(3, "3").
-AliasToString(4, "4").
-AliasToString(5, "5").
-AliasToString(6, "6").
-AliasToString(7, "7").
-AliasToString(8, "8").
-AliasToString(9, "9").
-AliasToString(10, "a").
-AliasToString(11, "b").
-AliasToString(12, "c").
-AliasToString(13, "d").
-AliasToString(14, "e").
-AliasToString(15, "f").
-
-AliasToString(n, cat(rst, head)) :-
-  IsAlias(n),
-  n > 15,
-  AliasToString(n / 16, rst),
-  AliasToString(n % 16, head).
-
 .decl PolymorphicAlias(block: Block, alias: Alias, newVarSymbol: symbol)
 
 // Find all polymorphic aliases
@@ -190,9 +165,33 @@ PolymorphicAlias(block, alias, cat(cat(blockStr, "_"), aliasStr)) :-
 .decl TAC_Variable_Value(var: TACVariable, Value: symbol)
 .output TAC_Variable_Value
 
+// Normal variable, known length
 TAC_Variable_Value(stmt, value) :-
    FunctionalStatement_Defines(stmt, var, _),
    Variable_Value(var, value).
+
+UnknownLength(var) :-
+  (FunctionalStatement_Defines(stmt, var, _) ;
+  FunctionalStatement_Uses(stmt, var, _)),
+  !Variable_Length(var, _).
+
+// Normal variable, unknown length
+TAC_Variable_Length(stmt, 32) :-
+   (FunctionalStatement_Defines(stmt, var, _) ;
+    FunctionalStatement_Uses(stmt, var, _)),
+   UnknownLength(var).
+
+// phi variable, unknown length
+TAC_Variable_Length(stmt, 32) :-
+  PolymorphicAlias(block, alias, phiStmt),
+  FunctionalBlockInputContents(block, alias, var),
+  UnknownLength(var).
+
+TAC_Variable_Length(stmt, maxLength) :-
+  PolymorphicAlias(block, alias, phiStmt),
+  FunctionalBlockInputContents(block, alias, var),
+  maxLength = max length: Variable_Length(var, length),
+  !UnknownLength(var).
 
 // New Instructions
 // *returnArgs = CALLPRIVATE(stmt, function, *args)
@@ -208,7 +207,11 @@ TAC_Op(stmt, op) :-
    Statement_Opcode(stmt, op),
    !TACNOP(stmt),
    !FunctionCallStmt(stmt),
-   !FunctionReturnStmt(stmt).
+   !FunctionReturnStmt(stmt),
+   !PushValue(stmt, _).
+
+TAC_Op(stmt, "CONST") :-
+   PushValue(stmt, _).
 
 TAC_Op(stmt, "CALLPRIVATEI") :-
    JUMPI(stmt),
@@ -261,17 +264,18 @@ TAC_Use(stmt, var_rep, n) :-
   Variable_String(var, var_rep).
 
 // Case 3: Is a PHI statement
+PHI_Uses(phiStmt, var_rep),
 TAC_Use(phiStmt, var_rep, -1) :-
   PolymorphicAlias(block, alias, phiStmt),
   FunctionalBlockInputContents(block, alias, var),
   Variable_String(var, var_rep).
 
 // Case 4: Uses polymorphic variable
-TAC_Use(stmt, varStr, n) :-
+TAC_Use(stmt, var_rep, n) :-
   FunctionalStatement_Uses_Local(stmt, alias, n),
   CheckIsAlias(alias),
   Statement_Block(stmt, block),
-  PolymorphicAlias(block, alias, varStr).
+  PolymorphicAlias(block, alias, var_rep).
 
 TAC_Block(block, stmt) :-
   Statement_Block(stmt, [block]),
