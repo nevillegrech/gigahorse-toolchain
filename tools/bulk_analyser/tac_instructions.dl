@@ -1,5 +1,12 @@
 //
-// *** INSTRUCTIONS ***
+// *** Three-address code INSTRUCTIONS ***
+// This is the schema for the input of any client analyses. Note the
+// (incompatible) overlap with names of instructions inside the
+// decompiler.  E.g., an ADD relation inside a decompiler is different
+// from the ADD relation established here.  We are changing
+// representation right after this phase: importing info that the
+// decompiler has produced and formatting it the way further analyses
+// want it.
 //
 
 // Place opcodes into various categories.

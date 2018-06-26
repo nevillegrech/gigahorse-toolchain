@@ -1,3 +1,5 @@
+// Sanity checking for MadMax
+
 // The most general definition of a loop-like structure: in same SCC
 .decl InLoop(s:Statement, t:Statement)
 InLoop(s,t) :-

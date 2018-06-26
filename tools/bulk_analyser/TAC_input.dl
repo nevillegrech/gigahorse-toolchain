@@ -1,9 +1,21 @@
+// The parts of the schema of the decompiler output that need to be
+// imported in order to produce the full three-address code
+// intermediate representation. All the information is there, but this
+// code, together with tac_instructions.dl, creates a different
+// intermediate representation (often reusing instruction names).
+
 .symbol_type Variable
 .symbol_type Statement
 .symbol_type Block
 .symbol_type Function
 .symbol_type Opcode
-              
+
+#define op TAC_Op
+#define use(var, stmt, n) TAC_Use(stmt, var, n-1)
+#define def(var, stmt) TAC_Def(stmt, var)
+
+#include "tac_instructions.dl"
+
 // Final decompiler outputs
 .decl TAC_Op(stmt:Statement, op:Opcode)
 .input TAC_Op(IO="file", filename="TAC_Op.csv", delimiter="\t")
@@ -24,12 +36,6 @@
 .decl FunctionCall(block: Block, function: Function)
 .input FunctionCall(IO="file", filename="FunctionCall_Out.csv", delimiter="\t")
 
-
-#define op TAC_Op
-#define use(var, stmt, n) TAC_Use(stmt, var, n-1)
-#define def(var, stmt) TAC_Def(stmt, var)
-
-#include "tac_instructions.dl"
 
 .decl ActualArgs(s: Statement, fn: Function, a: Variable, pos: Number)                              
 .decl FormalArgs(fn: Function, a: Variable, pos: Number)

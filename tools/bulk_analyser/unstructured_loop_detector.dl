@@ -1,3 +1,5 @@
+// CURRENTLY UNUSED! (But Neville says "it's nice code". :-))
+
 .comp LoopDetection {
   .decl Edge(x:Block, y: Block)
 

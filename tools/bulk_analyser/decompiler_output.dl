@@ -1,3 +1,7 @@
+// All sorts of different outputs of the decompiler, including
+// three-address code representation (which is later input and
+// re-formatted for use by clients), statistics, debugging relations.
+
 .output IsBasicBlockHead
 .output IsBasicBlockTail
 .output PushValue
@@ -48,11 +52,11 @@ BlockJumpAnyTarget(headStmt) :-
 InsensBlockInputContents(block, index, var) :-
   BlockInputContents(_, [block], index, var).
 
-.decl TosOutput(stmt: Statement, abc:symbol, valueOrAlias:number, xyz:symbol, opcode:symbol, delta:number)
+.decl TosOutput(stmt: Statement, abc:symbol, valueOrStackIndex:number, xyz:symbol, opcode:symbol, delta:number)
 .output TosOutput      
 
-TosOutput(stmt, "::", valueOrAlias, "<-", opcode, delta) :-
-  LocalStackContents(stmt, 0, valueOrAlias),
+TosOutput(stmt, "::", valueOrStackIndex, "<-", opcode, delta) :-
+  LocalStackContents(stmt, 0, valueOrStackIndex),
   Statement_Opcode(stmt, opcode),
   StatementStackDelta(stmt, delta).
 
@@ -134,18 +138,18 @@ DominatorFrontier(block, frontier) :-
   BlockEdge(_, pred, _, frontier),
   !Dominates(pred, block).
 
-.decl PolymorphicAlias(block: Block, alias: Alias, newVarSymbol: symbol)
+.decl PolymorphicStackIndex(block: Block, stackIndex: StackIndex, newVarSymbol: symbol)
 
-// Find all polymorphic aliases
+// Find all polymorphic stackIndexes
 // These need phi instructions introduced at the dominance frontier
-PolymorphicAlias(block, alias, cat(cat(blockStr, "_"), aliasStr)) :-
-  FunctionalBlockInputContents(block, alias, var1),
-  FunctionalBlockInputContents(block, alias, var2),
+PolymorphicStackIndex(block, stackIndex, cat(cat(blockStr, "_"), stackIndexStr)) :-
+  FunctionalBlockInputContents(block, stackIndex, var1),
+  FunctionalBlockInputContents(block, stackIndex, var2),
   var1 != var2,
   Statement_Block(stmt, block),
-  FunctionalStatement_Uses_Local(stmt, alias, _),
+  FunctionalStatement_Uses_Local(stmt, stackIndex, _),
   block = [blockStr],
-  AliasToString(alias, aliasStr).
+  StackIndexToString(stackIndex, stackIndexStr).
 
 .symbol_type TACVariable
 
@@ -183,13 +187,13 @@ TAC_Variable_Length(stmt, 32) :-
 
 // phi variable, unknown length
 TAC_Variable_Length(stmt, 32) :-
-  PolymorphicAlias(block, alias, phiStmt),
-  FunctionalBlockInputContents(block, alias, var),
+  PolymorphicStackIndex(block, stackIndex, phiStmt),
+  FunctionalBlockInputContents(block, stackIndex, var),
   UnknownLength(var).
 
 TAC_Variable_Length(stmt, maxLength) :-
-  PolymorphicAlias(block, alias, phiStmt),
-  FunctionalBlockInputContents(block, alias, var),
+  PolymorphicStackIndex(block, stackIndex, phiStmt),
+  FunctionalBlockInputContents(block, stackIndex, var),
   maxLength = max length: Variable_Length(var, length),
   !UnknownLength(var).
 
@@ -240,7 +244,7 @@ TAC_Var(stmt),
 TAC_Def(stmt, stmt, 0),
 TAC_Stmt(stmt),
 TAC_Op(stmt, "PHI") :-
-  PolymorphicAlias(_, _, stmt).
+  PolymorphicStackIndex(_, _, stmt).
 
 // Non-phi, non-call variable id same as stmt it is defined in
 TAC_Var(var_rep),
@@ -256,33 +260,33 @@ TAC_Use(stmt, var_rep, n) :-
 
 // Case 2: Uses monomorphic global var
 TAC_Use(stmt, var_rep, n) :-
-  FunctionalStatement_Uses_Local(stmt, alias, n),
-  CheckIsAlias(alias),
+  FunctionalStatement_Uses_Local(stmt, stackIndex, n),
+  CheckIsStackIndex(stackIndex),
   Statement_Block(stmt, block),
-  !PolymorphicAlias(block, alias, _),
-  FunctionalBlockInputContents(block, alias, var),
+  !PolymorphicStackIndex(block, stackIndex, _),
+  FunctionalBlockInputContents(block, stackIndex, var),
   Variable_String(var, var_rep).
 
 // Case 3: Is a PHI statement
 PHI_Uses(phiStmt, var_rep),
 TAC_Use(phiStmt, var_rep, -1) :-
-  PolymorphicAlias(block, alias, phiStmt),
-  FunctionalBlockInputContents(block, alias, var),
+  PolymorphicStackIndex(block, stackIndex, phiStmt),
+  FunctionalBlockInputContents(block, stackIndex, var),
   Variable_String(var, var_rep).
 
 // Case 4: Uses polymorphic variable
 TAC_Use(stmt, var_rep, n) :-
-  FunctionalStatement_Uses_Local(stmt, alias, n),
-  CheckIsAlias(alias),
+  FunctionalStatement_Uses_Local(stmt, stackIndex, n),
+  CheckIsStackIndex(stackIndex),
   Statement_Block(stmt, block),
-  PolymorphicAlias(block, alias, var_rep).
+  PolymorphicStackIndex(block, stackIndex, var_rep).
 
 TAC_Block(block, stmt) :-
   Statement_Block(stmt, [block]),
   !TACNOP(stmt).
 
 TAC_Block(block, phiStmt) :-
-  PolymorphicAlias([block], _, phiStmt).
+  PolymorphicStackIndex([block], _, phiStmt).
 //   DominatorFrontier([block], [frontier]).
 
 
