@@ -609,5 +609,3 @@ FunctionalStatement_Uses(stmt, var, n) :-
    Statement_Block(stmt, block),
    FunctionalBlockInputContents(block, stackIndex, var).
 
-.output FunctionalBlockInputContents
-.output FunctionalBlockOutputContents
