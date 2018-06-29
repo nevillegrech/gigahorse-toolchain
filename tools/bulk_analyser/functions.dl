@@ -349,28 +349,32 @@ FunctionEdgePopDelta(from, to, delta) :-
    Function(from),
    EdgePopDelta(from, to, delta).
 
-FunctionEdgePopDelta(from, to, newPopDelta) :-
-   LocalBlockEdge(prev, from),
+
+.decl OptEdgePopDeltas(from: Block, to: Block, prevPopDelta: StackIndex, prevStackDelta: StackIndex, delta: StackIndex)
+
+OptEdgePopDeltas(from, to, prevPopDelta, prevStackDelta, delta) :-
    FunctionEdgePopDelta(prev, from, prevPopDelta),
    FunctionEdgeStackDelta(prev, from, prevStackDelta),
    EdgePopDelta(from, to, delta),
+   LocalBlockEdge(prev, from).
+   .plan 1:(2,1,3,4), 2:(3,1,2,4)
+   
+FunctionEdgePopDelta(from, to, newPopDelta) :-
+   OptEdgePopDeltas(from, to, prevPopDelta, prevStackDelta, delta),
    newPopDelta = delta - prevStackDelta,
    newPopDelta > prevPopDelta,
    newPopDelta < MAX_STACK_HEIGHT.
 
 FunctionEdgePopDelta(from, to, delta) :-
-   LocalBlockEdge(prev, from),
-   FunctionEdgePopDelta(prev, from, prevPopDelta),
-   FunctionEdgeStackDelta(prev, from, prevStackDelta),
-   EdgePopDelta(from, to, delta),
+   OptEdgePopDeltas(from, to, prevPopDelta, prevStackDelta, delta),
    newPopDelta = delta - prevStackDelta,
    newPopDelta <= prevPopDelta.
 
 .decl FunctionEdgeStackDelta(from: Block, to: Block, delta: StackIndex)
 
 FunctionEdgeStackDelta(from, to, delta) :-
-   Function(from),
-   EdgeStackDelta(from, to, delta).
+   EdgeStackDelta(from, to, delta),
+   Function(from).
 
 FunctionEdgeStackDelta(from, to, newStackDelta) :-
    LocalBlockEdge(prev, from),
@@ -383,27 +387,27 @@ FunctionEdgeStackDelta(from, to, newStackDelta) :-
 .decl FunctionEdgePushDelta(from: Block, to: Block, delta: StackIndex)
 
 FunctionEdgePushDelta(from, to, stackDelta + popDelta) :-
-   FunctionEdgeStackDelta(from, to, stackDelta),
-   FunctionEdgePopDelta(from, to, popDelta).
+   FunctionEdgePopDelta(from, to, popDelta),
+   FunctionEdgeStackDelta(from, to, stackDelta).
 
 // We mostly care about a function's signature when it returns
 NumberOfFunctionArguments(func, delta) :-
-   Function_Return(func, ret),
-   FunctionEdgePopDelta(ret, ["invalid"], delta).
+   FunctionEdgePopDelta(ret, ["invalid"], delta),
+   Function_Return(func, ret).
 
 NumberOfFunctionArguments(func, delta) :-
-   !Function_Return(func, _),
+   FunctionEdgePopDelta(block, ["invalid"], delta),
    InFunction(func, block),
-   FunctionEdgePopDelta(block, ["invalid"], delta).
+   !Function_Return(func, _).
 
 // Same here
 NumberOfFunctionArguments(func, delta) :-
-   InFunction(block, func),
-   FunctionEdgePopDelta(block, ["invalid"], delta).
+   FunctionEdgePopDelta(block, ["invalid"], delta),
+   InFunction(block, func).
 
 NumberOfFunctionReturnArguments(func, delta) :-
-   Function_Return(func, ret),
-   FunctionEdgePushDelta(ret, ["invalid"], delta).
+   FunctionEdgePushDelta(ret, ["invalid"], delta),
+   Function_Return(func, ret).
 
 // default
 NumberOfFunctionReturnArguments(func, 0) :-
@@ -414,9 +418,9 @@ NumberOfFunctionReturnArguments(func, 0) :-
 .decl CompositeNumberOfFunctionAndReturnArguments(func: Block, n_in: StackIndex, n_out: StackIndex)
 
 CompositeNumberOfFunctionAndReturnArguments(func, n_in, n_out) :-
-   Function_Return(func, ret),
+   FunctionEdgePopDelta(ret, ["invalid"], n_in),
    FunctionEdgePushDelta(ret, ["invalid"], n_out),
-   FunctionEdgePopDelta(ret, ["invalid"], n_in).
+   Function_Return(func, ret).
 
 // SANITY CHECKING 
 .decl InexactFunctionArguments(func: Block)
@@ -530,19 +534,19 @@ FunctionalBlockOutputContents(caller, next, n, newVar) :-
 // 4) First block calls a function, take any remaining variables that have
 //    not been passed as arguments, and shift
 FunctionalBlockOutputContents(caller, next, newIndex, variable) :-
+   BeforeFunctionCallFunctionalBlockOutputContents(caller, index, variable),
    FunctionCallReturn(caller, func, next),
-// Why do we need all this complexity? At first I modelled this by
-// considering the cross product of possible number of args, but
-// later created the notion of a composite function signature.
-// Should improve precision in some cases
-  //NumberOfFunctionReturnArguments(func, n_out),
-  //NumberOfFunctionArguments(func, n_in),
-  CompositeNumberOfFunctionAndReturnArguments(func, n_in, n_out),
-  BeforeFunctionCallFunctionalBlockOutputContents(caller, index, variable),
-  index >= n_in,
-  newIndex = index+n_out-n_in,
-  newIndex >= 0,
-  newIndex < MAX_STACK_HEIGHT.
+   // Why do we need all this complexity? At first I modelled this by
+   // considering the cross product of possible number of args, but
+   // later created the notion of a composite function signature.
+   // Should improve precision in some cases
+   //NumberOfFunctionReturnArguments(func, n_out),
+   //NumberOfFunctionArguments(func, n_in),
+   CompositeNumberOfFunctionAndReturnArguments(func, n_in, n_out),
+   index >= n_in,
+   newIndex = index+n_out-n_in,
+   newIndex >= 0,
+   newIndex < MAX_STACK_HEIGHT.
 
 .decl BeforeFunctionCallFunctionalBlockOutputContents(caller: Block, index: StackIndex, variable: Variable)
 
@@ -581,11 +585,11 @@ FunctionalStatement_Uses_Local(stmt, varOrStackIndex, n) :-
 
 // TODO, check case for function return
 FunctionalStatement_Uses_Local(stmt, varOrStackIndex, n) :-
+  NumberOfFunctionReturnArguments(func, n_out),
   Function_Return(func, retBlock),
   BasicBlock_Tail(retBlock, stmt),
   Statement_Opcode(stmt, opcode),
   OpcodePopWords(opcode, m),
-  NumberOfFunctionReturnArguments(func, n_out),
   IsStackIndexLessThan(n, m+n_out),
   BeforeLocalStackContents(stmt, n, varOrStackIndex).
 
