@@ -50,7 +50,7 @@ IsStackIndex(n+1) :-
   IsStackIndex(n),
   n+1 < MAX_STACK_HEIGHT.
 
-.decl IsStackIndexLessThan(n:StackIndex, maximum:number)
+.decl IsStackIndexLessThan(n:StackIndex, maximum:StackIndex)
 
 IsStackIndexLessThan(n, maximum) :-
   IsStackIndex(n),
@@ -142,16 +142,16 @@ BasicBlock_Tail(block, tail) :-
  
 .type Context = [ block:Block ]
 
-.decl BlockOutputContents(context:Context, block:Block, index:number, var:Variable)
-.decl BlockInputContents(context:Context, block:Block, index:number, var:Variable)
+.decl BlockOutputContents(context:Context, block:Block, index:StackIndex, var:Variable)
+.decl BlockInputContents(context:Context, block:Block, index:StackIndex, var:Variable)
 .decl BlockJumpTarget(context:Context, block:Block, var:Variable)
 
 // A summary of all the effects of the basic block up to a statement. The
 // summary cannot contain only variables, it will also refer symbolically to
 // other locations (stackIndexes) on the stack at the beginning of the basic block.
-.decl LocalStackContents(stmt:Statement, index:number, variable:VariableOrStackIndex)
+.decl LocalStackContents(stmt:Statement, index:StackIndex, variable:VariableOrStackIndex)
 
-.decl BeforeLocalStackContents(stmt:Statement, n:number, variable:VariableOrStackIndex)
+.decl BeforeLocalStackContents(stmt:Statement, n:StackIndex, variable:VariableOrStackIndex)
 
 .decl BlockEdge(callerCtx:Context, caller:Block, calleeCtx:Context, callee:Block)
 .decl ReachableContext(ctx:Context, block:Block)
@@ -161,15 +161,15 @@ BasicBlock_Tail(block, tail) :-
 // from its caller. This is a high-watermark kind of measure: the consumed
 // data items may be replenished during execution, but we care about how high
 // the total will go.
-.decl BlockPopDelta(block:Block, delta:number)
+.decl BlockPopDelta(block:Block, delta:StackIndex)
 
 // What is the difference in stack height effected by the basic block
-.decl BlockStackDelta(block:Block, delta:number)
+.decl BlockStackDelta(block:Block, delta:StackIndex)
 
 // Same for the effects up to a statement, since the beginning of the
 // containing basic block.
-.decl StatementPopDelta(statement:Statement, delta:number)
-.decl StatementStackDelta(statement:Statement, delta:number)
+.decl StatementPopDelta(statement:Statement, delta:StackIndex)
+.decl StatementStackDelta(statement:Statement, delta:StackIndex)
 
 /*
  ***********
@@ -318,29 +318,35 @@ Variable_Value(var, dynamicvalue) :-
 
 // DUP
 LocalStackContents(stmt, 0, duplicated) :-
+  BeforeLocalStackContents(stmt, n, duplicated),
   Statement_Opcode(stmt, opcode),
-  DUPN(opcode, n),
-  BeforeLocalStackContents(stmt, n, duplicated).
+  DUPN(opcode, n).
 
 LocalStackContents(stmt, m+1, other) :-
+  BeforeLocalStackContents(stmt, m, other),
   Statement_Opcode(stmt, opcode),
   DUPN(opcode, n),
-  IsStackIndexLessThan(m, n+1),
-  BeforeLocalStackContents(stmt, m, other).
+  IsStackIndexLessThan(m, n+1).
 
+// Optimization: before local stack contents for swaps
+// It's quite useful to optimize this case.
+.decl BeforeSwapLocalStackContents(stmt: Statement, n: StackIndex, m: StackIndex, variable: Variable)
+
+BeforeSwapLocalStackContents(stmt, n, m, variable) :-
+  BeforeLocalStackContents(stmt, m, variable),
+  Statement_Opcode(stmt, opcode),
+  SWAPN(opcode, n).
+   
 // SWAP
 LocalStackContents(stmt, n, variable0),
 LocalStackContents(stmt, 0, variableN) :-
-  Statement_Opcode(stmt, opcode),
-  SWAPN(opcode, n),
-  BeforeLocalStackContents(stmt, n, variableN),
-  BeforeLocalStackContents(stmt, 0, variable0).
+  BeforeSwapLocalStackContents(stmt, n, n, variableN),
+  BeforeSwapLocalStackContents(stmt, n, 0, variable0).
+  .plan 1:(2,1)
 
 LocalStackContents(stmt, m, other) :-
-  Statement_Opcode(stmt, opcode),
-  SWAPN(opcode, n),
-  IsStackIndexLessThan(m, n), m > 0,
-  BeforeLocalStackContents(stmt, m, other).
+  BeforeSwapLocalStackContents(stmt, n, m, other),
+  IsStackIndexLessThan(m, n), m > 0.
 
 // MLOAD
 Variable_Value(var, dynamicvalue) :-
@@ -397,13 +403,17 @@ BlockEdge(callerCtx, caller, ?mergeContextMacro, callee) :-
  * Auxiliary relations: BeforeLocalStackContents
  ***********
  */
+.decl NextStmtInBlock(stmt: Statement, nextStmt: Statement)
+
+NextStmtInBlock(prevStmt, stmt) :-
+  Statement_Next(prevStmt, stmt),
+  Statement_Block(prevStmt, block),
+  Statement_Block(stmt, block).
 
 // General case
 BeforeLocalStackContents(stmt, n, variable) :-
-  Statement_Next(prevStmt, stmt),
-  Statement_Block(prevStmt, block),
-  Statement_Block(stmt, block),
-  LocalStackContents(prevStmt, n, variable).
+  LocalStackContents(prevStmt, n, variable),
+  NextStmtInBlock(prevStmt, stmt).
 
 // Special case for block head (contains only stackIndexes). Initialize all
 // stack positions, from zero to max consumed (from the caller's stack) by
@@ -464,23 +474,24 @@ StatementPopDelta(stmt, delta) :-
   Statement_Opcode(stmt, opcode),
   OpcodePopWords(opcode, delta).
 
-StatementPopDelta(stmt, popdelta - prevStackDelta) :-
-  StatementStackDelta(prevstmt, prevStackDelta),
+// This intermediate relation was introduced for optimization purposes
+.decl StatementPopDeltaNew(stmt: Statement, prevPopDelta: StackIndex, newPopDelta: StackIndex)
+
+StatementPopDeltaNew(stmt, prevPopDelta, popDelta - prevStackDelta) :-
   StatementPopDelta(prevstmt, prevPopDelta),
   !IsBasicBlockTail(prevstmt),
+  StatementStackDelta(prevstmt, prevStackDelta),
   Statement_Next(prevstmt, stmt),
   Statement_Opcode(stmt, opcode),
-  OpcodePopWords(opcode, popdelta),
-  popdelta - prevStackDelta > prevPopDelta.
+  OpcodePopWords(opcode, popDelta).
+
+StatementPopDelta(stmt, newPopDelta) :-
+  StatementPopDeltaNew(stmt, prevPopDelta, newPopDelta),
+  newPopDelta > prevPopDelta.
 
 StatementPopDelta(stmt, prevPopDelta) :-
-  StatementStackDelta(prevstmt, prevStackDelta),
-  StatementPopDelta(prevstmt, prevPopDelta),
-  !IsBasicBlockTail(prevstmt),
-  Statement_Next(prevstmt, stmt),
-  Statement_Opcode(stmt, opcode),
-  OpcodePopWords(opcode, popdelta),
-  popdelta - prevStackDelta <= prevPopDelta.
+  StatementPopDeltaNew(stmt, prevPopDelta, newPopDelta),
+  newPopDelta <= prevPopDelta.
 
 BlockStackDelta(block, delta) :-
   BasicBlock_Tail(block, stmt),
@@ -499,23 +510,21 @@ BlockPopDelta(block, delta) :-
 
 // Case 1: Pushing constants
 Variable_Length(var, value) :-
-   Statement_Defines(stmt, var, _),
+   Statement_Defines(stmt, var),
    Statement_Opcode(stmt, op),
    OpcodePushLen(op, value).
 
 // Case 2: Masking
 Variable_Length(var, length) :-
-   Statement_Defines(andStmt, var, _),
+   Statement_Defines(andStmt, var),
    AND(andStmt),
    Statement_Uses(andStmt, v, _),
    Statement_Defines(pushStmt, v),
    PushValue(pushStmt, mask),
-   Mask_Size(mask, length).
+   Mask_Length(mask, length).
 
 .decl UnknownLength(var: Variable)
 
 UnknownLength(var) :-
    IsVariable(var),
    !Variable_Length(var, _).
-
-

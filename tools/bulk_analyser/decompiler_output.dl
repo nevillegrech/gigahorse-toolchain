@@ -2,12 +2,6 @@
 // three-address code representation (which is later input and
 // re-formatted for use by clients), statistics, debugging relations.
 
-.output IsBasicBlockHead
-.output IsBasicBlockTail
-.output PushValue
-.output Statement_Defines
-.output Statement_Uses
-
 // Fills disk too quickly
 //.output BlockOutputContents
 
@@ -138,14 +132,21 @@ DominatorFrontier(block, frontier) :-
   BlockEdge(_, pred, _, frontier),
   !Dominates(pred, block).
 
-.decl PolymorphicStackIndex(block: Block, stackIndex: StackIndex, newVarSymbol: symbol)
+
+.decl PolymorphicStackIndex(block: Block, stackIndex: StackIndex)
+
+PolymorphicStackIndex(block, stackIndex) :-
+  FunctionalBlockInputContents(block, stackIndex, var1),
+  FunctionalBlockInputContents(block, stackIndex, var2),
+  var1 != var2.
+
+.decl PHILocation(block: Block, stackIndex: StackIndex, newVarSymbol: symbol)
 
 // Find all polymorphic stackIndexes
 // These need phi instructions introduced at the dominance frontier
-PolymorphicStackIndex(block, stackIndex, cat(cat(blockStr, "_"), stackIndexStr)) :-
-  FunctionalBlockInputContents(block, stackIndex, var1),
-  FunctionalBlockInputContents(block, stackIndex, var2),
-  var1 != var2,
+.output PHILocation
+PHILocation(block, stackIndex, cat(cat(blockStr, "_"), stackIndexStr)) :-
+  PolymorphicStackIndex(block, stackIndex),
   Statement_Block(stmt, block),
   FunctionalStatement_Uses_Local(stmt, stackIndex, _),
   block = [blockStr],
@@ -166,8 +167,10 @@ PolymorphicStackIndex(block, stackIndex, cat(cat(blockStr, "_"), stackIndexStr))
 .output TAC_Var
 .decl TAC_Block(block: Statement, stmt: Statement)
 .output TAC_Block
-.decl TAC_Variable_Value(var: TACVariable, Value: symbol)
+.decl TAC_Variable_Value(var: TACVariable, value: symbol)
 .output TAC_Variable_Value
+.decl TAC_Variable_Length(var: TACVariable, length: number)
+.output TAC_Variable_Length
 
 // Normal variable, known length
 TAC_Variable_Value(stmt, value) :-
@@ -186,13 +189,13 @@ TAC_Variable_Length(stmt, 32) :-
    UnknownLength(var).
 
 // phi variable, unknown length
-TAC_Variable_Length(stmt, 32) :-
-  PolymorphicStackIndex(block, stackIndex, phiStmt),
+TAC_Variable_Length(phiStmt, 32) :-
+  PHILocation(block, stackIndex, phiStmt),
   FunctionalBlockInputContents(block, stackIndex, var),
   UnknownLength(var).
 
-TAC_Variable_Length(stmt, maxLength) :-
-  PolymorphicStackIndex(block, stackIndex, phiStmt),
+TAC_Variable_Length(phiStmt, maxLength) :-
+  PHILocation(block, stackIndex, phiStmt),
   FunctionalBlockInputContents(block, stackIndex, var),
   maxLength = max length: Variable_Length(var, length),
   !UnknownLength(var).
@@ -244,7 +247,7 @@ TAC_Var(stmt),
 TAC_Def(stmt, stmt, 0),
 TAC_Stmt(stmt),
 TAC_Op(stmt, "PHI") :-
-  PolymorphicStackIndex(_, _, stmt).
+  PHILocation(_, _, stmt).
 
 // Non-phi, non-call variable id same as stmt it is defined in
 TAC_Var(var_rep),
@@ -263,14 +266,13 @@ TAC_Use(stmt, var_rep, n) :-
   FunctionalStatement_Uses_Local(stmt, stackIndex, n),
   CheckIsStackIndex(stackIndex),
   Statement_Block(stmt, block),
-  !PolymorphicStackIndex(block, stackIndex, _),
+  !PolymorphicStackIndex(block, stackIndex),
   FunctionalBlockInputContents(block, stackIndex, var),
   Variable_String(var, var_rep).
 
 // Case 3: Is a PHI statement
-PHI_Uses(phiStmt, var_rep),
 TAC_Use(phiStmt, var_rep, -1) :-
-  PolymorphicStackIndex(block, stackIndex, phiStmt),
+  PHILocation(block, stackIndex, phiStmt),
   FunctionalBlockInputContents(block, stackIndex, var),
   Variable_String(var, var_rep).
 
@@ -279,14 +281,14 @@ TAC_Use(stmt, var_rep, n) :-
   FunctionalStatement_Uses_Local(stmt, stackIndex, n),
   CheckIsStackIndex(stackIndex),
   Statement_Block(stmt, block),
-  PolymorphicStackIndex(block, stackIndex, var_rep).
+  PHILocation(block, stackIndex, var_rep).
 
 TAC_Block(block, stmt) :-
   Statement_Block(stmt, [block]),
   !TACNOP(stmt).
 
 TAC_Block(block, phiStmt) :-
-  PolymorphicStackIndex([block], _, phiStmt).
+  PHILocation([block], _, phiStmt).
 //   DominatorFrontier([block], [frontier]).
 
 
@@ -326,7 +328,7 @@ FunctionArgument_Out(func, var_rep, n) :-
    Variable_String(var, var_rep).
 
 .decl LocalBlockEdge_Out(from: symbol, to: symbol)
-.output LocalBlockEdge
+.output LocalBlockEdge_Out
 
 LocalBlockEdge_Out(from, to) :-
    LocalBlockEdge([from], [to]).

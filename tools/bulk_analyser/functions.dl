@@ -276,95 +276,178 @@ InFunction(next, func) :-
   InFunction(block, func),
   FunctionCallReturn(block, _, next).
 
-.decl Function_ReachableBlocks(func: Block, block: Block)
-
-Function_ReachableBlocks(func, block) :-
-   InFunction(block, func).
-
-Function_ReachableBlocks(func, other) :-
-  Function_ReachableBlocks(func, block),
-  FunctionCall(block, callee),
-  Function_ReachableBlocks(callee, other).
-
-.decl Function_Uses(func: Block, var: Variable)
-
-Function_Uses(func, var) :-
-   Function_ReachableBlocks(func, block),
-   Statement_Block(stmt, block),
-   Statement_Uses(stmt, var, _).
-
-.decl Function_Defines(func: Block, var: Variable)
-
-Function_Defines(func, var) :-
-   Function_ReachableBlocks(func, block),
-   Statement_Block(stmt, block),
-   Statement_Defines(stmt, var).
-
-
 .decl NumberOfFunctionArguments(func: Block, num: StackIndex)
-/*
-// 
-// NEW VERSION, WIP
-//
+.decl NumberOfFunctionReturnArguments(func: Block, num: StackIndex)
 
-.decl NumberOfFunctionArgumentsIsAtLeast(func: Block, num: StackIndex)
-.decl NumberOfFunctionReturns(func: Block, num: StackIndex)
-.decl NumberOfFunctionReturnsIsAtMost(func: Block, num: StackIndex)
+.decl EnhancedLocalBlockEdge(from: Block, to: Block)
 
-NumberOfFunctionReturnsIsAtMost(func, 10),
-NumberOfFunctionArgumentsIsAtLeast(func, 0) :-
-   Function(func).
+EnhancedLocalBlockEdge(from, to) :- LocalBlockEdge(from, to).
 
-NumberOfFunctionArgumentsIsAtLeast(func, num) :-
-   num = blah + argCallee - retCallee,
-   NumberOfFunctionArgumentsIsAtLeast(callee, argCallee),
-   NumberOfFunctionReturnsIsAtMost(callee, retCallee),
-   CallEdge(func, callee).
+EnhancedLocalBlockEdge(from, ["invalid"]) :- InFunction(from, _), !LocalBlockEdge(from, _).
 
-// In our current state, basic blocks may be ending in a function call
-// or return (implicitly "enhanced" blocks). Compute the useful
-// concepts from the decompiler, while also taking into account the
-// call.
-.decl EnhancedBlockPopDeltaIsAtLeast(block:Block, delta:number)
+EnhancedLocalBlockEdge(from, ["invalid"]) :- Function_Return(_, from).
 
-// the block doesn't end in a call or a return
-EnhancedBlockPopDeltaIsAtLeast(block, delta) :-
-   !FunctionCall(block, _),
-   BlockPopDelta(block, delta).
+.decl EdgePopDelta(from: Block, to: Block, delta: StackIndex)
 
-EnhancedBlockPopDeltaIsAtLeast(block, delta + argsConsumed - retsProduced) :-
-   FunctionCall(block, func),
-   BlockPopDelta(block, delta),
-   NumberOfFunctionArgumentsIsAtLeast(func, argsConsumed),
-   NumberOfFunctionReturnsIsAtMost(func, retsProduced).
+EdgePopDelta(from, to, delta) :-
+   EnhancedLocalBlockEdge(from, to),
+   BlockEdge(_, from, _, to),
+   BlockPopDelta(from, delta).
 
-// END NEW VERSION
-*/
+EdgePopDelta(from, to, delta) :-
+   EnhancedLocalBlockEdge(from, to),
+   !FunctionCall(from, _),
+   BlockPopDelta(from, delta).
 
-//
-// OLD VERSION, but works
-//
+EdgePopDelta(from, to, newPopDelta) :-
+   EnhancedLocalBlockEdge(from, to),
+   !BlockEdge(_, from, _, to),
+   FunctionCall(from, func),
+   NumberOfFunctionArguments(func, n_args),
+   BlockPopDelta(from, popDelta),
+   BlockStackDelta(from, stackDelta),
+   newPopDelta = n_args-stackDelta,
+   newPopDelta < MAX_STACK_HEIGHT,
+   newPopDelta >= popDelta.
 
-// This is used to calculate an upper bound of the number of arguments
-// for a function. A more accurate number of arguments is calculated based
-// on the FunctionalBlock*Contents information
-.decl ImpossibleFunctionArguments(func: Block, stackIndex: StackIndex)
+EdgePopDelta(from, to, popDelta) :-
+   EnhancedLocalBlockEdge(from, to),
+   !BlockEdge(_, from, _, to),
+   FunctionCall(from, func),
+   NumberOfFunctionArguments(func, n_args),
+   BlockPopDelta(from, popDelta),
+   BlockStackDelta(from, stackDelta),
+   newPopDelta = n_args-stackDelta,
+   newPopDelta < popDelta.
 
-ImpossibleFunctionArguments(func, stackIndex) :-
+.decl EdgeStackDelta(from: Block, to: Block, delta: StackIndex)
+
+EdgeStackDelta(from, to, newStackDelta) :-
+   EnhancedLocalBlockEdge(from, to),
+   !BlockEdge(_, from, _, to),
+   FunctionCall(from, func),
+   NumberOfFunctionArguments(func, n_args),
+   NumberOfFunctionReturnArguments(func, n_ret),
+   BlockStackDelta(from, stackDelta),
+   newStackDelta = stackDelta-n_args+n_ret,
+   newStackDelta < MAX_STACK_HEIGHT,
+   newStackDelta > -MAX_STACK_HEIGHT.
+
+EdgeStackDelta(from, to, stackDelta) :-
+   EnhancedLocalBlockEdge(from, to),
+   BlockEdge(_, from, _, to),
+   BlockStackDelta(from, stackDelta).
+
+EdgeStackDelta(from, to, stackDelta) :-
+   EnhancedLocalBlockEdge(from, to),
+   !FunctionCall(from, _),
+   BlockStackDelta(from, stackDelta).
+
+.decl FunctionEdgePopDelta(from: Block, to: Block, delta: StackIndex)
+
+FunctionEdgePopDelta(from, to, delta) :-
+   Function(from),
+   EdgePopDelta(from, to, delta).
+
+FunctionEdgePopDelta(from, to, newPopDelta) :-
+   LocalBlockEdge(prev, from),
+   FunctionEdgePopDelta(prev, from, prevPopDelta),
+   FunctionEdgeStackDelta(prev, from, prevStackDelta),
+   EdgePopDelta(from, to, delta),
+   newPopDelta = delta - prevStackDelta,
+   newPopDelta > prevPopDelta,
+   newPopDelta < MAX_STACK_HEIGHT.
+
+FunctionEdgePopDelta(from, to, delta) :-
+   LocalBlockEdge(prev, from),
+   FunctionEdgePopDelta(prev, from, prevPopDelta),
+   FunctionEdgeStackDelta(prev, from, prevStackDelta),
+   EdgePopDelta(from, to, delta),
+   newPopDelta = delta - prevStackDelta,
+   newPopDelta <= prevPopDelta.
+
+.decl FunctionEdgeStackDelta(from: Block, to: Block, delta: StackIndex)
+
+FunctionEdgeStackDelta(from, to, delta) :-
+   Function(from),
+   EdgeStackDelta(from, to, delta).
+
+FunctionEdgeStackDelta(from, to, newStackDelta) :-
+   LocalBlockEdge(prev, from),
+   FunctionEdgeStackDelta(prev, from, prevStackDelta),
+   EdgeStackDelta(from, to, delta),
+   newStackDelta = delta + prevStackDelta,
+   newStackDelta < MAX_STACK_HEIGHT,
+   newStackDelta > -MAX_STACK_HEIGHT.
+
+.decl FunctionEdgePushDelta(from: Block, to: Block, delta: StackIndex)
+
+FunctionEdgePushDelta(from, to, stackDelta + popDelta) :-
+   FunctionEdgeStackDelta(from, to, stackDelta),
+   FunctionEdgePopDelta(from, to, popDelta).
+
+// We mostly care about a function's signature when it returns
+NumberOfFunctionArguments(func, delta) :-
+   Function_Return(func, ret),
+   FunctionEdgePopDelta(ret, ["invalid"], delta).
+
+NumberOfFunctionArguments(func, delta) :-
+   !Function_Return(func, _),
+   InFunction(func, block),
+   FunctionEdgePopDelta(block, ["invalid"], delta).
+
+// Same here
+NumberOfFunctionArguments(func, delta) :-
+   InFunction(block, func),
+   FunctionEdgePopDelta(block, ["invalid"], delta).
+
+NumberOfFunctionReturnArguments(func, delta) :-
+   Function_Return(func, ret),
+   FunctionEdgePushDelta(ret, ["invalid"], delta).
+
+// default
+NumberOfFunctionReturnArguments(func, 0) :-
    Function(func),
-   BlockInputContents(_, func, stackIndex, var),
-   !Function_Uses(func, var).
+   !Function_Return(func, _).
 
-ImpossibleFunctionArguments(func, n+1) :-
-   Function(func),
-   n = max stackIndex: BlockInputContents(_, func, stackIndex, _).
+// This may improve precision, see further rant below
+.decl CompositeNumberOfFunctionAndReturnArguments(func: Block, n_in: StackIndex, n_out: StackIndex)
 
-NumberOfFunctionArguments(func, n) :-
-   n = min stackIndex: ImpossibleFunctionArguments(func, stackIndex),
-   Function(func).
+CompositeNumberOfFunctionAndReturnArguments(func, n_in, n_out) :-
+   Function_Return(func, ret),
+   FunctionEdgePushDelta(ret, ["invalid"], n_out),
+   FunctionEdgePopDelta(ret, ["invalid"], n_in).
 
-// END OLD VERSION
+// SANITY CHECKING 
+.decl InexactFunctionArguments(func: Block)
+.decl InexactFunctionReturnArguments(func: Block)
 
+.output InexactFunctionArguments
+.output InexactFunctionReturnArguments
+
+.decl ExactFunctionArguments(func: Block)
+.decl ExactFunctionReturnArguments(func: Block)
+
+.output ExactFunctionArguments
+.output ExactFunctionReturnArguments
+
+ExactFunctionArguments(func) :-
+   NumberOfFunctionArguments(func, _),
+   !InexactFunctionArguments(func).
+
+ExactFunctionReturnArguments(func) :-
+   NumberOfFunctionReturnArguments(func, _),
+   !InexactFunctionReturnArguments(func).
+
+InexactFunctionArguments(func) :-
+   NumberOfFunctionArguments(func, delta),
+   NumberOfFunctionArguments(func, delta2),
+   delta != delta2.
+
+InexactFunctionReturnArguments(func) :-
+   NumberOfFunctionReturnArguments(func, delta),
+   NumberOfFunctionReturnArguments(func, delta2),
+   delta != delta2.
 
 NumberOfFunctionArguments(["0x0"], 0).
 
@@ -409,58 +492,57 @@ FunctionCallReturnArgument(caller, n, newVar) :-
   FRESH_VARIABLE(newVar, callStmt, n),
   StackIndexToString(n, n_str).
 
-// This is used to calculate an upper bound of the number of variables
-// a function may return.
-.decl ImpossibleFunctionReturnArguments(func: Block, stackIndex: StackIndex)
-
-ImpossibleFunctionReturnArguments(func, stackIndex) :-
-   BlockOutputContents(_, func, stackIndex, var),
-   !Function_Uses(func, var),
-   !Function_Defines(func, var).
-
-ImpossibleFunctionReturnArguments(func, n+1) :-
-   Function(func),
-   n = max stackIndex: BlockOutputContents(_, func, stackIndex, _).
-
-.decl NumberOfFunctionReturnArguments(func: Block, num: StackIndex)
-
-NumberOfFunctionReturnArguments(func, n) :-
-   n = min stackIndex: ImpossibleFunctionReturnArguments(func, stackIndex),
-   Function(func).
-
 // Renaming variables in functions
+// Involves Propagating variables, but doesn't require re-computing the CFG
 .decl FunctionalBlockInputContents(block:Block, index:number, var:Variable)
-.decl FunctionalBlockOutputContents(block:Block, index:number, var:Variable)
+.decl FunctionalBlockOutputContents(block:Block, next: Block, index:number, var:Variable)
 
 FunctionalBlockInputContents(func, n, var) :-
    FunctionArgument(func, n, var).
 
-FunctionalBlockInputContents(nextBlock, index, variable) :-
-  FunctionalBlockOutputContents(block, index, variable),
-  LocalBlockEdge(block, nextBlock).
+FunctionalBlockInputContents(next, index, variable) :-
+  FunctionalBlockOutputContents(_, next, index, variable).
 
-// TODO: There are three cases
-// 1) Normal block to block flow, i.e. no function calls from block to block
-FunctionalBlockOutputContents(caller, index, variable) :-
-  BeforeFunctionCallFunctionalBlockOutputContents(caller, index, variable),
-  !FunctionCall(caller, _).
+//TODO: output contents should be edge-based not block-based
 
-// 2) First block calls a function, take return args from function call
+// 1) Normal block to block flow, i.e. no unconditional function calls from block to block
+FunctionalBlockOutputContents(block, next, index, variable) :-
+  BeforeFunctionCallFunctionalBlockOutputContents(block, index, variable),
+  EnhancedLocalBlockEdge(block, next),
+  BlockEdge(_, block, _, next).
+
+// 2) Same, but for return blocks
+FunctionalBlockOutputContents(block, next, index, variable) :-
+   BeforeFunctionCallFunctionalBlockOutputContents(block, index, variable),
+   EnhancedLocalBlockEdge(block, next),
+   !FunctionCall(block, _).
+
+// 3) First block calls a function, take return args from function call
 .decl FunctionalStatement_Defines(callStmt:Statement, newVar:Variable, n: number)
 
-FunctionalBlockOutputContents(caller, n, newVar) :-
-  FunctionCallReturnArgument(caller, n, newVar).
+FunctionalBlockOutputContents(caller, next, n, newVar) :-
+   FunctionCallReturnArgument(caller, n, newVar),
+   // Note, we can ignore the exact identity of the called function,
+   // As fresh variables will be the same, we only care about the number of
+   // return arguments. With more sophisticated analysis, this could change.
+   FunctionCallReturn(caller, _, next).
 
-// 3) First block calls a function, take any remaining variables that have
+// 4) First block calls a function, take any remaining variables that have
 //    not been passed as arguments, and shift
-FunctionalBlockOutputContents(caller, newIndex, variable) :-
-  FunctionCall(caller, func),
-  NumberOfFunctionReturnArguments(func, n_out),
-  NumberOfFunctionArguments(func, n_in),
+FunctionalBlockOutputContents(caller, next, newIndex, variable) :-
+   FunctionCallReturn(caller, func, next),
+// Why do we need all this complexity? At first I modelled this by
+// considering the cross product of possible number of args, but
+// later created the notion of a composite function signature.
+// Should improve precision in some cases
+  //NumberOfFunctionReturnArguments(func, n_out),
+  //NumberOfFunctionArguments(func, n_in),
+  CompositeNumberOfFunctionAndReturnArguments(func, n_in, n_out),
   BeforeFunctionCallFunctionalBlockOutputContents(caller, index, variable),
   index >= n_in,
   newIndex = index+n_out-n_in,
-  newIndex >= 0.
+  newIndex >= 0,
+  newIndex < MAX_STACK_HEIGHT.
 
 .decl BeforeFunctionCallFunctionalBlockOutputContents(caller: Block, index: StackIndex, variable: Variable)
 
@@ -486,25 +568,24 @@ BeforeFunctionCallFunctionalBlockOutputContents(block, index, realVariable) :-
   LocalStackContents(stmt, index, stackIndex),
   CheckIsStackIndex(stackIndex).
 
-// TODO, add defines for function call return args
 
 // TODO, check case for function call
 FunctionalStatement_Uses_Local(stmt, varOrStackIndex, n) :-
   FunctionCall(block, func),
-  NumberOfFunctionArguments(func, n_in),
   BasicBlock_Tail(block, stmt),
   Statement_Opcode(stmt, opcode),
   OpcodePopWords(opcode, m),
+  NumberOfFunctionArguments(func, n_in),
   IsStackIndexLessThan(n, m+n_in),
   BeforeLocalStackContents(stmt, n, varOrStackIndex).
 
 // TODO, check case for function return
 FunctionalStatement_Uses_Local(stmt, varOrStackIndex, n) :-
   Function_Return(func, retBlock),
-  NumberOfFunctionReturnArguments(func, n_out),
   BasicBlock_Tail(retBlock, stmt),
   Statement_Opcode(stmt, opcode),
   OpcodePopWords(opcode, m),
+  NumberOfFunctionReturnArguments(func, n_out),
   IsStackIndexLessThan(n, m+n_out),
   BeforeLocalStackContents(stmt, n, varOrStackIndex).
 
