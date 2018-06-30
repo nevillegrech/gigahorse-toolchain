@@ -2,7 +2,7 @@
 // flow and detecting CFG edges (much like the original Vandal
 // decompiler) is here.
 
-#define MAX_STACK_HEIGHT 100
+#define MAX_STACK_HEIGHT 75
 #define CheckIsVariable(v) ((v) < 0)
 #define CheckIsStackIndex(v) ((v) >= 0, (v) < MAX_STACK_HEIGHT)
 #define FRESH_VARIABLE(var, stmt, stackIndex) (_StatementNum((stmt), _stmtNum), var=-0xFFFF+_stmtNum*MAX_STACK_HEIGHT+(stackIndex))
@@ -120,6 +120,7 @@ Statement_Block(stmt, block) :-
   Statement_Block(prevstmt, block),
   Statement_Next(prevstmt, stmt),
   !IsBasicBlockHead(stmt),
+//  !IsBasicBlockTail(prevstmt),
   block = [blockHead].
 
 Statement_Block(stmt, head) :-
@@ -528,3 +529,7 @@ Variable_Length(var, length) :-
 UnknownLength(var) :-
    IsVariable(var),
    !Variable_Length(var, _).
+
+
+// Fills disk too quickly
+//.output BlockOutputContents

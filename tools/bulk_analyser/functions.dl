@@ -1,3 +1,4 @@
+#define MAX_FUNCTION_ARGS (MAX_STACK_HEIGHT/4)
 /*****
  * Function discovery logic
  *****/
@@ -277,6 +278,7 @@ InFunction(next, func) :-
   FunctionCallReturn(block, _, next).
 
 .decl NumberOfFunctionArguments(func: Block, num: StackIndex)
+.output NumberOfFunctionArguments
 .decl NumberOfFunctionReturnArguments(func: Block, num: StackIndex)
 
 .decl EnhancedLocalBlockEdge(from: Block, to: Block)
@@ -323,11 +325,10 @@ EdgePopDelta(from, to, popDelta) :-
 .decl EdgeStackDelta(from: Block, to: Block, delta: StackIndex)
 
 EdgeStackDelta(from, to, newStackDelta) :-
+   CompositeNumberOfFunctionAndReturnArguments(func, n_args, n_ret),
    EnhancedLocalBlockEdge(from, to),
    !BlockEdge(_, from, _, to),
    FunctionCall(from, func),
-   NumberOfFunctionArguments(func, n_args),
-   NumberOfFunctionReturnArguments(func, n_ret),
    BlockStackDelta(from, stackDelta),
    newStackDelta = stackDelta-n_args+n_ret,
    newStackDelta < MAX_STACK_HEIGHT,
@@ -414,6 +415,11 @@ NumberOfFunctionReturnArguments(func, 0) :-
    Function(func),
    !Function_Return(func, _).
 
+.decl CandidateNumberOfFunctionArguments(func: Block, n: StackIndex)
+CandidateNumberOfFunctionArguments(func, n) :-
+   Function(func),
+   n = min delta : NumberOfFunctionArguments(func, delta).
+
 // This may improve precision, see further rant below
 .decl CompositeNumberOfFunctionAndReturnArguments(func: Block, n_in: StackIndex, n_out: StackIndex)
 
@@ -461,12 +467,14 @@ NumberOfFunctionArguments(["0x0"], 0).
 
 FunctionCallStmt(stmt) :-
    FunctionCall(block, _),
+   IsJump(stmt),
    BasicBlock_Tail(block, stmt).
    
 .decl FunctionReturnStmt(stmt: Statement)
 
 FunctionReturnStmt(stmt) :-
    Function_Return(_, block),
+   IsJump(stmt),
    BasicBlock_Tail(block, stmt).
    
 .decl FunctionArgument(func: Block, n: StackIndex, var: Variable)
@@ -481,7 +489,7 @@ Variable_String(var, var_rep) :-
 
 Variable_String(var, cat("arg",n_str)),
 FunctionArgument([funcStmt], n, var) :-
-  NumberOfFunctionArguments([funcStmt], n_args),
+  CandidateNumberOfFunctionArguments([funcStmt], n_args),
   IsStackIndexLessThan(n, n_args),
   FRESH_VARIABLE(var, funcStmt, n),
   StackIndexToString(n, n_str).
@@ -540,9 +548,9 @@ FunctionalBlockOutputContents(caller, next, newIndex, variable) :-
    // considering the cross product of possible number of args, but
    // later created the notion of a composite function signature.
    // Should improve precision in some cases
-   //NumberOfFunctionReturnArguments(func, n_out),
-   //NumberOfFunctionArguments(func, n_in),
-   CompositeNumberOfFunctionAndReturnArguments(func, n_in, n_out),
+   //CompositeNumberOfFunctionAndReturnArguments(func, n_in, n_out),
+   NumberOfFunctionReturnArguments(func, n_out),
+   CandidateNumberOfFunctionArguments(func, n_in),
    index >= n_in,
    newIndex = index+n_out-n_in,
    newIndex >= 0,
@@ -579,7 +587,7 @@ FunctionalStatement_Uses_Local(stmt, varOrStackIndex, n) :-
   BasicBlock_Tail(block, stmt),
   Statement_Opcode(stmt, opcode),
   OpcodePopWords(opcode, m),
-  NumberOfFunctionArguments(func, n_in),
+  CandidateNumberOfFunctionArguments(func, n_in),
   IsStackIndexLessThan(n, m+n_in),
   BeforeLocalStackContents(stmt, n, varOrStackIndex).
 

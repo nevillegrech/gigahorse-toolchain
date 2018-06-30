@@ -104,6 +104,11 @@ def renderBlock(k, stmts):
     if len(sorted_stmts) > BLOCK_SIZE_LIMIT:
         half_limit = int(BLOCK_SIZE_LIMIT/2)
         sorted_stmts = sorted_stmts[:half_limit] + ['...'] + sorted_stmts[-half_limit:]
+    print()
+    print('----------------------------------')
+    print('Begin block %s'%k)
+    print('----------------------------------')
+    print('\n'.join(sorted_stmts))
     return '\\l'.join(sorted_stmts) + '\\l'
 graph = pydot.Dot(graph_type='graph')
 

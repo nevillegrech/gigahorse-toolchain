@@ -2,8 +2,6 @@
 // three-address code representation (which is later input and
 // re-formatted for use by clients), statistics, debugging relations.
 
-// Fills disk too quickly
-//.output BlockOutputContents
 
 
 .decl InsBlockEdge(from: Statement, to:Statement)
@@ -13,9 +11,6 @@
 InsBlockEdge(from, to) :-
   BlockEdge(_, [from], _, [to]).
 
-.output Statement_BlockHead
-.output Statement_Opcode
-        
 .decl InsBlockJumpTarget(stmt:Statement, target: symbol)
 .output InsBlockJumpTarget       
 
