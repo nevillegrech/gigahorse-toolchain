@@ -2,12 +2,9 @@
 // three-address code representation (which is later input and
 // re-formatted for use by clients), statistics, debugging relations.
 
-
-
 .decl InsBlockEdge(from: Statement, to:Statement)
 .output InsBlockEdge
 
-        
 InsBlockEdge(from, to) :-
   BlockEdge(_, [from], _, [to]).
 
@@ -19,51 +16,17 @@ InsBlockJumpTarget(headStmt, target) :-
   ReachableContext(ctx, block),
   BlockJumpValidTarget(ctx, block, _, [target]).
 
-.decl PolymorphicTarget(headStmt: Statement)
-.output PolymorphicTarget      
-
-PolymorphicTarget(headStmt) :-
-  InsBlockJumpTarget(headStmt, target1),
-  InsBlockJumpTarget(headStmt, target2),
-  target1 != target2.
-
-.decl BlockJumpAnyTarget(headStmt:Statement)
-.output BlockJumpAnyTarget
-
-BlockJumpAnyTarget(headStmt) :-
-  BlockJumpTarget(ctx, [headStmt], targetVar),
-  Variable_Value(targetVar, target),
-  (DynamicValue(target) ; AnyValue(target)).
-
 .decl InsensBlockInputContents(block:Statement, index:number, var:Variable)
 .output InsensBlockInputContents
 
 InsensBlockInputContents(block, index, var) :-
   BlockInputContents(_, [block], index, var).
 
-.decl TosOutput(stmt: Statement, abc:symbol, valueOrStackIndex:number, xyz:symbol, opcode:symbol, delta:number)
-.output TosOutput      
-
-TosOutput(stmt, "::", valueOrStackIndex, "<-", opcode, delta) :-
-  LocalStackContents(stmt, 0, valueOrStackIndex),
-  Statement_Opcode(stmt, opcode),
-  StatementStackDelta(stmt, delta).
-
-.decl MissingInfo(stmt:Statement, opcode:Opcode)
-.output MissingInfo
-
-MissingInfo(stmt, opcode) :-
-  Statement_Opcode(stmt, opcode),
-  OpcodePushWords(opcode, n), n>0,
-  !LocalStackContents(stmt, 0, _),
-  !OpcodePossiblyHalts(opcode).
-
 .decl PublicFunctionEntryOut(stmt: Statement, sigHash: Value)
 .output PublicFunctionEntryOut
 
 PublicFunctionEntryOut(stmt, sigHash) :-
   PublicFunctionEntry([stmt], sigHash).
-
 
 /*
  ***********
@@ -327,3 +290,74 @@ FunctionArgument_Out(func, var_rep, n) :-
 
 LocalBlockEdge_Out(from, to) :-
    LocalBlockEdge([from], [to]).
+
+// Sanity checking and analytics
+
+.decl ReachableStatement(stmt: Statement)
+
+ReachableStatement(stmt) :-
+   ReachableContext(_, block),
+   Statement_Block(stmt, block).
+
+
+.decl Analytics_UnknownOperand(stmt:Statement)
+.output Analytics_UnknownOperand
+
+Analytics_UnknownOperand(stmt) :-
+   ReachableStatement(stmt),
+   Statement_Opcode(stmt, opcode),
+   OpcodePopWords(opcode, words),
+   IsStackIndexLessThan(n, words),
+   !FunctionalStatement_Uses_Local(stmt, _, n).
+
+.decl Analytics_MissingImplementation(stmt:Statement, opcode:Opcode)
+.output Analytics_MissingImplementation
+
+Analytics_MissingImplementation(stmt, opcode) :-
+   ReachableStatement(stmt),
+   Statement_Opcode(stmt, opcode),
+   OpcodePushWords(opcode, n), n>0,
+   !LocalStackContents(stmt, 0, _),
+   !OpcodePossiblyHalts(opcode).
+
+// Except return statements
+.decl Analytics_PolymorphicTarget(headStmt: Statement)
+.output Analytics_PolymorphicTarget      
+
+Analytics_PolymorphicTarget(headStmt) :-
+  ReachableStatement(headStmt),
+  InsBlockJumpTarget(headStmt, target1),
+  InsBlockJumpTarget(headStmt, target2),
+  !FunctionReturnStmt(headStmt),
+  target1 != target2.
+
+// Except return statements
+.decl Analytics_MissingJumpTarget(headStmt: Statement)
+.output Analytics_MissingJumpTarget      
+
+Analytics_MissingJumpTarget(headStmt) :-
+   BasicBlock_Tail(block, tail),
+   ReachableStatement(tail),
+   IsJump(tail),
+   block = [headStmt],
+   !InsBlockJumpTarget(headStmt, _).
+
+// Except return statements
+.decl Analytics_HasJumpTarget(headStmt: Statement)
+.output Analytics_HasJumpTarget      
+
+Analytics_HasJumpTarget(headStmt) :-
+   BasicBlock_Tail(block, tail),
+   IsJump(tail),
+   BasicBlock_Tail(block, head),
+   InsBlockJumpTarget(headStmt, _).
+
+
+.decl Analytics_BlockJumpAnyTarget(headStmt:Statement)
+.output Analytics_BlockJumpAnyTarget
+
+Analytics_BlockJumpAnyTarget(headStmt) :-
+  BlockJumpTarget(ctx, [headStmt], targetVar),
+  Variable_Value(targetVar, target),
+  (DynamicValue(target) ; AnyValue(target)).
+
