@@ -70,8 +70,6 @@ for k, index, v in special_block_colors:
     
 edges = parseCsv('InsBlockEdge')
 
-stmt_value = defaultdict(str, dict(parseCsv('PushValue')))
-
 opcodes = dict(parseCsv('Statement_Opcode'))
 
 def format_var(v):
