@@ -69,16 +69,10 @@ for k, index, v in special_block_colors:
         block_colors[s] = v
     
 edges = parseCsv('InsBlockEdge')
-stmts = parseCsv('Stmt_BasicBlockHead')
-
-stmtDict = defaultdict(list)
 
 stmt_value = defaultdict(str, dict(parseCsv('PushValue')))
 
 opcodes = dict(parseCsv('Statement_Opcode'))
-
-for stmt, block in stmts:
-    stmtDict[block].append(stmt)
 
 def format_var(v):
     if v in variable_value:
