@@ -120,7 +120,7 @@ Statement_Block(stmt, block) :-
   Statement_Block(prevstmt, block),
   Statement_Next(prevstmt, stmt),
   !IsBasicBlockHead(stmt),
-//  !IsBasicBlockTail(prevstmt),
+  !IsBasicBlockTail(prevstmt),
   block = [blockHead].
 
 Statement_Block(stmt, head) :-
