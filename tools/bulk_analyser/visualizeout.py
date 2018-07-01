@@ -70,8 +70,6 @@ for k, index, v in special_block_colors:
     
 edges = parseCsv('InsBlockEdge')
 
-opcodes = dict(parseCsv('Statement_Opcode'))
-
 def format_var(v):
     if v in variable_value:
         value = '('+variable_value[v]+')'
