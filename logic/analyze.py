@@ -51,9 +51,6 @@ DEFAULT_TIMEOUT = 120
 DEFAULT_MAX_ITER = -1
 """Default max analysis iteration count."""
 
-DEFAULT_BAILOUT = -1
-"""Default analysis bailout time in seconds."""
-
 DEFAULT_PATTERN = ".*runtime.hex"
 """Default filename pattern for contract files."""
 
@@ -165,20 +162,6 @@ parser.add_argument("-i",
                          "analysis iterations. Lower is faster, but "
                          "potentially less precise. A negative value specifies "
                          "no cap on the iteration count. No cap by default.")
-
-parser.add_argument("-t",
-                    "--bail_time",
-                    type=int,
-                    nargs="?",
-                    default=DEFAULT_BAILOUT,
-                    const=DEFAULT_BAILOUT,
-                    metavar="SECONDS",
-                    help="begin to terminate the analysis if it's looking to "
-                         "take more time than the specified number of seconds. "
-                         "Bailing out early may mean the analysis is not able "
-                         "to reach a fixed-point, so results may be less "
-                         "precise. A negative value means no cap on the "
-                         "running time. No cap by default.")
 
 parser.add_argument("-q",
                     "--quiet",
