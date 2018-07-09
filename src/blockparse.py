@@ -36,8 +36,8 @@ import typing as t
 import src.cfg as cfg
 import src.evm_cfg as evm_cfg
 import src.opcodes as opcodes
-import src.settings as settings
 
+STRICT = False
 ENDIANNESS = "big"
 """
 The endianness to use when parsing hexadecimal or binary files.
@@ -101,11 +101,11 @@ class EVMDasmParser(BlockParser):
         for i, l in enumerate(self._raw):
             if len(l.split()) == 1:
                 logging.debug("Line %s: invalid disassembly:\n   %s", i + 1, l.rstrip())
-                if settings.strict:
+                if STRICT:
                     raise RuntimeError("Line {}: invalid disassembly {}".format(i + 1, l))
                 continue
             elif len(l.split()) < 1:
-                if settings.strict:
+                if STRICT:
                     logging.warning("Line %s: empty disassembly.", i + 1)
                     raise RuntimeError("Line {}: empty disassembly.".format(i + 1))
                 continue
@@ -114,7 +114,7 @@ class EVMDasmParser(BlockParser):
                 self._ops.append(self.evm_op_from_dasm(l))
             except (ValueError, LookupError, NotImplementedError) as e:
                 logging.debug("Line %s: invalid disassembly:\n   %s", i + 1, l.rstrip())
-                if settings.strict:
+                if STRICT:
                     raise e
 
         return evm_cfg.blocks_from_ops(self._ops)
@@ -197,7 +197,7 @@ class EVMBytecodeParser(BlockParser):
 
             except LookupError as e:
                 # oops, unknown opcode
-                if settings.strict:
+                if STRICT:
                     logging.warning("(strict) Invalid opcode at PC = %#02x: %s", pc, str(e))
                     raise e
                 # not strict, so just log:

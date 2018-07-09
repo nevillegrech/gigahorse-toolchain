@@ -1,0 +1,69 @@
+#!/usr/bin/env python3
+
+
+# Standard lib imports
+import argparse
+import logging
+import sys
+from os.path import abspath, dirname, join
+
+
+# Prepend .. to $PATH so the project modules can be imported below
+src_path = join(dirname(abspath(__file__)), "..")
+sys.path.insert(0, src_path)
+
+# Local project imports
+import src.exporter as exporter
+import src.blockparse as blockparse
+
+# Configure argparse
+parser = argparse.ArgumentParser(
+    description="Fact generation for EVM bytecode disassembly.")
+
+parser.add_argument("-a",
+                    "--disassembly",
+                    action="store_true",
+                    default=False,
+                    help="decompile dissassembled input.")
+
+
+parser.add_argument("-v",
+                    "--verbose",
+                    action="store_true",
+                    help="emit verbose debug output to stderr.")
+
+parser.add_argument("infile",
+                    nargs="?",
+                    type=argparse.FileType("r"),
+                    default=sys.stdin,
+                    help="file from which decompiler input should be read "
+                         "(stdin by default).")
+
+parser.add_argument("outdir",
+                    nargs="?",
+                    const="",
+                    metavar="DIR",
+                    default=None,
+                    help="produce facts for original bytecode input.")
+
+# Parse the arguments.
+args = parser.parse_args()
+
+# Parse bytecode
+try:
+    logging.info("Reading from '%s'.", args.infile.name)
+    if args.disassembly:
+        blocks = blockparse.EVMDasmParser(args.infile).parse()
+    else:
+        bytecode = ''.join([l.strip() for l in args.infile if len(l.strip()) > 0])
+        blocks = blockparse.EVMBytecodeParser(bytecode).parse()
+    logging.info("Initial parsing completed.")
+
+# Catch a Control-C and exit with UNIX failure status 1
+except KeyboardInterrupt:
+    logging.critical("\nInterrupted by user")
+    sys.exit(1)
+
+logging.info("Writing facts to disk.")
+exporter.InstructionTsvExporter(blocks).export(output_dir=args.outdir)
+    
