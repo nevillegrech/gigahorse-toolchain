@@ -1,4 +1,5 @@
-### The Gigahorse decompiler and toolchain
+# The Gigahorse decompiler and toolchain
+A decompiler from low level EVM code to a higher level functional three address representation similar to LLVM IR or Jimple, and framework.
 
 
 ## Installation:

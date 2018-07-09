@@ -255,17 +255,15 @@ def analyse_contract(job_index: int, index: int, filename: str, result_queue) ->
                     vulns.append(fname.split(".")[0])
 
             meta = []
-            if cfg.has_unresolved_jump:
-                meta.append("unresolved")
 
             # Decompile + Analysis time
-            decomp_time = souffle_start - decomp_start
+            fact_time = souffle_start - decomp_start
             souffle_time = time.time() - souffle_start
             log("{}: {:.20}... completed in {:.2f} + {:.2f} secs".format(index, filename,
-                                                                         decomp_time,
+                                                                         fact_time,
                                                                          souffle_time))
 
-            analytics["decomp_time"] = decomp_time
+            analytics["fact_time"] = fact_time
             analytics["souffle_time"] = souffle_time
 
             result_queue.put((filename, vulns, meta, analytics))
