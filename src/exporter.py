@@ -68,10 +68,8 @@ class InstructionTsvExporter(Exporter):
 
             with open(path, 'w') as f:
                 writer = csv.writer(f, delimiter='\t', lineterminator='\n')
-                for e in entries:
-                    writer.writerow(e)
+                writer.writerows(entries)
         f=self.get_file_handle()
-        #generate("ops.facts", ops)
 
         statements = {'MISSING': []}
         for k, opcode in opcodes.OPCODES.items():

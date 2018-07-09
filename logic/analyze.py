@@ -51,9 +51,6 @@ DEFAULT_TIMEOUT = 120
 DEFAULT_MAX_ITER = -1
 """Default max analysis iteration count."""
 
-DEFAULT_BAILOUT = -1
-"""Default analysis bailout time in seconds."""
-
 DEFAULT_PATTERN = ".*runtime.hex"
 """Default filename pattern for contract files."""
 
@@ -166,20 +163,6 @@ parser.add_argument("-i",
                          "potentially less precise. A negative value specifies "
                          "no cap on the iteration count. No cap by default.")
 
-parser.add_argument("-t",
-                    "--bail_time",
-                    type=int,
-                    nargs="?",
-                    default=DEFAULT_BAILOUT,
-                    const=DEFAULT_BAILOUT,
-                    metavar="SECONDS",
-                    help="begin to terminate the analysis if it's looking to "
-                         "take more time than the specified number of seconds. "
-                         "Bailing out early may mean the analysis is not able "
-                         "to reach a fixed-point, so results may be less "
-                         "precise. A negative value means no cap on the "
-                         "running time. No cap by default.")
-
 parser.add_argument("-q",
                     "--quiet",
                     action="store_true",
@@ -272,17 +255,15 @@ def analyse_contract(job_index: int, index: int, filename: str, result_queue) ->
                     vulns.append(fname.split(".")[0])
 
             meta = []
-            if cfg.has_unresolved_jump:
-                meta.append("unresolved")
 
             # Decompile + Analysis time
-            decomp_time = souffle_start - decomp_start
+            fact_time = souffle_start - decomp_start
             souffle_time = time.time() - souffle_start
             log("{}: {:.20}... completed in {:.2f} + {:.2f} secs".format(index, filename,
-                                                                         decomp_time,
+                                                                         fact_time,
                                                                          souffle_time))
 
-            analytics["decomp_time"] = decomp_time
+            analytics["fact_time"] = fact_time
             analytics["souffle_time"] = souffle_time
 
             result_queue.put((filename, vulns, meta, analytics))
