@@ -1,35 +1,6 @@
 #!/usr/bin/env python3
 
-# BSD 3-Clause License
-#
-# Copyright (c) 2016, 2017, The University of Sydney. All rights reserved.
-#
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions are met:
-#
-# * Redistributions of source code must retain the above copyright notice, this
-#   list of conditions and the following disclaimer.
-#
-# * Redistributions in binary form must reproduce the above copyright notice,
-#   this list of conditions and the following disclaimer in the documentation
-#   and/or other materials provided with the distribution.
-#
-# * Neither the name of the copyright holder nor the names of its
-#   contributors may be used to endorse or promote products derived from
-#   this software without specific prior written permission.
-#
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-# DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
-# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-# OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-# OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
-"""analyse.py: batch analyses smart contracts and categorises them."""
+"""analyze.py: batch analyses smart contracts and categorises them."""
 
 ## IMPORTS
 
@@ -47,19 +18,16 @@ from multiprocessing import Process, SimpleQueue, Manager, Event
 from os.path import abspath, dirname, join
 
 # Add the source directory to the path to ensure the imports work
-src_path = join(dirname(abspath(__file__)), "../../")
+src_path = join(dirname(abspath(__file__)), "../")
 sys.path.insert(0, src_path)
 
 # Local project imports
-import src.dataflow as dataflow
-import src.tac_cfg as tac_cfg
-import src.opcodes as opcodes
 import src.exporter as exporter
-import src.settings as settings
+import src.blockparse as blockparse
 
 ## Constants
 
-DEFAULT_SOUFFLE_BIN = '../../../souffle/src/souffle'
+DEFAULT_SOUFFLE_BIN = '../../souffle/src/souffle'
 """Location of the Souffle binary."""
 
 DEFAULT_CONTRACT_DIR = 'contracts'
@@ -176,22 +144,6 @@ parser.add_argument("-k",
                     metavar="NUM",
                     help="Skip the the analysis of the first NUM contracts.")
 
-parser.add_argument("-c",
-                    "--config",
-                    metavar="CFG_STRING",
-                    help="override settings from the configuration files "
-                         "in the format \"key1=value1, key2=value2...\" "
-                         "(with the quotation marks).")
-
-parser.add_argument("-C",
-                    "--config_file",
-                    nargs="?",
-                    default=settings._CONFIG_LOC_,
-                    const=settings._CONFIG_LOC_,
-                    metavar="FILE",
-                    help="read the settings from the given file; "
-                         "any given settings will override the defaults.")
-
 parser.add_argument("-T",
                     "--timeout_secs",
                     type=int,
@@ -236,30 +188,6 @@ parser.add_argument("-q",
 
 
 # Functions
-
-def acquire_tsv_settings() -> None:
-    """
-    Determine, by examining the input datalog spec,
-    whether dominators or any particular opcode relations
-    need to be produced by the decompiler as tsv files.
-    """
-
-    global DOMINATORS
-    global OPCODES
-    dom_prefixes = ["dom", "pdom", "imdom", "impdom"]
-
-    with open(DEFAULT_SPEC_DL, 'r') as dl:
-        for line in dl:
-            splitline = line.strip().split()
-            if len(splitline) < 2:
-                continue
-            if splitline[0] == ".input":
-                op_name = splitline[1]
-                if op_name in dom_prefixes:
-                    DOMINATORS = True
-                if op_name.startswith("op_") and op_name[3:] in opcodes.OPCODES:
-                    OPCODES.append(op_name[3:])
-
 
 def working_dir(index: int, output_dir: bool = False) -> str:
     """
@@ -313,15 +241,16 @@ def analyse_contract(job_index: int, index: int, filename: str, result_queue) ->
         with open(join(args.contract_dir, filename)) as file:
             # Decompile and perform dataflow analysis upon the given graph
             decomp_start = time.time()
-            cfg = tac_cfg.TACGraph.from_bytecode(file)
-            #analytics = dataflow.analyse_graph(cfg)
+            bytecode = ''.join([l.strip() for l in file if len(l.strip()) > 0])
+            blocks = blockparse.EVMBytecodeParser(bytecode).parse()
+
             analytics = {}
 
             # Export relations to temp working directory
             backup_and_empty_working_dir(job_index)
             work_dir = working_dir(job_index)
             out_dir = working_dir(job_index, True)
-            exporter.InstructionTsvExporter(cfg).export(output_dir=work_dir)
+            exporter.InstructionTsvExporter(blocks).export(output_dir=work_dir)
                                       
             contract_filename = os.path.join(os.path.join(os.getcwd(), args.contract_dir), filename)
             with open(os.path.join(work_dir, 'contract_filename.txt'),'w') as f:
@@ -384,17 +313,6 @@ def flush_queue(period, run_sig,
 # Main Body
 
 args = parser.parse_args()
-settings.import_config(args.config_file)
-# Override config file with any provided settings.
-if args.config is not None:
-    pairs = [pair.split("=") for pair in args.config.replace(" ", "").split(",")]
-    for k, v in pairs:
-        settings.set_from_string(k, v)
-
-settings.max_iterations = args.max_iter
-settings.bailout_seconds = args.bail_time
-# Force analytics to be turned on.
-settings.collect_analytics = True
 
 log_level = logging.WARNING if args.quiet else logging.INFO + 1
 log = lambda msg: logging.log(logging.INFO + 1, msg)
@@ -406,9 +324,6 @@ log("Setting up working directory {}.".format(TEMP_WORKING_DIR))
 for i in range(args.jobs):
     os.makedirs(working_dir(i, True), exist_ok=True)
     empty_working_dir(i)
-
-log("Reading TSV settings.")
-acquire_tsv_settings()
 
 # Extract contract filenames.
 log("Processing contract names.")

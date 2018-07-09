@@ -1,6 +1,6 @@
 # Bulk analyser
 
-`analyse.py` is used to run an analysis on many contracts at a time.
+`analyze.py` is used to run an analysis on many contracts at a time.
 
 The program requires [souffle](https://github.com/souffle-lang/souffle) to be installed,
 and a datalog specification of the properties placed in `spec.dl` by default.
@@ -26,4 +26,4 @@ name placed in this list.
 which indicates that the decompiler was not able to resolve all jumps in the
 graph of a given contract.
 
-`analyse.py --help` for invocation instructions.
+`analyze.py --help` for invocation instructions.

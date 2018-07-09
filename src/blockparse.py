@@ -33,8 +33,7 @@ import abc
 import logging
 import typing as t
 
-import src.cfg as cfg
-import src.evm_cfg as evm_cfg
+import src.basicblock as basicblock
 import src.opcodes as opcodes
 
 STRICT = False
@@ -65,7 +64,7 @@ class BlockParser(abc.ABC):
         """
 
     @abc.abstractmethod
-    def parse(self) -> t.Iterable[cfg.BasicBlock]:
+    def parse(self) -> t.Iterable[basicblock.EVMBasicBlock]:
         """
         Parses the raw input object and returns an iterable of BasicBlocks.
         """
@@ -117,10 +116,10 @@ class EVMDasmParser(BlockParser):
                 if STRICT:
                     raise e
 
-        return evm_cfg.blocks_from_ops(self._ops)
+        return basicblock.blocks_from_ops(self._ops)
 
     @staticmethod
-    def evm_op_from_dasm(line: str) -> evm_cfg.EVMOp:
+    def evm_op_from_dasm(line: str) -> basicblock.EVMOp:
         """
         Creates and returns a new EVMOp object from a raw line of disassembly.
 
@@ -128,7 +127,7 @@ class EVMDasmParser(BlockParser):
           line: raw line of output from Ethereum's disasm disassembler.
 
         Returns:
-          evm_cfg.EVMOp: the constructed EVMOp
+          basicblock.EVMOp: the constructed EVMOp
         """
         toks = line.replace("=>", " ").split()
 
@@ -139,11 +138,11 @@ class EVMDasmParser(BlockParser):
         if len(toks) > 2:
             val = int(toks[2], 16)
             try:
-                return evm_cfg.EVMOp(int(toks[0]), opcodes.opcode_by_name(toks[1]), val)
+                return basicblock.EVMOp(int(toks[0]), opcodes.opcode_by_name(toks[1]), val)
             except LookupError as e:
-                return evm_cfg.EVMOp(int(toks[0]), opcodes.missing_opcode(val), val)
+                return basicblock.EVMOp(int(toks[0]), opcodes.missing_opcode(val), val)
         elif len(toks) > 1:
-            return evm_cfg.EVMOp(int(toks[0]), opcodes.opcode_by_name(toks[1]))
+            return basicblock.EVMOp(int(toks[0]), opcodes.opcode_by_name(toks[1]))
         else:
             raise NotImplementedError("Could not parse unknown disassembly format:" +
                                       "\n    {}".format(line))
@@ -178,7 +177,7 @@ class EVMBytecodeParser(BlockParser):
     def __has_more_bytes(self):
         return self.__pc < len(self._raw)
 
-    def parse(self) -> t.Iterable[evm_cfg.EVMBasicBlock]:
+    def parse(self) -> t.Iterable[basicblock.EVMBasicBlock]:
         """
         Parses the raw input object containing EVM bytecode
         and returns an iterable of EVMBasicBlocks.
@@ -213,7 +212,7 @@ class EVMBytecodeParser(BlockParser):
             if const_size > 0:
                 const = int.from_bytes(self.__consume(const_size), ENDIANNESS)
 
-            self._ops.append(evm_cfg.EVMOp(pc, op, const))
+            self._ops.append(basicblock.EVMOp(pc, op, const))
 
         # build basic blocks from the sequence of opcodes
-        return evm_cfg.blocks_from_ops(self._ops)
+        return basicblock.blocks_from_ops(self._ops)
