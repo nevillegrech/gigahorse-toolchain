@@ -269,13 +269,7 @@ InFunction(block, block) :-
 
 InFunction(next, func) :-
   InFunction(block, func),
-  BlockEdge(_, block, _, next),
-  !FunctionCall(block, next),
-  !Function_Return(_, block).
-
-InFunction(next, func) :-
-  InFunction(block, func),
-  FunctionCallReturn(block, _, next).
+  LocalBlockEdge(block, next).
 
 .decl NumberOfFunctionArguments(func: Block, num: StackIndex)
 .output NumberOfFunctionArguments
