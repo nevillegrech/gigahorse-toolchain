@@ -36,8 +36,8 @@ DEFAULT_CONTRACT_DIR = 'contracts'
 DEFAULT_RESULTS_FILE = 'results.json'
 """File to write results to by default."""
 
-DEFAULT_SPEC_DL = 'decompiler.dl'
-"""Vulnerability specification file."""
+DEFAULT_DECOMPILER_DL = 'decompiler.dl'
+"""Decompiler specification file."""
 
 DEFAULT_SOUFFLE_EXECUTABLE = 'decompiler_compiled'
 """Compiled vulnerability specification file."""
@@ -87,6 +87,13 @@ parser.add_argument("-S",
                     const=DEFAULT_SOUFFLE_BIN,
                     metavar="BINARY",
                     help="the location of the souffle binary.")
+
+parser.add_argument("-C",
+                    "--souffle_client",
+                    nargs="?",
+                    default=None,
+                    help="additional souffle client to run after decompilation.")
+
 
 parser.add_argument("-p",
                     "--filename_pattern",
@@ -201,8 +208,8 @@ def backup_and_empty_working_dir(index) -> None:
 
    empty_working_dir(index)
             
-def compile_datalog():
-    compilation_command = [args.souffle_bin, '-c', '-o', DEFAULT_SOUFFLE_EXECUTABLE, DEFAULT_SPEC_DL]
+def compile_datalog(spec, executable):
+    compilation_command = [args.souffle_bin, '-c', '-o', executable, spec]
     log("Compiling Datalog to C++ program and executable")
     process = subprocess.run(compilation_command, universal_newlines=True)
     assert not(process.returncode), "Compilation failed. Stopping."
@@ -246,6 +253,12 @@ def analyse_contract(job_index: int, index: int, filename: str, result_queue) ->
                              "--output={}".format(out_dir)
             ]
             subprocess.run(analysis_args)
+            if args.souffle_client:
+                analysis_args = [os.path.join(os.getcwd(), args.souffle_client+'_compiled'),
+                             "--facts={}".format(out_dir),
+                             "--output={}".format(out_dir)
+                ]
+                subprocess.run(analysis_args)
 
             # Collect the results and put them in the result queue
             vulns = []
@@ -299,7 +312,9 @@ log_level = logging.WARNING if args.quiet else logging.INFO + 1
 log = lambda msg: logging.log(logging.INFO + 1, msg)
 logging.basicConfig(format='%(message)s', level=log_level)
 
-compile_datalog()
+compile_datalog(DEFAULT_DECOMPILER_DL, DEFAULT_SOUFFLE_EXECUTABLE)
+if args.souffle_client:
+    compile_datalog(args.souffle_client, args.souffle_client+'_compiled')
 
 log("Setting up working directory {}.".format(TEMP_WORKING_DIR))
 for i in range(args.jobs):

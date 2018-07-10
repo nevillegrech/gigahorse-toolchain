@@ -1,3 +1,6 @@
+# TODO: all this functionality can be carefully removed since we don't require
+# the need for finding basic blocks during fact generation
+
 import typing as t
 
 import src.opcodes as opcodes

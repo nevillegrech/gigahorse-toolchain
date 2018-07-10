@@ -42,11 +42,6 @@ if __name__ == '__main__':
                     help="decompile dissassembled input.")
 
 
-    parser.add_argument("-v",
-                    "--verbose",
-                    action="store_true",
-                    help="emit verbose debug output to stderr.")
-
     parser.add_argument("infile",
                     nargs="?",
                     type=argparse.FileType("r"),
