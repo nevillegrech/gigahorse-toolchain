@@ -161,11 +161,11 @@ JUMPDEST(s) :- op(s, "JUMPDEST").
 PHI(s, fro, to) :-
    op(stmt, "PHI"),
    def(to, stmt),
-   use(fro, stmt).
+   use(fro, stmt, _).
 
-.decl PRIVATECALL(s: Statement, f: Variable)
-.decl PRIVATECALLI(s: Statement, f: Variable, cond: Variable) 
-.decl PRIVATERETURN(s: Statement, b: Variable)
-.decl PRIVATERETURNI(s: Statement, b: Variable, cond: Variable)
+.decl CALLPRIVATE(s: Statement, f: Variable)
+.decl CALLPRIVATEI(s: Statement, f: Variable, cond: Variable) 
+.decl RETURNPRIVATE(s: Statement, b: Variable)
+.decl RETURNPRIVATEI(s: Statement, b: Variable, cond: Variable)
 
 
