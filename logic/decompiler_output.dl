@@ -123,7 +123,7 @@ PHILocation(block, stackIndex, cat(cat(blockStr, "_"), stackIndexStr)) :-
 .output TAC_Def
 .decl TAC_Var(var: TACVariable)
 .output TAC_Var
-.decl TAC_Block(block: Statement, stmt: Statement)
+.decl TAC_Block(stmt: Statement, block: Statement)
 .output TAC_Block
 .decl TAC_Variable_Value(var: TACVariable, value: symbol)
 .output TAC_Variable_Value
@@ -241,11 +241,11 @@ TAC_Use(stmt, var_rep, n) :-
   Statement_Block(stmt, block),
   PHILocation(block, stackIndex, var_rep).
 
-TAC_Block(block, stmt) :-
+TAC_Block(stmt, block) :-
   Statement_Block(stmt, [block]),
   !TACNOP(stmt).
 
-TAC_Block(block, phiStmt) :-
+TAC_Block(phiStmt, block) :-
   PHILocation([block], _, phiStmt).
 //   DominatorFrontier([block], [frontier]).
 
