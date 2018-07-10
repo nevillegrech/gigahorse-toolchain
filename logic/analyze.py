@@ -312,7 +312,6 @@ log_level = logging.WARNING if args.quiet else logging.INFO + 1
 log = lambda msg: logging.log(logging.INFO + 1, msg)
 logging.basicConfig(format='%(message)s', level=log_level)
 
-import pdb; pdb.set_trace()
 compile_datalog(DEFAULT_DECOMPILER_DL, DEFAULT_SOUFFLE_EXECUTABLE)
 if args.souffle_client:
     compile_datalog(args.souffle_client, args.souffle_client+'_compiled')
