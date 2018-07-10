@@ -6,6 +6,8 @@
 #define CheckIsVariable(v) ((v) < 0)
 #define CheckIsStackIndex(v) ((v) >= 0, (v) < MAX_STACK_HEIGHT)
 #define FRESH_VARIABLE(var, stmt, stackIndex) (_StatementNum((stmt), _stmtNum), var=-0xFFFF+_stmtNum*MAX_STACK_HEIGHT+(stackIndex))
+#define FUNCTION_SELECTOR ["0x0"]
+
 
 #include "decompiler_instructions.dl"
 #include "decompiler_output.dl"

@@ -46,3 +46,5 @@ spec_compiled
 decompiler_compiled
 spec_compiled.cpp
 decompiler_compiled.cpp
+
+PublicFunctionSignature.dl

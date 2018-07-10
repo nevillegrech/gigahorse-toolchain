@@ -38,9 +38,9 @@ PublicFunctionEntryOut(stmt, sigHash) :-
 // There is a path from the entry to s that does not go through candidate
 .decl DoesNotDominate(candidate:Block, s:Block)
 
-DoesNotDominate(candidate, ["0x0"]) :-
+DoesNotDominate(candidate, FUNCTION_SELECTOR) :-
   Statement_Block(_, candidate),
-  candidate != ["0x0"].
+  candidate != FUNCTION_SELECTOR.
 
 DoesNotDominate(candidate,s) :-
   DoesNotDominate(candidate,other),
@@ -113,6 +113,8 @@ PHILocation(block, stackIndex, cat(cat(blockStr, "_"), stackIndexStr)) :-
 .symbol_type TACVariable
 
 // Final decompiler outputs
+// VERY IMPORTANT: IF YOU CHANGE THESE, PLEASE ALSO CHANGE
+// clientlogic/decompiler_inputs.dl 
 .decl TAC_Op(stmt:Statement, op:Opcode)
 .output TAC_Op             
 .decl TAC_Stmt(stmt:Statement)
@@ -291,6 +293,12 @@ FunctionArgument_Out(func, var_rep, n) :-
 LocalBlockEdge_Out(from, to) :-
    LocalBlockEdge([from], [to]).
 
+.decl HighLevelFunctionName_Out(func: Statement, name: symbol)
+.output HighLevelFunctionName_Out
+
+HighLevelFunctionName_Out(func, name) :-
+   HighLevelFunctionName([func], name).
+
 // Sanity checking and analytics
 
 .decl ReachableStatement(stmt: Statement)
@@ -360,4 +368,6 @@ Analytics_BlockJumpAnyTarget(headStmt) :-
   BlockJumpTarget(ctx, [headStmt], targetVar),
   Variable_Value(targetVar, target),
   (DynamicValue(target) ; AnyValue(target)).
+
+
 

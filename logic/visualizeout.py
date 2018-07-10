@@ -11,7 +11,7 @@ def parseCsv(name):
 
 def load_tac_blocks():
     out = defaultdict(list)
-    for b, s in parseCsv('TAC_Block'):
+    for s, b in parseCsv('TAC_Block'):
         out[b].append(s)
     def sortkey(a):
         try:
@@ -36,6 +36,7 @@ tac_blocks = defaultdict(list,load_tac_blocks())
 tac_use = load_tac_sorted('TAC_Use')
 tac_def = load_tac_sorted('TAC_Def')
 function_arguments = load_tac_sorted('FunctionArgument_Out')
+high_level_function_name = dict(parseCsv('HighLevelFunctionName_Out'))
 tac_op = dict(parseCsv('TAC_Op'))
 variable_value = dict(parseCsv('TAC_Variable_Value'))
 
@@ -81,7 +82,8 @@ def format_var(v):
 def renderBlock(k, stmts):
     sorted_stmts = []
     if k in functions:
-        sorted_stmts.append("function %s(%s)"%(k, ', '.join(map(format_var, function_arguments[k]))))
+        function_name = high_level_function_name[k]
+        sorted_stmts.append("function %s(%s)"%(function_name, ', '.join(map(format_var, function_arguments[k]))))
                             
     for s in stmts:
         op = tac_op[s]
