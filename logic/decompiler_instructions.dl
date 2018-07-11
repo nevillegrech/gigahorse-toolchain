@@ -5,7 +5,7 @@
 #include "decompiler_inputs.dl"
 
 .type Opcode
-.type Statement = symbol
+.type Statement 
 
 .decl Statement_Opcode(statement: Statement, opcode: Opcode)
 .input Statement_Opcode

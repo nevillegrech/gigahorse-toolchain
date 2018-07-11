@@ -42,13 +42,14 @@ PublicFunctionDispatcher(block, sigHash) :-
   BlockEdge(_, prev, _, block),
   PublicFunctionDispatcher(prev, _).
 
-PublicFunctionEntry([stmt], sigHash) :-
+PublicFunctionEntry(stmtBlock, sigHash) :-
   PublicFunctionDispatcher(block, sigHash),
   Statement_Block(jumpiStmt, block),
   JUMPI(jumpiStmt),
   BeforeLocalStackContents(jumpiStmt, _, labelvar),
   Variable_Value(labelvar, label),
   IsBasicBlockHead(stmt),
+  CastStatementToBlock(stmt, stmtBlock),
   ord(label) = ord(stmt).
 
 
@@ -114,9 +115,9 @@ PossiblyInFunction(retTarget, func) :-
 
 // A basic block can only belong to a single function
 // Solution: Pick one!
-NotRegularFunction([func2]) :-
-  PossiblyInFunction(block, [func1]),
-  PossiblyInFunction(block, [func2]),
+NotRegularFunction(func2) :-
+  PossiblyInFunction(block, func1),
+  PossiblyInFunction(block, func2),
   ord(func1) > ord(func2).
 
 // A function can only be entered by calling it
@@ -282,9 +283,9 @@ InFunction(next, func) :-
 
 EnhancedLocalBlockEdge(from, to) :- LocalBlockEdge(from, to).
 
-EnhancedLocalBlockEdge(from, ["invalid"]) :- InFunction(from, _), !LocalBlockEdge(from, _).
+EnhancedLocalBlockEdge(from, "invalid") :- InFunction(from, _), !LocalBlockEdge(from, _).
 
-EnhancedLocalBlockEdge(from, ["invalid"]) :- Function_Return(_, from).
+EnhancedLocalBlockEdge(from, "invalid") :- Function_Return(_, from).
 
 .decl EdgePopDelta(from: Block, to: Block, delta: StackIndex)
 
@@ -390,21 +391,21 @@ FunctionEdgePushDelta(from, to, stackDelta + popDelta) :-
 
 // We mostly care about a function's signature when it returns
 NumberOfFunctionArguments(func, delta) :-
-   FunctionEdgePopDelta(ret, ["invalid"], delta),
+   FunctionEdgePopDelta(ret, "invalid", delta),
    Function_Return(func, ret).
 
 NumberOfFunctionArguments(func, delta) :-
-   FunctionEdgePopDelta(block, ["invalid"], delta),
+   FunctionEdgePopDelta(block, "invalid", delta),
    InFunction(func, block),
    !Function_Return(func, _).
 
 // Same here
 NumberOfFunctionArguments(func, delta) :-
-   FunctionEdgePopDelta(block, ["invalid"], delta),
+   FunctionEdgePopDelta(block, "invalid", delta),
    InFunction(block, func).
 
 NumberOfFunctionReturnArguments(func, delta) :-
-   FunctionEdgePushDelta(ret, ["invalid"], delta),
+   FunctionEdgePushDelta(ret, "invalid", delta),
    Function_Return(func, ret).
 
 // default
@@ -421,8 +422,8 @@ CandidateNumberOfFunctionArguments(func, n) :-
 .decl CompositeNumberOfFunctionAndReturnArguments(func: Block, n_in: StackIndex, n_out: StackIndex)
 
 CompositeNumberOfFunctionAndReturnArguments(func, n_in, n_out) :-
-   FunctionEdgePopDelta(ret, ["invalid"], n_in),
-   FunctionEdgePushDelta(ret, ["invalid"], n_out),
+   FunctionEdgePopDelta(ret, "invalid", n_in),
+   FunctionEdgePushDelta(ret, "invalid", n_out),
    Function_Return(func, ret).
 
 // SANITY CHECKING 
@@ -485,10 +486,11 @@ Variable_String(var, var_rep) :-
    Statement_Defines(var_rep, var).
 
 Variable_String(var, cat("arg",n_str)),
-FunctionArgument([funcStmt], n, var) :-
-  CandidateNumberOfFunctionArguments([funcStmt], n_args),
+FunctionArgument(funcBlock, n, var) :-
+  CandidateNumberOfFunctionArguments(funcBlock, n_args),
   IsStackIndexLessThan(n, n_args),
-  FRESH_VARIABLE(var, funcStmt, n),
+  CastStatementToBlock(stmt, funcBlock),
+  FRESH_VARIABLE(var, stmt, n),
   StackIndexToString(n, n_str).
 
 Variable_String(newVar, cat(callStmt, cat("_", n_str))),
@@ -626,7 +628,6 @@ HighLevelFunctionName(func, name) :-
    PublicFunctionEntry(func, name),
    !PublicFunctionSignature(name, _).
 
-HighLevelFunctionName(func, name) :-
-   func = [name],
+HighLevelFunctionName(func, func) :-
    Function(func),
    !PublicFunctionEntry(func, _).

@@ -6,17 +6,22 @@
 #define CheckIsVariable(v) ((v) < 0)
 #define CheckIsStackIndex(v) ((v) >= 0, (v) < MAX_STACK_HEIGHT)
 #define FRESH_VARIABLE(var, stmt, stackIndex) (_StatementNum((stmt), _stmtNum), var=-0xFFFF+_stmtNum*MAX_STACK_HEIGHT+(stackIndex))
-#define FUNCTION_SELECTOR ["0x0"]
+#define FUNCTION_SELECTOR "0x0"
 
 
 #include "decompiler_instructions.dl"
 #include "decompiler_output.dl"
 #include "functions.dl"
 
-.type Block = [ head:Statement ]
+.type Block 
 .type Value = symbol
 .number_type Variable
 .number_type StackIndex
+
+.decl CastStmtToBlockSymbol(x:symbol, y:symbol)
+.decl CastStatementToBlock(s:Statement, b:Block)
+CastStmtToBlockSymbol(x,x) :- IsBasicBlockHead(x).
+CastStatementToBlock(x,y) :- CastStmtToBlockSymbol(x,y).
 
 .type VariableOrStackIndex = Variable | StackIndex
 
@@ -114,8 +119,9 @@ IsBasicBlockTail(statement) :-
 .decl Statement_BlockHead(statement:Statement, head:Statement)
 
 Statement_BlockHead(stmt, stmt),
-Statement_Block(stmt, [stmt]) :-
-  IsBasicBlockHead(stmt).
+Statement_Block(stmt, block) :-
+  IsBasicBlockHead(stmt),
+  CastStatementToBlock(stmt, block).
 
 Statement_BlockHead(stmt, blockHead),
 Statement_Block(stmt, block) :-
@@ -123,7 +129,7 @@ Statement_Block(stmt, block) :-
   Statement_Next(prevstmt, stmt),
   !IsBasicBlockHead(stmt),
   !IsBasicBlockTail(prevstmt),
-  block = [blockHead].
+  CastStatementToBlock(blockHead, block).
 
 Statement_Block(stmt, head) :-
   Statement_Block(prevstmt, head),
@@ -223,12 +229,13 @@ BlockJumpTarget(calleeCtx, callee, realVariable) :-
 
 .decl BlockJumpValidTarget(ctx:Context, block:Block, variable: Variable, target:Block)
 
-BlockJumpValidTarget(ctx, block, variable, [target]) :-
+BlockJumpValidTarget(ctx, block, variable, targetBlock) :-
   BlockJumpTarget(ctx, block, variable),
   Variable_Value(variable, value),
   ConcreteValue(value),
   ord(value) = ord(target),
-  JUMPDEST(target).
+  JUMPDEST(target),
+  CastStatementToBlock(target, targetBlock).
 /*
  ***********
  * Define semantics of instructions
@@ -373,11 +380,12 @@ ReachableContext(calleeCtx, callee) :-
   BlockEdge(_, _, calleeCtx, callee).
   
 .decl OriginalBlock(block:Block)
-OriginalBlock([stmt]) :-
+OriginalBlock(block) :-
   IsBasicBlockHead(stmt),
-  !Statement_Next(_, stmt).
+  !Statement_Next(_, stmt),
+  CastStatementToBlock(stmt, block).
 
-ReachableContext( [["<Initial Context>"]], block) :-
+ReachableContext( ["<Initial Context>"], block) :-
   OriginalBlock(block).
 
 .decl FallThroughStmt(stmt:Statement)
@@ -388,12 +396,13 @@ FallThroughStmt(stmt) :-
   Statement_Opcode(stmt, opcode),
   !OpcodePossiblyHalts(opcode).   
 
-BlockEdge(callerCtx, caller, ?mergeContextMacro, [fallthrough]) :-
+BlockEdge(callerCtx, caller, ?mergeContextMacro, fallthroughBlock) :-
   ReachableContext(callerCtx, caller),
   FallThroughStmt(stmt),
   Statement_Block(stmt, caller),
   Statement_Next(stmt, fallthrough),
   IsBasicBlockHead(fallthrough),
+  CastStatementToBlock(fallthrough, fallthroughBlock),
   ?mergeContextMacro = [caller].
 
 BlockEdge(callerCtx, caller, ?mergeContextMacro, callee) :-

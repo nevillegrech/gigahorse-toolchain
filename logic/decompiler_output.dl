@@ -4,31 +4,30 @@
 
 .output Statement_Next
 
-.decl InsBlockEdge(from: Statement, to:Statement)
+.decl InsBlockEdge(from: Block, to:Block)
 .output InsBlockEdge
 
 InsBlockEdge(from, to) :-
-  BlockEdge(_, [from], _, [to]).
+  BlockEdge(_, from, _, to).
 
-.decl InsBlockJumpTarget(stmt:Statement, target: symbol)
+.decl InsBlockJumpTarget(stmt:Block, target:Block)
 .output InsBlockJumpTarget       
 
-InsBlockJumpTarget(headStmt, target) :-
-  block = [headStmt],
+InsBlockJumpTarget(block, target) :-
   ReachableContext(ctx, block),
-  BlockJumpValidTarget(ctx, block, _, [target]).
+  BlockJumpValidTarget(ctx, block, _, target).
 
-.decl InsensBlockInputContents(block:Statement, index:number, var:Variable)
+.decl InsensBlockInputContents(block:Block, index:number, var:Variable)
 .output InsensBlockInputContents
 
 InsensBlockInputContents(block, index, var) :-
-  BlockInputContents(_, [block], index, var).
+  BlockInputContents(_, block, index, var).
 
-.decl PublicFunctionEntryOut(stmt: Statement, sigHash: Value)
+.decl PublicFunctionEntryOut(block: Block, sigHash: Value)
 .output PublicFunctionEntryOut
 
-PublicFunctionEntryOut(stmt, sigHash) :-
-  PublicFunctionEntry([stmt], sigHash).
+PublicFunctionEntryOut(block, sigHash) :-
+  PublicFunctionEntry(block, sigHash).
 
 /*
  ***********
@@ -105,11 +104,10 @@ PolymorphicStackIndex(block, stackIndex) :-
 // Find all polymorphic stackIndexes
 // These need phi instructions introduced at the dominance frontier
 .output PHILocation
-PHILocation(block, stackIndex, cat(cat(blockStr, "_"), stackIndexStr)) :-
+PHILocation(block, stackIndex, cat(cat(block, "_"), stackIndexStr)) :-
   PolymorphicStackIndex(block, stackIndex),
   Statement_Block(stmt, block),
   FunctionalStatement_Uses_Local(stmt, stackIndex, _),
-  block = [blockStr],
   StackIndexToString(stackIndex, stackIndexStr).
 
 .symbol_type TACVariable
@@ -127,16 +125,22 @@ PHILocation(block, stackIndex, cat(cat(blockStr, "_"), stackIndexStr)) :-
 .output TAC_Def
 .decl TAC_Var(var: TACVariable)
 .output TAC_Var
-.decl TAC_Block(stmt: Statement, block: Statement)
+.decl TAC_Block(stmt: Statement, block: Block)
 .output TAC_Block
 .decl TAC_Variable_Value(var: TACVariable, value: symbol)
 .output TAC_Variable_Value
 .decl TAC_Variable_Length(var: TACVariable, length: number)
 .output TAC_Variable_Length
 
+.decl CastStmtToTACVariableSymbol(x:symbol, y:symbol)
+.decl CastStatementToTACVariable(s:Statement, v:TACVariable)
+CastStmtToTACVariableSymbol(x,x) :- Statement_Opcode(x,_).
+CastStatementToTACVariable(x,y) :- CastStmtToTACVariableSymbol(x,y).
+
 // Normal variable, known length
-TAC_Variable_Value(stmt, value) :-
+TAC_Variable_Value(tacvar, value) :-
    FunctionalStatement_Defines(stmt, var, _),
+   CastStatementToTACVariable(stmt, tacvar),
    Variable_Value(var, value).
 
 UnknownLength(var) :-
@@ -145,9 +149,10 @@ UnknownLength(var) :-
   !Variable_Length(var, _).
 
 // Normal variable, unknown length
-TAC_Variable_Length(stmt, 32) :-
+TAC_Variable_Length(tacvar, 32) :-
    (FunctionalStatement_Defines(stmt, var, _) ;
     FunctionalStatement_Uses(stmt, var, _)),
+   CastStatementToTACVariable(stmt, tacvar),
    UnknownLength(var).
 
 // phi variable, unknown length
@@ -206,11 +211,12 @@ TAC_Op(stmt, op) :-
    !JUMPI(stmt).
    
 // Phi instructions
-TAC_Var(stmt),
-TAC_Def(stmt, stmt, 0),
+TAC_Var(tacvar),
+TAC_Def(stmt, tacvar, 0),
 TAC_Stmt(stmt),
 TAC_Op(stmt, "PHI") :-
-  PHILocation(_, _, stmt).
+  PHILocation(_, _, stmt),
+  CastStatementToTACVariable(stmt, tacvar).
 
 // Non-phi, non-call variable id same as stmt it is defined in
 TAC_Var(var_rep),
@@ -247,11 +253,11 @@ TAC_Use(stmt, var_rep, n) :-
   PHILocation(block, stackIndex, var_rep).
 
 TAC_Block(stmt, block) :-
-  Statement_Block(stmt, [block]),
+  Statement_Block(stmt, block),
   !TACNOP(stmt).
 
 TAC_Block(phiStmt, block) :-
-  PHILocation([block], _, phiStmt).
+  PHILocation(block, _, phiStmt).
 //   DominatorFrontier([block], [frontier]).
 
 
@@ -264,7 +270,7 @@ TAC_Block(phiStmt, block) :-
 .output FunctionCall_Out
 
 FunctionCall_Out(caller, func) :-
-  FunctionCall([caller], [func]).
+  FunctionCall(caller, func).
 
 .decl FunctionCallReturn_Out(caller:symbol, func:symbol, retTarget:symbol)
 .output FunctionCallReturn_Out
@@ -276,31 +282,31 @@ FunctionCall_Out(caller, func) :-
 .output Function_Out
 
 FunctionCallReturn_Out(caller, func, retTarget) :-
-  FunctionCallReturn([caller], [func], [retTarget]).
+  FunctionCallReturn(caller, func, retTarget).
 
-Function_Out(func) :- Function([func]).
+Function_Out(func) :- Function(func).
 
 Function_Return_Out(func, retBlock) :-
-   Function_Return([func], [retBlock]).
+   Function_Return(func, retBlock).
 
 .decl FunctionArgument_Out(func:symbol, var:symbol, n:number)
 .output FunctionArgument_Out
 
 FunctionArgument_Out(func, var_rep, n) :-
-   FunctionArgument([func], n, var),
+   FunctionArgument(func, n, var),
    Variable_String(var, var_rep).
 
 .decl LocalBlockEdge_Out(from: symbol, to: symbol)
 .output LocalBlockEdge_Out
 
 LocalBlockEdge_Out(from, to) :-
-   LocalBlockEdge([from], [to]).
+   LocalBlockEdge(from, to).
 
-.decl HighLevelFunctionName_Out(func: Statement, name: symbol)
+.decl HighLevelFunctionName_Out(func: Block, name: symbol)
 .output HighLevelFunctionName_Out
 
 HighLevelFunctionName_Out(func, name) :-
-   HighLevelFunctionName([func], name).
+   HighLevelFunctionName(func, name).
 
 // Sanity checking and analytics
 
@@ -337,38 +343,37 @@ Analytics_MissingImplementation(stmt, opcode) :-
 
 Analytics_PolymorphicTarget(headStmt) :-
   ReachableStatement(headStmt),
-  InsBlockJumpTarget(headStmt, target1),
-  InsBlockJumpTarget(headStmt, target2),
-  !FunctionReturnStmt(headStmt),
+  CastStatementToBlock(headStmt, block),
+  InsBlockJumpTarget(block, target1),
+  InsBlockJumpTarget(block, target2),
+  !Function_Return(_, block),
   target1 != target2.
 
 // Except return statements
-.decl Analytics_MissingJumpTarget(headStmt: Statement)
+.decl Analytics_MissingJumpTarget(block: Block)
 .output Analytics_MissingJumpTarget      
 
-Analytics_MissingJumpTarget(headStmt) :-
-   BasicBlock_Tail(block, tail),
-   ReachableStatement(tail),
-   IsJump(tail),
-   block = [headStmt],
-   !InsBlockJumpTarget(headStmt, _).
+Analytics_MissingJumpTarget(block) :-
+  BasicBlock_Tail(block, tail),
+  ReachableStatement(tail),
+  IsJump(tail),
+  !InsBlockJumpTarget(block, _).
 
 // Except return statements
-.decl Analytics_HasJumpTarget(headStmt: Statement)
+.decl Analytics_HasJumpTarget(block:Block)
 .output Analytics_HasJumpTarget      
 
-Analytics_HasJumpTarget(headStmt) :-
+Analytics_HasJumpTarget(block) :-
    BasicBlock_Tail(block, tail),
    IsJump(tail),
-   BasicBlock_Tail(block, head),
-   InsBlockJumpTarget(headStmt, _).
+   InsBlockJumpTarget(block, _).
 
 
-.decl Analytics_BlockJumpAnyTarget(headStmt:Statement)
+.decl Analytics_BlockJumpAnyTarget(block: Block)
 .output Analytics_BlockJumpAnyTarget
 
-Analytics_BlockJumpAnyTarget(headStmt) :-
-  BlockJumpTarget(ctx, [headStmt], targetVar),
+Analytics_BlockJumpAnyTarget(block) :-
+  BlockJumpTarget(ctx, block, targetVar),
   Variable_Value(targetVar, target),
   (DynamicValue(target) ; AnyValue(target)).
 
