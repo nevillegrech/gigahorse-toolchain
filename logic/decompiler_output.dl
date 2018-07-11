@@ -2,6 +2,8 @@
 // three-address code representation (which is later input and
 // re-formatted for use by clients), statistics, debugging relations.
 
+.output Statement_Next
+
 .decl InsBlockEdge(from: Statement, to:Statement)
 .output InsBlockEdge
 
@@ -176,6 +178,7 @@ TAC_Op(stmt, op) :-
    !FunctionCallStmt(stmt),
    !FunctionReturnStmt(stmt),
    !PushValue(stmt, _).
+
 
 TAC_Op(stmt, "CONST") :-
    PushValue(stmt, _).

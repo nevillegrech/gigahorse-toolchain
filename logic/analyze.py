@@ -176,6 +176,11 @@ parser.add_argument("-q",
                     default=False,
                     help="Silence output.")
 
+parser.add_argument("--no_compile",
+                    action="store_true",
+                    default=False,
+                    help="Silence output.")
+
 
 # Functions
 
@@ -312,7 +317,10 @@ log_level = logging.WARNING if args.quiet else logging.INFO + 1
 log = lambda msg: logging.log(logging.INFO + 1, msg)
 logging.basicConfig(format='%(message)s', level=log_level)
 
-compile_datalog(DEFAULT_DECOMPILER_DL, DEFAULT_SOUFFLE_EXECUTABLE)
+
+if not args.no_compile:
+    compile_datalog(DEFAULT_DECOMPILER_DL, DEFAULT_SOUFFLE_EXECUTABLE)
+
 if args.souffle_client:
     compile_datalog(args.souffle_client, args.souffle_client+'_compiled')
 
