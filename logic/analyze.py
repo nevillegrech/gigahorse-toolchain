@@ -438,7 +438,8 @@ try:
 
     total = len(res_list)
     log("{} of {} contracts flagged.\n".format(total_flagged, total))
-    for res, count in counts.items():
+    counts_sorted = sorted(list(counts.items()), key = lambda a: a[0])
+    for res, count in counts_sorted:
         log("  {}: {:.2f}%".format(res, 100 * count / total))
 
     log("\nWriting results to {}".format(args.results_file))
