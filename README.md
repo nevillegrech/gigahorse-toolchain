@@ -1,3 +1,5 @@
+![Gigahorse](https://vignette.wikia.nocookie.net/roadwarrior/images/e/ea/MMFR_Gigahorse-876x534.jpg/revision/latest?cb=20150427175606)
+=============================
 # The Gigahorse decompiler and toolchain
 A decompiler from low level EVM code to a higher level functional three address representation similar to LLVM IR or Jimple, and framework.
 
