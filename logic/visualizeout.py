@@ -36,14 +36,14 @@ tac_blocks = defaultdict(list,load_tac_blocks())
 tac_use = load_tac_sorted('TAC_Use')
 tac_def = load_tac_sorted('TAC_Def')
 function_arguments = load_tac_sorted('FunctionArgument_Out')
-high_level_function_name = dict(parseCsv('HighLevelFunctionName_Out'))
+high_level_function_name = dict(parseCsv('HighLevelFunctionName'))
 tac_op = dict(parseCsv('TAC_Op'))
 variable_value = dict(parseCsv('TAC_Variable_Value'))
 
 
 special_block_colors = (
-    ('Function_Out',0,"yellow"),
-    ('Function_Return_Out',1,"orange"),
+    ('Function',0,"yellow"),
+    ('Function_Return',1,"orange"),
 #    PublicFunctionEntryOut="yellow",
 #    ReturnTargetOriginatesIn="purple",
     #FunctionCallOut="grey",
@@ -51,13 +51,13 @@ special_block_colors = (
 
 
 function_calls = defaultdict(set)
-for k,v in parseCsv('FunctionCall_Out'):
+for k,v in parseCsv('FunctionCall'):
     function_calls[k].add(v)
 
 
-function_call_return = {a[0] : (a[1], a[2]) for a in parseCsv('FunctionCallReturn_Out')}
+function_call_return = {a[0] : (a[1], a[2]) for a in parseCsv('FunctionCallReturn')}
 
-functions = {a[0]  for a in parseCsv('Function_Out')}
+functions = {a[0]  for a in parseCsv('Function')}
 
 block_colors = defaultdict(lambda : "green")
 
@@ -123,7 +123,7 @@ for fro, to in edges:
         # return edge
         graph.add_edge(pydot.Edge("(%s) call %s"%(fro,to), nodeDict[ret], dir = 'forward', arrowHead = 'normal'))
         continue
-    if fro in block_property["Function_Return_Out"]:
+    if fro in block_property["Function_Return"]:
         continue
     graph.add_edge(pydot.Edge(nodeDict[fro], nodeDict[to], dir = 'forward', arrowHead = 'normal'))
 

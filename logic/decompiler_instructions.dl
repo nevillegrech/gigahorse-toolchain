@@ -28,6 +28,11 @@ TACNOP(stmt) :-
 
 TACNOP(stmt) :- POP(stmt) ; JUMPDEST(stmt).
 
+.decl MissingStatement(stmt: Statement)
+
+MissingStatement(stmt) :-
+  Statement_Opcode(stmt, "MISSING").
+
 .decl PushValue(stmt:Statement, v:Value)
 
 .decl IsJump(stmt:Statement)

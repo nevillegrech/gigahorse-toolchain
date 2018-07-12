@@ -1,6 +1,5 @@
 // The core of the decompiler logic. Most complex reasoning for value
-// flow and detecting CFG edges (much like the original Vandal
-// decompiler) is here.
+// flow and detecting CFG edges (much like the Vandal decompiler) is here.
 
 #define MAX_STACK_HEIGHT 75
 #define CheckIsVariable(v) ((v) < 0)
@@ -14,16 +13,17 @@
 #include "functions.dl"
 
 .type Block 
-.type Value = symbol
+.type Value
 .number_type Variable
 .number_type StackIndex
+.type VariableOrStackIndex = Variable | StackIndex
+
 
 .decl CastStmtToBlockSymbol(x:symbol, y:symbol)
 .decl CastStatementToBlock(s:Statement, b:Block)
 CastStmtToBlockSymbol(x,x) :- IsBasicBlockHead(x).
 CastStatementToBlock(x,y) :- CastStmtToBlockSymbol(x,y).
 
-.type VariableOrStackIndex = Variable | StackIndex
 
 .decl Variable_Value(variable: Variable, value: Value)
 
@@ -96,22 +96,25 @@ AnyValue("Any").
 .decl IsBasicBlockHead(statement:Statement)
 IsBasicBlockHead(statement) :-
   JUMPDEST(statement).
+
 IsBasicBlockHead(statement) :-
   JUMPI(prevStatement),
 //// REVIEW: check that this is equivalent
 //  Statement_Opcode(prevStatement, opcode),
 //  OpcodeAltersFlow(opcode),
   Statement_Next(prevStatement, statement).
+
 IsBasicBlockHead(statement) :-
   Statement_Opcode(statement, _),
   !Statement_Next(_, statement).  
 
-.decl IsBasicBlockTail(statement:Statement)
-IsBasicBlockTail(statement) :-
+.decl PossiblyIsBasicBlockTail(statement:Statement)
+
+PossiblyIsBasicBlockTail(statement) :-
   Statement_Opcode(statement, opcode),
   OpcodeAltersFlow(opcode).
 
-IsBasicBlockTail(statement) :-
+PossiblyIsBasicBlockTail(statement) :-
   Statement_Next(statement, labelstatement),
   JUMPDEST(labelstatement).
 
@@ -128,19 +131,16 @@ Statement_Block(stmt, block) :-
   Statement_Block(prevstmt, block),
   Statement_Next(prevstmt, stmt),
   !IsBasicBlockHead(stmt),
-  !IsBasicBlockTail(prevstmt),
+  !PossiblyIsBasicBlockTail(prevstmt),
+  !MissingStatement(prevstmt),
   CastStatementToBlock(blockHead, block).
-
-Statement_Block(stmt, head) :-
-  Statement_Block(prevstmt, head),
-  Statement_Next(prevstmt, stmt),
-  !IsBasicBlockHead(stmt).
 
 .decl BasicBlock_Tail(block:Block, tail:Statement)
 
 BasicBlock_Tail(block, tail) :-
-  Statement_Block(tail, block),
-  IsBasicBlockTail(tail).
+   Statement_Block(tail, block),
+   Statement_Next(tail, next),
+   !Statement_Block(next, block).
 
 
 /*
@@ -379,19 +379,12 @@ Variable_Value(var, dynamicvalue) :-
 ReachableContext(calleeCtx, callee) :-
   BlockEdge(_, _, calleeCtx, callee).
   
-.decl OriginalBlock(block:Block)
-OriginalBlock(block) :-
-  IsBasicBlockHead(stmt),
-  !Statement_Next(_, stmt),
-  CastStatementToBlock(stmt, block).
-
-ReachableContext( ["<Initial Context>"], block) :-
-  OriginalBlock(block).
+ReachableContext(["<Initial Context>"], FUNCTION_SELECTOR).
 
 .decl FallThroughStmt(stmt:Statement)
 
 FallThroughStmt(stmt) :-
-  IsBasicBlockTail(stmt),
+  BasicBlock_Tail(_, stmt),
   !JUMP(stmt),
   Statement_Opcode(stmt, opcode),
   !OpcodePossiblyHalts(opcode).   
@@ -474,7 +467,7 @@ StatementStackDelta(stmt, delta) :-
 
 StatementStackDelta(stmt, prevdelta + newdelta) :-
   StatementStackDelta(prevstmt, prevdelta),
-  !IsBasicBlockTail(prevstmt),
+  !BasicBlock_Tail(_, prevstmt),
   Statement_Next(prevstmt, stmt),
   Statement_Opcode(stmt, opcode),
   OpcodeStackDelta(opcode, newdelta).
@@ -491,7 +484,7 @@ StatementPopDelta(stmt, delta) :-
 
 StatementPopDeltaNew(stmt, prevPopDelta, popDelta - prevStackDelta) :-
   StatementPopDelta(prevstmt, prevPopDelta),
-  !IsBasicBlockTail(prevstmt),
+  !BasicBlock_Tail(_, prevstmt),
   StatementStackDelta(prevstmt, prevStackDelta),
   Statement_Next(prevstmt, stmt),
   Statement_Opcode(stmt, opcode),

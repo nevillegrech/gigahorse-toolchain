@@ -18,16 +18,11 @@ InsBlockJumpTarget(block, target) :-
   BlockJumpValidTarget(ctx, block, _, target).
 
 .decl InsensBlockInputContents(block:Block, index:number, var:Variable)
-.output InsensBlockInputContents
 
 InsensBlockInputContents(block, index, var) :-
   BlockInputContents(_, block, index, var).
 
-.decl PublicFunctionEntryOut(block: Block, sigHash: Value)
-.output PublicFunctionEntryOut
-
-PublicFunctionEntryOut(block, sigHash) :-
-  PublicFunctionEntry(block, sigHash).
+.output PublicFunctionEntry
 
 /*
  ***********
@@ -266,28 +261,10 @@ TAC_Block(phiStmt, block) :-
  *  Function-discovery outputs to visualization scripts
  ***********/
 
-.decl FunctionCall_Out(caller:symbol, func:symbol)
-.output FunctionCall_Out
-
-FunctionCall_Out(caller, func) :-
-  FunctionCall(caller, func).
-
-.decl FunctionCallReturn_Out(caller:symbol, func:symbol, retTarget:symbol)
-.output FunctionCallReturn_Out
-        
-.decl Function_Return_Out(func:symbol, retBlock:symbol)
-.output Function_Return_Out
-
-.decl Function_Out(func: symbol)
-.output Function_Out
-
-FunctionCallReturn_Out(caller, func, retTarget) :-
-  FunctionCallReturn(caller, func, retTarget).
-
-Function_Out(func) :- Function(func).
-
-Function_Return_Out(func, retBlock) :-
-   Function_Return(func, retBlock).
+.output FunctionCall
+.output FunctionCallReturn
+.output Function_Return
+.output Function
 
 .decl FunctionArgument_Out(func:symbol, var:symbol, n:number)
 .output FunctionArgument_Out
@@ -296,17 +273,8 @@ FunctionArgument_Out(func, var_rep, n) :-
    FunctionArgument(func, n, var),
    Variable_String(var, var_rep).
 
-.decl LocalBlockEdge_Out(from: symbol, to: symbol)
-.output LocalBlockEdge_Out
-
-LocalBlockEdge_Out(from, to) :-
-   LocalBlockEdge(from, to).
-
-.decl HighLevelFunctionName_Out(func: Block, name: symbol)
-.output HighLevelFunctionName_Out
-
-HighLevelFunctionName_Out(func, name) :-
-   HighLevelFunctionName(func, name).
+.output LocalBlockEdge
+.output HighLevelFunctionName
 
 // Sanity checking and analytics
 
@@ -342,8 +310,7 @@ Analytics_MissingImplementation(stmt, opcode) :-
 .output Analytics_PolymorphicTarget      
 
 Analytics_PolymorphicTarget(headStmt) :-
-  ReachableStatement(headStmt),
-  CastStatementToBlock(headStmt, block),
+  ReachableContext(_, block),
   InsBlockJumpTarget(block, target1),
   InsBlockJumpTarget(block, target2),
   !Function_Return(_, block),
@@ -355,7 +322,7 @@ Analytics_PolymorphicTarget(headStmt) :-
 
 Analytics_MissingJumpTarget(block) :-
   BasicBlock_Tail(block, tail),
-  ReachableStatement(tail),
+  ReachableContext(_, block),
   IsJump(tail),
   !InsBlockJumpTarget(block, _).
 
