@@ -130,6 +130,7 @@ PHILocation(block, stackIndex, cat(cat(block, "_"), stackIndexStr)) :-
 .decl CastStmtToTACVariableSymbol(x:symbol, y:symbol)
 .decl CastStatementToTACVariable(s:Statement, v:TACVariable)
 CastStmtToTACVariableSymbol(x,x) :- Statement_Opcode(x,_).
+CastStmtToTACVariableSymbol(x,x) :- PHILocation(_, _, x).
 CastStatementToTACVariable(x,y) :- CastStmtToTACVariableSymbol(x,y).
 
 // Normal variable, known length
@@ -288,9 +289,10 @@ ReachableStatement(stmt) :-
 .decl Analytics_UnknownOperand(stmt:Statement)
 .output Analytics_UnknownOperand
 
+//TODO: make this stronger
 Analytics_UnknownOperand(stmt) :-
    ReachableStatement(stmt),
-   Statement_Opcode(stmt, opcode),
+   TAC_Op(stmt, opcode),
    OpcodePopWords(opcode, words),
    IsStackIndexLessThan(n, words),
    !FunctionalStatement_Uses_Local(stmt, _, n).
@@ -306,10 +308,10 @@ Analytics_MissingImplementation(stmt, opcode) :-
    !OpcodePossiblyHalts(opcode).
 
 // Except return statements
-.decl Analytics_PolymorphicTarget(headStmt: Statement)
+.decl Analytics_PolymorphicTarget(block: Block)
 .output Analytics_PolymorphicTarget      
 
-Analytics_PolymorphicTarget(headStmt) :-
+Analytics_PolymorphicTarget(block) :-
   ReachableContext(_, block),
   InsBlockJumpTarget(block, target1),
   InsBlockJumpTarget(block, target2),
