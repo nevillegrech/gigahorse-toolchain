@@ -103,7 +103,7 @@ OperationIs("AND", "0xffffffffffffffffffffffff0000000000000000000000000000000000
 
 .decl DUPN(opcode:Opcode, n:number)
 
-DUPN(opcode, dupn - dup1) :-
+DUPN(opcode, dupn - dup1 + 1) :-
   OpcodeOrd(opcode, dupn),
   OpcodeIsDup(opcode),
   OpcodeOrd("DUP1", dup1).
