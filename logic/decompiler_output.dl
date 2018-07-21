@@ -301,7 +301,6 @@ Analytics_UnknownOperand(stmt) :-
 .output Analytics_MissingImplementation
 
 Analytics_MissingImplementation(stmt, opcode) :-
-   ReachableStatement(stmt),
    Statement_Opcode(stmt, opcode),
    OpcodePushWords(opcode, n), n>0,
    !LocalStackContents(stmt, 0, _),

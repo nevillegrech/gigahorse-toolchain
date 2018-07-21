@@ -53,7 +53,7 @@ if __name__ == '__main__':
                     nargs="?",
                     const="",
                     metavar="DIR",
-                    default=None,
+                    default="",
                     help="produce facts for original bytecode input.")
 
     # Parse the arguments.

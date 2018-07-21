@@ -245,10 +245,10 @@ BlockJumpValidTarget(ctx, block, variable, targetBlock) :-
 // Pop is modeled as a side-effect!
 LocalStackContents(stmt, n + delta, varOrStackIndex) :-
   BeforeLocalStackContents(stmt, n, varOrStackIndex),
-  n >= numRemoved,
   Statement_Opcode(stmt, opcode),
   OpcodeStackDelta(opcode, delta),
-  OpcodePopWords(opcode, numRemoved).
+  OpcodePopWords(opcode, numRemoved),
+  n >= numRemoved.
 
 // Base case, handles most cases
 LocalStackContents(stmt, 0, var) :-
@@ -419,6 +419,8 @@ NextStmtInBlock(prevStmt, stmt) :-
 BeforeLocalStackContents(stmt, n, variable) :-
   LocalStackContents(prevStmt, n, variable),
   NextStmtInBlock(prevStmt, stmt).
+
+.output BeforeLocalStackContents
 
 // Special case for block head (contains only stackIndexes). Initialize all
 // stack positions, from zero to max consumed (from the caller's stack) by
