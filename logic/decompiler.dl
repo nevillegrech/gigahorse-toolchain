@@ -118,6 +118,9 @@ PossiblyIsBasicBlockTail(statement) :-
   Statement_Next(statement, labelstatement),
   JUMPDEST(labelstatement).
 
+PossiblyIsBasicBlockTail(statement) :-
+  MissingStatement(statement).
+
 .decl Statement_Block(statement:Statement, block:Block)
 .decl Statement_BlockHead(statement:Statement, head:Statement)
 
@@ -132,7 +135,6 @@ Statement_Block(stmt, block) :-
   Statement_Next(prevstmt, stmt),
   !IsBasicBlockHead(stmt),
   !PossiblyIsBasicBlockTail(prevstmt),
-  !MissingStatement(prevstmt),
   CastStatementToBlock(blockHead, block).
 
 .decl BasicBlock_Tail(block:Block, tail:Statement)
