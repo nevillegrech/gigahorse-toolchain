@@ -142,6 +142,9 @@ BasicBlock_Tail(block, tail) :-
    Statement_Next(tail, next),
    !Statement_Block(next, block).
 
+BasicBlock_Tail(block, tail) :-
+   Statement_Block(tail, block),
+   !Statement_Next(tail, _).
 
 /*
  ***********
@@ -161,6 +164,8 @@ BasicBlock_Tail(block, tail) :-
 .decl LocalStackContents(stmt:Statement, index:StackIndex, variable:VariableOrStackIndex)
 
 .decl BeforeLocalStackContents(stmt:Statement, n:StackIndex, variable:VariableOrStackIndex)
+.output BeforeLocalStackContents
+
 
 .decl BlockEdge(callerCtx:Context, caller:Block, calleeCtx:Context, callee:Block)
 .decl ReachableContext(ctx:Context, block:Block)
