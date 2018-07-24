@@ -108,6 +108,9 @@ IsBasicBlockHead(statement) :-
   Statement_Opcode(statement, _),
   !Statement_Next(_, statement).  
 
+// Heuristic to separate code from data:
+// Anything in a basic block after an instruction that alters flow or
+// an invalid opcode is data.
 .decl PossiblyIsBasicBlockTail(statement:Statement)
 
 PossiblyIsBasicBlockTail(statement) :-
@@ -147,6 +150,10 @@ BasicBlock_Tail(block, tail) :-
 BasicBlock_Tail(block, tail) :-
    Statement_Block(tail, block),
    !Statement_Next(tail, _).
+
+.decl ValidStatement(stmt: Statement)
+
+ValidStatement(stmt) :- Statement_Block(stmt, _).
 
 /*
  ***********

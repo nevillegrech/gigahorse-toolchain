@@ -129,7 +129,7 @@ PHILocation(block, stackIndex, cat(cat(block, "_"), stackIndexStr)) :-
 
 .decl CastStmtToTACVariableSymbol(x:symbol, y:symbol)
 .decl CastStatementToTACVariable(s:Statement, v:TACVariable)
-CastStmtToTACVariableSymbol(x,x) :- Statement_Opcode(x,_).
+CastStmtToTACVariableSymbol(x,x) :- ValidStatement(x).
 CastStmtToTACVariableSymbol(x,x) :- PHILocation(_, _, x).
 CastStatementToTACVariable(x,y) :- CastStmtToTACVariableSymbol(x,y).
 
@@ -170,11 +170,12 @@ TAC_Variable_Length(phiStmt, maxLength) :-
 
 // Non-nop instructions
 TAC_Stmt(stmt) :-
-  Statement_Opcode(stmt, _),
+  ValidStatement(stmt),
   !TACNOP(stmt).
 
 TAC_Op(stmt, op) :-
    Statement_Opcode(stmt, op),
+   ValidStatement(stmt),
    !TACNOP(stmt),
    !FunctionCallStmt(stmt),
    !FunctionReturnStmt(stmt),
@@ -203,6 +204,7 @@ TAC_Op(stmt, "RETURNPRIVATE") :-
 TAC_Op(stmt, op) :-
    FunctionReturnStmt(stmt),
    Statement_Opcode(stmt, op),
+   ValidStatement(stmt),
    !JUMP(stmt),
    !JUMPI(stmt).
    
@@ -301,6 +303,7 @@ Analytics_UnknownOperand(stmt) :-
 .output Analytics_MissingImplementation
 
 Analytics_MissingImplementation(stmt, opcode) :-
+   ValidStatement(stmt),
    Statement_Opcode(stmt, opcode),
    OpcodePushWords(opcode, n), n>0,
    !LocalStackContents(stmt, 0, _),
@@ -337,13 +340,79 @@ Analytics_HasJumpTarget(block) :-
    InsBlockJumpTarget(block, _).
 
 
-.decl Analytics_BlockJumpAnyTarget(block: Block)
+.decl Analytics_BlockJumpAnyTarget(block: Block, stmt: Statement)
 .output Analytics_BlockJumpAnyTarget
 
-Analytics_BlockJumpAnyTarget(block) :-
+Analytics_BlockJumpAnyTarget(block, stmt) :-
   BlockJumpTarget(ctx, block, targetVar),
   Variable_Value(targetVar, target),
-  (DynamicValue(target) ; AnyValue(target)).
+  (DynamicValue(target) ; AnyValue(target)),
+  Statement_Defines(stmt, targetVar).
+
+.decl Analytics_JumpAnyTargetOnly(block: Block, stmt: Statement)
+.output Analytics_JumpAnyTargetOnly
+
+Analytics_JumpAnyTargetOnly(block, stmt) :-
+  Analytics_BlockJumpAnyTarget(block, stmt),
+  Analytics_MissingJumpTarget(block).
+
+// Sanity checking for functions
+
+.decl Analytics_InexactFunctionArguments(func: Block)
+.decl Analytics_InexactFunctionReturnArguments(func: Block)
+
+.output Analytics_InexactFunctionArguments
+.output Analytics_InexactFunctionReturnArguments
+
+.decl Analytics_ExactFunctionArguments(func: Block)
+.decl Analytics_ExactFunctionReturnArguments(func: Block)
+
+.output Analytics_ExactFunctionArguments
+.output Analytics_ExactFunctionReturnArguments
+
+Analytics_ExactFunctionArguments(func) :-
+   NumberOfFunctionArguments(func, _),
+   !Analytics_InexactFunctionArguments(func).
+
+Analytics_ExactFunctionReturnArguments(func) :-
+   NumberOfFunctionReturnArguments(func, _),
+   !Analytics_InexactFunctionReturnArguments(func).
+
+Analytics_InexactFunctionArguments(func) :-
+   NumberOfFunctionArguments(func, delta),
+   NumberOfFunctionArguments(func, delta2),
+   delta != delta2.
+
+Analytics_InexactFunctionReturnArguments(func) :-
+   NumberOfFunctionReturnArguments(func, delta),
+   NumberOfFunctionReturnArguments(func, delta2),
+   delta != delta2.
+
+.decl Analytics_BlockInMultipleFunctions(block: Block, func: Block)
+
+Analytics_BlockInMultipleFunctions(block, func) :-
+   InFunction(block, func),
+   InFunction(block2, func),
+   block != block2.
+
+.decl Analytics_BlockInNoFunctions(block: Block)
+
+Analytics_BlockInNoFunctions(block) :-
+   Statement_Block(_, block),
+   !InFunction(block, _).
+
+// Non-continuation address passed
+.decl Analytics_NonContinuationReturn(callerBlock: Block, retBlock: Block, target: Block)
+
+Analytics_NonContinuationReturn(callerBlock, retBlock, target) :-
+  BlockJumpValidTarget(_, retBlock, targetVariable, target),
+  BasicBlock_Tail(callerBlock, callerStmt),
+  callerBlock != retBlock,
+  IsJump(callerStmt),
+  Statement_Defines(otherCallerStatement, targetVariable),
+  Statement_Block(otherCallerStatement, callerBlock),
+  CastStatementToBlock(targetHead, target),
+  !Statement_Next(callerStmt, targetHead).
 
 
 
