@@ -91,7 +91,7 @@ class OpCode:
     def is_arithmetic(self) -> bool:
         """Predicate: opcode's result can be calculated from its inputs alone."""
         return (ADD.code <= self.code <= SIGNEXTEND.code) or \
-               (LT.code <= self.code <= BYTE.code)
+               (LT.code <= self.code <= SAR.code)
 
     def is_memory(self) -> bool:
         """Predicate: opcode operates on memory"""
@@ -174,6 +174,9 @@ OR = OpCode("OR", 0x17, 2, 1)
 XOR = OpCode("XOR", 0x18, 2, 1)
 NOT = OpCode("NOT", 0x19, 1, 1)
 BYTE = OpCode("BYTE", 0x1a, 2, 1)
+SHL = OpCode("SHL", 0x1b, 2, 1)
+SHR = OpCode("SHR", 0x1c, 2, 1)
+SAR = OpCode("SAR", 0x1d, 2, 1)
 
 SHA3 = OpCode("SHA3", 0x20, 2, 1)
 
