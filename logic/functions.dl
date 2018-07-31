@@ -426,37 +426,6 @@ CompositeNumberOfFunctionAndReturnArguments(func, n_in, n_out) :-
    FunctionEdgePushDelta(ret, "invalid", n_out),
    Function_Return(func, ret).
 
-// SANITY CHECKING 
-.decl InexactFunctionArguments(func: Block)
-.decl InexactFunctionReturnArguments(func: Block)
-
-.output InexactFunctionArguments
-.output InexactFunctionReturnArguments
-
-.decl ExactFunctionArguments(func: Block)
-.decl ExactFunctionReturnArguments(func: Block)
-
-.output ExactFunctionArguments
-.output ExactFunctionReturnArguments
-
-ExactFunctionArguments(func) :-
-   NumberOfFunctionArguments(func, _),
-   !InexactFunctionArguments(func).
-
-ExactFunctionReturnArguments(func) :-
-   NumberOfFunctionReturnArguments(func, _),
-   !InexactFunctionReturnArguments(func).
-
-InexactFunctionArguments(func) :-
-   NumberOfFunctionArguments(func, delta),
-   NumberOfFunctionArguments(func, delta2),
-   delta != delta2.
-
-InexactFunctionReturnArguments(func) :-
-   NumberOfFunctionReturnArguments(func, delta),
-   NumberOfFunctionReturnArguments(func, delta2),
-   delta != delta2.
-
 NumberOfFunctionArguments(FUNCTION_SELECTOR, 0).
 
 //TODO

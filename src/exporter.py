@@ -56,6 +56,8 @@ class InstructionTsvExporter(Exporter):
         else:
             return open('/tmp/tmp', 'w')
 
+    #def generate_interface(self):
+        
     def export(self, output_dir = ""):
         """
         Print basic block info to tsv.
