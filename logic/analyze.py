@@ -230,7 +230,7 @@ def compile_datalog(spec, executable):
     assert not(process.returncode), "Compilation failed. Stopping."
     
     
-def analyze_contract(job_index: int, index: int, filename: str, result_queue) -> None:
+def analyze_contract(job_index: int, index: int, filename: str, result_queue, timeout) -> None:
     """
     Perform dataflow analysis on a contract, storing the result in the queue.
     This is a worker function to be passed to a subprocess.
@@ -311,7 +311,7 @@ def get_gigahorse_analytics(out_dir, analytics):
         stat_name = fname.split(".")[0][10:]
         analytics['stat_name'] = len(open(fname).read().split('\n'))
 
-def analyze_contract_porosity(job_index: int, index: int, filename: str, result_queue) -> None:
+def analyze_contract_porosity(job_index: int, index: int, filename: str, result_queue, timeout: int) -> None:
     try:
         contract_filename = os.path.join(os.path.join(os.getcwd(), args.contract_dir), filename)
         analytics = {}
@@ -320,7 +320,7 @@ def analyze_contract_porosity(job_index: int, index: int, filename: str, result_
                          '--decompile', '--code-file', contract_filename]
         f = open(out_dir+'/out.txt', "w")
         start_time = time.time()
-        subprocess.run(analysis_args, stdout = f, timeout = args.timeout)
+        subprocess.run(analysis_args, stdout = f, timeout = timeout)
         f.close()
         porosity_time = time.time() - start_time
 
@@ -433,7 +433,7 @@ try:
             try:
                 index, fname = next(contract_iter)
                 job_index = avail_jobs.pop()
-                proc = Process(target=analyze_function, args=(job_index, index, fname, res_queue))
+                proc = Process(target=analyze_function, args=(job_index, index, fname, res_queue, args.timeout))
                 proc.start()
                 start_time = time.time()
                 workers.append({"name": fname,
