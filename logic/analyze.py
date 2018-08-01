@@ -337,7 +337,6 @@ def analyze_contract_porosity(job_index: int, index: int, filename: str, result_
         porosity_time = time.time() - start_time
 
         output = open(out_dir+'/out.txt').read()
-        analytics['output'] = output
         analytics['functions'] = output.count('function ')
         analytics["fact_time"] = porosity_time
         result_queue.put((filename, [], [], analytics))
