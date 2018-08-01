@@ -301,6 +301,16 @@ def analyze_contract(job_index: int, index: int, filename: str, result_queue) ->
         result_queue.put((filename, [], ["error"], {}))
 
 
+def get_gigahorse_analytics(out_dir, analytics):
+    functions = open(out_dir).read().split('\n')
+    analytics['functions'] = len(functions)
+    for fname in os.listdir(out_dir):
+        fpath = join(out_dir, fname)
+        if not fname.startswith('Analytics_'):
+            continue
+        stat_name = fname.split(".")[0][10:]
+        analytics['stat_name'] = len(open(fname).read().split('\n'))
+
 def analyze_contract_porosity(job_index: int, index: int, filename: str, result_queue) -> None:
     try:
         contract_filename = os.path.join(os.path.join(os.getcwd(), args.contract_dir), filename)
@@ -310,7 +320,7 @@ def analyze_contract_porosity(job_index: int, index: int, filename: str, result_
                          '--decompile', '--code-file', contract_filename]
         f = open(out_dir+'/out.txt', "w")
         start_time = time.time()
-        subprocess.run(analysis_args, stdout = f)
+        subprocess.run(analysis_args, stdout = f, timeout = args.timeout)
         f.close()
         porosity_time = time.time() - start_time
 
