@@ -9,6 +9,7 @@ import itertools
 import json
 import logging
 import os
+import signal
 import re
 import subprocess
 import sys
@@ -311,6 +312,7 @@ def get_gigahorse_analytics(out_dir, analytics):
         stat_name = fname.split(".")[0][10:]
         analytics['stat_name'] = len(open(fname).read().split('\n'))
 
+
 def analyze_contract_porosity(job_index: int, index: int, filename: str, result_queue, timeout: int) -> None:
     try:
         contract_filename = os.path.join(os.path.join(os.getcwd(), args.contract_dir), filename)
@@ -320,7 +322,17 @@ def analyze_contract_porosity(job_index: int, index: int, filename: str, result_
                          '--decompile', '--code-file', contract_filename]
         f = open(out_dir+'/out.txt', "w")
         start_time = time.time()
-        subprocess.run(analysis_args, stdout = f, timeout = timeout)
+        p = subprocess.Popen(analysis_args, stdout = f)
+        while True:
+            elapsed_time = time.time() - start_time
+            if elapsed_time >= timeout:
+                os.kill(p.pid, signal.SIGTERM)
+                result_queue.put((filename, [], ["TIMEOUT"], {}))
+                log("{} timed out.".format(filename))
+                return
+            if p.poll() is not None:
+                break
+            time.sleep(0.1)
         f.close()
         porosity_time = time.time() - start_time
 
@@ -328,6 +340,7 @@ def analyze_contract_porosity(job_index: int, index: int, filename: str, result_
         analytics['output'] = output
         analytics['functions'] = output.count('function ')
         analytics["fact_time"] = porosity_time
+        result_queue.put((filename, [], [], analytics))
         log("{}: {:.20}... completed in {:.2f} secs".format(index, filename, porosity_time))
     except Exception as e:
         log("Error: {}".format(e))
@@ -453,7 +466,7 @@ try:
                 name = workers[i]["name"]
                 job_index = workers[i]["job_index"]
 
-                if time.time() - start_time > args.timeout_secs:
+                if time.time() - start_time > (args.timeout_secs + 1):
                     res_queue.put((name, [], ["TIMEOUT"], {}))
                     proc.terminate()
                     log("{} timed out.".format(name))
