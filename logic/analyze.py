@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-"""analyze.py: batch analyses smart contracts and categorises them."""
+"""analyze.py: batch analyzes smart contracts and categorises them."""
 
 ## IMPORTS
 
@@ -29,6 +29,9 @@ import src.blockparse as blockparse
 
 DEFAULT_SOUFFLE_BIN = '../../souffle/src/souffle'
 """Location of the Souffle binary."""
+
+DEFAULT_POROSITY_BIN = 'porosity'
+"""Location of the porosity binary."""
 
 DEFAULT_CONTRACT_DIR = 'contracts'
 """Directory to fetch contract files from by default."""
@@ -69,7 +72,7 @@ DEFAULT_NUM_JOBS = 4
 # Command Line Arguments
 
 parser = argparse.ArgumentParser(
-    description="A batch analyser for EVM bytecode programs.")
+    description="A batch analyzer for EVM bytecode programs.")
 
 parser.add_argument("-d",
                     "--contract_dir",
@@ -118,7 +121,7 @@ parser.add_argument("-f",
                     default=None,
                     metavar="FILE",
                     help="A file to extract the filenames of the contracts "
-                         "to analyse from, rather than simply processing all "
+                         "to analyze from, rather than simply processing all "
                          "files in the contracts directory.")
 
 parser.add_argument("-j",
@@ -181,6 +184,13 @@ parser.add_argument("--no_compile",
                     default=False,
                     help="Silence output.")
 
+parser.add_argument("--porosity",
+                    nargs="?",
+                    default=DEFAULT_POROSITY_BIN,
+                    const=DEFAULT_POROSITY_BIN,
+                    metavar="BINARY",
+                    help="Use the Porosity decompiler.")
+
 
 # Functions
 
@@ -220,21 +230,21 @@ def compile_datalog(spec, executable):
     assert not(process.returncode), "Compilation failed. Stopping."
     
     
-def analyse_contract(job_index: int, index: int, filename: str, result_queue) -> None:
+def analyze_contract(job_index: int, index: int, filename: str, result_queue) -> None:
     """
     Perform dataflow analysis on a contract, storing the result in the queue.
     This is a worker function to be passed to a subprocess.
 
     Args:
-        job_index: the job number for this invocation of analyse_contract
-        index: the number of the particular contract being analysed
+        job_index: the job number for this invocation of analyze_contract
+        index: the number of the particular contract being analyzed
         filename: the location of the contract bytecode file to process
         result_queue: a multiprocessing queue in which to store the analysis results
     """
 
     try:
         with open(join(args.contract_dir, filename)) as file:
-            # Decompile and perform dataflow analysis upon the given graph
+            # Disassemble contract
             decomp_start = time.time()
             bytecode = ''.join([l.strip() for l in file if len(l.strip()) > 0])
             blocks = blockparse.EVMBytecodeParser(bytecode).parse()
@@ -291,6 +301,29 @@ def analyse_contract(job_index: int, index: int, filename: str, result_queue) ->
         result_queue.put((filename, [], ["error"], {}))
 
 
+def analyze_contract_porosity(job_index: int, index: int, filename: str, result_queue) -> None:
+    try:
+        contract_filename = os.path.join(os.path.join(os.getcwd(), args.contract_dir), filename)
+        analytics = {}
+        out_dir = working_dir(job_index, True)
+        analysis_args = [DEFAULT_POROSITY_BIN,
+                         '--decompile', '--code-file', contract_filename]
+        f = open(out_dir+'/out.txt', "w")
+        start_time = time.time()
+        subprocess.run(analysis_args, stdout = f)
+        f.close()
+        porosity_time = time.time() - start_time
+
+        output = open(out_dir+'/out.txt').read()
+        analytics['output'] = output
+        analytics['functions'] = output.count('function ')
+        analytics["fact_time"] = porosity_time
+        log("{}: {:.20}... completed in {:.2f} secs".format(index, filename, porosity_time))
+    except Exception as e:
+        log("Error: {}".format(e))
+        result_queue.put((filename, [], ["error"], {}))
+    
+
 def flush_queue(period, run_sig,
                 result_queue, result_list):
     """
@@ -317,6 +350,8 @@ log_level = logging.WARNING if args.quiet else logging.INFO + 1
 log = lambda msg: logging.log(logging.INFO + 1, msg)
 logging.basicConfig(format='%(message)s', level=log_level)
 
+if args.porosity:
+    args.no_compile = True
 
 if not args.no_compile:
     compile_datalog(DEFAULT_DECOMPILER_DL, DEFAULT_SOUFFLE_EXECUTABLE)
@@ -373,6 +408,12 @@ avail_jobs = list(range(args.jobs))
 contract_iter = enumerate(to_process)
 contracts_exhausted = False
 
+if args.porosity:
+    analyze_function = analyze_contract_porosity
+else:
+    analyze_function = analyze_contract
+    
+
 log("Analysing...\n")
 try:
     while not contracts_exhausted:
@@ -382,7 +423,7 @@ try:
             try:
                 index, fname = next(contract_iter)
                 job_index = avail_jobs.pop()
-                proc = Process(target=analyse_contract, args=(job_index, index, fname, res_queue))
+                proc = Process(target=analyze_function, args=(job_index, index, fname, res_queue))
                 proc.start()
                 start_time = time.time()
                 workers.append({"name": fname,
@@ -393,7 +434,7 @@ try:
                 contracts_exhausted = True
 
         # Loop until some process terminates (to retask it) or,
-        # if there are no unanalysed contracts left, until currently-running contracts are done
+        # if there are no unanalyzed contracts left, until currently-running contracts are done
         while len(avail_jobs) == 0 or (contracts_exhausted and 0 < len(workers)):
             to_remove = []
             for i in range(len(workers)):
