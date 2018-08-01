@@ -433,7 +433,7 @@ try:
             try:
                 index, fname = next(contract_iter)
                 job_index = avail_jobs.pop()
-                proc = Process(target=analyze_function, args=(job_index, index, fname, res_queue, args.timeout))
+                proc = Process(target=analyze_function, args=(job_index, index, fname, res_queue, args.timeout_secs))
                 proc.start()
                 start_time = time.time()
                 workers.append({"name": fname,
