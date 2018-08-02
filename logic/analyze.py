@@ -187,14 +187,11 @@ parser.add_argument("--no_compile",
 
 parser.add_argument("--porosity",
                     nargs="?",
-                    default=DEFAULT_POROSITY_BIN,
                     const=DEFAULT_POROSITY_BIN,
                     metavar="BINARY",
                     help="Use the Porosity decompiler.")
 
-
 # Functions
-
 def working_dir(index: int, output_dir: bool = False) -> str:
     """
     Return a path to the working directory for the job
@@ -295,6 +292,8 @@ def analyze_contract(job_index: int, index: int, filename: str, result_queue, ti
             analytics["fact_time"] = fact_time
             analytics["souffle_time"] = souffle_time
 
+            get_gigahorse_analytics(out_dir, analytics)
+
             result_queue.put((filename, vulns, meta, analytics))
 
     except Exception as e:
@@ -303,15 +302,31 @@ def analyze_contract(job_index: int, index: int, filename: str, result_queue, ti
 
 
 def get_gigahorse_analytics(out_dir, analytics):
-    functions = open(out_dir).read().split('\n')
-    analytics['functions'] = len(functions)
     for fname in os.listdir(out_dir):
         fpath = join(out_dir, fname)
         if not fname.startswith('Analytics_'):
             continue
         stat_name = fname.split(".")[0][10:]
-        analytics['stat_name'] = len(open(fname).read().split('\n'))
+        analytics[stat_name] = len(open(os.path.join(out_dir, fname)).read().split('\n'))
 
+def run_process(args, stdout, timeout: int) -> float:
+    ''' Runs process described by args, for a specific time period
+    as specified by the timeout.
+
+    Returns the time it took to run the process and -1 if the process
+    times out
+    '''
+    start_time = time.time()
+    p = subprocess.Popen(args, stdout = stdout)
+    while True:
+        elapsed_time = time.time() - start_time
+        if p.poll() is not None:
+            break
+        if elapsed_time >= timeout:
+            os.kill(p.pid, signal.SIGTERM)
+            return -1
+        time.sleep(0.1)
+    return elapsed_time
 
 def analyze_contract_porosity(job_index: int, index: int, filename: str, result_queue, timeout: int) -> None:
     try:
@@ -321,21 +336,12 @@ def analyze_contract_porosity(job_index: int, index: int, filename: str, result_
         analysis_args = [DEFAULT_POROSITY_BIN,
                          '--decompile', '--code-file', contract_filename]
         f = open(out_dir+'/out.txt', "w")
-        start_time = time.time()
-        p = subprocess.Popen(analysis_args, stdout = f)
-        while True:
-            elapsed_time = time.time() - start_time
-            if elapsed_time >= timeout:
-                os.kill(p.pid, signal.SIGTERM)
-                result_queue.put((filename, [], ["TIMEOUT"], {}))
-                log("{} timed out.".format(filename))
-                return
-            if p.poll() is not None:
-                break
-            time.sleep(0.1)
+        porosity_time = run_process(analysis_args, f, timeout)
         f.close()
-        porosity_time = time.time() - start_time
-
+        if porosity_time < 0:
+            result_queue.put((filename, [], ["TIMEOUT"], {}))
+            log("{} timed out.".format(filename))
+        
         output = open(out_dir+'/out.txt').read()
         analytics['functions'] = output.count('function ')
         analytics["fact_time"] = porosity_time

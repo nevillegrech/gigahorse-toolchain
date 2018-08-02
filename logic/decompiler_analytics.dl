@@ -1,0 +1,148 @@
+// Outputs for Analytics purposes go here
+// Every relation needs to start with 'Analytics_'
+// in order to be considered by our scripts
+
+.decl Analytics_Functions(block: Block)
+.output Analytics_Functions
+
+Analytics_Functions(func) :-
+   Function(func).
+
+.decl Analytics_Jumps(block: Block)
+.output Analytics_Jumps
+
+Analytics_Jumps(block) :-
+  BasicBlock_Tail(block, tail),
+  ReachableContext(_, block),
+  IsJump(tail).
+
+
+.decl Analytics_Blocks(block: Block)
+.output Analytics_Blocks
+
+Analytics_Blocks(block) :-
+  ReachableContext(_, block).
+
+// Sanity checking and analytics
+
+.decl ReachableStatement(stmt: Statement)
+
+ReachableStatement(stmt) :-
+   ReachableContext(_, block),
+   Statement_Block(stmt, block).
+
+.decl Analytics_UnknownOperand(stmt:Statement)
+.output Analytics_UnknownOperand
+
+//TODO: make this stronger
+Analytics_UnknownOperand(stmt) :-
+   ReachableStatement(stmt),
+   TAC_Op(stmt, opcode),
+   OpcodePopWords(opcode, words),
+   IsStackIndexLessThan(n, words),
+   !FunctionalStatement_Uses_Local(stmt, _, n).
+
+.decl Analytics_MissingImplementation(stmt:Statement, opcode:Opcode)
+.output Analytics_MissingImplementation
+
+Analytics_MissingImplementation(stmt, opcode) :-
+   ValidStatement(stmt),
+   Statement_Opcode(stmt, opcode),
+   OpcodePushWords(opcode, n), n>0,
+   !LocalStackContents(stmt, 0, _),
+   !OpcodePossiblyHalts(opcode).
+
+// Except return statements
+.decl Analytics_PolymorphicTarget(block: Block)
+.output Analytics_PolymorphicTarget      
+
+// Excludes function return blocks
+Analytics_PolymorphicTarget(block) :-
+  Analytics_Jumps(block),                                                          
+  InsBlockJumpValidTarget(block, target1),
+  InsBlockJumpValidTarget(block, target2),
+  !Function_Return(_, block),
+  target1 != target2.
+
+.decl Analytics_MissingJumpTarget(block: Block)
+.output Analytics_MissingJumpTarget      
+
+Analytics_MissingJumpTarget(block) :-
+  Analytics_Jumps(block),                                                          
+  !InsBlockJumpValidTarget(block, _).
+
+.decl Analytics_BlockJumpAnyTarget(block: Block, stmt: Statement)
+.output Analytics_BlockJumpAnyTarget
+
+Analytics_BlockJumpAnyTarget(block, stmt) :-
+  Analytics_Jumps(block),                                                          
+  BlockJumpTarget(ctx, block, targetVar),
+  Variable_Value(targetVar, target),
+  (DynamicValue(target) ; AnyValue(target)),
+  Statement_Defines(stmt, targetVar).
+
+.decl Analytics_JumpAnyTargetOnly(block: Block, stmt: Statement)
+.output Analytics_JumpAnyTargetOnly
+
+Analytics_JumpAnyTargetOnly(block, stmt) :-
+  Analytics_BlockJumpAnyTarget(block, stmt),
+  Analytics_MissingJumpTarget(block).
+
+// Sanity checking for functions
+
+.decl Analytics_InexactFunctionArguments(func: Block)
+.decl Analytics_InexactFunctionReturnArguments(func: Block)
+
+.output Analytics_InexactFunctionArguments
+.output Analytics_InexactFunctionReturnArguments
+
+.decl Analytics_ExactFunctionArguments(func: Block)
+.decl Analytics_ExactFunctionReturnArguments(func: Block)
+
+.output Analytics_ExactFunctionArguments
+.output Analytics_ExactFunctionReturnArguments
+
+Analytics_ExactFunctionArguments(func) :-
+   NumberOfFunctionArguments(func, _),
+   !Analytics_InexactFunctionArguments(func).
+
+Analytics_ExactFunctionReturnArguments(func) :-
+   NumberOfFunctionReturnArguments(func, _),
+   !Analytics_InexactFunctionReturnArguments(func).
+
+Analytics_InexactFunctionArguments(func) :-
+   NumberOfFunctionArguments(func, delta),
+   NumberOfFunctionArguments(func, delta2),
+   delta != delta2.
+
+Analytics_InexactFunctionReturnArguments(func) :-
+   NumberOfFunctionReturnArguments(func, delta),
+   NumberOfFunctionReturnArguments(func, delta2),
+   delta != delta2.
+
+.decl Analytics_BlockInMultipleFunctions(block: Block, func: Block)
+
+Analytics_BlockInMultipleFunctions(block, func) :-
+   InFunction(block, func),
+   InFunction(block2, func),
+   block != block2.
+
+.decl Analytics_BlockInNoFunctions(block: Block)
+
+Analytics_BlockInNoFunctions(block) :-
+   Statement_Block(_, block),
+   !InFunction(block, _).
+
+// Non-continuation address passed
+.decl Analytics_NonContinuationReturn(callerBlock: Block, retBlock: Block, target: Block)
+
+Analytics_NonContinuationReturn(callerBlock, retBlock, target) :-
+  BlockJumpValidTarget(_, retBlock, targetVariable, target),
+  BasicBlock_Tail(callerBlock, callerStmt),
+  callerBlock != retBlock,
+  IsJump(callerStmt),
+  Statement_Defines(otherCallerStatement, targetVariable),
+  Statement_Block(otherCallerStatement, callerBlock),
+  CastStatementToBlock(targetHead, target),
+  !Statement_Next(callerStmt, targetHead).
+                                                       

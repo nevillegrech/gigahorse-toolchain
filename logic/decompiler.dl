@@ -173,8 +173,6 @@ ValidStatement(stmt) :- Statement_Block(stmt, _).
 .decl LocalStackContents(stmt:Statement, index:StackIndex, variable:VariableOrStackIndex)
 
 .decl BeforeLocalStackContents(stmt:Statement, n:StackIndex, variable:VariableOrStackIndex)
-.output BeforeLocalStackContents
-
 
 .decl BlockEdge(callerCtx:Context, caller:Block, calleeCtx:Context, callee:Block)
 .decl ReachableContext(ctx:Context, block:Block)
@@ -550,6 +548,3 @@ UnknownLength(var) :-
    IsVariable(var),
    !Variable_Length(var, _).
 
-
-// Fills disk too quickly
-//.output BlockOutputContents
