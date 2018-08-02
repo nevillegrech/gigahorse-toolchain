@@ -28,7 +28,7 @@ import src.blockparse as blockparse
 
 ## Constants
 
-DEFAULT_SOUFFLE_BIN = '../../souffle/src/souffle'
+DEFAULT_SOUFFLE_BIN = 'souffle'
 """Location of the Souffle binary."""
 
 DEFAULT_POROSITY_BIN = 'porosity'
@@ -52,20 +52,11 @@ TEMP_WORKING_DIR = ".temp"
 DEFAULT_TIMEOUT = 120
 """Default time before killing analysis of a contract."""
 
-DEFAULT_MAX_ITER = -1
-"""Default max analysis iteration count."""
-
 DEFAULT_PATTERN = ".*runtime.hex"
 """Default filename pattern for contract files."""
 
 FLUSH_PERIOD = 3
 """Wait a little to flush the files and join the processes when concluding."""
-
-DOMINATORS = False
-"""Whether or not the cfg relations should include dominators"""
-
-OPCODES = []
-"""A list of strings indicating which opcodes to include in the cfg relations."""
 
 DEFAULT_NUM_JOBS = 4
 """The number of subprocesses to run at once."""
@@ -161,18 +152,6 @@ parser.add_argument("-T",
                     metavar="SECONDS",
                     help="Forcibly halt analysing any single contact after "
                          "the specified number of seconds.")
-
-parser.add_argument("-i",
-                    "--max_iter",
-                    type=int,
-                    nargs="?",
-                    default=DEFAULT_MAX_ITER,
-                    const=DEFAULT_MAX_ITER,
-                    metavar="ITERATIONS",
-                    help="perform no more than the specified number of "
-                         "analysis iterations. Lower is faster, but "
-                         "potentially less precise. A negative value specifies "
-                         "no cap on the iteration count. No cap by default.")
 
 parser.add_argument("-q",
                     "--quiet",
