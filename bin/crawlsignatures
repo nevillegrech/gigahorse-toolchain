@@ -5,8 +5,7 @@ and generates code to convert hex signatures to understandable ones '''
 # Standard lib imports
 import urllib.request, json 
 import csv
-
-
+from common import public_function_signature_filename
 API = 'https://www.4byte.directory/api/v1/signatures/'
 
 def get_data(page):
@@ -32,10 +31,7 @@ while True:
         break
 
 
-decl = '.decl PublicFunctionSignature(hex_signature: Value, text_signature: symbol)'
-
-with open('logic/PublicFunctionSignature.dl', 'w') as f:
-    f.write(decl+'\n')
+with open(public_function_signature_filename, 'w') as f:
     for k, v in rows:
-        f.write('PublicFunctionSignature("%s", "%s").\n'%(k, v))
+        f.write('%s\t%s\n'%(k, v))
 

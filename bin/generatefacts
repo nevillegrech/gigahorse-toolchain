@@ -14,12 +14,14 @@ sys.path.insert(0, src_path)
 # Local project imports
 import src.exporter as exporter
 import src.blockparse as blockparse
-
-
+from common import public_function_signature_filename
 
 def main(args):
     # Parse bytecode
     logging.info("Reading from '%s'.", args.infile.name)
+    if args.generate_interface:
+        logging.info("Generating decompiler input interface")
+        exporter.generate_interface()
     if args.disassembly:
         blocks = blockparse.EVMDasmParser(args.infile).parse()
     else:
@@ -28,7 +30,7 @@ def main(args):
     logging.info("Initial parsing completed.")
 
     logging.info("Writing facts to disk.")
-    exporter.InstructionTsvExporter(blocks).export(output_dir=args.outdir)
+    exporter.InstructionTsvExporter(blocks).export(sigfilename = public_function_signature_filename, output_dir=args.outdir)
 
 if __name__ == '__main__':
     # Configure argparse
@@ -41,6 +43,11 @@ if __name__ == '__main__':
                     default=False,
                     help="decompile dissassembled input.")
 
+    parser.add_argument("--generate_interface",
+                    action="store_true",
+                    default=False,
+                    help="generate .dl decompiler input interface.")
+    
 
     parser.add_argument("infile",
                     nargs="?",

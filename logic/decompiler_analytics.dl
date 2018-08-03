@@ -112,13 +112,14 @@ Analytics_InexactFunctionReturnArguments(func) :-
    NumberOfFunctionReturnArguments(func, delta2),
    delta != delta2.
 
-.decl Analytics_BlockInMultipleFunctions(block: Block)
+.decl Analytics_BlockInMultipleFunctions(func: Block)
 .output Analytics_BlockInMultipleFunctions
 
-Analytics_BlockInMultipleFunctions(block) :-
+Analytics_BlockInMultipleFunctions(func2),
+Analytics_BlockInMultipleFunctions(func) :-
    InFunction(block, func),
-   InFunction(block2, func),
-   block != block2.
+   InFunction(block, func2),
+   func != func2.
 
 .decl Analytics_BlockInNoFunctions(block: Block)
 .output Analytics_BlockInNoFunctions
@@ -133,6 +134,24 @@ Analytics_BlockInNoFunctions(block) :-
 Analytics_FunctionCall(block) :-
    FunctionCall(block, _).
 
+.decl Analytics_FunctionCallWithReturn(block: Block)
+.output Analytics_FunctionCallWithReturn
+
+Analytics_FunctionCallWithReturn(block) :-
+   FunctionCallReturn(block, _, _).
+
+.decl Analytics_PublicFunction(func: Block)
+.output Analytics_PublicFunction
+
+Analytics_PublicFunction(func) :-
+   PublicFunctionEntry(func, _).
+
+.decl Analytics_PublicFunctionNameResolved(func: Block)
+.output Analytics_PublicFunctionNameResolved
+
+Analytics_PublicFunctionNameResolved(func) :-
+   PublicFunctionEntry(func, sigHash),
+   PublicFunctionSignature(sigHash, _).
 
 // Non-continuation address passed
 .decl Analytics_NonContinuationReturn(callerBlock: Block, retBlock: Block, target: Block)
