@@ -222,7 +222,7 @@ def analyze_contract(job_index: int, index: int, filename: str, result_queue, ti
     try:
         with open(join(args.contract_dir, filename)) as file:
             # Disassemble contract
-            decomp_start = time.time()
+            disassemble_start = time.time()
             bytecode = ''.join([l.strip() for l in file if len(l.strip()) > 0])
             blocks = blockparse.EVMBytecodeParser(bytecode).parse()
 
@@ -239,12 +239,13 @@ def analyze_contract(job_index: int, index: int, filename: str, result_queue, ti
                 f.write(contract_filename)
             os.symlink(contract_filename, os.path.join(os.getcwd(),os.path.join(work_dir, 'contract.hex')))
             # Run souffle on those relations
-            souffle_start = time.time()
+            decomp_start = time.time()
             analysis_args = [os.path.join(os.getcwd(), DEFAULT_SOUFFLE_EXECUTABLE),
                              "--facts={}".format(work_dir),
                              "--output={}".format(out_dir)
             ]
             subprocess.run(analysis_args)
+            client_start = time.time()
             if args.souffle_client:
                 analysis_args = [os.path.join(os.getcwd(), args.souffle_client+'_compiled'),
                              "--facts={}".format(out_dir),
@@ -262,14 +263,13 @@ def analyze_contract(job_index: int, index: int, filename: str, result_queue, ti
             meta = []
 
             # Decompile + Analysis time
-            fact_time = souffle_start - decomp_start
-            souffle_time = time.time() - souffle_start
-            log("{}: {:.20}... completed in {:.2f} + {:.2f} secs".format(index, filename,
-                                                                         fact_time,
-                                                                         souffle_time))
-
-            analytics["fact_time"] = fact_time
-            analytics["souffle_time"] = souffle_time
+            analytics['disassemble_time'] = decomp_start - disassemble_start
+            analytics['decomp_time'] = client_start - decomp_start
+            analytics['client_time'] = time.time() - client_start
+            log("{}: {:.20}... completed in {:.2f} + {:.2f} + {:.2f} secs".format(
+                index, filename, analytics['disassemble_time'],
+                analytics['decomp_time'], analytics['client_time']
+            ))
 
             get_gigahorse_analytics(out_dir, analytics)
 
@@ -323,7 +323,7 @@ def analyze_contract_porosity(job_index: int, index: int, filename: str, result_
         
         output = open(out_dir+'/out.txt').read()
         analytics['Functions'] = output.count('function ')
-        analytics["fact_time"] = porosity_time
+        analytics["total_time"] = porosity_time
         result_queue.put((filename, [], [], analytics))
         log("{}: {:.20}... completed in {:.2f} secs".format(index, filename, porosity_time))
     except Exception as e:

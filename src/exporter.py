@@ -95,7 +95,7 @@ class InstructionTsvExporter(Exporter):
 
         signatures_filename_in = public_function_signature_filename
         signatures_filename_out = os.path.join(output_dir, 'PublicFunctionSignature.facts')
-        if os.path.isfile(signatures_filename):
+        if os.path.isfile(signatures_filename_in):
             os.symlink(signatures_filename_in, signatures_filename_out)
         else:
             open(signatures_filename_out, 'w').close()
@@ -107,7 +107,9 @@ class InstructionTsvExporter(Exporter):
                 writer = csv.writer(f, delimiter='\t', lineterminator='\n')
                 writer.writerows(entries)
 
-        statements = defaultdict(list, {'MISSING': []})
+        statements = {'MISSING': []}
+        for k, opcode in opcodes.OPCODES.items():
+            statements[k] = []
 
         instructions = []
         instructions_order = []

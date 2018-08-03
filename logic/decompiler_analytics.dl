@@ -68,7 +68,7 @@ Analytics_PolymorphicTarget(block) :-
 .output Analytics_MissingJumpTarget      
 
 Analytics_MissingJumpTarget(block) :-
-  Analytics_Jumps(block),                                                          
+  Analytics_Jumps(block),                                                  
   !InsBlockJumpValidTarget(block, _).
 
 .decl Analytics_JumpToAnyDefinedInStatement(block: Block, stmt: Statement)
