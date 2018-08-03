@@ -191,3 +191,9 @@ Analytics_NonContinuationReturn(callerBlock, retBlock, target) :-
   Statement_Block(otherCallerStatement, callerBlock),
   CastStatementToBlock(targetHead, target),
   !Statement_Next(callerStmt, targetHead).
+
+.decl Analytics_NonContinuationReturnCall(callerBlock: Block)
+.output Analytics_NonContinuationReturnCall
+
+Analytics_NonContinuationReturnCall(callerBlock) :-
+   Analytics_NonContinuationReturn(callerBlock, _, _).
