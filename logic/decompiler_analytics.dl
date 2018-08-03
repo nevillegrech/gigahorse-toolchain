@@ -71,21 +71,27 @@ Analytics_MissingJumpTarget(block) :-
   Analytics_Jumps(block),                                                          
   !InsBlockJumpValidTarget(block, _).
 
-.decl Analytics_BlockJumpAnyTarget(block: Block, stmt: Statement)
-.output Analytics_BlockJumpAnyTarget
+.decl Analytics_JumpToAnyDefinedInStatement(block: Block, stmt: Statement)
+.output Analytics_JumpToAnyDefinedInStatement
 
-Analytics_BlockJumpAnyTarget(block, stmt) :-
+Analytics_JumpToAnyDefinedInStatement(block, stmt) :-
   Analytics_Jumps(block),                                                          
-  BlockJumpTarget(ctx, block, targetVar),
+  BlockJumpTarget(_, block, targetVar),
   Variable_Value(targetVar, target),
   (DynamicValue(target) ; AnyValue(target)),
   Statement_Defines(stmt, targetVar).
 
-.decl Analytics_JumpAnyTargetOnly(block: Block, stmt: Statement)
-.output Analytics_JumpAnyTargetOnly
+.decl Analytics_JumpToAny(block: Block)
+.output Analytics_JumpToAny
 
-Analytics_JumpAnyTargetOnly(block, stmt) :-
-  Analytics_BlockJumpAnyTarget(block, stmt),
+Analytics_JumpToAny(block) :-
+   Analytics_JumpToAnyDefinedInStatement(block, _).
+
+.decl Analytics_JumpToAnyOnly(block: Block)
+.output Analytics_JumpToAnyOnly
+
+Analytics_JumpToAnyOnly(block) :-
+  Analytics_JumpToAny(block),
   Analytics_MissingJumpTarget(block).
 
 // Sanity checking for functions
@@ -95,20 +101,6 @@ Analytics_JumpAnyTargetOnly(block, stmt) :-
 
 .output Analytics_InexactFunctionArguments
 .output Analytics_InexactFunctionReturnArguments
-
-.decl Analytics_ExactFunctionArguments(func: Block)
-.decl Analytics_ExactFunctionReturnArguments(func: Block)
-
-.output Analytics_ExactFunctionArguments
-.output Analytics_ExactFunctionReturnArguments
-
-Analytics_ExactFunctionArguments(func) :-
-   NumberOfFunctionArguments(func, _),
-   !Analytics_InexactFunctionArguments(func).
-
-Analytics_ExactFunctionReturnArguments(func) :-
-   NumberOfFunctionReturnArguments(func, _),
-   !Analytics_InexactFunctionReturnArguments(func).
 
 Analytics_InexactFunctionArguments(func) :-
    NumberOfFunctionArguments(func, delta),
@@ -120,21 +112,31 @@ Analytics_InexactFunctionReturnArguments(func) :-
    NumberOfFunctionReturnArguments(func, delta2),
    delta != delta2.
 
-.decl Analytics_BlockInMultipleFunctions(block: Block, func: Block)
+.decl Analytics_BlockInMultipleFunctions(block: Block)
+.output Analytics_BlockInMultipleFunctions
 
-Analytics_BlockInMultipleFunctions(block, func) :-
+Analytics_BlockInMultipleFunctions(block) :-
    InFunction(block, func),
    InFunction(block2, func),
    block != block2.
 
 .decl Analytics_BlockInNoFunctions(block: Block)
+.output Analytics_BlockInNoFunctions
 
 Analytics_BlockInNoFunctions(block) :-
    Statement_Block(_, block),
    !InFunction(block, _).
 
+.decl Analytics_FunctionCall(block: Block)
+.output Analytics_FunctionCall
+
+Analytics_FunctionCall(block) :-
+   FunctionCall(block, _).
+
+
 // Non-continuation address passed
 .decl Analytics_NonContinuationReturn(callerBlock: Block, retBlock: Block, target: Block)
+.output Analytics_NonContinuationReturn
 
 Analytics_NonContinuationReturn(callerBlock, retBlock, target) :-
   BlockJumpValidTarget(_, retBlock, targetVariable, target),
@@ -145,4 +147,3 @@ Analytics_NonContinuationReturn(callerBlock, retBlock, target) :-
   Statement_Block(otherCallerStatement, callerBlock),
   CastStatementToBlock(targetHead, target),
   !Statement_Next(callerStmt, targetHead).
-                                                       
