@@ -35,7 +35,7 @@ def generate_interface():
         elif typ == int:
             f.write('.decl %s(instruction: Opcode, n: number)\n'%relname)
         else:
-            raise NotImplementedError('')        
+            raise NotImplementedError('Unknown: '+str(typ))
         f.write('.input %s\n'%relname)
         f.write('\n')
     f.close()
@@ -136,8 +136,8 @@ class InstructionTsvExporter(Exporter):
             opcode_property = []
             for k, opcode in opcodes.OPCODES.items():
                 prop_val = getattr(opcode, prop)()
-                if typ is bool and prop_val:
+                if typ == bool and prop_val:
                     opcode_property.append((getattr(opcode, opcode_key), ))
-                if typ is int:
+                elif typ == int:
                     opcode_property.append((getattr(opcode, opcode_key), prop_val))
                 generate(relname +'.facts', opcode_property)

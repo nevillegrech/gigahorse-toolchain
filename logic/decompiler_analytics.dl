@@ -140,6 +140,31 @@ Analytics_FunctionCall(block) :-
 Analytics_FunctionCallWithReturn(block) :-
    FunctionCallReturn(block, _, _).
 
+// functions with multiple return blocks
+.decl Analytics_FunctionWithMultipleReturns(func: Block)
+.output Analytics_FunctionWithMultipleReturns
+
+Analytics_FunctionWithMultipleReturns(func) :-
+   Function_Return(func, retBlock),
+   Function_Return(func, retBlock2),
+   retBlock != retBlock2.
+
+
+.decl FunctionReturnBlockPopDelta(func: Block, retBlock: Block, n_in: StackIndex)
+FunctionReturnBlockPopDelta(func, retBlock, n_in) :-
+   Analytics_FunctionWithMultipleReturns(func),
+   Function_Return(func, retBlock),
+   FunctionEdgePopDelta(retBlock, "invalid", n_in).
+
+// functions with different stack pop depth in different return blocks
+.decl Analytics_FunctionWithMultipleStackDepths(func: Block)
+.output Analytics_FunctionWithMultipleStackDepths
+
+Analytics_FunctionWithMultipleStackDepths(func) :-
+   FunctionReturnBlockPopDelta(func, _, n_in),
+   Function_Return(func, retBlock),
+   !FunctionReturnBlockPopDelta(func, retBlock, n_in).
+
 .decl Analytics_PublicFunction(func: Block)
 .output Analytics_PublicFunction
 

@@ -360,11 +360,22 @@ logging.basicConfig(format='%(message)s', level=log_level)
 if args.porosity:
     args.no_compile = True
 
+# Here we compile the decompiler and any of its clients in parallel :)
+compile_processes = []
 if not args.no_compile:
-    compile_datalog(DEFAULT_DECOMPILER_DL, DEFAULT_SOUFFLE_EXECUTABLE)
+    compile_processes.append(lambda : compile_datalog(DEFAULT_DECOMPILER_DL, DEFAULT_SOUFFLE_EXECUTABLE))
 
 if args.souffle_client:
-    compile_datalog(args.souffle_client, args.souffle_client+'_compiled')
+    compile_processes.append(lambda : compile_datalog(args.souffle_client, args.souffle_client+'_compiled'))
+
+running_processes = []
+for p in compile_processes:
+    proc = Process(target = p)
+    proc.start()
+    running_processes.append(proc)
+
+for p in running_processes:
+    p.join()
 
 log("Setting up working directory {}.".format(TEMP_WORKING_DIR))
 for i in range(args.jobs):
