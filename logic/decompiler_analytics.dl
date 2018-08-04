@@ -157,10 +157,10 @@ FunctionReturnBlockPopDelta(func, retBlock, n_in) :-
    FunctionEdgePopDelta(retBlock, "invalid", n_in).
 
 // functions with different stack pop depth in different return blocks
-.decl Analytics_FunctionWithMultipleStackDepths(func: Block)
-.output Analytics_FunctionWithMultipleStackDepths
+.decl Analytics_FunctionWithMultipleStackDepthsAtReturnBlocks(func: Block)
+.output Analytics_FunctionWithMultipleStackDepthsAtReturnBlocks
 
-Analytics_FunctionWithMultipleStackDepths(func) :-
+Analytics_FunctionWithMultipleStackDepthsAtReturnBlocks(func) :-
    FunctionReturnBlockPopDelta(func, _, n_in),
    Function_Return(func, retBlock),
    !FunctionReturnBlockPopDelta(func, retBlock, n_in).
@@ -187,8 +187,8 @@ Analytics_NonContinuationReturn(callerBlock, retBlock, target) :-
   BasicBlock_Tail(callerBlock, callerStmt),
   callerBlock != retBlock,
   IsJump(callerStmt),
-  Statement_Defines(otherCallerStatement, targetVariable),
-  Statement_Block(otherCallerStatement, callerBlock),
+  Statement_Defines(callerStatement, targetVariable),
+  Statement_Block(callerStatement, callerBlock),
   CastStatementToBlock(targetHead, target),
   !Statement_Next(callerStmt, targetHead).
 
