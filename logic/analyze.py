@@ -34,6 +34,9 @@ DEFAULT_SOUFFLE_BIN = 'souffle'
 DEFAULT_POROSITY_BIN = 'porosity'
 """Location of the porosity binary."""
 
+DEFAULT_POROSITY_BIN = 'vandal'
+"""Location of the vandal binary."""
+
 DEFAULT_CONTRACT_DIR = 'contracts'
 """Directory to fetch contract files from by default."""
 
@@ -170,6 +173,12 @@ parser.add_argument("--porosity",
                     metavar="BINARY",
                     help="Use the Porosity decompiler.")
 
+parser.add_argument("--vandal",
+                    nargs="?",
+                    const=DEFAULT_VANDAL_BIN,
+                    metavar="BINARY",
+                    help="Use the Vandal decompiler.")
+
 # Functions
 def working_dir(index: int, output_dir: bool = False) -> str:
     """
@@ -286,7 +295,7 @@ def get_gigahorse_analytics(out_dir, analytics):
         if not fname.startswith('Analytics_'):
             continue
         stat_name = fname.split(".")[0][10:]
-        analytics[stat_name] = len(open(os.path.join(out_dir, fname)).read().split('\n'))
+        analytics[stat_name] = sum(1 for line in open(os.path.join(out_dir, fname)))
 
 def run_process(args, stdout, timeout: int) -> float:
     ''' Runs process described by args, for a specific time period
@@ -329,7 +338,9 @@ def analyze_contract_porosity(job_index: int, index: int, filename: str, result_
     except Exception as e:
         log("Error: {}".format(e))
         result_queue.put((filename, [], ["error"], {}))
-    
+
+
+
 
 def flush_queue(period, run_sig,
                 result_queue, result_list):
@@ -426,8 +437,11 @@ avail_jobs = list(range(args.jobs))
 contract_iter = enumerate(to_process)
 contracts_exhausted = False
 
+# which kind of analysis are we doing?
 if args.porosity:
     analyze_function = analyze_contract_porosity
+elif args.vandal:
+    analyze_function = analyze_contract_vandal
 else:
     analyze_function = analyze_contract
     
