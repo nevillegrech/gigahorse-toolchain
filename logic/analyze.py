@@ -34,9 +34,6 @@ DEFAULT_SOUFFLE_BIN = 'souffle'
 DEFAULT_POROSITY_BIN = 'porosity'
 """Location of the porosity binary."""
 
-DEFAULT_POROSITY_BIN = 'vandal'
-"""Location of the vandal binary."""
-
 DEFAULT_CONTRACT_DIR = 'contracts'
 """Directory to fetch contract files from by default."""
 
@@ -173,11 +170,6 @@ parser.add_argument("--porosity",
                     metavar="BINARY",
                     help="Use the Porosity decompiler.")
 
-parser.add_argument("--vandal",
-                    nargs="?",
-                    const=DEFAULT_VANDAL_BIN,
-                    metavar="BINARY",
-                    help="Use the Vandal decompiler.")
 
 # Functions
 def working_dir(index: int, output_dir: bool = False) -> str:
@@ -440,8 +432,6 @@ contracts_exhausted = False
 # which kind of analysis are we doing?
 if args.porosity:
     analyze_function = analyze_contract_porosity
-elif args.vandal:
-    analyze_function = analyze_contract_vandal
 else:
     analyze_function = analyze_contract
     
