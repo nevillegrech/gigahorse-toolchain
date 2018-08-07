@@ -5,7 +5,12 @@ and generates code to convert hex signatures to understandable ones '''
 # Standard lib imports
 import urllib.request, json 
 import csv
-from common import public_function_signature_filename
+
+# Prepend .. to $PATH so the project modules can be imported below
+src_path = join(dirname(abspath(__file__)), "..")
+sys.path.insert(0, src_path)
+
+from src.common import public_function_signature_filename
 API = 'https://www.4byte.directory/api/v1/signatures/'
 
 def get_data(page):

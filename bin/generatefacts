@@ -14,7 +14,6 @@ sys.path.insert(0, src_path)
 # Local project imports
 import src.exporter as exporter
 import src.blockparse as blockparse
-from common import public_function_signature_filename
 
 def main(args):
     # Parse bytecode
@@ -30,7 +29,7 @@ def main(args):
     logging.info("Initial parsing completed.")
 
     logging.info("Writing facts to disk.")
-    exporter.InstructionTsvExporter(blocks).export(public_function_signature_filename = public_function_signature_filename, output_dir=args.outdir)
+    exporter.InstructionTsvExporter(blocks).export(output_dir=args.outdir)
 
 if __name__ == '__main__':
     # Configure argparse

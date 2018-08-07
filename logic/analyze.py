@@ -8,7 +8,6 @@ import argparse
 import itertools
 import json
 import logging
-import os
 import signal
 import re
 import subprocess
@@ -16,7 +15,8 @@ import sys
 import time
 import shutil
 from multiprocessing import Process, SimpleQueue, Manager, Event
-from os.path import abspath, dirname, join
+from os.path import abspath, dirname, join, getsize
+from os import makedirs, listdir
 
 # Add the source directory to the path to ensure the imports work
 src_path = join(dirname(abspath(__file__)), "../")
@@ -235,20 +235,20 @@ def analyze_contract(job_index: int, index: int, filename: str, result_queue, ti
             out_dir = working_dir(job_index, True)
             exporter.InstructionTsvExporter(blocks).export(output_dir=work_dir)
                                       
-            contract_filename = os.path.join(os.path.join(os.getcwd(), args.contract_dir), filename)
-            with open(os.path.join(work_dir, 'contract_filename.txt'),'w') as f:
+            contract_filename = join(join(os.getcwd(), args.contract_dir), filename)
+            with open(join(work_dir, 'contract_filename.txt'),'w') as f:
                 f.write(contract_filename)
-            os.symlink(contract_filename, os.path.join(os.getcwd(),os.path.join(work_dir, 'contract.hex')))
+            os.symlink(contract_filename, join(os.getcwd(),join(work_dir, 'contract.hex')))
             # Run souffle on those relations
             decomp_start = time.time()
-            analysis_args = [os.path.join(os.getcwd(), DEFAULT_SOUFFLE_EXECUTABLE),
+            analysis_args = [join(os.getcwd(), DEFAULT_SOUFFLE_EXECUTABLE),
                              "--facts={}".format(work_dir),
                              "--output={}".format(out_dir)
             ]
             subprocess.run(analysis_args)
             client_start = time.time()
             if args.souffle_client:
-                analysis_args = [os.path.join(os.getcwd(), args.souffle_client+'_compiled'),
+                analysis_args = [join(os.getcwd(), args.souffle_client+'_compiled'),
                              "--facts={}".format(out_dir),
                              "--output={}".format(out_dir)
                 ]
@@ -258,7 +258,7 @@ def analyze_contract(job_index: int, index: int, filename: str, result_queue, ti
             vulns = []
             for fname in os.listdir(out_dir):
                 fpath = join(out_dir, fname)
-                if os.path.getsize(fpath) != 0:
+                if getsize(fpath) != 0:
                     vulns.append(fname.split(".")[0])
 
             meta = []
@@ -287,7 +287,7 @@ def get_gigahorse_analytics(out_dir, analytics):
         if not fname.startswith('Analytics_'):
             continue
         stat_name = fname.split(".")[0][10:]
-        analytics[stat_name] = sum(1 for line in open(os.path.join(out_dir, fname)))
+        analytics[stat_name] = sum(1 for line in open(join(out_dir, fname)))
 
 def run_process(args, stdout, timeout: int) -> float:
     ''' Runs process described by args, for a specific time period
@@ -310,7 +310,7 @@ def run_process(args, stdout, timeout: int) -> float:
 
 def analyze_contract_porosity(job_index: int, index: int, filename: str, result_queue, timeout: int) -> None:
     try:
-        contract_filename = os.path.join(os.path.join(os.getcwd(), args.contract_dir), filename)
+        contract_filename = join(join(os.getcwd(), args.contract_dir), filename)
         analytics = {}
         out_dir = working_dir(job_index, True)
         analysis_args = [DEFAULT_POROSITY_BIN,
@@ -382,7 +382,7 @@ for p in running_processes:
 
 log("Setting up working directory {}.".format(TEMP_WORKING_DIR))
 for i in range(args.jobs):
-    os.makedirs(working_dir(i, True), exist_ok=True)
+    makedirs(working_dir(i, True), exist_ok=True)
     empty_working_dir(i)
 
 # Extract contract filenames.
@@ -393,7 +393,7 @@ if args.from_file:
         unfiltered = [l.strip() for l in f.readlines()]
 else:
     # Otherwise just get all contracts in the contract directory.
-    unfiltered = os.listdir(args.contract_dir)
+    unfiltered = listdir(args.contract_dir)
 
 # Filter according to the given pattern.
 re_string = args.filename_pattern

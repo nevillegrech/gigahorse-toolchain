@@ -6,6 +6,7 @@ import logging
 import os
 from collections import defaultdict
 import src.opcodes as opcodes
+from src.common import public_function_signature_filename
 
 
 opcode_output = {'alters_flow':bool, 'halts':bool, 'is_arithmetic':bool,
@@ -86,7 +87,7 @@ class InstructionTsvExporter(Exporter):
         """
         self.blocks.append((block.entry, str(block)))
     
-    def export(self, public_function_signature_filename = "", output_dir = ""):
+    def export(self, output_dir = ""):
         """
         Print basic block info to tsv.
         """
