@@ -69,6 +69,9 @@ DynamicStatement(stmt) :-
 .decl OperationIs(opcode:symbol, value1:Value, value2:Value)
 
 OperationIsEq("OR", "0x0").
+OperationIsEq("SHL", "0x0").
+OperationIsEq("SHR", "0x0").
+OperationIsEq("SAR", "0x0").
 OperationIsEq("XOR", "0x0").
 OperationIsEq("ADD", "0x0").
 OperationIsEq("SUB", "0x0").

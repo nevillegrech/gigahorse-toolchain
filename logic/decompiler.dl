@@ -337,7 +337,6 @@ Variable_Value(var, dynamicvalue) :-
   Variable_Value(dynamicvar, dynamicvalue),
   Statement_Defines(stmt, var).
 
-
 // DUP
 LocalStackContents(stmt, 0, duplicated) :-
   BeforeLocalStackContents(stmt, n-1, duplicated),
