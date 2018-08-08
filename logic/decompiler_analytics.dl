@@ -129,6 +129,13 @@ Analytics_BlockInNoFunctions(block) :-
    Statement_Block(_, block),
    !InFunction(block, _).
 
+.decl Analytics_UnreachableBlock(block: Block)
+.output Analytics_UnreachableBlock
+
+Analytics_BlockInNoFunctions(block) :-
+   Statement_Block(_, block),
+   !ReachableContext(_, block).
+
 .decl Analytics_FunctionCall(block: Block)
 .output Analytics_FunctionCall
 
