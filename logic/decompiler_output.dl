@@ -274,11 +274,18 @@ TAC_Block(phiStmt, block) :-
 .output Function_Return
 .output Function
 
-.decl FunctionArgument_Out(func:symbol, var:symbol, n:number)
-.output FunctionArgument_Out
+.decl FormalArgs(func:Block, var:symbol, n:number)
+.output FormalArgs
 
-FunctionArgument_Out(func, var_rep, n) :-
+FormalArgs(func, var_rep, n) :-
    FunctionArgument(func, n, var),
+   Variable_String(var, var_rep).
+
+.decl ActualReturnArgs(caller:Block, var_rep:symbol, n:number)
+.output ActualReturnArgs
+
+ActualReturnArgs(caller, var_rep, n) :-
+   FunctionCallReturnArgument(caller, n, var),
    Variable_String(var, var_rep).
 
 .output LocalBlockEdge
