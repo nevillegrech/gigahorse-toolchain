@@ -400,6 +400,10 @@ FallThroughStmt(stmt) :-
   Statement_Opcode(stmt, opcode),
   !OpcodePossiblyHalts(opcode).   
 
+
+.decl FallthroughEdge(caller: Block, fallthroughBlock: Block)
+
+FallthroughEdge(caller, fallthroughBlock),
 BlockEdge(callerCtx, caller, ?mergeContextMacro, fallthroughBlock) :-
   ReachableContext(callerCtx, caller),
   FallThroughStmt(stmt),

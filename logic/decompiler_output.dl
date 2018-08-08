@@ -290,5 +290,8 @@ ActualReturnArgs(caller, var_rep, n) :-
 
 .output LocalBlockEdge
 .output HighLevelFunctionName
+.output FallthroughEdge
+
+        
 
 
