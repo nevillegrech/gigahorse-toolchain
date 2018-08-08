@@ -16,7 +16,7 @@ import time
 import shutil
 from multiprocessing import Process, SimpleQueue, Manager, Event
 from os.path import abspath, dirname, join, getsize
-from os import makedirs, listdir
+import os
 
 # Add the source directory to the path to ensure the imports work
 src_path = join(dirname(abspath(__file__)), "../")
@@ -382,7 +382,7 @@ for p in running_processes:
 
 log("Setting up working directory {}.".format(TEMP_WORKING_DIR))
 for i in range(args.jobs):
-    makedirs(working_dir(i, True), exist_ok=True)
+    os.makedirs(working_dir(i, True), exist_ok=True)
     empty_working_dir(i)
 
 # Extract contract filenames.
@@ -393,7 +393,7 @@ if args.from_file:
         unfiltered = [l.strip() for l in f.readlines()]
 else:
     # Otherwise just get all contracts in the contract directory.
-    unfiltered = listdir(args.contract_dir)
+    unfiltered = os.listdir(args.contract_dir)
 
 # Filter according to the given pattern.
 re_string = args.filename_pattern
