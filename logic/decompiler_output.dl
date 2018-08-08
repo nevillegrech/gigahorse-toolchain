@@ -6,7 +6,7 @@
 // three-address code representation (which is later input and
 // re-formatted for use by clients), statistics, debugging relations.
 
-
+.output OpcodePossiblyHalts
 .output Statement_Next
 
 .decl InsBlockEdge(from: Block, to:Block)
