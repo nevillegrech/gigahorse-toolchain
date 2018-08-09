@@ -249,7 +249,13 @@ Function(func) :-
 LocalBlockEdge(block, next) :-
   BlockEdge(_, block, _, next),
   !Function(next),
-  !Function_Return(_, block).
+  !Function_Return_Edge(block, next).
+
+.decl Function_Return_Edge(block: Block, next: Block)
+
+Function_Return_Edge(block, next) :-
+   Function_Return(fn, block),
+   FunctionCallReturn(_, fn, next).
 
 // REVIEW: basic blocks are interrupted at function call instructions
 // (unlike, say, LLVM IR) but we connect the block to the one after
