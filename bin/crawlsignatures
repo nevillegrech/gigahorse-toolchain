@@ -5,6 +5,7 @@ and generates code to convert hex signatures to understandable ones '''
 # Standard lib imports
 import urllib.request, json 
 import csv
+import sys
 from os.path import abspath, dirname, join
 
 # Prepend .. to $PATH so the project modules can be imported below
