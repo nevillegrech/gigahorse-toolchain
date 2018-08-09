@@ -292,6 +292,6 @@ ActualReturnArgs(caller, var_rep, n) :-
 .output HighLevelFunctionName
 .output FallthroughEdge
 
-        
+.output Mask_Length        
 
 

@@ -10,12 +10,20 @@ Requires a modern Python 3 distribution, e.g. the Anaconda Python distribution: 
 
 Requires Souffle: http://souffle-lang.org/
 
+### For visualization
 Requires PyDot:
 ```
 conda install -c anaconda pydot
 ```
-
 Requires Graphviz
+
+Installation on Debian:
+```
+sudo apt install graphviz
+```
+
+### For public function signature matching
+run `bin/crawlsignatures` (optional)
 
 ## Usage
 1. Fact generation
