@@ -203,7 +203,7 @@ def backup_and_empty_working_dir(index) -> None:
             
 def compile_datalog(spec, executable):
     compilation_command = [args.souffle_bin, '-c', '-o', executable, spec]
-    log("Compiling Datalog to C++ program and executable")
+    log("Compiling %s to C++ program and executable"%spec)
     process = subprocess.run(compilation_command, universal_newlines=True)
     assert not(process.returncode), "Compilation failed. Stopping."
     
@@ -247,8 +247,8 @@ def analyze_contract(job_index: int, index: int, filename: str, result_queue, ti
             ]
             subprocess.run(analysis_args)
             client_start = time.time()
-            if args.souffle_client:
-                analysis_args = [join(os.getcwd(), args.souffle_client+'_compiled'),
+            for souffle_client in souffle_clients:
+                analysis_args = [join(os.getcwd(), souffle_client+'_compiled'),
                              "--facts={}".format(out_dir),
                              "--output={}".format(out_dir)
                 ]
@@ -368,8 +368,11 @@ compile_processes = []
 if not args.no_compile:
     compile_processes.append(lambda : compile_datalog(DEFAULT_DECOMPILER_DL, DEFAULT_SOUFFLE_EXECUTABLE))
 
+souffle_clients = []
 if args.souffle_client:
-    compile_processes.append(lambda : compile_datalog(args.souffle_client, args.souffle_client+'_compiled'))
+    souffle_clients = args.souffle_client.split(',')
+    for c in souffle_clients:
+        compile_processes.append(lambda : compile_datalog(c, c+'_compiled'))
 
 running_processes = []
 for p in compile_processes:
