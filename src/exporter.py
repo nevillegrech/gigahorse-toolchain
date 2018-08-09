@@ -68,9 +68,7 @@ class InstructionTsvExporter(Exporter):
       ordered: if True (default), print BasicBlocks in order of entry.
     """
 
-
-
-    def __init__(self, blocks, ordered: bool = True, ):
+    def __init__(self, blocks, ordered: bool = True):
         self.ordered = ordered
         self.blocks = []
         self.blocks = blocks
