@@ -184,6 +184,7 @@ TAC_Op(stmt, op) :-
    !TACNOP(stmt),
    !FunctionCallStmt(stmt),
    !FunctionReturnStmt(stmt),
+   !ThrowJump(stmt),
    !PushValue(stmt, _).
 
 
@@ -205,6 +206,14 @@ TAC_Op(stmt, "RETURNPRIVATEI") :-
 TAC_Op(stmt, "RETURNPRIVATE") :-
    JUMP(stmt),
    FunctionReturnStmt(stmt).
+
+TAC_Op(stmt, "THROW") :-
+   JUMP(stmt),
+   ThrowJump(stmt).
+
+TAC_Op(stmt, "THROWI") :-
+   JUMPI(stmt),
+   ThrowJump(stmt).
 
 TAC_Op(stmt, op) :-
    FunctionReturnStmt(stmt),

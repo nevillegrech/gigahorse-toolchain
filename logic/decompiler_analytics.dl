@@ -70,6 +70,8 @@ Analytics_PolymorphicTarget(block) :-
 Analytics_MissingJumpTarget(block) :-
   Analytics_Jumps(block),
   !InsBlockJumpValidTarget(block, _),
+  BasicBlock_Tail(block, jump),
+  !ThrowJump(jump),
   JUMPDEST(_). // if there are not valid jumpdests then don't flag
 
 .decl Analytics_JumpToAnyDefinedInStatement(block: Block, stmt: Statement)

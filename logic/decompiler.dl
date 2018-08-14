@@ -239,6 +239,21 @@ BlockJumpTarget(calleeCtx, callee, realVariable) :-
   BeforeLocalStackContents(stmt, 0, stackIndex),
   CheckIsStackIndex(stackIndex).
 
+.decl ValidStatementOrd(n: number)
+
+ValidStatementOrd(ord(stmt)) :-
+   Statement_Opcode(stmt, _).
+
+.decl ThrowJump(stmt:Statement)
+
+ThrowJump(jmp) :-
+   BlockJumpTarget(_, block, variable),
+   Variable_Value(variable, value),
+   Statement_Block(jmp, block),
+   IsJump(jmp),
+   ConcreteValue(value),
+   !ValidStatementOrd(ord(value)).
+
 .decl BlockJumpValidTarget(ctx:Context, block:Block, variable: Variable, target:Block)
 
 BlockJumpValidTarget(ctx, block, variable, targetBlock) :-
