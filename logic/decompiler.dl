@@ -242,12 +242,14 @@ BlockJumpTarget(calleeCtx, callee, realVariable) :-
 .decl ValidStatementOrd(n: number)
 
 ValidStatementOrd(ord(stmt)) :-
-   Statement_Opcode(stmt, _).
+   JUMPDEST(stmt).
 
 .decl ThrowJump(stmt:Statement)
 
 ThrowJump(jmp) :-
    BlockJumpTarget(_, block, variable),
+   Statement_Defines(stmt, variable),
+   Statement_Block(stmt, block),
    Variable_Value(variable, value),
    Statement_Block(jmp, block),
    IsJump(jmp),
@@ -449,8 +451,6 @@ NextStmtInBlock(prevStmt, stmt) :-
 BeforeLocalStackContents(stmt, n, variable) :-
   LocalStackContents(prevStmt, n, variable),
   NextStmtInBlock(prevStmt, stmt).
-
-.output BeforeLocalStackContents
 
 // Special case for block head (contains only stackIndexes). Initialize all
 // stack positions, from zero to max consumed (from the caller's stack) by
