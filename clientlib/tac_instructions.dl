@@ -1,0 +1,203 @@
+//
+// *** Three-address code INSTRUCTIONS ***
+// This is the schema for the input of any client analyses. Note the
+// (incompatible) overlap with names of instructions inside the
+// decompiler.  E.g., an ADD relation inside a decompiler is different
+// from the ADD relation established here.  We are changing
+// representation right after this phase: importing info that the
+// decompiler has produced and formatting it the way further analyses
+// want it.
+//
+
+// Place opcodes into various categories.
+.decl UnaryArith(opcode:Opcode)
+UnaryArith("ISZERO").
+UnaryArith("NOT").
+
+.decl BinArith(opcode:Opcode)
+BinArith("ADD").
+BinArith("MUL").
+BinArith("SUB").
+BinArith("DIV").
+BinArith("SDIV").
+BinArith("MOD").
+BinArith("SMOD").
+BinArith("EXP").
+BinArith("SIGNEXTEND").
+BinArith("LT").
+BinArith("GT").
+BinArith("SLT").
+BinArith("SGT").
+BinArith("EQ").
+BinArith("AND").
+BinArith("OR").
+BinArith("XOR").
+BinArith("BYTE").
+
+.decl TernArith(opcode:Opcode)
+TernArith("ADDMOD").
+TernArith("MULMOD").
+
+.decl RuntimeKnowable(opcode:Opcode)
+RuntimeKnowable("ADDRESS").
+RuntimeKnowable("ORIGIN").
+RuntimeKnowable("CALLER").
+RuntimeKnowable("CALLVALUE").
+RuntimeKnowable("CALLDATASIZE").
+RuntimeKnowable("CODESIZE").
+RuntimeKnowable("GASPRICE").
+RuntimeKnowable("RETURNDATASIZE").
+
+.decl IsThrow(stmt:Statement)
+IsThrow(stmt) :- Statement_Opcode(stmt, "INVALID").
+IsThrow(stmt) :- Statement_Opcode(stmt, "REVERT").
+IsThrow(stmt) :- Statement_Opcode(stmt, "THROW").
+IsThrow(stmt) :- Statement_Opcode(stmt, "THROWI").
+
+.decl SHA3(stmt: Statement, start: Variable, size: Variable, ret: Variable)
+SHA3(stmt, start, size, ret) :-
+  Statement_Opcode(stmt,"SHA3"),
+  Statement_Uses(stmt, start, 0),
+  Statement_Uses(stmt, size, 1),
+  Statement_Defines(stmt, ret, _).
+
+.decl MSTORE(stmt: Statement, index: Variable, var: Variable)
+
+MSTORE(stmt, index, var) :-
+  Statement_Opcode(stmt,"MSTORE"),
+  Statement_Uses(stmt, index, 0),
+  Statement_Uses(stmt, var, 1).
+
+.decl SSTORE(stmt: Statement, index: Variable, var: Variable)
+
+SSTORE(stmt, index, var) :-
+  Statement_Opcode(stmt,"SSTORE"),
+  Statement_Uses(stmt, index, 0),
+  Statement_Uses(stmt, var, 1).
+
+.decl SLOAD(stmt: Statement, index: Variable, var: Variable)
+
+SLOAD(stmt, index, var) :-
+  Statement_Opcode(stmt,"SLOAD"),
+  Statement_Uses(stmt, index, 0),
+  Statement_Defines(stmt, var, _).
+
+.decl MLOAD(stmt: Statement, index: Variable, var: Variable)
+
+MLOAD(stmt, index, var) :-
+  Statement_Opcode(stmt,"MLOAD"),
+  Statement_Uses(stmt, index, 0),
+  Statement_Defines(stmt, var, _).
+
+.decl AND(stmt: Statement, a: Variable, b: Variable, to: Variable)
+
+AND(stmt, a, b, to) :-
+  Statement_Opcode(stmt, "AND"),
+  Statement_Defines(stmt, to, _),
+  Statement_Uses(stmt, a, 0),
+  Statement_Uses(stmt, b, 1).
+
+.decl ADD(stmt: Statement, a: Variable, b: Variable, to: Variable)
+ADD(stmt, a, b, to) :-
+  Statement_Opcode(stmt, "ADD"),
+  Statement_Defines(stmt, to, _),
+  Statement_Uses(stmt, a, 0),
+  Statement_Uses(stmt, b, 1).
+
+.decl CALL(stmt:Statement, gas:Variable, target:Variable, value:Variable, data_start:Variable,
+           data_length:Variable, return_start:Variable, return_length:Variable, success: Variable)
+
+
+CALL(stmt, gas, target, value, data_start, data_length, return_start, return_length, success) :-
+  Statement_Opcode(stmt, "CALL"),
+  Statement_Defines(stmt, success, _),
+  Statement_Uses(stmt, gas, 0),
+  Statement_Uses(stmt, target, 1),
+  Statement_Uses(stmt, value, 2),
+  Statement_Uses(stmt, data_start, 3),
+  Statement_Uses(stmt, data_length, 4),
+  Statement_Uses(stmt, return_start, 5),
+  Statement_Uses(stmt, return_length, 6).
+
+
+.decl JUMP(stmt:Statement, dest:Variable)
+JUMP(stmt, dest) :-
+  Statement_Opcode(stmt, "JUMP"),
+  Statement_Uses(stmt, dest, 0).
+
+.decl JUMPI(stmt:Statement, dest:Variable, condVar:Variable)
+JUMPI(stmt, dest, condVar) :-
+  Statement_Opcode(stmt, "JUMPI"),
+  Statement_Uses(stmt, dest, 0),
+  Statement_Uses(stmt, condVar, 1).
+
+.decl THROW(stmt:Statement)
+THROW(stmt) :-
+  Statement_Opcode(stmt, "THROW").
+
+.decl THROWI(stmt:Statement, condVar:Variable)
+THROWI(stmt, condVar) :-
+  Statement_Opcode(stmt, "THROWI"),
+  Statement_Uses(stmt, condVar, 1).
+
+
+.decl FlowOp(op: Opcode)
+// Represents operations through which data can "flow"      
+FlowOp(op) :- BinArith(op).
+FlowOp(op) :- UnaryArith(op).
+FlowOp(op) :- TernArith(op).
+FlowOp("PHI").
+
+// var is the result of a CALL operation, stmt
+.decl CallStmt(stmt:Statement)
+CallStmt(stmt) :- Statement_Opcode(stmt, "CALL").
+CallStmt(stmt) :- Statement_Opcode(stmt, "CALLCODE").
+CallStmt(stmt) :- Statement_Opcode(stmt, "DELEGATECALL").
+CallStmt(stmt) :- Statement_Opcode(stmt, "STATICCALL").
+
+
+// var is the result of a CALL operation, stmt
+.decl CallResult(var:Variable, stmt:Statement)
+
+CallResult(var, stmt) :- CallStmt(stmt), Statement_Defines(stmt, var, _).
+
+// var holds the result of executing the GAS opcode
+.decl GAS(stmt: Statement, var: Variable)
+GAS(stmt, var) :- Statement_Opcode(stmt, "GAS"), Statement_Defines(stmt, var, _).
+
+.decl IsJump(s:Statement)
+IsJump(s) :- Statement_Opcode(s, "JUMP").
+IsJump(s) :- Statement_Opcode(s, "JUMPI").
+
+
+// Instructions introduced by the new decompiler
+.decl PHI(s: Statement, fro: Variable, to: Variable)
+
+PHI(stmt, fro, to) :-
+   Statement_Opcode(stmt, "PHI"),
+   Statement_Defines(stmt, to, _),
+   Statement_Uses(stmt, fro, _).
+
+.decl CALLPRIVATE(s: Statement, f: Variable)
+
+CALLPRIVATE(stmt, f) :-
+   Statement_Opcode(stmt, "CALLPRIVATE"),
+   Statement_Uses(stmt, f, 0).
+
+.decl CALLPRIVATEI(s: Statement, f: Variable, cond: Variable)
+CALLPRIVATEI(stmt, f, cond) :-
+   Statement_Opcode(stmt, "CALLPRIVATEI"),
+   Statement_Uses(stmt, f, 0),
+   Statement_Uses(stmt, cond, 1).
+
+.decl RETURNPRIVATE(s: Statement, b: Variable)
+RETURNPRIVATE(stmt, b) :-
+   Statement_Opcode(stmt, "RETURNPRIVATE"),
+   Statement_Uses(stmt, b, 0).
+
+.decl RETURNPRIVATEI(s: Statement, b: Variable, cond: Variable)
+RETURNPRIVATEI(stmt, b, cond) :-
+   Statement_Opcode(stmt, "RETURNPRIVATEI"),
+   Statement_Uses(stmt, b, 0),
+   Statement_Uses(stmt, cond, 1).
+
