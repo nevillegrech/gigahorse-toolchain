@@ -38,4 +38,14 @@ souffle -F facts decompiler.dl
 ./visualizeout.py
 ```
 
+For batch processing of contracts, we recommend the bulk analyzer script in `logic/analyze.py`.
 
+
+## Writing client analyses
+
+In order to write client analyses for decompiled bytecode, we recommend that you create a souffle logic file that includes `clientlib/decompiler_imports.dl`, for instance:
+```
+#include "clientlib/decompiler_imports.dl"
+
+.output ...
+```
