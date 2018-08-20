@@ -35,7 +35,7 @@ def load_tac_sorted(prop):
 tac_blocks = defaultdict(list,load_tac_blocks())
 tac_use = load_tac_sorted('TAC_Use')
 tac_def = load_tac_sorted('TAC_Def')
-function_arguments = load_tac_sorted('FunctionArgument_Out')
+function_arguments = load_tac_sorted('FormalArgs')
 high_level_function_name = dict(parseCsv('HighLevelFunctionName'))
 tac_op = dict(parseCsv('TAC_Op'))
 variable_value = dict(parseCsv('TAC_Variable_Value'))
