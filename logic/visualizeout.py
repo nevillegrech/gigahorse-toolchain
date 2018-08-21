@@ -70,6 +70,10 @@ for k, index, v in special_block_colors:
         block_colors[s] = v
     
 edges = parseCsv('InsBlockEdge')
+def prev_block(block):
+    return {k for k,v in edges if v == block}
+def next_block(block):
+    return {v for k,v in edges if k == block}
 
 def format_var(v):
     if v in variable_value:
@@ -78,7 +82,7 @@ def format_var(v):
         value = ''
     return 'v' + v.replace('0x', '')+value
 
-    
+rendered_statements = {}
 def renderBlock(k, stmts):
     sorted_stmts = []
     if k in functions:
@@ -95,13 +99,10 @@ def renderBlock(k, stmts):
         sorted_stmts.append(ret+op+' '+use)
     if len(sorted_stmts) > BLOCK_SIZE_LIMIT:
         half_limit = int(BLOCK_SIZE_LIMIT/2)
-        sorted_stmts = sorted_stmts[:half_limit] + ['...'] + sorted_stmts[-half_limit:]
-    print()
-    print('----------------------------------')
-    print('Begin block %s'%k)
-    print('----------------------------------')
-    print('\n'.join(sorted_stmts))
-    return '\\l'.join(sorted_stmts) + '\\l'
+        truncated_stmts = sorted_stmts[:half_limit] + ['...'] + sorted_stmts[-half_limit:]
+    else: truncated_stmts = sorted_stmts
+    rendered_statements[k] = sorted_stmts
+    return '\\l'.join(truncated_stmts) + '\\l'
 graph = pydot.Dot(graph_type='graph')
 
 for fro, to in edges:
@@ -127,5 +128,12 @@ for fro, to in edges:
         continue
     graph.add_edge(pydot.Edge(nodeDict[fro], nodeDict[to], dir = 'forward', arrowHead = 'normal'))
 
+for key in sorted(rendered_statements, key = lambda a: int(a, base=16)):
+    print()
+    print('Begin block %s'%key)
+    print('prev = %s, next = %s'%(prev_block(key), next_block(key)))
+    print('----------------------------------')
+    print('\n'.join(rendered_statements[key]))
+    print('----------------------------------')
 graph.write_png('graph.png')
 

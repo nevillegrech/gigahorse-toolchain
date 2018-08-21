@@ -487,8 +487,6 @@ FunctionalBlockInputContents(func, n, var) :-
 FunctionalBlockInputContents(next, index, variable) :-
   FunctionalBlockOutputContents(_, next, index, variable).
 
-//TODO: output contents should be edge-based not block-based
-
 // 1) Normal block to block flow, i.e. no unconditional function calls from block to block
 FunctionalBlockOutputContents(block, next, index, variable) :-
   BeforeFunctionCallFunctionalBlockOutputContents(block, index, variable),
