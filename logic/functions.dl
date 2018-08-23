@@ -292,7 +292,6 @@ InFunction(next, func) :-
   LocalBlockEdge(block, next).
 
 .decl NumberOfFunctionArguments(func: Block, num: StackIndex)
-.output NumberOfFunctionArguments
 .decl NumberOfFunctionReturnArguments(func: Block, num: StackIndex)
 
 .decl EnhancedLocalBlockEdge(from: Block, to: Block)
