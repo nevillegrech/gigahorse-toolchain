@@ -180,7 +180,13 @@ FunctionCallReturn(caller, func, retTarget) :-
     !Function_Return(_, prev),
     !(InFunction(prev, func1), InFunction(prev, func2)).
 
+  FunctionCall(prev, block) :-
+    PrevFunctionEntry(block),
+    BlockEdge(_, prev, _, block),
+    !Function_Return(_, prev).
+
   FunctionCall(prev, func1) :- PrevFunctionCall(prev, func1).
+  FunctionEntry(block) :- PrevFunctionEntry(block).
 }
 
 // Initialize and iterate the algorithm
@@ -205,6 +211,10 @@ detector1.PrevFunctionCall(block, func) :- detector0.FunctionCall(block, func).
 detector2.PrevFunctionEntry(block) :- detector1.FunctionEntry(block).
 detector2.PrevFunctionCall(block, func) :- detector1.FunctionCall(block, func).
 
+.init detector3 = FunctionDetection
+detector3.PrevFunctionEntry(block) :- detector2.FunctionEntry(block).
+detector3.PrevFunctionCall(block, func) :- detector2.FunctionCall(block, func).
+
 /***********
    Collecting all function decomposition results
 ***********/
@@ -224,7 +234,8 @@ FunctionCall(block, func) :-
 FunctionCall(block, func) :-
   detector0.FunctionCall(block, func) ;
   detector1.FunctionCall(block, func) ;
-  detector2.FunctionCall(block, func).
+  detector2.FunctionCall(block, func) ;
+  detector3.FunctionCall(block, func).
 
 .decl Function(func:Block)
 
@@ -236,7 +247,8 @@ Function(func) :-
   detector0.PrevFunctionEntry(func) ;
   detector0.FunctionEntry(func) ;
   detector1.FunctionEntry(func) ;
-  detector2.FunctionEntry(func).
+  detector2.FunctionEntry(func) ;
+  detector3.FunctionEntry(func).
 
 
 /***********
