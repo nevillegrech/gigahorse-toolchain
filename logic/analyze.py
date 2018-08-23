@@ -18,6 +18,8 @@ from multiprocessing import Process, SimpleQueue, Manager, Event
 from os.path import abspath, dirname, join, getsize
 import os
 
+devnull = open(os.devnull, 'w')
+
 # Add the source directory to the path to ensure the imports work
 src_path = join(dirname(abspath(__file__)), "../")
 sys.path.insert(0, src_path)
@@ -245,14 +247,22 @@ def analyze_contract(job_index: int, index: int, filename: str, result_queue, ti
                              "--facts={}".format(work_dir),
                              "--output={}".format(out_dir)
             ]
-            subprocess.run(analysis_args)
+            runtime = run_process(analysis_args, devnull, timeout)
+            if runtime < 0:
+                result_queue.put((filename, [], ["TIMEOUT"], {}))
+                log("{} timed out.".format(filename))
+                return
             client_start = time.time()
             for souffle_client in souffle_clients:
                 analysis_args = [join(os.getcwd(), souffle_client+'_compiled'),
                              "--facts={}".format(out_dir),
                              "--output={}".format(out_dir)
                 ]
-                subprocess.run(analysis_args)
+                runtime = run_process(analysis_args, devnull, timeout)
+                if runtime < 0:
+                    result_queue.put((filename, [], ["TIMEOUT"], {}))
+                    log("{} timed out.".format(filename))
+                    return
 
             # Collect the results and put them in the result queue
             vulns = []
@@ -321,6 +331,7 @@ def analyze_contract_porosity(job_index: int, index: int, filename: str, result_
         if porosity_time < 0:
             result_queue.put((filename, [], ["TIMEOUT"], {}))
             log("{} timed out.".format(filename))
+            return
         
         output = open(out_dir+'/out.txt').read()
         analytics['Functions'] = output.count('function ')
