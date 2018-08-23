@@ -34,7 +34,7 @@ CastStatementToBlock(x,y) :- CastStmtToBlockSymbol(x,y).
 
 .decl _StatementNum(statement: Statement, num: number)
 
-_StatementNum("0x0", -1).
+_StatementNum(FUNCTION_SELECTOR, -1).
 
 _StatementNum(next, n-1) :-
   _StatementNum(stmt, n),
@@ -565,4 +565,3 @@ Variable_Length(var, length) :-
 UnknownLength(var) :-
    IsVariable(var),
    !Variable_Length(var, _).
-
