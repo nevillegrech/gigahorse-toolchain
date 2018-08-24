@@ -1,7 +1,7 @@
 // The core of the decompiler logic. Most complex reasoning for value
 // flow and detecting CFG edges (much like the Vandal decompiler) is here.
 
-#define MAX_STACK_HEIGHT 75
+#define MAX_STACK_HEIGHT 50
 #define CheckIsVariable(v) ((v) < 0)
 #define CheckIsStackIndex(v) ((v) >= 0, (v) < MAX_STACK_HEIGHT)
 #define FRESH_VARIABLE(var, stmt, stackIndex) (_StatementNum((stmt), _stmtNum), var=-0xFFFF+_stmtNum*MAX_STACK_HEIGHT+(stackIndex))
@@ -227,14 +227,14 @@ BlockOutputContents(ctx, block, index, realVariable) :-
 
 BlockJumpTarget(ctx, block, var) :-
   ReachableContext(ctx, block),
-  Statement_Block(stmt, block),
+  BasicBlock_Tail(block, stmt),
   IsJump(stmt),
   BeforeLocalStackContents(stmt, 0, var),
   CheckIsVariable(var).
 
 BlockJumpTarget(calleeCtx, callee, realVariable) :-
   BlockInputContents(calleeCtx, callee, stackIndex, realVariable),
-  Statement_Block(stmt, callee),
+  BasicBlock_Tail(callee, stmt),
   IsJump(stmt),
   BeforeLocalStackContents(stmt, 0, stackIndex),
   CheckIsStackIndex(stackIndex).
@@ -251,7 +251,7 @@ ThrowJump(jmp) :-
    Statement_Defines(stmt, variable),
    Statement_Block(stmt, block),
    Variable_Value(variable, value),
-   Statement_Block(jmp, block),
+   BasicBlock_Tail(block, jmp),
    IsJump(jmp),
    ConcreteValue(value),
    !ValidStatementOrd(ord(value)).

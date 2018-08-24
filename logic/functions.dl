@@ -498,6 +498,10 @@ FunctionalBlockInputContents(func, n, var) :-
 FunctionalBlockInputContents(next, index, variable) :-
   FunctionalBlockOutputContents(_, next, index, variable).
 
+// IMPORTANT: Although this code is probably correct, representing values
+// per edge is wasteful. Confirmed.
+// Is the per-edge representation equivalent to jump-site sensitivity?
+
 // 1) Normal block to block flow, i.e. no unconditional function calls from block to block
 FunctionalBlockOutputContents(block, next, index, variable) :-
   BeforeFunctionCallFunctionalBlockOutputContents(block, index, variable),

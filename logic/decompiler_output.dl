@@ -91,10 +91,17 @@ DominatorFrontier(block, frontier) :-
   BlockEdge(_, pred, _, frontier),
   !Dominates(pred, block).
 
+.decl FunctionalBlock_Uses_Local(block: Block, stackIndex: StackIndex)
+
+FunctionalBlock_Uses_Local(block, stackIndex) :-
+  Statement_Block(stmt, block),
+  FunctionalStatement_Uses_Local(stmt, stackIndex, _),
+  IsStackIndex(stackIndex).
 
 .decl PolymorphicStackIndex(block: Block, stackIndex: StackIndex)
 
 PolymorphicStackIndex(block, stackIndex) :-
+  FunctionalBlock_Uses_Local(block, stackIndex),
   FunctionalBlockInputContents(block, stackIndex, var1),
   FunctionalBlockInputContents(block, stackIndex, var2),
   var1 != var2.
@@ -106,8 +113,6 @@ PolymorphicStackIndex(block, stackIndex) :-
 .output PHILocation
 PHILocation(block, stackIndex, cat(cat(block, "_"), stackIndexStr)) :-
   PolymorphicStackIndex(block, stackIndex),
-  Statement_Block(stmt, block),
-  FunctionalStatement_Uses_Local(stmt, stackIndex, _),
   StackIndexToString(stackIndex, stackIndexStr).
 
 .symbol_type TACVariable
