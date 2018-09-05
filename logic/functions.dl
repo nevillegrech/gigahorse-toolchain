@@ -609,12 +609,28 @@ FunctionalStatement_Uses(stmt, var, n) :-
 
 HighLevelFunctionName(FUNCTION_SELECTOR, "__function_selector__").
 
-HighLevelFunctionName(func, name) :-
+// Standardize public function signature length
+.decl SighashIntermediate(sig: symbol, sigHash: symbol)
+
+SighashIntermediate(sigIn, cat("0x0",substr(sigOut,2,8))) :-
+   SighashIntermediate(sigIn, sigOut),
+   strlen(sigOut) < 10.
+
+SighashIntermediate(sig, sig) :-
+   PublicFunctionEntry(_, sig).
+
+.decl PublicFunctionEntry_HighLevel(func: Block, sigHashOut: symbol)
+PublicFunctionEntry_HighLevel(func, sigHashOut) :-
    PublicFunctionEntry(func, sigHash),
+   SighashIntermediate(sigHash, sigHashOut),
+   strlen(sigHashOut) = 10.
+   
+HighLevelFunctionName(func, name) :-
+   PublicFunctionEntry_HighLevel(func, sigHash),
    PublicFunctionSignature(sigHash, name).
 
 HighLevelFunctionName(func, name) :-
-   PublicFunctionEntry(func, name),
+   PublicFunctionEntry_HighLevel(func, name),
    !PublicFunctionSignature(name, _).
 
 HighLevelFunctionName(func, func) :-

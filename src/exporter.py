@@ -95,7 +95,10 @@ class InstructionTsvExporter(Exporter):
         signatures_filename_in = public_function_signature_filename
         signatures_filename_out = os.path.join(output_dir, 'PublicFunctionSignature.facts')
         if os.path.isfile(signatures_filename_in):
-            os.symlink(signatures_filename_in, signatures_filename_out)
+            try:
+                os.symlink(signatures_filename_in, signatures_filename_out)
+            except FileExistsError:
+                pass
         else:
             open(signatures_filename_out, 'w').close()
             
