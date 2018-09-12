@@ -307,5 +307,5 @@ ActualReturnArgs(caller, var_rep, n) :-
 .output FallthroughEdge
 
 .output Mask_Length        
-
+.output InFunction
 
