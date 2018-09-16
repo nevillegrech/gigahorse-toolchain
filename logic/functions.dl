@@ -291,7 +291,7 @@ InFunction(next, func) :-
   InFunction(block, func),
   LocalBlockEdge(block, next).
 
-.decl NumberOfFunctionArguments(func: Block, num: StackIndex)
+.decl NumberOfFunctionArguments(func: Block, ret: Block, num: StackIndex)
 .decl NumberOfFunctionReturnArguments(func: Block, num: StackIndex)
 
 .decl EnhancedLocalBlockEdge(from: Block, to: Block)
@@ -318,7 +318,7 @@ EdgePopDelta(from, to, newPopDelta) :-
    EnhancedLocalBlockEdge(from, to),
    !BlockEdge(_, from, _, to),
    FunctionCall(from, func),
-   NumberOfFunctionArguments(func, n_args),
+   NumberOfFunctionArguments(func, _, n_args),
    BlockPopDelta(from, popDelta),
    BlockStackDelta(from, stackDelta),
    newPopDelta = n_args-stackDelta,
@@ -329,7 +329,7 @@ EdgePopDelta(from, to, popDelta) :-
    EnhancedLocalBlockEdge(from, to),
    !BlockEdge(_, from, _, to),
    FunctionCall(from, func),
-   NumberOfFunctionArguments(func, n_args),
+   NumberOfFunctionArguments(func, _, n_args),
    BlockPopDelta(from, popDelta),
    BlockStackDelta(from, stackDelta),
    newPopDelta = n_args-stackDelta,
@@ -404,20 +404,24 @@ FunctionEdgePushDelta(from, to, stackDelta + popDelta) :-
    FunctionEdgePopDelta(from, to, popDelta),
    FunctionEdgeStackDelta(from, to, stackDelta).
 
+.decl Function_Terminal(func: Block, terminal: Block)
+
 // We mostly care about a function's signature when it returns
-NumberOfFunctionArguments(func, delta) :-
+Function_Terminal(func, ret),
+NumberOfFunctionArguments(func, ret, delta) :-
    FunctionEdgePopDelta(ret, "invalid", delta),
    Function_Return(func, ret).
 
-NumberOfFunctionArguments(func, delta) :-
+Function_Terminal(func, block),
+NumberOfFunctionArguments(func, block, delta) :-
    FunctionEdgePopDelta(block, "invalid", delta),
    InFunction(func, block),
    !Function_Return(func, _).
 
 // Same here
-NumberOfFunctionArguments(func, delta) :-
-   FunctionEdgePopDelta(block, "invalid", delta),
-   InFunction(block, func).
+//NumberOfFunctionArguments(func, block, delta) :-
+//   FunctionEdgePopDelta(block, "invalid", delta),
+//   InFunction(block, func).
 
 NumberOfFunctionReturnArguments(func, delta) :-
    FunctionEdgePushDelta(ret, "invalid", delta),
@@ -428,10 +432,16 @@ NumberOfFunctionReturnArguments(func, 0) :-
    Function(func),
    !Function_Return(func, _).
 
+.decl CandidateNumberOfFunctionArgumentsForReturn(func: Block, ret: Block, n: StackIndex)
+CandidateNumberOfFunctionArgumentsForReturn(func, ret, n) :-
+   Function_Terminal(func, ret),
+   n = min delta : NumberOfFunctionArguments(func, ret, delta).
+
+
 .decl CandidateNumberOfFunctionArguments(func: Block, n: StackIndex)
 CandidateNumberOfFunctionArguments(func, n) :-
    Function(func),
-   n = min delta : NumberOfFunctionArguments(func, delta).
+   n = max m : CandidateNumberOfFunctionArgumentsForReturn(func, _, m).
 
 // This may improve precision, see further rant below
 .decl CompositeNumberOfFunctionAndReturnArguments(func: Block, n_in: StackIndex, n_out: StackIndex)
@@ -441,7 +451,8 @@ CompositeNumberOfFunctionAndReturnArguments(func, n_in, n_out) :-
    FunctionEdgePushDelta(ret, "invalid", n_out),
    Function_Return(func, ret).
 
-NumberOfFunctionArguments(FUNCTION_SELECTOR, 0).
+NumberOfFunctionArguments(FUNCTION_SELECTOR, block, 0) :-
+   Function_Terminal(FUNCTION_SELECTOR, block).
 
 //TODO
 .decl Variable_String(var:Variable, var_rep:symbol)

@@ -106,8 +106,8 @@ Analytics_JumpToAnyOnly(block) :-
 .output Analytics_InexactFunctionReturnArguments
 
 Analytics_InexactFunctionArguments(func) :-
-   NumberOfFunctionArguments(func, delta),
-   NumberOfFunctionArguments(func, delta2),
+   NumberOfFunctionArguments(func, _, delta),
+   NumberOfFunctionArguments(func, _, delta2),
    delta != delta2.
 
 Analytics_InexactFunctionReturnArguments(func) :-
