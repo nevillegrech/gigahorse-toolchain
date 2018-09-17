@@ -110,6 +110,7 @@ PossiblyInFunction(retTarget, func) :-
 // A function has to have a single entry point
 
 .decl NotRegularFunction(func:Block)
+.output NotRegularFunction
 
 // A basic block can only belong to a single function
 // Solution: Pick one!
@@ -131,8 +132,8 @@ NotRegularFunction(func) :-
 
 Function_Return(func, retBlock),
 FunctionCallReturn(caller, func, retTarget) :-
-  PossibleFunctionCall(caller, func, retBlock, retTarget),
-  !NotRegularFunction(func).
+  PossibleFunctionCall(caller, func, retBlock, retTarget).
+//  !NotRegularFunction(func).
 
 
 // Further function decomposition.
