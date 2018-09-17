@@ -108,22 +108,14 @@ PossiblyInFunction(retTarget, func) :-
 
 // What is a function?
 // A function has to have a single entry point
+// has to be called multiple times
 
-.decl NotRegularFunction(func:Block)
-.output NotRegularFunction
+.decl FunctionCalledMultipleTimes(func: Block)
 
-// A basic block can only belong to a single function
-// Solution: Pick one!
-NotRegularFunction(func2) :-
-  PossiblyInFunction(block, func1),
-  PossiblyInFunction(block, func2),
-  ord(func1) > ord(func2).
-
-// A function can only be entered by calling it
-NotRegularFunction(func) :-
-  PossiblyInFunction(_, func),
-  BlockEdge(_, caller, _, func),
-  !PossibleFunctionCall(caller, func, _, _).
+FunctionCalledMultipleTimes(func) :-
+   PossibleFunctionCall(caller, func, _, _),
+   PossibleFunctionCall(caller2, func, _, _),
+   caller != caller2.
 
 
 // caller calls func and func returns to retTarget
@@ -132,8 +124,8 @@ NotRegularFunction(func) :-
 
 Function_Return(func, retBlock),
 FunctionCallReturn(caller, func, retTarget) :-
-  PossibleFunctionCall(caller, func, retBlock, retTarget).
-//  !NotRegularFunction(func).
+  PossibleFunctionCall(caller, func, retBlock, retTarget),
+  FunctionCalledMultipleTimes(func).
 
 
 // Further function decomposition.

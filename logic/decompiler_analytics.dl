@@ -207,3 +207,20 @@ Analytics_NonContinuationReturn(callerBlock, retBlock, target) :-
 
 Analytics_NonContinuationReturnCall(callerBlock) :-
    Analytics_NonContinuationReturn(callerBlock, _, _).
+
+
+.decl NotRegularFunction(func:Block)
+.output NotRegularFunction
+
+// A basic block can only belong to a single function
+// Solution: Pick one!
+NotRegularFunction(func2) :-
+  PossiblyInFunction(block, func1),
+  PossiblyInFunction(block, func2),
+  ord(func1) > ord(func2).
+
+// A function can only be entered by calling it
+NotRegularFunction(func) :-
+  PossiblyInFunction(_, func),
+  BlockEdge(_, caller, _, func),
+  !PossibleFunctionCall(caller, func, _, _).
