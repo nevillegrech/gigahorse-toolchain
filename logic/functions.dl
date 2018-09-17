@@ -479,7 +479,7 @@ FunctionArgument(funcBlock, n, var) :-
   IsStackIndexLessThan(n, n_args),
   CastStatementToBlock(stmt, funcBlock),
   FRESH_VARIABLE(var, stmt, n),
-  StackIndexToString(n, n_str).
+  NumberToString(n, n_str).
 
 Variable_String(newVar, cat(callStmt, cat("_", n_str))),
 FunctionalStatement_Defines(callStmt, newVar, n),
@@ -489,7 +489,7 @@ FunctionCallReturnArgument(caller, n, newVar) :-
   IsStackIndexLessThan(n, n_arg),
   BasicBlock_Tail(caller, callStmt),
   FRESH_VARIABLE(newVar, callStmt, n),
-  StackIndexToString(n, n_str).
+  NumberToString(n, n_str).
 
 // Renaming variables in functions
 // Involves Propagating variables, but doesn't require re-computing the CFG

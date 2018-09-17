@@ -7,7 +7,6 @@
 // re-formatted for use by clients), statistics, debugging relations.
 
 .output OpcodePossiblyHalts
-.output Statement_Next
 
 .decl InsBlockEdge(from: Block, to:Block)
 .output InsBlockEdge
@@ -113,7 +112,7 @@ PolymorphicStackIndex(block, stackIndex) :-
 .output PHILocation
 PHILocation(block, stackIndex, cat(cat(block, "_"), stackIndexStr)) :-
   PolymorphicStackIndex(block, stackIndex),
-  StackIndexToString(stackIndex, stackIndexStr).
+  NumberToString(stackIndex, stackIndexStr).
 
 .symbol_type TACVariable
 
@@ -309,3 +308,23 @@ ActualReturnArgs(caller, var_rep, n) :-
 .output Mask_Length        
 .output InFunction
 
+/*****
+ *  Statement Ordering
+ *****/
+.decl PRE_TAC_Statement_Next(stmt: Statement, next: Statement)
+.decl TAC_Statement_Next(stmt: Statement, next: Statement)
+.output TAC_Statement_Next
+
+PRE_TAC_Statement_Next(stmt, next) :-
+   Statement_Next(stmt, next).
+
+PRE_TAC_Statement_Next(stmt, nextnext) :-
+  PRE_TAC_Statement_Next(stmt, next),
+  PRE_TAC_Statement_Next(next, nextnext),
+  !TAC_Block(next, _).
+
+TAC_Statement_Next(stmt, next) :-
+  PRE_TAC_Statement_Next(stmt, next),
+  TAC_Block(stmt, _), TAC_Block(next, _).
+   
+   
