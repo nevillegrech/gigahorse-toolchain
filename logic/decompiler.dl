@@ -409,9 +409,9 @@ ReachableContext(calleeCtx, callee) :-
   
 ReachableContext(["<Initial Context>"], FUNCTION_SELECTOR).
 
-.decl FallThroughStmt(stmt:Statement)
+.decl FallthroughStmt(stmt:Statement)
 
-FallThroughStmt(stmt) :-
+FallthroughStmt(stmt) :-
   BasicBlock_Tail(_, stmt),
   !JUMP(stmt),
   Statement_Opcode(stmt, opcode),
@@ -423,7 +423,7 @@ FallThroughStmt(stmt) :-
 FallthroughEdge(caller, fallthroughBlock),
 BlockEdge(callerCtx, caller, ?mergeContextMacro, fallthroughBlock) :-
   ReachableContext(callerCtx, caller),
-  FallThroughStmt(stmt),
+  FallthroughStmt(stmt),
   Statement_Block(stmt, caller),
   Statement_Next(stmt, fallthrough),
   IsBasicBlockHead(fallthrough),
