@@ -118,27 +118,35 @@ SWAPN(opcode, swapn - swap1 + 1) :-
   OpcodeIsSwap(opcode),
   OpcodeOrd("SWAP1", swap1).
 
-.decl StackIndexToString(a:StackIndex, s: symbol)
+.decl IsSmallNumber(n:number)
+      
+IsSmallNumber(0).
 
-StackIndexToString(0, "0").
-StackIndexToString(1, "1").
-StackIndexToString(2, "2").
-StackIndexToString(3, "3").
-StackIndexToString(4, "4").
-StackIndexToString(5, "5").
-StackIndexToString(6, "6").
-StackIndexToString(7, "7").
-StackIndexToString(8, "8").
-StackIndexToString(9, "9").
-StackIndexToString(10, "a").
-StackIndexToString(11, "b").
-StackIndexToString(12, "c").
-StackIndexToString(13, "d").
-StackIndexToString(14, "e").
-StackIndexToString(15, "f").
+IsSmallNumber(n+1) :-
+  IsSmallNumber(n),
+  n+1 < 0xFFF.
 
-StackIndexToString(n, cat(rst, head)) :-
-  IsStackIndex(n),
+.decl NumberToString(a:StackIndex, s: symbol)
+
+NumberToString(0, "0").
+NumberToString(1, "1").
+NumberToString(2, "2").
+NumberToString(3, "3").
+NumberToString(4, "4").
+NumberToString(5, "5").
+NumberToString(6, "6").
+NumberToString(7, "7").
+NumberToString(8, "8").
+NumberToString(9, "9").
+NumberToString(10, "a").
+NumberToString(11, "b").
+NumberToString(12, "c").
+NumberToString(13, "d").
+NumberToString(14, "e").
+NumberToString(15, "f").
+
+NumberToString(n, cat(rst, head)) :-
+  IsSmallNumber(n),
   n > 15,
-  StackIndexToString(n / 16, rst),
-  StackIndexToString(n % 16, head).
+  NumberToString(n / 16, rst),
+  NumberToString(n % 16, head).
