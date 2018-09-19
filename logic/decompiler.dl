@@ -307,7 +307,7 @@ Variable_Value(var, value) :-
   Statement_Defines(stmt, var).
 
 .decl ArithmeticOpcodes(stmt:Statement, var0:VariableOrStackIndex, var1:VariableOrStackIndex, res:Variable)
-
+.output ArithmeticOpcodes
 ArithmeticOpcodes(stmt, var0, var1, res) :-
   Statement_Opcode(stmt, opcode),
   OpcodeIsArithmetic(opcode),
