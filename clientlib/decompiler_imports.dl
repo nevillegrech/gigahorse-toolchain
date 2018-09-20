@@ -17,41 +17,73 @@
 .input OpcodePossiblyHalts(IO="file", filename="OpcodePossiblyHalts.csv", delimiter="\t")
 
 // Final decompiler outputs, code
+
+// 1 to 1 relation from statements to Opcodes.
+// Some of the opcodes are identical to the opcodes produced by EVM.
 .decl Statement_Opcode(stmt:Statement, op:Opcode)
 .input Statement_Opcode(IO="file", filename="TAC_Op.csv", delimiter="\t")
+
+// All the Statements.
+// Most statement ids correspond to actual program locations in the original code.
 .decl IsStatement(stmt:Statement)
 .input IsStatement(IO="file", filename="TAC_Stmt.csv", delimiter="\t")
+
+// All the Variables
+// Some variable ids correspond to statement ids where the variable
+// is originally defined, but some don't e.g. formal arguments.
 .decl IsVariable(var: Variable)
 .input IsVariable(IO="file", filename="TAC_Var.csv", delimiter="\t")
+
+// Maps statements to their basic block. Note that:
+// a) A statement can only pertain to *one* basic block.
+// b) A basic block may be empty.
+// c) As the type system suggests, basic blocks ids *do not*
+//    correspond to statement ids.
 .decl Statement_Block(stmt: Statement, block: Block)
 .input Statement_Block(IO="file", filename="TAC_Block.csv", delimiter="\t")
+
+// Value which a variable may have. See also Variable_ConstValue if you
+// are only interested in concrete values.
 .decl Variable_Value(var: Variable, value: Value)
 .input Variable_Value(IO="file", filename="TAC_Variable_Value.csv", delimiter="\t")
 
 // Control flow & functions
+
+// As the name suggests, is an intra-procedural CFG. 
 .decl LocalBlockEdge(block: Block, nextBlock: Block)
 .input LocalBlockEdge(IO="file", filename="LocalBlockEdge.csv", delimiter="\t")
 
+// A subset of LocalBlockEdge, corresponds to fallthroughs of conditional jumps.
 .decl FallthroughEdge(block: Block, nextBlock: Block)
 .input FallthroughEdge(IO="file", filename="FallthroughEdge.csv", delimiter="\t")
 
 .decl CallGraphEdge(block: Block, function: Function)
 .input CallGraphEdge(IO="file", filename="FunctionCall.csv", delimiter="\t")
 
+// Represents part of the callgraph for functions that are called return
+// control flow back to the caller.
 .decl FunctionCallReturn(block: Block, function: Function, return: Block)
 .input FunctionCallReturn(IO="file", filename="FunctionCallReturn.csv", delimiter="\t")
 
+// All the functions, function ids currently correspond to the entry point block
+// of said function, but this may change in the future. For the entry point see
+// FunctionEntry below.
 .decl IsFunction(func: Function)
 .input IsFunction(IO="file", filename="Function.csv", delimiter="\t")
 
+// A subset of IsFunction, represents public functions. All the rest of the functions
+// are private functions.
 .decl IsPublicFunction(func: Function)
 .input IsPublicFunction(IO="file", filename="PublicFunctionEntry.csv", delimiter="\t")
 
+// Name given to each function. May contain public signature too.
+// Useful for presentation purposes.
 .decl HighLevelFunctionName(func: Function, name: symbol)
 .input HighLevelFunctionName(IO="file", filename="HighLevelFunctionName.csv", delimiter="\t")
 
 // Special instructions & data flow
-// Actuals are on the function call side
+
+// Actuals are on the function call side, the args supplied to a function call
 .decl ActualArgs(caller: Block, a: Variable, pos: number)
 
 ActualArgs(caller, a, pos - 1) :-
@@ -66,10 +98,11 @@ ActualArgs(caller, a, pos - 2) :-
    pos >= 2,
    Statement_Block(s, caller).
 
+// Actual returns are on the function call side, the args supplied as a return
 .decl ActualReturnArgs(caller: Block, a: Variable, pos: number)
 .input ActualReturnArgs(IO="file", filename="ActualReturnArgs.csv", delimiter="\t")
 
-// Actuals are on the function definition side
+// formal return args are on the function definition side
 .decl FormalReturnArgs(fn: Function, a: Variable, pos: number)
 FormalReturnArgs(fn, a, pos - 1) :-
    Statement_Uses(s, a, pos),
@@ -95,13 +128,18 @@ FormalReturnArgs(fn, a, pos - 2) :-
 .decl Statement_Defines(stmt: Statement, var: Variable, n: number)
 .input Statement_Defines(IO="file", filename="TAC_Def.csv", delimiter="\t")
 
-// Partial order
+
+// Partial order, models all instructions except PHI instructions.
+// PHI instrucions do not appear in this relation.
 .decl Statement_Next(stmt: Statement, next: Statement)
 .input Statement_Next(IO="file", filename="TAC_Statement_Next.csv", delimiter="\t")
 
+
+// Basic block corresponding to the function's entry point
 .decl FunctionEntry(block: Block)
 .input FunctionEntry(IO="file", filename="Function.csv", delimiter="\t")
 
+// Basic block corresponding to a function's exit points
 .decl FunctionExit(block: Block)
 FunctionExit(block) :-
    LocalBlockEdge(_, block),
@@ -110,6 +148,8 @@ FunctionExit(block) :-
 .decl CastBlockToFunction(block: symbol)
 CastBlockToFunction(block) :- FunctionEntry(block).
 
+
+// Whether a block is in a function
 .decl InFunction(block: Block, function: Function)
 InFunction(block, function) :-
    CastBlockToFunction(block),
@@ -127,6 +167,7 @@ NotTailStatement(s) :-
    Statement_Next(s, n),
    Statement_Block(n, b).
 
+// Last statement in a basic block
 .decl Block_Tail(b: Block, t: Statement)
 
 Block_Tail(b, t) :-
@@ -138,6 +179,7 @@ Block_Tail(b, t) :-
 IsBlock(b) :-
   Statement_Block(_, b).
 
+// Value which a variable may have. Only concrete values present.
 .decl Variable_ConstValue(variable: Variable, value: Value)
 
 Variable_ConstValue(v, val) :-
