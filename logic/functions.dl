@@ -611,8 +611,6 @@ FunctionalStatement_Uses(stmt, var, n) :-
 
 .decl HighLevelFunctionName(func: Block, name: symbol)
 
-HighLevelFunctionName(FUNCTION_SELECTOR, "__function_selector__").
-
 // Standardize public function signature length
 .decl SighashIntermediate(sig: symbol, sigHash: symbol)
 
@@ -639,4 +637,8 @@ HighLevelFunctionName(func, name) :-
 
 HighLevelFunctionName(func, func) :-
    Function(func),
+   func != FUNCTION_SELECTOR,
    !PublicFunctionEntry(func, _).
+
+HighLevelFunctionName(FUNCTION_SELECTOR, "__function_selector__").
+
