@@ -35,7 +35,7 @@
 .input IsVariable(IO="file", filename="TAC_Var.csv", delimiter="\t")
 
 // Maps statements to their basic block. Note that:
-// a) A statement can only pertain to *one* basic block.
+// a) A statement can (and has to) pertain to *one* basic block.
 // b) A basic block may be empty.
 // c) As the type system suggests, basic blocks ids *do not*
 //    correspond to statement ids.
@@ -60,7 +60,7 @@
 .decl CallGraphEdge(block: Block, function: Function)
 .input CallGraphEdge(IO="file", filename="FunctionCall.csv", delimiter="\t")
 
-// Represents part of the callgraph for functions that are called return
+// Represents part of the callgraph for functions that are called and which return
 // control flow back to the caller.
 .decl FunctionCallReturn(block: Block, function: Function, return: Block)
 .input FunctionCallReturn(IO="file", filename="FunctionCallReturn.csv", delimiter="\t")
@@ -150,6 +150,7 @@ CastBlockToFunction(block) :- FunctionEntry(block).
 
 
 // Whether a block is in a function
+// Currently, blocks may in some cases be part of multiple functions
 .decl InFunction(block: Block, function: Function)
 InFunction(block, function) :-
    CastBlockToFunction(block),
