@@ -268,7 +268,7 @@ def analyze_contract(job_index: int, index: int, filename: str, result_queue, ti
             for python_client in python_clients:
                 out_filename = out_dir+'/'+python_client.split('/')[-1]+'.out'
                 output = open(out_filename, 'w')
-                runtime = run_process([join(os.getcwd(), python_client)], output, timeout)
+                runtime = run_process([join(os.getcwd(), python_client)], output, timeout, cwd = out_dir)
                 if runtime < 0:
                     result_queue.put((filename, [], ["TIMEOUT"], {}))
                     log("{} timed out.".format(filename))
@@ -309,7 +309,7 @@ def get_gigahorse_analytics(out_dir, analytics):
         stat_name = fname.split(".")[0][10:]
         analytics[stat_name] = sum(1 for line in open(join(out_dir, fname)))
 
-def run_process(args, stdout, timeout: int) -> float:
+def run_process(args, stdout, timeout: int, cwd = '.') -> float:
     ''' Runs process described by args, for a specific time period
     as specified by the timeout.
 
@@ -317,7 +317,7 @@ def run_process(args, stdout, timeout: int) -> float:
     times out
     '''
     start_time = time.time()
-    p = subprocess.Popen(args, stdout = stdout)
+    p = subprocess.Popen(args, stdout = stdout, cwd = cwd)
     while True:
         elapsed_time = time.time() - start_time
         if p.poll() is not None:
