@@ -53,7 +53,7 @@
 .decl LocalBlockEdge(block: Block, nextBlock: Block)
 .input LocalBlockEdge(IO="file", filename="LocalBlockEdge.csv", delimiter="\t")
 
-// A subset of LocalBlockEdge, corresponds to fallthroughs of conditional jumps.
+// A subset of LocalBlockEdge, corresponds to fallthrough edges of conditional jumps.
 .decl FallthroughEdge(block: Block, nextBlock: Block)
 .input FallthroughEdge(IO="file", filename="FallthroughEdge.csv", delimiter="\t")
 
@@ -98,7 +98,7 @@ ActualArgs(caller, a, pos - 2) :-
    pos >= 2,
    Statement_Block(s, caller).
 
-// Actual returns are on the function call side, the args supplied as a return
+// Actual returns are on the function call side
 .decl ActualReturnArgs(caller: Block, a: Variable, pos: number)
 .input ActualReturnArgs(IO="file", filename="ActualReturnArgs.csv", delimiter="\t")
 
@@ -129,7 +129,7 @@ FormalReturnArgs(fn, a, pos - 2) :-
 .input Statement_Defines(IO="file", filename="TAC_Def.csv", delimiter="\t")
 
 
-// Partial order, models all instructions except PHI instructions.
+// A total order which models all instructions except PHI instructions.
 // PHI instrucions do not appear in this relation.
 .decl Statement_Next(stmt: Statement, next: Statement)
 .input Statement_Next(IO="file", filename="TAC_Statement_Next.csv", delimiter="\t")
