@@ -265,7 +265,15 @@ def analyze_contract(job_index: int, index: int, filename: str, result_queue, ti
                     result_queue.put((filename, [], ["TIMEOUT"], {}))
                     log("{} timed out.".format(filename))
                     return
-
+            for python_client in python_clients:
+                out_filename = out_dir+'/'+python_client.split('/')[-1]+'.out'
+                output = open(out_filename, 'w')
+                runtime = run_process([join(os.getcwd(), python_client)], output, timeout)
+                if runtime < 0:
+                    result_queue.put((filename, [], ["TIMEOUT"], {}))
+                    log("{} timed out.".format(filename))
+                    return
+                
             # Collect the results and put them in the result queue
             vulns = []
             for fname in os.listdir(out_dir):
@@ -381,11 +389,10 @@ compile_processes = []
 if not args.no_compile:
     compile_processes.append(lambda : compile_datalog(DEFAULT_DECOMPILER_DL, DEFAULT_SOUFFLE_EXECUTABLE))
 
-souffle_clients = []
-if args.souffle_client:
-    souffle_clients = args.souffle_client.split(',')
-    for c in souffle_clients:
-        compile_processes.append(lambda : compile_datalog(c, c+'_compiled'))
+souffle_clients = [a for a in args.souffle_client.split(',') if a.endswith('.dl')]
+python_clients = [a for a in args.souffle_client.split(',') if a.endswith('.py')]
+for c in souffle_clients:
+    compile_processes.append(lambda : compile_datalog(c, c+'_compiled'))
 
 running_processes = []
 for p in compile_processes:
