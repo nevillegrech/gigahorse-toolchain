@@ -189,7 +189,8 @@ TAC_Op(stmt, op) :-
    !FunctionCallStmt(stmt),
    !FunctionReturnStmt(stmt),
    !ThrowJump(stmt),
-   !PushValue(stmt, _).
+   !PushValue(stmt, _),
+   !INVALID(stmt).
 
 
 TAC_Op(stmt, "CONST") :-
@@ -214,6 +215,9 @@ TAC_Op(stmt, "RETURNPRIVATE") :-
 TAC_Op(stmt, "THROW") :-
    JUMP(stmt),
    ThrowJump(stmt).
+
+TAC_Op(stmt, "THROW") :-
+   INVALID(stmt).
 
 TAC_Op(stmt, "THROWI") :-
    JUMPI(stmt),
@@ -326,5 +330,4 @@ PRE_TAC_Statement_Next(stmt, nextnext) :-
 TAC_Statement_Next(stmt, next) :-
   PRE_TAC_Statement_Next(stmt, next),
   TAC_Block(stmt, _), TAC_Block(next, _).
-   
    
