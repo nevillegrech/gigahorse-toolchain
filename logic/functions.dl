@@ -75,12 +75,12 @@ ReachableFrom(blockNext, blockPrev) :-
 // b) address originates at a caller that can reach the
 //    returning basic block.
 PossibleReturnAddress(callerBlock, retBlock, target) :-
-  BlockJumpValidTarget(_, retBlock, targetVariable, target),
-  BasicBlock_Tail(callerBlock, callerStmt),
-  callerBlock != retBlock,
-  IsJump(callerStmt),
-  Statement_Defines(otherCallerStatement, targetVariable),
-  Statement_Block(otherCallerStatement, callerBlock).
+   BlockJumpValidTarget(_, retBlock, targetVariable, target),
+   !ImmediateBlockJumpTarget(_, retBlock, targetVariable),
+   BasicBlock_Tail(callerBlock, callerStmt),
+   IsJump(callerStmt),
+   Statement_Defines(otherCallerStatement, targetVariable),
+   Statement_Block(otherCallerStatement, callerBlock).
 
 
 .decl PossibleFunctionCall(caller:Block, func:Block, retBlock:Block, retTarget:Block)

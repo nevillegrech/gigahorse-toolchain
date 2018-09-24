@@ -166,6 +166,7 @@ ValidStatement(stmt) :- Statement_Block(stmt, _).
 .decl BlockOutputContents(context:Context, block:Block, index:StackIndex, var:Variable)
 .decl BlockInputContents(context:Context, block:Block, index:StackIndex, var:Variable)
 .decl BlockJumpTarget(context:Context, block:Block, var:Variable)
+.decl ImmediateBlockJumpTarget(context:Context, block:Block, var:Variable)
 
 // A summary of all the effects of the basic block up to a statement. The
 // summary cannot contain only variables, it will also refer symbolically to
@@ -225,6 +226,7 @@ BlockOutputContents(ctx, block, index, realVariable) :-
   LocalStackContents(stmt, index, stackIndex),
   CheckIsStackIndex(stackIndex).
 
+ImmediateBlockJumpTarget(ctx, block, var),
 BlockJumpTarget(ctx, block, var) :-
   ReachableContext(ctx, block),
   BasicBlock_Tail(block, stmt),
@@ -247,9 +249,7 @@ ValidStatementOrd(ord(stmt)) :-
 .decl ThrowJump(stmt:Statement)
 
 ThrowJump(jmp) :-
-   BlockJumpTarget(_, block, variable),
-   Statement_Defines(stmt, variable),
-   Statement_Block(stmt, block),
+   ImmediateBlockJumpTarget(_, block, variable),
    Variable_Value(variable, value),
    BasicBlock_Tail(block, jmp),
    IsJump(jmp),
