@@ -225,6 +225,8 @@ def analyze_contract(job_index: int, index: int, filename: str, result_queue, ti
         with open(join(args.contract_dir, filename)) as file:
             # Disassemble contract
             disassemble_start = time.time()
+            def calc_timeout():
+                return timeout-time.time()+disassemble_start
             bytecode = ''.join([l.strip() for l in file if len(l.strip()) > 0])
             blocks = blockparse.EVMBytecodeParser(bytecode).parse()
 
@@ -249,7 +251,7 @@ def analyze_contract(job_index: int, index: int, filename: str, result_queue, ti
                              "--facts={}".format(work_dir),
                              "--output={}".format(out_dir)
             ]
-            runtime = run_process(analysis_args, devnull, timeout)
+            runtime = run_process(analysis_args, devnull, calc_timeout())
             if runtime < 0:
                 result_queue.put((filename, [], ["TIMEOUT"], {}))
                 log("{} timed out.".format(filename))
@@ -260,7 +262,7 @@ def analyze_contract(job_index: int, index: int, filename: str, result_queue, ti
                              "--facts={}".format(out_dir),
                              "--output={}".format(out_dir)
                 ]
-                runtime = run_process(analysis_args, devnull, timeout)
+                runtime = run_process(analysis_args, devnull, calc_timeout())
                 if runtime < 0:
                     result_queue.put((filename, [], ["TIMEOUT"], {}))
                     log("{} timed out.".format(filename))
@@ -268,7 +270,7 @@ def analyze_contract(job_index: int, index: int, filename: str, result_queue, ti
             for python_client in python_clients:
                 out_filename = out_dir+'/'+python_client.split('/')[-1]+'.out'
                 output = open(out_filename, 'w')
-                runtime = run_process([join(os.getcwd(), python_client)], output, timeout, cwd = out_dir)
+                runtime = run_process([join(os.getcwd(), python_client)], output, calc_timeout(), cwd = out_dir)
                 if runtime < 0:
                     result_queue.put((filename, [], ["TIMEOUT"], {}))
                     log("{} timed out.".format(filename))
@@ -316,6 +318,8 @@ def run_process(args, stdout, timeout: int, cwd = '.') -> float:
     Returns the time it took to run the process and -1 if the process
     times out
     '''
+    if timeout < 0:
+        return -1
     start_time = time.time()
     p = subprocess.Popen(args, stdout = stdout, cwd = cwd)
     while True:
