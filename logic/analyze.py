@@ -543,7 +543,7 @@ except Exception as e:
     traceback.print_exc()
     flush_proc.terminate()
 
-log("Removing working directory {}".format(TEMP_WORKING_DIR))
-import shutil
+#log("Removing working directory {}".format(TEMP_WORKING_DIR))
+#import shutil
 
 # shutil.rmtree(TEMP_WORKING_DIR)

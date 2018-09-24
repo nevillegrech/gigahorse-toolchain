@@ -20,7 +20,7 @@ def gather():
                 os.remove(join('PublicFunctionSignature.facts'))
             except FileNotFoundError:
                 pass
-            print(md5_file_as_bytes(join('contract.hex')), name, join('contract.hex'), join('out/get_source.py.out'))
+            print(md5_file_as_bytes(join('contract.hex')), name, '.temp/'+join('contract.hex'), '.temp/'+join('out/get_source.py.out'))
         except FileNotFoundError:
             pass
 
