@@ -27,6 +27,9 @@ sys.path.insert(0, src_path)
 import src.exporter as exporter
 import src.blockparse as blockparse
 
+
+devnull = subprocess.DEVNULL
+
 ## Constants
 
 DEFAULT_SOUFFLE_BIN = 'souffle'
@@ -242,8 +245,6 @@ def analyze_contract(job_index: int, index: int, filename: str, result_queue, ti
             with open(join(work_dir, 'contract_filename.txt'),'w') as f:
                 f.write(contract_filename)
             os.symlink(contract_filename, join(os.getcwd(),join(work_dir, 'contract.hex')))
-
-            devnull = open(os.devnull, 'w')
 
             # Run souffle on those relations
             decomp_start = time.time()
