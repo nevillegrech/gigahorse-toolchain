@@ -251,7 +251,7 @@ def analyze_contract(job_index: int, index: int, filename: str, result_queue, ti
                              "--facts={}".format(work_dir),
                              "--output={}".format(out_dir)
             ]
-            runtime = run_process(analysis_args, devnull, calc_timeout())
+            runtime = run_process(analysis_args, calc_timeout())
             if runtime < 0:
                 result_queue.put((filename, [], ["TIMEOUT"], {}))
                 log("{} timed out.".format(filename))
@@ -262,15 +262,15 @@ def analyze_contract(job_index: int, index: int, filename: str, result_queue, ti
                              "--facts={}".format(out_dir),
                              "--output={}".format(out_dir)
                 ]
-                runtime = run_process(analysis_args, devnull, calc_timeout())
+                runtime = run_process(analysis_args, calc_timeout())
                 if runtime < 0:
                     result_queue.put((filename, [], ["TIMEOUT"], {}))
                     log("{} timed out.".format(filename))
                     return
             for python_client in python_clients:
                 out_filename = out_dir+'/'+python_client.split('/')[-1]+'.out'
-                output = open(out_filename, 'w')
-                runtime = run_process([join(os.getcwd(), python_client)], output, calc_timeout(), cwd = out_dir)
+                err_filename = out_dir+'/'+python_client.split('/')[-1]+'.err'
+                runtime = run_process([join(os.getcwd(), python_client)], calc_timeout(), open(out_filename, 'w'), open(err_filename, 'w'), cwd = out_dir)
                 if runtime < 0:
                     result_queue.put((filename, [], ["TIMEOUT"], {}))
                     log("{} timed out.".format(filename))
@@ -311,7 +311,7 @@ def get_gigahorse_analytics(out_dir, analytics):
         stat_name = fname.split(".")[0][10:]
         analytics[stat_name] = sum(1 for line in open(join(out_dir, fname)))
 
-def run_process(args, stdout, timeout: int, cwd = '.') -> float:
+def run_process(args, timeout: int, stdout = devnull, stderr = devnull, cwd = '.') -> float:
     ''' Runs process described by args, for a specific time period
     as specified by the timeout.
 
@@ -321,7 +321,7 @@ def run_process(args, stdout, timeout: int, cwd = '.') -> float:
     if timeout < 0:
         return -1
     start_time = time.time()
-    p = subprocess.Popen(args, stdout = stdout, cwd = cwd)
+    p = subprocess.Popen(args, stdout = stdout, stderr = stderr, cwd = cwd)
     while True:
         elapsed_time = time.time() - start_time
         if p.poll() is not None:
@@ -340,7 +340,7 @@ def analyze_contract_porosity(job_index: int, index: int, filename: str, result_
         analysis_args = [DEFAULT_POROSITY_BIN,
                          '--decompile', '--code-file', contract_filename]
         f = open(out_dir+'/out.txt', "w")
-        porosity_time = run_process(analysis_args, f, timeout)
+        porosity_time = run_process(analysis_args, timeout, f)
         f.close()
         if porosity_time < 0:
             result_queue.put((filename, [], ["TIMEOUT"], {}))
