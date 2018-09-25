@@ -1,4 +1,6 @@
 #define MAX_FUNCTION_ARGS (MAX_STACK_HEIGHT/4)
+#define FRESH_VARIABLE(var, stmt, stackIndex) (FunctionalStatementNum((stmt), _stmtNum), var=-0xFFFF+_stmtNum*MAX_STACK_HEIGHT+(stackIndex))
+
 
 /*****
  * Function discovery logic
@@ -451,10 +453,29 @@ NumberOfFunctionArguments(FUNCTION_SELECTOR, block, 0) :-
 .decl Variable_String(var:Variable, var_rep:symbol)
 .decl FunctionCallStmt(stmt: Statement)
 
+
+.decl FunctionalStatementNum(stmt: Statement, num: number)
+FunctionalStatementNum(stmt, num) :-
+   _StatementNum(stmt, num).
+
+.decl BasicBlock_CALL(block: Block, stmt: Statement)
+
+BasicBlock_CALL(block, stmt),
 FunctionCallStmt(stmt) :-
    FunctionCall(block, _),
    IsJump(stmt),
    BasicBlock_Tail(block, stmt).
+
+
+// Create fresh call statements here if jump doesn't exist
+FunctionalStatementNum(newStmt, num+1),
+BasicBlock_CALL(block, newStmt),
+FunctionCallStmt(newStmt) :-
+   newStmt = cat(stmt,"_call"),                
+   FunctionCall(block, _),
+   !IsJump(stmt),
+   BasicBlock_Tail(block, stmt),
+   _StatementNum(stmt, num).
    
 .decl FunctionReturnStmt(stmt: Statement)
 
@@ -470,6 +491,7 @@ FunctionReturnStmt(stmt) :-
 
 .decl FunctionalStatement_Uses(stmt:Statement, var:Variable, n:StackIndex)
 
+.output Variable_String
 Variable_String(var, var_rep) :-
    Statement_Defines(var_rep, var).
 
@@ -487,7 +509,7 @@ FunctionCallReturnArgument(caller, n, newVar) :-
   FunctionCall(caller, func),
   NumberOfFunctionReturnArguments(func, n_arg),
   IsStackIndexLessThan(n, n_arg),
-  BasicBlock_Tail(caller, callStmt),
+  BasicBlock_CALL(caller, callStmt),
   FRESH_VARIABLE(newVar, callStmt, n),
   NumberToString(n, n_str).
 
@@ -598,7 +620,7 @@ FunctionalStatement_Uses(stmt, var, n) :-
    CheckIsVariable(var).
 
 FunctionalStatement_Defines(stmt, newVar, 0) :- Statement_Defines(stmt, newVar).
-
+.output FunctionalStatement_Defines
 // Case: variable originates elsewhere
 FunctionalStatement_Uses(stmt, var, n) :-
    Statement_Uses_Local(stmt, stackIndex, n),
@@ -642,3 +664,4 @@ HighLevelFunctionName(func, func) :-
 
 HighLevelFunctionName(FUNCTION_SELECTOR, "__function_selector__").
 
+.output Statement_Defines

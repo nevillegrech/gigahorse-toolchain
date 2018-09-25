@@ -201,7 +201,7 @@ TAC_Op(stmt, "CALLPRIVATEI") :-
    FunctionCallStmt(stmt).
 
 TAC_Op(stmt, "CALLPRIVATE") :-
-   JUMP(stmt),
+   !JUMPI(stmt),
    FunctionCallStmt(stmt).
 
 TAC_Op(stmt, "RETURNPRIVATEI") :-
@@ -255,7 +255,7 @@ TAC_Use(stmt, var_rep, n) :-
   FunctionalStatement_Uses_Local(stmt, stackIndex, n),
   CheckIsStackIndex(stackIndex),
   Statement_Block(stmt, block),
-  !PolymorphicStackIndex(block, stackIndex),
+  !PHILocation(block, stackIndex, _),
   FunctionalBlockInputContents(block, stackIndex, var),
   Variable_String(var, var_rep).
 
@@ -280,6 +280,9 @@ TAC_Block(phiStmt, block) :-
   PHILocation(block, _, phiStmt).
 //   DominatorFrontier([block], [frontier]).
 
+// Fresh call statements
+TAC_Block(callStmt, block) :-
+   BasicBlock_CALL(block, callStmt).
 
 
 /***********
@@ -331,3 +334,6 @@ TAC_Statement_Next(stmt, next) :-
   PRE_TAC_Statement_Next(stmt, next),
   TAC_Block(stmt, _), TAC_Block(next, _).
    
+// TODO for statement ordering
+// a) phi functions
+// b) fresh call statements
