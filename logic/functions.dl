@@ -491,7 +491,6 @@ FunctionReturnStmt(stmt) :-
 
 .decl FunctionalStatement_Uses(stmt:Statement, var:Variable, n:StackIndex)
 
-.output Variable_String
 Variable_String(var, var_rep) :-
    Statement_Defines(var_rep, var).
 
@@ -620,7 +619,6 @@ FunctionalStatement_Uses(stmt, var, n) :-
    CheckIsVariable(var).
 
 FunctionalStatement_Defines(stmt, newVar, 0) :- Statement_Defines(stmt, newVar).
-.output FunctionalStatement_Defines
 // Case: variable originates elsewhere
 FunctionalStatement_Uses(stmt, var, n) :-
    Statement_Uses_Local(stmt, stackIndex, n),
@@ -663,5 +661,3 @@ HighLevelFunctionName(func, func) :-
    !PublicFunctionEntry(func, _).
 
 HighLevelFunctionName(FUNCTION_SELECTOR, "__function_selector__").
-
-.output Statement_Defines

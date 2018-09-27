@@ -1,6 +1,6 @@
 #!/bin/bash
 echo "compressing files"
-tar -hzcf contract_data.tar.gz --exclude='*.facts' .temp
+tar -hzcf contract_data.tar.gz --exclude='*.facts' --exclude='*.csv' --exclude '*.err' .temp
 #rm -rf .temp &
 echo "copying archive to remote server"    
 scp contract_data.tar.gz contract-library:/srv/contract_data/contract_data.tar.gz &&
