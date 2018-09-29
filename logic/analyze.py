@@ -418,6 +418,9 @@ for p in compile_processes:
     proc.start()
     running_processes.append(proc)
 
+log("Removing working directory {}".format(TEMP_WORKING_DIR))
+shutil.rmtree(TEMP_WORKING_DIR)    
+    
 for p in running_processes:
     p.join()
 
@@ -476,9 +479,7 @@ if args.porosity:
 else:
     analyze_function = analyze_contract
 
-log("Removing working directory {}".format(TEMP_WORKING_DIR))
 
-shutil.rmtree(TEMP_WORKING_DIR)    
 
 log("Analysing...\n")
 try:
