@@ -9,11 +9,11 @@ import itertools
 import json
 import logging
 import signal
+import shutil
 import re
 import subprocess
 import sys
 import time
-import shutil
 from multiprocessing import Process, SimpleQueue, Manager, Event
 from os.path import abspath, dirname, join, getsize
 import os
@@ -199,11 +199,24 @@ def empty_working_dir(index) -> None:
         for fname in d_triple[2]:
             os.remove(join(d_triple[0], fname))
 
-def backup_and_empty_working_dir(index) -> None:
-   # copy 
-   shutil.copytree(working_dir(index), working_dir(index) + str(time.time()))
 
-   empty_working_dir(index)
+def compact_working_dir(index) -> None:
+   """
+   Empty the working directory for the job indicated by index.
+   """
+   for d_triple in os.walk(working_dir(index)):
+        for fname in d_triple[2]:
+            if fname.endswith('.facts'):
+                os.remove(join(d_triple[0], fname))
+
+def backup_and_empty_working_dir(index) -> None:
+    # compact
+    compact_working_dir(index)
+    
+    # copy 
+    shutil.copytree(working_dir(index), working_dir(index) + str(time.time()))
+
+    empty_working_dir(index)
             
 def compile_datalog(spec, executable):
     compilation_command = [args.souffle_bin, '-c', '-o', executable, spec]
@@ -462,7 +475,10 @@ if args.porosity:
     analyze_function = analyze_contract_porosity
 else:
     analyze_function = analyze_contract
-    
+
+log("Removing working directory {}".format(TEMP_WORKING_DIR))
+
+shutil.rmtree(TEMP_WORKING_DIR)    
 
 log("Analysing...\n")
 try:
@@ -543,7 +559,4 @@ except Exception as e:
     traceback.print_exc()
     flush_proc.terminate()
 
-#log("Removing working directory {}".format(TEMP_WORKING_DIR))
-#import shutil
 
-# shutil.rmtree(TEMP_WORKING_DIR)
