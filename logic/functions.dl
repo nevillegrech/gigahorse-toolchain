@@ -187,7 +187,10 @@ FunctionCallReturn(caller, func, retTarget) :-
 // Initialize and iterate the algorithm
 .init detector0 = FunctionDetection
 detector0.PrevFunctionEntry(block) :-
-  PublicFunctionEntry(block, _).
+   PublicFunctionEntry(block, _).
+
+detector0.PrevFunctionEntry(FUNCTION_SELECTOR).
+   
 detector0.PrevFunctionEntry(block) :-
   FunctionCallReturn(_, block, _).
 
@@ -197,7 +200,7 @@ detector0.PrevFunctionCall(prev, func) :-
 
 detector0.PrevFunctionCall(prev, func) :-
   FunctionCallReturn(prev, func, _).
-  
+
 .init detector1 = FunctionDetection
 detector1.PrevFunctionEntry(block) :- detector0.FunctionEntry(block).
 detector1.PrevFunctionCall(block, func) :- detector0.FunctionCall(block, func).
