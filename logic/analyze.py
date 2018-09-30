@@ -390,9 +390,7 @@ def flush_queue(period, run_sig,
             item = result_queue.get()
             result_list.append(item)
 
-
 # Main Body
-
 args = parser.parse_args()
 
 log_level = logging.WARNING if args.quiet else logging.INFO + 1
