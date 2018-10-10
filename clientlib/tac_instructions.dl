@@ -52,6 +52,34 @@ RuntimeKnowable("RETURNDATASIZE").
 IsThrow(stmt) :- Statement_Opcode(stmt, "THROW").
 IsThrow(stmt) :- Statement_Opcode(stmt, "THROWI").
 
+
+.decl StatementStoresMemory(stmt: Statement)
+
+StatementStoresMemory(stmt) :-
+   Statement_Opcode(stmt, "MSTORE") ;
+   Statement_Opcode(stmt, "MSTORE8") ;
+   Statement_Opcode(stmt, "CALL") ;
+   Statement_Opcode(stmt, "DELEGATECALL") ;
+   Statement_Opcode(stmt, "STATICCALL") ;
+   Statement_Opcode(stmt, "CALLCODE") ;
+   Statement_Opcode(stmt, "CALLDATACOPY") ;
+   Statement_Opcode(stmt, "CODECOPY") ;
+   Statement_Opcode(stmt, "EXTCODECOPY") ;
+   Statement_Opcode(stmt, "RETURNDATACOPY").
+
+.decl StatementLoadsMemory(stmt: Statement)
+
+StatementLoadsMemory(stmt) :-
+   Statement_Opcode(stmt, "MLOAD") ;
+   Statement_Opcode(stmt, "SHA3") ;
+   Statement_Opcode(stmt, "CREATE") ;
+   Statement_Opcode(stmt, "CALL") ;
+   Statement_Opcode(stmt, "CALLCODE") ;
+   Statement_Opcode(stmt, "RETURN") ;
+   Statement_Opcode(stmt, "DELEGATECALL") ;
+   Statement_Opcode(stmt, "STATICCALL") ;
+   Statement_Opcode(stmt, "REVERT").
+
 .decl SHA3(stmt: Statement, start: Variable, size: Variable, ret: Variable)
 SHA3(stmt, start, size, ret) :-
   Statement_Opcode(stmt,"SHA3"),
