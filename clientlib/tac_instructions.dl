@@ -80,13 +80,6 @@ StatementLoadsMemory(stmt) :-
    Statement_Opcode(stmt, "STATICCALL") ;
    Statement_Opcode(stmt, "REVERT").
 
-.decl SHA3(stmt: Statement, start: Variable, size: Variable, ret: Variable)
-SHA3(stmt, start, size, ret) :-
-  Statement_Opcode(stmt,"SHA3"),
-  Statement_Uses(stmt, start, 0),
-  Statement_Uses(stmt, size, 1),
-  Statement_Defines(stmt, ret, _).
-
 .decl MSTORE(stmt: Statement, index: Variable, var: Variable)
 
 MSTORE(stmt, index, var) :-
@@ -125,10 +118,12 @@ name(stmt, a, b, to) :-\
 
 MAKEBINOP(EQ)
 MAKEBINOP(ADD)
+MAKEBINOP(OR)
 MAKEBINOP(SUB)
 MAKEBINOP(AND)
 MAKEBINOP(DIV)
 MAKEBINOP(MUL)
+MAKEBINOP(SHA3)
 
 .decl CALL(stmt:Statement, gas:Variable, target:Variable, value:Variable, data_start:Variable,
            data_length:Variable, return_start:Variable, return_length:Variable, success: Variable)
