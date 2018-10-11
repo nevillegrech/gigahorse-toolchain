@@ -16,7 +16,7 @@ def gather():
         try:
             with open(join('contract_filename.txt')) as f:
                 name = f.readline().split('/')[-1].split('_')[0]
-            print(md5_file_as_bytes(join('contract.hex')), name, '.temp/'+join('contract.hex'), '.temp/'+join('out/get_source.py.out'))
+            print('?', name, '.temp/'+join('contract.hex'), '.temp/'+join('out/get_source.py.out'))
         except FileNotFoundError:
             pass
 
