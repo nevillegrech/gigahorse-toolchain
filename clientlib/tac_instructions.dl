@@ -115,20 +115,20 @@ MLOAD(stmt, index, var) :-
   Statement_Uses(stmt, index, 0),
   Statement_Defines(stmt, var, _).
 
-.decl AND(stmt: Statement, a: Variable, b: Variable, to: Variable)
-
-AND(stmt, a, b, to) :-
-  Statement_Opcode(stmt, "AND"),
-  Statement_Defines(stmt, to, _),
-  Statement_Uses(stmt, a, 0),
+#define MAKEBINOP(name) \
+.decl name(stmt: Statement, a: Variable, b: Variable, to: Variable)\
+name(stmt, a, b, to) :-\
+  Statement_Opcode(stmt, #name),\
+  Statement_Defines(stmt, to, _),\
+  Statement_Uses(stmt, a, 0),\
   Statement_Uses(stmt, b, 1).
 
-.decl ADD(stmt: Statement, a: Variable, b: Variable, to: Variable)
-ADD(stmt, a, b, to) :-
-  Statement_Opcode(stmt, "ADD"),
-  Statement_Defines(stmt, to, _),
-  Statement_Uses(stmt, a, 0),
-  Statement_Uses(stmt, b, 1).
+MAKEBINOP(EQ)
+MAKEBINOP(ADD)
+MAKEBINOP(SUB)
+MAKEBINOP(AND)
+MAKEBINOP(DIV)
+MAKEBINOP(MUL)
 
 .decl CALL(stmt:Statement, gas:Variable, target:Variable, value:Variable, data_start:Variable,
            data_length:Variable, return_start:Variable, return_length:Variable, success: Variable)
@@ -144,6 +144,21 @@ CALL(stmt, gas, target, value, data_start, data_length, return_start, return_len
   Statement_Uses(stmt, data_length, 4),
   Statement_Uses(stmt, return_start, 5),
   Statement_Uses(stmt, return_length, 6).
+
+
+.decl DELEGATECALL(stmt:Statement, gas:Variable, target:Variable, data_start:Variable,
+           data_length:Variable, return_start:Variable, return_length:Variable, success: Variable)
+
+
+DELEGATECALL(stmt, gas, target, data_start, data_length, return_start, return_length, success) :-
+  Statement_Opcode(stmt, "DELEGATECALL"),
+  Statement_Defines(stmt, success, _),
+  Statement_Uses(stmt, gas, 0),
+  Statement_Uses(stmt, target, 1),
+  Statement_Uses(stmt, data_start, 2),
+  Statement_Uses(stmt, data_length, 3),
+  Statement_Uses(stmt, return_start, 4),
+  Statement_Uses(stmt, return_length, 5).
 
 
 .decl JUMP(stmt:Statement, dest:Variable)
@@ -164,7 +179,18 @@ THROW(stmt) :-
 .decl THROWI(stmt:Statement, condVar:Variable)
 THROWI(stmt, condVar) :-
   Statement_Opcode(stmt, "THROWI"),
-  Statement_Uses(stmt, condVar, 1).
+  Statement_Uses(stmt, condVar, 0).
+
+
+.decl SELFDESTRUCT(stmt:Statement, address:Variable)
+SELFDESTRUCT(stmt, address) :-
+  Statement_Opcode(stmt, "SELFDESTRUCT"),
+  Statement_Uses(stmt, address, 0).
+
+.decl CALLER(stmt:Statement, address:Variable)
+CALLER(stmt, address) :-
+  Statement_Opcode(stmt, "CALLER"),
+  Statement_Defines(stmt, address, 0).
 
 
 .decl FlowOp(op: Opcode)

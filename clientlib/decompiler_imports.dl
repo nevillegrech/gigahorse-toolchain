@@ -161,6 +161,8 @@ InFunction(block, function) :-
    InFunction(prev, function),
    LocalBlockEdge(prev, block).
 
+
+
 .decl NotTailStatement(s: Statement)
 
 NotTailStatement(s) :-
