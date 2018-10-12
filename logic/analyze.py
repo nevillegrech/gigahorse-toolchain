@@ -417,7 +417,7 @@ for p in compile_processes:
     running_processes.append(proc)
 
 log("Removing working directory {}".format(TEMP_WORKING_DIR))
-shutil.rmtree(TEMP_WORKING_DIR)    
+shutil.rmtree(TEMP_WORKING_DIR, ignore_errors = True)    
     
 for p in running_processes:
     p.join()
