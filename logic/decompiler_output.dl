@@ -7,11 +7,11 @@
 // re-formatted for use by clients), statistics, debugging relations.
 
 // Value which a variable may have. Only concrete values present.
-.decl Variable_ConstValue(variable: Variable, value: Value)
+.decl Variable_ConstValue(variable: TACVariable, value: Value)
 .output Variable_ConstValue
 
 Variable_ConstValue(v, val) :-
-   Variable_Value(v, val),
+   TAC_Variable_Value(v, val),
    substr(val, 0, 2) = "0x".
 
 /*
@@ -380,5 +380,5 @@ TAC_Statement_Next(stmt, next) :-
 
 DelegatecallStaticAddress(stmt, addr) :-
   DELEGATECALL(stmt),
-  FunctionalStatement_Uses(stmt, addrVar, 1),
+  TAC_Use(stmt, addrVar, 1),
   Variable_ConstValue(addrVar, addr).
