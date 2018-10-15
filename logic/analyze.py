@@ -325,6 +325,13 @@ def get_gigahorse_analytics(out_dir, analytics):
         stat_name = fname.split(".")[0][10:]
         analytics[stat_name] = sum(1 for line in open(join(out_dir, fname)))
 
+    for fname in os.listdir(out_dir):
+        fpath = join(out_dir, fname)
+        if not fname.startswith('Vulnerability_'):
+            continue
+        stat_name = fname.split(".")[0][14:]
+        analytics[stat_name] = open(join(out_dir, fname)).read()
+
 def run_process(args, timeout: int, stdout = devnull, stderr = devnull, cwd = '.') -> float:
     ''' Runs process described by args, for a specific time period
     as specified by the timeout.
