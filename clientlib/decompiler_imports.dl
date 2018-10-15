@@ -49,7 +49,7 @@
 
 // Control flow & functions
 
-// As the name suggests, is an intra-procedural CFG. 
+// As the name suggests, is an intra-procedural CFG.
 .decl LocalBlockEdge(block: Block, nextBlock: Block)
 .input LocalBlockEdge(IO="file", filename="LocalBlockEdge.csv", delimiter="\t")
 
@@ -182,18 +182,8 @@ Block_Tail(b, t) :-
 IsBlock(b) :-
   Statement_Block(_, b).
 
-// Value which a variable may have. Only concrete values present.
 .decl Variable_ConstValue(variable: Variable, value: Value)
-
-Variable_ConstValue(v, val) :-
-   Variable_Value(v, val),
-   substr(val, 0, 2) = "0x".
-
-/*
-Variable_ConstValue(v, val) :-
-   Variable_ConstValue(v_in, val),
-   PHI(_, v_in, v).
-*/
+.input Variable_ConstValue
 
 .decl Mask_Length(mask: Value, bytes: number)
 .input Mask_Length(IO="file", filename="Mask_Length.csv", delimiter="\t")

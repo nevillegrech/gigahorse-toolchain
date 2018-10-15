@@ -6,6 +6,20 @@
 // three-address code representation (which is later input and
 // re-formatted for use by clients), statistics, debugging relations.
 
+// Value which a variable may have. Only concrete values present.
+.decl Variable_ConstValue(variable: Variable, value: Value)
+.output Variable_ConstValue
+
+Variable_ConstValue(v, val) :-
+   Variable_Value(v, val),
+   substr(val, 0, 2) = "0x".
+
+/*
+Variable_ConstValue(v, val) :-
+   Variable_ConstValue(v_in, val),
+   PHI(_, v_in, v).
+*/
+
 .output OpcodePossiblyHalts
 
 .decl InsBlockEdge(from: Block, to:Block)
@@ -15,7 +29,7 @@ InsBlockEdge(from, to) :-
   BlockEdge(_, from, _, to).
 
 .decl InsBlockJumpValidTarget(stmt:Block, target:Block)
-.output InsBlockJumpValidTarget       
+.output InsBlockJumpValidTarget
 
 InsBlockJumpValidTarget(block, target) :-
   ReachableContext(ctx, block),
@@ -118,9 +132,9 @@ PHILocation(block, stackIndex, cat(cat(block, "_"), stackIndexStr)) :-
 
 // Final decompiler outputs
 // VERY IMPORTANT: IF YOU CHANGE THESE, PLEASE ALSO CHANGE
-// clientlogic/decompiler_inputs.dl 
+// clientlogic/decompiler_inputs.dl
 .decl TAC_Op(stmt:Statement, op:Opcode)
-.output TAC_Op             
+.output TAC_Op
 .decl TAC_Stmt(stmt:Statement)
 .output TAC_Stmt
 .decl PRE_TAC_Use(stmt: Statement, var: TACVariable, i: number)
@@ -232,7 +246,7 @@ TAC_Op(stmt, op) :-
    ValidStatement(stmt),
    !JUMP(stmt),
    !JUMPI(stmt).
-   
+
 // Phi instructions
 TAC_Var(tacvar),
 TAC_Def(stmt, tacvar, 0),
@@ -326,7 +340,7 @@ ActualReturnArgs(caller, var_rep, n) :-
 .output HighLevelFunctionName
 .output FallthroughEdge
 
-.output Mask_Length        
+.output Mask_Length
 .output InFunction
 
 /*****
@@ -347,7 +361,24 @@ PRE_TAC_Statement_Next(stmt, nextnext) :-
 TAC_Statement_Next(stmt, next) :-
   PRE_TAC_Statement_Next(stmt, next),
   TAC_Block(stmt, _), TAC_Block(next, _).
-   
+
 // TODO for statement ordering
 // a) phi functions
 // b) fresh call statements
+
+/*****
+ *  Static library addresses
+ *****/
+
+// N.B. This does not work yet with GigaHorse because we don't have constant
+// folding in Souffle.
+// example contract that would need constant folding:
+// 0xbec591de75b8699a3ba52f073428822d0bfc0d7e
+
+.decl DelegatecallStaticAddress(stmt: Statement, addr: Value)
+.output DelegatecallStaticAddress
+
+DelegatecallStaticAddress(stmt, addr) :-
+  DELEGATECALL(stmt),
+  FunctionalStatement_Uses(stmt, addrVar, 1),
+  Variable_ConstValue(addrVar, addr).
