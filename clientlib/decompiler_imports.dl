@@ -162,6 +162,31 @@ InFunction(block, function) :-
    LocalBlockEdge(prev, block).
 
 
+.decl GlobalBlockEdge(block: Block, next: Block)
+
+GlobalBlockEdge(block, next) :-
+   LocalBlockEdge(block, next),
+   !FunctionCallReturn(block, _, next).
+
+GlobalBlockEdge(block, next) :-
+   CallGraphEdge(block, function),
+   InFunction(next, function),
+   FunctionEntry(next).
+
+GlobalBlockEdge(returnBlock, next) :-
+   FunctionCallReturn(_, function, next),
+   InFunction(returnBlock, function),
+   Statement_Block(s, returnBlock),
+   (RETURNPRIVATE(s, _) ; RETURNPRIVATEI(s, _, _)).
+
+.decl LocalReachableFrom(from: Block, next: Block)
+LocalReachableFrom(from, next) :-
+  LocalBlockEdge(from, next).
+
+LocalReachableFrom(from, to) :-
+  LocalReachableFrom(next, to),
+  LocalBlockEdge(from, next).
+
 
 .decl NotTailStatement(s: Statement)
 
