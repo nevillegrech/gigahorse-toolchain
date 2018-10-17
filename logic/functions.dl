@@ -76,19 +76,28 @@ ReachableFrom(blockNext, blockPrev) :-
 // a) basic block jumps to a valid "non-locally-derived" address
 // b) address originates at a caller that can reach the
 //    returning basic block.
-PossibleReturnAddress(callerBlock, retBlock, target) :-
-   BlockJumpValidTarget(_, retBlock, targetVariable, target),
+PossibleReturnAddress(callerBlock, retBlock, retTarget) :-
+   BlockJumpValidTarget(_, retBlock, targetVariable, retTarget),
    !ImmediateBlockJumpTarget(_, retBlock, targetVariable),
    BasicBlock_Tail(callerBlock, callerStmt),
    IsJump(callerStmt),
    Statement_Defines(otherCallerStatement, targetVariable),
    Statement_Block(otherCallerStatement, callerBlock).
 
+// c) each callerblock has different return address
+.decl ConflictingReturnAddress(caller:Block, ret:Block, target:Block)
+.output ConflictingReturnAddress
+
+ConflictingReturnAddress(callerBlock, retBlock, retTarget) :-
+   PossibleReturnAddress(callerBlock, retBlock, retTarget),
+   PossibleReturnAddress(callerBlock2, _, retTarget),
+   callerBlock != callerBlock2.
 
 .decl PossibleFunctionCall(caller:Block, func:Block, retBlock:Block, retTarget:Block)
 
 PossibleFunctionCall(caller, func, retBlock, retTarget) :-
   PossibleReturnAddress(caller, retBlock, retTarget),
+  !ConflictingReturnAddress(caller, retBlock, retTarget), 
   BlockJumpValidTarget(_, caller, _, func).
 
 .decl PossiblyInFunction(block:Block, func:Block)
