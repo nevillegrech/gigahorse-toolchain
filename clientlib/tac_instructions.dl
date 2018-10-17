@@ -58,10 +58,6 @@ IsThrow(stmt) :- Statement_Opcode(stmt, "THROWI").
 StatementStoresMemory(stmt) :-
    Statement_Opcode(stmt, "MSTORE") ;
    Statement_Opcode(stmt, "MSTORE8") ;
-   Statement_Opcode(stmt, "CALL") ;
-   Statement_Opcode(stmt, "DELEGATECALL") ;
-   Statement_Opcode(stmt, "STATICCALL") ;
-   Statement_Opcode(stmt, "CALLCODE") ;
    Statement_Opcode(stmt, "CALLDATACOPY") ;
    Statement_Opcode(stmt, "CODECOPY") ;
    Statement_Opcode(stmt, "EXTCODECOPY") ;
@@ -70,15 +66,13 @@ StatementStoresMemory(stmt) :-
 .decl StatementLoadsMemory(stmt: Statement)
 
 StatementLoadsMemory(stmt) :-
-   Statement_Opcode(stmt, "MLOAD") ;
-   Statement_Opcode(stmt, "SHA3") ;
-   Statement_Opcode(stmt, "CREATE") ;
-   Statement_Opcode(stmt, "CALL") ;
-   Statement_Opcode(stmt, "CALLCODE") ;
-   Statement_Opcode(stmt, "RETURN") ;
-   Statement_Opcode(stmt, "DELEGATECALL") ;
-   Statement_Opcode(stmt, "STATICCALL") ;
-   Statement_Opcode(stmt, "REVERT").
+   Statement_Opcode(stmt, "MLOAD").
+//   Statement_Opcode(stmt, "SHA3") ;
+//   Statement_Opcode(stmt, "CREATE") ;
+//   Statement_Opcode(stmt, "CALL") ;
+//   Statement_Opcode(stmt, "CALLCODE") ;
+//   Statement_Opcode(stmt, "DELEGATECALL") ;
+//   Statement_Opcode(stmt, "STATICCALL").
 
 .decl MSTORE(stmt: Statement, index: Variable, var: Variable)
 
