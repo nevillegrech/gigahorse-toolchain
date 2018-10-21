@@ -365,20 +365,3 @@ TAC_Statement_Next(stmt, next) :-
 // TODO for statement ordering
 // a) phi functions
 // b) fresh call statements
-
-/*****
- *  Static library addresses
- *****/
-
-// N.B. This does not work yet with GigaHorse because we don't have constant
-// folding in Souffle.
-// example contract that would need constant folding:
-// 0xbec591de75b8699a3ba52f073428822d0bfc0d7e
-
-.decl DelegatecallStaticAddress(stmt: Statement, addr: Value)
-.output DelegatecallStaticAddress
-
-DelegatecallStaticAddress(stmt, addr) :-
-  DELEGATECALL(stmt),
-  TAC_Use(stmt, addrVar, 1),
-  Variable_ConstValue(addrVar, addr).
