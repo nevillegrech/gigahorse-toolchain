@@ -20,6 +20,14 @@ Variable_ConstValue(v, val) :-
    PHI(_, v_in, v).
 */
 
+.decl Variable_ConstValue_PUSH20(variable: TACVariable, value: Value)
+.output Variable_ConstValue_PUSH20
+
+Variable_ConstValue_PUSH20(variable, value) :-
+  Variable_ConstValue(variable, value),
+  TAC_Def(stmt, variable, 0),
+  PUSH20(stmt, _).
+
 .output OpcodePossiblyHalts
 
 .decl InsBlockEdge(from: Block, to:Block)
