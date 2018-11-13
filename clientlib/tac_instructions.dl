@@ -181,6 +181,11 @@ CALLER(stmt, address) :-
   Statement_Opcode(stmt, "CALLER"),
   Statement_Defines(stmt, address, 0).
 
+.decl ORIGIN(stmt:Statement, address:Variable)
+ORIGIN(stmt, address) :-
+  Statement_Opcode(stmt, "ORIGIN"),
+  Statement_Defines(stmt, address, 0).
+
 
 .decl FlowOp(op: Opcode)
 // Represents operations through which data can "flow"      
