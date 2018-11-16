@@ -415,18 +415,19 @@ if args.porosity:
     args.no_compile = True
 
 # Here we compile the decompiler and any of its clients in parallel :)
-compile_processes = []
+compile_processes_args = []
 if not args.no_compile:
-    compile_processes.append(lambda : compile_datalog(DEFAULT_DECOMPILER_DL, DEFAULT_SOUFFLE_EXECUTABLE))
+    compile_processes_args.append((DEFAULT_DECOMPILER_DL, DEFAULT_SOUFFLE_EXECUTABLE))
 
 souffle_clients = [a for a in args.souffle_client.split(',') if a.endswith('.dl')]
 python_clients = [a for a in args.souffle_client.split(',') if a.endswith('.py')]
+
 for c in souffle_clients:
-    compile_processes.append(lambda : compile_datalog(c, c+'_compiled'))
+    compile_processes_args.append((c, c+'_compiled'))
 
 running_processes = []
-for p in compile_processes:
-    proc = Process(target = p)
+for compile_args in compile_processes_args:
+    proc = Process(target = compile_datalog, args=compile_args)
     proc.start()
     running_processes.append(proc)
 
