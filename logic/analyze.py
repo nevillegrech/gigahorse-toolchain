@@ -565,7 +565,7 @@ try:
 
     log("\nWriting results to {}".format(args.results_file))
     with open(args.results_file, 'w') as f:
-        f.write(json.dumps(list(res_list)))
+        f.write(json.dumps(list(res_list), indent=1))
 
 except Exception as e:
     import traceback
