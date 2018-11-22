@@ -1,3 +1,6 @@
+// VERY IMPORTANT: IF YOU CHANGE ANY OUTPUT RELATION IN THIS FILE,
+// PLEASE ALSO CHANGE clientlogic/decompiler_inputs.dl
+
 #ifndef NO_ANALYTICS
 //#include "decompiler_analytics.dl"
 #endif
@@ -73,45 +76,6 @@ DoesNotDominate(candidate,s) :-
 
 Exit(block) :- Statement_Block(_, block), !BlockEdge(_, block, _, _).
 
-// Both arguments are basic block heads
-// There is a path from s to the exit that does not go through candidate
-.decl DoesNotPostDominate(candidate: Block, s: Block)
-
-DoesNotPostDominate(candidate, exitNode) :-
-  Exit(exitNode),
-  Statement_Block(_, candidate).
-
-DoesNotPostDominate(candidate,s) :-
-  DoesNotPostDominate(candidate,other),
-  BlockEdge(_, other, _, s),
-  s != candidate.
-
-// The Dominates/PostDominates relation is defined on basic blocks,
-// represented by their first instruction (head). Defining
-// a dense quadratic relation, like Dominates, on individual
-// instructions would be expensive.
-.decl Dominates(dominator:Block, s:Block)
-
-Dominates(dominator,s) :-
-  Statement_Block(_, dominator),
-  Statement_Block(_, s),
-  !DoesNotDominate(dominator,s).
-
-.decl PostDominates(postdominator:Block, s:Block)
-PostDominates(postdominator,s) :-
-  Statement_Block(_, postdominator),
-  Statement_Block(_, s),
-  !DoesNotPostDominate(postdominator,s).
-
-.decl DominatorFrontier(block: Block, frontier: Block)
-// AFAIK a block f is a frontier of b if b dominates f
-// but not f's predecessors
-
-DominatorFrontier(block, frontier) :-
-  Dominates(frontier, block),
-  BlockEdge(_, pred, _, frontier),
-  !Dominates(pred, block).
-
 .decl FunctionalBlock_Uses_Local(block: Block, stackIndex: StackIndex)
 
 FunctionalBlock_Uses_Local(block, stackIndex) :-
@@ -139,8 +103,6 @@ PHILocation(block, stackIndex, cat(cat(block, "_"), stackIndexStr)) :-
 .symbol_type TACVariable
 
 // Final decompiler outputs
-// VERY IMPORTANT: IF YOU CHANGE THESE, PLEASE ALSO CHANGE
-// clientlogic/decompiler_inputs.dl
 .decl TAC_Op(stmt:Statement, op:Opcode)
 .output TAC_Op
 .decl TAC_Stmt(stmt:Statement)
@@ -209,8 +171,6 @@ TAC_Op(stmt, op) :-
    Statement_Opcode(stmt, op),
    ValidStatement(stmt),
    !TACNOP(stmt),
-   !FunctionCallStmt(stmt),
-   !FunctionReturnStmt(stmt),
    !ThrowJump(stmt),
    !PushValue(stmt, _),
    !PC(stmt),
@@ -220,22 +180,6 @@ TAC_Op(stmt, op) :-
 
 TAC_Op(stmt, "CONST") :-
    PushValue(stmt, _) ; PC(stmt).
-
-TAC_Op(stmt, "CALLPRIVATEI") :-
-   JUMPI(stmt),
-   FunctionCallStmt(stmt).
-
-TAC_Op(stmt, "CALLPRIVATE") :-
-   !JUMPI(stmt),
-   FunctionCallStmt(stmt).
-
-TAC_Op(stmt, "RETURNPRIVATEI") :-
-   JUMPI(stmt),
-   FunctionReturnStmt(stmt).
-
-TAC_Op(stmt, "RETURNPRIVATE") :-
-   JUMP(stmt),
-   FunctionReturnStmt(stmt).
 
 TAC_Op(stmt, "THROW") :-
    JUMP(stmt),
@@ -314,11 +258,11 @@ TAC_Block(stmt, block) :-
 
 TAC_Block(phiStmt, block) :-
   PHILocation(block, _, phiStmt).
-//   DominatorFrontier([block], [frontier]).
+
 
 // Fresh call statements
-TAC_Block(callStmt, block) :-
-   BasicBlock_CALL(block, callStmt).
+//TAC_Block(callStmt, block) :-
+//   BasicBlock_CALL(block, callStmt).
 
 
 /***********
@@ -372,4 +316,4 @@ TAC_Statement_Next(stmt, next) :-
 
 // TODO for statement ordering
 // a) phi functions
-// b) fresh call statements
+// b) fresh call statements (if reintroduced)

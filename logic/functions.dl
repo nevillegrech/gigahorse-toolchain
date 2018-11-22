@@ -281,46 +281,49 @@ Function(func) :-
 /***********
  * Identify actual function calls and returns
  ***********/
+.decl FunctionCallStmt(stmt: Statement)
 
-.decl IRFunctionCallStmt(stmt: IRStatement)
+FunctionCallStmt(stmt) :-
+   FunctionCall(block, _),
+   IsJump(stmt),
+   BasicBlock_Tail(block, stmt).
 
+.decl FunctionReturnStmt(stmt: Statement)
 
-.decl IRStatementNum(stmt: IRStatement, num: number)
-IRStatementNum(irstmt, num) :-
-   _StatementNum(stmt, num),
-   Statement_IRStatement(stmt, irstmt).
+FunctionReturnStmt(stmt) :-
+   Function_Return(_, block),
+   IsJump(stmt),
+   BasicBlock_Tail(block, stmt).
 
+// Create fresh call statements here if jump doesn't exist
+// TODO (if needed)
+/*
 .decl IRBasicBlock_CALL(block: IRBlock, stmt: IRStatement)
 
 IRBasicBlock_CALL(block, stmt),
 IRFunctionCallStmt(stmt) :-
-   IRFunctionCall(block, _),
+   FunctionCall(block, _),
    IRIsJump(stmt),
    IRBasicBlock_Tail(block, stmt).
 
-
-// Create fresh call statements here if jump doesn't exist
 IRStatementNum(newStmt, num+1),
 IRBasicBlock_CALL(block, newStmt),
-IRFunctionCallStmt(newStmt) :-
+Statement_IRStatement(...),
+FunctionCallStmt(newStmt) :-
    newStmt = cat(irstmt,"_call"),                
    IRFunctionCall(block, _),
    !IRIsJump(irstmt),
    IRBasicBlock_Tail(block, irstmt),
    Statement_IRStatement(stmt, irstmt),
    _StatementNum(stmt, num).
-   
-.decl IRFunctionReturnStmt(stmt: IRStatement)
+*/    
 
-IRFunctionReturnStmt(stmt) :-
-   IRFunction_Return(_, block),
-   IRIsJump(stmt),
-   IRBasicBlock_Tail(block, stmt).
 
 /***********
  * Introduce new IR
  ***********/
 #define BLOCK_TO_IRBLOCK(b, f) cat((b), (f))
+#define STATEMENT_TO_IRSTATEMENT(b, f) cat((b), (f))
 
  .type IRBlock
 // exploit type checking in new IR
@@ -374,25 +377,131 @@ LocalBlockEdge(irblock, irnext) :-
   InFunction(irnext, func).
 
 
-// TODO
-.decl IRFunction_Return_Edge(block: IRBlock, next: IRBlock)
-.decl IRFunctionCall(from: IRBlock, func: IRFunction)
-.decl IRFunctionCallReturn(caller: IRBlock, func: IRFunction, retcaller: IRBlock)
-.decl IRFunction_Return(fn: IRFunction, ret: IRBlock)
 .decl IRBlockEdge(from: IRBlock, to: IRBlock)
-.decl IRStatement_Block(stmt: IRStatement, to: IRBlock)
-.decl IRBasicBlock_Tail(block: IRBlock, tail: IRStatement)
+
+IRBlockEdge(irfrom, irto) :-
+   BlockEdge(_, from, _, to),
+   Block_IRBlock(from, irfrom),
+   Block_IRBlock(to, irto).
+
+.decl Statement_IRStatement(stmt: Statement, irstmt: IRStatement)
+
+Statement_IRStatement(stmt, STATEMENT_TO_IRSTATEMENT(stmt, func)) :-
+   Statement_Block(stmt, block),
+   Block_IRBlock(block, irblock),
+   InFunction(irblock, func).
+
+.decl IRStatementNum(stmt: IRStatement, num: number)
+IRStatementNum(irstmt, num) :-
+   _StatementNum(stmt, num),
+   Statement_IRStatement(stmt, irstmt).
+
+
 .decl IRStatement_Opcode(stmt: IRStatement, op: Opcode)
+
+IRStatement_Opcode(irstmt, op) :-
+   Statement_Opcode(stmt, op),
+   Statement_IRStatement(stmt, irstmt),
+   !FunctionCallStmt(stmt),
+   !FunctionReturnStmt(stmt).
+
+IRStatement_Opcode(irstmt, "CALLPRIVATEI") :-
+   Statement_IRStatement(stmt, irstmt),
+   JUMPI(stmt),
+   FunctionCallStmt(stmt).
+
+IRStatement_Opcode(irstmt, "CALLPRIVATE") :-
+   Statement_IRStatement(stmt, irstmt),
+   !JUMPI(stmt),
+   FunctionCallStmt(stmt).
+
+IRStatement_Opcode(irstmt, "RETURNPRIVATEI") :-
+   Statement_IRStatement(stmt, irstmt),
+   JUMPI(stmt),
+   FunctionReturnStmt(stmt).
+
+IRStatement_Opcode(irstmt, "RETURNPRIVATE") :-
+   Statement_IRStatement(stmt, irstmt),
+   JUMP(stmt),
+   FunctionReturnStmt(stmt).
+
+
+.decl IRIsJump(stmt: IRStatement)
+
+IRIsJump(irstmt) :-
+   IsJump(stmt),
+   Statement_IRStatement(stmt, irstmt).
+
+.decl IRFunction_Return_Edge(block: IRBlock, next: IRBlock)
+.decl IRFunction_Return(fn: IRFunction, ret: IRBlock)
+.decl IRFunctionCallReturn(caller: IRBlock, func: IRFunction, retcaller: IRBlock)
+   
+IRFunction_Return(func, retir),
+IRFunctionCallReturn(callerir, func, callerretir),
+IRFunction_Return_Edge(retir, callerretir) :-
+   FunctionCallReturn(caller, func, callerret),
+   Function_Return(func, ret),
+   Block_IRBlock(ret, retir),
+   Block_IRBlock(caller, callerir),
+   Block_IRBlock(callerret, callerretir).
+
+.decl IRFunctionCall(from: IRBlock, func: IRFunction)
+
+IRFunctionCall(fromir, func) :-
+   FunctionCall(from, func),
+   Block_IRBlock(from, fromir).
+   
+
+.decl IRStatement_Block(stmt: IRStatement, to: IRBlock)
+
+IRStatement_Block(irstmt, irblock) :-
+   Statement_Block(stmt, block),
+   Block_IRBlock(block, irblock),
+   Statement_IRStatement(stmt, irstmt).
+
+.decl IRBasicBlock_Tail(block: IRBlock, tail: IRStatement)
+
+IRBasicBlock_Tail(irblock, irtail) :-
+   BasicBlock_Tail(block, tail),
+   Block_IRBlock(block, irblock),
+   Statement_IRStatement(tail, irtail).
+   
+
 .decl IRBlockPopDelta(from: IRBlock, n: StackIndex)
 .decl IRBlockStackDelta(from: IRBlock, stackDelta: StackIndex)
-.decl IRIsJump(stmt: IRStatement)
-.decl FunctionEntry(from: IRBlock)
-.decl Statement_IRStatement(stmt: Statement, irstmt: IRStatement)
+
+IRBlockPopDelta(irblock, n) :-
+   BlockPopDelta(block, n),
+   Block_IRBlock(block, irblock).
+
+IRBlockStackDelta(irblock, stackDelta) :-
+   BlockStackDelta(block, stackDelta),
+   Block_IRBlock(block, irblock).
+
+.decl IRFunctionEntry(from: IRBlock)
+
+IRFunctionEntry(irentry) :-
+   Function(entry),
+   Block_IRBlock(entry, irentry).
+
 .decl IRStatement_Uses_Local(stmt: IRStatement, stackIndex: VariableOrStackIndex, n: StackIndex)
 
+IRStatement_Uses_Local(irstmt, stackIndex, n) :-
+  Statement_Uses_Local(stmt, stackIndex, n),
+  Statement_IRStatement(stmt, irstmt).
 
 .decl IRBeforeLocalStackContents(stmt: IRStatement, n:StackIndex, varOrStackIndex:VariableOrStackIndex)
+
+IRBeforeLocalStackContents(irstmt, n, varOrStackIndex) :-
+  BeforeLocalStackContents(stmt, n, varOrStackIndex),
+  Statement_IRStatement(stmt, irstmt).
+
+
 .decl IRLocalStackContents(stmt: IRStatement, n:StackIndex, varOrStackIndex:VariableOrStackIndex)
+
+IRLocalStackContents(irstmt, n, varOrStackIndex) :-
+  LocalStackContents(stmt, n, varOrStackIndex),
+  Statement_IRStatement(stmt, irstmt).
 
 
 /***********
@@ -474,7 +583,7 @@ EdgeStackDelta(from, to, stackDelta) :-
 .decl FunctionEdgePopDelta(from: IRBlock, to: IRBlock, delta: StackIndex)
 
 FunctionEdgePopDelta(from, to, delta) :-
-   FunctionEntry(from),
+   IRFunctionEntry(from),
    EdgePopDelta(from, to, delta).
 
 
@@ -502,7 +611,7 @@ FunctionEdgePopDelta(from, to, delta) :-
 
 FunctionEdgeStackDelta(from, to, delta) :-
    EdgeStackDelta(from, to, delta),
-   FunctionEntry(from).
+   IRFunctionEntry(from).
 
 FunctionEdgeStackDelta(from, to, newStackDelta) :-
    LocalBlockEdge(prev, from),
@@ -568,7 +677,6 @@ CompositeNumberOfFunctionAndReturnArguments(func, n_in, n_out) :-
 NumberOfFunctionArguments(FUNCTION_SELECTOR, block, 0) :-
    Function_Terminal(FUNCTION_SELECTOR, block).
 
-// TODO
 .decl Variable_String(var:Variable, var_rep:symbol)
    
 .decl FunctionArgument(func: IRFunction, n: StackIndex, var: Variable)
@@ -596,7 +704,7 @@ FunctionCallReturnArgument(caller, n, newVar) :-
   IRFunctionCall(caller, func),
   NumberOfFunctionReturnArguments(func, n_arg),
   IsStackIndexLessThan(n, n_arg),
-  IRBasicBlock_CALL(caller, callStmt),
+  IRBasicBlock_Tail(caller, callStmt),
   FRESH_VARIABLE(newVar, callStmt, n),
   NumberToString(n, n_str).
 
@@ -606,7 +714,7 @@ FunctionCallReturnArgument(caller, n, newVar) :-
 .decl FunctionalBlockOutputContents(block:IRBlock, next: IRBlock, index:number, var:Variable)
 
 FunctionalBlockInputContents(entry, n, var) :-
-   FunctionEntry(entry),
+   IRFunctionEntry(entry),
    InFunction(entry, func),
    FunctionArgument(func, n, var).
 
