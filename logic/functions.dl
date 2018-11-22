@@ -1,5 +1,5 @@
 #define MAX_FUNCTION_ARGS (MAX_STACK_HEIGHT/4)
-#define FRESH_VARIABLE(var, stmt, stackIndex) (FunctionalStatementNum((stmt), _stmtNum), var=-0xFFFF+_stmtNum*MAX_STACK_HEIGHT+(stackIndex))
+#define FRESH_VARIABLE(var, stmt, stackIndex) (IRStatementNum((stmt), _stmtNum), var=-0xFFFF+_stmtNum*MAX_STACK_HEIGHT+(stackIndex))
 
 
 /*****
@@ -71,6 +71,7 @@ ReachableFrom(blockNext, blockPrev) :-
 ******/
 
 .decl PossibleReturnAddress(caller:Block, ret:Block, target:Block)
+.output PossibleReturnAddress
 
 // Possibly a return:
 // a) basic block jumps to a valid "non-locally-derived" address
@@ -93,11 +94,23 @@ ConflictingReturnAddress(callerBlock, retBlock, retTarget) :-
    PossibleReturnAddress(callerBlock2, _, retTarget),
    callerBlock != callerBlock2.
 
+.decl InlineProcedureEntry(entry: Block)
+
+InlineProcedureEntry(entry) :-
+   TerminalBlock(entry),
+   ConflictingReturnAddress(_, _, entry).
+
+// TODO
+.decl TerminalBlock(entry: Block)
+
+TerminalBlock(entry) :- Statement_Block(_, entry).
+
 .decl PossibleFunctionCall(caller:Block, func:Block, retBlock:Block, retTarget:Block)
 
 PossibleFunctionCall(caller, func, retBlock, retTarget) :-
   PossibleReturnAddress(caller, retBlock, retTarget),
-  !ConflictingReturnAddress(caller, retBlock, retTarget), 
+  (!ConflictingReturnAddress(caller, retBlock, retTarget) ;
+   InlineProcedureEntry(retTarget)),
   BlockJumpValidTarget(_, caller, _, func).
 
 .decl PossiblyInFunction(block:Block, func:Block)
@@ -118,8 +131,9 @@ PossiblyInFunction(retTarget, func) :-
   PossibleFunctionCall(block, _, _, retTarget).
 
 // What is a function?
-// A function has to have a single entry point
-// has to be called multiple times
+// 1) A function has to have a single entry point
+// 2) has to be called multiple times
+// 3) If code is inlined it's something else
 
 .decl FunctionCalledMultipleTimes(func: Block)
 
@@ -136,8 +150,14 @@ FunctionCalledMultipleTimes(func) :-
 Function_Return(func, retBlock),
 FunctionCallReturn(caller, func, retTarget) :-
   PossibleFunctionCall(caller, func, retBlock, retTarget),
-  FunctionCalledMultipleTimes(func).
+  FunctionCalledMultipleTimes(func),
+  !InlineProcedureEntry(func).
 
+.decl Function_Return_Edge(block: Block, next: Block)
+
+Function_Return_Edge(block, next) :-
+   Function_Return(fn, block),
+   FunctionCallReturn(_, fn, next).
 
 // Further function decomposition.
 // Detects function boundaries, calls and returns iteratively.  Main
@@ -181,6 +201,7 @@ FunctionCallReturn(caller, func, retTarget) :-
     InFunction(block, func2),
     func1 != func2,
     BlockEdge(_, prev, _, block),
+    !InlineProcedureEntry(block),
     !Function_Return(_, prev),
     !(InFunction(prev, func1), InFunction(prev, func2)).
 
@@ -257,31 +278,126 @@ Function(func) :-
   detector2.FunctionEntry(func) ;
   detector3.FunctionEntry(func).
 
+/***********
+ * Identify actual function calls and returns
+ ***********/
+
+.decl IRFunctionCallStmt(stmt: IRStatement)
+
+
+.decl IRStatementNum(stmt: IRStatement, num: number)
+IRStatementNum(irstmt, num) :-
+   _StatementNum(stmt, num),
+   Statement_IRStatement(stmt, irstmt).
+
+.decl IRBasicBlock_CALL(block: IRBlock, stmt: IRStatement)
+
+IRBasicBlock_CALL(block, stmt),
+IRFunctionCallStmt(stmt) :-
+   IRFunctionCall(block, _),
+   IRIsJump(stmt),
+   IRBasicBlock_Tail(block, stmt).
+
+
+// Create fresh call statements here if jump doesn't exist
+IRStatementNum(newStmt, num+1),
+IRBasicBlock_CALL(block, newStmt),
+IRFunctionCallStmt(newStmt) :-
+   newStmt = cat(irstmt,"_call"),                
+   IRFunctionCall(block, _),
+   !IRIsJump(irstmt),
+   IRBasicBlock_Tail(block, irstmt),
+   Statement_IRStatement(stmt, irstmt),
+   _StatementNum(stmt, num).
+   
+.decl IRFunctionReturnStmt(stmt: IRStatement)
+
+IRFunctionReturnStmt(stmt) :-
+   IRFunction_Return(_, block),
+   IRIsJump(stmt),
+   IRBasicBlock_Tail(block, stmt).
+
+/***********
+ * Introduce new IR
+ ***********/
+#define BLOCK_TO_IRBLOCK(b, f) cat((b), (f))
+
+ .type IRBlock
+// exploit type checking in new IR
+#define IRFunction Block
+.type IRStatement
+
+
+.decl Block_IRBlock(block: Block, irblock: IRBlock)
+.decl InFunction(block: IRBlock, func: IRFunction)
+
+Block_IRBlock(func, irblock),
+InFunction(irblock, func) :-
+  irblock = BLOCK_TO_IRBLOCK(func, func),
+  Function(func).
+
+Block_IRBlock(next, irnext),
+InFunction(irnext, func) :-
+  InFunction(irblock, func),
+  Block_IRBlock(block, irblock),
+  BlockEdge(_, block, _, next),
+  irnext = BLOCK_TO_IRBLOCK(func, next),
+  !Function(next),
+  !Function_Return_Edge(func, next).
+
+Block_IRBlock(next, irnext),
+InFunction(irnext, func) :-
+  InFunction(irblock, func),
+  Block_IRBlock(block, irblock),
+  BlockEdge(_, block, _, func_call),
+  FunctionCallReturn(block, func_call, next),
+  irnext = BLOCK_TO_IRBLOCK(next, func).
+
+// Intra-function edges (i.e., real CFG edges)
+.decl LocalBlockEdge(block: IRBlock, next: IRBlock)
+
+LocalBlockEdge(irblock, irnext) :-
+  BlockEdge(_, block, _, next),
+  Block_IRBlock(block, irblock),
+  Block_IRBlock(next, irnext),
+  InFunction(irblock, func),
+  InFunction(irnext, func),
+  !Function(next),
+  !Function_Return_Edge(block, next).
+
+LocalBlockEdge(irblock, irnext) :-
+  BlockEdge(_, block, _, func_call),
+  FunctionCallReturn(block, func_call, next),
+  Block_IRBlock(block, irblock),
+  Block_IRBlock(next, irnext),
+  InFunction(irblock, func),
+  InFunction(irnext, func).
+
+
+// TODO
+.decl IRFunction_Return_Edge(block: IRBlock, next: IRBlock)
+.decl IRFunctionCall(from: IRBlock, func: IRFunction)
+.decl IRFunctionCallReturn(caller: IRBlock, func: IRFunction, retcaller: IRBlock)
+.decl IRFunction_Return(fn: IRFunction, ret: IRBlock)
+.decl IRBlockEdge(from: IRBlock, to: IRBlock)
+.decl IRStatement_Block(stmt: IRStatement, to: IRBlock)
+.decl IRBasicBlock_Tail(block: IRBlock, tail: IRStatement)
+.decl IRStatement_Opcode(stmt: IRStatement, op: Opcode)
+.decl IRBlockPopDelta(from: IRBlock, n: StackIndex)
+.decl IRBlockStackDelta(from: IRBlock, stackDelta: StackIndex)
+.decl IRIsJump(stmt: IRStatement)
+.decl FunctionEntry(from: IRBlock)
+.decl Statement_IRStatement(stmt: Statement, irstmt: IRStatement)
+.decl IRStatement_Uses_Local(stmt: IRStatement, stackIndex: VariableOrStackIndex, n: StackIndex)
+
+
+.decl IRBeforeLocalStackContents(stmt: IRStatement, n:StackIndex, varOrStackIndex:VariableOrStackIndex)
+.decl IRLocalStackContents(stmt: IRStatement, n:StackIndex, varOrStackIndex:VariableOrStackIndex)
+
 
 /***********
  * Discovery of arguments accepted by a function   
  ***********/
-
-// Intra-function edges (i.e., real CFG edges)
-.decl LocalBlockEdge(block: Block, next: Block)
-
-LocalBlockEdge(block, next) :-
-  BlockEdge(_, block, _, next),
-  !Function(next),
-  !Function_Return_Edge(block, next).
-
-.decl Function_Return_Edge(block: Block, next: Block)
-
-Function_Return_Edge(block, next) :-
-   Function_Return(fn, block),
-   FunctionCallReturn(_, fn, next).
-
-// REVIEW: basic blocks are interrupted at function call instructions
-// (unlike, say, LLVM IR) but we connect the block to the one after
-// the function return.
-LocalBlockEdge(block, next) :-
-  BlockEdge(_, block, _, func),
-  FunctionCallReturn(block, func, next).
 
 // New Instructions
 // CALLPRIVATE(stmt, function)
@@ -289,89 +405,80 @@ LocalBlockEdge(block, next) :-
 // RETURNPRIVATE(stmt)
 // RETURNPRIVATEI(stmt, cond)
 
-.decl InFunction(block: Block, func: Block)
- 
-InFunction(block, block) :-
-  Function(block).
+.decl NumberOfFunctionArguments(func: IRFunction, ret: IRBlock, num: StackIndex)
+.decl NumberOfFunctionReturnArguments(func: IRFunction, num: StackIndex)
 
-InFunction(next, func) :-
-  InFunction(block, func),
-  LocalBlockEdge(block, next).
-
-.decl NumberOfFunctionArguments(func: Block, ret: Block, num: StackIndex)
-.decl NumberOfFunctionReturnArguments(func: Block, num: StackIndex)
-
-.decl EnhancedLocalBlockEdge(from: Block, to: Block)
+.decl EnhancedLocalBlockEdge(from: IRBlock, to: IRBlock)
 
 EnhancedLocalBlockEdge(from, to) :- LocalBlockEdge(from, to).
 
 EnhancedLocalBlockEdge(from, "invalid") :- InFunction(from, _), !LocalBlockEdge(from, _).
 
-EnhancedLocalBlockEdge(from, "invalid") :- Function_Return(_, from).
+EnhancedLocalBlockEdge(from, "invalid") :- IRFunction_Return(_, from), InFunction(from, _).
 
-.decl EdgePopDelta(from: Block, to: Block, delta: StackIndex)
-
-EdgePopDelta(from, to, delta) :-
-   EnhancedLocalBlockEdge(from, to),
-   BlockEdge(_, from, _, to),
-   BlockPopDelta(from, delta).
+.decl EdgePopDelta(from: IRBlock, to: IRBlock, delta: StackIndex)
 
 EdgePopDelta(from, to, delta) :-
    EnhancedLocalBlockEdge(from, to),
-   !FunctionCall(from, _),
-   BlockPopDelta(from, delta).
+   IRBlockEdge(from, to),
+   IRBlockPopDelta(from, delta).
+
+EdgePopDelta(from, to, delta) :-
+   EnhancedLocalBlockEdge(from, to),
+   !IRFunctionCall(from, _),
+   IRBlockPopDelta(from, delta).
 
 EdgePopDelta(from, to, newPopDelta) :-
    EnhancedLocalBlockEdge(from, to),
-   !BlockEdge(_, from, _, to),
-   FunctionCall(from, func),
+   !IRBlockEdge(from, to),
+   IRFunctionCall(from, func),
    NumberOfFunctionArguments(func, _, n_args),
-   BlockPopDelta(from, popDelta),
-   BlockStackDelta(from, stackDelta),
+   IRBlockPopDelta(from, popDelta),
+   IRBlockStackDelta(from, stackDelta),
    newPopDelta = n_args-stackDelta,
    newPopDelta < MAX_STACK_HEIGHT,
    newPopDelta >= popDelta.
 
 EdgePopDelta(from, to, popDelta) :-
    EnhancedLocalBlockEdge(from, to),
-   !BlockEdge(_, from, _, to),
-   FunctionCall(from, func),
+   !IRBlockEdge(from, to),
+   IRFunctionCall(from, func),
    NumberOfFunctionArguments(func, _, n_args),
-   BlockPopDelta(from, popDelta),
-   BlockStackDelta(from, stackDelta),
+   IRBlockPopDelta(from, popDelta),
+   IRBlockStackDelta(from, stackDelta),
    newPopDelta = n_args-stackDelta,
    newPopDelta < popDelta.
 
-.decl EdgeStackDelta(from: Block, to: Block, delta: StackIndex)
+.decl EdgeStackDelta(from: IRBlock, to: IRBlock, delta: StackIndex)
 
 EdgeStackDelta(from, to, newStackDelta) :-
    CompositeNumberOfFunctionAndReturnArguments(func, n_args, n_ret),
    EnhancedLocalBlockEdge(from, to),
-   !BlockEdge(_, from, _, to),
-   FunctionCall(from, func),
-   BlockStackDelta(from, stackDelta),
+   !IRBlockEdge(from, to),
+   IRFunctionCall(from, func),
+   IRBlockStackDelta(from, stackDelta),
    newStackDelta = stackDelta-n_args+n_ret,
    newStackDelta < MAX_STACK_HEIGHT,
    newStackDelta > -MAX_STACK_HEIGHT.
 
 EdgeStackDelta(from, to, stackDelta) :-
    EnhancedLocalBlockEdge(from, to),
-   BlockEdge(_, from, _, to),
-   BlockStackDelta(from, stackDelta).
+   IRBlockEdge(from, to),
+   IRBlockStackDelta(from, stackDelta).
 
 EdgeStackDelta(from, to, stackDelta) :-
    EnhancedLocalBlockEdge(from, to),
-   !FunctionCall(from, _),
-   BlockStackDelta(from, stackDelta).
+   !IRFunctionCall(from, _),
+   IRBlockStackDelta(from, stackDelta).
 
-.decl FunctionEdgePopDelta(from: Block, to: Block, delta: StackIndex)
+.decl FunctionEdgePopDelta(from: IRBlock, to: IRBlock, delta: StackIndex)
 
 FunctionEdgePopDelta(from, to, delta) :-
-   Function(from),
+   FunctionEntry(from),
    EdgePopDelta(from, to, delta).
 
 
-.decl OptEdgePopDeltas(from: Block, to: Block, prevPopDelta: StackIndex, prevStackDelta: StackIndex, delta: StackIndex)
+.decl OptEdgePopDeltas(from: IRBlock, to: IRBlock, prevPopDelta: StackIndex, prevStackDelta: StackIndex, delta: StackIndex)
 
 OptEdgePopDeltas(from, to, prevPopDelta, prevStackDelta, delta) :-
    FunctionEdgePopDelta(prev, from, prevPopDelta),
@@ -391,11 +498,11 @@ FunctionEdgePopDelta(from, to, delta) :-
    newPopDelta = delta - prevStackDelta,
    newPopDelta <= prevPopDelta.
 
-.decl FunctionEdgeStackDelta(from: Block, to: Block, delta: StackIndex)
+.decl FunctionEdgeStackDelta(from: IRBlock, to: IRBlock, delta: StackIndex)
 
 FunctionEdgeStackDelta(from, to, delta) :-
    EdgeStackDelta(from, to, delta),
-   Function(from).
+   FunctionEntry(from).
 
 FunctionEdgeStackDelta(from, to, newStackDelta) :-
    LocalBlockEdge(prev, from),
@@ -405,25 +512,25 @@ FunctionEdgeStackDelta(from, to, newStackDelta) :-
    newStackDelta < MAX_STACK_HEIGHT,
    newStackDelta > -MAX_STACK_HEIGHT.
 
-.decl FunctionEdgePushDelta(from: Block, to: Block, delta: StackIndex)
+.decl FunctionEdgePushDelta(from: IRBlock, to: IRBlock, delta: StackIndex)
 
 FunctionEdgePushDelta(from, to, stackDelta + popDelta) :-
    FunctionEdgePopDelta(from, to, popDelta),
    FunctionEdgeStackDelta(from, to, stackDelta).
 
-.decl Function_Terminal(func: Block, terminal: Block)
+.decl Function_Terminal(func: IRFunction, terminal: IRBlock)
 
 // We mostly care about a function's signature when it returns
 Function_Terminal(func, ret),
 NumberOfFunctionArguments(func, ret, delta) :-
    FunctionEdgePopDelta(ret, "invalid", delta),
-   Function_Return(func, ret).
+   IRFunction_Return(func, ret).
 
 Function_Terminal(func, block),
 NumberOfFunctionArguments(func, block, delta) :-
    FunctionEdgePopDelta(block, "invalid", delta),
-   InFunction(func, block),
-   !Function_Return(func, _).
+   InFunction(block, func),
+   !IRFunction_Return(func, _).
 
 // Same here
 //NumberOfFunctionArguments(func, block, delta) :-
@@ -432,104 +539,75 @@ NumberOfFunctionArguments(func, block, delta) :-
 
 NumberOfFunctionReturnArguments(func, delta) :-
    FunctionEdgePushDelta(ret, "invalid", delta),
-   Function_Return(func, ret).
+   IRFunction_Return(func, ret).
 
 // default
 NumberOfFunctionReturnArguments(func, 0) :-
    Function(func),
-   !Function_Return(func, _).
+   !IRFunction_Return(func, _).
 
-.decl CandidateNumberOfFunctionArgumentsForReturn(func: Block, ret: Block, n: StackIndex)
+.decl CandidateNumberOfFunctionArgumentsForReturn(func: IRFunction, ret: IRBlock, n: StackIndex)
 CandidateNumberOfFunctionArgumentsForReturn(func, ret, n) :-
    Function_Terminal(func, ret),
    n = min delta : NumberOfFunctionArguments(func, ret, delta).
 
 
-.decl CandidateNumberOfFunctionArguments(func: Block, n: StackIndex)
+.decl CandidateNumberOfFunctionArguments(func: IRFunction, n: StackIndex)
 CandidateNumberOfFunctionArguments(func, n) :-
    Function(func),
    n = max m : CandidateNumberOfFunctionArgumentsForReturn(func, _, m).
 
 // This may improve precision, see further rant below
-.decl CompositeNumberOfFunctionAndReturnArguments(func: Block, n_in: StackIndex, n_out: StackIndex)
+.decl CompositeNumberOfFunctionAndReturnArguments(func: IRFunction, n_in: StackIndex, n_out: StackIndex)
 
 CompositeNumberOfFunctionAndReturnArguments(func, n_in, n_out) :-
    FunctionEdgePopDelta(ret, "invalid", n_in),
    FunctionEdgePushDelta(ret, "invalid", n_out),
-   Function_Return(func, ret).
+   IRFunction_Return(func, ret).
 
 NumberOfFunctionArguments(FUNCTION_SELECTOR, block, 0) :-
    Function_Terminal(FUNCTION_SELECTOR, block).
 
-//TODO
+// TODO
 .decl Variable_String(var:Variable, var_rep:symbol)
-.decl FunctionCallStmt(stmt: Statement)
-
-
-.decl FunctionalStatementNum(stmt: Statement, num: number)
-FunctionalStatementNum(stmt, num) :-
-   _StatementNum(stmt, num).
-
-.decl BasicBlock_CALL(block: Block, stmt: Statement)
-
-BasicBlock_CALL(block, stmt),
-FunctionCallStmt(stmt) :-
-   FunctionCall(block, _),
-   IsJump(stmt),
-   BasicBlock_Tail(block, stmt).
-
-
-// Create fresh call statements here if jump doesn't exist
-FunctionalStatementNum(newStmt, num+1),
-BasicBlock_CALL(block, newStmt),
-FunctionCallStmt(newStmt) :-
-   newStmt = cat(stmt,"_call"),                
-   FunctionCall(block, _),
-   !IsJump(stmt),
-   BasicBlock_Tail(block, stmt),
-   _StatementNum(stmt, num).
    
-.decl FunctionReturnStmt(stmt: Statement)
+.decl FunctionArgument(func: IRFunction, n: StackIndex, var: Variable)
+.decl FunctionCallReturnArgument(func: IRBlock, n: StackIndex, var: Variable)
 
-FunctionReturnStmt(stmt) :-
-   Function_Return(_, block),
-   IsJump(stmt),
-   BasicBlock_Tail(block, stmt).
-   
-.decl FunctionArgument(func: Block, n: StackIndex, var: Variable)
-.decl FunctionCallReturnArgument(func: Block, n: StackIndex, var: Variable)
+.decl FunctionalStatement_Uses_Local(stmt: IRStatement, var:VariableOrStackIndex, n:StackIndex)
 
-.decl FunctionalStatement_Uses_Local(stmt:Statement, var:VariableOrStackIndex, n:StackIndex)
+.decl FunctionalStatement_Uses(stmt:IRStatement, var:Variable, n:StackIndex)
+.decl FunctionalStatement_Defines(callStmt:IRStatement, newVar:Variable, n: number)
 
-.decl FunctionalStatement_Uses(stmt:Statement, var:Variable, n:StackIndex)
 
 Variable_String(var, var_rep) :-
    Statement_Defines(var_rep, var).
 
 Variable_String(var, cat("arg",n_str)),
-FunctionArgument(funcBlock, n, var) :-
-  CandidateNumberOfFunctionArguments(funcBlock, n_args),
+FunctionArgument(func, n, var) :-
+  CandidateNumberOfFunctionArguments(func, n_args),
   IsStackIndexLessThan(n, n_args),
-  CastStatementToBlock(stmt, funcBlock),
-  FRESH_VARIABLE(var, stmt, n),
+  FRESH_VARIABLE(var, cat(func, func), n),
   NumberToString(n, n_str).
 
 Variable_String(newVar, cat(callStmt, cat("_", n_str))),
 FunctionalStatement_Defines(callStmt, newVar, n),
 FunctionCallReturnArgument(caller, n, newVar) :-
-  FunctionCall(caller, func),
+  IRFunctionCall(caller, func),
   NumberOfFunctionReturnArguments(func, n_arg),
   IsStackIndexLessThan(n, n_arg),
-  BasicBlock_CALL(caller, callStmt),
+  IRBasicBlock_CALL(caller, callStmt),
   FRESH_VARIABLE(newVar, callStmt, n),
   NumberToString(n, n_str).
 
 // Renaming variables in functions
 // Involves Propagating variables, but doesn't require re-computing the CFG
-.decl FunctionalBlockInputContents(block:Block, index:number, var:Variable)
-.decl FunctionalBlockOutputContents(block:Block, next: Block, index:number, var:Variable)
+.decl FunctionalBlockInputContents(block:IRBlock, index:number, var:Variable)
+.decl FunctionalBlockOutputContents(block:IRBlock, next: IRBlock, index:number, var:Variable)
 
-FunctionalBlockInputContents(func, n, var) :-
+FunctionalBlockInputContents(entry, n, var) :-
+   FunctionEntry(entry),
+   InFunction(entry, func),
    FunctionArgument(func, n, var).
 
 FunctionalBlockInputContents(next, index, variable) :-
@@ -543,29 +621,28 @@ FunctionalBlockInputContents(next, index, variable) :-
 FunctionalBlockOutputContents(block, next, index, variable) :-
   BeforeFunctionCallFunctionalBlockOutputContents(block, index, variable),
   EnhancedLocalBlockEdge(block, next),
-  BlockEdge(_, block, _, next).
+  IRBlockEdge(block, next).
 
 // 2) Same, but for return blocks
 FunctionalBlockOutputContents(block, next, index, variable) :-
    BeforeFunctionCallFunctionalBlockOutputContents(block, index, variable),
    EnhancedLocalBlockEdge(block, next),
-   !FunctionCall(block, _).
+   !IRFunctionCall(block, _).
 
 // 3) First block calls a function, take return args from function call
-.decl FunctionalStatement_Defines(callStmt:Statement, newVar:Variable, n: number)
 
 FunctionalBlockOutputContents(caller, next, n, newVar) :-
    FunctionCallReturnArgument(caller, n, newVar),
    // Note, we can ignore the exact identity of the called function,
    // As fresh variables will be the same, we only care about the number of
    // return arguments. With more sophisticated analysis, this could change.
-   FunctionCallReturn(caller, _, next).
+   IRFunctionCallReturn(caller, _, next).
 
 // 4) First block calls a function, take any remaining variables that have
 //    not been passed as arguments, and shift
 FunctionalBlockOutputContents(caller, next, newIndex, variable) :-
    BeforeFunctionCallFunctionalBlockOutputContents(caller, index, variable),
-   FunctionCallReturn(caller, func, next),
+   IRFunctionCallReturn(caller, func, next),
    // Why do we need all this complexity? At first I modelled this by
    // considering the cross product of possible number of args, but
    // later created the notion of a composite function signature.
@@ -578,64 +655,69 @@ FunctionalBlockOutputContents(caller, next, newIndex, variable) :-
    newIndex >= 0,
    newIndex < MAX_STACK_HEIGHT.
 
-.decl BeforeFunctionCallFunctionalBlockOutputContents(caller: Block, index: StackIndex, variable: Variable)
+.decl BeforeFunctionCallFunctionalBlockOutputContents(caller: IRBlock, index: StackIndex, variable: Variable)
 
 // Copy the stack variables untouched by the callee basic block
 BeforeFunctionCallFunctionalBlockOutputContents(callee, index+delta, variable) :-
   FunctionalBlockInputContents(callee, index, variable),
   index >= calleePopLen,
   index+delta <= MAX_STACK_HEIGHT,
-  BlockPopDelta(callee, calleePopLen),
-  BlockStackDelta(callee, delta).
+  IRBlockPopDelta(callee, calleePopLen),
+  IRBlockStackDelta(callee, delta).
 
 // Handle the proper variables pushed by this basic block
 BeforeFunctionCallFunctionalBlockOutputContents(block, index, var) :-
   InFunction(block, _),
-  BasicBlock_Tail(block, stmt),
-  LocalStackContents(stmt, index, var),
+  IRBasicBlock_Tail(block, stmt),
+  IRLocalStackContents(stmt, index, var),
   CheckIsVariable(var).
 
 // Handle the stackIndexes pushed by this basic block
 BeforeFunctionCallFunctionalBlockOutputContents(block, index, realVariable) :-
   FunctionalBlockInputContents(block, stackIndex, realVariable),
-  BasicBlock_Tail(block, stmt),
-  LocalStackContents(stmt, index, stackIndex),
+  IRBasicBlock_Tail(block, stmt),
+  IRLocalStackContents(stmt, index, stackIndex),
   CheckIsStackIndex(stackIndex).
 
 
 // TODO, check case for function call
 FunctionalStatement_Uses_Local(stmt, varOrStackIndex, n) :-
-  FunctionCall(block, func),
-  BasicBlock_Tail(block, stmt),
-  Statement_Opcode(stmt, opcode),
+  IRFunctionCall(block, func),
+  IRBasicBlock_Tail(block, stmt),
+  IRStatement_Opcode(stmt, opcode),
   OpcodePopWords(opcode, m),
   CandidateNumberOfFunctionArguments(func, n_in),
   IsStackIndexLessThan(n, m+n_in),
-  BeforeLocalStackContents(stmt, n, varOrStackIndex).
+  IRBeforeLocalStackContents(stmt, n, varOrStackIndex).
 
 // TODO, check case for function return
 FunctionalStatement_Uses_Local(stmt, varOrStackIndex, n) :-
   NumberOfFunctionReturnArguments(func, n_out),
-  Function_Return(func, retBlock),
-  BasicBlock_Tail(retBlock, stmt),
-  Statement_Opcode(stmt, opcode),
+  IRFunction_Return(func, retBlock),
+  IRBasicBlock_Tail(retBlock, stmt),
+  IRStatement_Opcode(stmt, opcode),
   OpcodePopWords(opcode, m),
   IsStackIndexLessThan(n, m+n_out),
-  BeforeLocalStackContents(stmt, n, varOrStackIndex).
+  IRBeforeLocalStackContents(stmt, n, varOrStackIndex).
 
-FunctionalStatement_Uses_Local(stmt, varOrStackIndex, n) :-
-   Statement_Uses_Local(stmt, varOrStackIndex, n).
+FunctionalStatement_Uses_Local(irstmt, varOrStackIndex, n) :-
+   Statement_Uses_Local(stmt, varOrStackIndex, n),
+   Statement_IRStatement(stmt, irstmt).
 
-FunctionalStatement_Uses(stmt, var, n) :-
+FunctionalStatement_Uses(irstmt, var, n) :-
    Statement_Uses_Local(stmt, var, n),
-   CheckIsVariable(var).
+   CheckIsVariable(var),
+   Statement_IRStatement(stmt, irstmt).
 
-FunctionalStatement_Defines(stmt, newVar, 0) :- Statement_Defines(stmt, newVar).
+FunctionalStatement_Defines(irstmt, newVar, 0) :-
+   Statement_Defines(stmt, newVar),
+   Statement_IRStatement(stmt, irstmt).
+
 // Case: variable originates elsewhere
 FunctionalStatement_Uses(stmt, var, n) :-
-   Statement_Uses_Local(stmt, stackIndex, n),
+   IRStatement_Uses_Local(stmt, stackIndex, n),
    CheckIsStackIndex(stackIndex),
-   Statement_Block(stmt, block),
+   IRStatement_Block(stmt, block),
    FunctionalBlockInputContents(block, stackIndex, var).
 
 .decl PublicFunctionSignature(hex_signature: Value, text_signature: symbol)

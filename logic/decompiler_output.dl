@@ -1,5 +1,5 @@
 #ifndef NO_ANALYTICS
-#include "decompiler_analytics.dl"
+//#include "decompiler_analytics.dl"
 #endif
 
 // All sorts of different outputs of the decompiler, including
