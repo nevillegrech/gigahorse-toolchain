@@ -43,7 +43,7 @@ variable_value = dict(parseCsv('TAC_Variable_Value'))
 
 special_block_colors = (
     ('Function',0,"yellow"),
-    ('Function_Return',1,"orange"),
+    ('IRFunction_Return',1,"orange"),
 #    PublicFunctionEntryOut="yellow",
 #    ReturnTargetOriginatesIn="purple",
     #FunctionCallOut="grey",
@@ -51,11 +51,11 @@ special_block_colors = (
 
 
 function_calls = defaultdict(set)
-for k,v in parseCsv('FunctionCall'):
+for k,v in parseCsv('IRFunctionCall'):
     function_calls[k].add(v)
 
 
-function_call_return = {a[0] : (a[1], a[2]) for a in parseCsv('FunctionCallReturn')}
+function_call_return = {a[0] : (a[1], a[2]) for a in parseCsv('IRFunctionCallReturn')}
 
 functions = {a[0]  for a in parseCsv('Function')}
 
@@ -69,7 +69,7 @@ for k, index, v in special_block_colors:
     for s in special_blocks:
         block_colors[s] = v
     
-edges = parseCsv('InsBlockEdge')
+edges = parseCsv('IRBlockEdge')
 def prev_block(block):
     return {k for k,v in edges if v == block}
 def next_block(block):
@@ -124,11 +124,11 @@ for fro, to in edges:
         # return edge
         graph.add_edge(pydot.Edge("(%s) call %s"%(fro,to), nodeDict[ret], dir = 'forward', arrowHead = 'normal'))
         continue
-    if fro in block_property["Function_Return"]:
+    if fro in block_property["IRFunction_Return"]:
         continue
     graph.add_edge(pydot.Edge(nodeDict[fro], nodeDict[to], dir = 'forward', arrowHead = 'normal'))
 
-for key in sorted(rendered_statements, key = lambda a: int(a, base=16)):
+for key in sorted(rendered_statements, key = lambda a: int(a.split('0x')[-1], base=16)):
     print()
     print('Begin block %s'%key)
     print('prev = %s, next = %s'%(prev_block(key), next_block(key)))

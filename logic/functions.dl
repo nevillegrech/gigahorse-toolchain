@@ -10,7 +10,7 @@
   * First, heuristics for discovering public functions
 ******/
 // Special entry point to public function found heuristically
-.decl PublicFunctionEntry(basicBlock: Block, sigHash: Value)
+.decl PublicFunction(basicBlock: Block, sigHash: Value)
 // Code inserted by compiler to dispatch to the correct public function
 .decl PublicFunctionDispatcher(basicBlock: Block, sigHash: Value)
 // (Possibly) Code inserted by compiler to compare function signature
@@ -42,7 +42,7 @@ PublicFunctionDispatcher(block, sigHash) :-
   BlockEdge(_, prev, _, block),
   PublicFunctionDispatcher(prev, _).
 
-PublicFunctionEntry(stmtBlock, sigHash) :-
+PublicFunction(stmtBlock, sigHash) :-
   PublicFunctionDispatcher(block, sigHash),
   Statement_Block(jumpiStmt, block),
   JUMPI(jumpiStmt),
@@ -217,7 +217,7 @@ Function_Return_Edge(block, next) :-
 // Initialize and iterate the algorithm
 .init detector0 = FunctionDetection
 detector0.PrevFunctionEntry(block) :-
-   PublicFunctionEntry(block, _).
+   PublicFunction(block, _).
 
 detector0.PrevFunctionEntry(FUNCTION_SELECTOR).
    
@@ -225,7 +225,7 @@ detector0.PrevFunctionEntry(block) :-
   FunctionCallReturn(_, block, _).
 
 detector0.PrevFunctionCall(prev, func) :-
-  PublicFunctionEntry(func, sigHash),
+  PublicFunction(func, sigHash),
   PublicFunctionDispatcher(prev, sigHash).
 
 detector0.PrevFunctionCall(prev, func) :-
@@ -255,7 +255,7 @@ FunctionCall(block, func) :- FunctionCallReturn(block, func, _).
 
 // Case 2: dispatch public functions
 FunctionCall(block, func) :-
-  PublicFunctionEntry(func, sigHash),
+  PublicFunction(func, sigHash),
   PublicFunctionDispatcher(block, sigHash).
 
 // Case 3: further decomposition using components
@@ -333,7 +333,9 @@ FunctionCallStmt(newStmt) :-
 
 .decl Block_IRBlock(block: Block, irblock: IRBlock)
 .decl InFunction(block: IRBlock, func: IRFunction)
+.decl IRFunctionEntry(from: IRBlock)
 
+IRFunctionEntry(irblock),
 Block_IRBlock(func, irblock),
 InFunction(irblock, func) :-
   irblock = BLOCK_TO_IRBLOCK(func, func),
@@ -359,23 +361,24 @@ InFunction(irnext, func) :-
 // Intra-function edges (i.e., real CFG edges)
 .decl LocalBlockEdge(block: IRBlock, next: IRBlock)
 
-LocalBlockEdge(irblock, irnext) :-
-  BlockEdge(_, block, _, next),
-  Block_IRBlock(block, irblock),
-  Block_IRBlock(next, irnext),
-  InFunction(irblock, func),
-  InFunction(irnext, func),
-  !Function(next),
-  !Function_Return_Edge(block, next).
+LocalBlockEdge(block, next) :-
+  IRBlockEdge(block, next),
+  InFunction(block, func),
+  InFunction(next, func),
+  !IRFunctionEntry(next),
+  !IRFunction_Return_Edge(block, next).
 
-LocalBlockEdge(irblock, irnext) :-
-  BlockEdge(_, block, _, func_call),
-  FunctionCallReturn(block, func_call, next),
-  Block_IRBlock(block, irblock),
-  Block_IRBlock(next, irnext),
-  InFunction(irblock, func),
-  InFunction(irnext, func).
+LocalBlockEdge(block, next) :-
+  IRFunctionCallReturn(block, _, next).
 
+.decl IRFallthroughEdge(from: IRBlock, to: IRBlock)
+
+IRFallthroughEdge(irfrom, irto) :-
+  FallthroughEdge(from, to),
+  Block_IRBlock(from, irfrom),
+  Block_IRBlock(to, irto),
+  InFunction(irfrom, func),
+  InFunction(irto, func).
 
 .decl IRBlockEdge(from: IRBlock, to: IRBlock)
 
@@ -396,6 +399,11 @@ IRStatementNum(irstmt, num) :-
    _StatementNum(stmt, num),
    Statement_IRStatement(stmt, irstmt).
 
+.decl IRTACNOP(stmt: IRStatement)
+
+IRTACNOP(irstmt) :-
+  TACNOP(stmt),
+  Statement_IRStatement(stmt, irstmt).
 
 .decl IRStatement_Opcode(stmt: IRStatement, op: Opcode)
 
@@ -451,21 +459,20 @@ IRFunctionCall(fromir, func) :-
    FunctionCall(from, func),
    Block_IRBlock(from, fromir).
    
-
 .decl IRStatement_Block(stmt: IRStatement, to: IRBlock)
 
-IRStatement_Block(irstmt, irblock) :-
+IRStatement_Block(STATEMENT_TO_IRSTATEMENT(stmt, func), irblock) :-
    Statement_Block(stmt, block),
    Block_IRBlock(block, irblock),
-   Statement_IRStatement(stmt, irstmt).
+   InFunction(irblock, func).
 
 .decl IRBasicBlock_Tail(block: IRBlock, tail: IRStatement)
 
 IRBasicBlock_Tail(irblock, irtail) :-
    BasicBlock_Tail(block, tail),
    Block_IRBlock(block, irblock),
-   Statement_IRStatement(tail, irtail).
-   
+   Statement_IRStatement(tail, irtail),
+   IRStatement_Block(irtail, irblock).
 
 .decl IRBlockPopDelta(from: IRBlock, n: StackIndex)
 .decl IRBlockStackDelta(from: IRBlock, stackDelta: StackIndex)
@@ -477,12 +484,6 @@ IRBlockPopDelta(irblock, n) :-
 IRBlockStackDelta(irblock, stackDelta) :-
    BlockStackDelta(block, stackDelta),
    Block_IRBlock(block, irblock).
-
-.decl IRFunctionEntry(from: IRBlock)
-
-IRFunctionEntry(irentry) :-
-   Function(entry),
-   Block_IRBlock(entry, irentry).
 
 .decl IRStatement_Uses_Local(stmt: IRStatement, stackIndex: VariableOrStackIndex, n: StackIndex)
 
@@ -788,6 +789,7 @@ BeforeFunctionCallFunctionalBlockOutputContents(block, index, realVariable) :-
   CheckIsStackIndex(stackIndex).
 
 
+.output FunctionalStatement_Uses_Local
 // TODO, check case for function call
 FunctionalStatement_Uses_Local(stmt, varOrStackIndex, n) :-
   IRFunctionCall(block, func),
@@ -841,25 +843,25 @@ SighashIntermediate(sigIn, cat("0x0",substr(sigOut,2,8))) :-
    strlen(sigOut) < 10.
 
 SighashIntermediate(sig, sig) :-
-   PublicFunctionEntry(_, sig).
+   PublicFunction(_, sig).
 
-.decl PublicFunctionEntry_HighLevel(func: Block, sigHashOut: symbol)
-PublicFunctionEntry_HighLevel(func, sigHashOut) :-
-   PublicFunctionEntry(func, sigHash),
+.decl PublicFunction_HighLevel(func: IRFunction, sigHashOut: symbol)
+PublicFunction_HighLevel(func, sigHashOut) :-
+   PublicFunction(func, sigHash),
    SighashIntermediate(sigHash, sigHashOut),
    strlen(sigHashOut) = 10.
    
 HighLevelFunctionName(func, name) :-
-   PublicFunctionEntry_HighLevel(func, sigHash),
+   PublicFunction_HighLevel(func, sigHash),
    PublicFunctionSignature(sigHash, name).
 
 HighLevelFunctionName(func, name) :-
-   PublicFunctionEntry_HighLevel(func, name),
+   PublicFunction_HighLevel(func, name),
    !PublicFunctionSignature(name, _).
 
 HighLevelFunctionName(func, func) :-
    Function(func),
    func != FUNCTION_SELECTOR,
-   !PublicFunctionEntry(func, _).
+   !PublicFunction(func, _).
 
 HighLevelFunctionName(FUNCTION_SELECTOR, "__function_selector__").

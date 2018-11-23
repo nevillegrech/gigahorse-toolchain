@@ -55,26 +55,25 @@
 
 // A subset of LocalBlockEdge, corresponds to fallthrough edges of conditional jumps.
 .decl FallthroughEdge(block: Block, nextBlock: Block)
-.input FallthroughEdge(IO="file", filename="FallthroughEdge.csv", delimiter="\t")
+.input FallthroughEdge(IO="file", filename="IRFallthroughEdge.csv", delimiter="\t")
 
 .decl CallGraphEdge(block: Block, function: Function)
-.input CallGraphEdge(IO="file", filename="FunctionCall.csv", delimiter="\t")
+.input CallGraphEdge(IO="file", filename="IRFunctionCall.csv", delimiter="\t")
 
 // Represents part of the callgraph for functions that are called and which return
 // control flow back to the caller.
 .decl FunctionCallReturn(block: Block, function: Function, return: Block)
-.input FunctionCallReturn(IO="file", filename="FunctionCallReturn.csv", delimiter="\t")
+.input FunctionCallReturn(IO="file", filename="IRFunctionCallReturn.csv", delimiter="\t")
 
-// All the functions, function ids currently correspond to the entry point block
-// of said function, but this may change in the future. For the entry point see
-// FunctionEntry below.
+// All the functions, function ids do *not* correspond to the entry point block
+// of said function
 .decl IsFunction(func: Function)
 .input IsFunction(IO="file", filename="Function.csv", delimiter="\t")
 
 // A subset of IsFunction, represents public functions. All the rest of the functions
 // are private functions.
 .decl IsPublicFunction(func: Function)
-.input IsPublicFunction(IO="file", filename="PublicFunctionEntry.csv", delimiter="\t")
+.input IsPublicFunction(IO="file", filename="PublicFunction.csv", delimiter="\t")
 
 // Name given to each function. May contain public signature too.
 // Useful for presentation purposes.
@@ -137,7 +136,7 @@ FormalReturnArgs(fn, a, pos - 2) :-
 
 // Basic block corresponding to the function's entry point
 .decl FunctionEntry(block: Block)
-.input FunctionEntry(IO="file", filename="Function.csv", delimiter="\t")
+.input FunctionEntry(IO="file", filename="IRFunctionEntry.csv", delimiter="\t")
 
 // Basic block corresponding to a function's exit points
 .decl FunctionExit(block: Block)
@@ -148,19 +147,10 @@ FunctionExit(block) :-
 .decl CastBlockToFunction(block: symbol)
 CastBlockToFunction(block) :- FunctionEntry(block).
 
-
 // Whether a block is in a function
 // Currently, blocks may in some cases be part of multiple functions
 .decl InFunction(block: Block, function: Function)
-InFunction(block, function) :-
-   CastBlockToFunction(block),
-   CastBlockToFunction(function),
-   ord(block) = ord(function).
-
-InFunction(block, function) :-
-   InFunction(prev, function),
-   LocalBlockEdge(prev, block).
-
+.input InFunction(IO="file", filename="InFunction.csv", delimiter="\t")
 
 .decl GlobalBlockEdge(block: Block, next: Block)
 

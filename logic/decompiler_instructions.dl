@@ -150,3 +150,8 @@ NumberToString(n, cat(rst, head)) :-
   n > 15,
   NumberToString(n / 16, rst),
   NumberToString(n % 16, head).
+
+OpcodePopWords("CALLPRIVATE", 1).
+OpcodePopWords("RETURNPRIVATE", 1).
+OpcodePopWords("CALLPRIVATEI", 2).
+OpcodePopWords("RETURNPRIVATEI", 2).

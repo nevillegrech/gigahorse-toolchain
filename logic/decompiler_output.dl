@@ -1,5 +1,5 @@
 // VERY IMPORTANT: IF YOU CHANGE ANY OUTPUT RELATION IN THIS FILE,
-// PLEASE ALSO CHANGE clientlogic/decompiler_inputs.dl
+// PLEASE ALSO CHANGE clientlib/decompiler_imports.dl
 
 #ifndef NO_ANALYTICS
 //#include "decompiler_analytics.dl"
@@ -23,67 +23,24 @@ Variable_ConstValue(v, val) :-
    PHI(_, v_in, v).
 */
 
-.decl Variable_ConstValue_PUSH20(variable: TACVariable, value: Value)
-.output Variable_ConstValue_PUSH20
-
-Variable_ConstValue_PUSH20(variable, value) :-
-  Variable_ConstValue(variable, value),
-  TAC_Def(stmt, variable, 0),
-  PUSH20(stmt, _).
-
 .output OpcodePossiblyHalts
 
-.decl InsBlockEdge(from: Block, to:Block)
-.output InsBlockEdge
+.output IRBlockEdge
 
-InsBlockEdge(from, to) :-
-  BlockEdge(_, from, _, to).
+.output PublicFunction
 
-.decl InsBlockJumpValidTarget(stmt:Block, target:Block)
-.output InsBlockJumpValidTarget
+.decl Exit(block:IRBlock)
 
-InsBlockJumpValidTarget(block, target) :-
-  ReachableContext(ctx, block),
-  BlockJumpValidTarget(ctx, block, _, target).
+Exit(block) :- IRStatement_Block(_, block), !IRBlockEdge(block, _).
 
-.decl InsensBlockInputContents(block:Block, index:number, var:Variable)
-
-InsensBlockInputContents(block, index, var) :-
-  BlockInputContents(_, block, index, var).
-
-.output PublicFunctionEntry
-
-/*
- ***********
- * Auxiliary relations: Dominance frontiers for optimal PHI instruction placement
- ***********
- */
-
-// Both arguments are basic block heads
-// There is a path from the entry to s that does not go through candidate
-.decl DoesNotDominate(candidate:Block, s:Block)
-
-DoesNotDominate(candidate, FUNCTION_SELECTOR) :-
-  Statement_Block(_, candidate),
-  candidate != FUNCTION_SELECTOR.
-
-DoesNotDominate(candidate,s) :-
-  DoesNotDominate(candidate,other),
-  BlockEdge(_, s, _, other),
-  s != candidate.
-
-.decl Exit(block:Block)
-
-Exit(block) :- Statement_Block(_, block), !BlockEdge(_, block, _, _).
-
-.decl FunctionalBlock_Uses_Local(block: Block, stackIndex: StackIndex)
+.decl FunctionalBlock_Uses_Local(block: IRBlock, stackIndex: StackIndex)
 
 FunctionalBlock_Uses_Local(block, stackIndex) :-
-  Statement_Block(stmt, block),
+  IRStatement_Block(stmt, block),
   FunctionalStatement_Uses_Local(stmt, stackIndex, _),
   IsStackIndex(stackIndex).
 
-.decl PolymorphicStackIndex(block: Block, stackIndex: StackIndex)
+.decl PolymorphicStackIndex(block: IRBlock, stackIndex: StackIndex)
 
 PolymorphicStackIndex(block, stackIndex) :-
   FunctionalBlock_Uses_Local(block, stackIndex),
@@ -91,7 +48,7 @@ PolymorphicStackIndex(block, stackIndex) :-
   FunctionalBlockInputContents(block, stackIndex, var2),
   var1 != var2.
 
-.decl PHILocation(block: Block, stackIndex: StackIndex, newVarSymbol: symbol)
+.decl PHILocation(block: IRBlock, stackIndex: StackIndex, newVarSymbol: symbol)
 
 // Find all polymorphic stackIndexes
 // These need phi instructions introduced at the dominance frontier
@@ -103,18 +60,18 @@ PHILocation(block, stackIndex, cat(cat(block, "_"), stackIndexStr)) :-
 .symbol_type TACVariable
 
 // Final decompiler outputs
-.decl TAC_Op(stmt:Statement, op:Opcode)
+.decl TAC_Op(stmt:IRStatement, op:Opcode)
 .output TAC_Op
-.decl TAC_Stmt(stmt:Statement)
+.decl TAC_Stmt(stmt:IRStatement)
 .output TAC_Stmt
-.decl PRE_TAC_Use(stmt: Statement, var: TACVariable, i: number)
-.decl TAC_Use(stmt: Statement, var: TACVariable, i: number)
+.decl PRE_TAC_Use(stmt: IRStatement, var: TACVariable, i: number)
+.decl TAC_Use(stmt: IRStatement, var: TACVariable, i: number)
 .output TAC_Use
-.decl TAC_Def(stmt: Statement, var: TACVariable, n: number)
+.decl TAC_Def(stmt: IRStatement, var: TACVariable, n: number)
 .output TAC_Def
 .decl TAC_Var(var: TACVariable)
 .output TAC_Var
-.decl TAC_Block(stmt: Statement, block: Block)
+.decl TAC_Block(stmt: IRStatement, block: IRBlock)
 .output TAC_Block
 .decl TAC_Variable_Value(var: TACVariable, value: symbol)
 .output TAC_Variable_Value
@@ -122,15 +79,15 @@ PHILocation(block, stackIndex, cat(cat(block, "_"), stackIndexStr)) :-
 .output TAC_Variable_Length
 
 .decl CastStmtToTACVariableSymbol(x:symbol, y:symbol)
-.decl CastStatementToTACVariable(s:Statement, v:TACVariable)
+.decl CastStatementToTACVariable(s:IRStatement, v:TACVariable)
 CastStmtToTACVariableSymbol(x,x) :- ValidStatement(x).
 CastStmtToTACVariableSymbol(x,x) :- PHILocation(_, _, x).
 CastStatementToTACVariable(x,y) :- CastStmtToTACVariableSymbol(x,y).
 
 // Normal variable, known length
 TAC_Variable_Value(tacvar, value) :-
-   FunctionalStatement_Defines(stmt, var, _),
-   CastStatementToTACVariable(stmt, tacvar),
+   FunctionalStatement_Defines(_, var, _),
+   Variable_String(var, tacvar),
    Variable_Value(var, value).
 
 UnknownLength(var) :-
@@ -142,7 +99,7 @@ UnknownLength(var) :-
 TAC_Variable_Length(tacvar, 32) :-
    (FunctionalStatement_Defines(stmt, var, _) ;
     FunctionalStatement_Uses(stmt, var, _)),
-   CastStatementToTACVariable(stmt, tacvar),
+   Variable_String(var, tacvar),
    UnknownLength(var).
 
 // phi variable, unknown length
@@ -163,14 +120,16 @@ TAC_Variable_Length(phiStmt, maxLength) :-
 // RETURNPRIVATE(stmt, *args)
 
 // Non-nop instructions
-TAC_Stmt(stmt) :-
+TAC_Stmt(irstmt) :-
+  Statement_IRStatement(stmt, irstmt),
   ValidStatement(stmt),
-  !TACNOP(stmt).
+  !IRTACNOP(stmt).
 
-TAC_Op(stmt, op) :-
-   Statement_Opcode(stmt, op),
+TAC_Op(irstmt, op) :-
+   IRStatement_Opcode(irstmt, op),
+   Statement_IRStatement(stmt, irstmt),
    ValidStatement(stmt),
-   !TACNOP(stmt),
+   !IRTACNOP(irstmt),
    !ThrowJump(stmt),
    !PushValue(stmt, _),
    !PC(stmt),
@@ -178,26 +137,32 @@ TAC_Op(stmt, op) :-
    !INVALID(stmt).
 
 
-TAC_Op(stmt, "CONST") :-
-   PushValue(stmt, _) ; PC(stmt).
+TAC_Op(irstmt, "CONST") :-
+   Statement_IRStatement(stmt, irstmt),
+   (PushValue(stmt, _) ; PC(stmt)).
 
-TAC_Op(stmt, "THROW") :-
+TAC_Op(irstmt, "THROW") :-
+   Statement_IRStatement(stmt, irstmt),
    JUMP(stmt),
    ThrowJump(stmt).
 
-TAC_Op(stmt, "THROW") :-
-   INVALID(stmt) ; REVERT(stmt).
+TAC_Op(irstmt, "THROW") :-
+   Statement_IRStatement(stmt, irstmt),
+   (INVALID(stmt) ; REVERT(stmt)).
 
-TAC_Op(stmt, "THROWI") :-
+TAC_Op(irstmt, "THROWI") :-
+   Statement_IRStatement(stmt, irstmt),
    JUMPI(stmt),
    ThrowJump(stmt).
 
+/*
 TAC_Op(stmt, op) :-
    FunctionReturnStmt(stmt),
    Statement_Opcode(stmt, op),
    ValidStatement(stmt),
    !JUMP(stmt),
    !JUMPI(stmt).
+*/
 
 // Phi instructions
 TAC_Var(tacvar),
@@ -223,7 +188,7 @@ PRE_TAC_Use(stmt, var_rep, n) :-
 PRE_TAC_Use(stmt, var_rep, n) :-
   FunctionalStatement_Uses_Local(stmt, stackIndex, n),
   CheckIsStackIndex(stackIndex),
-  Statement_Block(stmt, block),
+  IRStatement_Block(stmt, block),
   !PHILocation(block, stackIndex, _),
   FunctionalBlockInputContents(block, stackIndex, var),
   Variable_String(var, var_rep).
@@ -239,9 +204,10 @@ TAC_Use(stmt, var_rep, n) :-
    !ThrowJump(stmt),
    PRE_TAC_Use(stmt, var_rep, n).
 
-TAC_Use(stmt, var_rep, n-1) :-
+TAC_Use(irstmt, var_rep, n-1) :-
    ThrowJump(stmt),
-   PRE_TAC_Use(stmt, var_rep, n),
+   Statement_IRStatement(stmt, irstmt),
+   PRE_TAC_Use(irstmt, var_rep, n),
    n > 0.
 
 
@@ -249,12 +215,12 @@ TAC_Use(stmt, var_rep, n-1) :-
 PRE_TAC_Use(stmt, var_rep, n) :-
   FunctionalStatement_Uses_Local(stmt, stackIndex, n),
   CheckIsStackIndex(stackIndex),
-  Statement_Block(stmt, block),
+  IRStatement_Block(stmt, block),
   PHILocation(block, stackIndex, var_rep).
 
 TAC_Block(stmt, block) :-
-  Statement_Block(stmt, block),
-  !TACNOP(stmt).
+  IRStatement_Block(stmt, block),
+  !IRTACNOP(stmt).
 
 TAC_Block(phiStmt, block) :-
   PHILocation(block, _, phiStmt).
@@ -269,19 +235,19 @@ TAC_Block(phiStmt, block) :-
  *  Function-discovery outputs to visualization scripts
  ***********/
 
-.output FunctionCall
-.output FunctionCallReturn
-.output Function_Return
+.output IRFunctionCall
+.output IRFunctionCallReturn
+.output IRFunction_Return
 .output Function
 
-.decl FormalArgs(func:Block, var:symbol, n:number)
+.decl FormalArgs(func:IRFunction, var:symbol, n:number)
 .output FormalArgs
 
 FormalArgs(func, var_rep, n) :-
    FunctionArgument(func, n, var),
    Variable_String(var, var_rep).
 
-.decl ActualReturnArgs(caller:Block, var_rep:symbol, n:number)
+.decl ActualReturnArgs(caller:IRBlock, var_rep:symbol, n:number)
 .output ActualReturnArgs
 
 ActualReturnArgs(caller, var_rep, n) :-
@@ -290,17 +256,16 @@ ActualReturnArgs(caller, var_rep, n) :-
 
 .output LocalBlockEdge
 .output HighLevelFunctionName
-.output FallthroughEdge
+.output IRFallthroughEdge
 
 .output Mask_Length
 .output InFunction
+.output IRFunctionEntry
 
 /*****
  *  Statement Ordering
  *****/
 .decl PRE_TAC_Statement_Next(stmt: Statement, next: Statement)
-.decl TAC_Statement_Next(stmt: Statement, next: Statement)
-.output TAC_Statement_Next
 
 PRE_TAC_Statement_Next(stmt, next) :-
    Statement_Next(stmt, next).
@@ -308,11 +273,16 @@ PRE_TAC_Statement_Next(stmt, next) :-
 PRE_TAC_Statement_Next(stmt, nextnext) :-
   PRE_TAC_Statement_Next(stmt, next),
   PRE_TAC_Statement_Next(next, nextnext),
-  !TAC_Block(next, _).
+  TACNOP(next).
 
-TAC_Statement_Next(stmt, next) :-
-  PRE_TAC_Statement_Next(stmt, next),
-  TAC_Block(stmt, _), TAC_Block(next, _).
+.decl TAC_Statement_Next(stmt: IRStatement, next: IRStatement)
+.output TAC_Statement_Next
+
+TAC_Statement_Next(irstmt, irnext) :-
+   PRE_TAC_Statement_Next(stmt, next),
+   Statement_IRStatement(stmt, irstmt),
+   Statement_IRStatement(next, irnext),
+   TAC_Block(irstmt, _), TAC_Block(irnext, _).
 
 // TODO for statement ordering
 // a) phi functions

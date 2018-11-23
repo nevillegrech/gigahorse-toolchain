@@ -8,8 +8,8 @@
 
 
 #include "decompiler_instructions.dl"
-//#include "decompiler_output.dl"
 #include "functions.dl"
+#include "decompiler_output.dl"
 
 .type Block 
 .type Value
