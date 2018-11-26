@@ -58,6 +58,8 @@ for k,v in parseCsv('IRFunctionCall'):
 function_call_return = {a[0] : (a[1], a[2]) for a in parseCsv('IRFunctionCallReturn')}
 
 functions = {a[0]  for a in parseCsv('Function')}
+function_entries = {a[0]  for a in parseCsv('IRFunctionEntry')}
+in_function = dict(parseCsv('InFunction'))
 
 block_colors = defaultdict(lambda : "green")
 
@@ -85,8 +87,8 @@ def format_var(v):
 rendered_statements = {}
 def renderBlock(k, stmts):
     sorted_stmts = []
-    if k in functions:
-        function_name = high_level_function_name[k]
+    if k in function_entries:
+        function_name = high_level_function_name[in_function[k]]
         sorted_stmts.append("function %s(%s)"%(function_name, ', '.join(map(format_var, function_arguments[k]))))
                             
     for s in stmts:
