@@ -106,10 +106,12 @@ InlineProcedureEntry(entry) :-
 .output TerminalBlock
 .decl TerminalBlock(entry: Block)
 
+/*
 TerminalBlock(block) :-
    Statement_Block(_, block),
    k = max n : TerminalBlockN(block, n),
    k <= 5.
+*/
 
 TerminalBlockN(entry, 0) :- Statement_Block(_, entry), !BlockEdge(_, entry, _, _).
 
@@ -334,7 +336,7 @@ FunctionCallStmt(newStmt) :-
 #define FRESH_IRSTATEMENT(s, f) cat((s), (f))
 #define STATEMENT_TO_IRSTATEMENT(s) substr(cat(" ", (s)), 1, 10)
  
- .type IRBlock
+.type IRBlock
 // exploit type checking in new IR
 #define IRFunction Block
 .type IRStatement
@@ -564,6 +566,7 @@ IRLocalStackContents(irstmt, n, varOrStackIndex) :-
 .decl NumberOfFunctionReturnArguments(func: IRFunction, num: StackIndex)
 
 .decl EnhancedLocalBlockEdge(from: IRBlock, to: IRBlock)
+.output EnhancedLocalBlockEdge
 
 EnhancedLocalBlockEdge(from, to) :- LocalBlockEdge(from, to).
 
@@ -683,6 +686,9 @@ NumberOfFunctionArguments(func, ret, delta) :-
    FunctionEdgePopDelta(ret, "invalid", delta),
    IRFunction_Return(func, ret).
 
+NumberOfFunctionArguments(FUNCTION_SELECTOR, block, 0) :-
+   Function_ArgumentTerminal(FUNCTION_SELECTOR, block).
+
 // TODODODOD
 
 Function_ArgumentTerminal(func, block),
@@ -696,6 +702,8 @@ NumberOfFunctionReturnArguments(func, delta) :-
    FunctionEdgePushDelta(ret, "invalid", delta),
    IRFunction_Return(func, ret).
 
+.output NumberOfFunctionArguments
+
 // default
 NumberOfFunctionReturnArguments(func, 0) :-
    Function(func),
@@ -708,6 +716,8 @@ CandidateNumberOfFunctionArgumentsForReturn(func, ret, n) :-
 
 
 .decl CandidateNumberOfFunctionArguments(func: IRFunction, n: StackIndex)
+.output CandidateNumberOfFunctionArguments
+
 CandidateNumberOfFunctionArguments(func, n) :-
    Function(func),
    n = max m : CandidateNumberOfFunctionArgumentsForReturn(func, _, m).
@@ -719,9 +729,6 @@ CompositeNumberOfFunctionAndReturnArguments(func, n_in, n_out) :-
    FunctionEdgePopDelta(ret, "invalid", n_in),
    FunctionEdgePushDelta(ret, "invalid", n_out),
    IRFunction_Return(func, ret).
-
-NumberOfFunctionArguments(FUNCTION_SELECTOR, block, 0) :-
-   Function_ArgumentTerminal(FUNCTION_SELECTOR, block).
 
 .decl Variable_String(var:Variable, var_rep:symbol)
    
@@ -741,7 +748,7 @@ Variable_String(var, cat("arg",n_str)),
 FunctionArgument(func, n, var) :-
   CandidateNumberOfFunctionArguments(func, n_args),
   IsStackIndexLessThan(n, n_args),
-  FRESH_VARIABLE(var, cat(func, func), n),
+  FRESH_VARIABLE(var, BLOCK_TO_IRBLOCK(func), n), // TODO: use entry?
   NumberToString(n, n_str).
 
 Variable_String(newVar, cat(callStmt, cat("_", n_str))),
