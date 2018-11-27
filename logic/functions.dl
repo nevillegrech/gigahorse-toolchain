@@ -98,24 +98,23 @@ ConflictingReturnAddress(callerBlock, retBlock, retTarget) :-
 .output InlineProcedureEntry
 
 InlineProcedureEntry(entry) :-
-   TerminalBlock(entry),
+   InlineableBlock(entry),
    ConflictingReturnAddress(_, _, entry).
+
+.output InlineableBlock
+.decl InlineableBlock(entry: Block)
+
+
+InlineableBlock(block) :-
+   Statement_Block(_, block),
+   k = max n : TerminalBlockN(block, n),
+   k <= 8.
 
 .decl TerminalBlockN(entry: Block, n: number)
 
-.output TerminalBlock
-.decl TerminalBlock(entry: Block)
-
-/*
-TerminalBlock(block) :-
-   Statement_Block(_, block),
-   k = max n : TerminalBlockN(block, n),
-   k <= 5.
-*/
-
 TerminalBlockN(entry, 0) :- Statement_Block(_, entry), !BlockEdge(_, entry, _, _).
 
-TerminalBlockN(entry, n+1) :- TerminalBlockN(term, n), n<=5, BlockEdge(_, entry, _, term).
+TerminalBlockN(entry, n+1) :- TerminalBlockN(term, n), n<=8, BlockEdge(_, entry, _, term).
 
 
 .decl PossibleFunctionCall(caller:Block, func:Block, retBlock:Block, retTarget:Block)
@@ -123,8 +122,9 @@ TerminalBlockN(entry, n+1) :- TerminalBlockN(term, n), n<=5, BlockEdge(_, entry,
 PossibleFunctionCall(caller, func, retBlock, retTarget) :-
   PossibleReturnAddress(caller, retBlock, retTarget),
   (!ConflictingReturnAddress(caller, retBlock, retTarget) ;
-   InlineProcedureEntry(retTarget)),
-  BlockJumpValidTarget(_, caller, _, func).
+   InlineableBlock(retTarget)),
+  BlockJumpValidTarget(_, caller, _, func),
+  !InlineableBlock(func).
 
 .decl PossiblyInFunction(block:Block, func:Block)
 
@@ -166,7 +166,7 @@ Function_Return(func, retBlock),
 FunctionCallReturn(caller, func, retTarget) :-
   PossibleFunctionCall(caller, func, retBlock, retTarget),
   FunctionCalledMultipleTimes(func),
-  !InlineProcedureEntry(func).
+  !InlineableBlock(func).
 
 // Further function decomposition.
 // Detects function boundaries, calls and returns iteratively.  Main
@@ -210,7 +210,18 @@ FunctionCallReturn(caller, func, retTarget) :-
     InFunction(block, func2),
     func1 != func2,
     BlockEdge(_, prev, _, block),
-    !InlineProcedureEntry(block),
+    !InlineableBlock(block),
+    !Function_Return(_, prev),
+    !(InFunction(prev, func1), InFunction(prev, func2)).
+
+  .decl InlineProcedureEntry(block: Block)
+
+  InlineProcedureEntry(block) :-
+    InFunction(block, func1),
+    InFunction(block, func2),
+    func1 != func2,
+    BlockEdge(_, prev, _, block),
+    InlineableBlock(block),
     !Function_Return(_, prev),
     !(InFunction(prev, func1), InFunction(prev, func2)).
 
@@ -287,6 +298,10 @@ Function(func) :-
   detector2.FunctionEntry(func) ;
   detector3.FunctionEntry(func).
 
+
+InlineProcedureEntry(block) :-
+  detector3.InlineProcedureEntry(block).
+
 /***********
  * Identify actual function calls and returns
  ***********/
@@ -340,13 +355,6 @@ FunctionCallStmt(newStmt) :-
 // exploit type checking in new IR
 #define IRFunction Block
 .type IRStatement
-
-.decl InlineableBlock(block: Block)
-.output InlineableBlock
-
-InlineableBlock(block) :- InlineProcedureEntry(block).
-
-InlineableBlock(next) :- InlineableBlock(block), BlockEdge(_, block, _, next).
 
 .decl Block_IRBlock(block: Block, irblock: IRBlock)
 .decl InFunction(block: IRBlock, func: IRFunction)
