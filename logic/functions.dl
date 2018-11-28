@@ -1,7 +1,6 @@
 #define MAX_FUNCTION_ARGS (MAX_STACK_HEIGHT/4)
 #define FRESH_VARIABLE(var, stmt, stackIndex) (IRStatementNum((stmt), _stmtNum), var=-0xFFFF+_stmtNum*MAX_STACK_HEIGHT+(stackIndex))
 
-
 /*****
  * Function discovery logic
  *****/
@@ -115,8 +114,7 @@ TerminalBlockReachableThrough(from, from, terminal) :-
    TerminalBlockReachableThrough(other, through, terminal),
    BlockEdge(_, from, _, other).
 
-.decl CountTerminalBlockReachableThrough(from: Block, terminal: Block, 
-n: number)
+.decl CountTerminalBlockReachableThrough(from: Block, terminal: Block, n: number)
 CountTerminalBlockReachableThrough(from, terminal, n) :-
    TerminalBlockReachableThrough(from, _, terminal),
    n = count : TerminalBlockReachableThrough(from, _, terminal).

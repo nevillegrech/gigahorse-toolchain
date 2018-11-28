@@ -71,7 +71,7 @@ for k, index, v in special_block_colors:
     for s in special_blocks:
         block_colors[s] = v
     
-edges = parseCsv('IRBlockEdge')
+edges = parseCsv('LocalBlockEdge')
 def prev_block(block):
     return {k for k,v in edges if v == block}
 def next_block(block):
@@ -90,7 +90,7 @@ def renderBlock(k, stmts):
     if k in function_entries:
         function_name = high_level_function_name[in_function[k]]
         sorted_stmts.append("function %s(%s)"%(function_name, ', '.join(map(format_var, function_arguments[k]))))
-                            
+    sorted_stmts.append("Block %s"%k)                        
     for s in stmts:
         op = tac_op[s]
         if s in tac_def:
@@ -130,7 +130,7 @@ for fro, to in edges:
         continue
     graph.add_edge(pydot.Edge(nodeDict[fro], nodeDict[to], dir = 'forward', arrowHead = 'normal'))
 
-for key in sorted(rendered_statements, key = lambda a: int(a.split('0x')[-1], base=16)):
+for key in sorted(rendered_statements, key = lambda a: int(a.split('0x')[1], base=16)):
     print()
     print('Begin block %s'%key)
     print('prev = %s, next = %s'%(prev_block(key), next_block(key)))
