@@ -10,6 +10,10 @@
 #include "decompiler_instructions.dl"
 #include "functions.dl"
 #include "decompiler_output.dl"
+#ifndef NO_ANALYTICS
+#include "decompiler_analytics.dl"
+#endif
+
 
 .type Block 
 .type Value

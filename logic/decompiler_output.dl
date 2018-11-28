@@ -1,10 +1,6 @@
 // VERY IMPORTANT: IF YOU CHANGE ANY OUTPUT RELATION IN THIS FILE,
 // PLEASE ALSO CHANGE clientlib/decompiler_imports.dl
 
-#ifndef NO_ANALYTICS
-//#include "decompiler_analytics.dl"
-#endif
-
 // All sorts of different outputs of the decompiler, including
 // three-address code representation (which is later input and
 // re-formatted for use by clients), statistics, debugging relations.

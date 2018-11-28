@@ -2,7 +2,7 @@
 // Every relation needs to start with 'Analytics_'
 // in order to be considered by our scripts
 
-.decl Analytics_Functions(block: Block)
+.decl Analytics_Functions(func: IRFunction)
 .output Analytics_Functions
 
 Analytics_Functions(func) :-
@@ -13,25 +13,24 @@ Analytics_Functions(func) :-
 
 Analytics_Jumps(block) :-
   BasicBlock_Tail(block, tail),
-  ReachableContext(_, block),
   IsJump(tail).
 
 
-.decl Analytics_Blocks(block: Block)
+.decl Analytics_Blocks(block: IRBlock)
 .output Analytics_Blocks
 
 Analytics_Blocks(block) :-
-  ReachableContext(_, block).
+  InFunction(block, _).
 
 // Sanity checking and analytics
 
-.decl ReachableStatement(stmt: Statement)
+.decl ReachableStatement(stmt: IRStatement)
 
 ReachableStatement(stmt) :-
-   ReachableContext(_, block),
-   Statement_Block(stmt, block).
+   InFunction(block, _),
+   IRStatement_Block(stmt, block).
 
-.decl Analytics_UnknownOperand(stmt:Statement)
+.decl Analytics_UnknownOperand(stmt:IRStatement)
 .output Analytics_UnknownOperand
 
 //TODO: make this stronger
@@ -59,8 +58,8 @@ Analytics_MissingImplementation(stmt, opcode) :-
 // Excludes function return blocks
 Analytics_PolymorphicTarget(block) :-
   Analytics_Jumps(block),                                                          
-  InsBlockJumpValidTarget(block, target1),
-  InsBlockJumpValidTarget(block, target2),
+  BlockJumpValidTarget(_, block, _, target1),
+  BlockJumpValidTarget(_, block, _, target2),
   !Function_Return(_, block),
   target1 != target2.
 
@@ -69,7 +68,7 @@ Analytics_PolymorphicTarget(block) :-
 
 Analytics_MissingJumpTarget(block) :-
   Analytics_Jumps(block),
-  !InsBlockJumpValidTarget(block, _),
+  !BlockJumpValidTarget(_, block, _, _),
   BasicBlock_Tail(block, jump),
   !ThrowJump(jump),
   JUMPDEST(_). // if there are not valid jumpdests then don't flag
@@ -99,8 +98,8 @@ Analytics_JumpToAnyOnly(block) :-
 
 // Sanity checking for functions
 
-.decl Analytics_InexactFunctionArguments(func: Block)
-.decl Analytics_InexactFunctionReturnArguments(func: Block)
+.decl Analytics_InexactFunctionArguments(func: IRFunction)
+.decl Analytics_InexactFunctionReturnArguments(func: IRFunction)
 
 .output Analytics_InexactFunctionArguments
 .output Analytics_InexactFunctionReturnArguments
@@ -115,7 +114,7 @@ Analytics_InexactFunctionReturnArguments(func) :-
    NumberOfFunctionReturnArguments(func, delta2),
    delta != delta2.
 
-.decl Analytics_BlockInMultipleFunctions(func: Block)
+.decl Analytics_BlockInMultipleFunctions(func: IRFunction)
 .output Analytics_BlockInMultipleFunctions
 
 Analytics_BlockInMultipleFunctions(func2),
@@ -124,92 +123,71 @@ Analytics_BlockInMultipleFunctions(func) :-
    InFunction(block, func2),
    func != func2.
 
-.decl Analytics_BlockInNoFunctions(block: Block)
+.decl Analytics_BlockInNoFunctions(block: IRBlock)
 .output Analytics_BlockInNoFunctions
 
 Analytics_BlockInNoFunctions(block) :-
-   Statement_Block(_, block),
+   IRStatement_Block(_, block),
    !InFunction(block, _).
 
-.decl Analytics_UnreachableBlock(block: Block)
+.decl Analytics_UnreachableBlock(block: IRBlock)
 .output Analytics_UnreachableBlock
 
 Analytics_UnreachableBlock(block) :-
-   Statement_Block(_, block),
-   !ReachableContext(_, block).
+   IRStatement_Block(_, block),
+   !InFunction(block, _).
 
-.decl Analytics_FunctionCall(block: Block)
+.decl Analytics_FunctionCall(block: IRBlock)
 .output Analytics_FunctionCall
 
 Analytics_FunctionCall(block) :-
-   FunctionCall(block, _).
+   IRFunctionCall(block, _).
 
-.decl Analytics_FunctionCallWithReturn(block: Block)
+.decl Analytics_FunctionCallWithReturn(block: IRBlock)
 .output Analytics_FunctionCallWithReturn
 
 Analytics_FunctionCallWithReturn(block) :-
-   FunctionCallReturn(block, _, _).
+   IRFunctionCallReturn(block, _, _).
 
 // functions with multiple return blocks
-.decl Analytics_FunctionWithMultipleReturns(func: Block)
+.decl Analytics_FunctionWithMultipleReturns(func: IRFunction)
 .output Analytics_FunctionWithMultipleReturns
 
 Analytics_FunctionWithMultipleReturns(func) :-
-   Function_Return(func, retBlock),
-   Function_Return(func, retBlock2),
+   IRFunction_Return(func, retBlock),
+   IRFunction_Return(func, retBlock2),
    retBlock != retBlock2.
 
 
-.decl FunctionReturnBlockPopDelta(func: Block, retBlock: Block, n_in: StackIndex)
+.decl FunctionReturnBlockPopDelta(func: IRFunction, retBlock: IRBlock, n_in: StackIndex)
 FunctionReturnBlockPopDelta(func, retBlock, n_in) :-
    Analytics_FunctionWithMultipleReturns(func),
-   Function_Return(func, retBlock),
+   IRFunction_Return(func, retBlock),
    FunctionEdgePopDelta(retBlock, "invalid", n_in).
 
 // functions with different stack pop depth in different return blocks
-.decl Analytics_FunctionWithMultipleStackDepthsAtReturnBlocks(func: Block)
+.decl Analytics_FunctionWithMultipleStackDepthsAtReturnBlocks(func: IRFunction)
 .output Analytics_FunctionWithMultipleStackDepthsAtReturnBlocks
 
 Analytics_FunctionWithMultipleStackDepthsAtReturnBlocks(func) :-
    FunctionReturnBlockPopDelta(func, _, n_in),
-   Function_Return(func, retBlock),
+   IRFunction_Return(func, retBlock),
    !FunctionReturnBlockPopDelta(func, retBlock, n_in).
 
-.decl Analytics_PublicFunction(func: Block)
+.decl Analytics_PublicFunction(func: IRFunction)
 .output Analytics_PublicFunction
 
 Analytics_PublicFunction(func) :-
-   PublicFunctionEntry(func, _).
+   PublicFunction(func, _).
 
-.decl Analytics_PublicFunctionNameResolved(func: Block)
+.decl Analytics_PublicFunctionNameResolved(func: IRFunction)
 .output Analytics_PublicFunctionNameResolved
 
 Analytics_PublicFunctionNameResolved(func) :-
-   PublicFunctionEntry(func, sigHash),
+   PublicFunction(func, sigHash),
    PublicFunctionSignature(sigHash, _).
 
-// Non-continuation address passed
-.decl Analytics_NonContinuationReturn(callerBlock: Block, retBlock: Block, target: Block)
-.output Analytics_NonContinuationReturn
-
-Analytics_NonContinuationReturn(callerBlock, retBlock, target) :-
-  BlockJumpValidTarget(_, retBlock, targetVariable, target),
-  BasicBlock_Tail(callerBlock, callerStmt),
-  callerBlock != retBlock,
-  IsJump(callerStmt),
-  Statement_Defines(callerStatement, targetVariable),
-  Statement_Block(callerStatement, callerBlock),
-  CastStatementToBlock(targetHead, target),
-  !Statement_Next(callerStmt, targetHead).
-
-.decl Analytics_NonContinuationReturnCall(callerBlock: Block)
-.output Analytics_NonContinuationReturnCall
-
-Analytics_NonContinuationReturnCall(callerBlock) :-
-   Analytics_NonContinuationReturn(callerBlock, _, _).
-
-
-.decl NotRegularFunction(func:Block)
+.decl NotRegularFunction(func:IRFunction)
 .output NotRegularFunction
 
 // A basic block can only belong to a single function

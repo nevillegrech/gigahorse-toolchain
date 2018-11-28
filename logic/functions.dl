@@ -101,21 +101,37 @@ InlineProcedureEntry(entry) :-
    InlineableBlock(entry),
    ConflictingReturnAddress(_, _, entry).
 
+
+// block with no out edges
+.decl TerminalBlock(b: Block)
+TerminalBlock(b) :- Statement_Block(_, b), !BlockEdge(_, b, _, _).
+
+.decl TerminalBlockReachableThrough(from: Block, through: Block, terminal: Block)
+TerminalBlockReachableThrough(b, b, b) :- TerminalBlock(b).
+
+TerminalBlockReachableThrough(from, through, terminal),
+TerminalBlockReachableThrough(from, other, terminal),
+TerminalBlockReachableThrough(from, from, terminal) :-
+   TerminalBlockReachableThrough(other, through, terminal),
+   BlockEdge(_, from, _, other).
+
+.decl CountTerminalBlockReachableThrough(from: Block, terminal: Block, 
+n: number)
+CountTerminalBlockReachableThrough(from, terminal, n) :-
+   TerminalBlockReachableThrough(from, _, terminal),
+   n = count : TerminalBlockReachableThrough(from, _, terminal).
+
+.decl TotalCountOfBlocksUntilTerminal(from: Block, n: number)
+TotalCountOfBlocksUntilTerminal(from, n) :-
+   CountTerminalBlockReachableThrough(from, terminal, _),
+   n = sum k : CountTerminalBlockReachableThrough(from, _, k).
+
 .output InlineableBlock
 .decl InlineableBlock(entry: Block)
-
-
 InlineableBlock(block) :-
    Statement_Block(_, block),
-   k = max n : TerminalBlockN(block, n),
-   k <= 8.
-
-.decl TerminalBlockN(entry: Block, n: number)
-
-TerminalBlockN(entry, 0) :- Statement_Block(_, entry), !BlockEdge(_, entry, _, _).
-
-TerminalBlockN(entry, n+1) :- TerminalBlockN(term, n), n<=8, BlockEdge(_, entry, _, term).
-
+   TotalCountOfBlocksUntilTerminal(block, n),
+   n <= 8.
 
 .decl PossibleFunctionCall(caller:Block, func:Block, retBlock:Block, retTarget:Block)
 
