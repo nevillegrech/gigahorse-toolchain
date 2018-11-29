@@ -91,14 +91,14 @@ def renderBlock(k, stmts):
         function_name = high_level_function_name[in_function[k]]
         sorted_stmts.append("function %s(%s)"%(function_name, ', '.join(map(format_var, function_arguments[k]))))
     sorted_stmts.append("Block %s"%k)                        
-    for s in stmts:
+    for s in sorted(stmts, key = lambda a: int(a.split('0x')[1].split('_')[0], base=16)):
         op = tac_op[s]
         if s in tac_def:
             ret = ', '.join(format_var(v) for v in tac_def[s]) + ' = '
         else:
             ret = ''
         use = ' '.join(format_var(v) for v in tac_use[s])
-        sorted_stmts.append(ret+op+' '+use)
+        sorted_stmts.append(s+': '+ret+op+' '+use)
     if len(sorted_stmts) > BLOCK_SIZE_LIMIT:
         half_limit = int(BLOCK_SIZE_LIMIT/2)
         truncated_stmts = sorted_stmts[:half_limit] + ['...'] + sorted_stmts[-half_limit:]
@@ -130,7 +130,7 @@ for fro, to in edges:
         continue
     graph.add_edge(pydot.Edge(nodeDict[fro], nodeDict[to], dir = 'forward', arrowHead = 'normal'))
 
-for key in sorted(rendered_statements, key = lambda a: int(a.split('0x')[1], base=16)):
+for key in rendered_statements:
     print()
     print('Begin block %s'%key)
     print('prev = %s, next = %s'%(prev_block(key), next_block(key)))
