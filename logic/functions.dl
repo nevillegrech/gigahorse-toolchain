@@ -473,7 +473,12 @@ IRBlockEdge(irfrom, irto) :-
 .decl Statement_IRStatement(stmt: Statement, irstmt: IRStatement)
 .decl IRStatement_Block(stmt: IRStatement, to: IRBlock)
 
-// TODO: check
+.decl IRStatement_VarString(irstmt: IRStatement, func: symbol)
+.decl IRBlock_VarString(irblock: IRBlock, str: symbol)
+
+
+IRStatement_VarString(irstmt, func),
+IRBlock_VarString(irblock, func),
 IRStatement_Block(irstmt, irblock),
 Statement_IRStatement(stmt, irstmt) :-
    InlineableBlock(block),
@@ -482,6 +487,8 @@ Statement_IRStatement(stmt, irstmt) :-
    InFunction(irblock, func),
    irstmt = FRESH_IRSTATEMENT(stmt, func).
 
+IRStatement_VarString(irstmt, "v"),
+IRBlock_VarString(irblock, "v"),
 IRStatement_Block(irstmt, irblock),
 Statement_IRStatement(stmt, irstmt) :-
    Statement_Block(stmt, block),
@@ -490,6 +497,7 @@ Statement_IRStatement(stmt, irstmt) :-
    irstmt = STATEMENT_TO_IRSTATEMENT(stmt).
 
 .decl IRStatementNum(stmt: IRStatement, num: number)
+
 IRStatementNum(irstmt, num) :-
    _StatementNum(stmt, num),
    Statement_IRStatement(stmt, irstmt).
@@ -554,10 +562,10 @@ IRBlockStackDelta(irblock, stackDelta) :-
    BlockStackDelta(block, stackDelta),
    Block_IRBlock(block, irblock).
 
-.decl IRStatement_Uses_Local(stmt: IRStatement, stackIndex: VariableOrStackIndex, n: StackIndex)
+.decl IRStatement_Uses_Local(stmt: IRStatement, varOrStackIndex: VariableOrStackIndex, n: StackIndex)
 
-IRStatement_Uses_Local(irstmt, stackIndex, n) :-
-  Statement_Uses_Local(stmt, stackIndex, n),
+IRStatement_Uses_Local(irstmt, varOrStackIndex, n) :-
+  Statement_Uses_Local(stmt, varOrStackIndex, n),
   Statement_IRStatement(stmt, irstmt).
 
 .decl IRBeforeLocalStackContents(stmt: IRStatement, n:StackIndex, varOrStackIndex:VariableOrStackIndex)
@@ -572,6 +580,13 @@ IRBeforeLocalStackContents(irstmt, n, varOrStackIndex) :-
 IRLocalStackContents(irstmt, n, varOrStackIndex) :-
   LocalStackContents(stmt, n, varOrStackIndex),
   Statement_IRStatement(stmt, irstmt).
+
+.decl IRThrowJump(irstmt: IRStatement)
+
+IRThrowJump(irstmt) :-
+   ThrowJump(stmt),
+  Statement_IRStatement(stmt, irstmt).
+
 
 
 /***********
@@ -753,7 +768,19 @@ CompositeNumberOfFunctionAndReturnArguments(func, n_in, n_out) :-
    IRFunction_Return(func, ret).
 
 .decl Variable_String(var:Variable, var_rep:symbol)
-   
+
+.decl Variable_Stmt_String(var:Variable, stmt: IRStatement, var_rep:symbol)
+
+Variable_Stmt_String(var, stmt, cat(stmt_str, var_str)) :-
+   IRStatement_VarString(stmt, stmt_str),
+   Variable_String(var, var_str).
+
+.decl Variable_Block_String(var:Variable, block: IRBlock, var_rep:symbol)
+
+Variable_Block_String(var, block, cat(block_str, var_str)) :-
+   IRBlock_VarString(block, block_str),
+   Variable_String(var, var_str).
+
 .decl FunctionArgument(func: IRFunction, n: StackIndex, var: Variable)
 .decl FunctionCallReturnArgument(func: IRBlock, n: StackIndex, var: Variable)
 

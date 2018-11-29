@@ -82,8 +82,8 @@ CastStatementToTACVariable(x,y) :- CastStmtToTACVariableSymbol(x,y).
 
 // Normal variable, known length
 TAC_Variable_Value(tacvar, value) :-
-   FunctionalStatement_Defines(_, var, _),
-   Variable_String(var, tacvar),
+   FunctionalStatement_Defines(stmt, var, _),
+   Variable_Stmt_String(var, stmt, tacvar),
    Variable_Value(var, value).
 
 UnknownLength(var) :-
@@ -95,7 +95,7 @@ UnknownLength(var) :-
 TAC_Variable_Length(tacvar, 32) :-
    (FunctionalStatement_Defines(stmt, var, _) ;
     FunctionalStatement_Uses(stmt, var, _)),
-   Variable_String(var, tacvar),
+   Variable_Stmt_String(var, stmt, tacvar),
    UnknownLength(var).
 
 // phi variable, unknown length
@@ -172,13 +172,13 @@ TAC_Op(stmt, "PHI") :-
 TAC_Var(var_rep),
 TAC_Def(stmt, var_rep, n) :-
    FunctionalStatement_Defines(stmt, var, n),
-   Variable_String(var, var_rep).
+  Variable_Stmt_String(var, stmt, var_rep).
 
 // Case 1: Uses locally defined variable
 PRE_TAC_Use(stmt, var_rep, n) :-
   FunctionalStatement_Uses_Local(stmt, var, n),
   CheckIsVariable(var),
-  Variable_String(var, var_rep).
+  Variable_Stmt_String(var, stmt, var_rep).
 
 // Case 2: Uses monomorphic global var
 PRE_TAC_Use(stmt, var_rep, n) :-
@@ -187,22 +187,22 @@ PRE_TAC_Use(stmt, var_rep, n) :-
   IRStatement_Block(stmt, block),
   !PHILocation(block, stackIndex, _),
   FunctionalBlockInputContents(block, stackIndex, var),
-  Variable_String(var, var_rep).
+  Variable_Block_String(var, block, var_rep).
+
 
 // Case 3: Is a PHI statement
 PRE_TAC_Use(phiStmt, var_rep, -1) :-
   PHILocation(block, stackIndex, phiStmt),
   FunctionalBlockInputContents(block, stackIndex, var),
-  Variable_String(var, var_rep).
+  Variable_Block_String(var, block, var_rep).
 
 
 TAC_Use(stmt, var_rep, n) :-
-   !ThrowJump(stmt),
+   !IRThrowJump(stmt),
    PRE_TAC_Use(stmt, var_rep, n).
 
 TAC_Use(irstmt, var_rep, n-1) :-
-   ThrowJump(stmt),
-   Statement_IRStatement(stmt, irstmt),
+   IRThrowJump(irstmt),
    PRE_TAC_Use(irstmt, var_rep, n),
    n > 0.
 
@@ -248,7 +248,7 @@ FormalArgs(func, var_rep, n) :-
 
 ActualReturnArgs(caller, var_rep, n) :-
    FunctionCallReturnArgument(caller, n, var),
-   Variable_String(var, var_rep).
+   Variable_Block_String(var, caller, var_rep).
 
 .output LocalBlockEdge
 .output HighLevelFunctionName
