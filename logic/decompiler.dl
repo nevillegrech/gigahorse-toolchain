@@ -32,7 +32,7 @@ CastStatementToBlock(x,y) :- CastStmtToBlockSymbol(x,y).
 
 .decl IsVariable(n:Variable)
 
-// One to one mapping
+// One to one mapping. Give every statement a unique var (negative index)
 .decl Statement_Defines(statement: Statement, variable: Variable)
 
 .decl _StatementNum(statement: Statement, num: number)
@@ -60,8 +60,9 @@ IsStackIndex(n+1) :-
   IsStackIndex(n),
   n+1 < MAX_STACK_HEIGHT.
 
+// Convenience predicate. Folds together bounds checking on valid
+// indices and less-than.
 .decl IsStackIndexLessThan(n:StackIndex, maximum:StackIndex)
-
 IsStackIndexLessThan(n, maximum) :-
   IsStackIndex(n),
   IsStackIndex(maximum),
@@ -70,8 +71,7 @@ IsStackIndexLessThan(n, maximum) :-
 .decl IsValue(v:Value)
 .decl ConcreteValue(v:Value)
 
-IsValue(v) :-
-  DynamicValue(v); AnyValue(v).
+IsValue(v) :- DynamicValue(v); AnyValue(v).
 
 ConcreteValue(v) :- IsValue(v), !DynamicValue(v), !AnyValue(v).
                
@@ -82,6 +82,7 @@ DynamicValue("Dynamic").
 // Top of the lattice
 .decl AnyValue(v:Value)
 AnyValue("Any").
+
 
 /*
  ***********
@@ -166,10 +167,17 @@ ValidStatement(stmt) :- Statement_Block(stmt, _).
  
 .type Context = [ block:Block ]
 
+// Stack contents at input and output of a block, given its calling context.
 .decl BlockOutputContents(context:Context, block:Block, index:StackIndex, var:Variable)
 .decl BlockInputContents(context:Context, block:Block, index:StackIndex, var:Variable)
+
+// Var holding the (target block) address a block jumps to, under context.
 .decl BlockJumpTarget(context:Context, block:Block, var:Variable)
-.decl ImmediateBlockJumpTarget(context:Context, block:Block, var:Variable)
+
+// The target of a jump at the end of the block is a variable defined in
+// the block itself. "Immediate" is misnomer, can't think of better name.
+// This is a context-independent predicate.
+.decl ImmediateBlockJumpTarget(block:Block, var:Variable)
 
 // A summary of all the effects of the basic block up to a statement. The
 // summary cannot contain only variables, it will also refer symbolically to
@@ -229,7 +237,7 @@ BlockOutputContents(ctx, block, index, realVariable) :-
   LocalStackContents(stmt, index, stackIndex),
   CheckIsStackIndex(stackIndex).
 
-ImmediateBlockJumpTarget(ctx, block, var),
+ImmediateBlockJumpTarget(block, var),
 BlockJumpTarget(ctx, block, var) :-
   ReachableContext(ctx, block),
   BasicBlock_Tail(block, stmt),
@@ -237,9 +245,9 @@ BlockJumpTarget(ctx, block, var) :-
   BeforeLocalStackContents(stmt, 0, var),
   CheckIsVariable(var).
 
-BlockJumpTarget(calleeCtx, callee, realVariable) :-
-  BlockInputContents(calleeCtx, callee, stackIndex, realVariable),
-  BasicBlock_Tail(callee, stmt),
+BlockJumpTarget(ctx, block, realVariable) :-
+  BlockInputContents(ctx, block, stackIndex, realVariable),
+  BasicBlock_Tail(block, stmt),
   IsJump(stmt),
   BeforeLocalStackContents(stmt, 0, stackIndex),
   CheckIsStackIndex(stackIndex).
@@ -252,13 +260,15 @@ ValidStatementOrd(ord(stmt)) :-
 .decl ThrowJump(stmt:Statement)
 
 ThrowJump(jmp) :-
-   ImmediateBlockJumpTarget(_, block, variable),
+   ImmediateBlockJumpTarget(block, variable),
    Variable_Value(variable, value),
    BasicBlock_Tail(block, jmp),
    IsJump(jmp),
    ConcreteValue(value),
    !ValidStatementOrd(ord(value)).
 
+// Under ctx, the block's tail will jump to the value of "variable", which
+// is equal to the label of "target" block.
 .decl BlockJumpValidTarget(ctx:Context, block:Block, variable: Variable, target:Block)
 
 BlockJumpValidTarget(ctx, block, variable, targetBlock) :-

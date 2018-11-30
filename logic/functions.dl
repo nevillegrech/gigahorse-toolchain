@@ -78,7 +78,7 @@ ReachableFrom(blockNext, blockPrev) :-
 //    returning basic block.
 PossibleReturnAddress(callerBlock, retBlock, retTarget) :-
    BlockJumpValidTarget(_, retBlock, targetVariable, retTarget),
-   !ImmediateBlockJumpTarget(_, retBlock, targetVariable),
+   !ImmediateBlockJumpTarget(retBlock, targetVariable),
    BasicBlock_Tail(callerBlock, callerStmt),
    IsJump(callerStmt),
    Statement_Defines(otherCallerStatement, targetVariable),
@@ -140,22 +140,27 @@ PossibleFunctionCall(caller, func, retBlock, retTarget) :-
   BlockJumpValidTarget(_, caller, _, func),
   !InlineableBlock(func).
 
-.decl PossiblyInFunction(block:Block, func:Block)
 
-// Which basic blocks belong to which function
-PossiblyInFunction(func, func) :-
-  PossibleFunctionCall(_, func, _, _).
+/////// CURRENTLY UNUSED
+/*
+// .decl PossiblyInFunction(block:Block, func:Block)
 
-// In this case we're moving onto another function
-PossiblyInFunction(next, func) :-
-  PossiblyInFunction(block, func),
-  BlockEdge(_, block, _, next),
-  !PossibleFunctionCall(block, _, _, _).
+// // Which basic blocks belong to which function
+// PossiblyInFunction(func, func) :-
+//   PossibleFunctionCall(_, func, _, _).
 
-// In this case we're return from a function we've just called
-PossiblyInFunction(retTarget, func) :-
-  PossiblyInFunction(block, func),
-  PossibleFunctionCall(block, _, _, retTarget).
+// // In this case we're moving onto another function
+// PossiblyInFunction(next, func) :-
+//   PossiblyInFunction(block, func),
+//   BlockEdge(_, block, _, next),
+//   !PossibleFunctionCall(block, _, _, _).
+
+// // In this case we're return from a function we've just called
+// PossiblyInFunction(retTarget, func) :-
+//   PossiblyInFunction(block, func),
+//   PossibleFunctionCall(block, _, _, retTarget).
+*/
+
 
 // What is a function?
 // 1) A function has to have a single entry point

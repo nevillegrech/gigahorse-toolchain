@@ -190,15 +190,17 @@ Analytics_PublicFunctionNameResolved(func) :-
 .decl NotRegularFunction(func:IRFunction)
 .output NotRegularFunction
 
-// A basic block can only belong to a single function
-// Solution: Pick one!
-NotRegularFunction(func2) :-
-  PossiblyInFunction(block, func1),
-  PossiblyInFunction(block, func2),
-  ord(func1) > ord(func2).
 
-// A function can only be entered by calling it
-NotRegularFunction(func) :-
-  PossiblyInFunction(_, func),
-  BlockEdge(_, caller, _, func),
-  !PossibleFunctionCall(caller, func, _, _).
+///// NOT BASED ON CURRENT WAY TO COMPUTE FUNCTIONS
+// // A basic block can only belong to a single function
+// // Solution: Pick one!
+// NotRegularFunction(func2) :-
+//   PossiblyInFunction(block, func1),
+//   PossiblyInFunction(block, func2),
+//   ord(func1) > ord(func2).
+
+// // A function can only be entered by calling it
+// NotRegularFunction(func) :-
+//   PossiblyInFunction(_, func),
+//   BlockEdge(_, caller, _, func),
+//   !PossibleFunctionCall(caller, func, _, _).
