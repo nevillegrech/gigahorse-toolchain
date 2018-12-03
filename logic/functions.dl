@@ -70,7 +70,6 @@ ReachableFrom(blockNext, blockPrev) :-
 ******/
 
 .decl PossibleReturnAddress(caller:Block, ret:Block, target:Block)
-.output PossibleReturnAddress
 
 // Possibly a return:
 // a) basic block jumps to a valid "non-locally-derived" address
@@ -86,7 +85,6 @@ PossibleReturnAddress(callerBlock, retBlock, retTarget) :-
 
 // c) each callerblock has different return address
 .decl ConflictingReturnAddress(caller:Block, ret:Block, target:Block)
-.output ConflictingReturnAddress
 
 ConflictingReturnAddress(callerBlock, retBlock, retTarget) :-
    PossibleReturnAddress(callerBlock, retBlock, retTarget),
@@ -388,7 +386,7 @@ InFunction(irnext, func) :-
   InFunction(irblock, func),
   irnext = FRESH_IRBLOCK(next, func),
   !Function(next),
-  !Function_Return_Edge(func, next).
+  !Function_Return_Edge(block, next).
 
 Block_IRBlock(next, irnext),
 InFunction(irnext, func) :-
@@ -404,7 +402,7 @@ InFunction(irnext, func) :-
   BlockEdge(_, block, _, next),
   !InlineableBlock(next),
   !Function(next),
-  !Function_Return_Edge(func, next),
+  !Function_Return_Edge(block, next),
   Block_IRBlock(block, irblock),
   InFunction(irblock, func),
   irnext = BLOCK_TO_IRBLOCK(next).
@@ -487,8 +485,6 @@ Statement_IRStatement(stmt, irstmt) :-
    InFunction(irblock, func),
    irstmt = FRESH_IRSTATEMENT(stmt, func).
 
-IRStatement_VarString(irstmt, "v"),
-IRBlock_VarString(irblock, "v"),
 IRStatement_Block(irstmt, irblock),
 Statement_IRStatement(stmt, irstmt) :-
    Statement_Block(stmt, block),
@@ -603,7 +599,6 @@ IRThrowJump(irstmt) :-
 .decl NumberOfFunctionReturnArguments(func: IRFunction, num: StackIndex)
 
 .decl EnhancedLocalBlockEdge(from: IRBlock, to: IRBlock)
-.output EnhancedLocalBlockEdge
 
 EnhancedLocalBlockEdge(from, to) :- LocalBlockEdge(from, to).
 
@@ -775,10 +770,20 @@ Variable_Stmt_String(var, stmt, cat(stmt_str, var_str)) :-
    IRStatement_VarString(stmt, stmt_str),
    Variable_String(var, var_str).
 
+Variable_Stmt_String(var, stmt, var_str) :-
+   !IRStatement_VarString(stmt, _),
+   IRStatement_Block(stmt, _),
+   Variable_String(var, var_str).
+
 .decl Variable_Block_String(var:Variable, block: IRBlock, var_rep:symbol)
 
 Variable_Block_String(var, block, cat(block_str, var_str)) :-
    IRBlock_VarString(block, block_str),
+   Variable_String(var, var_str).
+
+Variable_Block_String(var, block, var_str) :-
+   !IRBlock_VarString(block, _),
+   IRStatement_Block(_, block),
    Variable_String(var, var_str).
 
 .decl FunctionArgument(func: IRFunction, n: StackIndex, var: Variable)
