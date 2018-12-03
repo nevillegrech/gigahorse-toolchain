@@ -98,7 +98,10 @@ def renderBlock(k, stmts):
         else:
             ret = ''
         use = ' '.join(format_var(v) for v in tac_use[s])
-        sorted_stmts.append(s+': '+ret+op+' '+use)
+        stmt_render = s+': '+ret+op+' '+use
+        if len(stmt_render) > 60:
+            stmt_render = stmt_render[:29] + '...' + stmt_render[-29:]
+        sorted_stmts.append(stmt_render)
     if len(sorted_stmts) > BLOCK_SIZE_LIMIT:
         half_limit = int(BLOCK_SIZE_LIMIT/2)
         truncated_stmts = sorted_stmts[:half_limit] + ['...'] + sorted_stmts[-half_limit:]

@@ -372,26 +372,31 @@ FunctionCallStmt(newStmt) :-
 .decl InFunction(block: IRBlock, func: IRFunction)
 .decl IRFunctionEntry(from: IRBlock)
 
+.decl BlockEdgeIntraProc(block: Block, next: Block)
+
+BlockEdgeIntraProc(block, next) :-
+  BlockEdge(_, block, _, next),
+  !Function(next),
+  !Function_Return_Edge(block, next).
+   
+
 IRFunctionEntry(irblock),
 Block_IRBlock(funcentry, irblock),
 InFunction(irblock, funcentry) :-
-  irblock = BLOCK_TO_IRBLOCK(funcentry),
-  Function(funcentry).
+  Function(funcentry),
+  irblock = BLOCK_TO_IRBLOCK(funcentry).
 
 Block_IRBlock(next, irnext),
 InFunction(irnext, func) :-
-  BlockEdge(_, block, _, next),
+  BlockEdgeIntraProc(block, next),
   InlineableBlock(next),
   Block_IRBlock(block, irblock),
   InFunction(irblock, func),
-  irnext = FRESH_IRBLOCK(next, func),
-  !Function(next),
-  !Function_Return_Edge(block, next).
+  irnext = FRESH_IRBLOCK(next, func).
 
 Block_IRBlock(next, irnext),
 InFunction(irnext, func) :-
-  BlockEdge(_, block, _, func_call),
-  FunctionCallReturn(block, func_call, next),
+  FunctionCallReturn(block, _, next),
   Block_IRBlock(block, irblock),
   InFunction(irblock, func),
   InlineableBlock(next),
@@ -399,18 +404,15 @@ InFunction(irnext, func) :-
 
 Block_IRBlock(next, irnext),
 InFunction(irnext, func) :-
-  BlockEdge(_, block, _, next),
+  BlockEdgeIntraProc(block, next),
   !InlineableBlock(next),
-  !Function(next),
-  !Function_Return_Edge(block, next),
   Block_IRBlock(block, irblock),
   InFunction(irblock, func),
   irnext = BLOCK_TO_IRBLOCK(next).
 
 Block_IRBlock(next, irnext),
 InFunction(irnext, func) :-
-  BlockEdge(_, block, _, func_call),
-  FunctionCallReturn(block, func_call, next),
+  FunctionCallReturn(block, _, next),
   !InlineableBlock(next),
   Block_IRBlock(block, irblock),
   InFunction(irblock, func),
