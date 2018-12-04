@@ -133,7 +133,7 @@ for fro, to in edges:
         continue
     graph.add_edge(pydot.Edge(nodeDict[fro], nodeDict[to], dir = 'forward', arrowHead = 'normal'))
 
-for key in rendered_statements:
+for key in sorted(rendered_statements, key = lambda a: int(a.split('0x')[1], 16)):
     print()
     print('Begin block %s'%key)
     print('prev = %s, next = %s'%(prev_block(key), next_block(key)))
