@@ -434,6 +434,13 @@ ReachableContext(calleeCtx, callee) :-
   
 ReachableContext(["<Initial Context>"], FUNCTION_SELECTOR).
 
+// Could this predecessor have yielded this context? Currently trivial, but its
+// definition depends on context constructor (mergeContextMacro)
+.decl ContextCompatibleWithPredecessor(context: Context, predecessor: Block)
+ContextCompatibleWithPredecessor(ctx, predecessor) :-
+  ReachableContext(ctx, _),
+  ctx = [predecessor].
+
 .decl FallthroughStmt(stmt:Statement)
 
 FallthroughStmt(stmt) :-

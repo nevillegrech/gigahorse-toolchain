@@ -77,14 +77,17 @@ ReachableFrom(blockNext, blockPrev) :-
 // b) address originates at a caller that can reach the
 //    returning basic block.
 PossibleReturnAddress(callerBlock, retBlock, retTarget) :-
-   BlockJumpValidTarget(_, retBlock, targetVariable, retTarget),
+   BlockJumpValidTarget(retCtx, retBlock, targetVariable, retTarget),
    !ImmediateBlockJumpTarget(retBlock, targetVariable),
-   BasicBlock_Tail(callerBlock, callerStmt),
-   IsJump(callerStmt),
    Statement_Defines(otherCallerStatement, targetVariable),
-   Statement_Block(otherCallerStatement, callerBlock).
+   Statement_Block(otherCallerStatement, callerBlock),
+   ReachableFrom(prevBlock, callerBlock),
+   ContextCompatibleWithPredecessor(retCtx, prevBlock),
+   BasicBlock_Tail(callerBlock, callerStmt),
+   IsJump(callerStmt).
 
-// c) each callerblock has different return address
+// c) two different callerblocks return to the same address. Candidate
+// for inlining.
 .decl ConflictingReturnAddress(caller:Block, ret:Block, target:Block)
 .output ConflictingReturnAddress
 
