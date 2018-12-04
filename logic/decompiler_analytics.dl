@@ -114,11 +114,10 @@ Analytics_InexactFunctionReturnArguments(func) :-
    NumberOfFunctionReturnArguments(func, delta2),
    delta != delta2.
 
-.decl Analytics_BlockInMultipleFunctions(func: IRFunction)
+.decl Analytics_BlockInMultipleFunctions(block: IRBlock)
 .output Analytics_BlockInMultipleFunctions
 
-Analytics_BlockInMultipleFunctions(func2),
-Analytics_BlockInMultipleFunctions(func) :-
+Analytics_BlockInMultipleFunctions(block) :-
    InFunction(block, func),
    InFunction(block, func2),
    func != func2.
