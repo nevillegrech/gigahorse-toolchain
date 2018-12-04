@@ -95,7 +95,6 @@ ConflictingReturnAddress(callerBlock, retBlock, retTarget) :-
    callerBlock != callerBlock2.
 
 .decl InlineProcedureEntry(entry: Block)
-.output InlineProcedureEntry
 
 InlineProcedureEntry(entry) :-
    InlineableBlock(entry),
@@ -125,7 +124,6 @@ TotalCountOfBlocksUntilTerminal(from, n) :-
    CountTerminalBlockReachableThrough(from, terminal, _),
    n = sum k : CountTerminalBlockReachableThrough(from, _, k).
 
-.output InlineableBlock
 .decl InlineableBlock(entry: Block)
 InlineableBlock(block) :-
    Statement_Block(_, block),
@@ -165,8 +163,9 @@ PossibleFunctionCall(caller, func, retBlock, retTarget) :-
 
 // What is a function?
 // 1) A function has to have a single entry point
-// 2) has to be called multiple times
-// 3) If code is inlined it's something else
+// 2) Has to be called multiple times
+// 3) Return block belongs to one function
+// 4) If code is inlined it's something else
 
 .decl FunctionCalledMultipleTimes(func: Block)
 
@@ -174,6 +173,22 @@ FunctionCalledMultipleTimes(func) :-
    PossibleFunctionCall(caller, func, _, _),
    PossibleFunctionCall(caller2, func, _, _),
    caller != caller2.
+
+// Some sanitization
+// Return block can only pertain to one function!
+.decl NotValidReturnBlock(func: Block, retBlock: Block) 
+
+NotValidReturnBlock(func, retBlock) :-
+  PossibleFunctionCall(_, func, retBlock, _),
+  PossibleFunctionCall(_, func2, retBlock, _),
+  ord(func) < ord(func2).
+
+.decl NotValidReturnEdge(retBlock: Block, retTarget: Block)
+
+NotValidReturnEdge(retBlock, retTarget) :-
+   PossibleFunctionCall(_, func, retBlock, retTarget),
+   func != retBlock,
+   PossibleFunctionCall(_, _, retTarget, _).
 
 
 // caller calls func and func returns to retTarget
@@ -184,9 +199,11 @@ FunctionCalledMultipleTimes(func) :-
 Function_Return_Edge(retBlock, retTarget),
 Function_Return(func, retBlock),
 FunctionCallReturn(caller, func, retTarget) :-
-  PossibleFunctionCall(caller, func, retBlock, retTarget),
-  FunctionCalledMultipleTimes(func),
-  !InlineableBlock(func).
+   PossibleFunctionCall(caller, func, retBlock, retTarget),
+   !NotValidReturnBlock(func, retBlock),
+   !NotValidReturnEdge(retBlock, retTarget),
+   FunctionCalledMultipleTimes(func),
+   !InlineableBlock(func).
 
 // Further function decomposition.
 // Detects function boundaries, calls and returns iteratively.  Main
@@ -430,7 +447,6 @@ InFunction(irnext, func) :-
 .decl IRFunction_Return(fn: IRFunction, ret: IRBlock)
 .decl IRFunctionCallReturn(caller: IRBlock, func: IRFunction, retcaller: IRBlock)
 
-.output Function_Return
 
 IRFunction_Return(func, retir),
 IRFunctionCallReturn(callerir, func, callerretir),
@@ -744,7 +760,6 @@ NumberOfFunctionReturnArguments(func, delta) :-
    FunctionEdgePushDelta(ret, "invalid", delta),
    IRFunction_Return(func, ret).
 
-.output NumberOfFunctionArguments
 
 // default
 NumberOfFunctionReturnArguments(func, 0) :-
@@ -758,7 +773,6 @@ CandidateNumberOfFunctionArgumentsForReturn(func, ret, n) :-
 
 
 .decl CandidateNumberOfFunctionArguments(func: IRFunction, n: StackIndex)
-.output CandidateNumberOfFunctionArguments
 
 CandidateNumberOfFunctionArguments(func, n) :-
    Function(func),
