@@ -74,11 +74,6 @@ PHILocation(block, stackIndex, cat(cat(block, "_"), stackIndexStr)) :-
 .decl TAC_Variable_Length(var: TACVariable, length: number)
 .output TAC_Variable_Length
 
-.decl CastStmtToTACVariableSymbol(x:symbol, y:symbol)
-.decl CastStatementToTACVariable(s:IRStatement, v:TACVariable)
-CastStmtToTACVariableSymbol(x,x) :- ValidStatement(x).
-CastStmtToTACVariableSymbol(x,x) :- PHILocation(_, _, x).
-CastStatementToTACVariable(x,y) :- CastStmtToTACVariableSymbol(x,y).
 
 // Normal variable, known length
 TAC_Variable_Value(tacvar, value) :-
@@ -151,22 +146,12 @@ TAC_Op(irstmt, "THROWI") :-
    JUMPI(stmt),
    ThrowJump(stmt).
 
-/*
-TAC_Op(stmt, op) :-
-   FunctionReturnStmt(stmt),
-   Statement_Opcode(stmt, op),
-   ValidStatement(stmt),
-   !JUMP(stmt),
-   !JUMPI(stmt).
-*/
-
 // Phi instructions
-TAC_Var(tacvar),
-TAC_Def(stmt, tacvar, 0),
+TAC_Var(CAST_TO_SYMBOL(stmt)),
+TAC_Def(stmt, CAST_TO_SYMBOL(stmt), 0),
 TAC_Stmt(stmt),
 TAC_Op(stmt, "PHI") :-
-  PHILocation(_, _, stmt),
-  CastStatementToTACVariable(stmt, tacvar).
+  PHILocation(_, _, stmt).
 
 // Non-phi, non-call variable id same as stmt it is defined in
 TAC_Var(var_rep),

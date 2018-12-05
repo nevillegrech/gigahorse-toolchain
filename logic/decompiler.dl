@@ -2,6 +2,7 @@
 // flow and detecting CFG edges (much like the Vandal decompiler) is here.
 
 #define MAX_STACK_HEIGHT 50
+#define CAST_TO_SYMBOL(b) cat("", (b))
 #define CheckIsVariable(v) ((v) < 0)
 #define CheckIsStackIndex(v) ((v) >= 0, (v) < MAX_STACK_HEIGHT)
 #define FUNCTION_SELECTOR "0x0"
@@ -20,12 +21,6 @@
 .number_type Variable
 .number_type StackIndex
 .type VariableOrStackIndex = Variable | StackIndex
-
-
-.decl CastStmtToBlockSymbol(x:symbol, y:symbol)
-.decl CastStatementToBlock(s:Statement, b:Block)
-CastStmtToBlockSymbol(x,x) :- IsBasicBlockHead(x).
-CastStatementToBlock(x,y) :- CastStmtToBlockSymbol(x,y).
 
 
 .decl Variable_Value(variable: Variable, value: Value)
@@ -132,17 +127,15 @@ PossiblyIsBasicBlockTail(statement) :-
 .decl Statement_BlockHead(statement:Statement, head:Statement)
 
 Statement_BlockHead(stmt, stmt),
-Statement_Block(stmt, block) :-
-  IsBasicBlockHead(stmt),
-  CastStatementToBlock(stmt, block).
+Statement_Block(stmt, CAST_TO_SYMBOL(stmt)) :-
+  IsBasicBlockHead(stmt).
 
-Statement_BlockHead(stmt, blockHead),
+Statement_BlockHead(stmt, CAST_TO_SYMBOL(block)),
 Statement_Block(stmt, block) :-
   Statement_Block(prevstmt, block),
   Statement_Next(prevstmt, stmt),
   !IsBasicBlockHead(stmt),
-  !PossiblyIsBasicBlockTail(prevstmt),
-  CastStatementToBlock(blockHead, block).
+  !PossiblyIsBasicBlockTail(prevstmt).
 
 .decl BasicBlock_Tail(block:Block, tail:Statement)
 
@@ -273,13 +266,11 @@ ThrowJump(jmp) :-
 // is equal to the label of "target" block.
 .decl BlockJumpValidTarget(ctx:Context, block:Block, variable: Variable, target:Block)
 
-BlockJumpValidTarget(ctx, block, variable, targetBlock) :-
-  BlockJumpTarget(ctx, block, variable),
-  Variable_Value(variable, value),
-  ConcreteValue(value),
-  ord(value) = ord(target),
-  JUMPDEST(target),
-  CastStatementToBlock(target, targetBlock).
+BlockJumpValidTarget(ctx, block, targetVar, CAST_TO_SYMBOL(targetValue)) :-
+  BlockJumpTarget(ctx, block, targetVar),
+  Variable_Value(targetVar, targetValue),
+  JUMPDEST(CAST_TO_SYMBOL(targetValue)).
+
 /*
  ***********
  * Define semantics of instructions
@@ -472,16 +463,15 @@ BlockHasTrivialControl(block) :-
 
 .decl FallthroughEdge(caller: Block, fallthroughBlock: Block)
 
-FallthroughEdge(caller, fallthroughBlock),
-BlockEdge(callerCtx, caller, calleeCtx, fallthroughBlock) :-
+FallthroughEdge(caller, CAST_TO_SYMBOL(fallthrough)),
+BlockEdge(callerCtx, caller, calleeCtx, CAST_TO_SYMBOL(fallthrough)) :-
   ReachableContext(callerCtx, caller),
   MergeContext(callerCtx, caller, calleeCtx),
   FallthroughStmt(stmt),
   Statement_Block(stmt, caller),
   Statement_Next(stmt, fallthrough),
-  IsBasicBlockHead(fallthrough),
-  CastStatementToBlock(fallthrough, fallthroughBlock).
-  .plan 1:(2,1,3,4,5,6,7)
+  IsBasicBlockHead(fallthrough).
+  .plan 1:(2,1,3,4,5,6)
 
 BlockEdge(callerCtx, caller, calleeCtx, callee) :-
   BlockJumpValidTarget(callerCtx, caller, _, callee),

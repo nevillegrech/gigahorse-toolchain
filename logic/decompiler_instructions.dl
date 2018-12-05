@@ -3,7 +3,6 @@
  */
 
 #include "decompiler_inputs.dl"
-#define CAST_TO_SYMBOL(b) substr(cat(" ", (b)), 1, 100)
 
 .type Opcode
 .type Statement 
