@@ -57,10 +57,11 @@ IsStackIndex(n+1) :-
 
 // Convenience predicate. Folds together bounds checking on valid
 // indices and less-than.
-.decl IsStackIndexLessThan(n:StackIndex, maximum:StackIndex)
+.decl IsStackIndexLessThan(n:StackIndex, maximum:StackIndex) inline
+                                                             
 IsStackIndexLessThan(n, maximum) :-
-  IsStackIndex(n),
   IsStackIndex(maximum),
+  IsStackIndex(n),
   n < maximum.
  
 .decl IsValue(v:Value)
@@ -242,25 +243,19 @@ BlockJumpTarget(ctx, block, var) :-
 
 BlockJumpTarget(ctx, block, realVariable) :-
   BlockInputContents(ctx, block, stackIndex, realVariable),
+  CheckIsStackIndex(stackIndex),
   BasicBlock_Tail(block, stmt),
   IsJump(stmt),
-  BeforeLocalStackContents(stmt, 0, stackIndex),
-  CheckIsStackIndex(stackIndex).
-
-.decl ValidStatementOrd(n: number)
-
-ValidStatementOrd(ord(stmt)) :-
-   JUMPDEST(stmt).
+  BeforeLocalStackContents(stmt, 0, stackIndex).
 
 .decl ThrowJump(stmt:Statement)
 
 ThrowJump(jmp) :-
    ImmediateBlockJumpTarget(block, variable),
-   Variable_Value(variable, value),
-   BasicBlock_Tail(block, jmp),
-   IsJump(jmp),
-   ConcreteValue(value),
-   !ValidStatementOrd(ord(value)).
+   Variable_Value(variable, targetValue),
+   ConcreteValue(targetValue),
+   !JUMPDEST(CAST_TO_SYMBOL(targetValue)),
+   BasicBlock_Tail(block, jmp).
 
 // Under ctx, the block's tail will jump to the value of "variable", which
 // is equal to the label of "target" block.
@@ -307,9 +302,8 @@ Variable_Value(var, value) :-
   DynamicValue(value).
 
 // Get current program counter
-Variable_Value(var, value) :-
+Variable_Value(var, CAST_TO_SYMBOL(stmt)) :-
   PC(stmt),
-  IsValue(value), ord(value) = ord(stmt),
   Statement_Defines(stmt, var).
 
 .decl ArithmeticOpcodes(stmt:Statement, var0:VariableOrStackIndex, var1:VariableOrStackIndex, res:Variable)

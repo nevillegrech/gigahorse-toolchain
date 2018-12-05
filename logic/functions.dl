@@ -766,19 +766,19 @@ CompositeNumberOfFunctionAndReturnArguments(func, n_in, n_out) :-
 
 .decl Variable_String(var:Variable, var_rep:symbol)
 
-//.decl Variable_Stmt_String(var:Variable, stmt: IRStatement, var_rep:symbol)
+.decl Variable_Stmt_String(var:Variable, stmt: IRStatement, var_rep:symbol) inline
 
-#define Variable_Stmt_String(var, stmt, res) \
-   res = cat(_stmt_str, _var_str), \
-   IRStatement_VarString(stmt, _stmt_str), \
-   Variable_String(var, _var_str)
+Variable_Stmt_String(var, stmt, res) :-
+   res = cat(_stmt_str, _var_str),
+   IRStatement_VarString(stmt, _stmt_str),
+   Variable_String(var, _var_str).
 
-//.decl Variable_Block_String(var:Variable, block: IRBlock, var_rep:symbol)
+.decl Variable_Block_String(var:Variable, block: IRBlock, var_rep:symbol) inline
 
-#define Variable_Block_String(var, block, res) \
-   res = cat(_block_str, _var_str), \
-   IRBlock_VarString(block, _block_str), \
-   Variable_String(var, _var_str)
+Variable_Block_String(var, block, res) :-
+   res = cat(_block_str, _var_str),
+   IRBlock_VarString(block, _block_str),
+   Variable_String(var, _var_str).
 
 
 .decl FunctionArgument(func: IRFunction, n: StackIndex, var: Variable)
