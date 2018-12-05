@@ -237,13 +237,15 @@ BlockOutputContents(ctx, block, index, realVariable) :-
   LocalStackContents(stmt, index, stackIndex),
   CheckIsStackIndex(stackIndex).
 
-ImmediateBlockJumpTarget(block, var),
-BlockJumpTarget(ctx, block, var) :-
-  ReachableContext(ctx, block),
+ImmediateBlockJumpTarget(block, var) :-
   BasicBlock_Tail(block, stmt),
   IsJump(stmt),
   BeforeLocalStackContents(stmt, 0, var),
   CheckIsVariable(var).
+
+BlockJumpTarget(ctx, block, var) :-
+  ReachableContext(ctx, block),
+  ImmediateBlockJumpTarget(block, var).
 
 BlockJumpTarget(ctx, block, realVariable) :-
   BlockInputContents(ctx, block, stackIndex, realVariable),
@@ -449,23 +451,42 @@ FallthroughStmt(stmt) :-
   Statement_Opcode(stmt, opcode),
   !OpcodePossiblyHalts(opcode).   
 
+.decl MergeContext(ctx : Context, caller : Block, newContext : Context)
+
+MergeContext(ctx, caller, [caller]) :-
+  ReachableContext(ctx, caller),
+  !BlockHasTrivialControl(caller).
+
+MergeContext(ctx, caller, ctx) :-
+  ReachableContext(ctx, caller),
+  BlockHasTrivialControl(caller).
+
+.decl BlockHasTrivialControl(block: Block)
+
+BlockHasTrivialControl(block) :-
+  BasicBlock_Tail(block, stmt),
+  !IsJump(stmt).
+  
+BlockHasTrivialControl(block) :-
+  ImmediateBlockJumpTarget(block, _).
 
 .decl FallthroughEdge(caller: Block, fallthroughBlock: Block)
 
 FallthroughEdge(caller, fallthroughBlock),
-BlockEdge(callerCtx, caller, ?mergeContextMacro, fallthroughBlock) :-
+BlockEdge(callerCtx, caller, calleeCtx, fallthroughBlock) :-
   ReachableContext(callerCtx, caller),
+  MergeContext(callerCtx, caller, calleeCtx),
   FallthroughStmt(stmt),
   Statement_Block(stmt, caller),
   Statement_Next(stmt, fallthrough),
   IsBasicBlockHead(fallthrough),
-  CastStatementToBlock(fallthrough, fallthroughBlock),
-  ?mergeContextMacro = [caller].
+  CastStatementToBlock(fallthrough, fallthroughBlock).
+  .plan 1:(2,1,3,4,5,6,7)
 
-BlockEdge(callerCtx, caller, ?mergeContextMacro, callee) :-
+BlockEdge(callerCtx, caller, calleeCtx, callee) :-
   BlockJumpValidTarget(callerCtx, caller, _, callee),
-  ?mergeContextMacro = [caller].
-
+  MergeContext(callerCtx, caller, calleeCtx).
+  .plan 1:(2,1)
 
 /*
  ***********
@@ -515,8 +536,6 @@ Statement_Uses(stmt, var, n) :-
    CheckIsStackIndex(stackIndex),
    Statement_Block(stmt, block),
    BlockInputContents(_, block, stackIndex, var).
-
-
 
 /*
  ***********

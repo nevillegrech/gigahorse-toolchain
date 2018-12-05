@@ -80,8 +80,8 @@ PossibleReturnAddress(callerBlock, retBlock, retTarget) :-
    !ImmediateBlockJumpTarget(retBlock, targetVariable),
    Statement_Defines(otherCallerStatement, targetVariable),
    Statement_Block(otherCallerStatement, callerBlock),
-   ReachableFrom(prevBlock, callerBlock),
-   ContextCompatibleWithPredecessor(retCtx, prevBlock),
+   //ReachableFrom(prevBlock, callerBlock),
+   //ContextCompatibleWithPredecessor(retCtx, prevBlock),
    BasicBlock_Tail(callerBlock, callerStmt),
    IsJump(callerStmt).
 
@@ -496,6 +496,9 @@ IRBlockEdge(irfrom, irto) :-
 
 .decl Statement_IRStatement(stmt: Statement, irstmt: IRStatement)
 .decl IRStatement_Block(stmt: IRStatement, to: IRBlock)
+
+
+.pragma "magic-transform" "IRStatement_VarString,IRBlock_VarString"
 
 .decl IRStatement_VarString(irstmt: IRStatement, func: symbol)
 .decl IRBlock_VarString(irblock: IRBlock, str: symbol)
