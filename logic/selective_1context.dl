@@ -1,0 +1,26 @@
+.type Context = [ block1:Block ]
+
+.decl InitialContext(ctx : Context)
+
+InitialContext(["<Initial Context>"]).
+
+
+.decl MergeContext(ctx : Context, caller : Block, newContext : Context)
+
+MergeContext(ctx, caller, [caller]) :-
+  ReachableContext(ctx, caller),
+  !BlockHasTrivialControl(caller).
+
+MergeContext(ctx, caller, ctx) :-
+  ReachableContext(ctx, caller),
+  BlockHasTrivialControl(caller).
+
+.decl BlockHasTrivialControl(block: Block)
+
+BlockHasTrivialControl(block) :-
+  BasicBlock_Tail(block, stmt),
+  !IsJump(stmt).
+  
+BlockHasTrivialControl(block) :-
+   ImmediateBlockJumpTarget(block, _).
+
