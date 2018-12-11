@@ -738,7 +738,6 @@ NumberOfFunctionReturnArguments(func, delta) :-
    FunctionEdgePushDelta(ret, "invalid", delta),
    IRFunction_Return(func, ret).
 
-
 // default
 NumberOfFunctionReturnArguments(func, 0) :-
    Function(func),
@@ -748,7 +747,6 @@ NumberOfFunctionReturnArguments(func, 0) :-
 CandidateNumberOfFunctionArgumentsForReturn(func, ret, n) :-
    Function_ArgumentTerminal(func, ret),
    n = min delta : NumberOfFunctionArguments(func, ret, delta).
-
 
 .decl CandidateNumberOfFunctionArguments(func: IRFunction, n: StackIndex)
 

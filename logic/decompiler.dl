@@ -7,7 +7,7 @@
 #define CheckIsStackIndex(v) ((v) >= 0, (v) < MAX_STACK_HEIGHT)
 #define FUNCTION_SELECTOR "0x0"
 
-
+#include "full_3context.dl"
 #include "decompiler_instructions.dl"
 #include "functions.dl"
 #include "decompiler_output.dl"
@@ -159,7 +159,6 @@ ValidStatement(stmt) :- Statement_Block(stmt, _).
  ***********
  */
  
-.type Context = [ block:Block ]
 
 // Stack contents at input and output of a block, given its calling context.
 .decl BlockOutputContents(context:Context, block:Block, index:StackIndex, var:Variable)
@@ -419,14 +418,8 @@ Variable_Value(var, dynamicvalue) :-
 ReachableContext(calleeCtx, callee) :-
   BlockEdge(_, _, calleeCtx, callee).
   
-ReachableContext(["<Initial Context>"], FUNCTION_SELECTOR).
-
-// Could this predecessor have yielded this context? Currently trivial, but its
-// definition depends on context constructor (mergeContextMacro)
-.decl ContextCompatibleWithPredecessor(context: Context, predecessor: Block)
-ContextCompatibleWithPredecessor(ctx, predecessor) :-
-  ReachableContext(ctx, _),
-  ctx = [predecessor].
+ReachableContext(initCtx, FUNCTION_SELECTOR) :-
+  InitialContext(initCtx).
 
 .decl FallthroughStmt(stmt:Statement)
 
@@ -435,25 +428,6 @@ FallthroughStmt(stmt) :-
   !JUMP(stmt),
   Statement_Opcode(stmt, opcode),
   !OpcodePossiblyHalts(opcode).   
-
-.decl MergeContext(ctx : Context, caller : Block, newContext : Context)
-
-MergeContext(ctx, caller, [caller]) :-
-  ReachableContext(ctx, caller),
-  !BlockHasTrivialControl(caller).
-
-MergeContext(ctx, caller, ctx) :-
-  ReachableContext(ctx, caller),
-  BlockHasTrivialControl(caller).
-
-.decl BlockHasTrivialControl(block: Block)
-
-BlockHasTrivialControl(block) :-
-  BasicBlock_Tail(block, stmt),
-  !IsJump(stmt).
-  
-BlockHasTrivialControl(block) :-
-  ImmediateBlockJumpTarget(block, _).
 
 .decl FallthroughEdge(caller: Block, fallthroughBlock: Block)
 
