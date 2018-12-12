@@ -50,6 +50,9 @@ PushValue(stmt, v) :-
   PUSH26(stmt,v);PUSH27(stmt,v);PUSH28(stmt,v);PUSH29(stmt,v);PUSH30(stmt,v);
   PUSH31(stmt,v);PUSH32(stmt,v).
 
+IsValue(CAST_TO_SYMBOL(v)) :-
+  PC(v).
+
 .decl DynamicStatement(stmt:Statement)
 DynamicStatement(stmt) :-
   ADDRESS(stmt); BALANCE(stmt); BLOCKHASH(stmt); CALL(stmt); CALLCODE(stmt); STATICCALL(stmt);
@@ -150,3 +153,8 @@ NumberToString(n, cat(rst, head)) :-
   n > 15,
   NumberToString(n / 16, rst),
   NumberToString(n % 16, head).
+
+OpcodePopWords("CALLPRIVATE", 1).
+OpcodePopWords("RETURNPRIVATE", 1).
+OpcodePopWords("CALLPRIVATEI", 2).
+OpcodePopWords("RETURNPRIVATEI", 2).

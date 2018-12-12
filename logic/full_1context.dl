@@ -1,0 +1,11 @@
+.type Context = [ block1:Block ]
+
+.decl InitialContext(ctx : Context)
+
+InitialContext(["<Initial Context>"]).
+
+.decl MergeContext(ctx : Context, caller : Block, newContext : Context)
+
+
+MergeContext(ctx, caller, [caller]) :-
+   ReachableContext(ctx, caller).

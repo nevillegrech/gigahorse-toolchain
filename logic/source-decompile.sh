@@ -7,5 +7,5 @@ pushd .
 cd tac-facts-tmp
 souffle -F ../facts-tmp ../decompiler.dl
 souffle ../../../gigahorse-clients/source_decompiler.dl
-python3 ../get_source.py -d -v
+python3 ../../../gigahorse-clients/get_source.py -d -v
 popd

@@ -2,14 +2,19 @@
 // flow and detecting CFG edges (much like the Vandal decompiler) is here.
 
 #define MAX_STACK_HEIGHT 50
+#define CAST_TO_SYMBOL(b) cat("", (b))
 #define CheckIsVariable(v) ((v) < 0)
 #define CheckIsStackIndex(v) ((v) >= 0, (v) < MAX_STACK_HEIGHT)
 #define FUNCTION_SELECTOR "0x0"
 
-
+#include "selective_2context.dl"
 #include "decompiler_instructions.dl"
-#include "decompiler_output.dl"
 #include "functions.dl"
+#include "decompiler_output.dl"
+#ifndef NO_ANALYTICS
+#include "decompiler_analytics.dl"
+#endif
+
 
 .type Block 
 .type Value
@@ -18,17 +23,11 @@
 .type VariableOrStackIndex = Variable | StackIndex
 
 
-.decl CastStmtToBlockSymbol(x:symbol, y:symbol)
-.decl CastStatementToBlock(s:Statement, b:Block)
-CastStmtToBlockSymbol(x,x) :- IsBasicBlockHead(x).
-CastStatementToBlock(x,y) :- CastStmtToBlockSymbol(x,y).
-
-
 .decl Variable_Value(variable: Variable, value: Value)
 
 .decl IsVariable(n:Variable)
 
-// One to one mapping
+// One to one mapping. Give every statement a unique var (negative index)
 .decl Statement_Defines(statement: Statement, variable: Variable)
 
 .decl _StatementNum(statement: Statement, num: number)
@@ -56,18 +55,19 @@ IsStackIndex(n+1) :-
   IsStackIndex(n),
   n+1 < MAX_STACK_HEIGHT.
 
-.decl IsStackIndexLessThan(n:StackIndex, maximum:StackIndex)
-
+// Convenience predicate. Folds together bounds checking on valid
+// indices and less-than.
+.decl IsStackIndexLessThan(n:StackIndex, maximum:StackIndex) inline
+                                                             
 IsStackIndexLessThan(n, maximum) :-
-  IsStackIndex(n),
   IsStackIndex(maximum),
+  IsStackIndex(n),
   n < maximum.
  
 .decl IsValue(v:Value)
 .decl ConcreteValue(v:Value)
 
-IsValue(v) :-
-  DynamicValue(v); AnyValue(v).
+IsValue(v) :- DynamicValue(v); AnyValue(v).
 
 ConcreteValue(v) :- IsValue(v), !DynamicValue(v), !AnyValue(v).
                
@@ -78,6 +78,7 @@ DynamicValue("Dynamic").
 // Top of the lattice
 .decl AnyValue(v:Value)
 AnyValue("Any").
+
 
 /*
  ***********
@@ -127,17 +128,15 @@ PossiblyIsBasicBlockTail(statement) :-
 .decl Statement_BlockHead(statement:Statement, head:Statement)
 
 Statement_BlockHead(stmt, stmt),
-Statement_Block(stmt, block) :-
-  IsBasicBlockHead(stmt),
-  CastStatementToBlock(stmt, block).
+Statement_Block(stmt, CAST_TO_SYMBOL(stmt)) :-
+  IsBasicBlockHead(stmt).
 
-Statement_BlockHead(stmt, blockHead),
+Statement_BlockHead(stmt, CAST_TO_SYMBOL(block)),
 Statement_Block(stmt, block) :-
   Statement_Block(prevstmt, block),
   Statement_Next(prevstmt, stmt),
   !IsBasicBlockHead(stmt),
-  !PossiblyIsBasicBlockTail(prevstmt),
-  CastStatementToBlock(blockHead, block).
+  !PossiblyIsBasicBlockTail(prevstmt).
 
 .decl BasicBlock_Tail(block:Block, tail:Statement)
 
@@ -160,12 +159,18 @@ ValidStatement(stmt) :- Statement_Block(stmt, _).
  ***********
  */
  
-.type Context = [ block:Block ]
 
+// Stack contents at input and output of a block, given its calling context.
 .decl BlockOutputContents(context:Context, block:Block, index:StackIndex, var:Variable)
 .decl BlockInputContents(context:Context, block:Block, index:StackIndex, var:Variable)
+
+// Var holding the (target block) address a block jumps to, under context.
 .decl BlockJumpTarget(context:Context, block:Block, var:Variable)
-.decl ImmediateBlockJumpTarget(context:Context, block:Block, var:Variable)
+
+// The target of a jump at the end of the block is a variable defined in
+// the block itself. "Immediate" is misnomer, can't think of better name.
+// This is a context-independent predicate.
+.decl ImmediateBlockJumpTarget(block:Block, var:Variable)
 
 // A summary of all the effects of the basic block up to a statement. The
 // summary cannot contain only variables, it will also refer symbolically to
@@ -225,45 +230,41 @@ BlockOutputContents(ctx, block, index, realVariable) :-
   LocalStackContents(stmt, index, stackIndex),
   CheckIsStackIndex(stackIndex).
 
-ImmediateBlockJumpTarget(ctx, block, var),
-BlockJumpTarget(ctx, block, var) :-
-  ReachableContext(ctx, block),
+ImmediateBlockJumpTarget(block, var) :-
   BasicBlock_Tail(block, stmt),
   IsJump(stmt),
   BeforeLocalStackContents(stmt, 0, var),
   CheckIsVariable(var).
 
-BlockJumpTarget(calleeCtx, callee, realVariable) :-
-  BlockInputContents(calleeCtx, callee, stackIndex, realVariable),
-  BasicBlock_Tail(callee, stmt),
+BlockJumpTarget(ctx, block, var) :-
+  ReachableContext(ctx, block),
+  ImmediateBlockJumpTarget(block, var).
+
+BlockJumpTarget(ctx, block, realVariable) :-
+  BlockInputContents(ctx, block, stackIndex, realVariable),
+  CheckIsStackIndex(stackIndex),
+  BasicBlock_Tail(block, stmt),
   IsJump(stmt),
-  BeforeLocalStackContents(stmt, 0, stackIndex),
-  CheckIsStackIndex(stackIndex).
-
-.decl ValidStatementOrd(n: number)
-
-ValidStatementOrd(ord(stmt)) :-
-   JUMPDEST(stmt).
+  BeforeLocalStackContents(stmt, 0, stackIndex).
 
 .decl ThrowJump(stmt:Statement)
 
 ThrowJump(jmp) :-
-   ImmediateBlockJumpTarget(_, block, variable),
-   Variable_Value(variable, value),
-   BasicBlock_Tail(block, jmp),
-   IsJump(jmp),
-   ConcreteValue(value),
-   !ValidStatementOrd(ord(value)).
+   ImmediateBlockJumpTarget(block, variable),
+   Variable_Value(variable, targetValue),
+   ConcreteValue(targetValue),
+   !JUMPDEST(CAST_TO_SYMBOL(targetValue)),
+   BasicBlock_Tail(block, jmp).
 
+// Under ctx, the block's tail will jump to the value of "variable", which
+// is equal to the label of "target" block.
 .decl BlockJumpValidTarget(ctx:Context, block:Block, variable: Variable, target:Block)
 
-BlockJumpValidTarget(ctx, block, variable, targetBlock) :-
-  BlockJumpTarget(ctx, block, variable),
-  Variable_Value(variable, value),
-  ConcreteValue(value),
-  ord(value) = ord(target),
-  JUMPDEST(target),
-  CastStatementToBlock(target, targetBlock).
+BlockJumpValidTarget(ctx, block, targetVar, CAST_TO_SYMBOL(targetValue)) :-
+  BlockJumpTarget(ctx, block, targetVar),
+  Variable_Value(targetVar, targetValue),
+  JUMPDEST(CAST_TO_SYMBOL(targetValue)).
+
 /*
  ***********
  * Define semantics of instructions
@@ -300,9 +301,8 @@ Variable_Value(var, value) :-
   DynamicValue(value).
 
 // Get current program counter
-Variable_Value(var, value) :-
+Variable_Value(var, CAST_TO_SYMBOL(stmt)) :-
   PC(stmt),
-  IsValue(value), ord(value) = ord(stmt),
   Statement_Defines(stmt, var).
 
 .decl ArithmeticOpcodes(stmt:Statement, var0:VariableOrStackIndex, var1:VariableOrStackIndex, res:Variable)
@@ -418,7 +418,8 @@ Variable_Value(var, dynamicvalue) :-
 ReachableContext(calleeCtx, callee) :-
   BlockEdge(_, _, calleeCtx, callee).
   
-ReachableContext(["<Initial Context>"], FUNCTION_SELECTOR).
+ReachableContext(initCtx, FUNCTION_SELECTOR) :-
+  InitialContext(initCtx).
 
 .decl FallthroughStmt(stmt:Statement)
 
@@ -428,23 +429,22 @@ FallthroughStmt(stmt) :-
   Statement_Opcode(stmt, opcode),
   !OpcodePossiblyHalts(opcode).   
 
-
 .decl FallthroughEdge(caller: Block, fallthroughBlock: Block)
 
-FallthroughEdge(caller, fallthroughBlock),
-BlockEdge(callerCtx, caller, ?mergeContextMacro, fallthroughBlock) :-
+FallthroughEdge(caller, CAST_TO_SYMBOL(fallthrough)),
+BlockEdge(callerCtx, caller, calleeCtx, CAST_TO_SYMBOL(fallthrough)) :-
   ReachableContext(callerCtx, caller),
+  MergeContext(callerCtx, caller, calleeCtx),
   FallthroughStmt(stmt),
   Statement_Block(stmt, caller),
   Statement_Next(stmt, fallthrough),
-  IsBasicBlockHead(fallthrough),
-  CastStatementToBlock(fallthrough, fallthroughBlock),
-  ?mergeContextMacro = [caller].
+  IsBasicBlockHead(fallthrough).
+  .plan 1:(2,1,3,4,5,6)
 
-BlockEdge(callerCtx, caller, ?mergeContextMacro, callee) :-
+BlockEdge(callerCtx, caller, calleeCtx, callee) :-
   BlockJumpValidTarget(callerCtx, caller, _, callee),
-  ?mergeContextMacro = [caller].
-
+  MergeContext(callerCtx, caller, calleeCtx).
+  .plan 1:(2,1)
 
 /*
  ***********
@@ -494,8 +494,6 @@ Statement_Uses(stmt, var, n) :-
    CheckIsStackIndex(stackIndex),
    Statement_Block(stmt, block),
    BlockInputContents(_, block, stackIndex, var).
-
-
 
 /*
  ***********

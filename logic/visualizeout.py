@@ -43,7 +43,7 @@ variable_value = dict(parseCsv('TAC_Variable_Value'))
 
 special_block_colors = (
     ('Function',0,"yellow"),
-    ('Function_Return',1,"orange"),
+    ('IRFunction_Return',1,"orange"),
 #    PublicFunctionEntryOut="yellow",
 #    ReturnTargetOriginatesIn="purple",
     #FunctionCallOut="grey",
@@ -51,13 +51,15 @@ special_block_colors = (
 
 
 function_calls = defaultdict(set)
-for k,v in parseCsv('FunctionCall'):
+for k,v in parseCsv('IRFunctionCall'):
     function_calls[k].add(v)
 
 
-function_call_return = {a[0] : (a[1], a[2]) for a in parseCsv('FunctionCallReturn')}
+function_call_return = {a[0] : (a[1], a[2]) for a in parseCsv('IRFunctionCallReturn')}
 
 functions = {a[0]  for a in parseCsv('Function')}
+function_entries = {a[0]  for a in parseCsv('IRFunctionEntry')}
+in_function = dict(parseCsv('InFunction'))
 
 block_colors = defaultdict(lambda : "green")
 
@@ -69,7 +71,7 @@ for k, index, v in special_block_colors:
     for s in special_blocks:
         block_colors[s] = v
     
-edges = parseCsv('InsBlockEdge')
+edges = parseCsv('LocalBlockEdge')
 def prev_block(block):
     return {k for k,v in edges if v == block}
 def next_block(block):
@@ -85,18 +87,21 @@ def format_var(v):
 rendered_statements = {}
 def renderBlock(k, stmts):
     sorted_stmts = []
-    if k in functions:
-        function_name = high_level_function_name[k]
+    if k in function_entries:
+        function_name = high_level_function_name[in_function[k]]
         sorted_stmts.append("function %s(%s)"%(function_name, ', '.join(map(format_var, function_arguments[k]))))
-                            
-    for s in stmts:
+    sorted_stmts.append("Block %s"%k)                        
+    for s in sorted(stmts, key = lambda a: int(a.split('0x')[1].split('_')[0], base=16)):
         op = tac_op[s]
         if s in tac_def:
             ret = ', '.join(format_var(v) for v in tac_def[s]) + ' = '
         else:
             ret = ''
         use = ' '.join(format_var(v) for v in tac_use[s])
-        sorted_stmts.append(ret+op+' '+use)
+        stmt_render = s+': '+ret+op+' '+use
+        if len(stmt_render) > 60:
+            stmt_render = stmt_render[:29] + '...' + stmt_render[-29:]
+        sorted_stmts.append(stmt_render)
     if len(sorted_stmts) > BLOCK_SIZE_LIMIT:
         half_limit = int(BLOCK_SIZE_LIMIT/2)
         truncated_stmts = sorted_stmts[:half_limit] + ['...'] + sorted_stmts[-half_limit:]
@@ -124,11 +129,11 @@ for fro, to in edges:
         # return edge
         graph.add_edge(pydot.Edge("(%s) call %s"%(fro,to), nodeDict[ret], dir = 'forward', arrowHead = 'normal'))
         continue
-    if fro in block_property["Function_Return"]:
+    if fro in block_property["IRFunction_Return"]:
         continue
     graph.add_edge(pydot.Edge(nodeDict[fro], nodeDict[to], dir = 'forward', arrowHead = 'normal'))
 
-for key in sorted(rendered_statements, key = lambda a: int(a, base=16)):
+for key in sorted(rendered_statements, key = lambda a: int(a.split('0x')[1], 16)):
     print()
     print('Begin block %s'%key)
     print('prev = %s, next = %s'%(prev_block(key), next_block(key)))
