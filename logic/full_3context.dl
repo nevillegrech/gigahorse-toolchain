@@ -8,4 +8,4 @@ InitialContext(["<Initial Context>", "<Initial Context>", "<Initial Context>"]).
 
 MergeContext(ctx, caller, [ctx2, ctx3, caller]) :-
    ReachableContext(ctx, caller),
-   ctx = [ctx1, ctx2, ctx3].
+   ctx = [ctx1, ctx2, ctx3], ctx1 = ctx1.

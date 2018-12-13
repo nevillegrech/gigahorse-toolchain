@@ -1,0 +1,47 @@
+#define MAX_CONTEXT_DEPTH 10
+
+.type Context = [ block:Block, rest:Context ]
+
+.decl InitialContext(ctx : Context)
+InitialContext(nil).
+
+.decl ContextDepth(ctx : Context, depth : number)
+ContextDepth(init, 0) :-
+  InitialContext(init).
+
+.decl IsContext(rest:Context)
+IsContext(nil).
+
+.decl DropLast(ctx : Context, newCtx : Context)
+.output DropLast
+DropLast(ctx, nil) :-
+  IsContext(ctx),
+  ctx = [ block, nil ], block = block.
+
+IsContext(newCtx),
+DropLast(ctx, newCtx) :-
+  IsContext(ctx),
+  ctx = [ block, rest ],
+  DropLast(rest, newRest),
+  newCtx = [ block, newRest ].
+
+
+.decl MergeContext(ctx : Context, caller : Block, newContext : Context)
+.output MergeContext
+
+ContextDepth(newContext, depth + 1),
+MergeContext(ctx, caller, newContext),
+IsContext(newContext) :-
+  ReachableContext(ctx, caller),
+  ContextDepth(ctx, depth),
+  depth < MAX_CONTEXT_DEPTH,
+  newContext = [caller, ctx].
+
+ContextDepth(newContext, depth),
+MergeContext(ctx, caller, newContext),
+IsContext(newContext) :-
+  ReachableContext(ctx, caller),
+  ContextDepth(ctx, depth),
+  depth = MAX_CONTEXT_DEPTH,
+  DropLast(ctx, cutDownCtx),
+  newContext = [caller, cutDownCtx].
