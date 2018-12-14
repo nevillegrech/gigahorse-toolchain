@@ -13,7 +13,6 @@ ContextDepth(init, 0) :-
 IsContext(nil).
 
 .decl DropLast(ctx : Context, newCtx : Context)
-.output DropLast
 DropLast(ctx, nil) :-
   IsContext(ctx),
   ctx = [ block, nil ], block = block.
@@ -27,7 +26,6 @@ DropLast(ctx, newCtx) :-
 
 
 .decl MergeContext(ctx : Context, caller : Block, newContext : Context)
-.output MergeContext
 
 ContextDepth(newContext, depth + 1),
 MergeContext(ctx, caller, newContext),
