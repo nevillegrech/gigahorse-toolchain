@@ -7,7 +7,7 @@
 #define CheckIsStackIndex(v) ((v) >= 0, (v) < MAX_STACK_HEIGHT)
 #define FUNCTION_SELECTOR "0x0"
 
-#include "selective_2context.dl"
+#include "full_Ncontext.dl"
 #include "decompiler_instructions.dl"
 #include "functions.dl"
 #include "decompiler_output.dl"
