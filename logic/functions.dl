@@ -91,7 +91,7 @@ TotalCountOfBlocksUntilTerminal(from, n) :-
    n = sum k : CountTerminalBlockReachableThrough(from, _, k).
 
 .decl InlineableBlock(entry: Block)
-.output InlineableBlock
+
 InlineableBlock(block) :-
    Statement_Block(_, block),
    TotalCountOfBlocksUntilTerminal(block, n),
@@ -216,7 +216,6 @@ FunctionCallReturn(caller, func, retTarget) :-
    // Same, but for previous iteration of the algorithm   
   .decl PrevFunctionCall(block: Block, func: Block)
 
-  .output FunctionEntry, FunctionCall, InFunction, PrevFunctionCall
   
   InFunction(block, block) :-
     PrevFunctionEntry(block).
@@ -356,12 +355,16 @@ FunctionCallStmt(newStmt) :-
 
 .decl BlockEdgeIntraProc(block: Block, next: Block)
 
+// Assumption: In this model one can only move between functions
+// trough a jump. A fallthrough always stays within the same function
 BlockEdgeIntraProc(block, next) :-
   BlockEdge(_, block, _, next),
   (!FunctionCall(block, _) ;
    (FunctionCall(block, other), other != next)),
   !Function_Return_Edge(block, _).
-   
+
+BlockEdgeIntraProc(block, next) :-
+  FallthroughEdge(block, next).
 
 IRFunctionEntry(irblock),
 Block_IRBlock(funcentry, irblock),
@@ -726,6 +729,8 @@ NumberOfFunctionReturnArguments(func, 0) :-
    !IRFunction_Return(func, _).
 
 .decl CandidateNumberOfFunctionArgumentsForReturn(func: IRFunction, ret: IRBlock, n: StackIndex)
+
+
 CandidateNumberOfFunctionArgumentsForReturn(func, ret, n) :-
    Function_ArgumentTerminal(func, ret),
    n = min delta : NumberOfFunctionArguments(func, ret, delta).
