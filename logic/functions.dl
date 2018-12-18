@@ -109,7 +109,7 @@ InlineableBlock(block) :-
 // b) address originates at a caller that can reach the
 //    returning basic block.
 PossibleReturnAddress(callerBlock, retBlock, retTarget) :-
-   BlockJumpValidTarget(retCtx, retBlock, targetVariable, retTarget),
+   BlockJumpValidTarget(_, retBlock, targetVariable, retTarget),
    !ImmediateBlockJumpTarget(retBlock, targetVariable),
    Statement_Defines(otherCallerStatement, targetVariable),
    Statement_Block(otherCallerStatement, callerBlock),
@@ -160,6 +160,7 @@ FunctionCalledMultipleTimes(func) :-
    caller != caller2.
 
 // Some sanitization
+
 // Return block can only pertain to one function!
 .decl NotValidReturnBlock(func: Block, retBlock: Block) 
 
@@ -167,6 +168,9 @@ NotValidReturnBlock(func, retBlock) :-
   PossibleFunctionCall(_, func, retBlock, _),
   PossibleFunctionCall(_, func2, retBlock, _),
   ord(func) < ord(func2).
+///// This is not quite accurate. The same return block can be used
+///// for both calls and tail-calls, effectively pertaining to more
+///// than one function.
 
 // Block reached from return edge cannot also be called directly
 .decl NotValidReturnEdge(retBlock: Block, retTarget: Block)
@@ -175,6 +179,7 @@ NotValidReturnEdge(retBlock, retTarget) :-
    PossibleFunctionCall(_, func, retBlock, retTarget),
    func != retBlock,
    PossibleFunctionCall(_, _, retTarget, _).
+//   PossibleFunctionCall(_, retTarget, _, _).
 
 
 // caller calls func and func returns to retTarget
@@ -237,8 +242,12 @@ FunctionCallReturn(caller, func, retTarget) :-
     !Function_Return(_, prev),
 	!InFunction(prev, func).
 
+  //// Not a reliable heuristic. A call is identifiable, a return
+  //// is identifiable, a function entry point is not! The same
+  //// basic block could also be jumped to directly (e.g., as a result
+  //// of a tail-call).
   FunctionCall(prev, block) :-
-    PrevFunctionEntry(block),
+    FunctionEntry(block),
     BlockEdge(_, prev, _, block),
     !Function_Return(_, prev).
 
@@ -349,8 +358,9 @@ FunctionCallStmt(newStmt) :-
 
 BlockEdgeIntraProc(block, next) :-
   BlockEdge(_, block, _, next),
-  !Function(next),
-  !Function_Return_Edge(block, next).
+  (!FunctionCall(block, _) ;
+   (FunctionCall(block, other), other != next)),
+  !Function_Return_Edge(block, _).
    
 
 IRFunctionEntry(irblock),
