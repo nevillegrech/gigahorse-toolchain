@@ -5,19 +5,7 @@
 // three-address code representation (which is later input and
 // re-formatted for use by clients), statistics, debugging relations.
 
-// Value which a variable may have. Only concrete values present.
-.decl Variable_ConstValue(variable: TACVariable, value: Value)
-.output Variable_ConstValue
 
-Variable_ConstValue(v, val) :-
-   TAC_Variable_Value(v, val),
-   substr(val, 0, 2) = "0x".
-
-/*
-Variable_ConstValue(v, val) :-
-   Variable_ConstValue(v_in, val),
-   PHI(_, v_in, v).
-*/
 
 .output OpcodePossiblyHalts
 
@@ -69,17 +57,18 @@ PHILocation(block, stackIndex, cat(cat(block, "_"), stackIndexStr)) :-
 .output TAC_Var
 .decl TAC_Block(stmt: IRStatement, block: IRBlock)
 .output TAC_Block
-.decl TAC_Variable_Value(var: TACVariable, value: symbol)
-.output TAC_Variable_Value
 .decl TAC_Variable_Length(var: TACVariable, length: number)
 .output TAC_Variable_Length
+.decl TAC_Variable_Value(var: TACVariable, value: symbol)
+.output TAC_Variable_Value
 
 
 // Normal variable, known length
 TAC_Variable_Value(tacvar, value) :-
    FunctionalStatement_Defines(stmt, var, _),
    Variable_Stmt_String(var, stmt, tacvar),
-   Variable_Value(var, value).
+   Variable_Value(var, value),
+   substr(value, 0, 2) = "0x".
 
 UnknownLength(var) :-
   (FunctionalStatement_Defines(stmt, var, _) ;

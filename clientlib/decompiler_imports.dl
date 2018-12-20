@@ -197,11 +197,5 @@ Block_Tail(b, t) :-
 IsBlock(b) :-
   Statement_Block(_, b).
 
-.decl Variable_ConstValue(variable: Variable, value: Value)
-.input Variable_ConstValue(IO="file", filename="Variable_ConstValue.csv", delimiter="\t")
-
-.decl Variable_ConstValue_PUSH20(variable: Variable, value: Value)
-.input Variable_ConstValue_PUSH20(IO="file", filename="Variable_ConstValue_PUSH20.csv", delimiter="\t")
-
 .decl Mask_Length(mask: Value, bytes: number)
 .input Mask_Length(IO="file", filename="Mask_Length.csv", delimiter="\t")
