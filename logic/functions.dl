@@ -179,7 +179,6 @@ NotValidReturnEdge(retBlock, retTarget) :-
    PossibleFunctionCall(_, func, retBlock, retTarget),
    func != retBlock,
    PossibleFunctionCall(_, _, retTarget, _).
-//   PossibleFunctionCall(_, retTarget, _, _).
 
 
 // caller calls func and func returns to retTarget
@@ -408,7 +407,6 @@ InFunction(irnext, func) :-
 .decl IRFunction_Return(fn: IRFunction, ret: IRBlock)
 .decl IRFunctionCallReturn(caller: IRBlock, func: IRFunction, retcaller: IRBlock)
 
-
 IRFunction_Return(func, retir),
 IRFunctionCallReturn(callerir, func, callerretir),
 IRFunction_Return_Edge(retir, callerretir) :-
@@ -429,12 +427,12 @@ IRFunctionCall(fromir, func) :-
 // Intra-function edges (i.e., real CFG edges)
 .decl LocalBlockEdge(block: IRBlock, next: IRBlock)
 
-LocalBlockEdge(block, next) :-
-  IRBlockEdge(block, next),
-  InFunction(block, func),
-  InFunction(next, func),
-  !IRFunctionEntry(next),
-  !IRFunction_Return_Edge(block, next).
+LocalBlockEdge(irfrom, irto) :-
+  BlockEdgeIntraProc(from, to),
+  Block_IRBlock(from, irfrom),
+  Block_IRBlock(to, irto),
+  InFunction(irfrom, func),
+  InFunction(irto, func).
 
 LocalBlockEdge(block, next) :-
   IRFunctionCallReturn(block, _, next).
