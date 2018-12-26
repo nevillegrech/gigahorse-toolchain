@@ -238,7 +238,9 @@ FunctionCallReturn(caller, func, retTarget) :-
     BlockEdge(_, prev, _, block),
     !InlineableBlock(block),
     !Function_Return(_, prev),
-	!InFunction(prev, func).
+    !InFunction(prev, func),
+    Statement_Block(jmp, prev),
+    IsJump(jmp).
 
   //// Not a reliable heuristic. A call is identifiable, a return
   //// is identifiable, a function entry point is not! The same
@@ -247,7 +249,12 @@ FunctionCallReturn(caller, func, retTarget) :-
   FunctionCall(prev, block) :-
     FunctionEntry(block),
     BlockEdge(_, prev, _, block),
-    !Function_Return(_, prev).
+    !Function_Return(_, prev),
+    Statement_Block(jmp, prev),
+    IsJump(jmp).
+
+  // We disallow function calls without a jump.
+  // In the future we will need to change some of our assumptions about function calls.
 
   FunctionCall(prev, func1) :- PrevFunctionCall(prev, func1).
   FunctionEntry(block) :- PrevFunctionEntry(block).
@@ -756,6 +763,7 @@ Variable_Stmt_String(var, stmt, res) :-
    IRStatement_VarString(stmt, _stmt_str),
    Variable_String(var, _var_str).
 
+        
 .decl Variable_Block_String(var:Variable, block: IRBlock, var_rep:symbol) inline
 
 Variable_Block_String(var, block, res) :-
@@ -782,6 +790,7 @@ FunctionArgument(func, n, var) :-
   IsStackIndexLessThan(n, n_args),
   FRESH_VARIABLE(var, BLOCK_TO_IRBLOCK(func), n), // TODO: use entry?
   NumberToString(n, n_str).
+
 
 Variable_String(newVar, cat(callStmt, cat("_", n_str))),
 FunctionalStatement_Defines(callStmt, newVar, n),
