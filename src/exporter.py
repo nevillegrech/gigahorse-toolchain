@@ -41,7 +41,15 @@ def generate_interface():
         f.write('\n')
     f.close()
 
-            
+def get_disassembly(statement_opcode, push_value):
+    output = []
+    row_format ="{:>7}: {:<10}"
+    for s, op in statement_opcode:
+        row = row_format.format(s, op)
+        if s in push_value:
+            row += push_value[s]
+        output.append(row)
+    return '\n'.join(output)            
 
 
 class Exporter(abc.ABC):
@@ -101,11 +109,12 @@ class InstructionTsvExporter(Exporter):
                 pass
         else:
             open(signatures_filename_out, 'w').close()
-            
-        def generate(filename, entries):
-            path = os.path.join(output_dir, filename)
 
-            with open(path, 'w') as f:
+        def join(filename):
+            return os.path.join(output_dir, filename)
+
+        def generate(filename, entries):
+            with open(join(filename), 'w') as f:
                 writer = csv.writer(f, delimiter='\t', lineterminator='\n')
                 writer.writerows(entries)
 
@@ -115,12 +124,14 @@ class InstructionTsvExporter(Exporter):
 
         instructions = []
         instructions_order = []
+        push_value = []
         for block in self.blocks:
             for op in block.evm_ops:
                 instructions_order.append(int(op.pc))
                 instructions.append((hex(op.pc), op.opcode.name))
                 if op.opcode.is_push():
                     statements[op.opcode.name].append((hex(op.pc), hex(op.value)))
+                    push_value.append((hex(op.pc), hex(op.value)))
                 else:
                     statements[op.opcode.name].append((hex(op.pc),))
 
@@ -143,3 +154,9 @@ class InstructionTsvExporter(Exporter):
                 elif typ == int:
                     opcode_property.append((getattr(opcode, opcode_key), prop_val))
                 generate(relname +'.facts', opcode_property)
+        generate('PushValue.facts', push_value)
+        dasm = get_disassembly(instructions, dict(push_value))
+        with open(join('contract.dasm'), 'w') as f:
+            f.write(dasm)
+        
+        

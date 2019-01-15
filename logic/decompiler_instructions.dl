@@ -34,21 +34,15 @@ MissingStatement(stmt) :-
   Statement_Opcode(stmt, "MISSING").
 
 .decl PushValue(stmt:Statement, v:Value)
+.input PushValue
 
 .decl IsJump(stmt:Statement)
 
 IsJump(stmt) :-
   (JUMP(stmt); JUMPI(stmt)).
 
-IsValue(v),
-PushValue(stmt, v) :-
-  PUSH1(stmt,v);PUSH2(stmt,v);PUSH3(stmt,v);PUSH4(stmt,v);PUSH5(stmt,v);
-  PUSH6(stmt,v);PUSH7(stmt,v);PUSH8(stmt,v);PUSH9(stmt,v);PUSH10(stmt,v);
-  PUSH11(stmt,v);PUSH12(stmt,v);PUSH13(stmt,v);PUSH14(stmt,v);PUSH15(stmt,v);
-  PUSH16(stmt,v);PUSH17(stmt,v);PUSH18(stmt,v);PUSH19(stmt,v);PUSH20(stmt,v);
-  PUSH21(stmt,v);PUSH22(stmt,v);PUSH23(stmt,v);PUSH24(stmt,v);PUSH25(stmt,v);
-  PUSH26(stmt,v);PUSH27(stmt,v);PUSH28(stmt,v);PUSH29(stmt,v);PUSH30(stmt,v);
-  PUSH31(stmt,v);PUSH32(stmt,v).
+IsValue(v) :-
+   PushValue(_, v).
 
 IsValue(CAST_TO_SYMBOL(v)) :-
   PC(v).
