@@ -88,10 +88,10 @@ parser.add_argument("-S",
                     help="the location of the souffle binary.")
 
 parser.add_argument("-C",
-                    "--souffle_client",
+                    "--client",
                     nargs="?",
-                    default=None,
-                    help="additional souffle client to run after decompilation.")
+                    default="",
+                    help="additional clients to run after decompilation.")
 
 
 parser.add_argument("-p",
@@ -163,7 +163,7 @@ parser.add_argument("-q",
                     default=False,
                     help="Silence output.")
 
-parser.add_argument("--no_compile",
+parser.add_argument("--clients_only",
                     action="store_true",
                     default=False,
                     help="Silence output.")
@@ -238,15 +238,15 @@ def analyze_contract(job_index: int, index: int, filename: str, result_queue, ti
     """
 
     try:
-        with open(join(args.contract_dir, filename)) as file:
+        analytics = {}
+        disassemble_start = time.time()
+        def calc_timeout():
+            return timeout-time.time()+disassemble_start
+        if not args.clients_only:
+            with open(join(args.contract_dir, filename)) as file:
+                bytecode = ''.join([l.strip() for l in file if len(l.strip()) > 0])
             # Disassemble contract
-            disassemble_start = time.time()
-            def calc_timeout():
-                return timeout-time.time()+disassemble_start
-            bytecode = ''.join([l.strip() for l in file if len(l.strip()) > 0])
             blocks = blockparse.EVMBytecodeParser(bytecode).parse()
-
-            analytics = {}
 
             # Export relations to temp working directory
             backup_and_empty_working_dir(job_index)
@@ -262,55 +262,57 @@ def analyze_contract(job_index: int, index: int, filename: str, result_queue, ti
             # Run souffle on those relations
             decomp_start = time.time()
             analysis_args = [join(os.getcwd(), DEFAULT_SOUFFLE_EXECUTABLE),
-                             "--facts={}".format(work_dir),
-                             "--output={}".format(out_dir)
+                         "--facts={}".format(work_dir),
+                         "--output={}".format(out_dir)
             ]
             runtime = run_process(analysis_args, calc_timeout())
             if runtime < 0:
                 result_queue.put((filename, [], ["TIMEOUT"], {}))
                 log("{} timed out.".format(filename))
                 return
-            client_start = time.time()
-            for souffle_client in souffle_clients:
-                analysis_args = [join(os.getcwd(), souffle_client+'_compiled'),
-                             "--facts={}".format(out_dir),
-                             "--output={}".format(out_dir)
-                ]
-                runtime = run_process(analysis_args, calc_timeout())
-                if runtime < 0:
-                    result_queue.put((filename, [], ["TIMEOUT"], {}))
-                    log("{} timed out.".format(filename))
-                    return
-            for python_client in python_clients:
-                out_filename = out_dir+'/'+python_client.split('/')[-1]+'.out'
-                err_filename = out_dir+'/'+python_client.split('/')[-1]+'.err'
-                runtime = run_process([join(os.getcwd(), python_client)], calc_timeout(), open(out_filename, 'w'), open(err_filename, 'w'), cwd = out_dir)
-                if runtime < 0:
-                    result_queue.put((filename, [], ["TIMEOUT"], {}))
-                    log("{} timed out.".format(filename))
-                    return
-                
-            # Collect the results and put them in the result queue
-            vulns = []
-            for fname in os.listdir(out_dir):
-                fpath = join(out_dir, fname)
-                if getsize(fpath) != 0:
-                    vulns.append(fname.split(".")[0])
+            # end decompilation
+        else:
+            decomp_start = time.time()
+            out_dir = join(join(TEMP_WORKING_DIR, filename), 'out')
+        client_start = time.time()
+        for souffle_client in souffle_clients:
+            analysis_args = [join(os.getcwd(), souffle_client+'_compiled'),
+                         "--facts={}".format(out_dir),
+                         "--output={}".format(out_dir)
+            ]
+            runtime = run_process(analysis_args, calc_timeout())
+            if runtime < 0:
+                result_queue.put((filename, [], ["TIMEOUT"], {}))
+                log("{} timed out.".format(filename))
+                return
+        for python_client in python_clients:
+            out_filename = out_dir+'/'+python_client.split('/')[-1]+'.out'
+            err_filename = out_dir+'/'+python_client.split('/')[-1]+'.err'
+            runtime = run_process([join(os.getcwd(), python_client)], calc_timeout(), open(out_filename, 'w'), open(err_filename, 'w'), cwd = out_dir)
+            if runtime < 0:
+                result_queue.put((filename, [], ["TIMEOUT"], {}))
+                log("{} timed out.".format(filename))
+                return
+            
+        # Collect the results and put them in the result queue
+        vulns = []
+        for fname in os.listdir(out_dir):
+            fpath = join(out_dir, fname)
+            if getsize(fpath) != 0:
+                vulns.append(fname.split(".")[0])
+        meta = []
+        # Decompile + Analysis time
+        analytics['disassemble_time'] = decomp_start - disassemble_start
+        analytics['decomp_time'] = client_start - decomp_start
+        analytics['client_time'] = time.time() - client_start
+        log("{}: {:.20}... completed in {:.2f} + {:.2f} + {:.2f} secs".format(
+            index, filename, analytics['disassemble_time'],
+            analytics['decomp_time'], analytics['client_time']
+        ))
 
-            meta = []
+        get_gigahorse_analytics(out_dir, analytics)
 
-            # Decompile + Analysis time
-            analytics['disassemble_time'] = decomp_start - disassemble_start
-            analytics['decomp_time'] = client_start - decomp_start
-            analytics['client_time'] = time.time() - client_start
-            log("{}: {:.20}... completed in {:.2f} + {:.2f} + {:.2f} secs".format(
-                index, filename, analytics['disassemble_time'],
-                analytics['decomp_time'], analytics['client_time']
-            ))
-
-            get_gigahorse_analytics(out_dir, analytics)
-
-            result_queue.put((filename, vulns, meta, analytics))
+        result_queue.put((filename, vulns, meta, analytics))
 
     except Exception as e:
         log("Error: {}".format(e))
@@ -412,15 +414,15 @@ log = lambda msg: logging.log(logging.INFO + 1, msg)
 logging.basicConfig(format='%(message)s', level=log_level)
 
 if args.porosity:
-    args.no_compile = True
+    args.clients_only = True
 
 # Here we compile the decompiler and any of its clients in parallel :)
 compile_processes_args = []
-if not args.no_compile:
+if not args.clients_only:
     compile_processes_args.append((DEFAULT_DECOMPILER_DL, DEFAULT_SOUFFLE_EXECUTABLE))
 
-souffle_clients = [a for a in args.souffle_client.split(',') if a.endswith('.dl')]
-python_clients = [a for a in args.souffle_client.split(',') if a.endswith('.py')]
+souffle_clients = [a for a in args.client.split(',') if a.endswith('.dl')]
+python_clients = [a for a in args.client.split(',') if a.endswith('.py')]
 
 for c in souffle_clients:
     compile_processes_args.append((c, c+'_compiled'))
@@ -431,8 +433,9 @@ for compile_args in compile_processes_args:
     proc.start()
     running_processes.append(proc)
 
-log("Removing working directory {}".format(TEMP_WORKING_DIR))
-shutil.rmtree(TEMP_WORKING_DIR, ignore_errors = True)    
+if not args.clients_only:
+    log("Removing working directory {}".format(TEMP_WORKING_DIR))
+    shutil.rmtree(TEMP_WORKING_DIR, ignore_errors = True)    
     
 for p in running_processes:
     p.join()
@@ -450,18 +453,22 @@ if args.from_file:
         unfiltered = [l.strip() for l in f.readlines()]
 else:
     # Otherwise just get all contracts in the contract directory.
-    unfiltered = os.listdir(args.contract_dir)
-
-# Filter according to the given pattern.
-re_string = args.filename_pattern
-if not re_string.endswith("$"):
-    re_string = re_string + "$"
-pattern = re.compile(re_string)
-runtime_files = filter(lambda filename: pattern.match(filename) is not None,
-                       unfiltered)
+    if args.clients_only:
+        runtime_files_or_folders = os.listdir(TEMP_WORKING_DIR)
+    else:    
+        unfiltered = os.listdir(args.contract_dir)
+        # Filter according to the given pattern.
+        re_string = args.filename_pattern
+        if not re_string.endswith("$"):
+            re_string = re_string + "$"
+        pattern = re.compile(re_string)
+        runtime_files_or_folders = filter(
+            lambda filename: pattern.match(filename) is not None,
+            unfiltered
+        )
 
 stop_index = None if args.num_contracts is None else args.skip + args.num_contracts
-to_process = itertools.islice(runtime_files, args.skip, stop_index)
+to_process = itertools.islice(runtime_files_or_folders, args.skip, stop_index)
 
 log("Setting up workers.")
 # Set up multiprocessing result list and queue.
