@@ -6,12 +6,11 @@
 // re-formatted for use by clients), statistics, debugging relations.
 
 
-
+// usefule intermediate outputs
 .output OpcodePossiblyHalts
-
 .output IRBlockEdge
-
 .output PublicFunction
+.output Statement_IRStatement
 
 .decl Exit(block:IRBlock)
 
@@ -115,7 +114,6 @@ TAC_Op(irstmt, op) :-
    !PC(stmt),
    !REVERT(stmt),
    !INVALID(stmt).
-
 
 TAC_Op(irstmt, "CONST") :-
    Statement_IRStatement(stmt, irstmt),
