@@ -238,7 +238,7 @@ def analyze_contract(job_index: int, index: int, filename: str, result_queue, ti
     """
 
     try:
-        temp = defaultdict(int)
+        temp = {}
         get_gigahorse_analytics(out_dir, temp)
         if sum(temp[k] for k in temp if k.starswith('Vulnerability_')) == 0:
             return
