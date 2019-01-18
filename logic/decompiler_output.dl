@@ -11,6 +11,7 @@
 .output IRBlockEdge
 .output PublicFunction
 .output Statement_IRStatement
+.output IRBlock_Gas
 
 .decl Exit(block:IRBlock)
 

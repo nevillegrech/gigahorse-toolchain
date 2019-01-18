@@ -152,3 +152,11 @@ OpcodePopWords("CALLPRIVATE", 1).
 OpcodePopWords("RETURNPRIVATE", 1).
 OpcodePopWords("CALLPRIVATEI", 2).
 OpcodePopWords("RETURNPRIVATEI", 2).
+
+
+// Gas-related
+.decl Statement_Gas(stmt: Statement, gas: number)
+
+Statement_Gas(stmt, gas) :-
+   Statement_Opcode(stmt, opcode),
+   OpcodeGas(opcode, gas).

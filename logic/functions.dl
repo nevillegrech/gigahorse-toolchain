@@ -578,6 +578,10 @@ IRThrowJump(irstmt) :-
   Statement_IRStatement(stmt, irstmt).
 
 
+.decl IRBlock_Gas(irblock: IRBlock, gas: number)
+IRBlock_Gas(irblock, gas) :-
+   Block_IRBlock(block, irblock),
+   Block_Gas(block, gas).
 
 /***********
  * Discovery of arguments accepted by a function   

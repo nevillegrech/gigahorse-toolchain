@@ -83,6 +83,10 @@
 .decl HighLevelFunctionName(func: Function, name: symbol)
 .input HighLevelFunctionName(IO="file", filename="HighLevelFunctionName.csv", delimiter="\t")
 
+// Gas used per block
+.decl Block_Gas(block:Block, gas:number)
+.input Block_Gas(IO="file", filename="IRBlock_Gas.csv", delimiter="\t")
+
 // Special instructions & data flow
 
 // Actuals are on the function call side, the args supplied to a function call

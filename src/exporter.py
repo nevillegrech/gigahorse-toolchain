@@ -15,7 +15,7 @@ opcode_output = {'alters_flow':bool, 'halts':bool, 'is_arithmetic':bool,
                  'is_push':bool, 'is_storage':bool, 'is_swap':bool,
                  'log_len':int, 'possibly_halts':bool, 'push_len':int,
                  'stack_delta':int, 'pop_words':int, 'push_words':int,
-                 'ord':int
+                 'gas': int, 'ord':int
 }    
 
 def generate_interface():
