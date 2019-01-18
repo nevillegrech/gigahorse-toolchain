@@ -238,10 +238,10 @@ def analyze_contract(job_index: int, index: int, filename: str, result_queue, ti
     """
 
     try:
-        temp = {}
-        get_gigahorse_analytics(join(join(TEMP_WORKING_DIR, filename), 'out'), temp)
-        if sum(temp[k] for k in temp if k.starswith('Vulnerability_')) == 0:
-            return
+        #temp = {}
+        #get_gigahorse_analytics(join(join(TEMP_WORKING_DIR, filename), 'out'), temp)
+        #if not any(len(v) > 3 for k,v in temp.items() if k.startswith('Con')):
+        #    return
         analytics = {}
         disassemble_start = time.time()
         def calc_timeout():
