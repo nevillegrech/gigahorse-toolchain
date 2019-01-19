@@ -206,3 +206,14 @@ IsBlock(b) :-
 
 .decl Mask_Length(mask: Value, bytes: number)
 .input Mask_Length(IO="file", filename="Mask_Length.csv", delimiter="\t")
+
+.decl ValidGlobalTerminalBlock(block: Block)
+
+ValidGlobalTerminalBlock(block) :-
+   Block_Tail(block, tail),
+   (STOP(tail) ; RETURN(tail, _, _)).
+
+.decl GlobalEntryBlock(block: Block)
+
+GlobalEntryBlock("0x0").
+

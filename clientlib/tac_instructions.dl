@@ -186,6 +186,15 @@ ORIGIN(stmt, address) :-
   Statement_Opcode(stmt, "ORIGIN"),
   Statement_Defines(stmt, address, 0).
 
+.decl STOP(stmt:Statement)
+STOP(stmt) :-
+  Statement_Opcode(stmt, "STOP").
+
+.decl RETURN(stmt:Statement, start: Variable, length: Variable)
+RETURN(stmt, start, length) :-
+  Statement_Opcode(stmt, "RETURN"),
+  Statement_Uses(stmt, start, 0),
+  Statement_Uses(stmt, length, 1).
 
 .decl FlowOp(op: Opcode)
 // Represents operations through which data can "flow"      
