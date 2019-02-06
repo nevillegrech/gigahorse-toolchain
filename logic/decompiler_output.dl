@@ -6,7 +6,7 @@
 // re-formatted for use by clients), statistics, debugging relations.
 
 
-// usefule intermediate outputs
+// useful intermediate outputs
 .output OpcodePossiblyHalts
 .output IRBlockEdge
 .output PublicFunction
@@ -57,6 +57,8 @@ PHILocation(block, stackIndex, cat(cat(block, "_"), stackIndexStr)) :-
 .output TAC_Var
 .decl TAC_Block(stmt: IRStatement, block: IRBlock)
 .output TAC_Block
+.decl TAC_Block_Head(block: IRBlock, stmt: IRStatement)
+.output TAC_Block_Head
 .decl TAC_Variable_Length(var: TACVariable, length: number)
 .output TAC_Variable_Length
 .decl TAC_Variable_Value(var: TACVariable, value: symbol)
@@ -256,3 +258,7 @@ TAC_Statement_Next(irstmt, irnext) :-
 // TODO for statement ordering
 // a) phi functions
 // b) fresh call statements (if reintroduced)
+
+TAC_Block_Head(block, stmt) :-
+   TAC_Block(stmt, block),
+   IsBasicBlockHead(stmt).
