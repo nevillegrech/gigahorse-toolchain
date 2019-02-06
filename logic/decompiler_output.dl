@@ -259,6 +259,7 @@ TAC_Statement_Next(irstmt, irnext) :-
 // a) phi functions
 // b) fresh call statements (if reintroduced)
 
-TAC_Block_Head(block, stmt) :-
-   TAC_Block(stmt, block),
+TAC_Block_Head(block, irstmt) :-
+   TAC_Block(irstmt, block),
+   Statement_IRStatement(stmt, irstmt),
    IsBasicBlockHead(stmt).
