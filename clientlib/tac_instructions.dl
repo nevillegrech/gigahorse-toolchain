@@ -49,7 +49,7 @@ TernArith("MULMOD").
 
 
 // Binary operators
-MAKEBINOP(SHA3). // TODO: Not really binary arithmetic
+MAKEBINOP(SHA3).
 
 // Binary arithmetic operators
 MAKEBINARITHOP(EQ).
@@ -73,7 +73,6 @@ MAKEBINARITHOP(BYTE).
 MAKEBINARITHOP(SHL).
 MAKEBINARITHOP(SHR).
 MAKEBINARITHOP(SAR).
-
 
 // Unary operators
 MAKEUNOP(BLOCKHASH).
@@ -101,6 +100,10 @@ RuntimeKnowable("CALLDATASIZE").
 RuntimeKnowable("CODESIZE").
 RuntimeKnowable("GASPRICE").
 RuntimeKnowable("RETURNDATASIZE").
+RuntimeKnowable("COINBASE").
+RuntimeKnowable("BLOCKHASH").
+RuntimeKnowable("NUMBER").
+RuntimeKnowable("TIMESTAMP").
 
 .decl IsThrow(stmt:Statement)
 IsThrow(stmt) :- Statement_Opcode(stmt, "THROW").
