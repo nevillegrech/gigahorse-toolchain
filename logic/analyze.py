@@ -56,7 +56,7 @@ TEMP_WORKING_DIR = ".temp"
 DEFAULT_TIMEOUT = 120
 """Default time before killing analysis of a contract."""
 
-DEFAULT_PATTERN = ".*runtime.hex"
+DEFAULT_PATTERN = ".*.hex"
 """Default filename pattern for contract files."""
 
 FLUSH_PERIOD = 3
