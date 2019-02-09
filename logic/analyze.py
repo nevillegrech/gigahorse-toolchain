@@ -200,23 +200,20 @@ def empty_working_dir(index) -> None:
             os.remove(join(d_triple[0], fname))
 
 
-def compact_working_dir(index) -> None:
-   """
-   Empty the working directory for the job indicated by index.
-   """
-   for d_triple in os.walk(working_dir(index)):
+def backup_and_empty_working_dir(index, contract_name) -> None:
+    # compact
+    for d_triple in os.walk(working_dir(index)):
         for fname in d_triple[2]:
             if fname.endswith('.facts'):
                 os.remove(join(d_triple[0], fname))
 
-def backup_and_empty_working_dir(index) -> None:
-    # compact
-    compact_working_dir(index)
-    
-    # copy 
-    shutil.copytree(working_dir(index), working_dir(index) + str(time.time()))
+    newdir = join(TEMP_WORKING_DIR, contract_name.split('.')[0])
 
-    empty_working_dir(index)
+    # remove any old dirs
+    shutil.rmtree(newdir, ignore_errors = True)
+    
+    # move
+    shutil.move(working_dir(index), newdir)
             
 def compile_datalog(spec, executable):
     compilation_command = [args.souffle_bin, '-c', '-o', executable, spec]
@@ -238,10 +235,6 @@ def analyze_contract(job_index: int, index: int, filename: str, result_queue, ti
     """
 
     try:
-        #temp = {}
-        #get_gigahorse_analytics(join(join(TEMP_WORKING_DIR, filename), 'out'), temp)
-        #if not any(len(v) > 3 for k,v in temp.items() if k.startswith('Con')):
-        #    return
         analytics = {}
         disassemble_start = time.time()
         def calc_timeout():
@@ -253,7 +246,7 @@ def analyze_contract(job_index: int, index: int, filename: str, result_queue, ti
             blocks = blockparse.EVMBytecodeParser(bytecode).parse()
 
             # Export relations to temp working directory
-            backup_and_empty_working_dir(job_index)
+            backup_and_empty_working_dir(job_index, filename)
             work_dir = working_dir(job_index)
             out_dir = working_dir(job_index, True)
             exporter.InstructionTsvExporter(blocks).export(output_dir=work_dir)
