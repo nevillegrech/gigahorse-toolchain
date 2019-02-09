@@ -191,29 +191,29 @@ def working_dir(index: int, output_dir: bool = False) -> str:
     return join(TEMP_WORKING_DIR, str(index))
 
 
-def empty_working_dir(index) -> None:
-   """
-   Empty the working directory for the job indicated by index.
-   """
-   for d_triple in os.walk(working_dir(index)):
-        for fname in d_triple[2]:
-            os.remove(join(d_triple[0], fname))
+#def empty_working_dir(index) -> None:
+#   """
+#   Empty the working directory for the job indicated by index.
+#   """
+#   for d_triple in os.walk(working_dir(index)):
+#        for fname in d_triple[2]:
+#            os.remove(join(d_triple[0], fname))
 
 
-def backup_and_empty_working_dir(index, contract_name) -> None:
+def prepare_working_dir(contract_name) -> (str, str):
     # compact
-    for d_triple in os.walk(working_dir(index)):
-        for fname in d_triple[2]:
-            if fname.endswith('.facts'):
-                os.remove(join(d_triple[0], fname))
+    #for d_triple in os.walk(working_dir(index)):
+    #    for fname in d_triple[2]:
+    #        if fname.endswith('.facts'):
+    #            os.remove(join(d_triple[0], fname))
 
     newdir = join(TEMP_WORKING_DIR, contract_name.split('.')[0])
 
     # remove any old dirs
     shutil.rmtree(newdir, ignore_errors = True)
-    
-    # move
-    shutil.move(working_dir(index), newdir)
+    # recreate dir
+    shutil.mkdir(newdir)
+    return newdir, join(newdir, 'out')
             
 def compile_datalog(spec, executable):
     compilation_command = [args.souffle_bin, '-c', '-o', executable, spec]
@@ -242,13 +242,13 @@ def analyze_contract(job_index: int, index: int, filename: str, result_queue, ti
         if not args.clients_only:
             with open(join(args.contract_dir, filename)) as file:
                 bytecode = ''.join([l.strip() for l in file if len(l.strip()) > 0])
+
+            # prepare working directory
+            work_dir, out_dir = prepare_working_dir(filename)
+
             # Disassemble contract
             blocks = blockparse.EVMBytecodeParser(bytecode).parse()
 
-            # Export relations to temp working directory
-            backup_and_empty_working_dir(job_index, filename)
-            work_dir = working_dir(job_index)
-            out_dir = working_dir(job_index, True)
             exporter.InstructionTsvExporter(blocks).export(output_dir=work_dir)
                                       
             contract_filename = join(join(os.getcwd(), args.contract_dir), filename)
@@ -436,11 +436,6 @@ if not args.clients_only:
     
 for p in running_processes:
     p.join()
-
-log("Setting up working directory {}.".format(TEMP_WORKING_DIR))
-for i in range(args.jobs):
-    os.makedirs(working_dir(i, True), exist_ok=True)
-    empty_working_dir(i)
 
 # Extract contract filenames.
 log("Processing contract names.")
