@@ -35,9 +35,6 @@ devnull = subprocess.DEVNULL
 DEFAULT_SOUFFLE_BIN = 'souffle'
 """Location of the Souffle binary."""
 
-DEFAULT_POROSITY_BIN = 'porosity'
-"""Location of the porosity binary."""
-
 DEFAULT_CONTRACT_DIR = 'contracts'
 """Directory to fetch contract files from by default."""
 
@@ -58,9 +55,6 @@ DEFAULT_TIMEOUT = 120
 
 DEFAULT_PATTERN = ".*.hex"
 """Default filename pattern for contract files."""
-
-FLUSH_PERIOD = 3
-"""Wait a little to flush the files and join the processes when concluding."""
 
 DEFAULT_NUM_JOBS = 4
 """The number of subprocesses to run at once."""
@@ -167,13 +161,6 @@ parser.add_argument("--clients_only",
                     action="store_true",
                     default=False,
                     help="Silence output.")
-
-parser.add_argument("--porosity",
-                    nargs="?",
-                    const=DEFAULT_POROSITY_BIN,
-                    metavar="BINARY",
-                    help="Use the Porosity decompiler.")
-
 
 # Functions
 def working_dir(index: int, output_dir: bool = False) -> str:
@@ -302,7 +289,7 @@ def analyze_contract(job_index: int, index: int, filename: str, result_queue, ti
         analytics['disassemble_time'] = decomp_start - disassemble_start
         analytics['decomp_time'] = client_start - decomp_start
         analytics['client_time'] = time.time() - client_start
-        log("{}: {:.20}... completed in {:.2f} + {:.2f} + {:.2f} secs".format(
+        log("{}: {:.36}... completed in {:.2f} + {:.2f} + {:.2f} secs".format(
             index, filename, analytics['disassemble_time'],
             analytics['decomp_time'], analytics['client_time']
         ))
@@ -356,38 +343,10 @@ def run_process(args, timeout: int, stdout = devnull, stderr = devnull, cwd = '.
         if elapsed_time >= timeout:
             os.kill(p.pid, signal.SIGTERM)
             return -1
-        time.sleep(0.1)
+        time.sleep(0.01)
     return elapsed_time
 
-def analyze_contract_porosity(job_index: int, index: int, filename: str, result_queue, timeout: int) -> None:
-    try:
-        contract_filename = join(join(os.getcwd(), args.contract_dir), filename)
-        analytics = {}
-        out_dir = working_dir(job_index, True)
-        analysis_args = [DEFAULT_POROSITY_BIN,
-                         '--decompile', '--code-file', contract_filename]
-        f = open(out_dir+'/out.txt', "w")
-        porosity_time = run_process(analysis_args, timeout, f)
-        f.close()
-        if porosity_time < 0:
-            result_queue.put((filename, [], ["TIMEOUT"], {}))
-            log("{} timed out.".format(filename))
-            return
-        
-        output = open(out_dir+'/out.txt').read()
-        analytics['Functions'] = output.count('function ')
-        analytics["decomp_time"] = porosity_time
-        result_queue.put((filename, [], [], analytics))
-        log("{}: {:.20}... completed in {:.2f} secs".format(index, filename, porosity_time))
-    except Exception as e:
-        log("Error: {}".format(e))
-        result_queue.put((filename, [], ["error"], {}))
-
-
-
-
-def flush_queue(period, run_sig,
-                result_queue, result_list):
+def flush_queue(run_sig, result_queue, result_list):
     """
     For flushing the queue periodically to a list so it doesn't fill up.
 
@@ -398,7 +357,7 @@ def flush_queue(period, run_sig,
         result_list: the final list of results.
     """
     while run_sig.is_set():
-        time.sleep(period)
+        time.sleep(0.1)
         while not result_queue.empty():
             item = result_queue.get()
             result_list.append(item)
@@ -409,9 +368,6 @@ args = parser.parse_args()
 log_level = logging.WARNING if args.quiet else logging.INFO + 1
 log = lambda msg: logging.log(logging.INFO + 1, msg)
 logging.basicConfig(format='%(message)s', level=log_level)
-
-if args.porosity:
-    args.clients_only = True
 
 # Here we compile the decompiler and any of its clients in parallel :)
 compile_processes_args = []
@@ -476,8 +432,7 @@ res_queue = SimpleQueue()
 # Start the periodic flush process, only run while run_signal is set.
 run_signal = Event()
 run_signal.set()
-flush_proc = Process(target=flush_queue, args=(FLUSH_PERIOD, run_signal,
-                                               res_queue, res_list))
+flush_proc = Process(target=flush_queue, args=(run_signal, res_queue, res_list))
 flush_proc.start()
 
 workers = []
@@ -486,12 +441,7 @@ contract_iter = enumerate(to_process)
 contracts_exhausted = False
 
 # which kind of analysis are we doing?
-if args.porosity:
-    analyze_function = analyze_contract_porosity
-else:
-    analyze_function = analyze_contract
-
-
+analyze_function = analyze_contract
 
 log("Analysing...\n")
 try:
