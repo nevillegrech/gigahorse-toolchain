@@ -199,8 +199,10 @@ def prepare_working_dir(contract_name) -> (str, str):
     # remove any old dirs
     shutil.rmtree(newdir, ignore_errors = True)
     # recreate dir
-    shutil.mkdir(newdir)
-    return newdir, join(newdir, 'out')
+    os.makedirs(newdir)
+    out_dir = join(newdir, 'out')
+    os.makedirs(out_dir)
+    return newdir, out_dir
             
 def compile_datalog(spec, executable):
     compilation_command = [args.souffle_bin, '-c', '-o', executable, spec]
@@ -227,21 +229,17 @@ def analyze_contract(job_index: int, index: int, filename: str, result_queue, ti
         def calc_timeout():
             return timeout-time.time()+disassemble_start
         if not args.clients_only:
-            with open(join(args.contract_dir, filename)) as file:
-                bytecode = ''.join([l.strip() for l in file if len(l.strip()) > 0])
-
             # prepare working directory
             work_dir, out_dir = prepare_working_dir(filename)
 
+            contract_filename = join(args.contract_dir, filename)            
+            os.symlink(contract_filename, join(work_dir, 'contract.hex'))
+            with open(contract_filename) as file:
+                bytecode = ''.join([l.strip() for l in file if len(l.strip()) > 0])
+
             # Disassemble contract
             blocks = blockparse.EVMBytecodeParser(bytecode).parse()
-
             exporter.InstructionTsvExporter(blocks).export(output_dir=work_dir)
-                                      
-            contract_filename = join(join(os.getcwd(), args.contract_dir), filename)
-            with open(join(work_dir, 'contract_filename.txt'),'w') as f:
-                f.write(contract_filename)
-            os.symlink(contract_filename, join(os.getcwd(),join(work_dir, 'contract.hex')))
 
             # Run souffle on those relations
             decomp_start = time.time()
@@ -270,8 +268,8 @@ def analyze_contract(job_index: int, index: int, filename: str, result_queue, ti
                 log("{} timed out.".format(filename))
                 return
         for python_client in python_clients:
-            out_filename = out_dir+'/'+python_client.split('/')[-1]+'.out'
-            err_filename = out_dir+'/'+python_client.split('/')[-1]+'.err'
+            out_filename = join(out_dir, python_client.split('/')[-1]+'.out')
+            err_filename = join(out_dir, python_client.split('/')[-1]+'.err')
             runtime = run_process([join(os.getcwd(), python_client)], calc_timeout(), open(out_filename, 'w'), open(err_filename, 'w'), cwd = out_dir)
             if runtime < 0:
                 result_queue.put((filename, [], ["TIMEOUT"], {}))
