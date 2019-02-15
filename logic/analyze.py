@@ -14,7 +14,7 @@ import re
 import subprocess
 import sys
 import time
-from multiprocessing import Process, SimpleQueue, Manager, Event
+from multiprocessing import Process, SimpleQueue, Manager, Event, cpu_count
 from os.path import abspath, dirname, join, getsize
 import os
 
@@ -56,7 +56,7 @@ DEFAULT_TIMEOUT = 120
 DEFAULT_PATTERN = ".*.hex"
 """Default filename pattern for contract files."""
 
-DEFAULT_NUM_JOBS = 4
+DEFAULT_NUM_JOBS = int(cpu_count()*0.9)
 """The number of subprocesses to run at once."""
 
 # Command Line Arguments
@@ -123,15 +123,6 @@ parser.add_argument("-j",
                     metavar="NUM",
                     help="The number of subprocesses to run at once.")
 
-parser.add_argument("-n",
-                    "--num_contracts",
-                    type=int,
-                    nargs="?",
-                    default=None,
-                    metavar="NUM",
-                    help="The maximum number of contracts to process in this "
-                         "batch. Unlimited by default.")
-
 parser.add_argument("-k",
                     "--skip",
                     type=int,
@@ -157,54 +148,36 @@ parser.add_argument("-q",
                     default=False,
                     help="Silence output.")
 
-parser.add_argument("--clients_only",
+parser.add_argument("--rerun_clients",
                     action="store_true",
                     default=False,
                     help="Silence output.")
 
-# Functions
-def working_dir(index: int, output_dir: bool = False) -> str:
-    """
-    Return a path to the working directory for the job
-    indicated by index.
+parser.add_argument("--restart",
+                    action="store_true",
+                    default=False,
+                    help="Silence output.")
 
-    Args:
-     index: return the directory specifically for this index.
-     output_dir: if true, return the output subdir, which souffle writes to.
-    """
-
-    if output_dir:
-        return join(TEMP_WORKING_DIR, str(index), "out")
-    return join(TEMP_WORKING_DIR, str(index))
-
-
-#def empty_working_dir(index) -> None:
-#   """
-#   Empty the working directory for the job indicated by index.
-#   """
-#   for d_triple in os.walk(working_dir(index)):
-#        for fname in d_triple[2]:
-#            os.remove(join(d_triple[0], fname))
-
+parser.add_argument("--reuse_datalog_bin",
+                    action="store_true",
+                    default=False,
+                    help="Silence output.")
 
 def prepare_working_dir(contract_name) -> (str, str):
-    # compact
-    #for d_triple in os.walk(working_dir(index)):
-    #    for fname in d_triple[2]:
-    #        if fname.endswith('.facts'):
-    #            os.remove(join(d_triple[0], fname))
-
     newdir = join(TEMP_WORKING_DIR, contract_name.split('.')[0])
+    out_dir = join(newdir, 'out')
 
-    # remove any old dirs
-    shutil.rmtree(newdir, ignore_errors = True)
+    if os.path.isdir(newdir):
+        return True, newdir, out_dir
+
     # recreate dir
     os.makedirs(newdir)
-    out_dir = join(newdir, 'out')
     os.makedirs(out_dir)
-    return newdir, out_dir
+    return False, newdir, out_dir
             
 def compile_datalog(spec, executable):
+    if args.reuse_datalog_bin and os.path.isfile(executable):
+        return
     compilation_command = [args.souffle_bin, '-c', '-o', executable, spec]
     log("Compiling %s to C++ program and executable"%spec)
     process = subprocess.run(compilation_command, universal_newlines=True)
@@ -224,14 +197,16 @@ def analyze_contract(job_index: int, index: int, filename: str, result_queue, ti
     """
 
     try:
+        # prepare working directory
+        exists, work_dir, out_dir = prepare_working_dir(filename)
+        assert not(args.restart and exists)
         analytics = {}
         disassemble_start = time.time()
         def calc_timeout():
             return timeout-time.time()+disassemble_start
-        if not args.clients_only:
-            # prepare working directory
-            work_dir, out_dir = prepare_working_dir(filename)
-
+        if exists:
+            decomp_start = time.time()
+        else:
             contract_filename = join(args.contract_dir, filename)            
             os.symlink(contract_filename, join(work_dir, 'contract.hex'))
             with open(contract_filename) as file:
@@ -253,9 +228,8 @@ def analyze_contract(job_index: int, index: int, filename: str, result_queue, ti
                 log("{} timed out.".format(filename))
                 return
             # end decompilation
-        else:
-            decomp_start = time.time()
-            out_dir = join(join(TEMP_WORKING_DIR, filename), 'out')
+        if exists and not args.rerun_clients:
+            return
         client_start = time.time()
         for souffle_client in souffle_clients:
             analysis_args = [join(os.getcwd(), souffle_client+'_compiled'),
@@ -287,7 +261,7 @@ def analyze_contract(job_index: int, index: int, filename: str, result_queue, ti
         analytics['disassemble_time'] = decomp_start - disassemble_start
         analytics['decomp_time'] = client_start - decomp_start
         analytics['client_time'] = time.time() - client_start
-        log("{}: {:.36}... completed in {:.2f} + {:.2f} + {:.2f} secs".format(
+        log("{}: {:.36} completed in {:.2f} + {:.2f} + {:.2f} secs".format(
             index, filename, analytics['disassemble_time'],
             analytics['decomp_time'], analytics['client_time']
         ))
@@ -369,8 +343,7 @@ logging.basicConfig(format='%(message)s', level=log_level)
 
 # Here we compile the decompiler and any of its clients in parallel :)
 compile_processes_args = []
-if not args.clients_only:
-    compile_processes_args.append((DEFAULT_DECOMPILER_DL, DEFAULT_SOUFFLE_EXECUTABLE))
+compile_processes_args.append((DEFAULT_DECOMPILER_DL, DEFAULT_SOUFFLE_EXECUTABLE))
 
 souffle_clients = [a for a in args.client.split(',') if a.endswith('.dl')]
 python_clients = [a for a in args.client.split(',') if a.endswith('.py')]
@@ -384,7 +357,7 @@ for compile_args in compile_processes_args:
     proc.start()
     running_processes.append(proc)
 
-if not args.clients_only:
+if args.restart:
     log("Removing working directory {}".format(TEMP_WORKING_DIR))
     shutil.rmtree(TEMP_WORKING_DIR, ignore_errors = True)    
     
@@ -399,22 +372,18 @@ if args.from_file:
         unfiltered = [l.strip() for l in f.readlines()]
 else:
     # Otherwise just get all contracts in the contract directory.
-    if args.clients_only:
-        runtime_files_or_folders = os.listdir(TEMP_WORKING_DIR)
-    else:    
-        unfiltered = os.listdir(args.contract_dir)
-        # Filter according to the given pattern.
-        re_string = args.filename_pattern
-        if not re_string.endswith("$"):
-            re_string = re_string + "$"
-        pattern = re.compile(re_string)
-        runtime_files_or_folders = filter(
-            lambda filename: pattern.match(filename) is not None,
-            unfiltered
-        )
+    unfiltered = os.listdir(args.contract_dir)
+    # Filter according to the given pattern.
+    re_string = args.filename_pattern
+    if not re_string.endswith("$"):
+        re_string = re_string + "$"
+    pattern = re.compile(re_string)
+    runtime_files_or_folders = filter(
+        lambda filename: pattern.match(filename) is not None,
+        unfiltered
+    )
 
-stop_index = None if args.num_contracts is None else args.skip + args.num_contracts
-to_process = itertools.islice(runtime_files_or_folders, args.skip, stop_index)
+to_process = list(runtime_files_or_folders)[args.skip:]
 
 log("Setting up workers.")
 # Set up multiprocessing result list and queue.
@@ -490,7 +459,7 @@ try:
     # Conclude and write results to file.
     log("\nFinishing...\n")
     run_signal.clear()
-    flush_proc.join(FLUSH_PERIOD + 1)
+    flush_proc.join(1)
 
     counts = {}
     total_flagged = 0
