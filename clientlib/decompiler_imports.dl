@@ -211,6 +211,12 @@ Block_Tail(b, t) :-
 IsBlock(b) :-
   Statement_Block(_, b).
 
+.decl Statement_Function(s: Statement, f: Function)
+
+Statement_Function(s, f) :-
+   Statement_Block(s, b),
+   InFunction(b, f).
+
 .decl Mask_Length(mask: Value, bytes: number)
 .input Mask_Length(IO="file", filename="Mask_Length.csv", delimiter="\t")
 

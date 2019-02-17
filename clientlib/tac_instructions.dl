@@ -76,6 +76,10 @@ MAKEBINARITHOP(SAR).
 
 // Unary operators
 MAKEUNOP(BLOCKHASH).
+MAKEUNOP(CALLDATALOAD).
+MAKEUNOP(MLOAD).
+MAKEUNOP(SLOAD).
+
 MAKEUNARITHOP(ISZERO).
 MAKEUNARITHOP(NOT).
 
@@ -144,20 +148,6 @@ SSTORE(stmt, index, var) :-
   Statement_Opcode(stmt,"SSTORE"),
   Statement_Uses(stmt, index, 0),
   Statement_Uses(stmt, var, 1).
-
-.decl SLOAD(stmt: Statement, index: Variable, var: Variable)
-
-SLOAD(stmt, index, var) :-
-  Statement_Opcode(stmt,"SLOAD"),
-  Statement_Uses(stmt, index, 0),
-  Statement_Defines(stmt, var, _).
-
-.decl MLOAD(stmt: Statement, index: Variable, var: Variable)
-
-MLOAD(stmt, index, var) :-
-  Statement_Opcode(stmt,"MLOAD"),
-  Statement_Uses(stmt, index, 0),
-  Statement_Defines(stmt, var, _).
 
 .decl CALL(stmt:Statement, gas:Variable, target:Variable, value:Variable, data_start:Variable,
            data_length:Variable, return_start:Variable, return_length:Variable, success: Variable)
