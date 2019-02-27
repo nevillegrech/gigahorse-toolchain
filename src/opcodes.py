@@ -304,6 +304,7 @@ CALL         = OpCode("CALL",         0xf1, 7, 1, 700)
 CALLCODE     = OpCode("CALLCODE",     0xf2, 7, 1, 700)
 RETURN       = OpCode("RETURN",       0xf3, 2, 0, 0)
 DELEGATECALL = OpCode("DELEGATECALL", 0xf4, 6, 1, 700)
+CREATE2      = OpCode("CREATE2",      0xf5, 4, 1, 32000)
 INVALID      = OpCode("INVALID",      0xfe, 0, 0, 0)
 SELFDESTRUCT = OpCode("SELFDESTRUCT", 0xff, 1, 0, 5000)
 
