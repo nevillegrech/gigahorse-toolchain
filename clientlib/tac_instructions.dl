@@ -179,6 +179,20 @@ DELEGATECALL(stmt, gas, target, data_start, data_length, return_start, return_le
   Statement_Uses(stmt, return_start, 4),
   Statement_Uses(stmt, return_length, 5).
 
+.decl CALLCODE(stmt:Statement, gas:Variable, target:Variable, data_start:Variable,
+           data_length:Variable, return_start:Variable, return_length:Variable, success: Variable)
+
+
+CALLCODE(stmt, gas, target, data_start, data_length, return_start, return_length, success) :-
+  Statement_Opcode(stmt, "CALLCODE"),
+  Statement_Defines(stmt, success, _),
+  Statement_Uses(stmt, gas, 0),
+  Statement_Uses(stmt, target, 1),
+  Statement_Uses(stmt, data_start, 2),
+  Statement_Uses(stmt, data_length, 3),
+  Statement_Uses(stmt, return_start, 4),
+  Statement_Uses(stmt, return_length, 5).
+
 
 .decl JUMP(stmt:Statement, dest:Variable)
 JUMP(stmt, dest) :-
