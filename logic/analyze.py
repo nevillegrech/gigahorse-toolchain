@@ -419,10 +419,13 @@ try:
         while not contracts_exhausted and len(avail_jobs) > 0:
             try:
                 index, contract_name = next(contract_iter)
-                job_index = avail_jobs.pop()
                 working_dir = get_working_dir(contract_name)
                 if os.path.isdir(working_dir) and not args.rerun_clients:
+                    # no need to create another process
                     continue
+
+                # reduce number of available jobs
+                job_index = avail_jobs.pop()
                 proc = Process(target=analyze_contract, args=(job_index, index, contract_name, res_queue, args.timeout_secs))
                 proc.start()
                 start_time = time.time()
