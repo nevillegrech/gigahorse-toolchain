@@ -161,10 +161,14 @@ parser.add_argument("--restart",
 parser.add_argument("--reuse_datalog_bin",
                     action="store_true",
                     default=False,
-                    help="Silence output.")
+                    help="Do not recompile.")
+
+
+def get_working_dir(contract_name):
+    return join(TEMP_WORKING_DIR, contract_name.split('.')[0])
 
 def prepare_working_dir(contract_name) -> (str, str):
-    newdir = join(TEMP_WORKING_DIR, contract_name.split('.')[0])
+    newdir = get_working_dir(contract_name)
     out_dir = join(newdir, 'out')
 
     if os.path.isdir(newdir):
@@ -407,9 +411,6 @@ avail_jobs = list(range(args.jobs))
 contract_iter = enumerate(to_process)
 contracts_exhausted = False
 
-# which kind of analysis are we doing?
-analyze_function = analyze_contract
-
 log("Analysing...\n")
 try:
     while not contracts_exhausted:
@@ -417,12 +418,15 @@ try:
         # If there's both workers and contracts available, use the former to work on the latter.
         while not contracts_exhausted and len(avail_jobs) > 0:
             try:
-                index, fname = next(contract_iter)
+                index, contract_name = next(contract_iter)
                 job_index = avail_jobs.pop()
-                proc = Process(target=analyze_function, args=(job_index, index, fname, res_queue, args.timeout_secs))
+                working_dir = get_working_dir(contract_name)
+                if os.path.isdir(working_dir) and not args.rerun_clients:
+                    continue
+                proc = Process(target=analyze_contract, args=(job_index, index, contract_name, res_queue, args.timeout_secs))
                 proc.start()
                 start_time = time.time()
-                workers.append({"name": fname,
+                workers.append({"name": contract_name,
                                 "proc": proc,
                                 "time": start_time,
                                 "job_index": job_index})
