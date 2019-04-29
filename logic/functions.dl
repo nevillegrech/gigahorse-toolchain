@@ -69,9 +69,12 @@ ReachableFrom(blockNext, blockPrev) :-
 
 // block with no out edges
 .decl TerminalBlock(b: Block)
+.decl TerminalBlockReachableThrough(from: Block, through: Block, terminal: Block)
+.decl CountTerminalBlockReachableThrough(from: Block, terminal: Block, n: number)
+.decl TotalCountOfBlocksUntilTerminal(from: Block, n: number)
+
 TerminalBlock(b) :- Statement_Block(_, b), !BlockEdge(_, b, _, _).
 
-.decl TerminalBlockReachableThrough(from: Block, through: Block, terminal: Block)
 TerminalBlockReachableThrough(b, b, b) :- TerminalBlock(b).
 
 TerminalBlockReachableThrough(from, through, terminal),
@@ -80,12 +83,10 @@ TerminalBlockReachableThrough(from, from, terminal) :-
    TerminalBlockReachableThrough(other, through, terminal),
    BlockEdge(_, from, _, other).
 
-.decl CountTerminalBlockReachableThrough(from: Block, terminal: Block, n: number)
 CountTerminalBlockReachableThrough(from, terminal, n) :-
    TerminalBlockReachableThrough(from, _, terminal),
    n = count : TerminalBlockReachableThrough(from, _, terminal).
 
-.decl TotalCountOfBlocksUntilTerminal(from: Block, n: number)
 TotalCountOfBlocksUntilTerminal(from, n) :-
    CountTerminalBlockReachableThrough(from, _, _),
    n = sum k : CountTerminalBlockReachableThrough(from, _, k).
