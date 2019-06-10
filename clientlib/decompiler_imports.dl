@@ -90,6 +90,10 @@
 .decl Block_Gas(block:Block, gas:number)
 .input Block_Gas(IO="file", filename="IRBlock_Gas.csv", delimiter="\t")
 
+// Export max context depth of decompilation, possibly useful for client analysis tuning
+.decl MaxContextDepth(n:number)
+.input MaxContextDepth(IO="file", filename="MaxContextDepth.csv", delimiter="\t")
+
 // Special instructions & data flow
 
 // Actuals are on the function call side, the args supplied to a function call

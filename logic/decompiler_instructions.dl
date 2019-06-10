@@ -88,8 +88,6 @@ OperationRightIdentity("DIV", "0x1").
 OperationRightIdentity("SDIV", "0x1").
 OperationRightIdentity("AND", mask) :- Mask_Length(mask, length), length > 0. 
 
-.output OperationLeftIdentity, OperationRightIdentity
-
 // Masks with all 1s
 .decl Mask_Length(mask: Value, bytes: number)
 .decl PreMask_Length(mask: symbol, bytes: number)
