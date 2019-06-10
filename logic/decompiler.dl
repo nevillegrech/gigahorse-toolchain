@@ -324,14 +324,14 @@ Variable_Value(resVar, val1) :-
   Statement_Opcode(stmt, opcode),
   Variable_Value(var0, val0),
   Variable_Value(var1, val1),
-  OperationIsEq(opcode, val0).
+  OperationLeftIdentity(opcode, val0).
 
 Variable_Value(resVar, val0) :-
   ArithmeticOpcodes(stmt, var0, var1, resVar),
   Statement_Opcode(stmt, opcode),
   Variable_Value(var0, val0),
   Variable_Value(var1, val1),
-  OperationIsEq(opcode, val1).
+  OperationRightIdentity(opcode, val1).
 
 Variable_Value(resVar, res) :-
   ArithmeticOpcodes(stmt, var0, var1, resVar),

@@ -59,23 +59,36 @@ DynamicStatement(stmt) :-
 // RETURNDATASIZE is a new instruction, not in the Yellow Paper.
 // Represents stack contents at previous location in the same block
 
-// Many operations have neutral elements, and some are used often.
+// Many operations have identity elements, and some are used often.
 // Recognize such arithmetic that is guaranteed to return one of its
 // operands.
-.decl OperationIsEq(opcode:symbol, value:Value)
+.decl OperationLeftIdentity(opcode:symbol, value:Value)
+.decl OperationRightIdentity(opcode:symbol, value:Value)
+
+// Similarly for operations on constant values that return known results,
+// e.g., AND with zeros
 .decl OperationIs(opcode:symbol, value1:Value, value2:Value)
 
-OperationIsEq("OR", "0x0").
-OperationIsEq("SHL", "0x0").
-OperationIsEq("SHR", "0x0").
-OperationIsEq("SAR", "0x0").
-OperationIsEq("XOR", "0x0").
-OperationIsEq("ADD", "0x0").
-OperationIsEq("SUB", "0x0").
-OperationIsEq("MUL", "0x1").
-OperationIsEq("DIV", "0x1").
-OperationIsEq("SDIV", "0x1").
-OperationIsEq("AND", mask) :- Mask_Length(mask, length), length > 0. 
+OperationLeftIdentity("OR", "0x0").
+OperationLeftIdentity("SHL", "0x0").
+OperationLeftIdentity("SHR", "0x0").
+OperationLeftIdentity("SAR", "0x0").
+OperationLeftIdentity("XOR", "0x0").
+OperationLeftIdentity("ADD", "0x0").
+OperationLeftIdentity("MUL", "0x1").
+// REVIEW: better treatment of masking
+OperationLeftIdentity("AND", mask) :- Mask_Length(mask, length), length > 0. 
+
+OperationRightIdentity("OR", "0x0").
+OperationRightIdentity("XOR", "0x0").
+OperationRightIdentity("ADD", "0x0").
+OperationRightIdentity("SUB", "0x0").
+OperationRightIdentity("MUL", "0x1").
+OperationRightIdentity("DIV", "0x1").
+OperationRightIdentity("SDIV", "0x1").
+OperationRightIdentity("AND", mask) :- Mask_Length(mask, length), length > 0. 
+
+.output OperationLeftIdentity, OperationRightIdentity
 
 // Masks with all 1s
 .decl Mask_Length(mask: Value, bytes: number)
