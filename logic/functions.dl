@@ -10,10 +10,22 @@
 ******/
 // Special entry point to public function found heuristically
 .decl PublicFunction(basicBlock: Block, sigHash: Value)
-// Code inserted by compiler to dispatch to the correct public function
-.decl PublicFunctionDispatcher(basicBlock: Block, sigHash: Value)
-// (Possibly) Code inserted by compiler to compare function signature
+
+// Code inserted by compiler to compare function signature
 .decl BlockComparesSig(block: Block, sigHash: Value)
+
+.decl FunctionSelectorVariable(var: Variable)
+
+FunctionSelectorVariable(var) :-
+  CALLDATALOAD(stmt), 
+  Statement_Uses(stmt, index, _),
+  Variable_Value(index, "0x0"),
+  Statement_Defines(stmt, var).
+
+FunctionSelectorVariable(y) :-
+   FunctionSelectorVariable(x),
+   Statement_Uses(stmt, x, _),
+   Statement_Defines(stmt, y).
 
 // Compares label from stack to a constant: common public function dispatch
 // pattern
@@ -24,25 +36,15 @@ BlockComparesSig(block, sigHash) :-
   Statement_Block(eqStmt, block),
   EQ(eqStmt),
   Statement_Uses(eqStmt, sigHashVar, _),
+  Statement_Uses(eqStmt, functionSelectorVar, _),
+  FunctionSelectorVariable(functionSelectorVar),
   Statement_Block(jumpiStmt, block),
   JUMPI(jumpiStmt),
   Statement_Defines(eqStmt, pred),
   Statement_Uses(jumpiStmt, pred, 1).
 
-// Initial case, uses CALLDATALOAD
-PublicFunctionDispatcher(block, sigHash) :-
-  Statement_Block(stmt, block),
-  CALLDATALOAD(stmt),
-  BlockComparesSig(block, sigHash).
-
-// General case
-PublicFunctionDispatcher(block, sigHash) :-
-  BlockComparesSig(block, sigHash),
-  BlockEdge(_, prev, _, block),
-  PublicFunctionDispatcher(prev, _).
-
 PublicFunction(CAST_TO_SYMBOL(label), sigHash) :-
-  PublicFunctionDispatcher(block, sigHash),
+  BlockComparesSig(block, sigHash),
   Statement_Block(jumpiStmt, block),
   JUMPI(jumpiStmt),
   BeforeLocalStackContents(jumpiStmt, _, labelvar),
@@ -273,7 +275,7 @@ detector0.PrevFunctionEntry(block) :-
 
 detector0.PrevFunctionCall(prev, func) :-
   PublicFunction(func, sigHash),
-  PublicFunctionDispatcher(prev, sigHash).
+  BlockComparesSig(prev, sigHash).
 
 detector0.PrevFunctionCall(prev, func) :-
   FunctionCallReturn(prev, func, _).
