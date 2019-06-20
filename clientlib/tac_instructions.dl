@@ -123,6 +123,10 @@ StatementStoresMemory(stmt) :-
    Statement_Opcode(stmt, "CODECOPY") ;
    Statement_Opcode(stmt, "EXTCODECOPY") ;
    Statement_Opcode(stmt, "RETURNDATACOPY").
+//   Statement_Opcode(stmt, "CALL") ;
+//   Statement_Opcode(stmt, "CALLCODE") ;
+//   Statement_Opcode(stmt, "DELEGATECALL") ;
+//   Statement_Opcode(stmt, "STATICCALL").
 
 .decl StatementLoadsMemory(stmt: Statement)
 
@@ -130,6 +134,7 @@ StatementLoadsMemory(stmt) :-
    Statement_Opcode(stmt, "MLOAD").
 //   Statement_Opcode(stmt, "SHA3") ;
 //   Statement_Opcode(stmt, "CREATE") ;
+//   Statement_Opcode(stmt, "CREATE2") ;
 //   Statement_Opcode(stmt, "CALL") ;
 //   Statement_Opcode(stmt, "CALLCODE") ;
 //   Statement_Opcode(stmt, "DELEGATECALL") ;
