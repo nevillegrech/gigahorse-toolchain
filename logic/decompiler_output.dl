@@ -184,6 +184,15 @@ PRE_TAC_Use(stmt, var_rep, n) :-
 PRE_TAC_Use(phiStmt, var_rep, -1) :-
   PHILocation(block, stackIndex, phiStmt),
   FunctionalBlockInputContents(block, stackIndex, var),
+  FunctionalStatement_Defines(defstmt, var, _),
+  IRStatement_Block(defstmt, defBlock),
+  Variable_Block_String(var, defBlock, var_rep).
+
+// Case 3.1: Phis using args
+PRE_TAC_Use(phiStmt, var_rep, -1) :-
+  PHILocation(block, stackIndex, phiStmt),
+  FunctionalBlockInputContents(block, stackIndex, var),
+  FunctionArgument(_, _, var),
   Variable_Block_String(var, block, var_rep).
 
 
