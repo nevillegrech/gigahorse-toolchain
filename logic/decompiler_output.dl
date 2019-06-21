@@ -156,12 +156,27 @@ PRE_TAC_Use(stmt, var_rep, n) :-
   Variable_Stmt_String(var, stmt, var_rep).
 
 // Case 2: Uses monomorphic global var
+// Using the block in which the var is defined,
+// Fixes cases where a stmt in a cloned block is using
+// a variable defined in a non cloned block
 PRE_TAC_Use(stmt, var_rep, n) :-
   FunctionalStatement_Uses_Local(stmt, stackIndex, n),
   CheckIsStackIndex(stackIndex),
   IRStatement_Block(stmt, block),
   !PHILocation(block, stackIndex, _),
   FunctionalBlockInputContents(block, stackIndex, var),
+  FunctionalStatement_Defines(defstmt, var, _),
+  IRStatement_Block(defstmt, defBlock),
+  Variable_Block_String(var, defBlock, var_rep).
+
+//Case 2.1: Uses arg(like the above case, but not defined)
+PRE_TAC_Use(stmt, var_rep, n) :-
+  FunctionalStatement_Uses_Local(stmt, stackIndex, n),
+  CheckIsStackIndex(stackIndex),
+  IRStatement_Block(stmt, block),
+  !PHILocation(block, stackIndex, _),
+  FunctionalBlockInputContents(block, stackIndex, var),
+  FunctionArgument(_, n, var),
   Variable_Block_String(var, block, var_rep).
 
 
