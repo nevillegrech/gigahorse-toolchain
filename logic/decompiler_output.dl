@@ -176,7 +176,7 @@ PRE_TAC_Use(stmt, var_rep, n) :-
   IRStatement_Block(stmt, block),
   !PHILocation(block, stackIndex, _),
   FunctionalBlockInputContents(block, stackIndex, var),
-  FunctionArgument(_, n, var),
+  FunctionArgument(_, _, var),
   Variable_Block_String(var, block, var_rep).
 
 
