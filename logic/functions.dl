@@ -65,40 +65,32 @@ ReachableFrom(blockNext, blockPrev) :-
   BlockEdge(_, block, _, blockNext). 
 
 
+
 /******
-         Inlineable blocks
+         Order blocks based on their minimum distance from the
+         contract entry point.
 ******/
 
-// block with no out edges
-.decl TerminalBlock(b: Block)
-.decl TerminalBlockReachableThrough(from: Block, through: Block, terminal: Block)
-.decl CountTerminalBlockReachableThrough(from: Block, terminal: Block, n: number)
-.decl TotalCountOfBlocksUntilTerminal(from: Block, n: number)
+.decl PossibleDistanceFromContractEntry(block:Block, d: number)
+.decl MinimumDistanceFromContractEntry(block:Block, d: number)
 
-TerminalBlock(b) :- Statement_Block(_, b), !BlockEdge(_, b, _, _).
+PossibleDistanceFromContractEntry(FUNCTION_SELECTOR, 0).
 
-TerminalBlockReachableThrough(b, b, b) :- TerminalBlock(b).
+PossibleDistanceFromContractEntry(block, n+1) :-
+  PossibleDistanceFromContractEntry(otherBlock, n),
+  BlockEdge(_, otherBlock, _, block),
+  n < 100.
 
-TerminalBlockReachableThrough(from, through, terminal),
-TerminalBlockReachableThrough(from, other, terminal),
-TerminalBlockReachableThrough(from, from, terminal) :-
-   TerminalBlockReachableThrough(other, through, terminal),
-   BlockEdge(_, from, _, other).
+MinimumDistanceFromContractEntry(block, n) :-
+  PossibleDistanceFromContractEntry(block, _),
+  n = min m : PossibleDistanceFromContractEntry(block, m). 
 
-CountTerminalBlockReachableThrough(from, terminal, n) :-
-   TerminalBlockReachableThrough(from, _, terminal),
-   n = count : TerminalBlockReachableThrough(from, _, terminal).
-
-TotalCountOfBlocksUntilTerminal(from, n) :-
-   CountTerminalBlockReachableThrough(from, _, _),
-   n = sum k : CountTerminalBlockReachableThrough(from, _, k).
-
-.decl InlineableBlock(entry: Block)
-
-InlineableBlock(block) :-
-   Statement_Block(_, block),
-   TotalCountOfBlocksUntilTerminal(block, n),
-   n <= 8.
+.decl BlockBeforeOther(entryBefore:Block, entryAfter:Block)
+BlockBeforeOther(entryBefore, entryAfter) :-
+  ReachableFrom(entryBefore, entryAfter),
+  MinimumDistanceFromContractEntry(entryBefore, n1),
+  MinimumDistanceFromContractEntry(entryAfter, n2),
+  n1 < n2.
 
 
 /******
@@ -107,47 +99,50 @@ InlineableBlock(block) :-
 
 .decl PossibleReturnAddress(caller:Block, ret:Block, target:Block)
 
-// Possibly a return:
+// Call-return pattern:
 // a) basic block jumps to a valid "non-locally-derived" address
-// b) address originates at a caller that can reach the
-//    returning basic block.
-PossibleReturnAddress(callerBlock, retBlock, retTarget) :-
-   BlockJumpValidTarget(_, retBlock, targetVariable, retTarget),
-   !ImmediateBlockJumpTarget(retBlock, targetVariable),
-   Statement_Defines(otherCallerStatement, targetVariable),
-   Statement_Block(otherCallerStatement, callerBlock),
-   //ReachableFrom(prevBlock, callerBlock),
-   //ContextCompatibleWithPredecessor(retCtx, prevBlock),
-   BasicBlock_Tail(callerBlock, callerStmt),
-   IsJump(callerStmt).
-
-// c) two different callerblocks return to the same address. Candidate
-// for inlining.
-.decl ConflictingReturnAddress(caller:Block, ret:Block, target:Block)
-
-ConflictingReturnAddress(callerBlock, retBlock, retTarget) :-
-   PossibleReturnAddress(callerBlock, retBlock, retTarget),
-   PossibleReturnAddress(callerBlock2, _, retTarget),
-   callerBlock != callerBlock2.
-
-// Currently unused, subject to change
-.decl InlineProcedureEntry(entry: Block)
-InlineProcedureEntry(entry) :-
-   InlineableBlock(entry),
-   ConflictingReturnAddress(_, _, entry).
+// b) address originates at a target-setter.
+PossibleReturnAddress(targetSetter, retBlock, retTarget) :-
+  BlockJumpValidTarget(_, retBlock, targetVariable, retTarget),
+  !ImmediateBlockJumpTarget(retBlock, targetVariable),
+  Statement_Defines(targetSetStatement, targetVariable),
+  Statement_Block(targetSetStatement, targetSetter),
+  BasicBlock_Tail(targetSetter, jumpStmt),
+  IsJump(jumpStmt).
 
 
-.decl PossibleFunctionCall(caller:Block, func:Block, retBlock:Block, retTarget:Block)
+// A high-level call can only be translated into an immediate jump.
+// More complex jumps (e.g., through basic blocks that just keep
+// whatever was on the stack and jump to it) are technicalities for
+// inlining.
+.decl PotentialCall(caller:Block)
+PotentialCall(block) :-
+  ImmediateBlockJumpTarget(block, _).
 
-PossibleFunctionCall(caller, func, retBlock, retTarget) :-
+// Also match a subset of those with return addresses and full info. The
+// function may not be the one containing the return, in case of complex
+// call patterns (e.g., call-call, or call-return).
+.decl PossibleFunctionCallWithReturn(caller:Block, func:Block, retBlock:Block, retTarget:Block)
+PossibleFunctionCallWithReturn(caller, func, retBlock, retTarget) :-
   PossibleReturnAddress(caller, retBlock, retTarget),
-  (!ConflictingReturnAddress(caller, retBlock, retTarget) ;
-   InlineableBlock(retTarget)),
-   // disjunction: either there is no reason to inline post-return
-   // block, or can do so
-  !InlineableBlock(func),
-  BlockJumpValidTarget(_, caller, _, func).
+  ImmediateBlockJumpTarget(caller, targetVar),
+  BlockJumpValidTarget(_, caller, targetVar, func).
 
+// Seems pretty certain we found a return. In fact, at this point,
+// with the above logic, we have detected all original return
+// instructions in the code. There will be artificial returns added
+// later, for calls that end up being tail calls.
+.decl IsReturn(ret:Block)
+IsReturn(retBlock) :-
+  PossibleReturnAddress(_, retBlock, _).
+
+.output IsReturn
+
+
+// Filtering for sanitization. The logic following can be arbitrarily
+// restrictive. We have all potential calls and all returns, now we
+// want to match them to each other and form cohesive functions (both
+// for the caller and for the callee) only with very high certainty.
 
 // What is a function?
 // 1) A function has to have a single entry point
@@ -156,56 +151,43 @@ PossibleFunctionCall(caller, func, retBlock, retTarget) :-
 // 4) If code is inlined it's something else
 
 .decl FunctionCalledMultipleTimes(func: Block)
-
 FunctionCalledMultipleTimes(func) :-
-   PossibleFunctionCall(caller, func, retBlock, _),
-   PossibleFunctionCall(caller2, func, retBlock, _),
-   caller != caller2.
-
-// Some sanitization
+  PossibleFunctionCallWithReturn(caller, func, retBlock, _),
+  PossibleFunctionCallWithReturn(caller2, func, retBlock, _),
+  caller != caller2.
 
 // Return block can only pertain to one function!
 .decl NotValidReturnBlock(func: Block, retBlock: Block) 
-
 NotValidReturnBlock(func, retBlock) :-
-  PossibleFunctionCall(_, func, retBlock, _),
-  PossibleFunctionCall(_, func2, retBlock, _),
+  PossibleFunctionCallWithReturn(_, func, retBlock, _),
+  PossibleFunctionCallWithReturn(_, func2, retBlock, _),
   ord(func) < ord(func2).
-///// This is not quite accurate. The same return block can be used
-///// for both calls and tail-calls, effectively pertaining to more
-///// than one function.
 
 // Block reached from return edge cannot also be called directly
 .decl NotValidReturnEdge(retBlock: Block, retTarget: Block)
-
 NotValidReturnEdge(retBlock, retTarget) :-
-   PossibleFunctionCall(_, func, retBlock, retTarget),
-   func != retBlock,
-   PossibleFunctionCall(_, _, retTarget, _).
+  PossibleFunctionCallWithReturn(_, _, retBlock, retTarget),
+  (IsReturn(retTarget) ; 
+   PossibleFunctionCallWithReturn(_, retTarget, _, _)).
 
+// Caller calls func and func returns to retTarget. Should only be inferred with
+// high confidence.
+.decl FunctionCallReturn(caller:Block, func:Block, retBlock:Block, retTarget:Block)
+FunctionCallReturn(caller, func, retBlock, retTarget) :-
+  PossibleFunctionCallWithReturn(caller, func, retBlock, retTarget),
+  FunctionCalledMultipleTimes(func),
+  !NotValidReturnBlock(func, retBlock),
+  !NotValidReturnEdge(retBlock, retTarget).
 
-// caller calls func and func returns to retTarget
-.decl FunctionCallReturn(caller:Block, func:Block, retTarget:Block)
-.decl Function_Return(func:Block, retBlock:Block)
-.decl Function_Return_Edge(block: Block, next: Block)
+.output FunctionCallReturn // DEBUG
 
-Function_Return_Edge(retBlock, retTarget),
-Function_Return(func, retBlock),
-FunctionCallReturn(caller, func, retTarget) :-
-   PossibleFunctionCall(caller, func, retBlock, retTarget),
-   !NotValidReturnBlock(func, retBlock),
-   !NotValidReturnEdge(retBlock, retTarget),
-   FunctionCalledMultipleTimes(func),
-   !InlineableBlock(func).
-
-// Further function decomposition.
-// Detects function boundaries, calls and returns iteratively.  Main
+// Detect function boundaries, calls and returns iteratively.  Main
 // heuristic: if a block is reachable by two others that have to be in
 // different functions, then that block is also in an independent
 // function.
 
 // Used components to force stratification.
-.comp FunctionDetection {
+.comp FunctionDiscovery {
   // An Entry to a function (private or public)
   .decl FunctionEntry(block: Block)
   // Same, but for previous iteration of the algorithm   
@@ -218,7 +200,6 @@ FunctionCallReturn(caller, func, retTarget) :-
    // Same, but for previous iteration of the algorithm   
   .decl PrevFunctionCall(block: Block, func: Block)
 
-  
   InFunction(block, block) :-
     PrevFunctionEntry(block).
 
@@ -226,132 +207,184 @@ FunctionCallReturn(caller, func, retTarget) :-
     InFunction(block, func),
     BlockEdge(_, block, _, next),
     !PrevFunctionCall(block, next),
-    !Function_Return(_, block).
+    !IsReturn(block).
 
   InFunction(next, func) :-
     InFunction(block, func),
-    FunctionCallReturn(block, _, next).
+    FunctionCallReturn(block, _, _, next),
+    !IsReturn(block). // probably extraneous
 
-  // Heuristic for finding function calls
-  // Execution flows to a basic block that is
-  // part of more than one function, TODO
+  // Heuristic for finding function calls.  Execution flows to a basic
+  // block that is part of more than one function.
   FunctionCall(prev, block),
   FunctionEntry(block) :-
     InFunction(block, func),
     BlockEdge(_, prev, _, block),
-    !InlineableBlock(block),
-    !Function_Return(_, prev),
+    PotentialCall(prev),
+    !IsReturn(prev),
     !InFunction(prev, func),
     Statement_Block(jmp, prev),
     IsJump(jmp).
 
-  //// Not a reliable heuristic. A call is identifiable, a return
-  //// is identifiable, a function entry point is not! The same
-  //// basic block could also be jumped to directly (e.g., as a result
-  //// of a tail-call).
+  // If we are certain a block is a function entry, and its predecessor
+  // is not a return (i.e., no tail call), then it's got to be a call.
   FunctionCall(prev, block) :-
     FunctionEntry(block),
     BlockEdge(_, prev, _, block),
-    !Function_Return(_, prev),
+    !IsReturn(prev),
     Statement_Block(jmp, prev),
     IsJump(jmp).
-
-  // We disallow function calls without a jump.
-  // In the future we will need to change some of our assumptions about function calls.
 
   FunctionCall(prev, func1) :- PrevFunctionCall(prev, func1).
   FunctionEntry(block) :- PrevFunctionEntry(block).
 }
 
+.output BlockEdge // DEBUG
+
 // Initialize and iterate the algorithm
-.init detector0 = FunctionDetection
-detector0.PrevFunctionEntry(block) :-
-   PublicFunction(block, _).
+.init discovery0 = FunctionDiscovery
+discovery0.PrevFunctionEntry(block) :-
+  PublicFunction(block, _).
 
-detector0.PrevFunctionEntry(FUNCTION_SELECTOR).
-   
-detector0.PrevFunctionEntry(block) :-
-  FunctionCallReturn(_, block, _).
+discovery0.PrevFunctionEntry(FUNCTION_SELECTOR).
 
-detector0.PrevFunctionCall(prev, func) :-
+discovery0.PrevFunctionEntry(func) :-
+  FunctionCallReturn(_, func, _, _).
+
+discovery0.PrevFunctionCall(prev, func) :-
   PublicFunction(func, sigHash),
   BlockComparesSig(prev, sigHash).
 
-detector0.PrevFunctionCall(prev, func) :-
-  FunctionCallReturn(prev, func, _).
+discovery0.PrevFunctionCall(prev, func) :-
+  FunctionCallReturn(prev, func, _, _).
 
-.init detector1 = FunctionDetection
-detector1.PrevFunctionEntry(block) :- detector0.FunctionEntry(block).
-detector1.PrevFunctionCall(block, func) :- detector0.FunctionCall(block, func).
 
-.init detector2 = FunctionDetection
-detector2.PrevFunctionEntry(block) :- detector1.FunctionEntry(block).
-detector2.PrevFunctionCall(block, func) :- detector1.FunctionCall(block, func).
+.init discovery1 = FunctionDiscovery
+discovery1.PrevFunctionEntry(block) :- discovery0.FunctionEntry(block).
+discovery1.PrevFunctionCall(block, func) :- discovery0.FunctionCall(block, func).
 
-.init detector3 = FunctionDetection
-detector3.PrevFunctionEntry(block) :- detector2.FunctionEntry(block).
-detector3.PrevFunctionCall(block, func) :- detector2.FunctionCall(block, func).
+.init discovery2 = FunctionDiscovery
+discovery2.PrevFunctionEntry(block) :- discovery1.FunctionEntry(block).
+discovery2.PrevFunctionCall(block, func) :- discovery1.FunctionCall(block, func).
+
+.init discovery3 = FunctionDiscovery
+discovery3.PrevFunctionEntry(block) :- discovery2.FunctionEntry(block).
+discovery3.PrevFunctionCall(block, func) :- discovery2.FunctionCall(block, func).
 
 /***********
-   Collecting all function decomposition results
+   Collecting all function discovery results
 ***********/
 
 // block ends with a call to func
-.decl FunctionCall(block:Block, func:Block)
-FunctionCall(block, func) :- detector3.FunctionCall(block, func).
+.decl IsFunctionCall(block:Block, func:Block)
+IsFunctionCall(block, func) :- discovery3.FunctionCall(block, func).
 
-.decl Function(func:Block)
-Function(func) :- detector3.FunctionEntry(func).
+.decl IsFunctionEntry(entry:Block)
+IsFunctionEntry(func) :- discovery3.FunctionEntry(func).
+
+.decl MaybeInFunction(block:Block, func:Block)
+MaybeInFunction(block, func) :- discovery3.InFunction(block, func).
+
+.decl BlockInMultipleFunctions(entry: Block)
+BlockInMultipleFunctions(block) :-
+  MaybeInFunction(block, func1),
+  MaybeInFunction(block, func2),
+  func1 != func2.
+
+// For this function, the block should be inlined, although for others
+// it may be called as a separate function.
+.decl BlockToInline(block: Block, func: Block)
+BlockToInline(next, func) :-
+  BlockEdge(_, block, _, next),
+     // cannot be a call, unless our function discovery didn't iterate
+     // enough (which is highly unlikely)
+  MaybeInFunction(block, func),
+  !BlockInMultipleFunctions(block),
+  MaybeInFunction(next, func),
+  BlockInMultipleFunctions(next).
+
+BlockToInline(next, func) :-
+  BlockEdge(_, block, _, next),
+  BlockToInline(block, func),
+  MaybeInFunction(next, func),
+  BlockInMultipleFunctions(next).
+
+
+.output IsFunctionEntry, IsFunctionCall, BlockToInline // DEBUG
+
+.output discovery0.FunctionCall // DEBUG
+.output discovery1.FunctionCall // DEBUG
+.output discovery2.FunctionCall // DEBUG
+.output discovery3.FunctionCall // DEBUG
+.output discovery0.InFunction   // DEBUG
+.output discovery1.InFunction   // DEBUG
+.output discovery2.InFunction   // DEBUG
+.output discovery3.InFunction   // DEBUG
+.output discovery0.FunctionEntry   // DEBUG
+.output discovery1.FunctionEntry   // DEBUG
+.output discovery2.FunctionEntry   // DEBUG
+.output discovery3.FunctionEntry   // DEBUG
+
+//////////// Disabled for now. Reintroduce after rest is sorted out.
+// This is the interesting case to disambiguate: a continuation,
+// passed to a call statement, is not unique. Is it a tail call?
+// Is it a call immediately followed by another call?
+.decl CommonReturnAddress(caller1:Block, caller2:Block, ret:Block, target:Block)
+CommonReturnAddress(caller1, caller2, retBlock, retTarget) :-
+  PossibleReturnAddress(caller1, retBlock, retTarget),
+  IsFunctionCall(caller1, _),
+  PossibleReturnAddress(caller2, _, retTarget),
+  IsFunctionCall(caller2, _),
+  caller1 != caller2.
+
+// There are three distinct cases of call statements. We need to
+// recognize all three.
+// 1) Call: a regular, simple call, which will return to the caller
+//    function.
+// 2) CallReturn: a tail call. It will return to some caller of the
+//    caller function.
+// 3) CallCall: a call followed by another call. The caller passes
+//    the second callee as the continuation of the first call.
+
+.decl IsCallCall(caller:Block)
+.decl IsCallReturn(caller:Block)
+
+IsCallCall(caller) :-
+  PossibleReturnAddress(caller, _, retTarget),
+  IsFunctionCall(caller, _),
+  IsFunctionEntry(retTarget).
+
+IsCallReturn(caller2) :-
+  CommonReturnAddress(caller1, caller2, _, _),
+  BlockBeforeOther(caller1, caller2).
+
+.output CommonReturnAddress, IsCallReturn, IsCallCall
 
 
 /***********
  * Identify actual function calls and returns
  ***********/
 .decl FunctionCallStmt(stmt: Statement)
-
 FunctionCallStmt(stmt) :-
-   FunctionCall(block, _),
-   IsJump(stmt),
-   BasicBlock_Tail(block, stmt).
+  IsFunctionCall(block, _),
+  //   IsJump(stmt), // extraneous
+  BasicBlock_Tail(block, stmt).
 
 .decl FunctionReturnStmt(stmt: Statement)
-
 FunctionReturnStmt(stmt) :-
-   Function_Return(_, block),
-   IsJump(stmt),
-   BasicBlock_Tail(block, stmt).
-
-// Create fresh call statements here if jump doesn't exist
-// TODO (if needed)
-/*
-.decl IRBasicBlock_CALL(block: IRBlock, stmt: IRStatement)
-
-IRBasicBlock_CALL(block, stmt),
-IRFunctionCallStmt(stmt) :-
-   FunctionCall(block, _),
-   IRIsJump(stmt),
-   IRBasicBlock_Tail(block, stmt).
-
-IRStatementNum(newStmt, num+1),
-IRBasicBlock_CALL(block, newStmt),
-Statement_IRStatement(...),
-FunctionCallStmt(newStmt) :-
-   newStmt = cat(irstmt,"_call"),                
-   IRFunctionCall(block, _),
-   !IRIsJump(irstmt),
-   IRBasicBlock_Tail(block, irstmt),
-   Statement_IRStatement(stmt, irstmt),
-   _StatementNum(stmt, num).
-*/    
+  IsReturn(block),
+  //   IsJump(stmt), // extraneous
+  BasicBlock_Tail(block, stmt).
 
 
 /***********
  * Introduce new IR
  ***********/
 #define FRESH_IRBLOCK(b, f) cat((b), (f))
-#define BLOCK_TO_IRBLOCK CAST_TO_SYMBOL
 #define FRESH_IRSTATEMENT(s, f) cat((s), (f))
+#define BLOCK_TO_IRBLOCK CAST_TO_SYMBOL
 #define STATEMENT_TO_IRSTATEMENT CAST_TO_SYMBOL
+#define FUNCTION_TO_IRFUNCTION CAST_TO_SYMBOL
  
 .type IRBlock
 // exploit type checking in new IR
@@ -359,59 +392,34 @@ FunctionCallStmt(newStmt) :-
 .type IRStatement
 
 .decl Block_IRBlock(block: Block, irblock: IRBlock)
+.decl Function_IRFunction(func: Block, irFunc: IRFunction)
 .decl InFunction(block: IRBlock, func: IRFunction)
-.decl IRFunctionEntry(from: IRBlock)
+.decl IRFunctionEntry(irEntry: IRBlock)
 
-.decl BlockEdgeIntraProc(block: Block, next: Block)
+// Let's first settle what belongs in which function,
+// i.e., the nodes of our graph. Clone blocks as needed.
 
-// Assumption: In this model one can only move between functions
-// trough a jump. A fallthrough always stays within the same function
-BlockEdgeIntraProc(block, next) :-
-  BlockEdge(_, block, _, next),
-  (!FunctionCall(block, _) ;
-   (FunctionCall(block, other), other != next)),
-  !Function_Return_Edge(block, _).
+Function_IRFunction(funcentry, irEntry),
+IRFunctionEntry(irEntry) :-
+  IsFunctionEntry(funcentry),
+  irEntry = FUNCTION_TO_IRFUNCTION(funcentry).
 
-BlockEdgeIntraProc(block, next) :-
-  FallthroughEdge(block, next).
+Block_IRBlock(block, irblock),
+InFunction(irblock, irFunc) :-
+  MaybeInFunction(block, func),
+  !BlockToInline(block, func),
+  irblock = BLOCK_TO_IRBLOCK(block),
+  Function_IRFunction(func, irFunc).
 
-IRFunctionEntry(irblock),
-Block_IRBlock(funcentry, irblock),
-InFunction(irblock, funcentry) :-
-  Function(funcentry),
-  irblock = BLOCK_TO_IRBLOCK(funcentry).
+Block_IRBlock(block, irblock),
+InFunction(irblock, irFunc) :-
+  MaybeInFunction(block, func),
+  BlockToInline(block, func),
+  irblock = FRESH_IRBLOCK(block, func),
+  Function_IRFunction(func, irFunc).
 
-Block_IRBlock(next, irnext),
-InFunction(irnext, func) :-
-  BlockEdgeIntraProc(block, next),
-  InlineableBlock(next),
-  Block_IRBlock(block, irblock),
-  InFunction(irblock, func),
-  irnext = FRESH_IRBLOCK(next, func).
-
-Block_IRBlock(next, irnext),
-InFunction(irnext, func) :-
-  FunctionCallReturn(block, _, next),
-  Block_IRBlock(block, irblock),
-  InFunction(irblock, func),
-  InlineableBlock(next),
-  irnext = FRESH_IRBLOCK(next, func).
-
-Block_IRBlock(next, irnext),
-InFunction(irnext, func) :-
-  BlockEdgeIntraProc(block, next),
-  !InlineableBlock(next),
-  Block_IRBlock(block, irblock),
-  InFunction(irblock, func),
-  irnext = BLOCK_TO_IRBLOCK(next).
-
-Block_IRBlock(next, irnext),
-InFunction(irnext, func) :-
-  FunctionCallReturn(block, _, next),
-  !InlineableBlock(next),
-  Block_IRBlock(block, irblock),
-  InFunction(irblock, func),
-  irnext = BLOCK_TO_IRBLOCK(next).
+// Now let's settle the edges of the graph: which
+// block is connected to which next one.
 
 .decl IRFunction_Return_Edge(block: IRBlock, next: IRBlock)
 .decl IRFunction_Return(fn: IRFunction, ret: IRBlock)
@@ -420,23 +428,34 @@ InFunction(irnext, func) :-
 IRFunction_Return(func, retir),
 IRFunctionCallReturn(callerir, func, callerretir),
 IRFunction_Return_Edge(retir, callerretir) :-
-   FunctionCallReturn(caller, func, callerret),
-   Function_Return(func, ret),
-   Block_IRBlock(ret, retir),
-   Block_IRBlock(caller, callerir),
-   Block_IRBlock(callerret, callerretir),
-   InFunction(callerir, prevfunc),
-   InFunction(callerretir, prevfunc).
+  FunctionCallReturn(caller, func, ret, callerret),
+  Block_IRBlock(ret, retir),
+  Block_IRBlock(caller, callerir),
+  Block_IRBlock(callerret, callerretir),
+  InFunction(callerir, prevfunc),
+  InFunction(callerretir, prevfunc).
+
+
+// REVIEW: IRFunctionCall will include the IRFunctionCallReturn
+// edges, i.e., the fully resolved calls, all the way to returns
+// to the same caller function. Seems later stages can handle this?
 
 .decl IRFunctionCall(from: IRBlock, func: IRFunction)
-
-IRFunctionCall(fromir, func) :-
-   FunctionCall(from, func),
-   Block_IRBlock(from, fromir).
+IRFunctionCall(fromir, irFunc) :-
+  IsFunctionCall(from, func),
+  Block_IRBlock(from, fromir),
+  Function_IRFunction(func, irFunc).
 
 // Intra-function edges (i.e., real CFG edges)
-.decl LocalBlockEdge(block: IRBlock, next: IRBlock)
 
+// This is just a helper relation, on old blocks, not IR blocks
+.decl BlockEdgeIntraProc(block: Block, next: Block)
+BlockEdgeIntraProc(block, next) :-
+  BlockEdge(_, block, _, next),
+  MaybeInFunction(block, func),
+  MaybeInFunction(next, func).
+
+.decl LocalBlockEdge(block: IRBlock, next: IRBlock)
 LocalBlockEdge(irfrom, irto) :-
   BlockEdgeIntraProc(from, to),
   Block_IRBlock(from, irfrom),
@@ -447,8 +466,12 @@ LocalBlockEdge(irfrom, irto) :-
 LocalBlockEdge(block, next) :-
   IRFunctionCallReturn(block, _, next).
 
-.decl IRFallthroughEdge(from: IRBlock, to: IRBlock)
+//
+// The next few are mostly direct translations of concepts from the
+// standard TAC IR to the Functional IR.
+//
 
+.decl IRFallthroughEdge(from: IRBlock, to: IRBlock)
 IRFallthroughEdge(irfrom, irto) :-
   FallthroughEdge(from, to),
   Block_IRBlock(from, irfrom),
@@ -457,134 +480,123 @@ IRFallthroughEdge(irfrom, irto) :-
   InFunction(irto, func).
 
 .decl IRBlockEdge(from: IRBlock, to: IRBlock)
-
 IRBlockEdge(irfrom, irto) :-
-   BlockEdge(_, from, _, to),
-   Block_IRBlock(from, irfrom),
-   Block_IRBlock(to, irto).
+  BlockEdge(_, from, _, to),
+  Block_IRBlock(from, irfrom),
+  Block_IRBlock(to, irto).
 
 .decl Statement_IRStatement(stmt: Statement, irstmt: IRStatement)
 .decl IRStatement_Block(stmt: IRStatement, to: IRBlock)
 
-
 .decl IRStatement_VarString(irstmt: IRStatement, func: symbol)
 .decl IRBlock_VarString(irblock: IRBlock, str: symbol)
-
-IRStatement_VarString(irstmt, func),
-IRBlock_VarString(irblock, func),
+IRStatement_VarString(irstmt, irFunc),
+IRBlock_VarString(irblock, irFunc),
 IRStatement_Block(irstmt, irblock),
 Statement_IRStatement(stmt, irstmt) :-
-   InlineableBlock(block),
-   Statement_Block(stmt, block),
-   Block_IRBlock(block, irblock),
-   InFunction(irblock, func),
-   irstmt = FRESH_IRSTATEMENT(stmt, func).
+  BlockToInline(block, func),
+  Statement_Block(stmt, block),
+  Block_IRBlock(block, irblock),
+  Function_IRFunction(func, irFunc),
+  irstmt = FRESH_IRSTATEMENT(stmt, irFunc).
 
 IRStatement_VarString(irstmt, ""),
 IRBlock_VarString(irblock, ""),
 IRStatement_Block(irstmt, irblock),
 Statement_IRStatement(stmt, irstmt) :-
-   Statement_Block(stmt, block),
-   !InlineableBlock(block),
-   Block_IRBlock(block, irblock),
-   irstmt = STATEMENT_TO_IRSTATEMENT(stmt).
+  MaybeInFunction(block, func),
+  !BlockToInline(block, func),
+  Statement_Block(stmt, block),
+  Block_IRBlock(block, irblock),
+  irstmt = STATEMENT_TO_IRSTATEMENT(stmt).
 
 .decl IRStatementNum(stmt: IRStatement, num: number)
-
 IRStatementNum(irstmt, num) :-
-   _StatementNum(stmt, num),
-   Statement_IRStatement(stmt, irstmt).
+  _StatementNum(stmt, num),
+  Statement_IRStatement(stmt, irstmt).
 
 .decl IRTACNOP(stmt: IRStatement)
-
 IRTACNOP(irstmt) :-
   TACNOP(stmt),
   Statement_IRStatement(stmt, irstmt).
 
 .decl IRStatement_Opcode(stmt: IRStatement, op: Opcode)
-
 IRStatement_Opcode(irstmt, op) :-
-   Statement_Opcode(stmt, op),
-   Statement_IRStatement(stmt, irstmt),
-   !FunctionCallStmt(stmt),
-   !FunctionReturnStmt(stmt).
+  Statement_Opcode(stmt, op),
+  Statement_IRStatement(stmt, irstmt),
+  !FunctionCallStmt(stmt),
+  !FunctionReturnStmt(stmt).
 
 IRStatement_Opcode(irstmt, "CALLPRIVATEI") :-
-   Statement_IRStatement(stmt, irstmt),
-   JUMPI(stmt),
-   FunctionCallStmt(stmt).
+  Statement_IRStatement(stmt, irstmt),
+  JUMPI(stmt),
+  FunctionCallStmt(stmt).
 
 IRStatement_Opcode(irstmt, "CALLPRIVATE") :-
-   Statement_IRStatement(stmt, irstmt),
-   !JUMPI(stmt),
-   FunctionCallStmt(stmt).
+  Statement_IRStatement(stmt, irstmt),
+  !JUMPI(stmt),
+  FunctionCallStmt(stmt).
 
 IRStatement_Opcode(irstmt, "RETURNPRIVATEI") :-
-   Statement_IRStatement(stmt, irstmt),
-   JUMPI(stmt),
-   FunctionReturnStmt(stmt).
+  Statement_IRStatement(stmt, irstmt),
+  JUMPI(stmt),
+  FunctionReturnStmt(stmt).
 
 IRStatement_Opcode(irstmt, "RETURNPRIVATE") :-
-   Statement_IRStatement(stmt, irstmt),
-   JUMP(stmt),
-   FunctionReturnStmt(stmt).
-
+  Statement_IRStatement(stmt, irstmt),
+  JUMP(stmt),
+  FunctionReturnStmt(stmt).
 
 .decl IRIsJump(stmt: IRStatement)
-
 IRIsJump(irstmt) :-
-   IsJump(stmt),
-   Statement_IRStatement(stmt, irstmt).
+  IsJump(stmt),
+  Statement_IRStatement(stmt, irstmt).
  
 .decl IRBasicBlock_Tail(block: IRBlock, tail: IRStatement)
-
 IRBasicBlock_Tail(irblock, irtail) :-
-   BasicBlock_Tail(block, tail),
-   Block_IRBlock(block, irblock),
-   Statement_IRStatement(tail, irtail),
-   IRStatement_Block(irtail, irblock).
+  BasicBlock_Tail(block, tail),
+  Block_IRBlock(block, irblock),
+  Statement_IRStatement(tail, irtail),
+  IRStatement_Block(irtail, irblock).
 
+
+// Also translating concepts of how a block uses the stack
 .decl IRBlockPopDelta(from: IRBlock, n: StackIndex)
 .decl IRBlockStackDelta(from: IRBlock, stackDelta: StackIndex)
 
 IRBlockPopDelta(irblock, n) :-
-   BlockPopDelta(block, n),
-   Block_IRBlock(block, irblock).
+  BlockPopDelta(block, n),
+  Block_IRBlock(block, irblock).
 
 IRBlockStackDelta(irblock, stackDelta) :-
-   BlockStackDelta(block, stackDelta),
-   Block_IRBlock(block, irblock).
+  BlockStackDelta(block, stackDelta),
+  Block_IRBlock(block, irblock).
 
 .decl IRStatement_Uses_Local(stmt: IRStatement, varOrStackIndex: VariableOrStackIndex, n: StackIndex)
-
 IRStatement_Uses_Local(irstmt, varOrStackIndex, n) :-
   Statement_Uses_Local(stmt, varOrStackIndex, n),
   Statement_IRStatement(stmt, irstmt).
 
 .decl IRBeforeLocalStackContents(stmt: IRStatement, n:StackIndex, varOrStackIndex:VariableOrStackIndex)
-
 IRBeforeLocalStackContents(irstmt, n, varOrStackIndex) :-
   BeforeLocalStackContents(stmt, n, varOrStackIndex),
   Statement_IRStatement(stmt, irstmt).
 
-
 .decl IRLocalStackContents(stmt: IRStatement, n:StackIndex, varOrStackIndex:VariableOrStackIndex)
-
 IRLocalStackContents(irstmt, n, varOrStackIndex) :-
   LocalStackContents(stmt, n, varOrStackIndex),
   Statement_IRStatement(stmt, irstmt).
 
 .decl IRThrowJump(irstmt: IRStatement)
-
 IRThrowJump(irstmt) :-
-   ThrowJump(stmt),
+  ThrowJump(stmt),
   Statement_IRStatement(stmt, irstmt).
-
 
 .decl IRBlock_Gas(irblock: IRBlock, gas: number)
 IRBlock_Gas(irblock, gas) :-
-   Block_IRBlock(block, irblock),
-   Block_Gas(block, gas).
+  Block_IRBlock(block, irblock),
+  Block_Gas(block, gas).
+
 
 /***********
  * Discovery of arguments accepted by a function   
@@ -737,7 +749,7 @@ NumberOfFunctionReturnArguments(func, delta) :-
 
 // default
 NumberOfFunctionReturnArguments(func, 0) :-
-   Function(func),
+   IsFunctionEntry(func),
    !IRFunction_Return(func, _).
 
 .decl CandidateNumberOfFunctionArgumentsForReturn(func: IRFunction, ret: IRBlock, n: StackIndex)
@@ -750,7 +762,7 @@ CandidateNumberOfFunctionArgumentsForReturn(func, ret, n) :-
 .decl CandidateNumberOfFunctionArguments(func: IRFunction, n: StackIndex)
 
 CandidateNumberOfFunctionArguments(func, n) :-
-   Function(func),
+   IsFunctionEntry(func),
    n = max m : CandidateNumberOfFunctionArgumentsForReturn(func, _, m).
 
 // This may improve precision, see further rant below
@@ -959,7 +971,7 @@ HighLevelFunctionName(func, name) :-
    !PublicFunctionSignature(name, _).
 
 HighLevelFunctionName(func, func) :-
-   Function(func),
+   IsFunctionEntry(func),
    func != FUNCTION_SELECTOR,
    !PublicFunction(func, _).
 

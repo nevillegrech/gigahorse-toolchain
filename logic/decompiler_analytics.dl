@@ -6,7 +6,7 @@
 .output Analytics_Functions
 
 Analytics_Functions(func) :-
-   Function(func).
+  IsFunctionEntry(func).
 
 .decl Analytics_Jumps(block: Block)
 .output Analytics_Jumps
@@ -60,7 +60,7 @@ Analytics_PolymorphicTarget(block) :-
   Analytics_Jumps(block),                                                          
   BlockJumpValidTarget(_, block, _, target1),
   BlockJumpValidTarget(_, block, _, target2),
-  !Function_Return(_, block),
+  !IsReturn(block),
   target1 != target2.
 
 .decl Analytics_MissingJumpTarget(block: Block)
@@ -128,6 +128,15 @@ Analytics_BlockInMultipleFunctions(block) :-
 Analytics_BlockInNoFunctions(block) :-
    IRStatement_Block(_, block),
    !InFunction(block, _).
+
+.decl Analytics_BlocksLocalOrNot(block1: IRBlock, block2: IRBlock)
+.output Analytics_BlocksLocalOrNot
+
+Analytics_BlocksLocalOrNot(block1, block2) :-
+   LocalBlockEdge(block1, block2),
+   InFunction(block1, fun1),
+   InFunction(block2, fun2),
+   fun1 != fun2.
 
 .decl Analytics_UnreachableBlock(block: IRBlock)
 .output Analytics_UnreachableBlock
