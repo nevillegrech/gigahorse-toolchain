@@ -67,49 +67,8 @@ ReachableFrom(blockNext, blockPrev) :-
 
 
 /******
-         Order blocks based on their minimum distance from the
-         contract entry point.
-******/
-
-.decl PossibleDistanceFromContractEntry(block:Block, d: number)
-.decl MinimumDistanceFromContractEntry(block:Block, d: number)
-
-PossibleDistanceFromContractEntry(FUNCTION_SELECTOR, 0).
-
-PossibleDistanceFromContractEntry(block, n+1) :-
-  PossibleDistanceFromContractEntry(otherBlock, n),
-  BlockEdge(_, otherBlock, _, block),
-  n < 100.
-
-MinimumDistanceFromContractEntry(block, n) :-
-  PossibleDistanceFromContractEntry(block, _),
-  n = min m : PossibleDistanceFromContractEntry(block, m). 
-
-.decl BlockBeforeOther(entryBefore:Block, entryAfter:Block)
-BlockBeforeOther(entryBefore, entryAfter) :-
-  ReachableFrom(entryBefore, entryAfter),
-  MinimumDistanceFromContractEntry(entryBefore, n1),
-  MinimumDistanceFromContractEntry(entryAfter, n2),
-  n1 < n2.
-
-
-/******
          Heuristics for detecting call-return patterns
 ******/
-
-.decl PossibleReturnAddress(caller:Block, ret:Block, target:Block)
-
-// Call-return pattern:
-// a) basic block jumps to a valid "non-locally-derived" address
-// b) address originates at a target-setter.
-PossibleReturnAddress(targetSetter, retBlock, retTarget) :-
-  BlockJumpValidTarget(_, retBlock, targetVariable, retTarget),
-  !ImmediateBlockJumpTarget(retBlock, targetVariable),
-  Statement_Defines(targetSetStatement, targetVariable),
-  Statement_Block(targetSetStatement, targetSetter),
-  BasicBlock_Tail(targetSetter, jumpStmt),
-  IsJump(jumpStmt).
-
 
 // A high-level call can only be translated into an immediate jump.
 // More complex jumps (e.g., through basic blocks that just keep
@@ -118,6 +77,22 @@ PossibleReturnAddress(targetSetter, retBlock, retTarget) :-
 .decl PotentialCall(caller:Block)
 PotentialCall(block) :-
   ImmediateBlockJumpTarget(block, _).
+
+.output PotentialCall // DEBUG
+
+// Call-return pattern:
+// a) basic block jumps to a valid "non-locally-derived" address
+// b) address originates at a target-setter.
+.decl PossibleReturnAddress(caller:Block, ret:Block, target:Block)
+PossibleReturnAddress(targetSetter, retBlock, retTarget) :-
+  BlockJumpValidTarget(_, retBlock, targetVariable, retTarget),
+  !ImmediateBlockJumpTarget(retBlock, targetVariable),
+  Statement_Defines(targetSetStatement, targetVariable),
+  Statement_Block(targetSetStatement, targetSetter),
+  BasicBlock_Tail(targetSetter, jumpStmt),
+  IsJump(jumpStmt).
+
+.output PossibleReturnAddress // DEBUG
 
 // Also match a subset of those with return addresses and full info. The
 // function may not be the one containing the return, in case of complex
@@ -128,14 +103,20 @@ PossibleFunctionCallWithReturn(caller, func, retBlock, retTarget) :-
   ImmediateBlockJumpTarget(caller, targetVar),
   BlockJumpValidTarget(_, caller, targetVar, func).
 
+.output PossibleFunctionCallWithReturn // DEBUG
+
 // Seems pretty certain we found a return. In fact, at this point,
 // with the above logic, we have detected all original return
 // instructions in the code. There will be artificial returns added
 // later, for calls that end up being tail calls.
-.decl IsReturn(ret:Block)
-IsReturn(retBlock) :-
-  PossibleReturnAddress(_, retBlock, _).
-
+// It's important to note that a statement may be a return with respect
+// to one edge, but not with respect to others. There are many conditional
+// returns.
+.decl IsReturn(ret:Block, target:Block)
+IsReturn(retBlock, retTarget) :-
+  PossibleReturnAddress(_, retBlock, retTarget).
+//  FunctionCallReturn(_, _, retBlock, retTarget).
+  
 .output IsReturn
 
 
@@ -167,8 +148,7 @@ NotValidReturnBlock(func, retBlock) :-
 .decl NotValidReturnEdge(retBlock: Block, retTarget: Block)
 NotValidReturnEdge(retBlock, retTarget) :-
   PossibleFunctionCallWithReturn(_, _, retBlock, retTarget),
-  (IsReturn(retTarget) ; 
-   PossibleFunctionCallWithReturn(_, retTarget, _, _)).
+  PossibleFunctionCallWithReturn(_, retTarget, _, _).
 
 // Caller calls func and func returns to retTarget. Should only be inferred with
 // high confidence.
@@ -181,109 +161,43 @@ FunctionCallReturn(caller, func, retBlock, retTarget) :-
 
 .output FunctionCallReturn // DEBUG
 
-// Detect function boundaries, calls and returns iteratively.  Main
-// heuristic: if a block is reachable by two others that have to be in
-// different functions, then that block is also in an independent
-// function.
 
-// Used components to force stratification.
-.comp FunctionDiscovery {
-  // An Entry to a function (private or public)
-  .decl FunctionEntry(block: Block)
-  // Same, but for previous iteration of the algorithm   
-  .decl PrevFunctionEntry(block: Block)
+// NOTE the philosophy!  PossibleFunctionCallWithReturn intends to be
+// complete FunctionCallReturn intends to be precise.  Be careful when
+// using the one vs. the other! Their balance is crucial.
 
-  // Basic block belongs to function
-  .decl InFunction(block: Block, function: Block)
-  // Basic block performs a function call 
-  .decl FunctionCall(block: Block, func: Block)
-   // Same, but for previous iteration of the algorithm   
-  .decl PrevFunctionCall(block: Block, func: Block)
+/// Let's try something dead simple for assigning blocks to functions.
 
-  InFunction(block, block) :-
-    PrevFunctionEntry(block).
+.decl IsFunctionEntry(entry:Block)
+IsFunctionEntry(block) :- PublicFunction(block, _).
+IsFunctionEntry(FUNCTION_SELECTOR).
+IsFunctionEntry(func) :- FunctionCallReturn(_, func, _, _).
 
-  InFunction(next, func) :-
-    InFunction(block, func),
-    BlockEdge(_, block, _, next),
-    !PrevFunctionCall(block, next),
-    !IsReturn(block).
-
-  InFunction(next, func) :-
-    InFunction(block, func),
-    FunctionCallReturn(block, _, _, next),
-    !IsReturn(block). // probably extraneous
-
-  // Heuristic for finding function calls.  Execution flows to a basic
-  // block that is part of more than one function.
-  FunctionCall(prev, block),
-  FunctionEntry(block) :-
-    InFunction(block, func),
-    BlockEdge(_, prev, _, block),
-    PotentialCall(prev),
-    !IsReturn(prev),
-    !InFunction(prev, func),
-    Statement_Block(jmp, prev),
-    IsJump(jmp).
-
-  // If we are certain a block is a function entry, and its predecessor
-  // is not a return (i.e., no tail call), then it's got to be a call.
-  FunctionCall(prev, block) :-
-    FunctionEntry(block),
-    BlockEdge(_, prev, _, block),
-    !IsReturn(prev),
-    Statement_Block(jmp, prev),
-    IsJump(jmp).
-
-  FunctionCall(prev, func1) :- PrevFunctionCall(prev, func1).
-  FunctionEntry(block) :- PrevFunctionEntry(block).
-}
-
-.output BlockEdge // DEBUG
-
-// Initialize and iterate the algorithm
-.init discovery0 = FunctionDiscovery
-discovery0.PrevFunctionEntry(block) :-
-  PublicFunction(block, _).
-
-discovery0.PrevFunctionEntry(FUNCTION_SELECTOR).
-
-discovery0.PrevFunctionEntry(func) :-
-  FunctionCallReturn(_, func, _, _).
-
-discovery0.PrevFunctionCall(prev, func) :-
+.decl IsFunctionCall(block:Block, func:Block)
+   
+IsFunctionCall(prev, func) :-
   PublicFunction(func, sigHash),
   BlockComparesSig(prev, sigHash).
 
-discovery0.PrevFunctionCall(prev, func) :-
-  FunctionCallReturn(prev, func, _, _).
-
-
-.init discovery1 = FunctionDiscovery
-discovery1.PrevFunctionEntry(block) :- discovery0.FunctionEntry(block).
-discovery1.PrevFunctionCall(block, func) :- discovery0.FunctionCall(block, func).
-
-.init discovery2 = FunctionDiscovery
-discovery2.PrevFunctionEntry(block) :- discovery1.FunctionEntry(block).
-discovery2.PrevFunctionCall(block, func) :- discovery1.FunctionCall(block, func).
-
-.init discovery3 = FunctionDiscovery
-discovery3.PrevFunctionEntry(block) :- discovery2.FunctionEntry(block).
-discovery3.PrevFunctionCall(block, func) :- discovery2.FunctionCall(block, func).
-
-/***********
-   Collecting all function discovery results
-***********/
-
-// block ends with a call to func
-.decl IsFunctionCall(block:Block, func:Block)
-IsFunctionCall(block, func) :- discovery3.FunctionCall(block, func).
-
-.decl IsFunctionEntry(entry:Block)
-IsFunctionEntry(func) :- discovery3.FunctionEntry(func).
-
+// Use the precise version here!
+IsFunctionCall(block, func) :-
+  FunctionCallReturn(block, func, _, _).
+  
 .decl MaybeInFunction(block:Block, func:Block)
-MaybeInFunction(block, func) :- discovery3.InFunction(block, func).
+
+MaybeInFunction(block, block) :-
+  IsFunctionEntry(block).
+
+MaybeInFunction(next, func) :-
+  MaybeInFunction(block, func),
+  BlockEdge(_, block, _, next),
+  !IsFunctionCall(block, next),
+  !IsReturn(block, next).
+
+// Use the complete version here!
+MaybeInFunction(next, func) :-
+  MaybeInFunction(block, func),
+  PossibleFunctionCallWithReturn(block, _, _, next).
 
 .decl BlockInMultipleFunctions(entry: Block)
 BlockInMultipleFunctions(block) :-
@@ -295,70 +209,11 @@ BlockInMultipleFunctions(block) :-
 // it may be called as a separate function.
 .decl BlockToInline(block: Block, func: Block)
 BlockToInline(next, func) :-
-  BlockEdge(_, block, _, next),
-     // cannot be a call, unless our function discovery didn't iterate
-     // enough (which is highly unlikely)
-  MaybeInFunction(block, func),
-  !BlockInMultipleFunctions(block),
   MaybeInFunction(next, func),
   BlockInMultipleFunctions(next).
-
-BlockToInline(next, func) :-
-  BlockEdge(_, block, _, next),
-  BlockToInline(block, func),
-  MaybeInFunction(next, func),
-  BlockInMultipleFunctions(next).
-
 
 .output IsFunctionEntry, IsFunctionCall, BlockToInline // DEBUG
 
-.output discovery0.FunctionCall // DEBUG
-.output discovery1.FunctionCall // DEBUG
-.output discovery2.FunctionCall // DEBUG
-.output discovery3.FunctionCall // DEBUG
-.output discovery0.InFunction   // DEBUG
-.output discovery1.InFunction   // DEBUG
-.output discovery2.InFunction   // DEBUG
-.output discovery3.InFunction   // DEBUG
-.output discovery0.FunctionEntry   // DEBUG
-.output discovery1.FunctionEntry   // DEBUG
-.output discovery2.FunctionEntry   // DEBUG
-.output discovery3.FunctionEntry   // DEBUG
-
-//////////// Disabled for now. Reintroduce after rest is sorted out.
-// This is the interesting case to disambiguate: a continuation,
-// passed to a call statement, is not unique. Is it a tail call?
-// Is it a call immediately followed by another call?
-.decl CommonReturnAddress(caller1:Block, caller2:Block, ret:Block, target:Block)
-CommonReturnAddress(caller1, caller2, retBlock, retTarget) :-
-  PossibleReturnAddress(caller1, retBlock, retTarget),
-  IsFunctionCall(caller1, _),
-  PossibleReturnAddress(caller2, _, retTarget),
-  IsFunctionCall(caller2, _),
-  caller1 != caller2.
-
-// There are three distinct cases of call statements. We need to
-// recognize all three.
-// 1) Call: a regular, simple call, which will return to the caller
-//    function.
-// 2) CallReturn: a tail call. It will return to some caller of the
-//    caller function.
-// 3) CallCall: a call followed by another call. The caller passes
-//    the second callee as the continuation of the first call.
-
-.decl IsCallCall(caller:Block)
-.decl IsCallReturn(caller:Block)
-
-IsCallCall(caller) :-
-  PossibleReturnAddress(caller, _, retTarget),
-  IsFunctionCall(caller, _),
-  IsFunctionEntry(retTarget).
-
-IsCallReturn(caller2) :-
-  CommonReturnAddress(caller1, caller2, _, _),
-  BlockBeforeOther(caller1, caller2).
-
-.output CommonReturnAddress, IsCallReturn, IsCallCall
 
 
 /***********
@@ -367,13 +222,11 @@ IsCallReturn(caller2) :-
 .decl FunctionCallStmt(stmt: Statement)
 FunctionCallStmt(stmt) :-
   IsFunctionCall(block, _),
-  //   IsJump(stmt), // extraneous
   BasicBlock_Tail(block, stmt).
 
 .decl FunctionReturnStmt(stmt: Statement)
 FunctionReturnStmt(stmt) :-
-  IsReturn(block),
-  //   IsJump(stmt), // extraneous
+  IsReturn(block, _),
   BasicBlock_Tail(block, stmt).
 
 
@@ -457,9 +310,10 @@ BlockEdgeIntraProc(block, next) :-
 
 .decl LocalBlockEdge(block: IRBlock, next: IRBlock)
 LocalBlockEdge(irfrom, irto) :-
-  BlockEdgeIntraProc(from, to),
-  Block_IRBlock(from, irfrom),
-  Block_IRBlock(to, irto),
+  IRBlockEdge(irfrom, irto),
+//  BlockEdgeIntraProc(from, to),
+//  Block_IRBlock(from, irfrom),
+//  Block_IRBlock(to, irto),
   InFunction(irfrom, func),
   InFunction(irto, func).
 

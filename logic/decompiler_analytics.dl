@@ -60,7 +60,7 @@ Analytics_PolymorphicTarget(block) :-
   Analytics_Jumps(block),                                                          
   BlockJumpValidTarget(_, block, _, target1),
   BlockJumpValidTarget(_, block, _, target2),
-  !IsReturn(block),
+  !IsReturn(block, _),
   target1 != target2.
 
 .decl Analytics_MissingJumpTarget(block: Block)
@@ -121,6 +121,14 @@ Analytics_BlockInMultipleFunctions(block) :-
    InFunction(block, func),
    InFunction(block, func2),
    func != func2.
+
+.decl Analytics_BlockHasNoIRBlock(block: Block)
+.output Analytics_BlockHasNoIRBlock
+
+Analytics_BlockHasNoIRBlock(block) :-
+   (BlockEdge(_, block, _, _);
+    BlockEdge(_, _, _, block)),
+   !Block_IRBlock(block, _).
 
 .decl Analytics_BlockInNoFunctions(block: IRBlock)
 .output Analytics_BlockInNoFunctions
