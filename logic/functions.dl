@@ -114,9 +114,14 @@ PossibleFunctionCallWithReturn(caller, func, retBlock, retTarget) :-
 // returns.
 .decl IsReturn(ret:Block, target:Block)
 IsReturn(retBlock, retTarget) :-
+  FunctionCallReturn(_, _, retBlock, retTarget).
+
+// In this case the complete vs. precise version doesn't seem to be
+// making much of a difference. Precise is fine.
+.decl MaybeReturn(ret:Block, target:Block)
+MaybeReturn(retBlock, retTarget) :-
   PossibleReturnAddress(_, retBlock, retTarget).
-//  FunctionCallReturn(_, _, retBlock, retTarget).
-  
+
 .output IsReturn
 
 
@@ -192,7 +197,7 @@ MaybeInFunction(next, func) :-
   MaybeInFunction(block, func),
   BlockEdge(_, block, _, next),
   !IsFunctionCall(block, next),
-  !IsReturn(block, next).
+  !MaybeReturn(block, next).
 
 // Use the complete version here!
 MaybeInFunction(next, func) :-
@@ -205,12 +210,13 @@ BlockInMultipleFunctions(block) :-
   MaybeInFunction(block, func2),
   func1 != func2.
 
-// For this function, the block should be inlined, although for others
-// it may be called as a separate function.
+
+// For this function, the block should be inlined.
 .decl BlockToInline(block: Block, func: Block)
 BlockToInline(next, func) :-
   MaybeInFunction(next, func),
   BlockInMultipleFunctions(next).
+
 
 .output IsFunctionEntry, IsFunctionCall, BlockToInline // DEBUG
 

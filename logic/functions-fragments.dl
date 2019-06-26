@@ -1,0 +1,323 @@
+// UNUSED
+
+// This file contains code from failed or incomplete directions
+// attempted in function inference. This is code that is not committed
+// in older versions, but has potential future value.
+
+
+/*
+ * Try to come up with a tree-ordering of blocks into "functions" so that
+ * (eventually, not in code beloe) blocks with a contradictory ordering 
+ * get duplicated.
+ */ 
+
+.decl BlockAtGreaterOrEqualDepth(block: Block, deeper: Block)
+.decl BlockAtGreaterDepth(block: Block, deeper: Block)
+.decl IsBlock(block: Block)
+
+.output BlockAtGreaterOrEqualDepth
+
+IsBlock(block) :-
+  BlockEdge(_, block, _, _);
+  BlockEdge(_, _, _, block).
+
+
+//// Properties implied by standard ordering
+// reflexive
+BlockAtGreaterOrEqualDepth(block, block) :-
+  IsBlock(block).
+
+// transitive
+BlockAtGreaterOrEqualDepth(block, deeper) :-
+  BlockAtGreaterOrEqualDepth(block, interm),
+  BlockAtGreaterOrEqualDepth(interm, deeper).
+ .plan 1:(2,1)
+
+// gt stronger than geq
+BlockAtGreaterOrEqualDepth(block, deeper) :-
+  BlockAtGreaterDepth(block, deeper).
+
+
+//// Now the interesting cases
+// if no function call, same depth
+BlockAtGreaterOrEqualDepth(block, next),
+BlockAtGreaterOrEqualDepth(next, block) :-
+  BlockEdge(_, block, _, next),
+  !FunctionCallReturn(block, next, _, _),
+  !IsReturn(block, next).
+
+// a whole bunch of inequality inferences based on call-return edges
+BlockAtGreaterDepth(caller, func),
+BlockAtGreaterOrEqualDepth(retTarget, caller),
+BlockAtGreaterOrEqualDepth(func, retBlock) :-
+  FunctionCallReturn(caller, func, retBlock, retTarget).
+
+// Every block is at least as deep as the function selector
+BlockAtGreaterOrEqualDepth(FUNCTION_SELECTOR, block) :-
+  IsBlock(block),
+  block != FUNCTION_SELECTOR.
+
+// All public functions are deeper than the function selector
+BlockAtGreaterDepth(FUNCTION_SELECTOR, block) :-
+  PublicFunction(block, _).
+
+// All public function entries are at equal depth
+BlockAtGreaterOrEqualDepth(pubfunc1, pubfunc2) :-
+  PublicFunction(pubfunc1, _),
+  PublicFunction(pubfunc2, _).
+
+.decl ContradictoryDepth(block: Block)
+ContradictoryDepth(block) :-
+  BlockAtGreaterOrEqualDepth(block, deeper),
+  BlockAtGreaterDepth(deeper, block).
+
+.output ContradictoryDepth
+
+
+
+
+/*
+ * The old component-based logic for discovery of common blocks,
+ * with a twist that also tracks continuations separately, instead
+ * of assuming a call returns to the function that made it. Unclear
+ * benefit.
+ */
+
+// Detect function boundaries, calls and returns iteratively.  Main
+// heuristic: if a block is reachable by two others that have to be in
+// different functions, then that block is also in an independent
+// function.
+
+// Used components to force stratification.
+.comp FunctionDiscovery {
+  // An Entry to a function (private or public)
+  .decl FunctionEntry(block: Block)
+  // Same, but for previous iteration of the algorithm   
+  .decl PrevFunctionEntry(block: Block)
+
+  // The entry to a continuation
+  .decl ContinuationEntry(block: Block, callerFuncOrCont: Block)
+
+  // Basic block belongs to function
+  .decl InFunction(block: Block, function: Block)
+  // Basic block belongs to continuation of function call
+  .decl InContinuation(block: Block, continuation: Block, callerFuncOrCont:Block)
+  
+  // Basic block performs a function call 
+  .decl FunctionCall(block: Block, func: Block)
+   // Same, but for previous iteration of the algorithm   
+  .decl PrevFunctionCall(block: Block, func: Block)
+
+  InFunction(block, block) :-
+    PrevFunctionEntry(block).
+
+  InContinuation(block, block, callerFunc) :-
+    ContinuationEntry(block, callerFunc).
+
+  InFunction(next, func) :-
+    InFunction(block, func),
+    BlockEdge(_, block, _, next),
+    !PrevFunctionCall(block, next),
+    !IsReturn(block, next).
+
+  ContinuationEntry(next, funcOrCont) :-
+    (InFunction(block, funcOrCont);
+     InContinuation(block, funcOrCont, _)),
+    PossibleFunctionCallWithReturn(block, _, _, next).
+    
+  InContinuation(next, cont, funcOrCont) :-
+    InContinuation(block, cont, funcOrCont),
+    BlockEdge(_, block, _, next),
+    !PrevFunctionCall(block, next),
+    !IsReturn(block, next).
+   
+  // Heuristic for finding function calls.  Execution flows to a basic
+  // block that is part of more than one function (or continuation)
+  FunctionCall(prev, block),
+  FunctionEntry(block) :-
+    (InFunction(block, funcOrCont);
+     InContinuation(block, funcOrCont, _)),
+    BlockEdge(_, prev, _, block),
+    PotentialCall(prev),
+    !IsReturn(prev, block),
+    !InFunction(prev, funcOrCont),
+    !InContinuation(prev, funcOrCont, _),
+    Statement_Block(jmp, prev),
+    IsJump(jmp).
+
+  // If we are certain a block is a function entry, and its predecessor
+  // is not a return (i.e., no tail call), then it's got to be a call.
+  FunctionCall(prev, block) :-
+    FunctionEntry(block),
+    BlockEdge(_, prev, _, block),
+//    PotentialCall(prev),
+    !IsReturn(prev, block),
+    Statement_Block(jmp, prev),
+    IsJump(jmp).
+
+  FunctionCall(prev, func1) :- PrevFunctionCall(prev, func1).
+  FunctionEntry(block) :- PrevFunctionEntry(block).
+}
+
+.output BlockEdge // DEBUG
+
+// Initialize and iterate the algorithm
+.init discovery0 = FunctionDiscovery
+discovery0.PrevFunctionEntry(block) :- PublicFunction(block, _).
+discovery0.PrevFunctionEntry(FUNCTION_SELECTOR).
+discovery0.PrevFunctionEntry(func) :- FunctionCallReturn(_, func, _, _).
+   
+discovery0.PrevFunctionCall(prev, func) :-
+  PublicFunction(func, sigHash),
+  BlockComparesSig(prev, sigHash).
+
+discovery0.PrevFunctionCall(prev, func) :- FunctionCallReturn(prev, func, _, _).
+
+.init discovery1 = FunctionDiscovery
+discovery1.PrevFunctionEntry(block) :- discovery0.FunctionEntry(block).
+discovery1.PrevFunctionCall(block, func) :- discovery0.FunctionCall(block, func).
+
+.init discovery2 = FunctionDiscovery
+discovery2.PrevFunctionEntry(block) :- discovery1.FunctionEntry(block).
+discovery2.PrevFunctionCall(block, func) :- discovery1.FunctionCall(block, func).
+
+.init discovery3 = FunctionDiscovery
+discovery3.PrevFunctionEntry(block) :- discovery2.FunctionEntry(block).
+discovery3.PrevFunctionCall(block, func) :- discovery2.FunctionCall(block, func).
+
+
+.output discovery0.FunctionCall // DEBUG
+.output discovery1.FunctionCall // DEBUG
+.output discovery2.FunctionCall // DEBUG
+.output discovery3.FunctionCall // DEBUG
+.output discovery0.InFunction   // DEBUG
+.output discovery1.InFunction   // DEBUG
+.output discovery2.InFunction   // DEBUG
+.output discovery3.InFunction   // DEBUG
+.output discovery0.FunctionEntry   // DEBUG
+.output discovery1.FunctionEntry   // DEBUG
+.output discovery2.FunctionEntry   // DEBUG
+.output discovery3.FunctionEntry   // DEBUG
+.output discovery0.ContinuationEntry   // DEBUG
+.output discovery1.ContinuationEntry   // DEBUG
+.output discovery2.ContinuationEntry   // DEBUG
+.output discovery3.ContinuationEntry   // DEBUG
+.output discovery0.InContinuation   // DEBUG
+.output discovery1.InContinuation   // DEBUG
+.output discovery2.InContinuation   // DEBUG
+.output discovery3.InContinuation   // DEBUG
+
+
+
+//// The part below is necessary but hasn't been updated to work with
+//// continuations.
+
+// /***********
+//    Collecting all function discovery results
+// ***********/
+
+// // block ends with a call to func
+// .decl IsFunctionCall(block:Block, func:Block)
+// IsFunctionCall(block, func) :- discovery3.FunctionCall(block, func).
+
+// .decl IsFunctionEntry(entry:Block)
+// IsFunctionEntry(func) :- discovery3.FunctionEntry(func).
+
+// .decl MaybeInFunction(block:Block, func:Block)
+// MaybeInFunction(block, func) :- discovery3.InFunction(block, func).
+
+
+
+
+/******
+         Order blocks based on their minimum distance from the
+         contract entry point.
+******/
+
+.decl PossibleDistanceFromContractEntry(block:Block, d: number)
+.decl MinimumDistanceFromContractEntry(block:Block, d: number)
+
+PossibleDistanceFromContractEntry(FUNCTION_SELECTOR, 0).
+
+PossibleDistanceFromContractEntry(block, n+1) :-
+  PossibleDistanceFromContractEntry(otherBlock, n),
+  BlockEdge(_, otherBlock, _, block),
+  n < 100.
+
+MinimumDistanceFromContractEntry(block, n) :-
+  PossibleDistanceFromContractEntry(block, _),
+  n = min m : PossibleDistanceFromContractEntry(block, m). 
+
+.decl BlockBeforeOther(entryBefore:Block, entryAfter:Block)
+BlockBeforeOther(entryBefore, entryAfter) :-
+  ReachableFrom(entryBefore, entryAfter),
+  MinimumDistanceFromContractEntry(entryBefore, n1),
+  MinimumDistanceFromContractEntry(entryAfter, n2),
+  n1 < n2.
+
+
+/*
+ * Distinguishing tail calls and other interesting used of continuations
+ */
+
+// This is the interesting case to disambiguate: a continuation,
+// passed to a call statement, is not unique. Is it a tail call?
+// Is it a call immediately followed by another call?
+.decl CommonReturnAddress(caller1:Block, caller2:Block, ret:Block, target:Block)
+CommonReturnAddress(caller1, caller2, retBlock, retTarget) :-
+  PossibleReturnAddress(caller1, retBlock, retTarget),
+  IsFunctionCall(caller1, _),
+  PossibleReturnAddress(caller2, _, retTarget),
+  IsFunctionCall(caller2, _),
+  caller1 != caller2.
+
+// There are three distinct cases of call statements. We need to
+// recognize all three.
+// 1) Call: a regular, simple call, which will return to the caller
+//    function.
+// 2) CallReturn: a tail call. It will return to some caller of the
+//    caller function.
+// 3) CallCall: a call followed by another call. The caller passes
+//    the second callee as the continuation of the first call.
+
+.decl IsCallCall(caller:Block)
+.decl IsCallReturn(caller:Block)
+
+IsCallCall(caller) :-
+  PossibleReturnAddress(caller, _, retTarget),
+  IsFunctionCall(caller, _),
+  IsFunctionEntry(retTarget).
+
+IsCallReturn(caller2) :-
+  CommonReturnAddress(caller1, caller2, _, _),
+  BlockBeforeOther(caller1, caller2).
+
+.output CommonReturnAddress, IsCallReturn, IsCallCall
+
+
+//// The logic below (and its comment) is valid only when the
+//// iterative, components-based algorithm from earlier is used,
+//// to detect extra function calls (for blocks reachable from multiple)
+//// functions.
+
+// For this function, the block should be inlined, although for others
+// it may be called as a separate function.
+.decl BlockToInline(block: Block, func: Block)
+BlockToInline(next, func) :-
+  BlockEdge(_, block, _, next),
+     // cannot be a call, unless our function discovery didn't iterate
+     // enough (which is highly unlikely)
+  MaybeInFunction(block, func),
+  !BlockInMultipleFunctions(block),
+  MaybeInFunction(next, func),
+  BlockInMultipleFunctions(next).
+
+BlockToInline(next, func) :-
+  BlockEdge(_, block, _, next),
+  BlockToInline(block, func),
+  MaybeInFunction(next, func),
+  BlockInMultipleFunctions(next).
+
+
+
+
