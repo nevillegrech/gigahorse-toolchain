@@ -6,7 +6,7 @@
 .output Analytics_Functions
 
 Analytics_Functions(func) :-
-  IsFunctionEntry(func).
+  IRFunctionEntry(func).
 
 .decl Analytics_Jumps(block: Block)
 .output Analytics_Jumps
@@ -20,14 +20,14 @@ Analytics_Jumps(block) :-
 .output Analytics_Blocks
 
 Analytics_Blocks(block) :-
-  InFunction(block, _).
+  IRInFunction(block, _).
 
 // Sanity checking and analytics
 
 .decl ReachableStatement(stmt: IRStatement)
 
 ReachableStatement(stmt) :-
-   InFunction(block, _),
+   IRInFunction(block, _),
    IRStatement_Block(stmt, block).
 
 .decl Analytics_UnknownOperand(stmt:IRStatement)
@@ -118,8 +118,8 @@ Analytics_InexactFunctionReturnArguments(func) :-
 .output Analytics_BlockInMultipleFunctions
 
 Analytics_BlockInMultipleFunctions(block) :-
-   InFunction(block, func),
-   InFunction(block, func2),
+   IRInFunction(block, func),
+   IRInFunction(block, func2),
    func != func2.
 
 .decl Analytics_BlockHasNoIRBlock(block: Block)
@@ -128,22 +128,22 @@ Analytics_BlockInMultipleFunctions(block) :-
 Analytics_BlockHasNoIRBlock(block) :-
    (BlockEdge(_, block, _, _);
     BlockEdge(_, _, _, block)),
-   !Block_IRBlock(block, _).
+   !Block_IRBlock(block, _, _).
 
 .decl Analytics_BlockInNoFunctions(block: IRBlock)
 .output Analytics_BlockInNoFunctions
 
 Analytics_BlockInNoFunctions(block) :-
    IRStatement_Block(_, block),
-   !InFunction(block, _).
+   !IRInFunction(block, _).
 
 .decl Analytics_BlocksLocalOrNot(block1: IRBlock, block2: IRBlock)
 .output Analytics_BlocksLocalOrNot
 
 Analytics_BlocksLocalOrNot(block1, block2) :-
    LocalBlockEdge(block1, block2),
-   InFunction(block1, fun1),
-   InFunction(block2, fun2),
+   IRInFunction(block1, fun1),
+   IRInFunction(block2, fun2),
    fun1 != fun2.
 
 .decl Analytics_UnreachableBlock(block: IRBlock)
@@ -151,7 +151,7 @@ Analytics_BlocksLocalOrNot(block1, block2) :-
 
 Analytics_UnreachableBlock(block) :-
    IRStatement_Block(_, block),
-   !InFunction(block, _).
+   !IRInFunction(block, _).
 
 .decl Analytics_FunctionCall(block: IRBlock)
 .output Analytics_FunctionCall
@@ -194,12 +194,12 @@ Analytics_FunctionWithMultipleStackDepthsAtReturnBlocks(func) :-
 .output Analytics_PublicFunction
 
 Analytics_PublicFunction(func) :-
-   PublicFunction(func, _).
+   IRPublicFunction(func, _).
 
 .decl Analytics_PublicFunctionNameResolved(func: IRFunction)
 .output Analytics_PublicFunctionNameResolved
 
 Analytics_PublicFunctionNameResolved(func) :-
-   PublicFunction(func, sigHash),
+   IRPublicFunction(func, sigHash),
    PublicFunctionSignature(sigHash, _).
 

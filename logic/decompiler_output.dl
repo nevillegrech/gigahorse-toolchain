@@ -103,13 +103,13 @@ TAC_Variable_Length(phiStmt, maxLength) :-
 
 // Non-nop instructions
 TAC_Stmt(irstmt) :-
-  Statement_IRStatement(stmt, irstmt),
+  Statement_IRStatement(stmt, _, irstmt),
   ValidStatement(stmt),
   !IRTACNOP(stmt).
 
 TAC_Op(irstmt, op) :-
    IRStatement_Opcode(irstmt, op),
-   Statement_IRStatement(stmt, irstmt),
+   Statement_IRStatement(stmt, _, irstmt),
    ValidStatement(stmt),
    !IRTACNOP(irstmt),
    !ThrowJump(stmt),
@@ -119,20 +119,20 @@ TAC_Op(irstmt, op) :-
    !INVALID(stmt).
 
 TAC_Op(irstmt, "CONST") :-
-   Statement_IRStatement(stmt, irstmt),
+   Statement_IRStatement(stmt, _, irstmt),
    (PushValue(stmt, _) ; PC(stmt)).
 
 TAC_Op(irstmt, "THROW") :-
-   Statement_IRStatement(stmt, irstmt),
+   Statement_IRStatement(stmt, _, irstmt),
    JUMP(stmt),
    ThrowJump(stmt).
 
 TAC_Op(irstmt, "THROW") :-
-   Statement_IRStatement(stmt, irstmt),
+   Statement_IRStatement(stmt, _, irstmt),
    (INVALID(stmt) ; REVERT(stmt)).
 
 TAC_Op(irstmt, "THROWI") :-
-   Statement_IRStatement(stmt, irstmt),
+   Statement_IRStatement(stmt, _, irstmt),
    JUMPI(stmt),
    ThrowJump(stmt).
 
@@ -254,7 +254,7 @@ ActualReturnArgs(caller, var_rep, n) :-
 .output IRFallthroughEdge
 
 .output Mask_Length
-.output InFunction
+.output IRInFunction(IO="file", filename="InFunction.csv", delimiter="\t")
 .output IRFunctionEntry
 
 /*****
@@ -270,13 +270,15 @@ PRE_TAC_Statement_Next(stmt, nextnext) :-
   PRE_TAC_Statement_Next(next, nextnext),
   TACNOP(next).
 
+
+/// WARNING: This only works intra-procedurally after the Functional IR conversion.
 .decl TAC_Statement_Next(stmt: IRStatement, next: IRStatement)
 .output TAC_Statement_Next
 
 TAC_Statement_Next(irstmt, irnext) :-
    PRE_TAC_Statement_Next(stmt, next),
-   Statement_IRStatement(stmt, irstmt),
-   Statement_IRStatement(next, irnext),
+   Statement_IRStatement(stmt, func, irstmt),
+   Statement_IRStatement(next, func, irnext),
    TAC_Block(irstmt, _), TAC_Block(irnext, _).
 
 // TODO for statement ordering
@@ -285,5 +287,5 @@ TAC_Statement_Next(irstmt, irnext) :-
 
 TAC_Block_Head(block, irstmt) :-
    TAC_Block(irstmt, block),
-   Statement_IRStatement(stmt, irstmt),
+   Statement_IRStatement(stmt, _, irstmt),
    IsBasicBlockHead(stmt).

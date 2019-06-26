@@ -97,13 +97,13 @@ PossibleReturnAddress(targetSetter, retBlock, retTarget) :-
 // Also match a subset of those with return addresses and full info. The
 // function may not be the one containing the return, in case of complex
 // call patterns (e.g., call-call, or call-return).
-.decl PossibleFunctionCallWithReturn(caller:Block, func:Block, retBlock:Block, retTarget:Block)
-PossibleFunctionCallWithReturn(caller, func, retBlock, retTarget) :-
+.decl MaybeFunctionCallReturn(caller:Block, func:Block, retBlock:Block, retTarget:Block)
+MaybeFunctionCallReturn(caller, func, retBlock, retTarget) :-
   PossibleReturnAddress(caller, retBlock, retTarget),
   ImmediateBlockJumpTarget(caller, targetVar),
   BlockJumpValidTarget(_, caller, targetVar, func).
 
-.output PossibleFunctionCallWithReturn // DEBUG
+.output MaybeFunctionCallReturn // DEBUG
 
 // Seems pretty certain we found a return. In fact, at this point,
 // with the above logic, we have detected all original return
@@ -114,10 +114,10 @@ PossibleFunctionCallWithReturn(caller, func, retBlock, retTarget) :-
 // returns.
 .decl IsReturn(ret:Block, target:Block)
 IsReturn(retBlock, retTarget) :-
-  FunctionCallReturn(_, _, retBlock, retTarget).
+  IsFunctionCallReturn(_, _, retBlock, retTarget).
 
 // In this case the complete vs. precise version doesn't seem to be
-// making much of a difference. Precise is fine.
+// making much of a difference. 
 .decl MaybeReturn(ret:Block, target:Block)
 MaybeReturn(retBlock, retTarget) :-
   PossibleReturnAddress(_, retBlock, retTarget).
@@ -138,37 +138,37 @@ MaybeReturn(retBlock, retTarget) :-
 
 .decl FunctionCalledMultipleTimes(func: Block)
 FunctionCalledMultipleTimes(func) :-
-  PossibleFunctionCallWithReturn(caller, func, retBlock, _),
-  PossibleFunctionCallWithReturn(caller2, func, retBlock, _),
+  MaybeFunctionCallReturn(caller, func, retBlock, _),
+  MaybeFunctionCallReturn(caller2, func, retBlock, _),
   caller != caller2.
 
 // Return block can only pertain to one function!
 .decl NotValidReturnBlock(func: Block, retBlock: Block) 
 NotValidReturnBlock(func, retBlock) :-
-  PossibleFunctionCallWithReturn(_, func, retBlock, _),
-  PossibleFunctionCallWithReturn(_, func2, retBlock, _),
+  MaybeFunctionCallReturn(_, func, retBlock, _),
+  MaybeFunctionCallReturn(_, func2, retBlock, _),
   ord(func) < ord(func2).
 
 // Block reached from return edge cannot also be called directly
 .decl NotValidReturnEdge(retBlock: Block, retTarget: Block)
 NotValidReturnEdge(retBlock, retTarget) :-
-  PossibleFunctionCallWithReturn(_, _, retBlock, retTarget),
-  PossibleFunctionCallWithReturn(_, retTarget, _, _).
+  MaybeFunctionCallReturn(_, _, retBlock, retTarget),
+  MaybeFunctionCallReturn(_, retTarget, _, _).
 
 // Caller calls func and func returns to retTarget. Should only be inferred with
 // high confidence.
-.decl FunctionCallReturn(caller:Block, func:Block, retBlock:Block, retTarget:Block)
-FunctionCallReturn(caller, func, retBlock, retTarget) :-
-  PossibleFunctionCallWithReturn(caller, func, retBlock, retTarget),
+.decl IsFunctionCallReturn(caller:Block, func:Block, retBlock:Block, retTarget:Block)
+IsFunctionCallReturn(caller, func, retBlock, retTarget) :-
+  MaybeFunctionCallReturn(caller, func, retBlock, retTarget),
   FunctionCalledMultipleTimes(func),
   !NotValidReturnBlock(func, retBlock),
   !NotValidReturnEdge(retBlock, retTarget).
 
-.output FunctionCallReturn // DEBUG
+.output IsFunctionCallReturn // DEBUG
 
 
-// NOTE the philosophy!  PossibleFunctionCallWithReturn intends to be
-// complete FunctionCallReturn intends to be precise.  Be careful when
+// NOTE the philosophy!  MaybeFunctionCallReturn intends to be
+// complete, IsFunctionCallReturn intends to be precise.  Be careful when
 // using the one vs. the other! Their balance is crucial.
 
 /// Let's try something dead simple for assigning blocks to functions.
@@ -176,7 +176,7 @@ FunctionCallReturn(caller, func, retBlock, retTarget) :-
 .decl IsFunctionEntry(entry:Block)
 IsFunctionEntry(block) :- PublicFunction(block, _).
 IsFunctionEntry(FUNCTION_SELECTOR).
-IsFunctionEntry(func) :- FunctionCallReturn(_, func, _, _).
+IsFunctionEntry(func) :- IsFunctionCallReturn(_, func, _, _).
 
 .decl IsFunctionCall(block:Block, func:Block)
    
@@ -186,7 +186,7 @@ IsFunctionCall(prev, func) :-
 
 // Use the precise version here!
 IsFunctionCall(block, func) :-
-  FunctionCallReturn(block, func, _, _).
+  IsFunctionCallReturn(block, func, _, _).
   
 .decl MaybeInFunction(block:Block, func:Block)
 
@@ -197,12 +197,12 @@ MaybeInFunction(next, func) :-
   MaybeInFunction(block, func),
   BlockEdge(_, block, _, next),
   !IsFunctionCall(block, next),
-  !MaybeReturn(block, next).
+  !IsReturn(block, next).
 
 // Use the complete version here!
 MaybeInFunction(next, func) :-
   MaybeInFunction(block, func),
-  PossibleFunctionCallWithReturn(block, _, _, next).
+  MaybeFunctionCallReturn(block, _, _, next).
 
 .decl BlockInMultipleFunctions(entry: Block)
 BlockInMultipleFunctions(block) :-
@@ -223,20 +223,6 @@ BlockToInline(next, func) :-
 
 
 /***********
- * Identify actual function calls and returns
- ***********/
-.decl FunctionCallStmt(stmt: Statement)
-FunctionCallStmt(stmt) :-
-  IsFunctionCall(block, _),
-  BasicBlock_Tail(block, stmt).
-
-.decl FunctionReturnStmt(stmt: Statement)
-FunctionReturnStmt(stmt) :-
-  IsReturn(block, _),
-  BasicBlock_Tail(block, stmt).
-
-
-/***********
  * Introduce new IR
  ***********/
 #define FRESH_IRBLOCK(b, f) cat((b), (f))
@@ -247,12 +233,12 @@ FunctionReturnStmt(stmt) :-
  
 .type IRBlock
 // exploit type checking in new IR
-#define IRFunction Block
+#define IRFunction IRBlock
 .type IRStatement
 
-.decl Block_IRBlock(block: Block, irblock: IRBlock)
+.decl Block_IRBlock(block: Block, func: Block, irblock: IRBlock)
 .decl Function_IRFunction(func: Block, irFunc: IRFunction)
-.decl InFunction(block: IRBlock, func: IRFunction)
+.decl IRInFunction(block: IRBlock, func: IRFunction)
 .decl IRFunctionEntry(irEntry: IRBlock)
 
 // Let's first settle what belongs in which function,
@@ -263,15 +249,17 @@ IRFunctionEntry(irEntry) :-
   IsFunctionEntry(funcentry),
   irEntry = FUNCTION_TO_IRFUNCTION(funcentry).
 
-Block_IRBlock(block, irblock),
-InFunction(irblock, irFunc) :-
+// Be loose in our demands for accepting a block as being in the same
+// function.
+Block_IRBlock(block, func, irblock),
+IRInFunction(irblock, irFunc) :-
   MaybeInFunction(block, func),
   !BlockToInline(block, func),
   irblock = BLOCK_TO_IRBLOCK(block),
   Function_IRFunction(func, irFunc).
 
-Block_IRBlock(block, irblock),
-InFunction(irblock, irFunc) :-
+Block_IRBlock(block, func, irblock),
+IRInFunction(irblock, irFunc) :-
   MaybeInFunction(block, func),
   BlockToInline(block, func),
   irblock = FRESH_IRBLOCK(block, func),
@@ -284,15 +272,16 @@ InFunction(irblock, irFunc) :-
 .decl IRFunction_Return(fn: IRFunction, ret: IRBlock)
 .decl IRFunctionCallReturn(caller: IRBlock, func: IRFunction, retcaller: IRBlock)
 
-IRFunction_Return(func, retir),
-IRFunctionCallReturn(callerir, func, callerretir),
+// Be strict in our precision demands for recognizing a call
+IRFunction_Return(irfunc, retir),
+IRFunctionCallReturn(callerir, irfunc, callerretir),
 IRFunction_Return_Edge(retir, callerretir) :-
-  FunctionCallReturn(caller, func, ret, callerret),
-  Block_IRBlock(ret, retir),
-  Block_IRBlock(caller, callerir),
-  Block_IRBlock(callerret, callerretir),
-  InFunction(callerir, prevfunc),
-  InFunction(callerretir, prevfunc).
+  IsFunctionCallReturn(caller, func, ret, callerret),
+  Block_IRBlock(ret, func, retir),
+  Block_IRBlock(caller, prevfunc, callerir),
+  Block_IRBlock(callerret, prevfunc, callerretir),
+  Function_IRFunction(func, irfunc),
+  !BlockToInline(func, prevfunc).
 
 
 // REVIEW: IRFunctionCall will include the IRFunctionCallReturn
@@ -302,26 +291,18 @@ IRFunction_Return_Edge(retir, callerretir) :-
 .decl IRFunctionCall(from: IRBlock, func: IRFunction)
 IRFunctionCall(fromir, irFunc) :-
   IsFunctionCall(from, func),
-  Block_IRBlock(from, fromir),
-  Function_IRFunction(func, irFunc).
+  Block_IRBlock(from, prevfunc, fromir),
+  Function_IRFunction(func, irFunc),
+  !BlockToInline(func, prevfunc).
+
 
 // Intra-function edges (i.e., real CFG edges)
 
-// This is just a helper relation, on old blocks, not IR blocks
-.decl BlockEdgeIntraProc(block: Block, next: Block)
-BlockEdgeIntraProc(block, next) :-
-  BlockEdge(_, block, _, next),
-  MaybeInFunction(block, func),
-  MaybeInFunction(next, func).
-
 .decl LocalBlockEdge(block: IRBlock, next: IRBlock)
 LocalBlockEdge(irfrom, irto) :-
-  IRBlockEdge(irfrom, irto),
-//  BlockEdgeIntraProc(from, to),
-//  Block_IRBlock(from, irfrom),
-//  Block_IRBlock(to, irto),
-  InFunction(irfrom, func),
-  InFunction(irto, func).
+  BlockEdge(_, from, _, to),
+  Block_IRBlock(from, func, irfrom),
+  Block_IRBlock(to, func, irto).
 
 LocalBlockEdge(block, next) :-
   IRFunctionCallReturn(block, _, next).
@@ -334,18 +315,20 @@ LocalBlockEdge(block, next) :-
 .decl IRFallthroughEdge(from: IRBlock, to: IRBlock)
 IRFallthroughEdge(irfrom, irto) :-
   FallthroughEdge(from, to),
-  Block_IRBlock(from, irfrom),
-  Block_IRBlock(to, irto),
-  InFunction(irfrom, func),
-  InFunction(irto, func).
+  Block_IRBlock(from, func, irfrom),
+  Block_IRBlock(to, func, irto).
 
+
+//// WARNING: This is an unintuitive concept. It's only mapping the
+//// intra-procedural subset of BlockEdges to the functional IR, not
+//// all BlockEdges. Be careful when using!
 .decl IRBlockEdge(from: IRBlock, to: IRBlock)
 IRBlockEdge(irfrom, irto) :-
   BlockEdge(_, from, _, to),
-  Block_IRBlock(from, irfrom),
-  Block_IRBlock(to, irto).
+  Block_IRBlock(from, func, irfrom),
+  Block_IRBlock(to, func, irto).
 
-.decl Statement_IRStatement(stmt: Statement, irstmt: IRStatement)
+.decl Statement_IRStatement(stmt: Statement, func: Block, irstmt: IRStatement)
 .decl IRStatement_Block(stmt: IRStatement, to: IRBlock)
 
 .decl IRStatement_VarString(irstmt: IRStatement, func: symbol)
@@ -353,70 +336,87 @@ IRBlockEdge(irfrom, irto) :-
 IRStatement_VarString(irstmt, irFunc),
 IRBlock_VarString(irblock, irFunc),
 IRStatement_Block(irstmt, irblock),
-Statement_IRStatement(stmt, irstmt) :-
+Statement_IRStatement(stmt, func, irstmt) :-
   BlockToInline(block, func),
   Statement_Block(stmt, block),
-  Block_IRBlock(block, irblock),
+  Block_IRBlock(block, func, irblock),
   Function_IRFunction(func, irFunc),
-  irstmt = FRESH_IRSTATEMENT(stmt, irFunc).
+  irstmt = FRESH_IRSTATEMENT(stmt, func).
 
 IRStatement_VarString(irstmt, ""),
 IRBlock_VarString(irblock, ""),
 IRStatement_Block(irstmt, irblock),
-Statement_IRStatement(stmt, irstmt) :-
-  MaybeInFunction(block, func),
+Statement_IRStatement(stmt, func, irstmt) :-
+  Block_IRBlock(block, func, irblock),
   !BlockToInline(block, func),
   Statement_Block(stmt, block),
-  Block_IRBlock(block, irblock),
   irstmt = STATEMENT_TO_IRSTATEMENT(stmt).
 
 .decl IRStatementNum(stmt: IRStatement, num: number)
 IRStatementNum(irstmt, num) :-
   _StatementNum(stmt, num),
-  Statement_IRStatement(stmt, irstmt).
+  Statement_IRStatement(stmt, _, irstmt).
 
 .decl IRTACNOP(stmt: IRStatement)
 IRTACNOP(irstmt) :-
   TACNOP(stmt),
-  Statement_IRStatement(stmt, irstmt).
+  Statement_IRStatement(stmt, _, irstmt).
+
+/***********
+ * Identify actual function calls and returns
+ ***********/
+
+.decl FunctionCallStmt(irstmt: IRStatement)
+FunctionCallStmt(irstmt) :-
+  Block_IRBlock(block, func, irblock),
+  IRFunctionCall(irblock, _),
+  BasicBlock_Tail(block, stmt),
+  Statement_IRStatement(stmt, func, irstmt).
+
+.decl FunctionReturnStmt(irstmt: IRStatement)
+FunctionReturnStmt(irstmt) :-
+  Block_IRBlock(block, func, irblock),
+  IRFunction_Return(_, irblock),
+  BasicBlock_Tail(block, stmt),
+  Statement_IRStatement(stmt, func, irstmt).
 
 .decl IRStatement_Opcode(stmt: IRStatement, op: Opcode)
 IRStatement_Opcode(irstmt, op) :-
   Statement_Opcode(stmt, op),
-  Statement_IRStatement(stmt, irstmt),
-  !FunctionCallStmt(stmt),
-  !FunctionReturnStmt(stmt).
+  Statement_IRStatement(stmt, _, irstmt),
+  !FunctionCallStmt(irstmt),
+  !FunctionReturnStmt(irstmt).
 
 IRStatement_Opcode(irstmt, "CALLPRIVATEI") :-
-  Statement_IRStatement(stmt, irstmt),
+  Statement_IRStatement(stmt, _, irstmt),
   JUMPI(stmt),
-  FunctionCallStmt(stmt).
+  FunctionCallStmt(irstmt).
 
 IRStatement_Opcode(irstmt, "CALLPRIVATE") :-
-  Statement_IRStatement(stmt, irstmt),
+  Statement_IRStatement(stmt, _, irstmt),
   !JUMPI(stmt),
-  FunctionCallStmt(stmt).
+  FunctionCallStmt(irstmt).
 
 IRStatement_Opcode(irstmt, "RETURNPRIVATEI") :-
-  Statement_IRStatement(stmt, irstmt),
+  Statement_IRStatement(stmt, _, irstmt),
   JUMPI(stmt),
-  FunctionReturnStmt(stmt).
+  FunctionReturnStmt(irstmt).
 
 IRStatement_Opcode(irstmt, "RETURNPRIVATE") :-
-  Statement_IRStatement(stmt, irstmt),
+  Statement_IRStatement(stmt, _, irstmt),
   JUMP(stmt),
-  FunctionReturnStmt(stmt).
+  FunctionReturnStmt(irstmt).
 
 .decl IRIsJump(stmt: IRStatement)
 IRIsJump(irstmt) :-
   IsJump(stmt),
-  Statement_IRStatement(stmt, irstmt).
+  Statement_IRStatement(stmt, _, irstmt).
  
 .decl IRBasicBlock_Tail(block: IRBlock, tail: IRStatement)
 IRBasicBlock_Tail(irblock, irtail) :-
   BasicBlock_Tail(block, tail),
-  Block_IRBlock(block, irblock),
-  Statement_IRStatement(tail, irtail),
+  Block_IRBlock(block, func, irblock),
+  Statement_IRStatement(tail, func, irtail),
   IRStatement_Block(irtail, irblock).
 
 
@@ -426,35 +426,35 @@ IRBasicBlock_Tail(irblock, irtail) :-
 
 IRBlockPopDelta(irblock, n) :-
   BlockPopDelta(block, n),
-  Block_IRBlock(block, irblock).
+  Block_IRBlock(block, _, irblock).
 
 IRBlockStackDelta(irblock, stackDelta) :-
   BlockStackDelta(block, stackDelta),
-  Block_IRBlock(block, irblock).
+  Block_IRBlock(block, _, irblock).
 
 .decl IRStatement_Uses_Local(stmt: IRStatement, varOrStackIndex: VariableOrStackIndex, n: StackIndex)
 IRStatement_Uses_Local(irstmt, varOrStackIndex, n) :-
   Statement_Uses_Local(stmt, varOrStackIndex, n),
-  Statement_IRStatement(stmt, irstmt).
+  Statement_IRStatement(stmt, _, irstmt).
 
 .decl IRBeforeLocalStackContents(stmt: IRStatement, n:StackIndex, varOrStackIndex:VariableOrStackIndex)
 IRBeforeLocalStackContents(irstmt, n, varOrStackIndex) :-
   BeforeLocalStackContents(stmt, n, varOrStackIndex),
-  Statement_IRStatement(stmt, irstmt).
+  Statement_IRStatement(stmt, _, irstmt).
 
 .decl IRLocalStackContents(stmt: IRStatement, n:StackIndex, varOrStackIndex:VariableOrStackIndex)
 IRLocalStackContents(irstmt, n, varOrStackIndex) :-
   LocalStackContents(stmt, n, varOrStackIndex),
-  Statement_IRStatement(stmt, irstmt).
+  Statement_IRStatement(stmt, _, irstmt).
 
 .decl IRThrowJump(irstmt: IRStatement)
 IRThrowJump(irstmt) :-
   ThrowJump(stmt),
-  Statement_IRStatement(stmt, irstmt).
+  Statement_IRStatement(stmt, _, irstmt).
 
 .decl IRBlock_Gas(irblock: IRBlock, gas: number)
 IRBlock_Gas(irblock, gas) :-
-  Block_IRBlock(block, irblock),
+  Block_IRBlock(block, _, irblock),
   Block_Gas(block, gas).
 
 
@@ -475,24 +475,34 @@ IRBlock_Gas(irblock, gas) :-
 
 EnhancedLocalBlockEdge(from, to) :- LocalBlockEdge(from, to).
 
-EnhancedLocalBlockEdge(from, "invalid") :- InFunction(from, _), !LocalBlockEdge(from, _).
+EnhancedLocalBlockEdge(from, "invalid") :- IRInFunction(from, _), !LocalBlockEdge(from, _).
 
-EnhancedLocalBlockEdge(from, "invalid") :- IRFunction_Return(_, from), InFunction(from, _).
+EnhancedLocalBlockEdge(from, "invalid") :- IRFunction_Return(_, from), IRInFunction(from, _).
 
+// How many (max) elements are popped from the stack during this block transition?
 .decl EdgePopDelta(from: IRBlock, to: IRBlock, delta: StackIndex)
 
-EdgePopDelta(from, to, delta) :-
-   EnhancedLocalBlockEdge(from, to),
-   IRBlockEdge(from, to),
-   IRBlockPopDelta(from, delta).
+EdgePopDelta(fromir, toir, delta) :-
+   EnhancedLocalBlockEdge(fromir, toir),
+   IRBlockEdge(fromir, toir),
+   IRBlockPopDelta(fromir, delta).
 
 EdgePopDelta(from, to, delta) :-
    EnhancedLocalBlockEdge(from, to),
    !IRFunctionCall(from, _),
    IRBlockPopDelta(from, delta).
 
+// Function call edge: the function needs n args, the caller block
+// pops m and leaves the stack with d more than it found. This means
+// n-d of the arguments are above the stack line the block got when it
+// started.
+
+// Case 1: If n-d >= m, then the combination block+call edge consumes
+// (max) n-d stack elements, relative to the stack level at beginning
+// of the caller block.
 EdgePopDelta(from, to, newPopDelta) :-
    EnhancedLocalBlockEdge(from, to),
+     // the to will be "invalid"
    !IRBlockEdge(from, to),
    IRFunctionCall(from, func),
    NumberOfFunctionArguments(func, _, n_args),
@@ -502,6 +512,9 @@ EdgePopDelta(from, to, newPopDelta) :-
    newPopDelta < MAX_STACK_HEIGHT,
    newPopDelta >= popDelta.
 
+// Case 2: If n-d < m, then the combination block+call edge consumes m
+// stack elements, relative to the stack level at beginning of the
+// caller block.
 EdgePopDelta(from, to, popDelta) :-
    EnhancedLocalBlockEdge(from, to),
    !IRBlockEdge(from, to),
@@ -599,7 +612,7 @@ NumberOfFunctionArguments(FUNCTION_SELECTOR, block, 0) :-
 Function_ArgumentTerminal(func, block),
 NumberOfFunctionArguments(func, block, delta) :-
    FunctionEdgePopDelta(block, "invalid", delta),
-   InFunction(block, func),
+   IRInFunction(block, func),
    !IRFunction_Return(func, _).
 
 
@@ -609,7 +622,7 @@ NumberOfFunctionReturnArguments(func, delta) :-
 
 // default
 NumberOfFunctionReturnArguments(func, 0) :-
-   IsFunctionEntry(func),
+   IRFunctionEntry(func),
    !IRFunction_Return(func, _).
 
 .decl CandidateNumberOfFunctionArgumentsForReturn(func: IRFunction, ret: IRBlock, n: StackIndex)
@@ -622,7 +635,7 @@ CandidateNumberOfFunctionArgumentsForReturn(func, ret, n) :-
 .decl CandidateNumberOfFunctionArguments(func: IRFunction, n: StackIndex)
 
 CandidateNumberOfFunctionArguments(func, n) :-
-   IsFunctionEntry(func),
+   IRFunctionEntry(func),
    n = max m : CandidateNumberOfFunctionArgumentsForReturn(func, _, m).
 
 // This may improve precision, see further rant below
@@ -688,7 +701,7 @@ FunctionCallReturnArgument(caller, n, newVar) :-
 
 FunctionalBlockInputContents(entry, n, var) :-
    IRFunctionEntry(entry),
-   InFunction(entry, func),
+   IRInFunction(entry, func),
    FunctionArgument(func, n, var).
 
 FunctionalBlockInputContents(next, index, variable) :-
@@ -748,7 +761,7 @@ BeforeFunctionCallFunctionalBlockOutputContents(callee, index+delta, variable) :
 
 // Handle the proper variables pushed by this basic block
 BeforeFunctionCallFunctionalBlockOutputContents(block, index, var) :-
-  InFunction(block, _),
+  IRInFunction(block, _),
   IRBasicBlock_Tail(block, stmt),
   IRLocalStackContents(stmt, index, var),
   CheckIsVariable(var).
@@ -783,16 +796,16 @@ FunctionalStatement_Uses_Local(stmt, varOrStackIndex, n) :-
 
 FunctionalStatement_Uses_Local(irstmt, varOrStackIndex, n) :-
    Statement_Uses_Local(stmt, varOrStackIndex, n),
-   Statement_IRStatement(stmt, irstmt).
+   Statement_IRStatement(stmt, _, irstmt).
 
 FunctionalStatement_Uses(irstmt, var, n) :-
    Statement_Uses_Local(stmt, var, n),
    CheckIsVariable(var),
-   Statement_IRStatement(stmt, irstmt).
+   Statement_IRStatement(stmt, _, irstmt).
 
 FunctionalStatement_Defines(irstmt, newVar, 0) :-
    Statement_Defines(stmt, newVar),
-   Statement_IRStatement(stmt, irstmt).
+   Statement_IRStatement(stmt, _, irstmt).
 
 // Case: variable originates elsewhere
 FunctionalStatement_Uses(stmt, var, n) :-
@@ -804,7 +817,7 @@ FunctionalStatement_Uses(stmt, var, n) :-
 .decl PublicFunctionSignature(hex_signature: Value, text_signature: symbol)
 .input PublicFunctionSignature
 
-.decl HighLevelFunctionName(func: Block, name: symbol)
+.decl HighLevelFunctionName(func: IRFunction, name: symbol)
 
 // Standardize public function signature length
 .decl SighashIntermediate(sig: symbol, sigHash: symbol)
@@ -816,9 +829,14 @@ SighashIntermediate(sigIn, cat("0x0",substr(sigOut,2,8))) :-
 SighashIntermediate(sig, sig) :-
    PublicFunction(_, sig).
 
+.decl IRPublicFunction(irfunc: IRFunction, sigHash: Value)
+IRPublicFunction(irfunc, sigHash) :-
+  PublicFunction(func, sigHash),
+  Function_IRFunction(func, irfunc).
+  
 .decl PublicFunction_HighLevel(func: IRFunction, sigHashOut: symbol)
 PublicFunction_HighLevel(func, sigHashOut) :-
-   PublicFunction(func, sigHash),
+   IRPublicFunction(func, sigHash),
    SighashIntermediate(sigHash, sigHashOut),
    strlen(sigHashOut) = 10.
    
@@ -831,8 +849,8 @@ HighLevelFunctionName(func, name) :-
    !PublicFunctionSignature(name, _).
 
 HighLevelFunctionName(func, func) :-
-   IsFunctionEntry(func),
+   IRFunctionEntry(func),
    func != FUNCTION_SELECTOR,
-   !PublicFunction(func, _).
+   !IRPublicFunction(func, _).
 
 HighLevelFunctionName(FUNCTION_SELECTOR, "__function_selector__").
