@@ -177,7 +177,7 @@ PRE_TAC_Use(stmt, var_rep, n) :-
   !PHILocation(block, stackIndex, _),
   FunctionalBlockInputContents(block, stackIndex, var),
   FunctionArgument(_, _, var),
-  Variable_Block_String(var, block, var_rep).
+  Variable_String(var, var_rep).
 
 
 // Case 3: Is a PHI statement
@@ -193,7 +193,7 @@ PRE_TAC_Use(phiStmt, var_rep, -1) :-
   PHILocation(block, stackIndex, phiStmt),
   FunctionalBlockInputContents(block, stackIndex, var),
   FunctionArgument(_, _, var),
-  Variable_Block_String(var, block, var_rep).
+  Variable_String(var, var_rep).
 
 
 TAC_Use(stmt, var_rep, n) :-
