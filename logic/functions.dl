@@ -212,13 +212,13 @@ BlockInMultipleFunctions(block) :-
 
 
 // For this function, the block should be inlined.
-.decl BlockToInline(block: Block, func: Block)
-BlockToInline(next, func) :-
+.decl BlockToClone(block: Block, func: Block)
+BlockToClone(next, func) :-
   MaybeInFunction(next, func),
   BlockInMultipleFunctions(next).
 
 
-.output IsFunctionEntry, IsFunctionCall, BlockToInline // DEBUG
+.output IsFunctionEntry, IsFunctionCall, BlockToClone // DEBUG
 
 
 
@@ -254,14 +254,14 @@ IRFunctionEntry(irEntry) :-
 Block_IRBlock(block, func, irblock),
 IRInFunction(irblock, irFunc) :-
   MaybeInFunction(block, func),
-  !BlockToInline(block, func),
+  !BlockToClone(block, func),
   irblock = BLOCK_TO_IRBLOCK(block),
   Function_IRFunction(func, irFunc).
 
 Block_IRBlock(block, func, irblock),
 IRInFunction(irblock, irFunc) :-
   MaybeInFunction(block, func),
-  BlockToInline(block, func),
+  BlockToClone(block, func),
   irblock = FRESH_IRBLOCK(block, func),
   Function_IRFunction(func, irFunc).
 
@@ -281,7 +281,7 @@ IRFunction_Return_Edge(retir, callerretir) :-
   Block_IRBlock(caller, prevfunc, callerir),
   Block_IRBlock(callerret, prevfunc, callerretir),
   Function_IRFunction(func, irfunc),
-  !BlockToInline(func, prevfunc).
+  !BlockToClone(func, prevfunc).
 
 
 // REVIEW: IRFunctionCall will include the IRFunctionCallReturn
@@ -293,7 +293,7 @@ IRFunctionCall(fromir, irFunc) :-
   IsFunctionCall(from, func),
   Block_IRBlock(from, prevfunc, fromir),
   Function_IRFunction(func, irFunc),
-  !BlockToInline(func, prevfunc).
+  !BlockToClone(func, prevfunc).
 
 
 // Intra-function edges (i.e., real CFG edges)
@@ -337,7 +337,7 @@ IRStatement_VarString(irstmt, irFunc),
 IRBlock_VarString(irblock, irFunc),
 IRStatement_Block(irstmt, irblock),
 Statement_IRStatement(stmt, func, irstmt) :-
-  BlockToInline(block, func),
+  BlockToClone(block, func),
   Statement_Block(stmt, block),
   Block_IRBlock(block, func, irblock),
   Function_IRFunction(func, irFunc),
@@ -348,7 +348,7 @@ IRBlock_VarString(irblock, ""),
 IRStatement_Block(irstmt, irblock),
 Statement_IRStatement(stmt, func, irstmt) :-
   Block_IRBlock(block, func, irblock),
-  !BlockToInline(block, func),
+  !BlockToClone(block, func),
   Statement_Block(stmt, block),
   irstmt = STATEMENT_TO_IRSTATEMENT(stmt).
 
@@ -654,7 +654,6 @@ Variable_Stmt_String(var, stmt, res) :-
    res = cat(_stmt_str, _var_str),
    IRStatement_VarString(stmt, _stmt_str),
    Variable_String(var, _var_str).
-
         
 .decl Variable_Block_String(var:Variable, block: IRBlock, var_rep:symbol) inline
 

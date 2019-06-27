@@ -65,11 +65,28 @@ PHILocation(block, stackIndex, cat(cat(block, "_"), stackIndexStr)) :-
 .output TAC_Variable_Value
 
 
+/// REVIEW: heuristically change the values of all constants that
+/// match cloned basic block labels!
+
 // Normal variable, known length
+TAC_Variable_Value(tacvar, irvalue) :-
+   FunctionalStatement_Defines(stmt, var, _),
+   Variable_Stmt_String(var, stmt, tacvar),
+   Variable_Value(var, value),
+   StatementAndBlockInSameFunction(stmt, CAST_TO_SYMBOL(value), irvalue),
+    // value matches address of block
+   substr(value, 0, 2) = "0x".
+
+.decl StatementAndBlockInSameFunction(stmt: IRStatement, block: Block, irblock: IRBlock)
+StatementAndBlockInSameFunction(stmt, block, irblock) :-
+   Statement_IRStatement(_, func, stmt),
+   Block_IRBlock(block, func, irblock).
+
 TAC_Variable_Value(tacvar, value) :-
    FunctionalStatement_Defines(stmt, var, _),
    Variable_Stmt_String(var, stmt, tacvar),
    Variable_Value(var, value),
+   !StatementAndBlockInSameFunction(stmt, CAST_TO_SYMBOL(value), _),
    substr(value, 0, 2) = "0x".
 
 UnknownLength(var) :-
