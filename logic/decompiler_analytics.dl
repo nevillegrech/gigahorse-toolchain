@@ -105,8 +105,8 @@ Analytics_JumpToAnyOnly(block) :-
 .output Analytics_InexactFunctionReturnArguments
 
 Analytics_InexactFunctionArguments(func) :-
-   NumberOfFunctionArguments(func, _, delta),
-   NumberOfFunctionArguments(func, _, delta2),
+   NumberOfFunctionArguments(func, delta),
+   NumberOfFunctionArguments(func, delta2),
    delta != delta2.
 
 Analytics_InexactFunctionReturnArguments(func) :-
@@ -179,7 +179,7 @@ Analytics_FunctionWithMultipleReturns(func) :-
 FunctionReturnBlockPopDelta(func, retBlock, n_in) :-
    Analytics_FunctionWithMultipleReturns(func),
    IRFunction_Return(func, retBlock),
-   FunctionEdgePopDelta(retBlock, "invalid", n_in).
+   PossibleFunctionEdgePopDelta(retBlock, "invalid", n_in).
 
 // functions with different stack pop depth in different return blocks
 .decl Analytics_FunctionWithMultipleStackDepthsAtReturnBlocks(func: IRFunction)

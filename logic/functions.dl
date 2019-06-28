@@ -296,16 +296,41 @@ IRFunctionCall(fromir, irFunc) :-
   !BlockToClone(func, prevfunc).
 
 
+// ///// This doesn't seem to be valid
+// // Regular return instructions should also count as IR returns? For
+// // use in possible #return values calculation.
+// IRFunction_Return(irFunc, retBlock) :-
+//   Statement_Opcode(stmt, "RETURN"),
+//   Statement_IRStatement(stmt, func, irstmt),
+//   IRBasicBlock_Tail(retBlock, irstmt),
+//   Function_IRFunction(func, irFunc).
+
+
 // Intra-function edges (i.e., real CFG edges)
 
-.decl LocalBlockEdge(block: IRBlock, next: IRBlock)
-LocalBlockEdge(irfrom, irto) :-
+//// WARNING: Be careful when using! This is an unintuitive
+//// concept. It's only mapping the intra-procedural subset of
+//// BlockEdges to the functional IR, not all BlockEdges. It's also
+//// not the same as the "local" block edges of the functional IR,
+//// because these also continue the function code after a call.
+.decl IRBlockEdge(from: IRBlock, to: IRBlock)
+IRBlockEdge(irfrom, irto) :-
   BlockEdge(_, from, _, to),
   Block_IRBlock(from, func, irfrom),
   Block_IRBlock(to, func, irto).
 
+.decl LocalBlockEdge(block: IRBlock, next: IRBlock)
+LocalBlockEdge(irfrom, irto) :-
+  IRBlockEdge(irfrom, irto).
 LocalBlockEdge(block, next) :-
   IRFunctionCallReturn(block, _, next).
+
+.decl EnhancedLocalBlockEdge(from: IRBlock, to: IRBlock)
+EnhancedLocalBlockEdge(from, to) :- LocalBlockEdge(from, to).
+
+// Add "invalid" transitions to exit points, including returns, throws, and calls with no return
+EnhancedLocalBlockEdge(from, "invalid") :- IRInFunction(from, _), !LocalBlockEdge(from, _).
+EnhancedLocalBlockEdge(from, "invalid") :- IRFunction_Return(_, from), IRInFunction(from, _).
 
 //
 // The next few are mostly direct translations of concepts from the
@@ -318,15 +343,6 @@ IRFallthroughEdge(irfrom, irto) :-
   Block_IRBlock(from, func, irfrom),
   Block_IRBlock(to, func, irto).
 
-
-//// WARNING: This is an unintuitive concept. It's only mapping the
-//// intra-procedural subset of BlockEdges to the functional IR, not
-//// all BlockEdges. Be careful when using!
-.decl IRBlockEdge(from: IRBlock, to: IRBlock)
-IRBlockEdge(irfrom, irto) :-
-  BlockEdge(_, from, _, to),
-  Block_IRBlock(from, func, irfrom),
-  Block_IRBlock(to, func, irto).
 
 .decl Statement_IRStatement(stmt: Statement, func: Block, irstmt: IRStatement)
 .decl IRStatement_Block(stmt: IRStatement, to: IRBlock)
@@ -468,183 +484,233 @@ IRBlock_Gas(irblock, gas) :-
 // RETURNPRIVATE(stmt)
 // RETURNPRIVATEI(stmt, cond)
 
-.decl NumberOfFunctionArguments(func: IRFunction, ret: IRBlock, num: StackIndex)
+.decl NumberOfFunctionArguments(func: IRFunction, num: StackIndex)
 .decl NumberOfFunctionReturnArguments(func: IRFunction, num: StackIndex)
 
-.decl EnhancedLocalBlockEdge(from: IRBlock, to: IRBlock)
+// In the functional IR we have more kinds of (local) edges than in the TAC IR:
+//  - Call-return edges from a block that ends in a call to the purported
+//    continuation of the call
+//  - Call edges that don't return (shown as edges to "invalid"
+//  - return edges (also to "invalid")
+//  - throw/exit edges (also to "invalid")
+// We need to extend the stack-manipulation predicates for all those. Care
+// should be taken for conditional calls.
 
-EnhancedLocalBlockEdge(from, to) :- LocalBlockEdge(from, to).
-
-EnhancedLocalBlockEdge(from, "invalid") :- IRInFunction(from, _), !LocalBlockEdge(from, _).
-
-EnhancedLocalBlockEdge(from, "invalid") :- IRFunction_Return(_, from), IRInFunction(from, _).
+.decl Test1(from: IRBlock, to: IRBlock)
+.decl Test2(from: IRBlock, to: IRBlock)
+.output Test1 
+.output Test2
 
 // How many (max) elements are popped from the stack during this block transition?
 .decl EdgePopDelta(from: IRBlock, to: IRBlock, delta: StackIndex)
 
-EdgePopDelta(fromir, toir, delta) :-
-   EnhancedLocalBlockEdge(fromir, toir),
-   IRBlockEdge(fromir, toir),
-   IRBlockPopDelta(fromir, delta).
-
+// The edge itself is not a call, nor return, nor throw. The final
+// statement *may* be a conditional call or return, though.
 EdgePopDelta(from, to, delta) :-
-   EnhancedLocalBlockEdge(from, to),
-   !IRFunctionCall(from, _),
-   IRBlockPopDelta(from, delta).
+  IRBlockEdge(from, to),
+  IRBlockPopDelta(from, delta).
 
-// Function call edge: the function needs n args, the caller block
-// pops m and leaves the stack with d more than it found. This means
-// n-d of the arguments are above the stack line the block got when it
-// started.
+// The edge (not just the statement, which may be a conditional) is a return or
+// a throw. Not a non-returning call (which would also be an edge to "invalid").
+EdgePopDelta(from, "invalid", delta) :-
+  EnhancedLocalBlockEdge(from, "invalid"),
+  !IRFunctionCall(from, _), 
+  IRBlockPopDelta(from, delta).
+
+// The edge is a call. Same handling for with and without return.
+// Surprisingly, we can still compute the high watermark of how many
+// stack slots will be consumed.
+
+// The function needs n args, the caller block pops m and leaves the
+// stack with d more than it found. This means n-d of the arguments
+// are above the stack line the block got when it started.
 
 // Case 1: If n-d >= m, then the combination block+call edge consumes
 // (max) n-d stack elements, relative to the stack level at beginning
 // of the caller block.
 EdgePopDelta(from, to, newPopDelta) :-
-   EnhancedLocalBlockEdge(from, to),
-     // the to will be "invalid"
-   !IRBlockEdge(from, to),
-   IRFunctionCall(from, func),
-   NumberOfFunctionArguments(func, _, n_args),
-   IRBlockPopDelta(from, popDelta),
-   IRBlockStackDelta(from, stackDelta),
-   newPopDelta = n_args-stackDelta,
-   newPopDelta < MAX_STACK_HEIGHT,
-   newPopDelta >= popDelta.
+  EnhancedLocalBlockEdge(from, to),
+  IRFunctionCall(from, func),
+  PossibleNumberOfFunctionArguments(func, n_args),
+  IRBlockPopDelta(from, popDelta),
+  IRBlockStackDelta(from, stackDelta),
+  newPopDelta = n_args-stackDelta,
+  newPopDelta < MAX_STACK_HEIGHT,
+  newPopDelta >= popDelta.
 
 // Case 2: If n-d < m, then the combination block+call edge consumes m
 // stack elements, relative to the stack level at beginning of the
 // caller block.
 EdgePopDelta(from, to, popDelta) :-
-   EnhancedLocalBlockEdge(from, to),
-   !IRBlockEdge(from, to),
-   IRFunctionCall(from, func),
-   NumberOfFunctionArguments(func, _, n_args),
-   IRBlockPopDelta(from, popDelta),
-   IRBlockStackDelta(from, stackDelta),
-   newPopDelta = n_args-stackDelta,
-   newPopDelta < popDelta.
+  EnhancedLocalBlockEdge(from, to),
+  IRFunctionCall(from, func),
+  PossibleNumberOfFunctionArguments(func, n_args),
+  IRBlockPopDelta(from, popDelta),
+  IRBlockStackDelta(from, stackDelta),
+  newPopDelta = n_args-stackDelta,
+  newPopDelta < popDelta.
 
+
+// What is the total difference in stack level during this block transition?
 .decl EdgeStackDelta(from: IRBlock, to: IRBlock, delta: StackIndex)
 
+// Not a call edge, nor return.
+EdgeStackDelta(from, to, stackDelta) :-
+  IRBlockEdge(from, to),
+  IRBlockStackDelta(from, stackDelta).
+
+// It's a return or throw edge
+EdgeStackDelta(from, "invalid", delta) :-
+  EnhancedLocalBlockEdge(from, "invalid"),
+  !IRFunctionCall(from, _), 
+  IRBlockStackDelta(from, delta).
+
+// It's a call-with-return edge
 EdgeStackDelta(from, to, newStackDelta) :-
-   CompositeNumberOfFunctionAndReturnArguments(func, n_args, n_ret),
-   EnhancedLocalBlockEdge(from, to),
-   !IRBlockEdge(from, to),
-   IRFunctionCall(from, func),
-   IRBlockStackDelta(from, stackDelta),
-   newStackDelta = stackDelta-n_args+n_ret,
-   newStackDelta < MAX_STACK_HEIGHT,
-   newStackDelta > -MAX_STACK_HEIGHT.
+  EnhancedLocalBlockEdge(from, to),
+  IRFunctionCallReturn(from, func, to),
+  PossibleCombinedNumberOfFunctionReturnsAndArguments(func, n_args, n_ret),
+  IRBlockStackDelta(from, stackDelta),
+  newStackDelta = stackDelta-n_args+n_ret,
+  newStackDelta < MAX_STACK_HEIGHT,
+  newStackDelta > -MAX_STACK_HEIGHT.
 
-EdgeStackDelta(from, to, stackDelta) :-
-   EnhancedLocalBlockEdge(from, to),
-   IRBlockEdge(from, to),
-   IRBlockStackDelta(from, stackDelta).
-
-EdgeStackDelta(from, to, stackDelta) :-
-   EnhancedLocalBlockEdge(from, to),
-   !IRFunctionCall(from, _),
-   IRBlockStackDelta(from, stackDelta).
-
-.decl FunctionEdgePopDelta(from: IRBlock, to: IRBlock, delta: StackIndex)
-
-FunctionEdgePopDelta(from, to, delta) :-
-   IRFunctionEntry(from),
-   EdgePopDelta(from, to, delta).
+// What about calls with no return? These don't get back to the
+// caller, so we never care about the level they leave the stack at,
+// only about how deep in it they went.
 
 
-.decl OptEdgePopDeltas(from: IRBlock, to: IRBlock, prevPopDelta: StackIndex, prevStackDelta: StackIndex, delta: StackIndex)
+// What's the total pop and stack delta since the beginning of the
+// function for cycle-free paths? Clearly these can have multiple
+// values. We need to keep track of all nodes avoided in the path so
+// far, so that we can extend the path cycle-free. We also need to
+// ensure both cumulative deltas are true for the *same* path, not
+// just different paths to the same end node. This makes for complex
+// rules.
+.decl PossibleFunctionEdgePopAndStackDeltaBypassing(func: IRFunction, to: IRBlock, bypass: IRBlock, popDelta: StackIndex, stackDelta: StackIndex)
 
-OptEdgePopDeltas(from, to, prevPopDelta, prevStackDelta, delta) :-
-   FunctionEdgePopDelta(prev, from, prevPopDelta),
-   FunctionEdgeStackDelta(prev, from, prevStackDelta),
-   EdgePopDelta(from, to, delta),
-   LocalBlockEdge(prev, from).
-   .plan 1:(2,1,3,4), 2:(3,1,2,4)
-   
-FunctionEdgePopDelta(from, to, newPopDelta) :-
-   OptEdgePopDeltas(from, to, prevPopDelta, prevStackDelta, delta),
-   newPopDelta = delta - prevStackDelta,
-   newPopDelta > prevPopDelta,
-   newPopDelta < MAX_STACK_HEIGHT.
+PossibleFunctionEdgePopAndStackDeltaBypassing(from, to, bypass, popDelta, stackDelta) :-
+  IRFunctionEntry(from),
+  EdgePopDelta(from, to, popDelta),
+  EdgeStackDelta(from, to, stackDelta), 
+  IRInFunction(bypass, from),
+  bypass != from,
+  bypass != to.
 
-FunctionEdgePopDelta(from, to, delta) :-
-   OptEdgePopDeltas(from, to, prevPopDelta, prevStackDelta, delta),
-   newPopDelta = delta - prevStackDelta,
-   newPopDelta <= prevPopDelta.
+PossibleFunctionEdgePopAndStackDeltaBypassing(func, to, bypass, newPopDelta, newStackDelta) :-
+  PossibleFunctionEdgePopAndStackDeltaBypassing(func, from, bypass, prevPopDelta, prevStackDelta),
+  EdgePopDelta(from, to, popDelta),
+  EdgeStackDelta(from, to, stackDelta),
+  to != bypass,
+  newPopDelta = popDelta - prevStackDelta,
+  newPopDelta > prevPopDelta,
+  newPopDelta < MAX_STACK_HEIGHT,
+  newStackDelta = stackDelta + prevStackDelta,
+  newStackDelta < MAX_STACK_HEIGHT,
+  newStackDelta > -MAX_STACK_HEIGHT.
+ .plan 1:(2,1,3), 2:(3,1,2)
 
-.decl FunctionEdgeStackDelta(from: IRBlock, to: IRBlock, delta: StackIndex)
+PossibleFunctionEdgePopAndStackDeltaBypassing(func, to, bypass, prevPopDelta, newStackDelta) :-
+  PossibleFunctionEdgePopAndStackDeltaBypassing(func, from, bypass, prevPopDelta, prevStackDelta),
+  EdgePopDelta(from, to, popDelta),
+  EdgeStackDelta(from, to, stackDelta),
+  to != bypass,
+  newPopDelta = popDelta - prevStackDelta,
+  newPopDelta <= prevPopDelta,
+  newPopDelta < MAX_STACK_HEIGHT,
+  newStackDelta = stackDelta + prevStackDelta,
+  newStackDelta < MAX_STACK_HEIGHT,
+  newStackDelta > -MAX_STACK_HEIGHT.
+ .plan 1:(2,1,3), 2:(3,1,2)
 
-FunctionEdgeStackDelta(from, to, delta) :-
-   EdgeStackDelta(from, to, delta),
-   IRFunctionEntry(from).
 
-FunctionEdgeStackDelta(from, to, newStackDelta) :-
-   FunctionEdgeStackDelta(prev, from, prevStackDelta),
-   LocalBlockEdge(prev, from),
-   EdgeStackDelta(from, to, delta),
-   newStackDelta = delta + prevStackDelta,
-   newStackDelta < MAX_STACK_HEIGHT,
-   newStackDelta > -MAX_STACK_HEIGHT.
-   .plan 1:(3, 2, 1)
+.decl PossibleFunctionEdgePopDelta(func: IRFunction, to: IRBlock, delta: StackIndex)
+.decl PossibleFunctionEdgeStackDelta(func: IRFunction, to: IRBlock, delta: StackIndex)
 
-.decl FunctionEdgePushDelta(from: IRBlock, to: IRBlock, delta: StackIndex)
+PossibleFunctionEdgePopDelta(func, to, popDelta),
+PossibleFunctionEdgeStackDelta(func, to, stackDelta) :-
+  PossibleFunctionEdgePopAndStackDeltaBypassing(func, to, _, popDelta, stackDelta).
 
-FunctionEdgePushDelta(from, to, stackDelta + popDelta) :-
-   FunctionEdgePopDelta(from, to, popDelta),
-   FunctionEdgeStackDelta(from, to, stackDelta).
-   .plan 1:(2, 1)
 
-.decl Function_ArgumentTerminal(func: IRFunction, terminal: IRBlock)
+.decl PossibleNumberOfFunctionArguments(func: IRFunction, num: StackIndex)
+.decl PossibleNumberOfFunctionReturnArguments(func: IRFunction, num: StackIndex)
 
-// We mostly care about a function's signature when it returns
-Function_ArgumentTerminal(func, ret),
-NumberOfFunctionArguments(func, ret, delta) :-
-   FunctionEdgePopDelta(ret, "invalid", delta),
-   IRFunction_Return(func, ret).
+// Either a call with no return, or a return, or a throw: all are valid
+PossibleNumberOfFunctionArguments(func, delta) :-
+  PossibleFunctionEdgePopDelta(func, "invalid", delta).
 
+// We need to go one edge back to make sure it's a return, not throw or call,
+// then add the delta again.
+PossibleNumberOfFunctionReturnArguments(func, prevdelta+delta) :-
+  IRFunction_Return(func, ret),
+  PossibleFunctionEdgeStackDelta(func, ret, prevdelta),
+  EdgeStackDelta(ret, "invalid", delta),
+  prevdelta + delta >= 0.
+  
+// REVIEW: do we need defaults of 0? I don't see why. But it won't hurt as
+// long as we are taking the max.
+PossibleNumberOfFunctionArguments(func, 0),
+PossibleNumberOfFunctionReturnArguments(func, 0) :-
+  IRFunctionEntry(func).
+
+
+// Combine both relative to a single return point, for precision.
+// Again, need to go back one node and recompute. Tedious.
+.decl PossibleCombinedNumberOfFunctionReturnsAndArguments(func: IRFunction, numArg: StackIndex, numRet: StackIndex)
+
+PossibleCombinedNumberOfFunctionReturnsAndArguments(func, numArg, numRet) :-
+  IRFunction_Return(func, ret),
+  PossibleFunctionEdgePopAndStackDeltaBypassing(func, ret, _, prevStackDelta, prevPopDelta),
+  EdgeStackDelta(ret, "invalid", stackDelta),
+  EdgePopDelta(ret, "invalid", popDelta),
+  numRet = prevStackDelta + stackDelta,
+  numRet >= 0,
+  newPopDelta = popDelta - prevStackDelta,
+  newPopDelta > prevPopDelta,
+  newPopDelta < MAX_STACK_HEIGHT,
+  numArg = newPopDelta.
+ .plan 1:(3,1,2,4), 2:(4,1,2,3)
+
+PossibleCombinedNumberOfFunctionReturnsAndArguments(func, numArg, numRet) :-
+  IRFunction_Return(func, ret),
+  PossibleFunctionEdgePopAndStackDeltaBypassing(func, ret, _, prevStackDelta, prevPopDelta),
+  EdgeStackDelta(ret, "invalid", stackDelta),
+  EdgePopDelta(ret, "invalid", popDelta),
+  numRet = prevStackDelta + stackDelta,
+  numRet >= 0,
+  newPopDelta = popDelta - prevStackDelta,
+  newPopDelta <= prevPopDelta,
+  numArg = prevPopDelta.
+ .plan 1:(3,1,2,4), 2:(4,1,2,3)
+
+
+NumberOfFunctionArguments(func, n) :-
+  IRFunctionEntry(func),
+  n = max m : PossibleNumberOfFunctionArguments(func, m).
+
+NumberOfFunctionReturnArguments(func, n) :-
+  IRFunctionEntry(func),
+  n = max m : PossibleNumberOfFunctionReturnArguments(func, m).
+
+
+/// DEBUG
+.output EdgePopDelta
+.output EdgeStackDelta
+.output PossibleFunctionEdgePopDelta
+.output PossibleFunctionEdgeStackDelta
+.output PossibleNumberOfFunctionArguments
+.output PossibleNumberOfFunctionReturnArguments
+.output PossibleCombinedNumberOfFunctionReturnsAndArguments
+.output NumberOfFunctionArguments
+.output NumberOfFunctionReturnArguments
+
+
+
+/*
 NumberOfFunctionArguments(FUNCTION_SELECTOR, block, 0) :-
    Function_ArgumentTerminal(FUNCTION_SELECTOR, block).
+*/
 
-// TODODODOD
-
-Function_ArgumentTerminal(func, block),
-NumberOfFunctionArguments(func, block, delta) :-
-   FunctionEdgePopDelta(block, "invalid", delta),
-   IRInFunction(block, func),
-   !IRFunction_Return(func, _).
-
-
-NumberOfFunctionReturnArguments(func, delta) :-
-   FunctionEdgePushDelta(ret, "invalid", delta),
-   IRFunction_Return(func, ret).
-
-// default
-NumberOfFunctionReturnArguments(func, 0) :-
-   IRFunctionEntry(func),
-   !IRFunction_Return(func, _).
-
-.decl CandidateNumberOfFunctionArgumentsForReturn(func: IRFunction, ret: IRBlock, n: StackIndex)
-
-
-CandidateNumberOfFunctionArgumentsForReturn(func, ret, n) :-
-   Function_ArgumentTerminal(func, ret),
-   n = min delta : NumberOfFunctionArguments(func, ret, delta).
-
-.decl CandidateNumberOfFunctionArguments(func: IRFunction, n: StackIndex)
-
-CandidateNumberOfFunctionArguments(func, n) :-
-   IRFunctionEntry(func),
-   n = max m : CandidateNumberOfFunctionArgumentsForReturn(func, _, m).
-
-// This may improve precision, see further rant below
-.decl CompositeNumberOfFunctionAndReturnArguments(func: IRFunction, n_in: StackIndex, n_out: StackIndex)
-
-CompositeNumberOfFunctionAndReturnArguments(func, n_in, n_out) :-
-   FunctionEdgePopDelta(ret, "invalid", n_in),
-   FunctionEdgePushDelta(ret, "invalid", n_out),
-   IRFunction_Return(func, ret).
 
 .decl Variable_String(var:Variable, var_rep:symbol)
 
@@ -677,7 +743,9 @@ Variable_String(var, var_rep) :-
 
 Variable_String(var, cat("arg",n_str)),
 FunctionArgument(func, n, var) :-
-  CandidateNumberOfFunctionArguments(func, n_args),
+//// REVIEW
+//  PossibleNumberOfFunctionArguments(func, n_args),
+  NumberOfFunctionArguments(func, n_args),
   IsStackIndexLessThan(n, n_args),
   FRESH_VARIABLE(var, BLOCK_TO_IRBLOCK(func), n), // TODO: use entry?
   NumberToString(n, n_str).
@@ -687,6 +755,7 @@ Variable_String(newVar, cat(callStmt, cat("_", n_str))),
 FunctionalStatement_Defines(callStmt, newVar, n),
 FunctionCallReturnArgument(caller, n, newVar) :-
   IRFunctionCall(caller, func),
+//// REVIEW
   NumberOfFunctionReturnArguments(func, n_arg),
   IsStackIndexLessThan(n, n_arg),
   IRBasicBlock_Tail(caller, callStmt),
@@ -736,13 +805,10 @@ FunctionalBlockOutputContents(caller, next, n, newVar) :-
 FunctionalBlockOutputContents(caller, next, newIndex, variable) :-
    BeforeFunctionCallFunctionalBlockOutputContents(caller, index, variable),
    IRFunctionCallReturn(caller, func, next),
-   // Why do we need all this complexity? At first I modelled this by
-   // considering the cross product of possible number of args, but
-   // later created the notion of a composite function signature.
-   // Should improve precision in some cases
-   //CompositeNumberOfFunctionAndReturnArguments(func, n_in, n_out),
+//   PossibleCombinedNumberOfFunctionReturnsAndArguments(func, n_in, n_out),
+////REVIEW
    NumberOfFunctionReturnArguments(func, n_out),
-   CandidateNumberOfFunctionArguments(func, n_in),
+   NumberOfFunctionArguments(func, n_in),
    index >= n_in,
    newIndex = index+n_out-n_in,
    newIndex >= 0,
@@ -779,12 +845,15 @@ FunctionalStatement_Uses_Local(stmt, varOrStackIndex, n) :-
   IRBasicBlock_Tail(block, stmt),
   IRStatement_Opcode(stmt, opcode),
   OpcodePopWords(opcode, m),
-  CandidateNumberOfFunctionArguments(func, n_in),
+//// REVIEW
+//  PossibleNumberOfFunctionArguments(func, n_in),
+  NumberOfFunctionArguments(func, n_in),
   IsStackIndexLessThan(n, m+n_in),
   IRBeforeLocalStackContents(stmt, n, varOrStackIndex).
 
 // TODO, check case for function return
 FunctionalStatement_Uses_Local(stmt, varOrStackIndex, n) :-
+//// REVIEW
   NumberOfFunctionReturnArguments(func, n_out),
   IRFunction_Return(func, retBlock),
   IRBasicBlock_Tail(retBlock, stmt),
