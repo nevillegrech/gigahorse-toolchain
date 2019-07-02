@@ -64,6 +64,14 @@ ReachableFrom(blockNext, blockPrev) :-
   ReachableFrom(block, blockPrev),
   BlockEdge(_, block, _, blockNext). 
 
+.decl ReachableFromUnderContext(ctx: Context, block: Block, fromCtx: Context, from:Block)
+
+ReachableFromUnderContext(ctx, block, ctx, block) :-
+  ReachableContext(ctx, block).
+
+ReachableFromUnderContext(ctxTo, blockTo, ctxFrom, blockFrom) :-
+  ReachableFromUnderContext(ctxOther, blockOther, ctxFrom, blockFrom),
+  BlockEdge(ctxOther, blockOther, ctxTo, blockTo).
 
 
 /******
@@ -204,7 +212,7 @@ MaybeInFunctionUnderContext(ctx, next, func) :-
   MaybeInFunctionUnderContext(_, block, func),
   // Use the complete version here!
   MaybeFunctionCallReturn(block, _, _, next),
-  ReachableContext(ctx, next).
+  ReachableFromUnderContext(_, block, ctx, next).
 
 .decl MaybeInFunction(block:Block, func:Block)
 MaybeInFunction(block, func) :-
