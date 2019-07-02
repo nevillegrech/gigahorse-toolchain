@@ -56,22 +56,17 @@ PublicFunction(CAST_TO_SYMBOL(label), sigHash) :-
          Generic basic block Reachable-from implementation
 ******/
 
-.decl ReachableFrom(block:Block, from:Block)
-
-ReachableFrom(block, block) :- Statement_Block(_, block).
-
-ReachableFrom(blockNext, blockPrev) :-
-  ReachableFrom(block, blockPrev),
-  BlockEdge(_, block, _, blockNext). 
-
-.decl ReachableFromUnderContext(ctx: Context, block: Block, fromCtx: Context, from:Block)
-
+.decl ReachableFromUnderContext(fromCtx: Context, from:Block, ctx: Context, block: Block)
 ReachableFromUnderContext(ctx, block, ctx, block) :-
   ReachableContext(ctx, block).
 
-ReachableFromUnderContext(ctxTo, blockTo, ctxFrom, blockFrom) :-
-  ReachableFromUnderContext(ctxOther, blockOther, ctxFrom, blockFrom),
+ReachableFromUnderContext(ctxFrom, blockFrom, ctxTo, blockTo) :-
+  ReachableFromUnderContext(ctxFrom, blockFrom, ctxOther, blockOther),
   BlockEdge(ctxOther, blockOther, ctxTo, blockTo).
+
+.decl ReachableFrom(from:Block, block:Block)
+ReachableFrom(from, to) :-
+  ReachableFromUnderContext(_, from, _, to).
 
 
 /******
@@ -109,6 +104,8 @@ PossibleReturnAddress(targetSetter, retBlock, retTarget) :-
 MaybeFunctionCallReturn(caller, func, retBlock, retTarget) :-
   PossibleReturnAddress(caller, retBlock, retTarget),
   ImmediateBlockJumpTarget(caller, targetVar),
+  ReachableFrom(caller, retTarget),
+  ReachableFrom(func, retBlock),
   BlockJumpValidTarget(_, caller, targetVar, func).
 
 .output MaybeFunctionCallReturn // DEBUG
