@@ -326,8 +326,9 @@ IRFunctionCall(fromir, irFunc) :-
 //// because these also continue the function code after a call.
 .decl IRBlockEdge(from: IRBlock, to: IRBlock)
 IRBlockEdge(irfrom, irto) :-
-  BlockEdge(_, from, _, to),
+  BlockEdge(ctxFrom, from, _, to),
   Block_IRBlock(from, func, irfrom),
+  ReachableFromUnderContext(_, func, ctxFrom, from),
   Block_IRBlock(to, func, irto).
 
 .decl LocalBlockEdge(block: IRBlock, next: IRBlock)
@@ -534,27 +535,19 @@ EdgePopDelta(from, "invalid", delta) :-
 // Case 1: If n-d >= m, then the combination block+call edge consumes
 // (max) n-d stack elements, relative to the stack level at beginning
 // of the caller block.
+// Case 2: If n-d < m, then the combination block+call edge consumes m
+// stack elements, relative to the stack level at beginning of the
+// caller block.
 EdgePopDelta(from, to, newPopDelta) :-
   EnhancedLocalBlockEdge(from, to),
   IRFunctionCall(from, func),
   PossibleImpreciseNumberOfFunctionArguments(func, n_args),
   IRBlockPopDelta(from, popDelta),
   IRBlockStackDelta(from, stackDelta),
-  newPopDelta = n_args-stackDelta,
-  newPopDelta < MAX_STACK_HEIGHT,
-  newPopDelta >= popDelta.
-
-// Case 2: If n-d < m, then the combination block+call edge consumes m
-// stack elements, relative to the stack level at beginning of the
-// caller block.
-EdgePopDelta(from, to, popDelta) :-
-  EnhancedLocalBlockEdge(from, to),
-  IRFunctionCall(from, func),
-  PossibleImpreciseNumberOfFunctionArguments(func, n_args),
-  IRBlockPopDelta(from, popDelta),
-  IRBlockStackDelta(from, stackDelta),
-  newPopDelta = n_args-stackDelta,
-  newPopDelta < popDelta.
+  tempPopDelta = n_args-stackDelta,
+  tempPopDelta < MAX_STACK_HEIGHT,
+  ((tempPopDelta >= popDelta, newPopDelta = tempPopDelta);
+   (tempPopDelta < popDelta, newPopDelta = popDelta)).
 
 
 // What is the total difference in stack level during this block transition?
@@ -578,7 +571,7 @@ EdgeStackDelta(from, to, newStackDelta) :-
   IRFunction_Return(func, ret),
   PossibleCombinedNumberOfFunctionReturnsAndArguments(func, ret, n_args, n_ret),
   IRBlockStackDelta(from, stackDelta),
-  newStackDelta = stackDelta-n_args+n_ret,
+  newStackDelta = stackDelta - n_args + n_ret,
   newStackDelta < MAX_STACK_HEIGHT,
   newStackDelta > -MAX_STACK_HEIGHT.
 
@@ -615,20 +608,29 @@ PossibleFunctionEdgePopAndStackDeltaBypassing(from, from, bypass, 0, 0) :-
 // stack deltas, we pretend they are the same path.  Note also that
 // this logic doesn't handle paths that include *all* of a function's
 // basic blocks. There needs to always be one extra (bypassed) node
-// for the rule to match and to extend the path by one more node.
-PossibleFunctionEdgePopAndStackDeltaBypassing(func, to, bypass, correctPopDelta, newStackDelta) :-
+// for the rule to match and to extend the path by one more node. But
+// thankfully we have invalid nodes.
+PossibleFunctionEdgePopAndStackDeltaBypassing(func, to, bypass, newPopDelta, newStackDelta) :-
   PossibleFunctionEdgePopAndStackDeltaBypassing(func, from, bypass, prevPopDelta, prevStackDelta),
+  OptPossibleEdgeExtensionBypassing(func, from, to, prevPopDelta, prevStackDelta, newPopDelta, newStackDelta),
+  to != bypass.
+ .plan 1:(2,1)
+
+// Inline the auxiliary relations to understand the complex rule above.
+.decl OptPossibleEdgeExtensionBypassing(func: IRFunction, from: IRBlock, to: IRBlock, prevPopDelta: StackIndex, prevStackDelta: StackIndex, newPopDelta: StackIndex, newStackDelta: StackIndex)
+OptPossibleEdgeExtensionBypassing(func, from, to, prevPopDelta, prevStackDelta, newPopDelta, newStackDelta) :-
   PossibleFunctionEdgePopAndStackDeltaBypassing(func, from, to, prevPopDelta, prevStackDelta),
   EdgePopAndStackDelta(from, to, popDelta, stackDelta),
-  to != bypass,
-  newPopDelta = popDelta - prevStackDelta,
-  ((newPopDelta > prevPopDelta, correctPopDelta = newPopDelta);
-   (newPopDelta <= prevPopDelta, correctPopDelta = prevPopDelta)),
-  newPopDelta < MAX_STACK_HEIGHT,
+  tempPopDelta = popDelta - prevStackDelta,
+  ((tempPopDelta > prevPopDelta, newPopDelta = tempPopDelta);
+   (tempPopDelta <= prevPopDelta, newPopDelta = prevPopDelta)),
+  tempPopDelta < MAX_STACK_HEIGHT,
+  tempPopDelta > -MAX_STACK_HEIGHT, // should be unnecessary
   newStackDelta = stackDelta + prevStackDelta,
   newStackDelta < MAX_STACK_HEIGHT,
   newStackDelta > -MAX_STACK_HEIGHT.
- .plan 1:(2,1,3), 2:(3,2,1)
+ .plan 1:(2,1)
+  
 
 .output PossibleFunctionEdgePopAndStackDeltaBypassing
 
@@ -654,7 +656,8 @@ PossibleCombinedNumberOfFunctionReturnsAndArguments(func, terminal, numArg, numR
   ((newPopDelta > prevPopDelta, numArg = newPopDelta);
    (newPopDelta <= prevPopDelta, numArg = prevPopDelta)),
 //  numRet = prevStackDelta + stackDelta.
-  numRet = prevStackDelta + stackDelta + numArg.
+  numRet = prevStackDelta + stackDelta + numArg,
+  numRet < MAX_STACK_HEIGHT, numRet >= 0. // both probably unnecessary
     // When leaving the stack with d more items but it originally
     // contained a args, the total number of returned values is d+a.
  .plan 1:(2,1)
@@ -679,19 +682,10 @@ PossibleNumberOfFunctionArguments(func, n) :-
   IRInFunction(block, func),
   n = min numArg: PossibleCombinedNumberOfFunctionReturnsAndArguments(func, block, numArg, _).
 
-/*
-.decl FilteredPossibleNumberOfFunctionReturns(func: IRFunction, terminal: IRBlock, numRet: StackIndex)
-FilteredPossibleNumberOfFunctionReturns(func, ret, correctNumRet) :-
-   PossibleCombinedNumberOfFunctionReturnsAndArguments(func, ret, _, numRet),
-   ((numRet >= 0, correctNumRet = numRet);
-    (numRet < 0, correctNumRet = 0)).
-*/
-
 PossibleNumberOfFunctionReturnArguments(func, n) :-
   IRFunction_Return(func, ret),
   n = min numRet: PossibleCombinedNumberOfFunctionReturnsAndArguments(func, ret, _, numRet).
-//  n = min numRet: FilteredPossibleNumberOfFunctionReturns(func, ret, numRet).
-
+  
   
 // REVIEW: do we need defaults of 0? I don't see why. But it won't hurt as
 // long as we are taking the max.
