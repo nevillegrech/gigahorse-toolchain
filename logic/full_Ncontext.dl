@@ -8,7 +8,7 @@ NumberOfJumps(n1 + n2) :-
    n1 = count : JUMP(_),
    n2 = count : JUMPI(_).
 
-#define ESTIMATE_DEPTH(n) (200000 / (n) / (n))
+#define ESTIMATE_DEPTH(n) (1000000 / (n) / (n))
 
 .decl MaxContextDepth(d: number)
 MaxContextDepth(m) :-

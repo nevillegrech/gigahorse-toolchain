@@ -104,8 +104,9 @@ PossibleReturnAddress(targetSetter, retBlock, retTarget) :-
 MaybeFunctionCallReturn(caller, func, retBlock, retTarget) :-
   PossibleReturnAddress(caller, retBlock, retTarget),
   ImmediateBlockJumpTarget(caller, targetVar),
-  ReachableFrom(caller, retTarget),
-  ReachableFrom(func, retBlock),
+  ReachableFromUnderContext(_, caller, funcCtx, func),
+  ReachableFromUnderContext(funcCtx, func, retCtx, retBlock),
+  ReachableFromUnderContext(retCtx, retBlock, _, retTarget),
   BlockJumpValidTarget(_, caller, targetVar, func).
 
 .output MaybeFunctionCallReturn // DEBUG
@@ -134,12 +135,6 @@ MaybeReturn(retBlock, retTarget) :-
 // restrictive. We have all potential calls and all returns, now we
 // want to match them to each other and form cohesive functions (both
 // for the caller and for the callee) only with very high certainty.
-
-// What is a function?
-// 1) A function has to have a single entry point
-// 2) Has to be called multiple times
-// 3) Return block belongs to one function
-// 4) If code is inlined it's something else
 
 .decl FunctionCalledMultipleTimes(func: Block)
 FunctionCalledMultipleTimes(func) :-
@@ -193,7 +188,7 @@ IsFunctionCall(prev, func) :-
 IsFunctionCall(block, func) :-
   IsFunctionCallReturn(block, func, _, _).
 
-// Low-hanging fruit of context-sensitive reasoning
+// Precise context-sensitive reasoning
 .decl MaybeInFunctionUnderContext(ctx: Context, block:Block, func:Block)
 MaybeInFunctionUnderContext(ctx, block, block) :-
   IsFunctionEntry(block),
@@ -206,10 +201,13 @@ MaybeInFunctionUnderContext(ctx, next, func) :-
   !IsReturn(block, next).
 
 MaybeInFunctionUnderContext(ctx, next, func) :-
-  MaybeInFunctionUnderContext(_, block, func),
+  MaybeInFunctionUnderContext(callerCtx, caller, func),
   // Use the complete version here!
-  MaybeFunctionCallReturn(block, _, _, next),
-  ReachableFromUnderContext(_, block, ctx, next).
+  MaybeFunctionCallReturn(caller, callee, retBlock, next),
+  // But add the same strict conditions as in its definition to find the context
+  ReachableFromUnderContext(callerCtx, caller, calleeCtx, callee),
+  ReachableFromUnderContext(calleeCtx, callee, retCtx, retBlock),
+  ReachableFromUnderContext(retCtx, retBlock, ctx, next).
 
 .decl MaybeInFunction(block:Block, func:Block)
 MaybeInFunction(block, func) :-
@@ -226,10 +224,11 @@ BlockInMultipleFunctions(block) :-
 .decl BlockToClone(block: Block, func: Block)
 BlockToClone(next, func) :-
   MaybeInFunction(next, func),
-  BlockInMultipleFunctions(next).
+  BlockInMultipleFunctions(next),
+  next != func. // don't clone function entries, other functions will clone them
 
 
-.output IsFunctionEntry, IsFunctionCall, BlockToClone // DEBUG
+.output IsFunctionEntry, IsFunctionCall, BlockToClone, MaybeInFunction // DEBUG
 
 
 
@@ -291,6 +290,7 @@ IRFunction_Return_Edge(retir, callerretir) :-
   Block_IRBlock(ret, func, retir),
   Block_IRBlock(caller, prevfunc, callerir),
   Block_IRBlock(callerret, prevfunc, callerretir),
+  ReachableFrom(caller, callerret),
   Function_IRFunction(func, irfunc),
   !BlockToClone(func, prevfunc).
 
@@ -336,6 +336,7 @@ LocalBlockEdge(irfrom, irto) :-
   IRBlockEdge(irfrom, irto).
 LocalBlockEdge(block, next) :-
   IRFunctionCallReturn(block, _, next).
+  
 
 .decl EnhancedLocalBlockEdge(from: IRBlock, to: IRBlock)
 EnhancedLocalBlockEdge(from, to) :- LocalBlockEdge(from, to).
@@ -587,7 +588,7 @@ EdgeStackDelta(from, to, newStackDelta) :-
 // need to ensure both cumulative deltas are true for the *same* path,
 // not just different paths to the same end node. This makes for
 // complex rules.
-.decl PossibleFunctionEdgePopAndStackDeltaBypassing(func: IRFunction, to: IRBlock, bypass: IRBlock, popDelta: StackIndex, stackDelta: StackIndex)
+.decl PossibleFunctionEdgePopAndStackDeltaBypassing(func: IRFunction, to: IRBlock, pathHash: number, bypass: IRBlock, popDelta: StackIndex, stackDelta: StackIndex)
 
 // Another auxiliary for optimization: avoid join in key innermost loop
 .decl EdgePopAndStackDelta(from: IRBlock, to:IRBlock, popDelta:StackIndex, stackDelta:StackIndex)
@@ -596,7 +597,7 @@ EdgePopAndStackDelta(from, to, popDelta, stackDelta) :-
   EdgeStackDelta(from, to, stackDelta).
  .plan 1:(2,1)
 
-PossibleFunctionEdgePopAndStackDeltaBypassing(from, from, bypass, 0, 0) :-
+PossibleFunctionEdgePopAndStackDeltaBypassing(from, from, ord(from), bypass, 0, 0) :-
   IRFunctionEntry(from),
   (IRInFunction(bypass, from);
    bypass = "invalid"),
@@ -605,21 +606,22 @@ PossibleFunctionEdgePopAndStackDeltaBypassing(from, from, bypass, 0, 0) :-
 // Here's the neat hack: there is no guarantee there is a path that
 // skips both "to" and "bypass". But if we find one that skips
 // "bypass" and another that skips "to" and they both have the same
-// stack deltas, we pretend they are the same path.  Note also that
-// this logic doesn't handle paths that include *all* of a function's
-// basic blocks. There needs to always be one extra (bypassed) node
-// for the rule to match and to extend the path by one more node. But
-// thankfully we have invalid nodes.
-PossibleFunctionEdgePopAndStackDeltaBypassing(func, to, bypass, newPopDelta, newStackDelta) :-
-  PossibleFunctionEdgePopAndStackDeltaBypassing(func, from, bypass, prevPopDelta, prevStackDelta),
-  OptPossibleEdgeExtensionBypassing(func, from, to, prevPopDelta, prevStackDelta, newPopDelta, newStackDelta),
-  to != bypass.
+// path hash, we pretend they are the same path.  Note also that this
+// logic doesn't handle paths that include *all* of a function's basic
+// blocks. There needs to always be one extra (bypassed) node for the
+// rule to match and to extend the path by one more node. But
+// thankfully we have "invalid" nodes.
+PossibleFunctionEdgePopAndStackDeltaBypassing(func, to, newPathHash, bypass, newPopDelta, newStackDelta) :-
+  PossibleFunctionEdgePopAndStackDeltaBypassing(func, from, prevPathHash, bypass, _, _),
+  OptPossibleEdgeExtension(func, from, prevPathHash, to, newPopDelta, newStackDelta),
+  to != bypass,
+  newPathHash = prevPathHash + (ord(to)) + 3*(newPopDelta bxor (7*newStackDelta)).
  .plan 1:(2,1)
 
 // Inline the auxiliary relations to understand the complex rule above.
-.decl OptPossibleEdgeExtensionBypassing(func: IRFunction, from: IRBlock, to: IRBlock, prevPopDelta: StackIndex, prevStackDelta: StackIndex, newPopDelta: StackIndex, newStackDelta: StackIndex)
-OptPossibleEdgeExtensionBypassing(func, from, to, prevPopDelta, prevStackDelta, newPopDelta, newStackDelta) :-
-  PossibleFunctionEdgePopAndStackDeltaBypassing(func, from, to, prevPopDelta, prevStackDelta),
+.decl OptPossibleEdgeExtension(func: IRFunction, from: IRBlock, prevPathHash: number, to: IRBlock, newPopDelta: StackIndex, newStackDelta: StackIndex)
+OptPossibleEdgeExtension(func, from, prevPathHash, to, newPopDelta, newStackDelta) :-
+  PossibleFunctionEdgePopAndStackDeltaBypassing(func, from, prevPathHash, to, prevPopDelta, prevStackDelta),
   EdgePopAndStackDelta(from, to, popDelta, stackDelta),
   tempPopDelta = popDelta - prevStackDelta,
   ((tempPopDelta > prevPopDelta, newPopDelta = tempPopDelta);
@@ -639,7 +641,7 @@ OptPossibleEdgeExtensionBypassing(func, from, to, prevPopDelta, prevStackDelta, 
 
 PossibleFunctionEdgePopDelta(func, to, popDelta),
 PossibleFunctionEdgeStackDelta(func, to, stackDelta) :-
-  PossibleFunctionEdgePopAndStackDeltaBypassing(func, to, _, popDelta, stackDelta).
+  PossibleFunctionEdgePopAndStackDeltaBypassing(func, to, _, _, popDelta, stackDelta).
 
 
 // Combine both relative to a single terminal point, for precision.
@@ -649,7 +651,7 @@ PossibleFunctionEdgeStackDelta(func, to, stackDelta) :-
 .decl PossibleCombinedNumberOfFunctionReturnsAndArguments(func: IRFunction, terminal: IRBlock, numArg: StackIndex, numRet: StackIndex)
 
 PossibleCombinedNumberOfFunctionReturnsAndArguments(func, terminal, numArg, numRet) :-
-  PossibleFunctionEdgePopAndStackDeltaBypassing(func, terminal, _, prevPopDelta, prevStackDelta),
+  PossibleFunctionEdgePopAndStackDeltaBypassing(func, terminal, _, _, prevPopDelta, prevStackDelta),
   EdgePopAndStackDelta(terminal, "invalid", popDelta, stackDelta),
   newPopDelta = popDelta - prevStackDelta,
   newPopDelta < MAX_STACK_HEIGHT,
