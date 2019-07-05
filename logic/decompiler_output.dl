@@ -310,3 +310,30 @@ TAC_Block_Head(block, irstmt) :-
    TAC_Block(irstmt, block),
    Statement_IRStatement(stmt, _, irstmt),
    IsBasicBlockHead(stmt).
+
+
+/******
+ * Event signatures
+ *****/
+
+.decl EventSignature(hex_signature: Value, text_signature: symbol)
+.input EventSignature
+
+.decl EventSignatureInContract(hex_signature: Value, text_signature: symbol)
+.output EventSignatureInContract
+
+.decl LOGStmt_SigHash(log:IRStatement, sigHash:symbol)
+//.output LOGStmt_SigHash
+
+LOGStmt_SigHash(stmt, sigHash):-
+  (TAC_Op(stmt, "LOG0");
+  TAC_Op(stmt, "LOG1");
+  TAC_Op(stmt, "LOG2");
+  TAC_Op(stmt, "LOG3");
+  TAC_Op(stmt, "LOG4")),
+  TAC_Use(stmt, logSigHashVar, 2),
+  TAC_Variable_Value(logSigHashVar, sigHash).
+
+EventSignatureInContract(sigHash, sigText):-
+  LOGStmt_SigHash(_, sigHash),
+  EventSignature(sigHash, sigText).
