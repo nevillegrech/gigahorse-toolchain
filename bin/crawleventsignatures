@@ -1,0 +1,53 @@
+#!/usr/bin/env python3
+import json
+import sys
+import urllib.request
+from os.path import abspath, dirname, join
+
+# Prepend .. to $PATH so the project modules can be imported below
+src_path = join(dirname(abspath(__file__)), "..")
+sys.path.insert(0, src_path)
+
+from src.common import event_signature_filename
+
+def parseJsonAndHashToCsv(fileName):
+    '''
+    In case we need to hash events parsed from a json file in the future.
+    Needs pysha3 library, not sha3
+    '''
+    import sha3
+    s = sha3.keccak_256()
+    s.update(b"Revocation(address,uint256)")
+    #print(s.hexdigest())
+    
+    assert s.hexdigest() == "f6a317157440607f36269043eb55f1287a5a19ba2216afeab88cd46cbcfb88e9", "Incorrect hash."
+    
+    with open(fileName, encoding='utf-8-sig') as json_file:
+        json_data = json.load(json_file)
+        for entry in json_data:
+            s = sha3.keccak_256()
+            s.update(bytes(entry, "utf-8"))
+            print(s.hexdigest())
+        print(len(json_data))
+
+
+def parseJsonWithHashesToCsv(fileName):
+    with open("eventHashes.json", encoding='utf-8-sig') as json_file:
+        json_data = json.load(json_file)
+        for hash,sig in json_data.items():
+            print(sig + "\t" "0x" + hash)
+
+def downloadAndConvert():
+    f= open(event_signature_filename,"w+")
+    with urllib.request.urlopen('https://raw.githubusercontent.com/MrLuit/evm/master/data/eventHashes.json') as json_file:
+        json_data = json.load(json_file)
+        for hash,sig in json_data.items():
+            #print(sig + "\t" "0x" + hash)
+            f.write("0x" + hash + "\t" + sig + "\n")
+	
+
+
+#parseJsonAndHashToCsv("events.json")
+#parseJsonWithHashesToCsv("eventHashes.json")
+downloadAndConvert()
+print("Event signatures with hashes written to " + event_signature_filename)
