@@ -56,17 +56,37 @@ PublicFunction(CAST_TO_SYMBOL(label), sigHash) :-
          Generic basic block Reachable-from implementation
 ******/
 
-.decl ReachableFromUnderContext(fromCtx: Context, from:Block, ctx: Context, block: Block)
-ReachableFromUnderContext(ctx, block, ctx, block) :-
+.decl CanReachUnderContext(fromCtx: Context, from:Block, ctx: Context, block: Block)
+CanReachUnderContext(ctx, block, ctx, block) :-
   ReachableContext(ctx, block).
 
-ReachableFromUnderContext(ctxFrom, blockFrom, ctxTo, blockTo) :-
-  ReachableFromUnderContext(ctxFrom, blockFrom, ctxOther, blockOther),
+CanReachUnderContext(ctxFrom, blockFrom, ctxTo, blockTo) :-
+  CanReachUnderContext(ctxFrom, blockFrom, ctxOther, blockOther),
   BlockEdge(ctxOther, blockOther, ctxTo, blockTo).
 
-.decl ReachableFrom(from:Block, block:Block)
-ReachableFrom(from, to) :-
-  ReachableFromUnderContext(_, from, _, to).
+.decl EnableCostlyAlgorithms()
+EnableCostlyAlgorithms() :-
+  n = count: CanReachUnderContext(_, _, _, _),
+  n < 1000000.
+
+// The complement is only useful when we need to include both alternatives in a .plan
+.decl DisableCostlyAlgorithms()
+DisableCostlyAlgorithms() :- !EnableCostlyAlgorithms().
+
+// A very common combination, for scalability
+.decl CanReachUnderContextThroughBlock(fromCtx: Context, from:Block, through:Block, ctx: Context, block: Block)
+CanReachUnderContextThroughBlock(fromCtx, from, through, ctx, block) :-
+  EnableCostlyAlgorithms(),
+  CanReachUnderContext(fromCtx, from, throughCtx, through),
+  CanReachUnderContext(throughCtx, through, ctx, block).
+
+// Derived from the context-sensitive version, maintains max precision when
+// contexts aren't needed.
+.decl CanReach(from:Block, block:Block)
+CanReach(from, to) :-
+  CanReachUnderContext(_, from, _, to).
+
+.output CanReachUnderContext, CanReachUnderContextThroughBlock //DEBUG
 
 
 /******
@@ -86,14 +106,18 @@ PotentialCall(block) :-
 // Call-return pattern:
 // a) basic block jumps to a valid "non-locally-derived" address
 // b) address originates at a target-setter.
-.decl PossibleReturnAddress(caller:Block, ret:Block, target:Block)
+.decl PossibleReturnAddress(caller:Block, retBlock:Block, retTarget:Block)
 PossibleReturnAddress(targetSetter, retBlock, retTarget) :-
-  BlockJumpValidTarget(_, retBlock, targetVariable, retTarget),
-  !ImmediateBlockJumpTarget(retBlock, targetVariable),
+  OptNotImmediateBlockJumpTarget(retBlock, targetVariable, retTarget),
   Statement_Defines(targetSetStatement, targetVariable),
   Statement_Block(targetSetStatement, targetSetter),
   BasicBlock_Tail(targetSetter, jumpStmt),
   IsJump(jumpStmt).
+
+.decl OptNotImmediateBlockJumpTarget(ret:Block, targetVariable:Variable, retTarget:Block)
+OptNotImmediateBlockJumpTarget(retBlock, targetVariable, retTarget) :-
+  BlockJumpValidTarget(_, retBlock, targetVariable, retTarget),
+  !ImmediateBlockJumpTarget(retBlock, targetVariable).
 
 .output PossibleReturnAddress // DEBUG
 
@@ -101,13 +125,24 @@ PossibleReturnAddress(targetSetter, retBlock, retTarget) :-
 // function may not be the one containing the return, in case of complex
 // call patterns (e.g., call-call, or call-return).
 .decl MaybeFunctionCallReturn(caller:Block, func:Block, retBlock:Block, retTarget:Block)
+
+// Context-sensitive version
 MaybeFunctionCallReturn(caller, func, retBlock, retTarget) :-
+  EnableCostlyAlgorithms(),
   PossibleReturnAddress(caller, retBlock, retTarget),
   ImmediateBlockJumpTarget(caller, targetVar),
-  ReachableFromUnderContext(_, caller, funcCtx, func),
-  ReachableFromUnderContext(funcCtx, func, retCtx, retBlock),
-  ReachableFromUnderContext(retCtx, retBlock, _, retTarget),
-  BlockJumpValidTarget(_, caller, targetVar, func).
+  BlockJumpValidTarget(_, caller, targetVar, func),
+  CanReachUnderContextThroughBlock(_, caller, func, retCtx, retBlock),
+  CanReachUnderContext(retCtx, retBlock, _, retTarget).
+
+// Insensitive version
+MaybeFunctionCallReturn(caller, func, retBlock, retTarget) :-
+  !EnableCostlyAlgorithms(),
+  PossibleReturnAddress(caller, retBlock, retTarget),
+  ImmediateBlockJumpTarget(caller, targetVar),
+  BlockJumpValidTarget(_, caller, targetVar, func),
+  CanReach(caller, retTarget),
+  CanReach(func, retBlock).
 
 .output MaybeFunctionCallReturn // DEBUG
 
@@ -201,13 +236,26 @@ MaybeInFunctionUnderContext(ctx, next, func) :-
   !IsReturn(block, next).
 
 MaybeInFunctionUnderContext(ctx, next, func) :-
-  MaybeInFunctionUnderContext(callerCtx, caller, func),
+  EnableCostlyAlgorithms(),
+  OptMaybeInFunctionUnderContext(callerCtx, caller, func),
   // Use the complete version here!
   MaybeFunctionCallReturn(caller, callee, retBlock, next),
   // But add the same strict conditions as in its definition to find the context
-  ReachableFromUnderContext(callerCtx, caller, calleeCtx, callee),
-  ReachableFromUnderContext(calleeCtx, callee, retCtx, retBlock),
-  ReachableFromUnderContext(retCtx, retBlock, ctx, next).
+  CanReachUnderContextThroughBlock(callerCtx, caller, callee, retCtx, retBlock),
+  CanReachUnderContext(retCtx, retBlock, ctx, next).
+
+MaybeInFunctionUnderContext(ctx, next, func) :-
+  !EnableCostlyAlgorithms(),
+  OptMaybeInFunctionUnderContext(callerCtx, caller, func),
+  // Use the complete version here!
+  MaybeFunctionCallReturn(caller, _, _, next),
+  CanReachUnderContext(callerCtx, caller, ctx, next). // still context-sensitive, but more scalable
+
+.decl OptMaybeInFunctionUnderContext(callerCtx: Context, caller:Block, func:Block)
+OptMaybeInFunctionUnderContext(callerCtx, caller, func) :-
+  MaybeInFunctionUnderContext(callerCtx, caller, func),
+  MaybeFunctionCallReturn(caller, _, _, _).
+
 
 .decl MaybeInFunction(block:Block, func:Block)
 MaybeInFunction(block, func) :-
@@ -290,7 +338,7 @@ IRFunction_Return_Edge(retir, callerretir) :-
   Block_IRBlock(ret, func, retir),
   Block_IRBlock(caller, prevfunc, callerir),
   Block_IRBlock(callerret, prevfunc, callerretir),
-  ReachableFrom(caller, callerret),
+  CanReach(caller, callerret),
   Function_IRFunction(func, irfunc),
   !BlockToClone(func, prevfunc).
 
@@ -328,7 +376,7 @@ IRFunctionCall(fromir, irFunc) :-
 IRBlockEdge(irfrom, irto) :-
   BlockEdge(ctxFrom, from, _, to),
   Block_IRBlock(from, func, irfrom),
-  ReachableFromUnderContext(_, func, ctxFrom, from),
+  CanReachUnderContext(_, func, ctxFrom, from),
   Block_IRBlock(to, func, irto).
 
 .decl LocalBlockEdge(block: IRBlock, next: IRBlock)
@@ -601,7 +649,8 @@ PossibleFunctionEdgePopAndStackDeltaBypassing(from, from, ord(from), bypass, 0, 
   IRFunctionEntry(from),
   (IRInFunction(bypass, from);
    bypass = "invalid"),
-  bypass != from.
+  ((EnableCostlyAlgorithms(), bypass != from);
+   (DisableCostlyAlgorithms(), bypass = from)).
 
 // Here's the neat hack: there is no guarantee there is a path that
 // skips both "to" and "bypass". But if we find one that skips
@@ -611,28 +660,43 @@ PossibleFunctionEdgePopAndStackDeltaBypassing(from, from, ord(from), bypass, 0, 
 // blocks. There needs to always be one extra (bypassed) node for the
 // rule to match and to extend the path by one more node. But
 // thankfully we have "invalid" nodes.
-PossibleFunctionEdgePopAndStackDeltaBypassing(func, to, newPathHash, bypass, newPopDelta, newStackDelta) :-
+PossibleFunctionEdgePopAndStackDeltaBypassing(func, to, newPathHash, newBypass, newPopDelta, newStackDelta) :-
   PossibleFunctionEdgePopAndStackDeltaBypassing(func, from, prevPathHash, bypass, _, _),
   OptPossibleEdgeExtension(func, from, prevPathHash, to, newPopDelta, newStackDelta),
-  to != bypass,
-  newPathHash = prevPathHash + (ord(to)) + 3*(newPopDelta bxor (7*newStackDelta)).
- .plan 1:(2,1)
+  ((EnableCostlyAlgorithms(),
+    newPathHash = prevPathHash + (ord(to)) + 3*(newPopDelta bxor (7*newStackDelta)),
+    to != bypass,
+    newBypass = bypass)  // the real, exponential, algorithm
+   ;
+   (DisableCostlyAlgorithms(),
+    newPathHash = prevPathHash,
+    newBypass = to)).  // short-circuit everything to yield a cheap polynomial algorithm
+ .plan 1:(2,1,3)
 
 // Inline the auxiliary relations to understand the complex rule above.
 .decl OptPossibleEdgeExtension(func: IRFunction, from: IRBlock, prevPathHash: number, to: IRBlock, newPopDelta: StackIndex, newStackDelta: StackIndex)
 OptPossibleEdgeExtension(func, from, prevPathHash, to, newPopDelta, newStackDelta) :-
   PossibleFunctionEdgePopAndStackDeltaBypassing(func, from, prevPathHash, to, prevPopDelta, prevStackDelta),
   EdgePopAndStackDelta(from, to, popDelta, stackDelta),
+  StackSimulationLimit(limit),
   tempPopDelta = popDelta - prevStackDelta,
   ((tempPopDelta > prevPopDelta, newPopDelta = tempPopDelta);
    (tempPopDelta <= prevPopDelta, newPopDelta = prevPopDelta)),
-  tempPopDelta < MAX_STACK_HEIGHT,
-  tempPopDelta > -MAX_STACK_HEIGHT, // should be unnecessary
+  tempPopDelta < limit,
+  tempPopDelta > -limit, // should be unnecessary
   newStackDelta = stackDelta + prevStackDelta,
-  newStackDelta < MAX_STACK_HEIGHT,
-  newStackDelta > -MAX_STACK_HEIGHT.
- .plan 1:(2,1)
-  
+  newStackDelta < limit,
+  newStackDelta > -limit.
+ .plan 1:(2,1,3)
+
+// HACK: Use the context-sensitivity metric to determine whether we can afford to do
+// a stack simulation up to maximum depth, or we should limit it to something much more
+// modest.
+.decl StackSimulationLimit(n: StackIndex)
+StackSimulationLimit(depth) :-
+  depth = MAX_STACK_HEIGHT.
+//  (EnableCostlyAlgorithms(), depth = MAX_STACK_HEIGHT);
+//  (!EnableCostlyAlgorithms(), depth = MAX_STACK_HEIGHT / 5).
 
 .output PossibleFunctionEdgePopAndStackDeltaBypassing
 
@@ -653,16 +717,17 @@ PossibleFunctionEdgeStackDelta(func, to, stackDelta) :-
 PossibleCombinedNumberOfFunctionReturnsAndArguments(func, terminal, numArg, numRet) :-
   PossibleFunctionEdgePopAndStackDeltaBypassing(func, terminal, _, _, prevPopDelta, prevStackDelta),
   EdgePopAndStackDelta(terminal, "invalid", popDelta, stackDelta),
+  StackSimulationLimit(limit),
   newPopDelta = popDelta - prevStackDelta,
-  newPopDelta < MAX_STACK_HEIGHT,
+  newPopDelta < limit,
   ((newPopDelta > prevPopDelta, numArg = newPopDelta);
    (newPopDelta <= prevPopDelta, numArg = prevPopDelta)),
 //  numRet = prevStackDelta + stackDelta.
   numRet = prevStackDelta + stackDelta + numArg,
-  numRet < MAX_STACK_HEIGHT, numRet >= 0. // both probably unnecessary
+  numRet < limit, numRet >= 0. // both probably unnecessary
     // When leaving the stack with d more items but it originally
     // contained a args, the total number of returned values is d+a.
- .plan 1:(2,1)
+ .plan 1:(2,1,3)
 
 
 // Simple, imprecise over-estimate computation that doesn't incur
