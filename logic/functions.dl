@@ -69,15 +69,15 @@ EnableCostlyAlgorithms() :-
   n = count: CanReachUnderContext(_, _, _, _),
   n < 1000000.
 
-// The complement is only useful when we need to include both alternatives in a .plan
+// The complement is useful when we need to include both alternatives in a .plan
 .decl DisableCostlyAlgorithms()
 DisableCostlyAlgorithms() :- !EnableCostlyAlgorithms().
 
 // A very common combination, for scalability
 .decl CanReachUnderContextThroughBlock(fromCtx: Context, from:Block, through:Block, ctx: Context, block: Block)
 CanReachUnderContextThroughBlock(fromCtx, from, through, ctx, block) :-
-  EnableCostlyAlgorithms(),
   CanReachUnderContext(fromCtx, from, throughCtx, through),
+  EnableCostlyAlgorithms(), //place second for parallelism
   CanReachUnderContext(throughCtx, through, ctx, block).
 
 // Derived from the context-sensitive version, maintains max precision when
@@ -86,7 +86,7 @@ CanReachUnderContextThroughBlock(fromCtx, from, through, ctx, block) :-
 CanReach(from, to) :-
   CanReachUnderContext(_, from, _, to).
 
-.output CanReachUnderContext, CanReachUnderContextThroughBlock //DEBUG
+.output IsContext, CanReachUnderContext, CanReachUnderContextThroughBlock //DEBUG
 
 
 /******
@@ -128,8 +128,8 @@ OptNotImmediateBlockJumpTarget(retBlock, targetVariable, retTarget) :-
 
 // Context-sensitive version
 MaybeFunctionCallReturn(caller, func, retBlock, retTarget) :-
-  EnableCostlyAlgorithms(),
   PossibleReturnAddress(caller, retBlock, retTarget),
+  EnableCostlyAlgorithms(), // place second for parallelism
   ImmediateBlockJumpTarget(caller, targetVar),
   BlockJumpValidTarget(_, caller, targetVar, func),
   CanReachUnderContextThroughBlock(_, caller, func, retCtx, retBlock),
@@ -137,8 +137,8 @@ MaybeFunctionCallReturn(caller, func, retBlock, retTarget) :-
 
 // Insensitive version
 MaybeFunctionCallReturn(caller, func, retBlock, retTarget) :-
-  !EnableCostlyAlgorithms(),
   PossibleReturnAddress(caller, retBlock, retTarget),
+  DisableCostlyAlgorithms(),
   ImmediateBlockJumpTarget(caller, targetVar),
   BlockJumpValidTarget(_, caller, targetVar, func),
   CanReach(caller, retTarget),
@@ -236,8 +236,8 @@ MaybeInFunctionUnderContext(ctx, next, func) :-
   !IsReturn(block, next).
 
 MaybeInFunctionUnderContext(ctx, next, func) :-
-  EnableCostlyAlgorithms(),
   OptMaybeInFunctionUnderContext(callerCtx, caller, func),
+  EnableCostlyAlgorithms(), // place second for incrementality and parallelism
   // Use the complete version here!
   MaybeFunctionCallReturn(caller, callee, retBlock, next),
   // But add the same strict conditions as in its definition to find the context
@@ -245,8 +245,8 @@ MaybeInFunctionUnderContext(ctx, next, func) :-
   CanReachUnderContext(retCtx, retBlock, ctx, next).
 
 MaybeInFunctionUnderContext(ctx, next, func) :-
-  !EnableCostlyAlgorithms(),
   OptMaybeInFunctionUnderContext(callerCtx, caller, func),
+  DisableCostlyAlgorithms(),
   // Use the complete version here!
   MaybeFunctionCallReturn(caller, _, _, next),
   CanReachUnderContext(callerCtx, caller, ctx, next). // still context-sensitive, but more scalable
