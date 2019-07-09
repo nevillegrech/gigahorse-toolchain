@@ -65,17 +65,19 @@ PHILocation(block, stackIndex, cat(cat(block, "_"), stackIndexStr)) :-
 .output TAC_Variable_Value
 
 
-/// REVIEW: heuristically change the values of all constants that
-/// match cloned basic block labels!
+///// Bad idea. Definitely for now causes crashes in constant folding, since the
+///// values aren't proper numbers.
+// /// REVIEW: heuristically change the values of all constants that
+// /// match cloned basic block labels!
 
-// Normal variable, known length
-TAC_Variable_Value(tacvar, irvalue) :-
-   FunctionalStatement_Defines(stmt, var, _),
-   Variable_Stmt_String(var, stmt, tacvar),
-   Variable_Value(var, value),
-   StatementAndBlockInSameFunction(stmt, CAST_TO_SYMBOL(value), irvalue),
-    // value matches address of block
-   substr(value, 0, 2) = "0x".
+// // Normal variable, known length
+// TAC_Variable_Value(tacvar, irvalue) :-
+//    FunctionalStatement_Defines(stmt, var, _),
+//    Variable_Stmt_String(var, stmt, tacvar),
+//    Variable_Value(var, value),
+//    StatementAndBlockInSameFunction(stmt, CAST_TO_SYMBOL(value), irvalue),
+//     // value matches address of block
+//    substr(value, 0, 2) = "0x".
 
 .decl StatementAndBlockInSameFunction(stmt: IRStatement, block: Block, irblock: IRBlock)
 StatementAndBlockInSameFunction(stmt, block, irblock) :-
