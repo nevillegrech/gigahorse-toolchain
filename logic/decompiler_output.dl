@@ -63,32 +63,32 @@ PHILocation(block, stackIndex, cat(cat(block, "_"), stackIndexStr)) :-
 .output TAC_Variable_Length
 .decl TAC_Variable_Value(var: TACVariable, value: symbol)
 .output TAC_Variable_Value
+.decl TAC_Variable_BlockValue(var: TACVariable, value: symbol)
+.output TAC_Variable_BlockValue
 
 
-///// Bad idea. Definitely for now causes crashes in constant folding, since the
-///// values aren't proper numbers.
-// /// REVIEW: heuristically change the values of all constants that
-// /// match cloned basic block labels!
+/// Heuristically change the values of all constants that match cloned
+/// basic block labels! Don't up
 
-// // Normal variable, known length
-// TAC_Variable_Value(tacvar, irvalue) :-
-//    FunctionalStatement_Defines(stmt, var, _),
-//    Variable_Stmt_String(var, stmt, tacvar),
-//    Variable_Value(var, value),
-//    StatementAndBlockInSameFunction(stmt, CAST_TO_SYMBOL(value), irvalue),
-//     // value matches address of block
-//    substr(value, 0, 2) = "0x".
+TAC_Variable_BlockValue(tacvar, irvalue) :-
+  FunctionalStatement_Defines(stmt, var, _),
+  Variable_Stmt_String(var, stmt, tacvar),
+  Variable_Value(var, value),
+  StatementAndBlockInSameFunction(stmt, CAST_TO_SYMBOL(value), irvalue),
+   // value matches address of block
+  substr(value, 0, 2) = "0x".
 
 .decl StatementAndBlockInSameFunction(stmt: IRStatement, block: Block, irblock: IRBlock)
 StatementAndBlockInSameFunction(stmt, block, irblock) :-
-   Statement_IRStatement(_, func, stmt),
-   Block_IRBlock(block, func, irblock).
+  Statement_IRStatement(_, func, stmt),
+  Block_IRBlock(block, func, irblock).
 
+
+// Normal variable, known length
 TAC_Variable_Value(tacvar, value) :-
    FunctionalStatement_Defines(stmt, var, _),
    Variable_Stmt_String(var, stmt, tacvar),
    Variable_Value(var, value),
-   !StatementAndBlockInSameFunction(stmt, CAST_TO_SYMBOL(value), _),
    substr(value, 0, 2) = "0x".
 
 UnknownLength(var) :-
