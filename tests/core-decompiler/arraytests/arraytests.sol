@@ -7,6 +7,11 @@ contract ArrayTests{
     function getBytes(bytes memory testbytes) public pure returns (bytes32){
         return keccak256(testbytes);
     }
+
+    function getArray(uint[] memory testarr) public pure returns (bytes32){
+        testarr[5] = 3;
+        return keccak256(abi.encodePacked(testarr));
+    }
     
     function getString(string memory testStr) public pure returns (bytes32){
         return keccak256(abi.encodePacked(testStr));
