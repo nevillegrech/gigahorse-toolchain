@@ -87,7 +87,7 @@
 .input HighLevelFunctionName(IO="file", filename="HighLevelFunctionName.csv", delimiter="\t")
 
 .decl EventSignatureInContract(sigHash:symbol, sigText:symbol)
-.output EventSignatureInContract(IO="file", filename="EventSignatureInContract.csv", delimiter="\t")
+.input EventSignatureInContract(IO="file", filename="EventSignatureInContract.csv", delimiter="\t")
 
 // Gas used per block
 .decl Block_Gas(block:Block, gas:number)
