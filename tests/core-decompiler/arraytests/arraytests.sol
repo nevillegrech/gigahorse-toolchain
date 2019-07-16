@@ -24,7 +24,7 @@ contract ArrayTests{
     function f(uint len) public pure {
         uint[] memory a = new uint[](7);
         bytes memory b = new bytes(len);
-        uint[] memory aa = new uint[](len);
+        uint32[] memory aa = new uint32[](len);
         assert(a.length == 7);
         assert(b.length == len);
         assert(aa.length == len);
