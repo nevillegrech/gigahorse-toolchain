@@ -3,6 +3,7 @@ pragma solidity ^ 0.5;
 
 contract ArrayTests{
     
+    string name;
     
     function getBytes(bytes memory testbytes) public pure returns (bytes32){
         return keccak256(testbytes);
@@ -11,6 +12,11 @@ contract ArrayTests{
     function getArray(uint[] memory testarr) public pure returns (bytes32){
         testarr[5] = 3;
         return keccak256(abi.encodePacked(testarr));
+    }
+
+    function getArrayExt(uint[] calldata testarr) external pure returns (bytes32){
+        //testarr[5] = 3;
+        return keccak256(abi.encodePacked(testarr[5]));
     }
     
     function getString(string memory testStr) public pure returns (bytes32){
