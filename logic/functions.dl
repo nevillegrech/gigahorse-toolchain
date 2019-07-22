@@ -815,7 +815,7 @@ Variable_Block_String(var, block, res) :-
 Variable_String(var, var_rep) :-
    Statement_Defines(var_rep, var).
 
-Variable_String(var, cat("arg",n_str)),
+Variable_String(var, cat(func, cat("arg", n_str))),
 FunctionArgument(func, n, var) :-
 //// REVIEW
 //  PossibleNumberOfFunctionArguments(func, n_args),
