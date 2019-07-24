@@ -169,6 +169,22 @@ CALL(stmt, gas, target, value, data_start, data_length, return_start, return_len
   Statement_Uses(stmt, return_start, 5),
   Statement_Uses(stmt, return_length, 6).
 
+.decl STATICCALL(stmt:Statement, gas:Variable, target:Variable, value:Variable, data_start:Variable,
+           data_length:Variable, return_start:Variable, return_length:Variable, success: Variable)
+
+
+STATICCALL(stmt, gas, target, value, data_start, data_length, return_start, return_length, success) :-
+  Statement_Opcode(stmt, "STATICCALL"),
+  Statement_Defines(stmt, success, _),
+  Statement_Uses(stmt, gas, 0),
+  Statement_Uses(stmt, target, 1),
+  Statement_Uses(stmt, value, 2),
+  Statement_Uses(stmt, data_start, 3),
+  Statement_Uses(stmt, data_length, 4),
+  Statement_Uses(stmt, return_start, 5),
+  Statement_Uses(stmt, return_length, 6).
+
+
 
 .decl DELEGATECALL(stmt:Statement, gas:Variable, target:Variable, data_start:Variable,
            data_length:Variable, return_start:Variable, return_length:Variable, success: Variable)
@@ -198,6 +214,17 @@ CALLCODE(stmt, gas, target, data_start, data_length, return_start, return_length
   Statement_Uses(stmt, return_start, 4),
   Statement_Uses(stmt, return_length, 5).
 
+.decl RETURNDATASIZE(s: Statement, f: Variable)
+RETURNDATASIZE(stmt, f) :-
+   Statement_Opcode(stmt, "RETURNDATASIZE"),
+   Statement_Defines(stmt, f, _).
+
+.decl RETURNDATACOPY(s: Statement, a: Variable, b: Variable, c: Variable)
+RETURNDATACOPY(stmt, a, b, c) :-
+   Statement_Opcode(stmt, "RETURNDATASIZE"),
+   Statement_Uses(stmt, a, 0),
+   Statement_Uses(stmt, b, 1),
+   Statement_Uses(stmt, c, 2).
 
 .decl JUMP(stmt:Statement, dest:Variable)
 JUMP(stmt, dest) :-
@@ -290,4 +317,6 @@ RETURNPRIVATEI(stmt, b, cond) :-
    Statement_Opcode(stmt, "RETURNPRIVATEI"),
    Statement_Uses(stmt, b, 0),
    Statement_Uses(stmt, cond, 1).
+
+
 
