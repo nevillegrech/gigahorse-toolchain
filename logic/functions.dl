@@ -488,7 +488,8 @@ IRStatement_Opcode(irstmt, "RETURNPRIVATE") :-
 IRIsJump(irstmt) :-
   IsJump(stmt),
   Statement_IRStatement(stmt, _, irstmt).
- 
+
+
 .decl IRBasicBlock_Tail(block: IRBlock, tail: IRStatement)
 IRBasicBlock_Tail(irblock, irtail) :-
   BasicBlock_Tail(block, tail),
@@ -825,7 +826,7 @@ FunctionArgument(func, n, var) :-
   NumberToString(n, n_str).
 
 
-Variable_String(newVar, cat(callStmt, cat("_", n_str))),
+Variable_String(newVar, cat(callStmtBefore, cat("_", n_str))),
 FunctionalStatement_Defines(callStmt, newVar, n),
 FunctionCallReturnArgument(caller, n, newVar) :-
   IRFunctionCall(caller, func),
@@ -833,6 +834,7 @@ FunctionCallReturnArgument(caller, n, newVar) :-
   NumberOfFunctionReturnArguments(func, n_arg),
   IsStackIndexLessThan(n, n_arg),
   IRBasicBlock_Tail(caller, callStmt),
+  Statement_IRStatement(callStmtBefore, _ ,callStmt),
   FRESH_VARIABLE(newVar, callStmt, n),
   NumberToString(n, n_str).
 
