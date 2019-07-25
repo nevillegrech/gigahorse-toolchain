@@ -368,6 +368,10 @@ if args.restart:
 for p in running_processes:
     p.join()
 
+# check all programs have been compiled
+for _, v in compile_processes_args:
+    open(v, 'r') # check program exists
+
 # Extract contract filenames.
 log("Processing contract names.")
 if args.from_file:
