@@ -22,8 +22,8 @@ Installation on Debian:
 sudo apt install graphviz
 ```
 
-### For public function signature matching
-run `bin/crawlsignatures` (optional)
+### For public function and event signature matching
+run `bin/crawlsignatures` and `bin/crawleventsignatures` (optional)
 
 ## Usage
 1. Fact generation
