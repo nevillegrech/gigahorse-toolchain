@@ -1,6 +1,29 @@
 #define MAX_FUNCTION_ARGS (MAX_STACK_HEIGHT/4)
 #define FRESH_VARIABLE(var, stmt, stackIndex) (IRStatementNum((stmt), _stmtNum), var=-0xFFFF+_stmtNum*MAX_STACK_HEIGHT+(stackIndex))
 
+
+#ifdef DEBUG
+.output MaybeFunctionCallReturn // DEBUG
+.output IsContext, CanReachUnderContext, CanReachUnderContextThroughBlock //DEBUG
+.output PotentialCall // DEBUG
+.output PossibleReturnAddress // DEBUG
+.output IsFunctionCallReturn // DEBUG
+.output IsFunctionEntry, IsFunctionCall, BlockToClone, MaybeInFunction // DEBUG
+.output PossibleFunctionEdgePopAndStackDeltaBypassing
+.output PossibleImpreciseNumberOfFunctionArguments
+
+.output EdgePopDelta
+.output EdgeStackDelta
+.output PossibleFunctionEdgePopDelta
+.output PossibleFunctionEdgeStackDelta
+.output PossibleNumberOfFunctionArguments
+.output PossibleNumberOfFunctionReturnArguments
+.output PossibleCombinedNumberOfFunctionReturnsAndArguments
+.output NumberOfFunctionArguments
+.output NumberOfFunctionReturnArguments
+#endif
+
+
 /*****
  * Function discovery logic
  *****/
@@ -86,7 +109,6 @@ CanReachUnderContextThroughBlock(fromCtx, from, through, ctx, block) :-
 CanReach(from, to) :-
   CanReachUnderContext(_, from, _, to).
 
-.output IsContext, CanReachUnderContext, CanReachUnderContextThroughBlock //DEBUG
 
 
 /******
@@ -101,7 +123,6 @@ CanReach(from, to) :-
 PotentialCall(block) :-
   ImmediateBlockJumpTarget(block, _).
 
-.output PotentialCall // DEBUG
 
 // Call-return pattern:
 // a) basic block jumps to a valid "non-locally-derived" address
@@ -119,7 +140,6 @@ OptNotImmediateBlockJumpTarget(retBlock, targetVariable, retTarget) :-
   BlockJumpValidTarget(_, retBlock, targetVariable, retTarget),
   !ImmediateBlockJumpTarget(retBlock, targetVariable).
 
-.output PossibleReturnAddress // DEBUG
 
 // Also match a subset of those with return addresses and full info. The
 // function may not be the one containing the return, in case of complex
@@ -144,7 +164,6 @@ MaybeFunctionCallReturn(caller, func, retBlock, retTarget) :-
   CanReach(caller, retTarget),
   CanReach(func, retBlock).
 
-.output MaybeFunctionCallReturn // DEBUG
 
 // Seems pretty certain we found a return. In fact, at this point,
 // with the above logic, we have detected all original return
@@ -199,7 +218,6 @@ IsFunctionCallReturn(caller, func, retBlock, retTarget) :-
   !NotValidReturnBlock(func, retBlock),
   !NotValidReturnEdge(retBlock, retTarget).
 
-.output IsFunctionCallReturn // DEBUG
 
 
 // NOTE the philosophy!  MaybeFunctionCallReturn intends to be
@@ -275,8 +293,6 @@ BlockToClone(next, func) :-
   BlockInMultipleFunctions(next),
   next != func. // don't clone function entries, other functions will clone them
 
-
-.output IsFunctionEntry, IsFunctionCall, BlockToClone, MaybeInFunction // DEBUG
 
 
 
@@ -699,7 +715,6 @@ StackSimulationLimit(depth) :-
 //  (EnableCostlyAlgorithms(), depth = MAX_STACK_HEIGHT);
 //  (!EnableCostlyAlgorithms(), depth = MAX_STACK_HEIGHT / 5).
 
-.output PossibleFunctionEdgePopAndStackDeltaBypassing
 
 .decl PossibleFunctionEdgePopDelta(func: IRFunction, to: IRBlock, delta: StackIndex)
 .decl PossibleFunctionEdgeStackDelta(func: IRFunction, to: IRBlock, delta: StackIndex)
@@ -738,7 +753,6 @@ PossibleCombinedNumberOfFunctionReturnsAndArguments(func, terminal, numArg, numR
 PossibleImpreciseNumberOfFunctionArguments(func, numArg) :-
   PossibleCombinedNumberOfFunctionReturnsAndArguments(func, _, numArg, _).
 
-.output PossibleImpreciseNumberOfFunctionArguments
 
 // Our more precise inferences
 .decl PossibleNumberOfFunctionArguments(func: IRFunction, num: StackIndex)
@@ -771,18 +785,6 @@ NumberOfFunctionArguments(func, n) :-
 NumberOfFunctionReturnArguments(func, n) :-
   IRFunctionEntry(func),
   n = max m : PossibleNumberOfFunctionReturnArguments(func, m).
-
-
-/// DEBUG
-.output EdgePopDelta
-.output EdgeStackDelta
-.output PossibleFunctionEdgePopDelta
-.output PossibleFunctionEdgeStackDelta
-.output PossibleNumberOfFunctionArguments
-.output PossibleNumberOfFunctionReturnArguments
-.output PossibleCombinedNumberOfFunctionReturnsAndArguments
-.output NumberOfFunctionArguments
-.output NumberOfFunctionReturnArguments
 
 
 
