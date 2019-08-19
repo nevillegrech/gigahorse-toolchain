@@ -21,6 +21,10 @@
 .output PossibleCombinedNumberOfFunctionReturnsAndArguments
 .output NumberOfFunctionArguments
 .output NumberOfFunctionReturnArguments
+
+.output BlockComparesSig
+.output FunctionSelectorVariable
+.output Variable_String
 #endif
 
 
@@ -54,7 +58,7 @@ FunctionSelectorVariable(y) :-
 // pattern
 BlockComparesSig(block, sigHash) :-
   Statement_Block(pushStmt, block),
-  PUSH4(pushStmt, sigHash),
+  (PUSH4(pushStmt, sigHash) ; PUSH3(pushStmt, sigHash)),
   Statement_Defines(pushStmt, sigHashVar),
   Statement_Block(eqStmt, block),
   EQ(eqStmt),
