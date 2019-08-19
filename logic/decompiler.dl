@@ -153,11 +153,20 @@ BasicBlock_Tail(block, tail) :-
 
 ValidStatement(stmt) :- Statement_Block(stmt, _).
 
+.decl Block_PossibleGas(block: Block, gas: number)
+Block_PossibleGas(block, gas) :-
+  Statement_Block(stmt, block),
+  Statement_Gas(stmt, gas).
+
+Block_PossibleGas(block, 0) :- Statement_Block(_, block).
+
+
 .decl Block_Gas(block: Block, gas: number)
    
 Block_Gas(block, totalgas) :-
-   Statement_Block(stmt, block),
-   totalgas = sum gas : Statement_Gas(stmt, gas).
+   Statement_Block(_, block),
+   totalgas = sum gas : Block_PossibleGas(block, gas).
+
 /*
  ***********
  * Key definitions
