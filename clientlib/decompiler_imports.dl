@@ -12,7 +12,8 @@
 .type Value
 
 #include "tac_instructions.dl"
-
+#include "util.dl"
+ 
 .decl OpcodePossiblyHalts(op: Opcode)
 .input OpcodePossiblyHalts(IO="file", filename="OpcodePossiblyHalts.csv", delimiter="\t")
 

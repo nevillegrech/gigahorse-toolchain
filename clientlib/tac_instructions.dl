@@ -319,5 +319,11 @@ RETURNPRIVATEI(stmt, b, cond) :-
    Statement_Uses(stmt, b, 0),
    Statement_Uses(stmt, cond, 1).
 
+.decl PrecompiledCall(stmt: Statement)
 
+PrecompiledCall(stmt) :-
+   CALL(stmt, _, addr, _, _, _, _, _, _),
+   (Variable_Value(addr, "0x0") ; Variable_Value(addr, "0x1") ; Variable_Value(addr, "0x2") ;
+    Variable_Value(addr, "0x3") ; Variable_Value(addr, "0x4") ; Variable_Value(addr, "0x5") ;
+    Variable_Value(addr, "0x6") ; Variable_Value(addr, "0x7")).
 

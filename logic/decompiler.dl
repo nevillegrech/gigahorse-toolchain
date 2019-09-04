@@ -355,20 +355,10 @@ Variable_Value(resVar, res) :-
   ArithmeticOpcodes(stmt, var0, var1, resVar),
   ADD(stmt),
   Variable_Value(var0, val0),
-  NumberToString(var0num, substr(val0, 2, 8)),
+  NumberToString(var0num, val0),
   Variable_Value(var1, val1),
-  NumberToString(var1num, substr(val1, 2, 8)),
-  NumberToString(var0num+var1num, partialRes),
-  res = cat("0x", partialRes).
-
-/*
-// Arithmetic
-Variable_Value(var, anyvalue) :-
-  AnyValue(anyvalue),
-  Statement_Opcode(stmt, opcode),
-  OpcodeIsArithmetic(opcode),
-  Statement_Defines(stmt, var).
-*/
+  NumberToString(var1num, val1),
+  NumberToString(var0num+var1num, res).
 
 Variable_Value(var, dynamicvalue) :-
   DynamicValue(dynamicvalue),

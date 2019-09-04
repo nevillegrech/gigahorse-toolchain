@@ -3,6 +3,7 @@
  */
 
 #include "decompiler_inputs.dl"
+#include "../clientlib/util.dl"
 
 .type Opcode
 .type Statement 
@@ -125,39 +126,6 @@ SWAPN(opcode, swapn - swap1 + 1) :-
   OpcodeOrd(opcode, swapn),
   OpcodeIsSwap(opcode),
   OpcodeOrd("SWAP1", swap1).
-
-.decl IsSmallNumber(n:number)
-      
-IsSmallNumber(0).
-
-IsSmallNumber(n+1) :-
-  IsSmallNumber(n),
-  n+1 < 0xFFF.
-
-.decl NumberToString(a:StackIndex, s: symbol)
-
-NumberToString(0, "0").
-NumberToString(1, "1").
-NumberToString(2, "2").
-NumberToString(3, "3").
-NumberToString(4, "4").
-NumberToString(5, "5").
-NumberToString(6, "6").
-NumberToString(7, "7").
-NumberToString(8, "8").
-NumberToString(9, "9").
-NumberToString(10, "a").
-NumberToString(11, "b").
-NumberToString(12, "c").
-NumberToString(13, "d").
-NumberToString(14, "e").
-NumberToString(15, "f").
-
-NumberToString(n, cat(rst, head)) :-
-  IsSmallNumber(n),
-  n > 15,
-  NumberToString(n / 16, rst),
-  NumberToString(n % 16, head).
 
 OpcodePopWords("CALLPRIVATE", 1).
 OpcodePopWords("RETURNPRIVATE", 1).
