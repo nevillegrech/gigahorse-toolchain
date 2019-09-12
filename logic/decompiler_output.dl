@@ -339,3 +339,12 @@ LOGStmt_SigHash(stmt, sigHash):-
 EventSignatureInContract(sigHash, sigText):-
   LOGStmt_SigHash(_, sigHash),
   EventSignature(sigHash, sigText).
+
+
+.decl ConstantPossibleSigHash(constSigHash:symbol, name:symbol)
+.output ConstantPossibleSigHash
+
+ConstantPossibleSigHash(sigHashBigVal, name):-
+  TAC_Variable_Value(_, sigHashBigVal),
+  sigHash = substr(sigHashBigVal, 0 , 10),
+  PublicFunctionSignature(sigHash, name).
