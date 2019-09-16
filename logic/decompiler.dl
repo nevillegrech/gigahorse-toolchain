@@ -30,13 +30,28 @@
 // One to one mapping. Give every statement a unique var (negative index)
 .decl Statement_Defines(statement: Statement, variable: Variable)
 
+// Unbelievably, the linear recursion to compute this was a bottleneck for large contracts.
+// Optimized version below.
 .decl _StatementNum(statement: Statement, num: number)
 
 _StatementNum(FUNCTION_SELECTOR, -1).
 
-_StatementNum(next, n-1) :-
-  _StatementNum(stmt, n),
-  Statement_Next(stmt, next).
+_StatementNum(stmt, n-d) :-
+  _StatementNum(otherStmt, n),
+  _StatementDistance(otherStmt, stmt, d).
+
+
+// Optimization predicate
+.decl _StatementDistance(stmt1: Statement, stmt2: Statement, num: number)
+_StatementDistance(stmt1, stmt2, 1) :-
+  Statement_Next(stmt1, stmt2).
+
+// bound quadratic computation
+_StatementDistance(stmt1, stmt2, n+1) :-
+  _StatementDistance(stmt1, stmt3, n),
+  Statement_Next(stmt3, stmt2),
+  n < 32.
+
 
 // We pre-assign variables to every statement except if they are
 // not really creating new values on the stack (e.g. no pushes or simple swaps)

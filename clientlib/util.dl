@@ -4,13 +4,19 @@
 #define DEBUG_OUTPUT(x) .output x
 #endif
 
-.decl IsSmallNumber(n:number)
+.decl IsSmallNumber(n:number) 
       
 IsSmallNumber(0).
 
-IsSmallNumber(n+1) :-
+// waste computation, but converge much faster
+IsSmallNumber(n+n) :-
   IsSmallNumber(n),
-  n+1 < 0xFFF.
+  n+n < 0xFFF.
+
+IsSmallNumber(n+n+1) :-
+  IsSmallNumber(n),
+  n+n+1 < 0xFFF.
+
 
 .decl NumberToString_(a:number, s: symbol)
 
