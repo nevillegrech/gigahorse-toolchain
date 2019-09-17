@@ -136,7 +136,7 @@ for fro, to in edges:
 for key in sorted(rendered_statements, key = lambda a: int(a.split('0x')[1], 16)):
     print()
     print('Begin block %s'%key)
-    print('prev = %s, next = %s'%(prev_block(key), next_block(key)))
+    print('prev = %s, next = %s'%(prev_block(key) if len(prev_block(key)) != 0 else "{}", next_block(key) if len(next_block(key)) != 0 else "{}"))
     print('----------------------------------')
     print('\n'.join(rendered_statements[key]))
     print('----------------------------------')
