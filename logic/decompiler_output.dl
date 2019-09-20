@@ -24,8 +24,76 @@ FunctionalBlock_Uses_Local(block, stackIndex) :-
   FunctionalStatement_Uses_Local(stmt, stackIndex, _),
   IsStackIndex(stackIndex).
 
+.decl DoesNotDominate(dominator: IRBlock, block: IRBlock)
+DoesNotDominate(block, entry) :-
+  IRInFunction(block, entry),
+  block != entry.
+
+DoesNotDominate(block, block2) :-
+  DoesNotDominate(block, other),
+  LocalBlockEdge(other, block2),
+  block != block2.
+
+.decl Dominates(block1: IRBlock, block2: IRBlock)
+
+Dominates(dominator, block) :-
+  IRInFunction(dominator, entry),
+  IRInFunction(block, entry),
+  !DoesNotDominate(dominator, block).
+
+.decl StrictlyDominates(block1: IRBlock, block2: IRBlock)
+
+StrictlyDominates(dominator, block) :-
+  Dominates(dominator, block),
+  dominator != block.
+
+.decl DominanceFrontier(dBlock: IRBlock, block: IRBlock)
+
+DominanceFrontier(dBlock, block) :-
+  LocalBlockEdge(pred, block),
+  Dominates(dBlock, pred),
+  !StrictlyDominates(dBlock, block).
+
+.decl DFPlus(dBlock: IRBlock, block: IRBlock, rep: Variable)
+
+DFPlus(dBlock, block, rep) :-
+  FunctionalBlockDefines_Local(dBlock, rep),
+  DominanceFrontier(dBlock, block).
+
+DFPlus(dBlock, block, rep) :-
+  DFPlus(dBlock, other, rep),
+  DominanceFrontier(other, block).
+
+PHILocation(block, stackIndex, cat(cat(block, "_"), stackIndexStr)) :-
+  DFPlus(_, block, _),
+  PolymorphicStackIndex(block, stackIndex),
+  NumberToString(stackIndex, stackIndexStr).
+
+
+.decl FunctionalBlockDefines_Local(block: IRBlock, variable: Variable)
+
+FunctionalBlockDefines_Local(block, rep) :-
+  FunctionalStatement_Defines(stmt, var, _),
+  IRStatement_Block(stmt, block),
+  VarRepresentative(var, rep).
+
+.decl VarRepresentative(var: Variable, representative: Variable)
+
+VarRepresentative(var, representative) :-
+  PolymorphicVar(var),
+  representative = min rep : EquivalentVars(var, rep).
+
 .decl PolymorphicStackIndex(block: IRBlock, stackIndex: StackIndex)
 
+.decl PolymorphicVar(var: Variable)
+.decl EquivalentVars(var: Variable, representative: Variable)
+
+EquivalentVars(var, var) :-
+  IsVariable(var).
+
+PolymorphicVar(var1),
+PolymorphicVar(var2),
+EquivalentVars(var1, var2),
 PolymorphicStackIndex(block, stackIndex) :-
   FunctionalBlock_Uses_Local(block, stackIndex),
   FunctionalBlockInputContents(block, stackIndex, var1),
@@ -33,13 +101,13 @@ PolymorphicStackIndex(block, stackIndex) :-
   var1 != var2.
 
 .decl PHILocation(block: IRBlock, stackIndex: StackIndex, newVarSymbol: symbol)
+.output PHILocation
 
 // Find all polymorphic stackIndexes
 // These need phi instructions introduced at the dominance frontier
-.output PHILocation
-PHILocation(block, stackIndex, cat(cat(block, "_"), stackIndexStr)) :-
-  PolymorphicStackIndex(block, stackIndex),
-  NumberToString(stackIndex, stackIndexStr).
+//PHILocation(block, stackIndex, cat(cat(block, "_"), stackIndexStr)) :-
+//  PolymorphicStackIndex(block, stackIndex),
+//  NumberToString(stackIndex, stackIndexStr).
 
 .symbol_type TACVariable
 
