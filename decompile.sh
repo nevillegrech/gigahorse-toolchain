@@ -114,6 +114,10 @@ LOGIC_HOME=$PWD
 echo "Decompiling..."
 souffle -F $FACTDIR -D $OUTDIR decompiler.dl
 
+if [ $? -ne 0 ]; then
+    exit 1
+fi
+
 cd $OUTDIR
 
 if [ $VISUALIZE -eq 1 ]; then
