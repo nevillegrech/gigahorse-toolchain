@@ -50,3 +50,6 @@ results.json
 *.ccerr
 *.cpp
 PublicFunctionSignature.dl
+
+# decompilation script symlink
+decompilation-results
