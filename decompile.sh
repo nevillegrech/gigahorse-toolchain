@@ -78,6 +78,11 @@ while true; do
     shift
 done
 
+if [ "$CONTRACT" == "" ]; then
+    echo "No contract specified for decompilation."
+    exit 1
+fi
+
 if [ "$FACTDIR" == "" ]; then
     echo "No input fact directory specified."
     exit 1

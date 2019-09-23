@@ -80,24 +80,27 @@ FunctionalBlockDefines_Local(block, rep) :-
 .decl VarRepresentative(var: Variable, representative: Variable)
 
 VarRepresentative(var, representative) :-
-  PolymorphicVar(var),
-  representative = min rep : EquivalentVars(var, rep).
+  PolymorphicVar(var, func),
+  representative = min rep : EquivalentVars(func, var, rep).
 
 .decl PolymorphicStackIndex(block: IRBlock, stackIndex: StackIndex)
 
-.decl PolymorphicVar(var: Variable)
-.decl EquivalentVars(var: Variable, representative: Variable)
+.decl PolymorphicVar(var: Variable, func: IRBlock)
+.decl EquivalentVars(func: IRBlock, var: Variable, representative: Variable)
 
-EquivalentVars(var, var) :-
-  IsVariable(var).
+EquivalentVars(func, var, var) :-
+  FunctionalStatement_Defines(stmt, var, _),
+  IRStatement_Block(stmt, block),
+  IRInFunction(block, func).
 
-PolymorphicVar(var1),
-PolymorphicVar(var2),
-EquivalentVars(var1, var2),
+PolymorphicVar(var1, func),
+PolymorphicVar(var2, func),
+EquivalentVars(func, var1, var2),
 PolymorphicStackIndex(block, stackIndex) :-
   FunctionalBlock_Uses_Local(block, stackIndex),
   FunctionalBlockInputContents(block, stackIndex, var1),
   FunctionalBlockInputContents(block, stackIndex, var2),
+  IRInFunction(block, func),
   var1 != var2.
 
 .decl PHILocation(block: IRBlock, stackIndex: StackIndex, newVarSymbol: symbol)
