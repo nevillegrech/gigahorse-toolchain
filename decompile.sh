@@ -7,28 +7,31 @@ if [[ $# -eq 0 || "$1" == "--help" ]]; then
     echo "Usage: ./decompile.sh [OPTION]+"
     echo "Decompile input smart contract."
     echo ""
-    echo "  -i           smart contract bytecode to be decompiled"
-    echo "  -c           run in compiled mode (default is interpreted)"
-    echo "  -f           output directory for the input fact generation"
-    echo "  -o           output directory for the decompilation facts"
-    echo "  --id         identifier for the current run"
-    echo "  --profile    enable profiling"
-    echo "  --debug      enable debug compiler definition"
-    echo "  --visualize  run visualize script at the end"
-    echo "  --cache      use cached facts/executable if they exist"
+    echo "  -i               smart contract bytecode to be decompiled"
+    echo "  -c               run in compiled mode (default is interpreted)"
+    echo "  -f               path where the fact generation directory will be created"
+    echo "  -o               path where the decompilation output will be created"
+    echo "  --id             identifier for the current run"
+    echo "  --profile        enable profiling"
+    echo "  --visualize      run visualize script at the end"
+    echo "  --cache          use cached facts/executable if they exist"
+    echo "  --force-facts    force fact generation"
+    echo "  --force-compile  force generation"
     exit 0
 fi
 
-DEBUG=0
 COMPILE=0
 PROFILE=0
 VISUALIZE=0
+FORCEFACTS=0
+FORCECOMPILE=0
+CACHE=0
 CONTRACT=""
 FACTDIR=""
 OUTDIR=""
 ID=""
 
-options=$(getopt -o ci:f:o: -l id:,profile,debug,visualize,cache -- "$@")
+options=$(getopt -o ci:f:o: -l id:,profile,visualize,cache,force-facts,force-compile -- "$@")
 
 if [ $? -ne 0 ]; then
     echo "Error: Unknown option provided"
@@ -42,14 +45,17 @@ while true; do
         --profile)
             PROFILE=1
             ;;
-        --debug)
-            DEBUG=1
-            ;;
         --visualize)
             VISUALIZE=1
             ;;
         --cache)
             CACHE=1
+            ;;
+        --force-compile)
+            FORCECOMPILE=1
+            ;;
+        --force-facts)
+            FORCEFACTS=1
             ;;
         --id)
             shift
@@ -88,42 +94,84 @@ if [ "$OUTDIR" == "" ]; then
     exit 1
 fi
 
+# Default ID is the first 15 characters of the file
 if [ "$ID" == "" ]; then
     ID=$(basename "$CONTRACT" | sed 's/\.[^.]*$//' | cut -c1-12)
 fi
 
 echo "ID: $ID"
-echo "Compile: $COMPILE"
-echo "Profile: $PROFILE"
-echo "Debug: $DEBUG"
-echo "Input directory: $FACTDIR"
-echo "Output directory: $OUTDIR"
 
-mkdir -p $FACTDIR
-mkdir -p $OUTDIR
+INFACTDIR=$FACTDIR/"${ID}_facts"
+OUTFACTDIR=$OUTDIR/"${ID}_out/database"
 
-echo "Generating input facts for the decompiler into $FACTDIR"
+echo "Generating input facts for the decompiler into $INFACTDIR"
 
-pushd .
+pushd . > /dev/null
 
 cd logic
 LOGIC_HOME=$PWD
 
-../bin/generatefacts $CONTRACT $FACTDIR
+# Generate facts when they don't exist or we want to override them
+if [ ! -d $INFACTDIR ] || [ $FORCEFACTS -eq 1 ] || [ $CACHE -eq 0 ]; then
+    # Make sure that the directory is clear
+    mkdir -p $INFACTDIR
+    rm -rf $INFACTDIR/*
 
-echo "Decompiling..."
-souffle -F $FACTDIR -D $OUTDIR decompiler.dl
-
-if [ $? -ne 0 ]; then
-    exit 1
+    ../bin/generatefacts $CONTRACT $FACTDIR/"${ID}_facts"
 fi
 
-cd $OUTDIR
+if [ $PROFILE -eq 0 ]; then
+    PROFILEOPT=""
+else
+    PROFILEOPT="-p $OUTDIR/${ID}_out/profile.txt"
+fi
+
+# Clear output directory
+mkdir -p $OUTFACTDIR
+rm -rf $OUTFACTDIR/../*
+mkdir -p $OUTFACTDIR
+
+if [ $COMPILE -eq 0 ]; then
+    echo "Decompiling..."
+
+    souffle -F $INFACTDIR -D $OUTFACTDIR decompiler.dl $PROFILEOPT
+
+    if [ $? -ne 0 ]; then
+        exit 1
+    fi
+else
+    echo "Compiling souffle executable..."
+
+    MD5=$(cpp -P decompiler.dl | md5sum | cut -d ' ' -f 1)
+    MD5=$(echo $MD5 $PROFILEOPT | md5sum | cut -d ' ' -f 1)
+
+    # Check if the executable exists in the cache
+    if [ ! -f ../cache/"${MD5}_compiled" ] || [ $FORCECOMPILE -eq 1 ] || [ $CACHE -eq 0 ]; then
+        souffle -F $INFACTDIR -D $OUTFACTDIR decompiler.dl $PROFILEOPT -o ../cache/"${MD5}_compiled"
+    fi
+
+    if [ $? -ne 0 ]; then
+        exit 1
+    fi
+
+    echo "Copying $(realpath ../cache/"${MD5}_compiled") to $(realpath $OUTFACTDIR/../"${ID}_compiled")"
+    cp ../cache/"${MD5}_compiled" $OUTFACTDIR/../"${ID}_compiled"
+
+    echo "$MD5"
+
+    $OUTFACTDIR/../"${ID}_compiled"
+
+    if [ $? -ne 0 ]; then
+        exit 1
+    fi
+fi
+
+cd $OUTFACTDIR
 
 if [ $VISUALIZE -eq 1 ]; then
-    python3 ${LOGIC_HOME}/visualizeout.py | tee blocks.out
+    python3 ${LOGIC_HOME}/visualizeout.py > blocks.out
 fi
 
-popd
+popd > /dev/null
 
-ln -sfn $OUTDIR decompilation-results
+ln -sfn $OUTFACTDIR/.. decompilation-results
