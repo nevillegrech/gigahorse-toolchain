@@ -222,7 +222,7 @@ RETURNDATASIZE(stmt, f) :-
 
 .decl RETURNDATACOPY(s: Statement, a: Variable, b: Variable, c: Variable)
 RETURNDATACOPY(stmt, a, b, c) :-
-   Statement_Opcode(stmt, "RETURNDATASIZE"),
+   Statement_Opcode(stmt, "RETURNDATACOPY"),
    Statement_Uses(stmt, a, 0),
    Statement_Uses(stmt, b, 1),
    Statement_Uses(stmt, c, 2).
