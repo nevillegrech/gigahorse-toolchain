@@ -83,15 +83,25 @@ VarRepresentative(var, representative) :-
   PolymorphicVar(var, func),
   representative = min rep : EquivalentVars(func, var, rep).
 
-.decl PolymorphicStackIndex(block: IRBlock, stackIndex: StackIndex)
-
-.decl PolymorphicVar(var: Variable, func: IRBlock)
 .decl EquivalentVars(func: IRBlock, var: Variable, representative: Variable)
 
+// Reflexivity
 EquivalentVars(func, var, var) :-
   FunctionalStatement_Defines(stmt, var, _),
   IRStatement_Block(stmt, block),
   IRInFunction(block, func).
+
+// Symmetry
+EquivalentVars(func, var1, var2) :-
+  EquivalentVars(func, var2, var1).
+
+// Transitivity
+EquivalentVars(func, var1, var2) :-
+  EquivalentVars(func, var1, var),
+  EquivalentVars(func, var, var2).
+
+.decl PolymorphicStackIndex(block: IRBlock, stackIndex: StackIndex)
+.decl PolymorphicVar(var: Variable, func: IRBlock)
 
 PolymorphicVar(var1, func),
 PolymorphicVar(var2, func),
@@ -254,7 +264,8 @@ PRE_TAC_Use(stmt, var_rep, n) :-
   CheckIsStackIndex(stackIndex),
   IRStatement_Block(stmt, block),
   IRInFunction(block, fun),
-  !PHILocation(block, stackIndex, _),
+  !PolymorphicStackIndex(block, stackIndex),
+  // !PHILocation(block, stackIndex, _),
   FunctionalBlockInputContents(block, stackIndex, var),
   FunctionalStatement_Defines(defstmt, var, _),
   IRStatement_Block(defstmt, defBlock),
@@ -305,7 +316,9 @@ PRE_TAC_Use(stmt, var_rep, n) :-
   FunctionalStatement_Uses_Local(stmt, stackIndex, n),
   CheckIsStackIndex(stackIndex),
   IRStatement_Block(stmt, block),
-  PHILocation(block, stackIndex, var_rep).
+  PolymorphicStackIndex(block, stackIndex),
+  Dominates(dom, block),
+  PHILocation(dom, stackIndex, var_rep).
 
 TAC_Block(stmt, block) :-
   IRStatement_Block(stmt, block),
