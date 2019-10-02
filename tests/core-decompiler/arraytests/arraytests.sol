@@ -3,7 +3,9 @@ pragma solidity ^ 0.5;
 
 contract ArrayTests{
     
-    string name;
+    string public name;
+    uint256[] public myArr;
+    address payable public owner;
     
     function getBytes(bytes memory testbytes) public pure returns (bytes32){
         return keccak256(testbytes);
@@ -25,6 +27,20 @@ contract ArrayTests{
 
     function hash2(string memory testStr, bytes memory testbytes) public pure returns (bytes32){
         return keccak256(abi.encodePacked(testStr, testbytes));
+    }
+
+    function setName(string memory _name) public {
+        name = _name;
+    }
+
+    function getArr() public view returns (uint256[] memory){
+        return myArr;
+    }
+
+    function makeCall() public {
+        ArrayTests myContract = ArrayTests(owner);
+        uint256[] memory arr = myContract.getArr();
+        myArr = arr;
     }
 
     function f(uint len) public pure {
