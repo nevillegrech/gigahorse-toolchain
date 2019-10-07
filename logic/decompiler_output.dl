@@ -64,10 +64,14 @@ DFPlus(dBlock, block, rep) :-
   DFPlus(dBlock, other, rep),
   DominanceFrontier(other, block).
 
-PHILocation(block, stackIndex, cat(cat(block, "_"), stackIndexStr)) :-
-  DFPlus(_, block, _),
+.decl PhiRep(var: symbol, rep: Variable)
+
+PhiRep(phiVar, repVar),
+PHILocation(block, stackIndex, phiVar) :-
+  DFPlus(_, block, repVar),
   PolymorphicStackIndex(block, stackIndex),
-  NumberToString(stackIndex, stackIndexStr).
+  NumberToString(stackIndex, stackIndexStr),
+  phiVar = cat(cat(block, "_"), stackIndexStr).
 
 
 .decl FunctionalBlockDefines_Local(block: IRBlock, variable: Variable)
@@ -312,13 +316,16 @@ TAC_Use(irstmt, var_rep, n-1) :-
 
 
 // Case 4: Uses polymorphic variable
-PRE_TAC_Use(stmt, var_rep, n) :-
+PRE_TAC_Use(stmt, phi_var, n) :-
   FunctionalStatement_Uses_Local(stmt, stackIndex, n),
   CheckIsStackIndex(stackIndex),
   IRStatement_Block(stmt, block),
   PolymorphicStackIndex(block, stackIndex),
+  FunctionalBlockInputContents(block, stackIndex, polyVar),
+  VarRepresentative(polyVar, varRep),
   Dominates(dom, block),
-  PHILocation(dom, stackIndex, var_rep).
+  PHILocation(dom, _, phi_var),
+  PhiRep(phi_var, varRep).
 
 TAC_Block(stmt, block) :-
   IRStatement_Block(stmt, block),
