@@ -221,7 +221,7 @@ Block_Tail(b, t) :-
 .decl IsBlock(b: Block)
 
 IsBlock(b) :-
-  Statement_Block(_, b).
+  Statement_Block(_, b); LocalBlockEdge(b, _); LocalBlockEdge(_, b).
 
 .decl Statement_Function(s: Statement, f: Function)
 
