@@ -227,6 +227,13 @@ RETURNDATACOPY(stmt, a, b, c) :-
    Statement_Uses(stmt, b, 1),
    Statement_Uses(stmt, c, 2).
 
+.decl CALLDATACOPY(s: Statement, mem_start: Variable, calldata_start: Variable, length: Variable)
+CALLDATACOPY(stmt, mem_start, calldata_start, length) :-
+   Statement_Opcode(stmt, "CALLDATACOPY"),
+   Statement_Uses(stmt, mem_start, 0),
+   Statement_Uses(stmt, calldata_start, 1),
+   Statement_Uses(stmt, length, 2).
+
 .decl JUMP(stmt:Statement, dest:Variable)
 JUMP(stmt, dest) :-
   Statement_Opcode(stmt, "JUMP"),
