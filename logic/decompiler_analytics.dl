@@ -242,3 +242,16 @@ Analytics_DoubleDef(variable) :-
   TAC_Def(stmt1, variable, _),
   TAC_Def(stmt2, variable, _),
   stmt1 != stmt2.
+
+.decl BlockIsNotEmpty(block: IRBlock)
+
+BlockIsNotEmpty(block) :-
+  TAC_Block(_, block).
+
+.decl Analytics_BlockIsEmpty(block: IRBlock)
+.output Analytics_BlockIsEmpty
+
+Analytics_BlockIsEmpty(block) :-
+  (LocalBlockEdge(_, block); LocalBlockEdge(block, _)),
+  !BlockIsNotEmpty(block).
+  
