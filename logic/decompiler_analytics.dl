@@ -255,3 +255,10 @@ Analytics_BlockIsEmpty(block) :-
   (LocalBlockEdge(_, block); LocalBlockEdge(block, _)),
   !BlockIsNotEmpty(block).
   
+// Check if a block in DFPlus does not have a poylmorphic stack index.
+.decl Analytics_PhiNonPoly(block: IRBlock)
+.output Analytics_PhiNonPoly
+
+Analytics_PhiNonPoly(block) :-
+  DFPlus(_, block, _),
+  !PolymorphicStackIndex(block, _).
