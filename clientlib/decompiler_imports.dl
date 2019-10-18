@@ -45,9 +45,6 @@
 .decl Statement_Block(stmt: Statement, block: Block)
 .input Statement_Block(IO="file", filename="TAC_Block.csv", delimiter="\t")
 
-.decl Block_Head(block: Block, stmt: Statement)
-.input Block_Head(IO="file", filename="TAC_Block_Head.csv", delimiter="\t")
-
 // Value which a variable may have. Concrete values only.
 .decl Variable_Value(var: Variable, value: Value)
 .input Variable_Value(IO="file", filename="TAC_Variable_Value.csv", delimiter="\t")
@@ -205,25 +202,34 @@ LocalReachableFrom(from, to) :-
   LocalReachableFrom(next, to),
   LocalBlockEdge(from, next).
 
+.decl Helper_NextStatementInSameBlock(stmt: Statement, stmtNext: Statement)
 
-.decl NotTailStatement(s: Statement)
+Helper_NextStatementInSameBlock(stmt1, stmt2) :-
+  Statement_Next(stmt1, stmt2),
+  Statement_Block(stmt1, block),
+  Statement_Block(stmt2, block).
 
-NotTailStatement(s) :-
-   Statement_Block(s, b),
-   Statement_Next(s, n),
-   Statement_Block(n, b).
+
+.decl Block_Head(block: Block, stmt: Statement)
 
 // Last statement in a basic block
 .decl Block_Tail(b: Block, t: Statement)
 
-Block_Tail(b, t) :-
-   Statement_Block(t, b),
-   !NotTailStatement(t).
+Block_Head(block, stmt) :-
+  Statement_Block(stmt, block),
+  !PHI(stmt, _, _),
+  !Helper_NextStatementInSameBlock(_, stmt).
+
+Block_Tail(block, stmt) :-
+  Statement_Block(stmt, block),
+  !PHI(stmt, _, _),
+  !Helper_NextStatementInSameBlock(stmt, _).
+
 
 .decl IsBlock(b: Block)
 
 IsBlock(b) :-
-  Statement_Block(_, b).
+  Statement_Block(_, b); LocalBlockEdge(b, _); LocalBlockEdge(_, b).
 
 .decl Statement_Function(s: Statement, f: Function)
 
