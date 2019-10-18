@@ -262,3 +262,11 @@ Analytics_BlockIsEmpty(block) :-
 Analytics_PhiNonPoly(block) :-
   DFPlus(_, block, _),
   !PolymorphicStackIndex(block, _).
+
+// Check if a phi is inserted in a non polymorphic stack index place
+.decl Analytics_PhiNonPoly(block: IRBlock)
+.output Analytics_PhiNonPoly
+
+Analytics_PhiNonPoly(block) :-
+  DFPlus(_, block, _),
+  !PolymorphicStackIndex(block, _).
