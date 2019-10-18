@@ -55,6 +55,7 @@ DominanceFrontier(dBlock, block) :-
   !StrictlyDominates(dBlock, block).
 
 .decl DFPlus(dBlock: IRBlock, block: IRBlock, rep: Variable)
+.output DFPlus
 
 DFPlus(dBlock, block, rep) :-
   FunctionalBlockDefines_Local(dBlock, rep),
@@ -69,7 +70,7 @@ DFPlus(dBlock, block, rep) :-
 PhiRep(phiVar, repVar),
 PHILocation(block, stackIndex, phiVar) :-
   DFPlus(_, block, repVar),
-  PolymorphicStackIndex(block, stackIndex),
+  MayPlacePhi(block, stackIndex, repVar),
   NumberToString(stackIndex, stackIndexStr),
   phiVar = cat(cat(block, "_"), stackIndexStr).
 
@@ -82,6 +83,7 @@ FunctionalBlockDefines_Local(block, rep) :-
   VarRepresentative(var, rep).
 
 .decl VarRepresentative(var: Variable, representative: Variable)
+.output VarRepresentative
 
 VarRepresentative(var, representative) :-
   PolymorphicVar(var, func),
@@ -95,26 +97,29 @@ EquivalentVars(func, var, var) :-
   IRStatement_Block(stmt, block),
   IRInFunction(block, func).
 
-// Symmetry
-EquivalentVars(func, var1, var2) :-
-  EquivalentVars(func, var2, var1).
-
-// Transitivity
-EquivalentVars(func, var1, var2) :-
-  EquivalentVars(func, var1, var),
-  EquivalentVars(func, var, var2).
-
-.decl PolymorphicStackIndex(block: IRBlock, stackIndex: StackIndex)
+.decl MayPlacePhi(block: IRBlock, stackIndex: StackIndex, representative: Variable)
 .decl PolymorphicVar(var: Variable, func: IRBlock)
 
 PolymorphicVar(var1, func),
 PolymorphicVar(var2, func),
-EquivalentVars(func, var1, var2),
+EquivalentVars(func, var1, var2) :-
+  FunctionalBlockInputContents(block, stackIndex, var1),
+  FunctionalBlockInputContents(block, stackIndex, var2),
+  IRInFunction(block, func),
+  var1 != var2.
+
+MayPlacePhi(block, stackIndex, representative) :-
+  FunctionalBlockInputContents(block, stackIndex, var1),
+  FunctionalBlockInputContents(block, stackIndex, var2),
+  VarRepresentative(var1, representative),
+  var1 != var2.
+
+.decl PolymorphicStackIndex(block: IRBlock, stackIndex: StackIndex)
+
 PolymorphicStackIndex(block, stackIndex) :-
   FunctionalBlock_Uses_Local(block, stackIndex),
   FunctionalBlockInputContents(block, stackIndex, var1),
   FunctionalBlockInputContents(block, stackIndex, var2),
-  IRInFunction(block, func),
   var1 != var2.
 
 .decl PHILocation(block: IRBlock, stackIndex: StackIndex, newVarSymbol: symbol)
