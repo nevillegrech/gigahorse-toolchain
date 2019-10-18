@@ -1,3 +1,5 @@
+#pragma once
+
 // The parts of the schema of the decompiler output that need to be
 // imported in order to import the full three-address code
 // intermediate representation. All the information is there, but this
