@@ -162,7 +162,7 @@ parser.add_argument("--reuse_datalog_bin",
                     default=False,
                     help="Do not recompile.")
 
-c = statsd.StatsClient(os.environ['18.237.49.242'], port = os.environ['8125'], prefix='analyze')
+c = statsd.StatsClient('18.237.49.242', port = 8125, prefix='analyze')
 
 def get_working_dir(contract_name):
     return join(TEMP_WORKING_DIR, contract_name.split('.')[0])
