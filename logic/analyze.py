@@ -162,7 +162,7 @@ parser.add_argument("--reuse_datalog_bin",
                     default=False,
                     help="Do not recompile.")
 
-c = statsd.StatsClient('18.237.49.242', 8125, prefix='analyze')
+metrics = statsd.StatsClient('18.237.49.242', 8125, prefix='analyze')
 
 def get_working_dir(contract_name):
     return join(TEMP_WORKING_DIR, contract_name.split('.')[0])
@@ -418,7 +418,7 @@ contracts_exhausted = False
 log("Analysing...\n")
 try:
     while not contracts_exhausted:
-        c.gauge("available-jobs.int", len(avail_jobs))
+        metrics.gauge("available-jobs.int", len(avail_jobs))
         # If there's both workers and contracts available, use the former to work on the latter.
         while not contracts_exhausted and len(avail_jobs) > 0:
             try:
@@ -437,10 +437,10 @@ try:
                                 "proc": proc,
                                 "time": start_time,
                                 "job_index": job_index})
-                c.gauge("contracts-exhausted.int", 0)
+                metrics.gauge("contracts-exhausted.int", 0)
             except StopIteration:
                 contracts_exhausted = True
-                c.gauge("contracts-exhausted.int", 1)
+                metrics.gauge("contracts-exhausted.int", 1)
 
         # Loop until some process terminates (to retask it) or,
         # if there are no unanalyzed contracts left, until currently-running contracts are done
@@ -456,14 +456,14 @@ try:
                     res_queue.put((name, [], ["TIMEOUT"], {}))
                     proc.terminate()
                     log("{} timed out.".format(name))
-                    c.incr("process-time-out.int", 1)
+                    metrics.incr("process-time-out.int", 1)
                     to_remove.append(i)
                     avail_jobs.append(job_index)
                 elif not proc.is_alive():
                     to_remove.append(i)
                     proc.join()
                     avail_jobs.append(job_index)
-                    c.incr("process-terminated.int", 1)
+                    metrics.incr("process-terminated.int", 1)
 
             # Reverse index order so as to pop elements correctly
             for i in reversed(to_remove):
@@ -490,8 +490,8 @@ try:
 
     total = len(res_list)
     log("{} of {} contracts flagged.\n".format(total_flagged, total))
-    c.incr("total-flagged-contracts.int", total_flagged)
-    c.incr("total-contracts.int", total)
+    metrics.incr("total-flagged-contracts.int", total_flagged)
+    metrics.incr("total-contracts.int", total)
     counts_sorted = sorted(list(counts.items()), key = lambda a: a[0])
     for res, count in counts_sorted:
         log("  {}: {:.2f}%".format(res, 100 * count / total))
@@ -501,7 +501,7 @@ try:
         f.write(json.dumps(list(res_list), indent=1))
 
 except Exception as e:
-    c.incr(f"exception.{str(e)}.int")
+    metrics.incr(f"exception.{str(e)}.int")
     import traceback
 
     traceback.print_exc()
