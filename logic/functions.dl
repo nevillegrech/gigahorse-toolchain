@@ -3,6 +3,8 @@
 
 
 #ifdef DEBUG
+.output BlockEdge, FallthroughEdge, BlockJumpValidTarget, BlockJumpTarget, BasicBlock_Tail, MaybeInFunctionUnderContext
+.output NotValidReturnBlock, NotValidReturnEdge
 .output MaybeFunctionCallReturn // DEBUG
 .output IsContext, CanReachUnderContext, CanReachUnderContextThroughBlock //DEBUG
 .output PotentialCall // DEBUG
