@@ -457,10 +457,17 @@ LocalBlockEdge(block, next) :-
   ReachableFromFunHead(block).
 
 .decl DeadBlock(irblk:IRBlock)
+.decl DeadStmt(irstmt:IRStatement)
 
 DeadBlock(irblk):-
-  (InvalidIRBlockEdge(irblk, _);InvalidIRBlockEdge(_, irblk)),
+  //(InvalidIRBlockEdge(irblk, _);InvalidIRBlockEdge(_, irblk)),
+  Block_IRBlock(_, _, irblk),
   !ReachableFromFunHead(irblk).
+
+.output DeadStmt, DeadBlock
+DeadStmt(irstmt):-
+  IRStatement_Block(irstmt, irblk),
+  DeadBlock(irblk).
 
 .decl EnhancedLocalBlockEdge(from: IRBlock, to: IRBlock)
 EnhancedLocalBlockEdge(from, to) :- LocalBlockEdge(from, to).

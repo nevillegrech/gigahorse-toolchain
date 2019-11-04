@@ -124,12 +124,14 @@ TAC_Variable_Length(phiStmt, maxLength) :-
 TAC_Stmt(irstmt) :-
   Statement_IRStatement(stmt, _, irstmt),
   ValidStatement(stmt),
+  !DeadStmt(irstmt),
   !IRTACNOP(stmt).
 
 TAC_Op(irstmt, op) :-
    IRStatement_Opcode(irstmt, op),
    Statement_IRStatement(stmt, _, irstmt),
    ValidStatement(stmt),
+   !DeadStmt(irstmt),
    !IRTACNOP(irstmt),
    !ThrowJump(stmt),
    !PushValue(stmt, _),
