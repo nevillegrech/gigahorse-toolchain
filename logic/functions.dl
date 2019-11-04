@@ -207,6 +207,18 @@ NotValidReturnBlock(func, retBlock) :-
   MaybeFunctionCallReturn(_, func2, retBlock, _),
   ord(func) < ord(func2).
 
+/**
+  If a block is a possible return of more than one functions, clone it in both
+  Previous code had an invariant where a "return block can only pertain to one function!"
+  which was problematic in many cases and could end up cloning blocks but not mark them as return blocks
+**/
+BlockToClone(retBlock, func):-
+  MaybeFunctionCallReturn(_, func, retBlock, _),
+  MaybeFunctionCallReturn(_, func2, retBlock, _),
+  func != func2,
+  func !=retBlock,
+  func2 !=retBlock.
+
 // Block reached from return edge cannot also be called directly
 .decl NotValidReturnEdge(retBlock: Block, retTarget: Block)
 NotValidReturnEdge(retBlock, retTarget) :-
@@ -219,7 +231,7 @@ NotValidReturnEdge(retBlock, retTarget) :-
 IsFunctionCallReturn(caller, func, retBlock, retTarget) :-
   MaybeFunctionCallReturn(caller, func, retBlock, retTarget),
   FunctionCalledMultipleTimes(func),
-  !NotValidReturnBlock(func, retBlock),
+  //!NotValidReturnBlock(func, retBlock),
   !NotValidReturnEdge(retBlock, retTarget).
 
 
