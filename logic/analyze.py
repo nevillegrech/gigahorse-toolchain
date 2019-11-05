@@ -164,6 +164,11 @@ parser.add_argument("--reuse_datalog_bin",
 
 metrics = statsd.StatsClient('18.237.49.242', 8125, prefix='analyze')
 
+# Bootstrap metrics that haven't been emitted yet
+# TODO: remove the following metrics once they show up on Grafana
+metrics.incr("exception.hello-world.int")
+metrics.incr("process-time-out.int", 1)
+
 def get_working_dir(contract_name):
     return join(TEMP_WORKING_DIR, contract_name.split('.')[0])
 
