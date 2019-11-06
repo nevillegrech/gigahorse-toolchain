@@ -478,10 +478,13 @@ try:
 
     counts = {}
     total_flagged = 0
+    vulns_flagged = 0
     for contract, vulns, meta, analytics in res_list:
         rlist = vulns + meta
         if len(rlist) > 0:
             total_flagged += 1
+        if len(vulns) > 0:
+            vulns_flagged += 1
         for res in rlist:
             if res not in counts:
                 counts[res] = 1
@@ -490,7 +493,7 @@ try:
 
     total = len(res_list)
     log("{} of {} contracts flagged.\n".format(total_flagged, total))
-    metrics.incr("total-flagged-contracts.int", total_flagged)
+    metrics.incr("vulnerable-contracts.int", vulns_flagged)
     metrics.incr("total-contracts.int", total)
     counts_sorted = sorted(list(counts.items()), key = lambda a: a[0])
     for res, count in counts_sorted:
