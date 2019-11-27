@@ -77,6 +77,7 @@ MAKEBINARITHOP(SAR).
 // Unary operators
 MAKEUNOP(BLOCKHASH).
 MAKEUNOP(EXTCODEHASH).
+MAKEUNOP(EXTCODESIZE).
 MAKEUNOP(BALANCE).
 MAKEUNOP(CALLDATALOAD).
 MAKEUNOP(MLOAD).
@@ -95,6 +96,8 @@ MAKEZEROOP(COINBASE).
 MAKEZEROOP(TIMESTAMP).
 MAKEZEROOP(DIFFICULTY).
 MAKEZEROOP(NUMBER).
+MAKEZEROOP(CALLDATASIZE).
+MAKEZEROOP(CODESIZE).
 
 
 .decl RuntimeKnowable(opcode:Opcode)
@@ -329,7 +332,8 @@ RETURNPRIVATEI(stmt, b, cond) :-
 .decl PrecompiledCall(stmt: Statement)
 
 PrecompiledCall(stmt) :-
-   CALL(stmt, _, addr, _, _, _, _, _, _),
+   (STATICCALL(stmt, _, addr, _, _, _, _, _) ;
+   CALL(stmt, _, addr, _, _, _, _, _, _)),
    (Variable_Value(addr, "0x0") ; Variable_Value(addr, "0x1") ; Variable_Value(addr, "0x2") ;
     Variable_Value(addr, "0x3") ; Variable_Value(addr, "0x4") ; Variable_Value(addr, "0x5") ;
     Variable_Value(addr, "0x6") ; Variable_Value(addr, "0x7")).
