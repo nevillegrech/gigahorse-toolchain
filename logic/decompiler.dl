@@ -7,7 +7,8 @@
 #define CheckIsStackIndex(v) ((v) >= 0, (v) < MAX_STACK_HEIGHT)
 #define FUNCTION_SELECTOR "0x0"
 
-#include "full_Ncontext.dl"
+//#include "full_Ncontext.dl"
+#include "selective_Ncontext+.dl"
 #include "decompiler_instructions.dl"
 #include "functions.dl"
 #include "decompiler_output.dl"
@@ -198,6 +199,10 @@ Block_Gas(block, totalgas) :-
 // This is a context-independent predicate.
 .decl ImmediateBlockJumpTarget(block:Block, var:Variable)
 
+.decl PublicFunctionJump(block:Block, funHex:symbol)
+
+.decl PublicFunctionStart(block:Block, funHex:symbol)
+
 // A summary of all the effects of the basic block up to a statement. The
 // summary cannot contain only variables, it will also refer symbolically to
 // other locations (stackIndexes) on the stack at the beginning of the basic block.
@@ -261,6 +266,28 @@ ImmediateBlockJumpTarget(block, var) :-
   IsJump(stmt),
   BeforeLocalStackContents(stmt, 0, var),
   CheckIsVariable(var).
+
+.output PublicFunctionJump
+PublicFunctionJump(block, sigHash):-
+  ImmediateBlockJumpTarget(block, _),
+  BasicBlock_Tail(block, jumpi),
+  Statement_Opcode(jumpi, "JUMPI"),
+  BeforeLocalStackContents(jumpi, 1, condVar),
+  CheckIsVariable(condVar),
+  Statement_Defines(eq, condVar),
+  Statement_Opcode(eq, "EQ"),
+  BeforeLocalStackContents(eq, 0, sigHashVar),
+  CheckIsVariable(sigHashVar),
+  Statement_Defines(push, sigHashVar),
+  (PUSH4(push, sigHash) ; PUSH3(push, sigHash)).
+
+.output PublicFunctionStart
+PublicFunctionStart(CAST_TO_SYMBOL(targetValue), sigHash):-
+  PublicFunctionJump(block, sigHash),
+  ImmediateBlockJumpTarget(block, var),
+  Statement_Defines(push, var),
+  PushValue(push, targetValue),
+  JUMPDEST(CAST_TO_SYMBOL(targetValue)).
 
 BlockJumpTarget(ctx, block, var) :-
   ReachableContext(ctx, block),

@@ -1,0 +1,116 @@
+.type CallContext = [ block:Block, rest:CallContext]
+.type Context = [ publicFun:symbol, callCtx:CallContext]
+
+// find number of jumps to estimate best context depth
+
+.decl NumberOfJumps(n: number)
+
+NumberOfJumps(n1 + n2) :-
+   n1 = count : JUMP(_),
+   n2 = count : JUMPI(_).
+
+#define ESTIMATE_DEPTH(n) (500000 / (n) / (n))
+
+.decl MaxContextDepth(d: number)
+MaxContextDepth(m) :-
+   NumberOfJumps(n),
+   m = ESTIMATE_DEPTH(n),
+   m >= 2, m <= 15.
+
+MaxContextDepth(2) :-
+   NumberOfJumps(n),
+   m = ESTIMATE_DEPTH(n),
+   m < 2.
+
+MaxContextDepth(15) :-
+   NumberOfJumps(n),
+   m = ESTIMATE_DEPTH(n),
+   m > 15.
+
+.output MaxContextDepth
+
+.decl InitialCallContext(ctx : CallContext)
+InitialCallContext(nil).
+
+
+.decl InitialContext(ctx : Context)
+
+InitialContext(initCtx):-
+  InitialCallContext(initCallCtx),
+  initCtx = ["0x0", initCallCtx].
+
+
+.decl CallContextDepth(ctx : CallContext, depth : number)
+CallContextDepth(init, 0) :-
+  InitialCallContext(init).
+
+.decl IsCallContext(rest:CallContext)
+IsCallContext(init):-
+  InitialCallContext(init).
+
+.decl IsContext(rest:Context)
+IsContext(init):-
+  InitialContext(init).
+
+.decl DropLast(ctx : CallContext, newCtx : CallContext)
+DropLast(callCtx, nil) :-
+  IsCallContext(callCtx),
+  callCtx = [ block, nil ], block = block.
+
+IsCallContext(newCtx),
+DropLast(callCtx, newCtx) :-
+  IsCallContext(callCtx),
+  callCtx = [ block, rest ],
+  DropLast(rest, newRest),
+  newCtx = [ block, newRest ].
+
+
+.decl MergeContext(ctx : Context, caller : Block, newContext : Context)
+
+CallContextDepth(newCallContext, depth + 1),
+MergeContext(ctx, caller, newContext),
+IsCallContext(newCallContext),
+IsContext(newContext) :-
+  ReachableContext(ctx, caller),
+  !BlockHasTrivialControl(caller),
+  ctx = [fun, callCtx],
+  CallContextDepth(callCtx, depth),
+  MaxContextDepth(maxDepth),
+  depth < maxDepth,
+  newCallContext = [caller, callCtx],
+  newContext = [fun, newCallContext].
+
+CallContextDepth(newCallContext, depth),
+MergeContext(ctx, caller, newContext),
+IsCallContext(newCallContext),
+IsContext(newContext) :-
+  ReachableContext(ctx, caller),
+  !BlockHasTrivialControl(caller),
+  ctx = [fun, callCtx],
+  CallContextDepth(callCtx, depth),
+  MaxContextDepth(depth),
+  DropLast(callCtx, cutDownCtx),
+  newCallContext = [caller, cutDownCtx],
+  newContext = [fun, newCallContext].
+
+MergeContext(ctx, caller, ctx) :-
+  ReachableContext(ctx, caller),
+  BlockHasTrivialControl(caller),
+  !PublicFunctionStart(caller, _).
+
+MergeContext(ctx, caller, newContext) :-
+  ReachableContext(ctx, caller),
+  BlockHasTrivialControl(caller),
+  ctx = [oldFun, callCtx],
+  PublicFunctionStart(caller, sigHash),
+  newContext = [sigHash, callCtx].
+
+.decl BlockHasTrivialControl(block: Block)
+
+BlockHasTrivialControl(block) :-
+  BasicBlock_Tail(block, stmt),
+  !IsJump(stmt).
+  
+BlockHasTrivialControl(block) :-
+   ImmediateBlockJumpTarget(block, _).
+
