@@ -124,12 +124,14 @@ TAC_Variable_Length(phiStmt, maxLength) :-
 TAC_Stmt(irstmt) :-
   Statement_IRStatement(stmt, _, irstmt),
   ValidStatement(stmt),
+  !DeadStmt(irstmt),
   !IRTACNOP(stmt).
 
 TAC_Op(irstmt, op) :-
    IRStatement_Opcode(irstmt, op),
    Statement_IRStatement(stmt, _, irstmt),
    ValidStatement(stmt),
+   !DeadStmt(irstmt),
    !IRTACNOP(irstmt),
    !ThrowJump(stmt),
    !PushValue(stmt, _),
@@ -238,10 +240,12 @@ PRE_TAC_Use(stmt, var_rep, n) :-
 
 TAC_Block(stmt, block) :-
   IRStatement_Block(stmt, block),
+  !DeadBlock(block),
   !IRTACNOP(stmt).
 
 TAC_Block(phiStmt, block) :-
-  PHILocation(block, _, phiStmt).
+  PHILocation(block, _, phiStmt),
+  !DeadBlock(block).
 
 
 // Fresh call statements

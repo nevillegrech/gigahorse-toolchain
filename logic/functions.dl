@@ -3,6 +3,8 @@
 
 
 #ifdef DEBUG
+.output BlockEdge, FallthroughEdge, BlockJumpValidTarget, BlockJumpTarget, BasicBlock_Tail, MaybeInFunctionUnderContext
+.output NotValidReturnBlock, NotValidReturnEdge
 .output MaybeFunctionCallReturn // DEBUG
 .output IsContext, CanReachUnderContext, CanReachUnderContextThroughBlock //DEBUG
 .output PotentialCall // DEBUG
@@ -207,6 +209,18 @@ NotValidReturnBlock(func, retBlock) :-
   MaybeFunctionCallReturn(_, func2, retBlock, _),
   ord(func) < ord(func2).
 
+/**
+  If a block is a possible return of more than one functions, clone it in both
+  Previous code had an invariant where a "return block can only pertain to one function!"
+  which was problematic in many cases and could end up cloning blocks but not mark them as return blocks
+**/
+BlockToClone(retBlock, func):-
+  MaybeFunctionCallReturn(_, func, retBlock, _),
+  MaybeFunctionCallReturn(_, func2, retBlock, _),
+  func != func2,
+  func !=retBlock,
+  func2 !=retBlock.
+
 // Block reached from return edge cannot also be called directly
 .decl NotValidReturnEdge(retBlock: Block, retTarget: Block)
 NotValidReturnEdge(retBlock, retTarget) :-
@@ -219,7 +233,7 @@ NotValidReturnEdge(retBlock, retTarget) :-
 IsFunctionCallReturn(caller, func, retBlock, retTarget) :-
   MaybeFunctionCallReturn(caller, func, retBlock, retTarget),
   FunctionCalledMultipleTimes(func),
-  !NotValidReturnBlock(func, retBlock),
+  //!NotValidReturnBlock(func, retBlock),
   !NotValidReturnEdge(retBlock, retTarget).
 
 
@@ -397,14 +411,63 @@ IRBlockEdge(irfrom, irto) :-
   BlockEdge(ctxFrom, from, _, to),
   Block_IRBlock(from, func, irfrom),
   CanReachUnderContext(_, func, ctxFrom, from),
+  !IsFunctionCallReturn(_, func, from, _),
   Block_IRBlock(to, func, irto).
+
+.decl IRBlockPath(from: IRBlock, to: IRBlock)
+
+IRBlockPath(irblk, irblk):-
+  Block_IRBlock(_, _, irblk).
+
+IRBlockPath(irfrom, irto):-
+  IRBlockEdge(irfrom, irto).
+
+IRBlockPath(block, next):-
+  IRFunctionCallReturn(block, _, next).
+
+IRBlockPath(irfrom, irto):-
+  IRBlockPath(irfrom, irmid),
+  IRBlockPath(irmid, irto).
+
+.decl ReachableFromFunHead(irblk:IRBlock)
+.output ReachableFromFunHead, Block_IRBlock
+
+ReachableFromFunHead(irblk):-
+  Block_IRBlock(_, func, irblk),
+  Block_IRBlock(func, func, irfunHead),
+  IRBlockPath(irfunHead, irblk).
+
+.decl InvalidIRBlockEdge(from: IRBlock, to: IRBlock)
+.output InvalidIRBlockEdge
+InvalidIRBlockEdge(irfrom, irto):-
+  IRBlockEdge(irfrom, irto),
+  !ReachableFromFunHead(irto).
+
+InvalidIRBlockEdge(irfrom, irto):-
+  IRBlockEdge(irfrom, irto),
+  !ReachableFromFunHead(irfrom).
+
 
 .decl LocalBlockEdge(block: IRBlock, next: IRBlock)
 LocalBlockEdge(irfrom, irto) :-
-  IRBlockEdge(irfrom, irto).
+  IRBlockEdge(irfrom, irto),
+  !InvalidIRBlockEdge(irfrom, irto).
 LocalBlockEdge(block, next) :-
-  IRFunctionCallReturn(block, _, next).
-  
+  IRFunctionCallReturn(block, _, next),
+  ReachableFromFunHead(block).
+
+.decl DeadBlock(irblk:IRBlock)
+.decl DeadStmt(irstmt:IRStatement)
+
+DeadBlock(irblk):-
+  //(InvalidIRBlockEdge(irblk, _);InvalidIRBlockEdge(_, irblk)),
+  Block_IRBlock(_, _, irblk),
+  !ReachableFromFunHead(irblk).
+
+.output DeadStmt, DeadBlock
+DeadStmt(irstmt):-
+  IRStatement_Block(irstmt, irblk),
+  DeadBlock(irblk).
 
 .decl EnhancedLocalBlockEdge(from: IRBlock, to: IRBlock)
 EnhancedLocalBlockEdge(from, to) :- LocalBlockEdge(from, to).
