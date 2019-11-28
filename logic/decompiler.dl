@@ -8,7 +8,8 @@
 #define FUNCTION_SELECTOR "0x0"
 
 //#include "full_Ncontext.dl"
-#include "selective_Ncontext+.dl"
+#include "full_Ncontext+.dl"
+//#include "selective_Ncontext+.dl"
 #include "decompiler_instructions.dl"
 #include "functions.dl"
 #include "decompiler_output.dl"
