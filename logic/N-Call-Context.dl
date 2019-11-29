@@ -8,9 +8,12 @@ NumberOfJumps(n1 + n2) :-
    n1 = count : JUMP(_),
    n2 = count : JUMPI(_).
 
-#define ESTIMATE_DEPTH(n) (1000000 / (n) / (n))
+#define ESTIMATE_DEPTH(n) (100000 / (n) / (n))
 
 .decl MaxContextDepth(d: number)
+MaxContextDepth(2).
+
+/*
 MaxContextDepth(m) :-
    NumberOfJumps(n),
    m = ESTIMATE_DEPTH(n),
@@ -25,7 +28,7 @@ MaxContextDepth(5) :-
    NumberOfJumps(n),
    m = ESTIMATE_DEPTH(n),
    m > 5.
-
+*/
 .output MaxContextDepth
 
 .decl InitialContext(ctx : Context)
@@ -36,7 +39,7 @@ ContextDepth(init, 0) :-
   InitialContext(init).
 
 .decl IsContext(rest:Context)
-IsContext(nil).
+IsContext(init) :- InitialContext(init).
 
 .decl DropLast(ctx : Context, newCtx : Context)
 DropLast(ctx, nil) :-

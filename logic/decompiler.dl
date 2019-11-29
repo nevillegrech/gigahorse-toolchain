@@ -7,7 +7,6 @@
 #define CheckIsStackIndex(v) ((v) >= 0, (v) < MAX_STACK_HEIGHT)
 #define FUNCTION_SELECTOR "0x0"
 
-//#include "full_Ncontext+.dl"
 #include "N-Call-Context.dl"
 #include "decompiler_instructions.dl"
 #include "functions.dl"
@@ -198,10 +197,6 @@ Block_Gas(block, totalgas) :-
 // the block itself. "Immediate" is misnomer, can't think of better name.
 // This is a context-independent predicate.
 .decl ImmediateBlockJumpTarget(block:Block, var:Variable)
-
-.decl PublicFunctionJump(block:Block, funHex:symbol)
-
-.decl PublicFunctionStart(block:Block, funHex:symbol)
 
 // A summary of all the effects of the basic block up to a statement. The
 // summary cannot contain only variables, it will also refer symbolically to
