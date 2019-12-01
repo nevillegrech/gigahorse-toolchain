@@ -53,11 +53,20 @@ DropLast(ctx, newCtx) :-
   DropLast(rest, newRest),
   newCtx = [ block, newRest ].
 
-
 // We're only interested in private functions
 // No ambiguity for public functions
 .decl PrivateFunctionCaller(caller: Block)
 
+PrivateFunctionCaller(caller) :-
+  PushValue(stmt, target),
+  JUMPDEST(CAST_TO_SYMBOL(target)),
+  PushValue(stmt2, target),
+  stmt2 != stmt,
+  Statement_Block(stmt, caller),
+  Statement_Block(stmt2, caller2),
+  caller != caller2.
+
+/*
 PrivateFunctionCaller(caller) :-
   PushValue(stmt, target),
   JUMPDEST(CAST_TO_SYMBOL(target)),
@@ -69,6 +78,7 @@ PrivateFunctionCaller(caller) :-
 StaticBlockJumpTarget(caller, target) :-
   ImmediateBlockJumpTarget(caller, targetVar),
   Variable_Value(targetVar, target).
+*/
 
 .decl MergeContext(ctx : Context, caller : Block, newContext : Context)
 
