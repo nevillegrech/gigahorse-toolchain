@@ -8,6 +8,7 @@
 #define FUNCTION_SELECTOR "0x0"
 
 #include "N-Call-Context.dl"
+//#include "selective_Ncontext+.dl"
 #include "decompiler_instructions.dl"
 #include "functions.dl"
 #include "decompiler_output.dl"
@@ -590,3 +591,30 @@ Variable_Length(var, length) :-
 UnknownLength(var) :-
    IsVariable(var),
    !Variable_Length(var, _).
+
+
+.decl PublicFunctionJump(block:Block, funHex:symbol)
+
+.decl PublicFunctionStart(block:Block, funHex:symbol)
+
+.output PublicFunctionJump
+PublicFunctionJump(block, sigHash):-
+  ImmediateBlockJumpTarget(block, _),
+  BasicBlock_Tail(block, jumpi),
+  Statement_Opcode(jumpi, "JUMPI"),
+  BeforeLocalStackContents(jumpi, 1, condVar),
+  CheckIsVariable(condVar),
+  Statement_Defines(eq, condVar),
+  Statement_Opcode(eq, "EQ"),
+  BeforeLocalStackContents(eq, 0, sigHashVar),
+  CheckIsVariable(sigHashVar),
+  Statement_Defines(push, sigHashVar),
+    (PUSH4(push, sigHash) ; PUSH3(push, sigHash)).
+
+.output PublicFunctionStart
+PublicFunctionStart(CAST_TO_SYMBOL(targetValue), sigHash):-
+  PublicFunctionJump(block, sigHash),
+  ImmediateBlockJumpTarget(block, var),
+  Statement_Defines(push, var),
+  PushValue(push, targetValue),
+  JUMPDEST(CAST_TO_SYMBOL(targetValue)).
