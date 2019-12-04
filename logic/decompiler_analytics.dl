@@ -260,4 +260,12 @@ BlockIsNotEmpty(block) :-
 Analytics_BlockIsEmpty(block) :-
   (LocalBlockEdge(_, block); LocalBlockEdge(block, _)),
   !BlockIsNotEmpty(block).
-  
+
+
+.decl Analytics_ConditionalCallOutsideSelector(stmt: IRStatement)
+.output Analytics_ConditionalCallOutsideSelector
+
+Analytics_ConditionalCallOutsideSelector(stmt) :-
+  IRInFunction(block, fun), fun != "0x0",
+  IRStatement_Block(stmt, block),
+  (TAC_Op(stmt, "CALLPRIVATEI") ; TAC_Op(stmt, "RETURNPRIVATEI")).
