@@ -12,7 +12,10 @@ NumberOfJumps(n1 + n2) :-
 #define ESTIMATE_DEPTH(n) (500000 / (n) / (n))
 
 .decl MaxContextDepth(d: number)
-MaxContextDepth(m) :-
+
+MaxContextDepth(2).
+
+/*MaxContextDepth(m) :-
    NumberOfJumps(n),
    m = ESTIMATE_DEPTH(n),
    m >= 2, m <= 15.
@@ -26,6 +29,8 @@ MaxContextDepth(15) :-
    NumberOfJumps(n),
    m = ESTIMATE_DEPTH(n),
    m > 15.
+*/
+
 
 .output MaxContextDepth
 
@@ -111,6 +116,62 @@ BlockHasTrivialControl(block) :-
   BasicBlock_Tail(block, stmt),
   !IsJump(stmt).
   
-BlockHasTrivialControl(block) :-
-   ImmediateBlockJumpTarget(block, _).
+//BlockHasTrivialControl(block) :-
+   //ImmediateBlockJumpTarget(block, _).
 
+BlockHasTrivialControl(block) :-
+  ImmediateBlockJumpTargetBlock(block, to),
+  !TargetOfTwoBlocks(to).
+
+.decl ImmediateBlockJumpTargetBlock(block:Block, target:Block)
+//.output ImmediateBlockJumpTargetBlock, ImmediateBlockJumpTarget
+
+
+ImmediateBlockJumpTargetBlock(block, CAST_TO_SYMBOL(targetValue)):-
+  ImmediateBlockJumpTarget(block, var),
+  Statement_Defines(push, var),
+  PushValue(push, targetValue),
+  JUMPDEST(CAST_TO_SYMBOL(targetValue)).
+
+ImmediateBlockJumpTargetBlock(block, CAST_TO_SYMBOL(targetValue)):-
+  ImmediateBlockJumpTarget(block, var),
+  Statement_Defines(and, var),
+  AND(and),
+  BeforeLocalStackContents(and, 0, destVar),
+  CheckIsVariable(destVar),
+  Statement_Defines(push1, destVar),
+  PushValue(push1, targetValue),
+  JUMPDEST(CAST_TO_SYMBOL(targetValue)),
+  BeforeLocalStackContents(and, 1, maskVar),
+  CheckIsVariable(maskVar),
+  Statement_Defines(push2, maskVar),
+  PushValue(push2, maskVal),
+  Mask_Length(maskVal, _).
+
+ImmediateBlockJumpTargetBlock(block, CAST_TO_SYMBOL(targetValue)):-
+  ImmediateBlockJumpTarget(block, var),
+  Statement_Defines(and, var),
+  AND(and),
+  BeforeLocalStackContents(and, 1, destVar),
+  CheckIsVariable(destVar),
+  Statement_Defines(push1, destVar),
+  PushValue(push1, targetValue),
+  JUMPDEST(CAST_TO_SYMBOL(targetValue)),
+  BeforeLocalStackContents(and, 0, maskVar),
+  CheckIsVariable(maskVar),
+  Statement_Defines(push2, maskVar),
+  PushValue(push2, maskVal),
+  Mask_Length(maskVal, _).
+
+.decl ImmediateBlockNoJumpTargetBlock(block:Block)
+//.output ImmediateBlockNoJumpTargetBlock
+ImmediateBlockNoJumpTargetBlock(block):-
+  ImmediateBlockJumpTarget(block, _),
+  !ImmediateBlockJumpTargetBlock(block, _).
+
+.decl TargetOfTwoBlocks(block:Block)
+
+TargetOfTwoBlocks(block):-
+  ImmediateBlockJumpTargetBlock(from1, block),
+  ImmediateBlockJumpTargetBlock(from2, block),
+  from1 != from2.
