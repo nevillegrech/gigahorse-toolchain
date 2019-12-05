@@ -102,7 +102,7 @@ EnableCostlyAlgorithms() :-
 .decl DisableCostlyAlgorithms()
 DisableCostlyAlgorithms() :- !EnableCostlyAlgorithms().
 
-// A very common combination, for scalability
+// A very common combination, for scalability. Should only be used when "EnableCostlyAlgorithms" is true.
 .decl CanReachUnderContextThroughBlock(fromCtx: Context, from:Block, through:Block, ctx: Context, block: Block)
 CanReachUnderContextThroughBlock(fromCtx, from, through, ctx, block) :-
   CanReachUnderContext(fromCtx, from, throughCtx, through),
@@ -729,6 +729,13 @@ EdgePopAndStackDelta(from, to, popDelta, stackDelta) :-
   EdgeStackDelta(from, to, stackDelta).
  .plan 1:(2,1)
 
+// There is a hack here for disabling the exponential computation in
+// this predicate, when in DisableCostlyAlgorithms mode. Specifically,
+// we don't check that the path bypasses specific nodes: the bypass
+// variable is given a dummy value (same as end node) and does not
+// preclude path extension. That is, if there is a path to a node
+// and an edge coming out of that node, the edge is considered to always
+// be a valid extension of the path.
 PossibleFunctionEdgePopAndStackDeltaBypassing(from, from, ord(from), bypass, 0, 0) :-
   IRFunctionEntry(from),
   (IRInFunction(bypass, from);
