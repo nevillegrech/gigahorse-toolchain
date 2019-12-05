@@ -111,7 +111,6 @@ PreMask_Length(cat("ff", mask), bytes+1) :-
 
 OperationIs("AND", "0x0", "0x0").
 OperationIs("MUL", "0x0", "0x0").
-OperationIs("AND", "0xffffffffffffffffffffffff0000000000000000000000000000000000000000", "ADDRESS").
 
 .decl DUPN(opcode:Opcode, n:number)
 

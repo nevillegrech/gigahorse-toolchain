@@ -4,47 +4,24 @@
 #define DEBUG_OUTPUT(x) .output x
 #endif
 
-.decl IsSmallNumber(n:number) 
-      
-IsSmallNumber(0).
-
-// waste computation, but converge much faster
-IsSmallNumber(n+n) :-
-  IsSmallNumber(n),
-  n+n < 0xFFF.
-
-IsSmallNumber(n+n+1) :-
-  IsSmallNumber(n),
-  n+n+1 < 0xFFF.
-
-
-.decl NumberToString_(a:number, s: symbol)
-
-NumberToString_(0, "0").
-NumberToString_(1, "1").
-NumberToString_(2, "2").
-NumberToString_(3, "3").
-NumberToString_(4, "4").
-NumberToString_(5, "5").
-NumberToString_(6, "6").
-NumberToString_(7, "7").
-NumberToString_(8, "8").
-NumberToString_(9, "9").
-NumberToString_(10, "a").
-NumberToString_(11, "b").
-NumberToString_(12, "c").
-NumberToString_(13, "d").
-NumberToString_(14, "e").
-NumberToString_(15, "f").
-
-NumberToString_(n, cat(rst, head)) :-
-  IsSmallNumber(n),
-  n > 15,
-  NumberToString_(n / 16, rst),
-  NumberToString_(n % 16, head).
-
-.decl NumberToString(a:number, s: symbol)
-
-NumberToString(n, cat("0x", st)) :-
-   NumberToString_(n, st).
-   
+.functor add_256(symbol,symbol):symbol
+.functor sub_256(symbol,symbol):symbol
+.functor mul_256(symbol,symbol):symbol
+.functor div_256(symbol,symbol):symbol
+.functor mod_256(symbol,symbol):symbol
+.functor and_256(symbol,symbol):symbol
+.functor or_256(symbol,symbol):symbol
+.functor xor_256(symbol,symbol):symbol
+.functor gt_256(symbol,symbol):symbol
+.functor eq_256(symbol,symbol):symbol
+.functor lt_256(symbol,symbol):symbol
+.functor exp_256(symbol,symbol):symbol
+.functor smod_256(symbol,symbol):symbol
+.functor sdiv_256(symbol,symbol):symbol
+.functor sgt_256(symbol,symbol):symbol
+.functor slt_256(symbol,symbol):symbol
+.functor shl_256(symbol,symbol):symbol
+.functor shr_256(symbol,symbol):symbol
+.functor sar_256(symbol,symbol):symbol
+.functor hex_to_number(symbol):number
+.functor number_to_hex(number):symbol

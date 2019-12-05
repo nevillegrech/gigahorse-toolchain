@@ -33,8 +33,9 @@
 
 .decl _StatementNum(statement: Statement, num: number)
 
-_StatementNum(stmt, -n-1) :-
-   NumberToString(n, stmt).
+_StatementNum(stmt, -res-1) :-
+   Statement_Opcode(stmt, _),
+   res = @hex_to_number(stmt).
 
 
 // We pre-assign variables to every statement except if they are
@@ -325,10 +326,8 @@ Variable_Value(resVar, res) :-
   ArithmeticOpcodes(stmt, var0, var1, resVar),
   ADD(stmt),
   Variable_Value(var0, val0),
-  NumberToString(var0num, val0),
   Variable_Value(var1, val1),
-  NumberToString(var1num, val1),
-  NumberToString(var0num+var1num, res).
+  res = @add_256(val0, val1).
 
 // DUP
 LocalStackContents(stmt, 0, duplicated) :-

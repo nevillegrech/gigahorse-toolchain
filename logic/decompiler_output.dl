@@ -37,9 +37,9 @@ PolymorphicStackIndex(block, stackIndex) :-
 // Find all polymorphic stackIndexes
 // These need phi instructions introduced at the dominance frontier
 .output PHILocation
-PHILocation(block, stackIndex, cat(cat(block, "_"), stackIndexStr)) :-
-  PolymorphicStackIndex(block, stackIndex),
-  NumberToString(stackIndex, stackIndexStr).
+PHILocation(block, stackIndex, cat(cat(block, "_"), stackIndexHex)) :-
+   PolymorphicStackIndex(block, stackIndex),
+   stackIndexHex = @number_to_hex(stackIndex).
 
 .symbol_type TACVariable
 
