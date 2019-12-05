@@ -59,8 +59,6 @@ PHILocation(block, stackIndex, cat(cat(block, "_"), stackIndexStr)) :-
 .output TAC_Block
 .decl TAC_Block_Head(block: IRBlock, stmt: IRStatement)
 .output TAC_Block_Head
-.decl TAC_Variable_Length(var: TACVariable, length: number)
-.output TAC_Variable_Length
 .decl TAC_Variable_Value(var: TACVariable, value: symbol)
 .output TAC_Variable_Value
 .decl TAC_Variable_BlockValue(var: TACVariable, value: symbol)
@@ -84,36 +82,12 @@ StatementAndBlockInSameFunction(stmt, block, irblock) :-
   Block_IRBlock(block, func, irblock).
 
 
-// Normal variable, known length
+// Normal variable
 TAC_Variable_Value(tacvar, value) :-
    FunctionalStatement_Defines(stmt, var, _),
    Variable_Stmt_String(var, stmt, tacvar),
    Variable_Value(var, value),
    substr(value, 0, 2) = "0x".
-
-UnknownLength(var) :-
-  (FunctionalStatement_Defines(stmt, var, _) ;
-  FunctionalStatement_Uses(stmt, var, _)),
-  !Variable_Length(var, _).
-
-// Normal variable, unknown length
-TAC_Variable_Length(tacvar, 32) :-
-   (FunctionalStatement_Defines(stmt, var, _) ;
-    FunctionalStatement_Uses(stmt, var, _)),
-   Variable_Stmt_String(var, stmt, tacvar),
-   UnknownLength(var).
-
-// phi variable, unknown length
-TAC_Variable_Length(phiStmt, 32) :-
-  PHILocation(block, stackIndex, phiStmt),
-  FunctionalBlockInputContents(block, stackIndex, var),
-  UnknownLength(var).
-
-TAC_Variable_Length(phiStmt, maxLength) :-
-  PHILocation(block, stackIndex, phiStmt),
-  FunctionalBlockInputContents(block, stackIndex, var),
-  maxLength = max length: Variable_Length(var, length),
-  !UnknownLength(var).
 
 // New Instructions
 // *returnArgs = CALLPRIVATE(stmt, function, *args)

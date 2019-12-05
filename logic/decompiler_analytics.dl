@@ -91,29 +91,6 @@ Analytics_MissingJumpTarget(block) :-
   !ThrowJump(jump),
   JUMPDEST(_). // if there are not valid jumpdests then don't flag
 
-.decl Analytics_JumpToAnyDefinedInStatement(block: Block, stmt: Statement)
-.output Analytics_JumpToAnyDefinedInStatement
-
-Analytics_JumpToAnyDefinedInStatement(block, stmt) :-
-  Analytics_Jumps(block),                                                          
-  BlockJumpTarget(_, block, targetVar),
-  Variable_Value(targetVar, target),
-  (DynamicValue(target) ; AnyValue(target)),
-  Statement_Defines(stmt, targetVar).
-
-.decl Analytics_JumpToAny(block: Block)
-.output Analytics_JumpToAny
-
-Analytics_JumpToAny(block) :-
-   Analytics_JumpToAnyDefinedInStatement(block, _).
-
-.decl Analytics_JumpToAnyOnly(block: Block)
-.output Analytics_JumpToAnyOnly
-
-Analytics_JumpToAnyOnly(block) :-
-  Analytics_JumpToAny(block),
-  Analytics_MissingJumpTarget(block).
-
 // Missing operands for IR statements.
 
 .decl Analytics_StmtMissingOperandBinop(stmt:IRStatement)
