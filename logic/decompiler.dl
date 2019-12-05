@@ -81,21 +81,7 @@ IsStackIndexLessThan(n, maximum) :-
   n < maximum.
  
 .decl IsValue(v:Value)
-.decl ConcreteValue(v:Value)
-
-IsValue(v) :- DynamicValue(v); AnyValue(v).
-
-ConcreteValue(v) :- IsValue(v), !DynamicValue(v), !AnyValue(v).
                
-// Distinguished from all constant values
-.decl DynamicValue(v:Value)
-DynamicValue("Dynamic").
-
-// Top of the lattice
-.decl AnyValue(v:Value)
-AnyValue("Any").
-
-
 /*
  ***********
  * Define basic blocks
@@ -279,7 +265,6 @@ BlockJumpTarget(ctx, block, realVariable) :-
 ThrowJump(jmp) :-
    ImmediateBlockJumpTarget(block, variable),
    Variable_Value(variable, targetValue),
-   ConcreteValue(targetValue),
    !JUMPDEST(CAST_TO_SYMBOL(targetValue)),
    BasicBlock_Tail(block, jmp).
 
@@ -315,17 +300,6 @@ LocalStackContents(stmt, 0, var) :-
 Variable_Value(var, value) :-
   PushValue(stmt, value),
   Statement_Defines(stmt, var).
-
-// error cases for dynamic instructions
-Variable_Value(var, "0x0") :-
-  (CREATE(stmt) ; CALL(stmt) ; CALLCODE(stmt) ; STATICCALL(stmt)),
-  Statement_Defines(stmt, var).
-
-// Dynamic values.
-Variable_Value(var, value) :-
-  DynamicStatement(stmt),
-  Statement_Defines(stmt, var),
-  DynamicValue(value).
 
 // Get current program counter
 Variable_Value(var, CAST_TO_SYMBOL(stmt)) :-
@@ -373,15 +347,6 @@ Variable_Value(resVar, res) :-
   NumberToString(var1num, val1),
   NumberToString(var0num+var1num, res).
 
-Variable_Value(var, dynamicvalue) :-
-  DynamicValue(dynamicvalue),
-  Statement_Opcode(stmt, opcode),
-  OpcodeIsArithmetic(opcode),
-  (BeforeLocalStackContents(stmt, 0, dynamicvar);
-   BeforeLocalStackContents(stmt, 1, dynamicvar)),
-  Variable_Value(dynamicvar, dynamicvalue),
-  Statement_Defines(stmt, var).
-
 // DUP
 LocalStackContents(stmt, 0, duplicated) :-
   BeforeLocalStackContents(stmt, n-1, duplicated),
@@ -413,18 +378,6 @@ LocalStackContents(stmt, 0, variableN) :-
 LocalStackContents(stmt, m, other) :-
   BeforeSwapLocalStackContents(stmt, n, m, other),
   IsStackIndexLessThan(m, n), m > 0.
-
-// MLOAD
-Variable_Value(var, dynamicvalue) :-
-  DynamicValue(dynamicvalue),
-  MLOAD(stmt),
-  Statement_Defines(stmt, var).
-
-// SLOAD
-Variable_Value(var, dynamicvalue) :-
-  DynamicValue(dynamicvalue),
-  SLOAD(stmt),
-  Statement_Defines(stmt, var).
 
 /*
  ***********
@@ -563,35 +516,6 @@ BlockStackDelta(block, delta) :-
 BlockPopDelta(block, delta) :-
   BasicBlock_Tail(block, stmt),
   StatementPopDelta(stmt, delta).
-
-/*
-  Variable sizes
-*/
-
-// Inferring variable length, default is 32
-.decl Variable_Length(var: Variable, value: number)
-
-// Case 1: Pushing constants
-Variable_Length(var, value) :-
-   Statement_Defines(stmt, var),
-   Statement_Opcode(stmt, op),
-   OpcodePushLen(op, value).
-
-// Case 2: Masking
-Variable_Length(var, length) :-
-   Statement_Defines(andStmt, var),
-   AND(andStmt),
-   Statement_Uses(andStmt, v, _),
-   Statement_Defines(pushStmt, v),
-   PushValue(pushStmt, mask),
-   Mask_Length(mask, length).
-
-.decl UnknownLength(var: Variable)
-
-UnknownLength(var) :-
-   IsVariable(var),
-   !Variable_Length(var, _).
-
 
 .decl PublicFunctionJump(block:Block, funHex:symbol)
 

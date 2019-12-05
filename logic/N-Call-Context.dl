@@ -1,4 +1,5 @@
-.type Context = [ publicFun:symbol, [block1:Block, block2: Block] ]
+.type PrivateContext = [block1:Block, block2: Block]
+.type Context = [ publicFun:symbol, pri: PrivateContext ]
 
 // find number of jumps to estimate best context depth
 
@@ -75,13 +76,13 @@ MergeContext(ctx, caller, newContext) :-
   ReachableContext(ctx, caller),
   PrivateFunctionCaller(caller),
   !PublicFunctionStart(caller, _),
-  ctx = [pub, [ctx1, ctx2]],
+  ctx = [pub, [ctx1, ctx2]], ctx1 = ctx1, // suppress warning
   newContext = [pub, [ctx2, caller]].
 
 MergeContext(ctx, caller, newContext) :-
   ReachableContext(ctx, caller),
   PublicFunctionStart(caller, sigHash),
-  ctx = [pub, pri],
+  ctx = [pub, pri], pub = pub, // suppress warning
   newContext = [sigHash, pri].
 
 
