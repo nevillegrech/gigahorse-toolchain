@@ -7,7 +7,8 @@
 #define CheckIsStackIndex(v) ((v) >= 0, (v) < MAX_STACK_HEIGHT)
 #define FUNCTION_SELECTOR "0x0"
 
-#include "full_Ncontext.dl"
+#include "N-Call-Context.dl"
+//#include "selective_Ncontext+.dl"
 #include "decompiler_instructions.dl"
 #include "functions.dl"
 #include "decompiler_output.dl"
@@ -30,27 +31,11 @@
 // One to one mapping. Give every statement a unique var (negative index)
 .decl Statement_Defines(statement: Statement, variable: Variable)
 
-// Unbelievably, the linear recursion to compute this was a bottleneck for large contracts.
-// Optimized version below.
 .decl _StatementNum(statement: Statement, num: number)
 
-_StatementNum(FUNCTION_SELECTOR, -1).
-
-_StatementNum(stmt, n-d) :-
-  _StatementNum(otherStmt, n),
-  _StatementDistance(otherStmt, stmt, d).
-
-
-// Optimization predicate
-.decl _StatementDistance(stmt1: Statement, stmt2: Statement, num: number)
-_StatementDistance(stmt1, stmt2, 1) :-
-  Statement_Next(stmt1, stmt2).
-
-// bound quadratic computation
-_StatementDistance(stmt1, stmt2, n+1) :-
-  _StatementDistance(stmt1, stmt3, n),
-  Statement_Next(stmt3, stmt2),
-  n < 32.
+_StatementNum(stmt, -res-1) :-
+   Statement_Opcode(stmt, _),
+   res = @hex_to_number(stmt).
 
 
 // We pre-assign variables to every statement except if they are
@@ -80,21 +65,7 @@ IsStackIndexLessThan(n, maximum) :-
   n < maximum.
  
 .decl IsValue(v:Value)
-.decl ConcreteValue(v:Value)
-
-IsValue(v) :- DynamicValue(v); AnyValue(v).
-
-ConcreteValue(v) :- IsValue(v), !DynamicValue(v), !AnyValue(v).
                
-// Distinguished from all constant values
-.decl DynamicValue(v:Value)
-DynamicValue("Dynamic").
-
-// Top of the lattice
-.decl AnyValue(v:Value)
-AnyValue("Any").
-
-
 /*
  ***********
  * Define basic blocks
@@ -278,7 +249,6 @@ BlockJumpTarget(ctx, block, realVariable) :-
 ThrowJump(jmp) :-
    ImmediateBlockJumpTarget(block, variable),
    Variable_Value(variable, targetValue),
-   ConcreteValue(targetValue),
    !JUMPDEST(CAST_TO_SYMBOL(targetValue)),
    BasicBlock_Tail(block, jmp).
 
@@ -314,17 +284,6 @@ LocalStackContents(stmt, 0, var) :-
 Variable_Value(var, value) :-
   PushValue(stmt, value),
   Statement_Defines(stmt, var).
-
-// error cases for dynamic instructions
-Variable_Value(var, "0x0") :-
-  (CREATE(stmt) ; CALL(stmt) ; CALLCODE(stmt) ; STATICCALL(stmt)),
-  Statement_Defines(stmt, var).
-
-// Dynamic values.
-Variable_Value(var, value) :-
-  DynamicStatement(stmt),
-  Statement_Defines(stmt, var),
-  DynamicValue(value).
 
 // Get current program counter
 Variable_Value(var, CAST_TO_SYMBOL(stmt)) :-
@@ -367,19 +326,8 @@ Variable_Value(resVar, res) :-
   ArithmeticOpcodes(stmt, var0, var1, resVar),
   ADD(stmt),
   Variable_Value(var0, val0),
-  NumberToString(var0num, val0),
   Variable_Value(var1, val1),
-  NumberToString(var1num, val1),
-  NumberToString(var0num+var1num, res).
-
-Variable_Value(var, dynamicvalue) :-
-  DynamicValue(dynamicvalue),
-  Statement_Opcode(stmt, opcode),
-  OpcodeIsArithmetic(opcode),
-  (BeforeLocalStackContents(stmt, 0, dynamicvar);
-   BeforeLocalStackContents(stmt, 1, dynamicvar)),
-  Variable_Value(dynamicvar, dynamicvalue),
-  Statement_Defines(stmt, var).
+  res = @add_256(val0, val1).
 
 // DUP
 LocalStackContents(stmt, 0, duplicated) :-
@@ -413,17 +361,6 @@ LocalStackContents(stmt, m, other) :-
   BeforeSwapLocalStackContents(stmt, n, m, other),
   IsStackIndexLessThan(m, n), m > 0.
 
-// MLOAD
-Variable_Value(var, dynamicvalue) :-
-  DynamicValue(dynamicvalue),
-  MLOAD(stmt),
-  Statement_Defines(stmt, var).
-
-// SLOAD
-Variable_Value(var, dynamicvalue) :-
-  DynamicValue(dynamicvalue),
-  SLOAD(stmt),
-  Statement_Defines(stmt, var).
 
 /*
  ***********
@@ -563,30 +500,28 @@ BlockPopDelta(block, delta) :-
   BasicBlock_Tail(block, stmt),
   StatementPopDelta(stmt, delta).
 
-/*
-  Variable sizes
-*/
+.decl PublicFunctionJump(block:Block, funHex:symbol)
 
-// Inferring variable length, default is 32
-.decl Variable_Length(var: Variable, value: number)
+.decl PublicFunctionStart(block:Block, funHex:symbol)
 
-// Case 1: Pushing constants
-Variable_Length(var, value) :-
-   Statement_Defines(stmt, var),
-   Statement_Opcode(stmt, op),
-   OpcodePushLen(op, value).
+.output PublicFunctionJump
+PublicFunctionJump(block, sigHash):-
+  ImmediateBlockJumpTarget(block, _),
+  BasicBlock_Tail(block, jumpi),
+  Statement_Opcode(jumpi, "JUMPI"),
+  BeforeLocalStackContents(jumpi, 1, condVar),
+  CheckIsVariable(condVar),
+  Statement_Defines(eq, condVar),
+  Statement_Opcode(eq, "EQ"),
+  BeforeLocalStackContents(eq, 0, sigHashVar),
+  CheckIsVariable(sigHashVar),
+  Statement_Defines(push, sigHashVar),
+    (PUSH4(push, sigHash) ; PUSH3(push, sigHash)).
 
-// Case 2: Masking
-Variable_Length(var, length) :-
-   Statement_Defines(andStmt, var),
-   AND(andStmt),
-   Statement_Uses(andStmt, v, _),
-   Statement_Defines(pushStmt, v),
-   PushValue(pushStmt, mask),
-   Mask_Length(mask, length).
-
-.decl UnknownLength(var: Variable)
-
-UnknownLength(var) :-
-   IsVariable(var),
-   !Variable_Length(var, _).
+.output PublicFunctionStart
+PublicFunctionStart(CAST_TO_SYMBOL(targetValue), sigHash):-
+  PublicFunctionJump(block, sigHash),
+  ImmediateBlockJumpTarget(block, var),
+  Statement_Defines(push, var),
+  PushValue(push, targetValue),
+  JUMPDEST(CAST_TO_SYMBOL(targetValue)).

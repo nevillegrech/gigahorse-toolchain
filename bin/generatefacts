@@ -21,6 +21,7 @@ def main(args):
     if args.generate_interface:
         logging.info("Generating decompiler input interface")
         exporter.generate_interface()
+        return
     if args.disassembly:
         blocks = blockparse.EVMDasmParser(args.infile).parse()
     else:

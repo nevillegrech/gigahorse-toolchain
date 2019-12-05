@@ -16,6 +16,12 @@ Analytics_Jumps(block) :-
   IsJump(tail).
 
 
+.decl Analytics_ReachableBlocks(block: Block)
+.output Analytics_ReachableBlocks
+
+Analytics_ReachableBlocks(blk):-
+  ReachableContext(_, blk).
+
 .decl Analytics_Blocks(block: IRBlock)
 .output Analytics_Blocks
 
@@ -84,29 +90,6 @@ Analytics_MissingJumpTarget(block) :-
   BasicBlock_Tail(block, jump),
   !ThrowJump(jump),
   JUMPDEST(_). // if there are not valid jumpdests then don't flag
-
-.decl Analytics_JumpToAnyDefinedInStatement(block: Block, stmt: Statement)
-.output Analytics_JumpToAnyDefinedInStatement
-
-Analytics_JumpToAnyDefinedInStatement(block, stmt) :-
-  Analytics_Jumps(block),                                                          
-  BlockJumpTarget(_, block, targetVar),
-  Variable_Value(targetVar, target),
-  (DynamicValue(target) ; AnyValue(target)),
-  Statement_Defines(stmt, targetVar).
-
-.decl Analytics_JumpToAny(block: Block)
-.output Analytics_JumpToAny
-
-Analytics_JumpToAny(block) :-
-   Analytics_JumpToAnyDefinedInStatement(block, _).
-
-.decl Analytics_JumpToAnyOnly(block: Block)
-.output Analytics_JumpToAnyOnly
-
-Analytics_JumpToAnyOnly(block) :-
-  Analytics_JumpToAny(block),
-  Analytics_MissingJumpTarget(block).
 
 // Missing operands for IR statements.
 
@@ -254,4 +237,12 @@ BlockIsNotEmpty(block) :-
 Analytics_BlockIsEmpty(block) :-
   (LocalBlockEdge(_, block); LocalBlockEdge(block, _)),
   !BlockIsNotEmpty(block).
-  
+
+
+.decl Analytics_ConditionalCallOutsideSelector(stmt: IRStatement)
+.output Analytics_ConditionalCallOutsideSelector
+
+Analytics_ConditionalCallOutsideSelector(stmt) :-
+  IRInFunction(block, fun), fun != "0x0",
+  IRStatement_Block(stmt, block),
+  (TAC_Op(stmt, "CALLPRIVATEI") ; TAC_Op(stmt, "RETURNPRIVATEI")).
