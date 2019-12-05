@@ -767,8 +767,10 @@ PossibleFunctionEdgePopAndStackDeltaBypassing(func, to, newPathHash, newBypass, 
 // Inline the auxiliary relations to understand the complex rule above.
 .decl OptPossibleEdgeExtension(func: IRFunction, from: IRBlock, prevPathHash: number, to: IRBlock, newPopDelta: StackIndex, newStackDelta: StackIndex)
 OptPossibleEdgeExtension(func, from, prevPathHash, to, newPopDelta, newStackDelta) :-
-  PossibleFunctionEdgePopAndStackDeltaBypassing(func, from, prevPathHash, to, prevPopDelta, prevStackDelta),
+  PossibleFunctionEdgePopAndStackDeltaBypassing(func, from, prevPathHash, bypass, prevPopDelta, prevStackDelta),
   EdgePopAndStackDelta(from, to, popDelta, stackDelta),
+  ((EnableCostlyAlgorithms(), to = bypass);
+   DisableCostlyAlgorithms()),
   StackSimulationLimit(limit),
   tempPopDelta = popDelta - prevStackDelta,
   ((tempPopDelta > prevPopDelta, newPopDelta = tempPopDelta);
@@ -778,7 +780,7 @@ OptPossibleEdgeExtension(func, from, prevPathHash, to, newPopDelta, newStackDelt
   newStackDelta = stackDelta + prevStackDelta,
   newStackDelta < limit,
   newStackDelta > -limit.
- .plan 1:(2,1,3)
+ .plan 1:(2,1,3,4)
 
 // HACK: Use the context-sensitivity metric to determine whether we can afford to do
 // a stack simulation up to maximum depth, or we should limit it to something much more
