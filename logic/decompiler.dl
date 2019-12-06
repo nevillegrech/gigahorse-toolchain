@@ -12,6 +12,7 @@
 #include "decompiler_instructions.dl"
 #include "functions.dl"
 #include "decompiler_output.dl"
+#include "statement_insertor.dl"
 #ifndef NO_ANALYTICS
 #include "decompiler_analytics.dl"
 #endif
