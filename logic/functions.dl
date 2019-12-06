@@ -786,7 +786,7 @@ OptPossibleEdgeExtension(func, from, prevPathHash, to, newPopDelta, newStackDelt
 .decl StackSimulationLimit(n: StackIndex)
 StackSimulationLimit(depth) :-
   (EnableCostlyAlgorithms(), depth = MAX_STACK_HEIGHT);
-  (DisableCostlyAlgorithms(), depth = MAX_STACK_HEIGHT / 5).
+  (DisableCostlyAlgorithms(), depth = MAX_STACK_HEIGHT / 2).
 
 
 .decl PossibleFunctionEdgePopDelta(func: IRFunction, to: IRBlock, delta: StackIndex)
