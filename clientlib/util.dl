@@ -4,6 +4,10 @@
 #define DEBUG_OUTPUT(x) .output x
 #endif
 
+
+.functor hex_to_number(symbol):number
+.functor number_to_hex(number):symbol
+
 .functor add_256(symbol,symbol):symbol
 .functor sub_256(symbol,symbol):symbol
 .functor mul_256(symbol,symbol):symbol
@@ -23,5 +27,4 @@
 .functor shl_256(symbol,symbol):symbol
 .functor shr_256(symbol,symbol):symbol
 .functor sar_256(symbol,symbol):symbol
-.functor hex_to_number(symbol):number
-.functor number_to_hex(number):symbol
+.functor not_256(symbol):symbol
