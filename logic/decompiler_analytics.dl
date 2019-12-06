@@ -246,3 +246,28 @@ Analytics_ConditionalCallOutsideSelector(stmt) :-
   IRInFunction(block, fun), fun != "0x0",
   IRStatement_Block(stmt, block),
   (TAC_Op(stmt, "CALLPRIVATEI") ; TAC_Op(stmt, "RETURNPRIVATEI")).
+
+
+.decl Analytics_JumpToMany(blk:IRBlock)
+.output Analytics_JumpToMany
+
+Analytics_JumpToMany(blk):-
+  TAC_Op(jump, "JUMP"),
+  TAC_Block(jump, blk),
+  LocalBlockEdge(blk, one),
+  LocalBlockEdge(blk, two),
+  one != two,
+  TAC_Use(jump, var, 0),
+  TAC_Variable_Value(var, _).
+
+Analytics_JumpToMany(blk):-
+  TAC_Op(jump, "JUMPI"),
+  TAC_Block(jump, blk),
+  TAC_Use(jump, var, 0),
+  TAC_Variable_Value(var, _),
+  LocalBlockEdge(blk, one),
+  LocalBlockEdge(blk, two),
+  LocalBlockEdge(blk, three),
+  one != two,
+  one != three,
+  two != three.
