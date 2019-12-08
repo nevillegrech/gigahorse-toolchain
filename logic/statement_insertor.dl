@@ -1,32 +1,55 @@
 #define MAX_INSERTS 5
 
-#define COPY_CODE(from, to)\
-to##Statement_Next(stmt, next) :- from##Statement_Next(stmt, next).\
-to##Statement_Opcode(stmt, op) :- from##Statement_Opcode(stmt, op).\
-to##PushValue(stmt, value) :- from##PushValue(stmt, value)
- 
+#define INITIALIZE_STATEMENT_INSERTOR(_insertor, from)\
+.init _insertor = StatementInsertor \
+_insertor.In_Statement_Next(stmt, next) :- from##Statement_Next(stmt, next).\
+_insertor.In_Statement_Opcode(stmt, op) :- from##Statement_Opcode(stmt, op).\
+_insertor.In_PushValue(stmt, value) :- from##PushValue(stmt, value).
+
+#define ISLABEL(value) (substr(value, 0, 9) = "JUMPDEST:")
+#define MAKE_LABEL_REFERENCE(value) cat("JUMPDEST:", value)
+#define MAKE_LABEL CAST_TO_SYMBOL
+#define GETLABEL(value) substr(value, 9, 100)
+
+
+
 .comp StatementInsertor {
    // Inputs
   .decl In_Statement_Next(stmt: Statement, next: Statement)
   .decl In_Statement_Opcode(stmt: Statement, op: Opcode)
   .decl In_PushValue(stmt: Statement, value: Value)
 
+  .type Insertion = [ op: Opcode, value: Value ]
+  .type Insertions = [ insertion:Insertion, rest:Insertions ]
+
   // Insertions
-  .decl insertOp(stmt: Statement, op: Opcode, value: Value, order: number)
-  .decl insertPushLabel(stmt: Statement, order: number, stmtTo: Statement, orderTo: number)
+  .decl insertOps(stmt: Statement, insertions: Insertions)
   
   // Modifications
   .decl changeOp(stmt: Statement, op: Opcode)
+  changeOp(stmt, op) :- changeOp(stmt, op). // suppress warning
   
   // Outputs
   .decl Out_Statement_Next(stmt: Statement, next: Statement)
   .decl Out_Statement_Opcode(stmt: Statement, op: Opcode)
   .decl Out_PushValue(stmt: Statement, value: Value)
 
+  // Simple translation
+  .decl insertOp(stmt: Statement, op: Opcode, value: Value, order: number)
+
+  .decl insertOpsN(stmt: Statement, insertions: Insertions, n: number)
+  insertOpsN(stmt, insertions, 0) :-
+   insertOps(stmt, insertions).
+
+  insertOp(stmt, op, value, n),
+  insertOpsN(stmt, rest, n+1) :-
+   insertOpsN(stmt, [[op, value], rest], n).
+
+
   .decl PreInsertedOpNewStatementNum(stmt: Statement, order: number, newStmt: number)
   
   PreInsertedOpNewStatementNum(stmt, order, @hex_to_number(stmt) * MAX_INSERTS + order) :-
-    (insertOp(stmt, _, _, order) ; insertPushLabel(stmt, order, _, _)).
+    insertOp(stmt, _, _, order).
 
   .decl PreInsertedOpMissingStmt(n : number)
 
@@ -39,15 +62,20 @@ to##PushValue(stmt, value) :- from##PushValue(stmt, value)
      !PreInsertedOpNewStatementNum(_, _, newStmt - 1).
 
    .decl MaxStmt(n: number)
-   MaxStmt(n) :-
-      n = max @hex_to_number(stmt) : In_Statement_Opcode(stmt, _).
+   MaxStmt(n) :- n = max @hex_to_number(stmt) : In_Statement_Opcode(stmt, _).
 
   .decl InsertedOpNewStatement(stmt: Statement, order: number, newStmt: Statement)
+
+  .decl WastedSlots(newStmt: number, n: number)
+  
+  WastedSlots(newStmt, n) :-
+     PreInsertedOpNewStatementNum(_, _, newStmt),
+     n = count : { PreInsertedOpMissingStmt(smallerThanNewStmt), smallerThanNewStmt < newStmt }. 
 
   InsertedOpNewStatement(stmt, order, @number_to_hex(newStmt - n + maxStmt + 1)) :-
     PreInsertedOpNewStatementNum(stmt, order, newStmt),
     MaxStmt(maxStmt),
-    n = count : { PreInsertedOpMissingStmt(smallerThanNewStmt), smallerThanNewStmt < newStmt }.
+    WastedSlots(newStmt, n).
 
   Out_Statement_Opcode(stmt, op) :-
     In_Statement_Opcode(stmt, op),
@@ -60,10 +88,6 @@ to##PushValue(stmt, value) :- from##PushValue(stmt, value)
     InsertedOpNewStatement(stmt, order, newStmt),
     insertOp(stmt, op, _, order).
 
-  Out_Statement_Opcode(newStmt, "PUSH4") :-
-    InsertedOpNewStatement(stmt, order, newStmt),
-    insertPushLabel(stmt, order, _, _).
-
   Out_PushValue(stmt, value) :-
     Out_Statement_Opcode(stmt, op),
     In_PushValue(stmt, value),
@@ -72,17 +96,20 @@ to##PushValue(stmt, value) :- from##PushValue(stmt, value)
   Out_PushValue(newStmt, value) :-
     InsertedOpNewStatement(stmt, order, newStmt),
     insertOp(stmt, op, value, order),
+    !ISLABEL(value),
     OpcodeIsPush(op).
 
-  Out_PushValue(stmt, CAST_TO_SYMBOL(label)) :-
-    insertPushLabel(stmt, order, stmtTo, orderTo),
-    InsertedOpNewStatement(stmtTo, orderTo, label),
-    InsertedOpNewStatement(stmt, order, newstmt).
+  Out_PushValue(newStmt, CAST_TO_SYMBOL(actualLabel)) :-
+    insertOp(stmt, op, label, order),
+    OpcodeIsPush(op),
+    ISLABEL(label),
+    insertOp(stmtTo, "JUMPDEST", GETLABEL(label), orderTo),
+    InsertedOpNewStatement(stmtTo, orderTo, actualLabel),
+    InsertedOpNewStatement(stmt, order, newStmt).
 
   Out_Statement_Next(stmt, next) :-
    In_Statement_Next(stmt, next),
-   !insertOp(next, _, _, _),
-   !insertPushLabel(next, _, _, _).
+   !insertOp(next, _, _, _).
 
   Out_Statement_Next(stmt, next) :-
    In_Statement_Next(stmt, post),
@@ -99,7 +126,6 @@ to##PushValue(stmt, value) :- from##PushValue(stmt, value)
 }
 
 
-
 // 0x9  ISZERO
 // 0x10 PUSH4 <pub_entry>
 // 0x11 JUMPI
@@ -111,11 +137,19 @@ to##PushValue(stmt, value) :- from##PushValue(stmt, value)
 // 0x11 JUMP
 
 
-.init insertor = StatementInsertor
-COPY_CODE(, insertor.In_).
-insertor.insertPushLabel("0x10", 0, "0x10", 2).
-insertor.insertOp("0x10", "JUMPI", "", 1). 
-insertor.insertOp("0x10", "JUMPDEST", "", 2).
-insertor.changeOp("0x10", "JUMP").
+INITIALIZE_STATEMENT_INSERTOR(insertor, )
+
+
+insertor.insertOps(stmt, 
+      [["STATICCALL", ""],
+      [["PUSH4", MAKE_LABEL_REFERENCE(stmt)],
+      [["JUMP", ""],  
+      [["JUMPDEST", MAKE_LABEL(stmt)],
+      nil]]]]) :-
+          CALLDATASIZE(stmt).
+
+
 
 .output insertor.Out_Statement_Opcode
+.output insertor.Out_Statement_Next
+.output insertor.Out_PushValue
