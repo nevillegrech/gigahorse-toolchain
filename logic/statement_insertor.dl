@@ -9,9 +9,7 @@ _insertor.In_PushValue(stmt, value) :- from##PushValue(stmt, value).
 #define ISLABEL(value) (substr(value, 0, 9) = "JUMPDEST:")
 #define MAKE_LABEL_REFERENCE(value) cat("JUMPDEST:", value)
 #define MAKE_LABEL CAST_TO_SYMBOL
-#define GETLABEL(value) substr(value, 9, 100)
-
-
+#define GETLABEL(value) substr(value, 9, 8)
 
 .comp StatementInsertor {
    // Inputs
@@ -28,7 +26,11 @@ _insertor.In_PushValue(stmt, value) :- from##PushValue(stmt, value).
   // Modifications
   .decl changeOp(stmt: Statement, op: Opcode)
   changeOp(stmt, op) :- changeOp(stmt, op). // suppress warning
-  
+
+  // Removal
+  .decl removeOp(stmt: Statement)
+  removeOp(stmt) :- removeOp(stmt). // suppress warning
+
   // Outputs
   .decl Out_Statement_Next(stmt: Statement, next: Statement)
   .decl Out_Statement_Opcode(stmt: Statement, op: Opcode)
@@ -79,10 +81,12 @@ _insertor.In_PushValue(stmt, value) :- from##PushValue(stmt, value).
 
   Out_Statement_Opcode(stmt, op) :-
     In_Statement_Opcode(stmt, op),
-    !changeOp(stmt, _).
+    !changeOp(stmt, _),
+    !removeOp(stmt).
 
   Out_Statement_Opcode(stmt, op) :-
-    changeOp(stmt, op).
+    changeOp(stmt, op),
+    !removeOp(stmt).
 
   Out_Statement_Opcode(newStmt, op) :-
     InsertedOpNewStatement(stmt, order, newStmt),
@@ -91,7 +95,8 @@ _insertor.In_PushValue(stmt, value) :- from##PushValue(stmt, value).
   Out_PushValue(stmt, value) :-
     Out_Statement_Opcode(stmt, op),
     In_PushValue(stmt, value),
-    OpcodeIsPush(op).
+    OpcodeIsPush(op),
+    !removeOp(stmt).
 
   Out_PushValue(newStmt, value) :-
     InsertedOpNewStatement(stmt, order, newStmt),
@@ -107,22 +112,29 @@ _insertor.In_PushValue(stmt, value) :- from##PushValue(stmt, value).
     InsertedOpNewStatement(stmtTo, orderTo, actualLabel),
     InsertedOpNewStatement(stmt, order, newStmt).
 
-  Out_Statement_Next(stmt, next) :-
+  .decl PreOut_Statement_Next(stmt: Statement, next: Statement)
+  
+  PreOut_Statement_Next(stmt, next) :-
    In_Statement_Next(stmt, next),
    !insertOp(next, _, _, _).
 
-  Out_Statement_Next(stmt, next) :-
+  PreOut_Statement_Next(stmt, next) :-
    In_Statement_Next(stmt, post),
    InsertedOpNewStatement(post, 0, next).
 
-  Out_Statement_Next(stmt, next) :-
+  PreOut_Statement_Next(stmt, next) :-
    InsertedOpNewStatement(post, i, stmt),
    InsertedOpNewStatement(post, i+1, next).
 
-  Out_Statement_Next(stmt, next) :-
+  PreOut_Statement_Next(stmt, next) :-
    InsertedOpNewStatement(next, i, stmt),
    !InsertedOpNewStatement(next, i+1, _).
 
+  Out_Statement_Next(stmt, next) :-
+    PreOut_Statement_Next(stmt, next),
+    !removeOp(stmt), !removeOp(next).
+
+  // TODO rest of the cases for removeOp
 }
 
 
@@ -140,16 +152,23 @@ _insertor.In_PushValue(stmt, value) :- from##PushValue(stmt, value).
 INITIALIZE_STATEMENT_INSERTOR(insertor, )
 
 
-insertor.insertOps(stmt, 
-      [["STATICCALL", ""],
-      [["PUSH4", MAKE_LABEL_REFERENCE(stmt)],
-      [["JUMP", ""],  
-      [["JUMPDEST", MAKE_LABEL(stmt)],
-      nil]]]]) :-
-          CALLDATASIZE(stmt).
-
-
-
+insertor.removeOp(jumpStmt),
+insertor.removeOp(pushStmt),
+insertor.insertOps(pushStmt,
+                   [["PUSH4", MAKE_LABEL_REFERENCE(jumpDestStmt)],
+                   [["JUMPI", ""],
+                    nil]]), 
+insertor.insertOps(CAST_TO_SYMBOL(jumpDestStmt), 
+                   [["JUMPDEST", MAKE_LABEL(jumpDestStmt)],
+                   [["PUSH4", MAKE_LABEL(jumpDestStmt)],
+                   [["JUMP", ""],
+                    nil]]]) :-
+   PublicFunctionJump(block, hash),
+   PublicFunctionStart(jumpDestStmt, hash),
+   PushValue(pushStmt, CAST_TO_SYMBOL(jumpDestStmt)),
+   Statement_Block(pushStmt, block),
+   BasicBlock_Tail(block, jumpStmt).
+                                       
 .output insertor.Out_Statement_Opcode
 .output insertor.Out_Statement_Next
 .output insertor.Out_PushValue
