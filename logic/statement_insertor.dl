@@ -11,6 +11,7 @@ _insertor.In_PushValue(stmt, value) :- from##PushValue(stmt, value).
 #define MAKE_LABEL CAST_TO_SYMBOL
 #define GETLABEL(value) substr(value, 9, 8)
 
+
 .comp StatementInsertor {
    // Inputs
   .decl In_Statement_Next(stmt: Statement, next: Statement)
@@ -154,15 +155,13 @@ INITIALIZE_STATEMENT_INSERTOR(insertor, )
 
 insertor.removeOp(jumpStmt),
 insertor.removeOp(pushStmt),
-insertor.insertOps(pushStmt,
-                   [["PUSH4", MAKE_LABEL_REFERENCE(jumpDestStmt)],
-                   [["JUMPI", ""],
-                    nil]]), 
-insertor.insertOps(CAST_TO_SYMBOL(jumpDestStmt), 
-                   [["JUMPDEST", MAKE_LABEL(jumpDestStmt)],
-                   [["PUSH4", MAKE_LABEL(jumpDestStmt)],
-                   [["JUMP", ""],
-                    nil]]]) :-
+insertor.insertOps(pushStmt, LIST_OF_N(
+    ["PUSH4", MAKE_LABEL_REFERENCE(jumpDestStmt)],
+    ["JUMPI", ""])),
+insertor.insertOps(CAST_TO_SYMBOL(jumpDestStmt), LIST_OF_N(
+                   ["JUMPDEST", MAKE_LABEL(jumpDestStmt)],
+                   ["PUSH4", MAKE_LABEL(jumpDestStmt)],
+                   ["JUMP", ""])) :-
    PublicFunctionJump(block, hash),
    PublicFunctionStart(jumpDestStmt, hash),
    PushValue(pushStmt, CAST_TO_SYMBOL(jumpDestStmt)),
