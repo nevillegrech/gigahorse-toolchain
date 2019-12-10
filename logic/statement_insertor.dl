@@ -8,8 +8,6 @@ _insertor.In_PushValue(stmt, value) :- from##PushValue(stmt, value).
 
 #define ISLABEL(value) (substr(value, 0, 9) = "JUMPDEST:")
 #define MAKE_LABEL_REFERENCE(value) cat("JUMPDEST:", value)
-#define MAKE_LABEL CAST_TO_SYMBOL
-#define GETLABEL(value) substr(value, 9, 8)
 
 
 .comp StatementInsertor {
@@ -109,7 +107,7 @@ _insertor.In_PushValue(stmt, value) :- from##PushValue(stmt, value).
     insertOp(stmt, op, label, order),
     OpcodeIsPush(op),
     ISLABEL(label),
-    insertOp(stmtTo, "JUMPDEST", GETLABEL(label), orderTo),
+    insertOp(stmtTo, "JUMPDEST", label, orderTo),
     InsertedOpNewStatement(stmtTo, orderTo, actualLabel),
     InsertedOpNewStatement(stmt, order, newStmt).
 
@@ -139,32 +137,30 @@ _insertor.In_PushValue(stmt, value) :- from##PushValue(stmt, value).
 }
 
 
-// 0x9  ISZERO
-// 0x10 PUSH4 <pub_entry>
-// 0x11 JUMPI
-// BECOMES
-// 0x9 ISZERO
-// 0x? JUMPI // TODO!
-// 0x? JUMPDEST
-// 0x10 PUSH4 <pub_entry>
-// 0x11 JUMP
-
-
 INITIALIZE_STATEMENT_INSERTOR(insertor, )
+//
+
+
 
 
 insertor.removeOp(jumpStmt),
 insertor.removeOp(pushStmt),
-insertor.insertOps(pushStmt, LIST_OF_N(
-    ["PUSH4", MAKE_LABEL_REFERENCE(jumpDestStmt)],
-    ["JUMPI", ""])),
-insertor.insertOps(CAST_TO_SYMBOL(jumpDestStmt), LIST_OF_N(
-                   ["JUMPDEST", MAKE_LABEL(jumpDestStmt)],
-                   ["PUSH4", MAKE_LABEL(jumpDestStmt)],
-                   ["JUMP", ""])) :-
+insertor.insertOps(pushStmt,
+  LIST(
+    STMT(PUSH4, MAKE_LABEL_REFERENCE(jumpDestStmt)),
+    STMT(JUMPI, "")
+  )
+),
+insertor.insertOps(CAST_TO_SYMBOL(start),
+  LIST(
+    STMT(JUMPDEST, MAKE_LABEL_REFERENCE(CAST_TO_SYMBOL(start))),
+    STMT(PUSH4, CAST_TO_SYMBOL(start)),
+    STMT(JUMP, "")
+  )
+) :-
    PublicFunctionJump(block, hash),
-   PublicFunctionStart(jumpDestStmt, hash),
-   PushValue(pushStmt, CAST_TO_SYMBOL(jumpDestStmt)),
+   PublicFunctionStart(start, hash),
+   PushValue(pushStmt, jumpDestStmt),
    Statement_Block(pushStmt, block),
    BasicBlock_Tail(block, jumpStmt).
                                        
