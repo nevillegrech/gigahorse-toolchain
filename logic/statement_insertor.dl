@@ -151,19 +151,21 @@ insertor.insertOps(pushStmt,
     STMT(JUMPI, "")
   )
 ),
-insertor.insertOps(CAST_TO_SYMBOL(start),
+insertor.insertOps(CAST_TO_SYMBOL(jumpDestStmt),
   LIST(
-    STMT(JUMPDEST, MAKE_LABEL_REFERENCE(CAST_TO_SYMBOL(start))),
-    STMT(PUSH4, CAST_TO_SYMBOL(start)),
+    STMT(JUMPDEST, MAKE_LABEL_REFERENCE(jumpDestStmt)),
+    STMT(PUSH4, CAST_TO_SYMBOL(jumpDestStmt)),
     STMT(JUMP, "")
   )
 ) :-
    PublicFunctionJump(block, hash),
-   PublicFunctionStart(start, hash),
-   PushValue(pushStmt, jumpDestStmt),
+   PublicFunctionStart(jumpDestStmt, hash),
+   PushValue(pushStmt, CAST_TO_SYMBOL(jumpDestStmt)),
    Statement_Block(pushStmt, block),
    BasicBlock_Tail(block, jumpStmt).
-                                       
+
+
+
 .output insertor.Out_Statement_Opcode
 .output insertor.Out_Statement_Next
 .output insertor.Out_PushValue
