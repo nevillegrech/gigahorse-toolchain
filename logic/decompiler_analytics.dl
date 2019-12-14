@@ -12,8 +12,8 @@ Analytics_Functions(func) :-
 .output Analytics_Jumps
 
 Analytics_Jumps(block) :-
-  BasicBlock_Tail(block, tail),
-  IsJump(tail).
+  postTrans.BasicBlock_Tail(block, tail),
+  postTrans.IsJump(tail).
 
 
 .decl Analytics_ReachableBlocks(block: Block)
@@ -51,10 +51,10 @@ Analytics_UnknownOperand(stmt) :-
 .output Analytics_MissingImplementation
 
 Analytics_MissingImplementation(stmt, opcode) :-
-   ValidStatement(stmt),
-   Statement_Opcode(stmt, opcode),
+   postTrans.ValidStatement(stmt),
+   postTrans.Statement_Opcode(stmt, opcode),
    OpcodePushWords(opcode, n), n>0,
-   !LocalStackContents(stmt, 0, _),
+   !postTrans.LocalStackContents(stmt, 0, _),
    !OpcodePossiblyHalts(opcode).
 
 // Except return statements
@@ -87,9 +87,9 @@ Analytics_PolymorphicTargetSameCtx(block) :-
 Analytics_MissingJumpTarget(block) :-
   Analytics_Jumps(block),
   !BlockJumpValidTarget(_, block, _, _),
-  BasicBlock_Tail(block, jump),
-  !ThrowJump(jump),
-  JUMPDEST(_). // if there are not valid jumpdests then don't flag
+  postTrans.BasicBlock_Tail(block, jump),
+  !postTrans.ThrowJump(jump),
+  postTrans.JUMPDEST(_). // if there are not valid jumpdests then don't flag
 
 // Missing operands for IR statements.
 
