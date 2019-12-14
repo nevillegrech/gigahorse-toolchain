@@ -1,10 +1,15 @@
+#define STARTSWITH(s, b) (substr(s, 0, strlen(b)) = b)
+
 #ifdef BULK_ANALYSIS
-#define DEBUG_OUTPUT(x) 
+#define DEBUG_OUTPUT(x)
+#define FAILIF(...)
 #else
 #define DEBUG_OUTPUT(x) .output x
+.decl Fail(msg: symbol)
+.output Fail(IO="stdout")
+#define FAILIF(message, ...) Fail(msg) :- msg = message, __VA_ARGS__
 #endif
 
-#define FAILIF(pred) Fail() :- pred.
 
 
 #define LIST_OF_1(a)         [a, nil]

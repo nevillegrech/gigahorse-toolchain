@@ -1,10 +1,21 @@
 #define MAX_INSERTS 5
 
-#define INITIALIZE_STATEMENT_INSERTOR(_insertor, from)\
+
+#define COPY_CODE(to, from)\
+to.Statement_Next(stmt, next) :- from.Statement_Next(stmt, next).\
+to.Statement_Opcode(stmt, op) :- from.Statement_Opcode(stmt, op).\
+to.PushValue(stmt, value) :- from.PushValue(stmt, value).
+
+
+#define INITIALIZE_STATEMENT_INSERTOR(_insertor, to)\
 .init _insertor = StatementInsertor \
-_insertor.In_Statement_Next(stmt, next) :- from##Statement_Next(stmt, next).\
-_insertor.In_Statement_Opcode(stmt, op) :- from##Statement_Opcode(stmt, op).\
-_insertor.In_PushValue(stmt, value) :- from##PushValue(stmt, value).
+to.Statement_Next(stmt, next) :- _insertor.Out_Statement_Next(stmt, next).\
+to.Statement_Opcode(stmt, op) :- _insertor.Out_Statement_Opcode(stmt, op).\
+to.PushValue(stmt, value) :- _insertor.Out_PushValue(stmt, value).
+
+#define INITIALIZE_STATEMENT_INSERTOR_FROM(_insertor, from, to)\
+COPY_CODE(_insertor, from)\
+INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
 
 #define ISLABEL(value) (substr(value, 0, 9) = "JUMPDEST:")
 #define MAKE_LABEL_REFERENCE(value) cat("JUMPDEST:", value)
@@ -12,9 +23,9 @@ _insertor.In_PushValue(stmt, value) :- from##PushValue(stmt, value).
 
 .comp StatementInsertor {
    // Inputs
-  .decl In_Statement_Next(stmt: Statement, next: Statement)
-  .decl In_Statement_Opcode(stmt: Statement, op: Opcode)
-  .decl In_PushValue(stmt: Statement, value: Value)
+  .decl Statement_Next(stmt: Statement, next: Statement)
+  .decl Statement_Opcode(stmt: Statement, op: Opcode)
+  .decl PushValue(stmt: Statement, value: Value)
 
   .type Insertion = [ op: Opcode, value: Value ]
   .type Insertions = [ insertion:Insertion, rest:Insertions ]
@@ -34,7 +45,8 @@ _insertor.In_PushValue(stmt, value) :- from##PushValue(stmt, value).
   .decl Out_Statement_Next(stmt: Statement, next: Statement)
   .decl Out_Statement_Opcode(stmt: Statement, op: Opcode)
   .decl Out_PushValue(stmt: Statement, value: Value)
-
+  .decl MetaData(newStmt: Statement, value: Value)
+  
   // Simple translation
   .decl insertOp(stmt: Statement, op: Opcode, value: Value, order: number)
 
@@ -63,7 +75,7 @@ _insertor.In_PushValue(stmt, value) :- from##PushValue(stmt, value).
      !PreInsertedOpNewStatementNum(_, _, newStmt - 1).
 
    .decl MaxStmt(n: number)
-   MaxStmt(n) :- n = max @hex_to_number(stmt) : In_Statement_Opcode(stmt, _).
+   MaxStmt(n) :- n = max @hex_to_number(stmt) : Statement_Opcode(stmt, _).
 
   .decl InsertedOpNewStatement(stmt: Statement, order: number, newStmt: Statement)
 
@@ -79,7 +91,7 @@ _insertor.In_PushValue(stmt, value) :- from##PushValue(stmt, value).
     WastedSlots(newStmt, n).
 
   Out_Statement_Opcode(stmt, op) :-
-    In_Statement_Opcode(stmt, op),
+    Statement_Opcode(stmt, op),
     !changeOp(stmt, _),
     !removeOp(stmt).
 
@@ -93,9 +105,15 @@ _insertor.In_PushValue(stmt, value) :- from##PushValue(stmt, value).
 
   Out_PushValue(stmt, value) :-
     Out_Statement_Opcode(stmt, op),
-    In_PushValue(stmt, value),
+    PushValue(stmt, value),
     OpcodeIsPush(op),
     !removeOp(stmt).
+
+  MetaData(newStmt, value) :-
+    InsertedOpNewStatement(stmt, order, newStmt),
+    insertOp(stmt, op, value, order),
+    !OpcodeIsPush(op).
+
 
   Out_PushValue(newStmt, value) :-
     InsertedOpNewStatement(stmt, order, newStmt),
@@ -114,11 +132,11 @@ _insertor.In_PushValue(stmt, value) :- from##PushValue(stmt, value).
   .decl PreOut_Statement_Next(stmt: Statement, next: Statement)
   
   PreOut_Statement_Next(stmt, next) :-
-   In_Statement_Next(stmt, next),
+   Statement_Next(stmt, next),
    !insertOp(next, _, _, _).
 
   PreOut_Statement_Next(stmt, next) :-
-   In_Statement_Next(stmt, post),
+   Statement_Next(stmt, post),
    InsertedOpNewStatement(post, 0, next).
 
   PreOut_Statement_Next(stmt, next) :-
@@ -129,41 +147,31 @@ _insertor.In_PushValue(stmt, value) :- from##PushValue(stmt, value).
    InsertedOpNewStatement(next, i, stmt),
    !InsertedOpNewStatement(next, i+1, _).
 
+  .decl PossibleNext(stmt: Statement, next: Statement, n: number)
+
+  PossibleNext(stmt, next, 0) :-
+    PreOut_Statement_Next(stmt, next).
+   
+  PossibleNext(stmt, nextnext, n+1) :-
+    PossibleNext(stmt, next, n),
+    PreOut_Statement_Next(next, nextnext),
+    removeOp(next).
+
+  .decl Max_Statement_Next(stmt: Statement, n: number)
+
+  Max_Statement_Next(stmt, n) :-
+     PossibleNext(stmt, _, _),
+     n = max m : PossibleNext(stmt, _, m).
+
   Out_Statement_Next(stmt, next) :-
-    PreOut_Statement_Next(stmt, next),
-    !removeOp(stmt), !removeOp(next).
+     PossibleNext(stmt, next, n),
+     Max_Statement_Next(stmt, n).
 
   // TODO rest of the cases for removeOp
+  FAILIF("Not total order",Out_Statement_Next(stmt, next), Out_Statement_Next(stmt, next2), next != next2).
+  FAILIF("Missing Order", Out_Statement_Opcode(stmt, _), !Out_Statement_Next(stmt, _), !Out_Statement_Next(_, stmt)).
+
 }
-
-
-INITIALIZE_STATEMENT_INSERTOR(insertor, )
-//
-
-
-
-
-insertor.removeOp(jumpStmt),
-insertor.removeOp(pushStmt),
-insertor.insertOps(pushStmt,
-  LIST(
-    STMT(PUSH4, MAKE_LABEL_REFERENCE(jumpDestStmt)),
-    STMT(JUMPI, "")
-  )
-),
-insertor.insertOps(CAST_TO_SYMBOL(jumpDestStmt),
-  LIST(
-    STMT(JUMPDEST, MAKE_LABEL_REFERENCE(jumpDestStmt)),
-    STMT(PUSH4, CAST_TO_SYMBOL(jumpDestStmt)),
-    STMT(JUMP, "")
-  )
-) :-
-   PublicFunctionJump(block, hash),
-   PublicFunctionStart(jumpDestStmt, hash),
-   PushValue(pushStmt, CAST_TO_SYMBOL(jumpDestStmt)),
-   Statement_Block(pushStmt, block),
-   BasicBlock_Tail(block, jumpStmt).
-
 
 
 .output insertor.Out_Statement_Opcode
