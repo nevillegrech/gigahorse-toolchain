@@ -24,8 +24,6 @@
 .output NumberOfFunctionArguments
 .output NumberOfFunctionReturnArguments
 
-.output BlockComparesSig
-.output FunctionSelectorVariable
 .output Variable_String
 #endif
 
@@ -34,14 +32,6 @@
  * Function discovery logic
  *****/
 
-/******
-  * First, heuristics for discovering public functions
-******/
-// Special entry point to public function found heuristically
-.decl PublicFunction(basicBlock: Block, sigHash: Value)
-
-PublicFunction(b, hash) :-
-  postTrans.PublicFunctionStart(b, hash).
    
 /******
          Generic basic block Reachable-from implementation
@@ -205,15 +195,15 @@ IsFunctionCallReturn(caller, func, retBlock, retTarget) :-
 /// Let's try something dead simple for assigning blocks to functions.
 
 .decl IsFunctionEntry(entry:Block)
-IsFunctionEntry(block) :- PublicFunction(block, _).
+IsFunctionEntry(block) :- postTrans.PublicFunction(block, _).
 IsFunctionEntry(FUNCTION_SELECTOR).
 IsFunctionEntry(func) :- IsFunctionCallReturn(_, func, _, _).
 
 .decl IsFunctionCall(block:Block, func:Block)
    
 IsFunctionCall(prev, func) :-
-  PublicFunction(func, sigHash),
-  BlockComparesSig(prev, sigHash).
+   postTrans.PublicFunctionJump(prev, sigHash),
+   postTrans.PublicFunction(func, sigHash).
 
 // Use the precise version here!
 IsFunctionCall(block, func) :-
@@ -988,6 +978,8 @@ FunctionalStatement_Uses(stmt, var, n) :-
 .decl PublicFunctionSignature(hex_signature: Value, text_signature: symbol)
 .input PublicFunctionSignature
 
+PublicFunctionSignature("0x00000000", "fallback()").
+
 .decl HighLevelFunctionName(func: IRFunction, name: symbol)
 
 // Standardize public function signature length
@@ -998,11 +990,11 @@ SighashIntermediate(sigIn, cat("0x0",substr(sigOut,2,8))) :-
    strlen(sigOut) < 10.
 
 SighashIntermediate(sig, sig) :-
-   PublicFunction(_, sig).
+   postTrans.PublicFunction(_, sig).
 
 .decl IRPublicFunction(irfunc: IRFunction, sigHash: Value)
 IRPublicFunction(irfunc, sigHash) :-
-  PublicFunction(func, sigHash),
+  postTrans.PublicFunction(func, sigHash),
   Function_IRFunction(func, irfunc).
   
 .decl PublicFunction_HighLevel(func: IRFunction, sigHashOut: symbol)

@@ -26,7 +26,6 @@ PrivateFunctionCaller(caller) :-
   StaticBlockJumpTarget(caller2, target),
   caller != caller2.
 
-
 PrivateFunctionCaller(caller) :-
   postTrans.Statement_Block(_, caller),
   !BlockHasTrivialControl(caller).
@@ -45,7 +44,7 @@ MergeContext(ctx, caller, ctx) :-
   ReachableContext(ctx, caller),
   ctx = [pub, [ctx1, ctx2]], pub = pub, ctx2 = ctx2,
   ctx1 != "0x0",
-  !postTrans.PublicFunctionStart(caller, _),  
+  !postTrans.PublicFunction(caller, _),  
   !PrivateFunctionCaller(caller).
 
 // Complex control flow case, add
@@ -53,13 +52,13 @@ MergeContext(ctx, caller, newContext) :-
   ReachableContext(ctx, caller),
   (PrivateFunctionCaller(caller);
    ctx1 = "0x0"),
-  !postTrans.PublicFunctionStart(caller, _),
+  !postTrans.PublicFunction(caller, _),
   ctx = [pub, [ctx1, ctx2]], ctx1 = ctx1, // suppress warning
   newContext = [pub, [ctx2, caller]].
 
 MergeContext(ctx, caller, newContext) :-
   ReachableContext(ctx, caller),
-  postTrans.PublicFunctionStart(caller, sigHash),
+  postTrans.PublicFunction(caller, sigHash),
   ctx = [pub, pri], pub = pub, // suppress warning
   newContext = [sigHash, pri].
 
