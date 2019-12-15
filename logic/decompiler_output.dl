@@ -9,7 +9,7 @@
 // useful intermediate outputs
 .output OpcodePossiblyHalts
 .output IRBlockEdge
-.output PublicFunction
+.output postTrans.PublicFunction(IO="file", filename = "PublicFunction.csv", delimiter = "\t")
 .output Statement_IRStatement
 .output IRBlock_Gas
 
@@ -317,7 +317,6 @@ LOGStmt_SigHash(stmt, sigHash):-
 EventSignatureInContract(sigHash, sigText):-
   LOGStmt_SigHash(_, sigHash),
   EventSignature(sigHash, sigText).
-
 
 .decl ConstantPossibleSigHash(constSigHash:symbol, name:symbol)
 .output ConstantPossibleSigHash

@@ -67,21 +67,14 @@ insertor.insertOps(CAST_TO_SYMBOL(jumpDestStmt),
   )
 ) :-
    preTrans.PublicFunctionJump(block, hash),
-   preTrans.PublicFunctionStart(start, hash),
+   preTrans.PublicFunction(start, hash),
    preTrans.Statement_Block(jumpDestStmt, start),
    preTrans.JUMPDEST(jumpDestStmt),
    preTrans.PushValue(pushStmt, CAST_TO_SYMBOL(jumpDestStmt)),
    preTrans.Statement_Block(pushStmt, block),
    preTrans.BasicBlock_Tail(block, jumpStmt).
 
-.decl FallbackStart(stmt: Statement)
 
-FallbackStart(fallthrough) :-
-  preTrans.CALLDATASIZE(stmt),
-  preTrans.Statement_Block(stmt, "0x0"),
-  preTrans.Statement_Block(jumpi, "0x0"),
-  preTrans.JUMPI(jumpi),
-  preTrans.Statement_Next(jumpi, fallthrough).
 
 /*
 // Fallback function TODO
@@ -109,7 +102,7 @@ postTrans.PublicFunctionJump(block, substr(meta, 19, 30)) :-
    STARTSWITH(meta, "PublicFunctionJump:"),
    postTrans.Statement_Block(stmt, block).
 
-postTrans.PublicFunctionStart(b, h) :- preTrans.PublicFunctionStart(b, h).
+postTrans.PublicFunction(b, h) :- preTrans.PublicFunction(b, h).
 
 
 /*

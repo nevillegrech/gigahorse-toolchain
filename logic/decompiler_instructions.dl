@@ -13,9 +13,9 @@
   .decl Statement_Opcode(statement: Statement, opcode: Opcode)
   .decl Statement_Next(statement: Statement, statementNext: Statement)
 
-  .input PushValue
-  .input Statement_Opcode
-  .input Statement_Next
+  .input PushValue(IO="file", filename="PushValue.facts")
+  .input Statement_Opcode(IO="file", filename="Statement_Opcode.facts")
+  .input Statement_Next(IO="file", filename="Statement_Next.facts")
   
 }
 
