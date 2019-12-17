@@ -1,3 +1,15 @@
+#define BINOP_SEMANTICS(_OP, _functor) \
+Variable_Value(y, _functor(x0val, x1val)) :-\
+   Variable_Value(x0, x0val),\
+   Statement_Uses_Local(s, x0, 0),\
+   Statement_Opcode(s, #_OP),\
+   Variable_Value(x1, x1val),\
+   Statement_Uses_Local(s, x1, 1),\
+   Statement_Defines(s, y).\
+   .plan 1:(4, 2, 3, 1, 5, 6)
+     
+
+
 .comp LocalAnalysis {
 
   .decl PushValue(stmt:Statement, v:Value)
@@ -237,7 +249,29 @@
   Variable_Value(var, CAST_TO_SYMBOL(stmt)) :-
     PC(stmt),
     Statement_Defines(stmt, var).
-  
+
+  // produce new values using constant folding
+  BINOP_SEMANTICS(ADD, @add_256)
+  BINOP_SEMANTICS(SUB, @sub_256)
+  BINOP_SEMANTICS(MUL, @mul_256)
+  BINOP_SEMANTICS(DIV, @div_256)
+  BINOP_SEMANTICS(MOD, @mod_256)
+  BINOP_SEMANTICS(AND, @and_256)
+  BINOP_SEMANTICS(OR, @or_256)
+  BINOP_SEMANTICS(XOR, @xor_256)
+  BINOP_SEMANTICS(GT, @gt_256)
+  BINOP_SEMANTICS(EQ, @eq_256)
+  BINOP_SEMANTICS(LT, @lt_256)
+  BINOP_SEMANTICS(EXP, @exp_256)
+  BINOP_SEMANTICS(SMOD, @smod_256)
+  BINOP_SEMANTICS(SDIV, @sdiv_256)
+  BINOP_SEMANTICS(SGT, @sgt_256)
+  BINOP_SEMANTICS(SLT, @slt_256)
+  BINOP_SEMANTICS(SHL, @shl_256)
+  BINOP_SEMANTICS(SHR, @shr_256)
+  BINOP_SEMANTICS(SAR, @sar_256)
+
+
   // DUP
   LocalStackContents(stmt, 0, duplicated) :-
     BeforeLocalStackContents(stmt, n-1, duplicated),
@@ -356,6 +390,8 @@
      OpcodePopWords(opcode, m),
      IsStackIndexLessThan(n, m),
      BeforeLocalStackContents(stmt, n, varOrStackIndex).
+
+
 
 
   .decl IsJump(stmt:Statement)
