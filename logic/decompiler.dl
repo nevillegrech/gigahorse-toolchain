@@ -104,7 +104,6 @@ postTrans.PublicFunctionJump(block, substr(meta, 19, 30)) :-
 
 postTrans.PublicFunction(b, h) :- preTrans.PublicFunction(b, h).
 
-
 /*
  ***********
  * Key dataflow definitions

@@ -173,7 +173,6 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
   FAILIF("Missing Order", Out_Statement_Opcode(stmt, _), !Out_Statement_Next(stmt, _), !Out_Statement_Next(_, stmt)).
   FAILIF(cat("Missing Opcode ", stmt), (Out_Statement_Next(stmt, _) ; Out_Statement_Next(_, stmt)), !Out_Statement_Opcode(stmt, _)).
   FAILIF(cat("Missing Push Value ", stmt), Out_Statement_Opcode(stmt, op), OpcodeIsPush(op), !Out_PushValue(stmt, _)).
-  FAILIF("Missing next", Out_Statement_Next(stmt, next), !Out_Statement_Next(next, nextnext)).
   
 }
 
