@@ -7,12 +7,15 @@
 #define CheckIsStackIndex(v) ((v) >= 0, (v) < MAX_STACK_HEIGHT)
 #define FUNCTION_SELECTOR "0x0"
 
+#include "../clientlib/util.dl"
 #include "local.dl"
 #include "N-Call-Context.dl"
 #include "decompiler_instructions.dl"
+#include "decompiler_input_opcodes.dl"
 #include "functions.dl"
 #include "decompiler_output.dl"
 #include "statement_insertor.dl"
+
 #ifndef NO_ANALYTICS
 #include "decompiler_analytics.dl"
 #endif
@@ -22,6 +25,9 @@
 .number_type Variable
 .number_type StackIndex
 .type VariableOrStackIndex = Variable | StackIndex
+.type Opcode
+.type Statement 
+
 
 .decl IsStackIndex(n:StackIndex)
         
@@ -39,6 +45,25 @@ IsStackIndexLessThan(n, maximum) :-
   IsStackIndex(maximum),
   IsStackIndex(n),
   n < maximum.
+
+/*
+ * Preprocessing of decompiler input, to yield convenient relations
+ */
+
+                                         
+.comp StatementFactReader {                                         
+  .decl PushValue(stmt:Statement, v:Value)
+  .decl Statement_Opcode(statement: Statement, opcode: Opcode)
+  .decl Statement_Next(statement: Statement, statementNext: Statement)
+
+  .input PushValue(IO="file", filename="PushValue.facts")
+  .input Statement_Opcode(IO="file", filename="Statement_Opcode.facts")
+  .input Statement_Next(IO="file", filename="Statement_Next.facts")
+  
+}
+
+.init factReader = StatementFactReader
+
 
 /*
  ***********
@@ -221,3 +246,24 @@ Statement_Uses(stmt, var, n) :-
    CheckIsStackIndex(stackIndex),
    postTrans.Statement_Block(stmt, block),
    BlockInputContents(_, block, stackIndex, var).
+
+
+// Masks with all 1s
+.decl Mask_Length(mask: Value, bytes: number)
+.decl PreMask_Length(mask: symbol, bytes: number)
+
+Mask_Length(cat("0x", mask), bytes) :-
+   PreMask_Length(mask, bytes).
+
+PreMask_Length("1", 1).
+PreMask_Length("3", 1).
+PreMask_Length("7", 1).
+PreMask_Length("f", 1).
+PreMask_Length("1f", 1).
+PreMask_Length("3f", 1).
+PreMask_Length("7f", 1).
+PreMask_Length("ff", 1).
+
+PreMask_Length(cat("ff", mask), bytes+1) :-
+  PreMask_Length(mask, bytes),
+  bytes < 32.
