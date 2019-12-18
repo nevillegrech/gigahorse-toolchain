@@ -80,10 +80,15 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
   .decl InsertedOpNewStatement(stmt: Statement, order: number, newStmt: Statement)
 
   .decl WastedSlots(newStmt: number, n: number)
-  
+
+  .decl TempPreInsertedOpNewAndMissingStatementNum(smallerThanNewStmt: number, newStmt: number)
+  TempPreInsertedOpNewAndMissingStatementNum(smallerThanNewStmt, newStmt) :-
+     PreInsertedOpNewStatementNum(_, _, newStmt),
+     PreInsertedOpMissingStmt(smallerThanNewStmt), smallerThanNewStmt < newStmt.
+     
   WastedSlots(newStmt, n) :-
      PreInsertedOpNewStatementNum(_, _, newStmt),
-     n = count : { PreInsertedOpMissingStmt(smallerThanNewStmt), smallerThanNewStmt < newStmt }. 
+     n = count : { TempPreInsertedOpNewAndMissingStatementNum(_, newStmt) }.
 
   InsertedOpNewStatement(stmt, order, @number_to_hex(newStmt - n + maxStmt + 1)) :-
     PreInsertedOpNewStatementNum(stmt, order, newStmt),
