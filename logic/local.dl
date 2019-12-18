@@ -1,12 +1,13 @@
 #define BINOP_SEMANTICS(_OP, _functor) \
-Variable_Value(y, _functor(x0val, x1val)) :-\
+Variable_Value(y, result) :-\
    Variable_Value(x0, x0val),\
    Statement_Uses_Local(s, x0, 0),\
    Statement_Opcode(s, #_OP),\
-   Variable_Value(x1, x1val),\
    Statement_Uses_Local(s, x1, 1),\
+   Variable_Value(x1, x1val),\
+   result = _functor(x0val, x1val),\
    Statement_Defines(s, y).\
-   .plan 1:(4, 2, 3, 1, 5, 6)
+   .plan 1:(5, 4, 3, 2, 1, 6)
      
 
 
