@@ -162,52 +162,56 @@ PossibleReturnAddressWithRank(targetSetter, retBlock, retTarget, rank) :-
   PossibleReturnAddressWithPos(targetSetter, retBlock, retTarget, pos),
   rank = count : PossibleReturnAddressWithLowerPos(targetSetter, retBlock, retTarget, pos, _).
 
-.decl MaybeFunctionCallReturnRank(targetSetter:Block, caller:Block, func:Block, retBlock:Block, retTarget:Block, rank:number)
-MaybeFunctionCallReturnRank(caller, caller, func, retBlock, retTarget, 0) :-
+.decl MaxRankForPossibleReturnAddressSetter(targetSetter:Block, rank:number)
+MaxRankForPossibleReturnAddressSetter(targetSetter, rank) :-
+  PossibleReturnAddressWithRank(targetSetter, retBlock, retTarget, rank),
+  PossibleReturnAddressWithPos(targetSetter, retBlock, retTarget, pos),
+  !PossibleReturnAddressWithLowerPos(targetSetter, _, _, _, pos).
+
+// If we find a direct jump (to a purported function) and the first
+// pushed return address (jumped-to by code reachable from the
+// purported function) before it, we detect a call-return pattern.
+.decl MaybeFunctionCallReturn(caller:Block, func:Block, retBlock:Block, retTarget:Block)
+MaybeFunctionCallReturn(caller, func, retBlock, retTarget) :-
   PossibleReturnAddressWithRank(caller, retBlock, retTarget, 0),
+  EnableCostlyAlgorithms(), // place second for parallelism
   ImmediateBlockJumpTarget(caller, targetVar),
   BlockJumpValidTarget(_, caller, targetVar, func),
   CanReachUnderContextThroughBlock(_, caller, func, retCtx, retBlock),
   CanReachUnderContext(retCtx, retBlock, _, retTarget).
 
-// now the case when the return address was pushed earlier (by targetSetter) but the
-// call that will return to that address is in the block that the targetSetter's block
-// returns to.
-MaybeFunctionCallReturnRank(targetSetter, caller, func, retBlock, retTarget, n+1) :-
-  MaybeFunctionCallReturnRank(targetSetter, _, _, _, caller, n),
-  PossibleReturnAddressWithRank(targetSetter, retBlock, retTarget, n+1),
+MaybeFunctionCallReturn(caller, func, retBlock, retTarget) :-
+  PossibleReturnAddressWithRank(caller, retBlock, retTarget, 0),
+  DisableCostlyAlgorithms(), // place second for parallelism
   ImmediateBlockJumpTarget(caller, targetVar),
   BlockJumpValidTarget(_, caller, targetVar, func),
+  CanReach(caller, retTarget),
+  CanReach(func, retBlock).
+
+// If we have found a likely call-return pattern, we propagate to the return
+// block the extra pushed return values of the former caller. Stacking return
+// values is a usual pattern in produced code.
+PossibleReturnAddressWithRank(caller, retBlock, retTarget, n-1+offset) :-
+  MaybeFunctionCallReturn(targetSetter, _, _, caller),
+  EnableCostlyAlgorithms(), // place second for parallelism
+  PossibleReturnAddressWithRank(targetSetter, retBlock, retTarget, n), n > 0,
+  ImmediateBlockJumpTarget(caller, targetVar),
+  BlockJumpValidTarget(_, caller, targetVar, func),
+  ((MaxRankForPossibleReturnAddressSetter(caller, maxrank), offset = maxrank + 1);
+   (!PossibleReturnAddressWithPos(caller, _, _, _), offset = 0)),
   CanReachUnderContextThroughBlock(_, targetSetter, func, retCtx, retBlock),
   CanReachUnderContext(retCtx, retBlock, _, retTarget).
-  
 
-
-// Also match a subset of those with return addresses and full info. The
-// function may not be the one containing the return, in case of complex
-// call patterns (e.g., call-call, or call-return).
-.decl MaybeFunctionCallReturn(caller:Block, func:Block, retBlock:Block, retTarget:Block)
-
-MaybeFunctionCallReturn(caller, func, retBlock, retTarget) :-
-  MaybeFunctionCallReturnRank(_, caller, func, retBlock, retTarget, _).
-
-// // Context-sensitive version
-// MaybeFunctionCallReturn(caller, func, retBlock, retTarget) :-
-//   PossibleReturnAddress(caller, retBlock, retTarget),
-//   EnableCostlyAlgorithms(), // place second for parallelism
-//   ImmediateBlockJumpTarget(caller, targetVar),
-//   BlockJumpValidTarget(_, caller, targetVar, func),
-//   CanReachUnderContextThroughBlock(_, caller, func, retCtx, retBlock),
-//   CanReachUnderContext(retCtx, retBlock, _, retTarget).
-
-// // Insensitive version
-// MaybeFunctionCallReturn(caller, func, retBlock, retTarget) :-
-//   PossibleReturnAddress(caller, retBlock, retTarget),
-//   DisableCostlyAlgorithms(),
-//   ImmediateBlockJumpTarget(caller, targetVar),
-//   BlockJumpValidTarget(_, caller, targetVar, func),
-//   CanReach(caller, retTarget),
-//   CanReach(func, retBlock).
+PossibleReturnAddressWithRank(caller, retBlock, retTarget, n-1+offset) :-
+  MaybeFunctionCallReturn(targetSetter, _, _, caller),
+  DisableCostlyAlgorithms(), // place second for parallelism
+  PossibleReturnAddressWithRank(targetSetter, retBlock, retTarget, n), n > 0,
+  ImmediateBlockJumpTarget(caller, targetVar),
+  BlockJumpValidTarget(_, caller, targetVar, func),
+  ((MaxRankForPossibleReturnAddressSetter(caller, maxrank), offset = maxrank + 1);
+   (!PossibleReturnAddressWithPos(caller, _, _, _), offset = 0)),
+  CanReach(targetSetter, retTarget),
+  CanReach(func, retBlock).
 
 
 // Seems pretty certain we found a return. In fact, at this point,
@@ -410,8 +414,8 @@ IRFunction_Return_Edge(retir, callerretir) :-
   Block_IRBlock(caller, prevfunc, callerir),
   Block_IRBlock(callerret, prevfunc, callerretir),
   CanReach(caller, callerret),
-  Function_IRFunction(func, irfunc),
-  !BlockToClone(func, prevfunc).
+  Function_IRFunction(func, irfunc).
+  //!BlockToClone(func, prevfunc).
 
 
 // REVIEW: IRFunctionCall will include the IRFunctionCallReturn
@@ -421,7 +425,7 @@ IRFunction_Return_Edge(retir, callerretir) :-
 .decl IRFunctionCall(from: IRBlock, func: IRFunction)
 IRFunctionCall(fromir, irFunc) :-
   IsFunctionCall(from, func),
-  Block_IRBlock(from, prevfunc, fromir),
+  Block_IRBlock(from, _ /* prevfunc */, fromir),
   Function_IRFunction(func, irFunc).
 //  !BlockToClone(func, prevfunc).
 
@@ -449,6 +453,8 @@ IRBlockEdge(irfrom, irto) :-
   Block_IRBlock(from, func, irfrom),
   CanReachUnderContext(_, func, ctxFrom, from),
   !IsFunctionCallReturn(_, func, from, _),
+  !IsFunctionCallReturn(_, _, from, to),
+  !IsFunctionCallReturn(from, to, _, _),
   Block_IRBlock(to, func, irto).
 
 .decl IRBlockPath(from: IRBlock, to: IRBlock)
