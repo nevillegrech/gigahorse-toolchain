@@ -24,8 +24,6 @@
 .output NumberOfFunctionArguments
 .output NumberOfFunctionReturnArguments
 
-.output BlockComparesSig
-.output FunctionSelectorVariable
 .output Variable_String
 #endif
 
@@ -34,53 +32,7 @@
  * Function discovery logic
  *****/
 
-/******
-  * First, heuristics for discovering public functions
-******/
-// Special entry point to public function found heuristically
-.decl PublicFunction(basicBlock: Block, sigHash: Value)
-
-// Code inserted by compiler to compare function signature
-.decl BlockComparesSig(block: Block, sigHash: Value)
-
-.decl FunctionSelectorVariable(var: Variable)
-
-FunctionSelectorVariable(var) :-
-  CALLDATALOAD(stmt), 
-  Statement_Uses(stmt, index, _),
-  Variable_Value(index, "0x0"),
-  Statement_Defines(stmt, var).
-
-FunctionSelectorVariable(y) :-
-   FunctionSelectorVariable(x),
-   Statement_Uses(stmt, x, _),
-   Statement_Defines(stmt, y).
-
-// Compares label from stack to a constant: common public function dispatch
-// pattern
-BlockComparesSig(block, sigHash) :-
-  Statement_Block(pushStmt, block),
-  (PUSH4(pushStmt, sigHash) ; PUSH3(pushStmt, sigHash)),
-  Statement_Defines(pushStmt, sigHashVar),
-  Statement_Block(eqStmt, block),
-  EQ(eqStmt),
-  Statement_Uses(eqStmt, sigHashVar, _),
-  Statement_Uses(eqStmt, functionSelectorVar, _),
-  FunctionSelectorVariable(functionSelectorVar),
-  Statement_Block(jumpiStmt, block),
-  JUMPI(jumpiStmt),
-  Statement_Defines(eqStmt, pred),
-  Statement_Uses(jumpiStmt, pred, 1).
-
-PublicFunction(CAST_TO_SYMBOL(label), sigHash) :-
-  BlockComparesSig(block, sigHash),
-  Statement_Block(jumpiStmt, block),
-  JUMPI(jumpiStmt),
-  BeforeLocalStackContents(jumpiStmt, _, labelvar),
-  Variable_Value(labelvar, label),
-  JUMPDEST(CAST_TO_SYMBOL(label)).
-
-
+   
 /******
          Generic basic block Reachable-from implementation
 ******/
@@ -115,8 +67,6 @@ CanReachUnderContextThroughBlock(fromCtx, from, through, ctx, block) :-
 CanReach(from, to) :-
   CanReachUnderContext(_, from, _, to).
 
-
-
 /******
          Heuristics for detecting call-return patterns
 ******/
@@ -127,7 +77,7 @@ CanReach(from, to) :-
 // inlining.
 .decl PotentialCall(caller:Block)
 PotentialCall(block) :-
-  ImmediateBlockJumpTarget(block, _).
+  postTrans.ImmediateBlockJumpTarget(block, _).
 
 
 // Call-return pattern:
@@ -136,15 +86,15 @@ PotentialCall(block) :-
 .decl PossibleReturnAddress(caller:Block, retBlock:Block, retTarget:Block)
 PossibleReturnAddress(targetSetter, retBlock, retTarget) :-
   OptNotImmediateBlockJumpTarget(retBlock, targetVariable, retTarget),
-  Statement_Defines(targetSetStatement, targetVariable),
-  Statement_Block(targetSetStatement, targetSetter),
-  BasicBlock_Tail(targetSetter, jumpStmt),
-  IsJump(jumpStmt).
+  postTrans.Statement_Defines(targetSetStatement, targetVariable),
+  postTrans.Statement_Block(targetSetStatement, targetSetter),
+  postTrans.BasicBlock_Tail(targetSetter, jumpStmt),
+  postTrans.JUMP(jumpStmt).
 
 .decl OptNotImmediateBlockJumpTarget(ret:Block, targetVariable:Variable, retTarget:Block)
 OptNotImmediateBlockJumpTarget(retBlock, targetVariable, retTarget) :-
   BlockJumpValidTarget(_, retBlock, targetVariable, retTarget),
-  !ImmediateBlockJumpTarget(retBlock, targetVariable).
+  !postTrans.ImmediateBlockJumpTarget(retBlock, targetVariable).
 
 
 // Also match a subset of those with return addresses and full info. The
@@ -156,7 +106,7 @@ OptNotImmediateBlockJumpTarget(retBlock, targetVariable, retTarget) :-
 MaybeFunctionCallReturn(caller, func, retBlock, retTarget) :-
   PossibleReturnAddress(caller, retBlock, retTarget),
   EnableCostlyAlgorithms(), // place second for parallelism
-  ImmediateBlockJumpTarget(caller, targetVar),
+  postTrans.ImmediateBlockJumpTarget(caller, targetVar),
   BlockJumpValidTarget(_, caller, targetVar, func),
   CanReachUnderContextThroughBlock(_, caller, func, retCtx, retBlock),
   CanReachUnderContext(retCtx, retBlock, _, retTarget).
@@ -165,7 +115,7 @@ MaybeFunctionCallReturn(caller, func, retBlock, retTarget) :-
 MaybeFunctionCallReturn(caller, func, retBlock, retTarget) :-
   PossibleReturnAddress(caller, retBlock, retTarget),
   DisableCostlyAlgorithms(),
-  ImmediateBlockJumpTarget(caller, targetVar),
+  postTrans.ImmediateBlockJumpTarget(caller, targetVar),
   BlockJumpValidTarget(_, caller, targetVar, func),
   CanReach(caller, retTarget),
   CanReach(func, retBlock).
@@ -245,15 +195,15 @@ IsFunctionCallReturn(caller, func, retBlock, retTarget) :-
 /// Let's try something dead simple for assigning blocks to functions.
 
 .decl IsFunctionEntry(entry:Block)
-IsFunctionEntry(block) :- PublicFunction(block, _).
+IsFunctionEntry(block) :- postTrans.PublicFunction(block, _).
 IsFunctionEntry(FUNCTION_SELECTOR).
 IsFunctionEntry(func) :- IsFunctionCallReturn(_, func, _, _).
 
 .decl IsFunctionCall(block:Block, func:Block)
    
 IsFunctionCall(prev, func) :-
-  PublicFunction(func, sigHash),
-  BlockComparesSig(prev, sigHash).
+   postTrans.PublicFunctionJump(prev, sigHash),
+   postTrans.PublicFunction(func, sigHash).
 
 // Use the precise version here!
 IsFunctionCall(block, func) :-
@@ -496,7 +446,7 @@ IRBlock_VarString(irblock, irFunc),
 IRStatement_Block(irstmt, irblock),
 Statement_IRStatement(stmt, func, irstmt) :-
   BlockToClone(block, func),
-  Statement_Block(stmt, block),
+  postTrans.Statement_Block(stmt, block),
   Block_IRBlock(block, func, irblock),
   Function_IRFunction(func, irFunc),
   irstmt = FRESH_IRSTATEMENT(stmt, func).
@@ -507,17 +457,17 @@ IRStatement_Block(irstmt, irblock),
 Statement_IRStatement(stmt, func, irstmt) :-
   Block_IRBlock(block, func, irblock),
   !BlockToClone(block, func),
-  Statement_Block(stmt, block),
+  postTrans.Statement_Block(stmt, block),
   irstmt = STATEMENT_TO_IRSTATEMENT(stmt).
 
 .decl IRStatementNum(stmt: IRStatement, num: number)
 IRStatementNum(irstmt, num) :-
-  _StatementNum(stmt, num),
+  postTrans._StatementNum(stmt, num),
   Statement_IRStatement(stmt, _, irstmt).
 
 .decl IRTACNOP(stmt: IRStatement)
 IRTACNOP(irstmt) :-
-  TACNOP(stmt),
+  postTrans.TACNOP(stmt),
   Statement_IRStatement(stmt, _, irstmt).
 
 /***********
@@ -528,52 +478,38 @@ IRTACNOP(irstmt) :-
 FunctionCallStmt(irstmt) :-
   Block_IRBlock(block, func, irblock),
   IRFunctionCall(irblock, _),
-  BasicBlock_Tail(block, stmt),
+  postTrans.BasicBlock_Tail(block, stmt),
   Statement_IRStatement(stmt, func, irstmt).
 
 .decl FunctionReturnStmt(irstmt: IRStatement)
 FunctionReturnStmt(irstmt) :-
   Block_IRBlock(block, func, irblock),
   IRFunction_Return(_, irblock),
-  BasicBlock_Tail(block, stmt),
+  postTrans.BasicBlock_Tail(block, stmt),
   Statement_IRStatement(stmt, func, irstmt).
 
 .decl IRStatement_Opcode(stmt: IRStatement, op: Opcode)
 IRStatement_Opcode(irstmt, op) :-
-  Statement_Opcode(stmt, op),
+  postTrans.Statement_Opcode(stmt, op),
   Statement_IRStatement(stmt, _, irstmt),
   !FunctionCallStmt(irstmt),
   !FunctionReturnStmt(irstmt).
 
-IRStatement_Opcode(irstmt, "CALLPRIVATEI") :-
-  Statement_IRStatement(stmt, _, irstmt),
-  JUMPI(stmt),
-  FunctionCallStmt(irstmt).
-
 IRStatement_Opcode(irstmt, "CALLPRIVATE") :-
-  Statement_IRStatement(stmt, _, irstmt),
-  !JUMPI(stmt),
   FunctionCallStmt(irstmt).
-
-IRStatement_Opcode(irstmt, "RETURNPRIVATEI") :-
-  Statement_IRStatement(stmt, _, irstmt),
-  JUMPI(stmt),
-  FunctionReturnStmt(irstmt).
 
 IRStatement_Opcode(irstmt, "RETURNPRIVATE") :-
-  Statement_IRStatement(stmt, _, irstmt),
-  JUMP(stmt),
   FunctionReturnStmt(irstmt).
 
 .decl IRIsJump(stmt: IRStatement)
 IRIsJump(irstmt) :-
-  IsJump(stmt),
+  postTrans.IsJump(stmt),
   Statement_IRStatement(stmt, _, irstmt).
 
 
 .decl IRBasicBlock_Tail(block: IRBlock, tail: IRStatement)
 IRBasicBlock_Tail(irblock, irtail) :-
-  BasicBlock_Tail(block, tail),
+  postTrans.BasicBlock_Tail(block, tail),
   Block_IRBlock(block, func, irblock),
   Statement_IRStatement(tail, func, irtail),
   IRStatement_Block(irtail, irblock).
@@ -584,37 +520,37 @@ IRBasicBlock_Tail(irblock, irtail) :-
 .decl IRBlockStackDelta(from: IRBlock, stackDelta: StackIndex)
 
 IRBlockPopDelta(irblock, n) :-
-  BlockPopDelta(block, n),
+  postTrans.BlockPopDelta(block, n),
   Block_IRBlock(block, _, irblock).
 
 IRBlockStackDelta(irblock, stackDelta) :-
-  BlockStackDelta(block, stackDelta),
+  postTrans.BlockStackDelta(block, stackDelta),
   Block_IRBlock(block, _, irblock).
 
 .decl IRStatement_Uses_Local(stmt: IRStatement, varOrStackIndex: VariableOrStackIndex, n: StackIndex)
 IRStatement_Uses_Local(irstmt, varOrStackIndex, n) :-
-  Statement_Uses_Local(stmt, varOrStackIndex, n),
+  postTrans.Statement_Uses_Local(stmt, varOrStackIndex, n),
   Statement_IRStatement(stmt, _, irstmt).
 
 .decl IRBeforeLocalStackContents(stmt: IRStatement, n:StackIndex, varOrStackIndex:VariableOrStackIndex)
 IRBeforeLocalStackContents(irstmt, n, varOrStackIndex) :-
-  BeforeLocalStackContents(stmt, n, varOrStackIndex),
+  postTrans.BeforeLocalStackContents(stmt, n, varOrStackIndex),
   Statement_IRStatement(stmt, _, irstmt).
 
 .decl IRLocalStackContents(stmt: IRStatement, n:StackIndex, varOrStackIndex:VariableOrStackIndex)
 IRLocalStackContents(irstmt, n, varOrStackIndex) :-
-  LocalStackContents(stmt, n, varOrStackIndex),
+  postTrans.LocalStackContents(stmt, n, varOrStackIndex),
   Statement_IRStatement(stmt, _, irstmt).
 
 .decl IRThrowJump(irstmt: IRStatement)
 IRThrowJump(irstmt) :-
-  ThrowJump(stmt),
+  postTrans.ThrowJump(stmt),
   Statement_IRStatement(stmt, _, irstmt).
 
 .decl IRBlock_Gas(irblock: IRBlock, gas: number)
 IRBlock_Gas(irblock, gas) :-
   Block_IRBlock(block, _, irblock),
-  Block_Gas(block, gas).
+  postTrans.Block_Gas(block, gas).
 
 
 /***********
@@ -623,9 +559,7 @@ IRBlock_Gas(irblock, gas) :-
 
 // New Instructions
 // CALLPRIVATE(stmt, function)
-// CALLPRIVATEI(stmt, cond, function)
 // RETURNPRIVATE(stmt)
-// RETURNPRIVATEI(stmt, cond)
 
 .decl NumberOfFunctionArguments(func: IRFunction, num: StackIndex)
 .decl NumberOfFunctionReturnArguments(func: IRFunction, num: StackIndex)
@@ -860,8 +794,6 @@ NumberOfFunctionReturnArguments(func, n) :-
   n = max m : PossibleNumberOfFunctionReturnArguments(func, m).
 
 
-
-
 .decl Variable_String(var:Variable, var_rep:symbol)
 
 .decl Variable_Stmt_String(var:Variable, stmt: IRStatement, var_rep:symbol) inline
@@ -889,7 +821,7 @@ Variable_Block_String(var, block, res) :-
 
 
 Variable_String(var, var_rep) :-
-   Statement_Defines(var_rep, var).
+   postTrans.Statement_Defines(var_rep, var).
 
 Variable_String(var, cat(func, cat("arg", @number_to_hex(n)))),
 FunctionArgument(func, n, var) :-
@@ -1024,16 +956,16 @@ FunctionalStatement_Uses_Local(stmt, varOrStackIndex, n) :-
   IRBeforeLocalStackContents(stmt, n, varOrStackIndex).
 
 FunctionalStatement_Uses_Local(irstmt, varOrStackIndex, n) :-
-   Statement_Uses_Local(stmt, varOrStackIndex, n),
+   postTrans.Statement_Uses_Local(stmt, varOrStackIndex, n),
    Statement_IRStatement(stmt, _, irstmt).
 
 FunctionalStatement_Uses(irstmt, var, n) :-
-   Statement_Uses_Local(stmt, var, n),
+   postTrans.Statement_Uses_Local(stmt, var, n),
    CheckIsVariable(var),
    Statement_IRStatement(stmt, _, irstmt).
 
 FunctionalStatement_Defines(irstmt, newVar, 0) :-
-   Statement_Defines(stmt, newVar),
+   postTrans.Statement_Defines(stmt, newVar),
    Statement_IRStatement(stmt, _, irstmt).
 
 // Case: variable originates elsewhere
@@ -1046,6 +978,8 @@ FunctionalStatement_Uses(stmt, var, n) :-
 .decl PublicFunctionSignature(hex_signature: Value, text_signature: symbol)
 .input PublicFunctionSignature
 
+PublicFunctionSignature("0x00000000", "fallback()").
+
 .decl HighLevelFunctionName(func: IRFunction, name: symbol)
 
 // Standardize public function signature length
@@ -1056,11 +990,11 @@ SighashIntermediate(sigIn, cat("0x0",substr(sigOut,2,8))) :-
    strlen(sigOut) < 10.
 
 SighashIntermediate(sig, sig) :-
-   PublicFunction(_, sig).
+   postTrans.PublicFunction(_, sig).
 
 .decl IRPublicFunction(irfunc: IRFunction, sigHash: Value)
 IRPublicFunction(irfunc, sigHash) :-
-  PublicFunction(func, sigHash),
+  postTrans.PublicFunction(func, sigHash),
   Function_IRFunction(func, irfunc).
   
 .decl PublicFunction_HighLevel(func: IRFunction, sigHashOut: symbol)
