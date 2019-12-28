@@ -11,13 +11,8 @@
 .output PossibleReturnAddress // DEBUG
 .output IsFunctionCallReturn // DEBUG
 .output IsFunctionEntry, IsFunctionCall, BlockToClone, MaybeInFunction // DEBUG
-.output PossibleFunctionEdgePopAndStackDeltaBypassing
 .output PossibleImpreciseNumberOfFunctionArguments
 
-.output EdgePopDelta
-.output EdgeStackDelta
-.output PossibleFunctionEdgePopDelta
-.output PossibleFunctionEdgeStackDelta
 .output PossibleNumberOfFunctionArguments
 .output PossibleNumberOfFunctionReturnArguments
 .output PossibleCombinedNumberOfFunctionReturnsAndArguments
@@ -417,13 +412,6 @@ DeadStmt(irstmt):-
   IRStatement_Block(irstmt, irblk),
   DeadBlock(irblk).
 
-.decl EnhancedLocalBlockEdge(from: IRBlock, to: IRBlock)
-EnhancedLocalBlockEdge(from, to) :- LocalBlockEdge(from, to).
-
-// Add "invalid" transitions to exit points, including returns, throws, and calls with no return
-EnhancedLocalBlockEdge(from, "invalid") :- IRInFunction(from, _), !LocalBlockEdge(from, _).
-EnhancedLocalBlockEdge(from, "invalid") :- IRFunction_Return(_, from).
-
 //
 // The next few are mostly direct translations of concepts from the
 // standard TAC IR to the Functional IR.
@@ -574,40 +562,28 @@ IRBlock_Gas(irblock, gas) :-
 // should be taken for conditional calls.
 
 // How many (max) elements are popped from the stack during this block transition?
-.decl EdgePopDelta(from: IRBlock, to: IRBlock, delta: StackIndex)
+.decl FunctionalBlockPopDelta(from: IRBlock, delta: StackIndex)
 
-// The edge itself is not a call, nor return, nor throw. The final
-// statement *may* be a conditional call or return, though.
-EdgePopDelta(from, to, delta) :-
-  IRBlockEdge(from, to),
-  IRBlockPopDelta(from, delta).
+// Not a function call case
+FunctionalBlockPopDelta(from, delta) :-
+  IRBlockPopDelta(from, delta),
+  !IRFunctionCall(from, _).
 
-// The edge (not just the statement, which may be a conditional) is a return or
-// a throw. Not a non-returning call (which would also be an edge to "invalid").
-EdgePopDelta(from, "invalid", delta) :-
-  EnhancedLocalBlockEdge(from, "invalid"),
-  !IRFunctionCall(from, _), 
-  IRBlockPopDelta(from, delta).
-
-// The edge is a call. Same handling for with and without return.
-// Surprisingly, we can still compute the high watermark of how many
-// stack slots will be consumed.
 
 // The function needs n args, the caller block pops m and leaves the
 // stack with d more than it found. This means n-d of the arguments
 // are above the stack line the block got when it started.
 
-// Case 1: If n-d >= m, then the combination block+call edge consumes
+// Case 1: If n-d >= m, then the combination block+call consumes
 // (max) n-d stack elements, relative to the stack level at beginning
 // of the caller block.
-// Case 2: If n-d < m, then the combination block+call edge consumes m
+// Case 2: If n-d < m, then the combination block+call consumes m
 // stack elements, relative to the stack level at beginning of the
 // caller block.
-EdgePopDelta(from, to, newPopDelta) :-
-  EnhancedLocalBlockEdge(from, to),
+FunctionalBlockPopDelta(from, newPopDelta) :-
+  IRBlockPopDelta(from, popDelta),
   IRFunctionCall(from, func),
   PossibleImpreciseNumberOfFunctionArguments(func, n_args),
-  IRBlockPopDelta(from, popDelta),
   IRBlockStackDelta(from, stackDelta),
   tempPopDelta = n_args-stackDelta,
   tempPopDelta < MAX_STACK_HEIGHT,
@@ -615,24 +591,17 @@ EdgePopDelta(from, to, newPopDelta) :-
    (tempPopDelta < popDelta, newPopDelta = popDelta)).
 
 
-// What is the total difference in stack level during this block transition?
-.decl EdgeStackDelta(from: IRBlock, to: IRBlock, delta: StackIndex)
+// What is the total difference in stack level during this block ?
+.decl FunctionalBlockStackDelta(from: IRBlock, delta: StackIndex)
 
-// Not a call edge, nor return.
-EdgeStackDelta(from, to, stackDelta) :-
-  IRBlockEdge(from, to),
+// Not a call
+FunctionalBlockStackDelta(from, stackDelta) :-
+  !IRFunctionCall(from, _),
   IRBlockStackDelta(from, stackDelta).
 
-// It's a return or throw edge
-EdgeStackDelta(from, "invalid", delta) :-
-  EnhancedLocalBlockEdge(from, "invalid"),
-  !IRFunctionCall(from, _), 
-  IRBlockStackDelta(from, delta).
-
 // It's a call-with-return edge
-EdgeStackDelta(from, to, newStackDelta) :-
-  EnhancedLocalBlockEdge(from, to),
-  IRFunctionCallReturn(from, func, to),
+FunctionalBlockStackDelta(from, newStackDelta) :-
+  IRFunctionCallReturn(from, func, _),
   IRFunction_Return(func, ret),
   PossibleCombinedNumberOfFunctionReturnsAndArguments(func, ret, n_args, n_ret),
   IRBlockStackDelta(from, stackDelta),
@@ -643,6 +612,38 @@ EdgeStackDelta(from, to, newStackDelta) :-
 // What about calls with no return? These don't get back to the
 // caller, so we never care about the level they leave the stack at,
 // only about how deep in it they went.
+.decl Postdominator(post: IRBlock, block: IRBlock, n: number)
+
+Postdominator(block, block, 0) :-
+   IRInFunction(block, _).
+
+Postdominator(postnext, block, n+1) :-
+   Postdominator(post, block, n),
+   LocalBlockEdge(post, postnext),
+   !ControlSplit(post).
+
+.decl ControlSplit(block: IRBlock)
+
+ControlSplit(block) :-
+   LocalBlockEdge(block, next),
+   LocalBlockEdge(block, next2),
+   next != next2.
+
+.decl MaxPostdominator(block: IRBlock, n: number)
+
+MaxPostdominator(block, n) :-
+   IRInFunction(block, _),
+   n = max m : Postdominator(_, block, m).
+
+
+// THIS IS NOT A POSTDOMATOR FRONTIER
+// but I don't know what to call it, and perhaps
+// it can be replaced with a real postdominator frontier
+.decl PostdominatorFrontier(post: IRBlock, block: IRBlock)
+
+PostdominatorFrontier(post, block) :-
+   Postdominator(post, block, n),
+   MaxPostdominator(block, n).
 
 
 // What's the total pop and stack delta since the beginning of the
@@ -652,28 +653,21 @@ EdgeStackDelta(from, to, newStackDelta) :-
 // need to ensure both cumulative deltas are true for the *same* path,
 // not just different paths to the same end node. This makes for
 // complex rules.
-.decl PossibleFunctionEdgePopAndStackDeltaBypassing(func: IRFunction, to: IRBlock, pathHash: number, bypass: IRBlock, popDelta: StackIndex, stackDelta: StackIndex)
+.decl PossibleFunctionEdgePopAndStackDeltaBypassing(func: IRFunction, from: IRBlock, pathHash: number, bypass: IRBlock, popDelta: StackIndex, stackDelta: StackIndex)
 
 // Another auxiliary for optimization: avoid join in key innermost loop
-.decl EdgePopAndStackDelta(from: IRBlock, to:IRBlock, popDelta:StackIndex, stackDelta:StackIndex)
-EdgePopAndStackDelta(from, to, popDelta, stackDelta) :-
-  EdgePopDelta(from, to, popDelta),
-  EdgeStackDelta(from, to, stackDelta).
- .plan 1:(2,1)
+.decl FunctionalBlockPopAndStackDelta(from: IRBlock, popDelta:StackIndex, stackDelta:StackIndex)
+FunctionalBlockPopAndStackDelta(from, popDelta, stackDelta) :-
+  FunctionalBlockPopDelta(from, popDelta),
+  FunctionalBlockStackDelta(from, stackDelta).
+.plan 1:(2,1)
 
-// There is a hack here for disabling the exponential computation in
-// this predicate, when in DisableCostlyAlgorithms mode. Specifically,
-// we don't check that the path bypasses specific nodes: the bypass
-// variable is given a dummy value (same as end node) and does not
-// preclude path extension. That is, if there is a path to a node
-// and an edge coming out of that node, the edge is considered to always
-// be a valid extension of the path.
-PossibleFunctionEdgePopAndStackDeltaBypassing(from, from, ord(from), bypass, 0, 0) :-
+
+PossibleFunctionEdgePopAndStackDeltaBypassing(from, from, ord(from), post, 0, 0) :-
   IRFunctionEntry(from),
-  (IRInFunction(bypass, from);
-   bypass = "invalid"),
-  ((EnableCostlyAlgorithms(), bypass != from);
-   (DisableCostlyAlgorithms(), bypass = from)).
+  IRInFunction(bypass, from),
+  bypass != from,
+  PostdominatorFrontier(post, bypass).
 
 // Here's the neat hack: there is no guarantee there is a path that
 // skips both "to" and "bypass". But if we find one that skips
@@ -683,52 +677,35 @@ PossibleFunctionEdgePopAndStackDeltaBypassing(from, from, ord(from), bypass, 0, 
 // blocks. There needs to always be one extra (bypassed) node for the
 // rule to match and to extend the path by one more node. But
 // thankfully we have "invalid" nodes.
-PossibleFunctionEdgePopAndStackDeltaBypassing(func, to, newPathHash, newBypass, newPopDelta, newStackDelta) :-
+PossibleFunctionEdgePopAndStackDeltaBypassing(func, to, newPathHash, bypass, newPopDelta, newStackDelta) :-
   PossibleFunctionEdgePopAndStackDeltaBypassing(func, from, prevPathHash, bypass, _, _),
   OptPossibleEdgeExtension(func, from, prevPathHash, to, newPopDelta, newStackDelta),
-  ((EnableCostlyAlgorithms(),
-    newPathHash = prevPathHash + (ord(to)) + 3*(newPopDelta bxor (7*newStackDelta)),
-    to != bypass,
-    newBypass = bypass)  // the real, exponential, algorithm
-   ;
-   (DisableCostlyAlgorithms(),
-    newPathHash = prevPathHash,
-    newBypass = to)).  // short-circuit everything to yield a cheap polynomial algorithm
- .plan 1:(2,1,3)
+  newPathHash = prevPathHash + (ord(to)) + 3*(newPopDelta bxor (7*newStackDelta)),
+  to != bypass.
 
 // Inline the auxiliary relations to understand the complex rule above.
 .decl OptPossibleEdgeExtension(func: IRFunction, from: IRBlock, prevPathHash: number, to: IRBlock, newPopDelta: StackIndex, newStackDelta: StackIndex)
-OptPossibleEdgeExtension(func, from, prevPathHash, to, newPopDelta, newStackDelta) :-
+OptPossibleEdgeExtension(func, from, prevPathHash, bypass, newPopDelta, newStackDelta) :-
   PossibleFunctionEdgePopAndStackDeltaBypassing(func, from, prevPathHash, bypass, prevPopDelta, prevStackDelta),
-  EdgePopAndStackDelta(from, to, popDelta, stackDelta),
-  ((EnableCostlyAlgorithms(), to = bypass);
-   DisableCostlyAlgorithms()),
+  LocalBlockEdge(from, to),
+  PostdominatorFrontier(bypass, to),
+  FunctionalBlockPopAndStackDelta(from, popDelta, stackDelta),
   StackSimulationLimit(limit),
   tempPopDelta = popDelta - prevStackDelta,
   ((tempPopDelta > prevPopDelta, newPopDelta = tempPopDelta);
    (tempPopDelta <= prevPopDelta, newPopDelta = prevPopDelta)),
   tempPopDelta < limit,
-  tempPopDelta > -limit, // should be unnecessary
   newStackDelta = stackDelta + prevStackDelta,
   newStackDelta < limit,
   newStackDelta > -limit.
- .plan 1:(2,1,3,4)
-
+ .plan 1:(4,2,3,1,5)
+  
 // HACK: Use the context-sensitivity metric to determine whether we can afford to do
 // a stack simulation up to maximum depth, or we should limit it to something much more
 // modest.
 .decl StackSimulationLimit(n: StackIndex)
 StackSimulationLimit(depth) :-
-  (EnableCostlyAlgorithms(), depth = MAX_STACK_HEIGHT);
-  (DisableCostlyAlgorithms(), depth = MAX_STACK_HEIGHT / 2).
-
-
-.decl PossibleFunctionEdgePopDelta(func: IRFunction, to: IRBlock, delta: StackIndex)
-.decl PossibleFunctionEdgeStackDelta(func: IRFunction, to: IRBlock, delta: StackIndex)
-
-PossibleFunctionEdgePopDelta(func, to, popDelta),
-PossibleFunctionEdgeStackDelta(func, to, stackDelta) :-
-  PossibleFunctionEdgePopAndStackDeltaBypassing(func, to, _, _, popDelta, stackDelta).
+  depth = MAX_STACK_HEIGHT.
 
 
 // Combine both relative to a single terminal point, for precision.
@@ -739,7 +716,7 @@ PossibleFunctionEdgeStackDelta(func, to, stackDelta) :-
 
 PossibleCombinedNumberOfFunctionReturnsAndArguments(func, terminal, numArg, numRet) :-
   PossibleFunctionEdgePopAndStackDeltaBypassing(func, terminal, _, _, prevPopDelta, prevStackDelta),
-  EdgePopAndStackDelta(terminal, "invalid", popDelta, stackDelta),
+  FunctionalBlockPopAndStackDelta(terminal, popDelta, stackDelta),
   StackSimulationLimit(limit),
   newPopDelta = popDelta - prevStackDelta,
   newPopDelta < limit,
@@ -767,8 +744,8 @@ PossibleImpreciseNumberOfFunctionArguments(func, numArg) :-
 
 // Either a call with no return, or a return, or a throw: all are valid
 PossibleNumberOfFunctionArguments(func, n) :-
-  EnhancedLocalBlockEdge(block, "invalid"),
   IRInFunction(block, func),
+  !LocalBlockEdge(block, _),
   n = min numArg: PossibleCombinedNumberOfFunctionReturnsAndArguments(func, block, numArg, _).
 
 PossibleNumberOfFunctionReturnArguments(func, n) :-
@@ -853,12 +830,10 @@ FunctionReturnArgumentIndices(func, n) :-
   NumberOfFunctionReturnArguments(func, n_args),
   IsStackIndexLessThan(n, n_args).
 
-
-
 // Renaming variables in functions
 // Involves Propagating variables, but doesn't require re-computing the CFG
 .decl FunctionalBlockInputContents(block:IRBlock, index:number, var:Variable)
-.decl FunctionalBlockOutputContents(block:IRBlock, next: IRBlock, index:number, var:Variable)
+.decl FunctionalBlockOutputContents(block:IRBlock, index:number, var:Variable)
 
 FunctionalBlockInputContents(entry, n, var) :-
    IRFunctionEntry(entry),
@@ -866,38 +841,29 @@ FunctionalBlockInputContents(entry, n, var) :-
    FunctionArgument(func, n, var).
 
 FunctionalBlockInputContents(next, index, variable) :-
-  FunctionalBlockOutputContents(_, next, index, variable).
+   FunctionalBlockOutputContents(from, index, variable),
+   LocalBlockEdge(from, next).
 
 // IMPORTANT: Although this code is probably correct, representing values
 // per edge is wasteful. Confirmed.
 // Is the per-edge representation equivalent to jump-site sensitivity?
 
 // 1) Normal block to block flow, i.e. no unconditional function calls from block to block
-FunctionalBlockOutputContents(block, next, index, variable) :-
+FunctionalBlockOutputContents(block, index, variable) :-
   BeforeFunctionCallFunctionalBlockOutputContents(block, index, variable),
-  EnhancedLocalBlockEdge(block, next),
+  LocalBlockEdge(block, next),
   IRBlockEdge(block, next).
 
-// 2) Same, but for return blocks
-FunctionalBlockOutputContents(block, next, index, variable) :-
-   BeforeFunctionCallFunctionalBlockOutputContents(block, index, variable),
-   EnhancedLocalBlockEdge(block, next),
-   !IRFunctionCall(block, _).
+// 2) First block calls a function, take return args from function call
 
-// 3) First block calls a function, take return args from function call
+FunctionalBlockOutputContents(caller, n, newVar) :-
+   FunctionCallReturnArgument(caller, n, newVar).
 
-FunctionalBlockOutputContents(caller, next, n, newVar) :-
-   FunctionCallReturnArgument(caller, n, newVar),
-   // Note, we can ignore the exact identity of the called function,
-   // As fresh variables will be the same, we only care about the number of
-   // return arguments. With more sophisticated analysis, this could change.
-   IRFunctionCallReturn(caller, _, next).
-
-// 4) First block calls a function, take any remaining variables that have
+// 3) First block calls a function, take any remaining variables that have
 //    not been passed as arguments, and shift
-FunctionalBlockOutputContents(caller, next, newIndex, variable) :-
+FunctionalBlockOutputContents(caller, newIndex, variable) :-
    BeforeFunctionCallFunctionalBlockOutputContents(caller, index, variable),
-   IRFunctionCallReturn(caller, func, next),
+   IRFunctionCallReturn(caller, func, _),
 //   PossibleCombinedNumberOfFunctionReturnsAndArguments(func, n_in, n_out),
 ////REVIEW
    NumberOfFunctionReturnArguments(func, n_out),
