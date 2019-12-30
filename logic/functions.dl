@@ -629,6 +629,13 @@ ControlSplit(block) :-
    LocalBlockEdge(block, next2),
    next != next2.
 
+.decl ControlJoin(block: IRBlock)
+
+ControlJoin(next) :-
+   LocalBlockEdge(block1, next),
+   LocalBlockEdge(block2, next),
+   block1 != block2.
+
 .decl MaxPostdominator(block: IRBlock, n: number)
 
 MaxPostdominator(block, n) :-
@@ -636,15 +643,20 @@ MaxPostdominator(block, n) :-
    n = max m : Postdominator(_, block, m).
 
 
-// THIS IS NOT A POSTDOMATOR FRONTIER
+// THIS IS NOT REALLY POSTDOMINATOR FRONTIER
 // but I don't know what to call it, and perhaps
 // it can be replaced with a real postdominator frontier
 .decl PostdominatorFrontier(post: IRBlock, block: IRBlock)
+
 
 PostdominatorFrontier(post, block) :-
    Postdominator(post, block, n),
    MaxPostdominator(block, n).
 
+
+//PostdominatorFrontier(block, block) :- IRInFunction(block, _).
+
+PostdominatorFrontier("invalid", "invalid").
 
 // What's the total pop and stack delta since the beginning of the
 // function for (probably) cycle-free paths? Clearly these can have
@@ -663,12 +675,15 @@ FunctionalBlockPopAndStackDelta(from, popDelta, stackDelta) :-
 .plan 1:(2,1)
 
 
-PossibleFunctionEdgePopAndStackDeltaBypassing(from, from, ord(from), post, 0, 0) :-
+PossibleFunctionEdgePopAndStackDeltaBypassing(from, from, ord(from), bypass, 0, 0) :-   
   IRFunctionEntry(from),
-  IRInFunction(bypass, from),
-  bypass != from,
-  PostdominatorFrontier(post, bypass).
+  (IRInFunction(bypass, from); bypass = "invalid"),
+  PostdominatorFrontier(frompost, from),
+  PostdominatorFrontier(bypass, _), frompost != bypass.
 
+//PossibleFunctionEdgePopAndStackDeltaBypassing(func, from, pathHash, "invalid", popDelta, stackDelta) :-
+//  PossibleFunctionEdgePopAndStackDeltaBypassing(func, from, pathHash, _, popDelta, stackDelta).
+   
 // Here's the neat hack: there is no guarantee there is a path that
 // skips both "to" and "bypass". But if we find one that skips
 // "bypass" and another that skips "to" and they both have the same
@@ -680,16 +695,17 @@ PossibleFunctionEdgePopAndStackDeltaBypassing(from, from, ord(from), post, 0, 0)
 PossibleFunctionEdgePopAndStackDeltaBypassing(func, to, newPathHash, bypass, newPopDelta, newStackDelta) :-
   PossibleFunctionEdgePopAndStackDeltaBypassing(func, from, prevPathHash, bypass, _, _),
   OptPossibleEdgeExtension(func, from, prevPathHash, to, newPopDelta, newStackDelta),
-  newPathHash = prevPathHash + (ord(to)) + 3*(newPopDelta bxor (7*newStackDelta)),
-  to != bypass.
+  !PostdominatorFrontier(bypass, to),
+  newPathHash = prevPathHash + (ord(to)) + 3*(newPopDelta bxor (7*newStackDelta)).
+  .plan 1:(2,1)
 
 // Inline the auxiliary relations to understand the complex rule above.
 .decl OptPossibleEdgeExtension(func: IRFunction, from: IRBlock, prevPathHash: number, to: IRBlock, newPopDelta: StackIndex, newStackDelta: StackIndex)
-OptPossibleEdgeExtension(func, from, prevPathHash, bypass, newPopDelta, newStackDelta) :-
+OptPossibleEdgeExtension(func, from, prevPathHash, to, newPopDelta, newStackDelta) :-
   PossibleFunctionEdgePopAndStackDeltaBypassing(func, from, prevPathHash, bypass, prevPopDelta, prevStackDelta),
   LocalBlockEdge(from, to),
   PostdominatorFrontier(bypass, to),
-  FunctionalBlockPopAndStackDelta(from, popDelta, stackDelta),
+  FunctionalBlockPopAndStackDelta(from, popDelta, stackDelta),                                              
   StackSimulationLimit(limit),
   tempPopDelta = popDelta - prevStackDelta,
   ((tempPopDelta > prevPopDelta, newPopDelta = tempPopDelta);
@@ -699,15 +715,26 @@ OptPossibleEdgeExtension(func, from, prevPathHash, bypass, newPopDelta, newStack
   newStackDelta < limit,
   newStackDelta > -limit.
  .plan 1:(4,2,3,1,5)
-  
+
+
+.decl FunctionEdgePopDeltaExists(func: IRBlock, block: IRBlock)
+.output FunctionEdgePopDeltaExists
+
+.decl FunctionPopDeltaExists(func: IRBlock)
+.output FunctionPopDeltaExists
+
+FunctionPopDeltaExists(func),
+FunctionEdgePopDeltaExists(func, block) :-
+  PossibleFunctionEdgePopAndStackDeltaBypassing(func, block, _, _, _, _).
+
 // HACK: Use the context-sensitivity metric to determine whether we can afford to do
 // a stack simulation up to maximum depth, or we should limit it to something much more
 // modest.
-.decl StackSimulationLimit(n: StackIndex)
+.decl StackSimulationLimit(n: StackIndex)                               
 StackSimulationLimit(depth) :-
   depth = MAX_STACK_HEIGHT.
 
-
+                                                                  
 // Combine both relative to a single terminal point, for precision.
 // We need to go one edge back to make sure it's a terminal point
 // (return, call-with-no-return, or throw, possibly conditionally),
