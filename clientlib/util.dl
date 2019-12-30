@@ -53,3 +53,43 @@
 .functor shr_256(symbol,symbol):symbol
 .functor sar_256(symbol,symbol):symbol
 .functor not_256(symbol):symbol
+
+.comp DominanceFrontier<NodeType> {
+    .decl Entry(entry: NodeType)
+    .decl Node(node: NodeType)
+    .decl Edge(u: NodeType, v: NodeType)
+
+    .decl DoesNotDominate(prev: NodeType, next:NodeType)
+    // The entry node can only be dominated by itself
+    DoesNotDominate(nDom, entry) :-
+        Entry(entry),
+        Node(nDom),
+        nDom != entry.
+
+    // Does not dominate is transitive, modulo self-loops
+    DoesNotDominate(nDom, node) :-
+        DoesNotDominate(nDom, other),
+        Edge(other, node),
+        nDom != node.
+
+    .decl Dominates(dom: NodeType, node: NodeType)
+    Dominates(dom, node) :-
+       Node(dom),
+       Node(node),
+       !DoesNotDominate(dom, node).
+
+    .decl StrictlyDominates(dom: NodeType, node: NodeType)
+    StrictlyDominates(dom, node) :-
+        Dominates(dom, node),
+        dom != node.
+
+    // Textbook definition:
+    // node is in the dominance frontier of dom, if dom dominates
+    // an immediate predecessor of node and dom does not strictly
+    // dominate node.
+    .decl DominanceFrontier(dom: NodeType, node: NodeType)
+    DominanceFrontier(dom, node) :-
+        Dominates(dom, pred),
+        Edge(pred, node),
+        !StrictlyDominates(dom, node).
+}
