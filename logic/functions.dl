@@ -133,8 +133,6 @@ IsReturn(retBlock, retTarget) :-
 MaybeReturn(retBlock, retTarget) :-
   PossibleReturnAddress(_, retBlock, retTarget).
 
-.output IsReturn
-
 
 // Filtering for sanitization. The logic following can be arbitrarily
 // restrictive. We have all potential calls and all returns, now we
@@ -373,7 +371,6 @@ IRBlockPath(irfrom, irto):-
   IRBlockPath(irmid, irto).
 
 .decl ReachableFromFunHead(irblk:IRBlock)
-.output ReachableFromFunHead, Block_IRBlock
 
 ReachableFromFunHead(irblk):-
   Block_IRBlock(_, func, irblk),
@@ -381,7 +378,7 @@ ReachableFromFunHead(irblk):-
   IRBlockPath(irfunHead, irblk).
 
 .decl InvalidIRBlockEdge(from: IRBlock, to: IRBlock)
-.output InvalidIRBlockEdge
+
 InvalidIRBlockEdge(irfrom, irto):-
   IRBlockEdge(irfrom, irto),
   !ReachableFromFunHead(irto).
@@ -407,7 +404,6 @@ DeadBlock(irblk):-
   Block_IRBlock(_, _, irblk),
   !ReachableFromFunHead(irblk).
 
-.output DeadStmt, DeadBlock
 DeadStmt(irstmt):-
   IRStatement_Block(irstmt, irblk),
   DeadBlock(irblk).
@@ -612,15 +608,15 @@ FunctionalBlockStackDelta(from, newStackDelta) :-
 // What about calls with no return? These don't get back to the
 // caller, so we never care about the level they leave the stack at,
 // only about how deep in it they went.
-.decl Postdominator(post: IRBlock, block: IRBlock, n: number)
+.decl Dominator(post: IRBlock, block: IRBlock, n: number)
 
-Postdominator(block, block, 0) :-
+Dominator(block, block, 0) :-
    IRInFunction(block, _).
 
-Postdominator(postnext, block, n+1) :-
-   Postdominator(post, block, n),
-   LocalBlockEdge(post, postnext),
-   !ControlSplit(post).
+Dominator(domprev, block, n+1) :-
+   Dominator(dom, block, n),
+   LocalBlockEdge(domprev, dom),
+   !ControlJoin(dom).
 
 .decl ControlSplit(block: IRBlock)
 
@@ -636,27 +632,39 @@ ControlJoin(next) :-
    LocalBlockEdge(block2, next),
    block1 != block2.
 
-.decl MaxPostdominator(block: IRBlock, n: number)
+.decl MaxDominator(block: IRBlock, n: number)
 
-MaxPostdominator(block, n) :-
+MaxDominator(block, n) :-
    IRInFunction(block, _),
-   n = max m : Postdominator(_, block, m).
+   n = max m : Dominator(_, block, m).
 
 
-// THIS IS NOT REALLY POSTDOMINATOR FRONTIER
-// but I don't know what to call it, and perhaps
-// it can be replaced with a real postdominator frontier
-.decl PostdominatorFrontier(post: IRBlock, block: IRBlock)
+// THIS IS NOT REALLY A DOMINATOR FRONTIER
+// It's actually this:
+//    (A)
+//     | \
+//    (B) (A')
+//     | \
+//    (C) (B')
+//     | /
+//    (D)
+//    DominatiorFrontier(A, A).
+//    DominatiorFrontier(A, B).
+//    DominatiorFrontier(A, A').
+//    DominatiorFrontier(A, B').
+//    DominatiorFrontier(A, C).
+//    DominatiorFrontier(D, D).
+//
+// I think it can be replaced by a real dominator frontier
+// for better performance.
+.decl DominatorFrontier(post: IRBlock, block: IRBlock)
 
 
-PostdominatorFrontier(post, block) :-
-   Postdominator(post, block, n),
-   MaxPostdominator(block, n).
+DominatorFrontier(post, block) :-
+   Dominator(post, block, n),
+   MaxDominator(block, n).
 
-
-//PostdominatorFrontier(block, block) :- IRInFunction(block, _).
-
-PostdominatorFrontier("invalid", "invalid").
+//DominatorFrontier(block, block) :- IRInFunction(block, _).
 
 // What's the total pop and stack delta since the beginning of the
 // function for (probably) cycle-free paths? Clearly these can have
@@ -665,7 +673,7 @@ PostdominatorFrontier("invalid", "invalid").
 // need to ensure both cumulative deltas are true for the *same* path,
 // not just different paths to the same end node. This makes for
 // complex rules.
-.decl PossibleFunctionEdgePopAndStackDeltaBypassing(func: IRFunction, from: IRBlock, pathHash: number, bypass: IRBlock, popDelta: StackIndex, stackDelta: StackIndex)
+.decl PossibleFunctionEdgePopAndStackDelta(func: IRFunction, from: IRBlock, pathHash: symbol, popDelta: StackIndex, stackDelta: StackIndex)
 
 // Another auxiliary for optimization: avoid join in key innermost loop
 .decl FunctionalBlockPopAndStackDelta(from: IRBlock, popDelta:StackIndex, stackDelta:StackIndex)
@@ -675,57 +683,26 @@ FunctionalBlockPopAndStackDelta(from, popDelta, stackDelta) :-
 .plan 1:(2,1)
 
 
-PossibleFunctionEdgePopAndStackDeltaBypassing(from, from, ord(from), bypass, 0, 0) :-   
-  IRFunctionEntry(from),
-  (IRInFunction(bypass, from); bypass = "invalid"),
-  PostdominatorFrontier(frompost, from),
-  PostdominatorFrontier(bypass, _), frompost != bypass.
+PossibleFunctionEdgePopAndStackDelta(from, from, dom, 0, 0) :-
+  DominatorFrontier(dom, from),
+  IRFunctionEntry(from).
 
-//PossibleFunctionEdgePopAndStackDeltaBypassing(func, from, pathHash, "invalid", popDelta, stackDelta) :-
-//  PossibleFunctionEdgePopAndStackDeltaBypassing(func, from, pathHash, _, popDelta, stackDelta).
-   
-// Here's the neat hack: there is no guarantee there is a path that
-// skips both "to" and "bypass". But if we find one that skips
-// "bypass" and another that skips "to" and they both have the same
-// path hash, we pretend they are the same path.  Note also that this
-// logic doesn't handle paths that include *all* of a function's basic
-// blocks. There needs to always be one extra (bypassed) node for the
-// rule to match and to extend the path by one more node. But
-// thankfully we have "invalid" nodes.
-PossibleFunctionEdgePopAndStackDeltaBypassing(func, to, newPathHash, bypass, newPopDelta, newStackDelta) :-
-  PossibleFunctionEdgePopAndStackDeltaBypassing(func, from, prevPathHash, bypass, _, _),
-  OptPossibleEdgeExtension(func, from, prevPathHash, to, newPopDelta, newStackDelta),
-  !PostdominatorFrontier(bypass, to),
-  newPathHash = prevPathHash + (ord(to)) + 3*(newPopDelta bxor (7*newStackDelta)).
-  .plan 1:(2,1)
-
-// Inline the auxiliary relations to understand the complex rule above.
-.decl OptPossibleEdgeExtension(func: IRFunction, from: IRBlock, prevPathHash: number, to: IRBlock, newPopDelta: StackIndex, newStackDelta: StackIndex)
-OptPossibleEdgeExtension(func, from, prevPathHash, to, newPopDelta, newStackDelta) :-
-  PossibleFunctionEdgePopAndStackDeltaBypassing(func, from, prevPathHash, bypass, prevPopDelta, prevStackDelta),
+PossibleFunctionEdgePopAndStackDelta(func, to, newPathHash, newPopDelta, newStackDelta) :-
+  PossibleFunctionEdgePopAndStackDelta(func, from, prevPathHash, prevPopDelta, prevStackDelta),
   LocalBlockEdge(from, to),
-  PostdominatorFrontier(bypass, to),
   FunctionalBlockPopAndStackDelta(from, popDelta, stackDelta),                                              
   StackSimulationLimit(limit),
+  DominatorFrontier(dom, to),
   tempPopDelta = popDelta - prevStackDelta,
   ((tempPopDelta > prevPopDelta, newPopDelta = tempPopDelta);
    (tempPopDelta <= prevPopDelta, newPopDelta = prevPopDelta)),
   tempPopDelta < limit,
   newStackDelta = stackDelta + prevStackDelta,
   newStackDelta < limit,
-  newStackDelta > -limit.
- .plan 1:(4,2,3,1,5)
+  newStackDelta > -limit,
+  newPathHash = @add_set(prevPathHash, dom),
+  (newPathHash != prevPathHash ; !DominatorFrontier(to, _)).
 
-
-.decl FunctionEdgePopDeltaExists(func: IRBlock, block: IRBlock)
-.output FunctionEdgePopDeltaExists
-
-.decl FunctionPopDeltaExists(func: IRBlock)
-.output FunctionPopDeltaExists
-
-FunctionPopDeltaExists(func),
-FunctionEdgePopDeltaExists(func, block) :-
-  PossibleFunctionEdgePopAndStackDeltaBypassing(func, block, _, _, _, _).
 
 // HACK: Use the context-sensitivity metric to determine whether we can afford to do
 // a stack simulation up to maximum depth, or we should limit it to something much more
@@ -742,7 +719,7 @@ StackSimulationLimit(depth) :-
 .decl PossibleCombinedNumberOfFunctionReturnsAndArguments(func: IRFunction, terminal: IRBlock, numArg: StackIndex, numRet: StackIndex)
 
 PossibleCombinedNumberOfFunctionReturnsAndArguments(func, terminal, numArg, numRet) :-
-  PossibleFunctionEdgePopAndStackDeltaBypassing(func, terminal, _, _, prevPopDelta, prevStackDelta),
+  PossibleFunctionEdgePopAndStackDelta(func, terminal, _, prevPopDelta, prevStackDelta),
   FunctionalBlockPopAndStackDelta(terminal, popDelta, stackDelta),
   StackSimulationLimit(limit),
   newPopDelta = popDelta - prevStackDelta,
