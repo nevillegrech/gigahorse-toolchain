@@ -33,6 +33,10 @@
 .functor hex_to_number(symbol):number
 .functor number_to_hex(number):symbol
 
+.functor in_set(symbol,symbol):number
+.functor add_set(symbol,symbol):symbol
+
+
 .functor add_256(symbol,symbol):symbol
 .functor sub_256(symbol,symbol):symbol
 .functor mul_256(symbol,symbol):symbol
