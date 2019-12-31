@@ -91,7 +91,6 @@ TAC_Variable_Value(tacvar, value) :-
 
 // New Instructions
 // *returnArgs = CALLPRIVATE(stmt, function, *args)
-// *returnArgs = CALLPRIVATEI(cond, stmt, function, *args)
 // RETURNPRIVATE(stmt, *args)
 
 // Non-nop instructions

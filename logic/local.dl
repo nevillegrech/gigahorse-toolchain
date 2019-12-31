@@ -474,6 +474,7 @@ Variable_Value(y, result) :-\
 
 
   .decl Fallback(block: Block)
+  Fallback(b) :- Fallback(b).
   .output Fallback
   
   // Fallback functions

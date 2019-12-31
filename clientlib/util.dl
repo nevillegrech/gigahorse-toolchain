@@ -33,6 +33,10 @@
 .functor hex_to_number(symbol):number
 .functor number_to_hex(number):symbol
 
+.functor in_set(symbol,symbol):number
+.functor add_set(symbol,symbol):symbol
+
+
 .functor add_256(symbol,symbol):symbol
 .functor sub_256(symbol,symbol):symbol
 .functor mul_256(symbol,symbol):symbol
@@ -55,10 +59,12 @@
 .functor not_256(symbol):symbol
 
 .comp DominanceFrontier<NodeType> {
-    .decl Entry(entry: NodeType)
+
+    // Inputs
     .decl Node(node: NodeType)
     .decl Edge(u: NodeType, v: NodeType)
-
+    .decl Entry(entry: NodeType)
+    
     .decl DoesNotDominate(prev: NodeType, next:NodeType)
     // The entry node can only be dominated by itself
     DoesNotDominate(nDom, entry) :-
@@ -92,4 +98,5 @@
         Dominates(dom, pred),
         Edge(pred, node),
         !StrictlyDominates(dom, node).
+
 }
