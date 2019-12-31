@@ -1,4 +1,3 @@
-#define MAX_FUNCTION_ARGS (MAX_STACK_HEIGHT/4)
 #define FRESH_VARIABLE(var, stmt, stackIndex) (IRStatementNum((stmt), _stmtNum), var=-0xFFFF+_stmtNum*MAX_STACK_HEIGHT+(stackIndex))
 
 
@@ -628,7 +627,6 @@ IsImportantBlock(block) :-
 // not just different paths to the same end node. This makes for
 // complex rules.
 .decl PossibleFunctionalBlockPopAndStackDelta(func: IRFunction, from: IRBlock, path: symbol, popDelta: StackIndex, stackDelta: StackIndex)
-.output PossibleFunctionalBlockPopAndStackDelta
 
 // Another auxiliary for optimization: avoid join in key innermost loop
 .decl FunctionalBlockPopAndStackDelta(from: IRBlock, popDelta:StackIndex, stackDelta:StackIndex)
@@ -661,7 +659,7 @@ PossibleFunctionalBlockPopAndStackDelta(func, to, newPath, newPopDelta, newStack
 // modest.
 .decl StackSimulationLimit(n: StackIndex)                               
 StackSimulationLimit(depth) :-
-  depth = MAX_STACK_HEIGHT / 2.
+  depth = MAX_STACK_HEIGHT.
 
                                                                   
 // Combine both relative to a single terminal point, for precision.
