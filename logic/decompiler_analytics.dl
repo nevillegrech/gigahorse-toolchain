@@ -188,22 +188,6 @@ Analytics_FunctionWithMultipleReturns(func) :-
    IRFunction_Return(func, retBlock2),
    retBlock != retBlock2.
 
-
-.decl FunctionReturnBlockPopDelta(func: IRFunction, retBlock: IRBlock, n_in: StackIndex)
-FunctionReturnBlockPopDelta(func, retBlock, n_in) :-
-   Analytics_FunctionWithMultipleReturns(func),
-   IRFunction_Return(func, retBlock),
-   PossibleFunctionEdgePopDelta(retBlock, "invalid", n_in).
-
-// functions with different stack pop depth in different return blocks
-.decl Analytics_FunctionWithMultipleStackDepthsAtReturnBlocks(func: IRFunction)
-.output Analytics_FunctionWithMultipleStackDepthsAtReturnBlocks
-
-Analytics_FunctionWithMultipleStackDepthsAtReturnBlocks(func) :-
-   FunctionReturnBlockPopDelta(func, _, n_in),
-   IRFunction_Return(func, retBlock),
-   !FunctionReturnBlockPopDelta(func, retBlock, n_in).
-
 .decl Analytics_PublicFunction(func: IRFunction)
 .output Analytics_PublicFunction
 
