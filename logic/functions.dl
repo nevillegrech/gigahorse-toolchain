@@ -608,63 +608,17 @@ FunctionalBlockStackDelta(from, newStackDelta) :-
 // What about calls with no return? These don't get back to the
 // caller, so we never care about the level they leave the stack at,
 // only about how deep in it they went.
-.decl Dominator(post: IRBlock, block: IRBlock, n: number)
 
-Dominator(block, block, 0) :-
-   IRInFunction(block, _).
+.decl IsImportantBlock(block: IRBlock)
 
-Dominator(domprev, block, n+1) :-
-   Dominator(dom, block, n),
-   LocalBlockEdge(domprev, dom),
-   !ControlJoin(dom).
-
-.decl ControlSplit(block: IRBlock)
-
-ControlSplit(block) :-
-   LocalBlockEdge(block, next),
-   LocalBlockEdge(block, next2),
-   next != next2.
-
-.decl ControlJoin(block: IRBlock)
-
-ControlJoin(next) :-
-   LocalBlockEdge(block1, next),
-   LocalBlockEdge(block2, next),
-   block1 != block2.
-
-.decl MaxDominator(block: IRBlock, n: number)
-
-MaxDominator(block, n) :-
-   IRInFunction(block, _),
-   n = max m : Dominator(_, block, m).
+IsImportantBlock(block) :-
+   LocalBlockEdge(prev, block),
+   LocalBlockEdge(prev2, block),
+   !LocalBlockEdge(prev, prev2),
+   !LocalBlockEdge(prev2, prev),
+   prev != prev2.
 
 
-// THIS IS NOT REALLY A DOMINATOR FRONTIER
-// It's actually this:
-//    (A)
-//     | \
-//    (B) (A')
-//     | \
-//    (C) (B')
-//     | /
-//    (D)
-//    DominatiorFrontier(A, A).
-//    DominatiorFrontier(A, B).
-//    DominatiorFrontier(A, A').
-//    DominatiorFrontier(A, B').
-//    DominatiorFrontier(A, C).
-//    DominatiorFrontier(D, D).
-//
-// I think it can be replaced by a real dominator frontier
-// for better performance.
-.decl DominatorFrontier(post: IRBlock, block: IRBlock)
-
-
-DominatorFrontier(post, block) :-
-   Dominator(post, block, n),
-   MaxDominator(block, n).
-
-//DominatorFrontier(block, block) :- IRInFunction(block, _).
 
 // What's the total pop and stack delta since the beginning of the
 // function for (probably) cycle-free paths? Clearly these can have
@@ -674,6 +628,7 @@ DominatorFrontier(post, block) :-
 // not just different paths to the same end node. This makes for
 // complex rules.
 .decl PossibleFunctionalBlockPopAndStackDelta(func: IRFunction, from: IRBlock, path: symbol, popDelta: StackIndex, stackDelta: StackIndex)
+.output PossibleFunctionalBlockPopAndStackDelta
 
 // Another auxiliary for optimization: avoid join in key innermost loop
 .decl FunctionalBlockPopAndStackDelta(from: IRBlock, popDelta:StackIndex, stackDelta:StackIndex)
@@ -682,16 +637,14 @@ FunctionalBlockPopAndStackDelta(from, popDelta, stackDelta) :-
   FunctionalBlockStackDelta(from, stackDelta).
 .plan 1:(2,1)
 
-PossibleFunctionalBlockPopAndStackDelta(from, from, dom, 0, 0) :-
-  DominatorFrontier(dom, from),
+PossibleFunctionalBlockPopAndStackDelta(from, from, from, 0, 0) :-
   IRFunctionEntry(from).
 
 PossibleFunctionalBlockPopAndStackDelta(func, to, newPath, newPopDelta, newStackDelta) :-
   PossibleFunctionalBlockPopAndStackDelta(func, from, prevPath, prevPopDelta, prevStackDelta),
   LocalBlockEdge(from, to),
-  FunctionalBlockPopAndStackDelta(from, popDelta, stackDelta),                                              
+  FunctionalBlockPopAndStackDelta(from, popDelta, stackDelta),                      
   StackSimulationLimit(limit),
-  DominatorFrontier(dom, to),
   tempPopDelta = popDelta - prevStackDelta,
   ((tempPopDelta > prevPopDelta, newPopDelta = tempPopDelta);
    (tempPopDelta <= prevPopDelta, newPopDelta = prevPopDelta)),
@@ -699,8 +652,8 @@ PossibleFunctionalBlockPopAndStackDelta(func, to, newPath, newPopDelta, newStack
   newStackDelta = stackDelta + prevStackDelta,
   newStackDelta < limit,
   newStackDelta > -limit,
-  newPath = @add_set(prevPath, dom),
-  (newPath != prevPath ; !DominatorFrontier(to, _)).
+  ((!IsImportantBlock(to), newPath = prevPath) ;
+   (IsImportantBlock(to), newPath = @add_set(prevPath, to), newPath != prevPath)).
 
 
 // HACK: Use the context-sensitivity metric to determine whether we can afford to do
@@ -708,7 +661,7 @@ PossibleFunctionalBlockPopAndStackDelta(func, to, newPath, newPopDelta, newStack
 // modest.
 .decl StackSimulationLimit(n: StackIndex)                               
 StackSimulationLimit(depth) :-
-  depth = MAX_STACK_HEIGHT.
+  depth = MAX_STACK_HEIGHT / 2.
 
                                                                   
 // Combine both relative to a single terminal point, for precision.

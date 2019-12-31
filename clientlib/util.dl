@@ -59,10 +59,12 @@
 .functor not_256(symbol):symbol
 
 .comp DominanceFrontier<NodeType> {
-    .decl Entry(entry: NodeType)
+
+    // Inputs
     .decl Node(node: NodeType)
     .decl Edge(u: NodeType, v: NodeType)
-
+    .decl Entry(entry: NodeType)
+    
     .decl DoesNotDominate(prev: NodeType, next:NodeType)
     // The entry node can only be dominated by itself
     DoesNotDominate(nDom, entry) :-
@@ -96,4 +98,5 @@
         Dominates(dom, pred),
         Edge(pred, node),
         !StrictlyDominates(dom, node).
+
 }
