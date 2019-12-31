@@ -673,7 +673,7 @@ DominatorFrontier(post, block) :-
 // need to ensure both cumulative deltas are true for the *same* path,
 // not just different paths to the same end node. This makes for
 // complex rules.
-.decl PossibleFunctionEdgePopAndStackDelta(func: IRFunction, from: IRBlock, pathHash: symbol, popDelta: StackIndex, stackDelta: StackIndex)
+.decl PossibleFunctionalBlockPopAndStackDelta(func: IRFunction, from: IRBlock, path: symbol, popDelta: StackIndex, stackDelta: StackIndex)
 
 // Another auxiliary for optimization: avoid join in key innermost loop
 .decl FunctionalBlockPopAndStackDelta(from: IRBlock, popDelta:StackIndex, stackDelta:StackIndex)
@@ -682,13 +682,12 @@ FunctionalBlockPopAndStackDelta(from, popDelta, stackDelta) :-
   FunctionalBlockStackDelta(from, stackDelta).
 .plan 1:(2,1)
 
-
-PossibleFunctionEdgePopAndStackDelta(from, from, dom, 0, 0) :-
+PossibleFunctionalBlockPopAndStackDelta(from, from, dom, 0, 0) :-
   DominatorFrontier(dom, from),
   IRFunctionEntry(from).
 
-PossibleFunctionEdgePopAndStackDelta(func, to, newPathHash, newPopDelta, newStackDelta) :-
-  PossibleFunctionEdgePopAndStackDelta(func, from, prevPathHash, prevPopDelta, prevStackDelta),
+PossibleFunctionalBlockPopAndStackDelta(func, to, newPath, newPopDelta, newStackDelta) :-
+  PossibleFunctionalBlockPopAndStackDelta(func, from, prevPath, prevPopDelta, prevStackDelta),
   LocalBlockEdge(from, to),
   FunctionalBlockPopAndStackDelta(from, popDelta, stackDelta),                                              
   StackSimulationLimit(limit),
@@ -700,8 +699,8 @@ PossibleFunctionEdgePopAndStackDelta(func, to, newPathHash, newPopDelta, newStac
   newStackDelta = stackDelta + prevStackDelta,
   newStackDelta < limit,
   newStackDelta > -limit,
-  newPathHash = @add_set(prevPathHash, dom),
-  (newPathHash != prevPathHash ; !DominatorFrontier(to, _)).
+  newPath = @add_set(prevPath, dom),
+  (newPath != prevPath ; !DominatorFrontier(to, _)).
 
 
 // HACK: Use the context-sensitivity metric to determine whether we can afford to do
@@ -719,14 +718,13 @@ StackSimulationLimit(depth) :-
 .decl PossibleCombinedNumberOfFunctionReturnsAndArguments(func: IRFunction, terminal: IRBlock, numArg: StackIndex, numRet: StackIndex)
 
 PossibleCombinedNumberOfFunctionReturnsAndArguments(func, terminal, numArg, numRet) :-
-  PossibleFunctionEdgePopAndStackDelta(func, terminal, _, prevPopDelta, prevStackDelta),
+  PossibleFunctionalBlockPopAndStackDelta(func, terminal, _, prevPopDelta, prevStackDelta),
   FunctionalBlockPopAndStackDelta(terminal, popDelta, stackDelta),
   StackSimulationLimit(limit),
   newPopDelta = popDelta - prevStackDelta,
   newPopDelta < limit,
   ((newPopDelta > prevPopDelta, numArg = newPopDelta);
    (newPopDelta <= prevPopDelta, numArg = prevPopDelta)),
-//  numRet = prevStackDelta + stackDelta.
   numRet = prevStackDelta + stackDelta + numArg,
   numRet < limit, numRet >= 0. // both probably unnecessary
     // When leaving the stack with d more items but it originally
@@ -796,7 +794,6 @@ Variable_Block_String(var, block, res) :-
 .decl FunctionCallReturnArgument(func: IRBlock, n: StackIndex, var: Variable)
 
 .decl FunctionalStatement_Uses_Local(stmt: IRStatement, var:VariableOrStackIndex, n:StackIndex)
-
 .decl FunctionalStatement_Uses(stmt:IRStatement, var:Variable, n:StackIndex)
 .decl FunctionalStatement_Defines(callStmt:IRStatement, newVar:Variable, n: number)
 
@@ -847,10 +844,6 @@ FunctionalBlockInputContents(entry, n, var) :-
 FunctionalBlockInputContents(next, index, variable) :-
    FunctionalBlockOutputContents(from, index, variable),
    LocalBlockEdge(from, next).
-
-// IMPORTANT: Although this code is probably correct, representing values
-// per edge is wasteful. Confirmed.
-// Is the per-edge representation equivalent to jump-site sensitivity?
 
 // 1) Normal block to block flow, i.e. no unconditional function calls from block to block
 FunctionalBlockOutputContents(block, index, variable) :-
