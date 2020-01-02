@@ -245,7 +245,7 @@ Statement_Uses(stmt, var, n) :-
    postTrans.Statement_Uses_Local(stmt, stackIndex, n),
    CheckIsStackIndex(stackIndex),
    postTrans.Statement_Block(stmt, block),
-   BlockInputontents(_, block, stackIndex, var).
+   BlockInputContents(_, block, stackIndex, var).
 
 
 // Masks with all 1s
