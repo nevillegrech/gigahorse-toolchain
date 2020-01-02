@@ -645,8 +645,6 @@ UnimportantLocalBlockEdge(from, to) :-
    LocalBlockEdge(from, to),
    !IsImportantBlock(to).
 
-#define WITHIN_STACK_LIMIT(n) (n < MAX_STACK_HEIGHT, n > -MAX_STACK_HEIGHT)
-
 PossibleFunctionalBlockPopAndStackDelta(func, to, newPath, newPopDelta, newStackDelta) :-
   PossibleFunctionalBlockPopAndStackDelta(func, from, prevPath, prevPopDelta, prevStackDelta),
   ImportantLocalBlockEdge(from, to),
@@ -655,7 +653,7 @@ PossibleFunctionalBlockPopAndStackDelta(func, to, newPath, newPopDelta, newStack
   ((tempPopDelta > prevPopDelta, newPopDelta = tempPopDelta);
    (tempPopDelta <= prevPopDelta, newPopDelta = prevPopDelta)),
   newStackDelta = stackDelta + prevStackDelta,
-  WITHIN_STACK_LIMIT(newPopDelta), WITHIN_STACK_LIMIT(newStackDelta),
+  CheckIsStackDelta(newPopDelta), CheckIsStackDelta(newStackDelta),
   newPath = @add_set(prevPath, to),
   newPath != prevPath.
   .plan 1:(3,2,1)
@@ -668,7 +666,7 @@ PossibleFunctionalBlockPopAndStackDelta(func, to, prevPath, newPopDelta, newStac
   ((tempPopDelta > prevPopDelta, newPopDelta = tempPopDelta);
    (tempPopDelta <= prevPopDelta, newPopDelta = prevPopDelta)),
   newStackDelta = stackDelta + prevStackDelta,
-  WITHIN_STACK_LIMIT(newPopDelta), WITHIN_STACK_LIMIT(newStackDelta).
+  CheckIsStackDelta(newPopDelta), CheckIsStackDelta(newStackDelta).
   .plan 1:(3,2,1)
 
 
@@ -682,11 +680,11 @@ PossibleCombinedNumberOfFunctionReturnsAndArguments(func, terminal, numArg, numR
   PossibleFunctionalBlockPopAndStackDelta(func, terminal, _, prevPopDelta, prevStackDelta),
   FunctionalBlockPopAndStackDelta(terminal, popDelta, stackDelta),
   newPopDelta = popDelta - prevStackDelta,
-  WITHIN_STACK_LIMIT(newPopDelta),
+  CheckIsStackDelta(newPopDelta),
   ((newPopDelta > prevPopDelta, numArg = newPopDelta);
    (newPopDelta <= prevPopDelta, numArg = prevPopDelta)),
   numRet = prevStackDelta + stackDelta + numArg,
-  numRet < MAX_STACK_HEIGHT, numRet >= 0. 
+  CheckIsStackIndex(numRet).
     // When leaving the stack with d more items but it originally
     // contained a args, the total number of returned values is d+a.
  .plan 1:(2,1)
@@ -827,8 +825,7 @@ FunctionalBlockOutputContents(caller, newIndex, variable) :-
    NumberOfFunctionArguments(func, n_in),
    index >= n_in,
    newIndex = index+n_out-n_in,
-   newIndex >= 0,
-   newIndex < MAX_STACK_HEIGHT.
+   CheckIsStackIndex(newIndex).
 
 .decl BeforeFunctionCallFunctionalBlockOutputContents(caller: IRBlock, index: StackIndex, variable: Variable)
 

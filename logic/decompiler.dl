@@ -5,6 +5,7 @@
 #define CAST_TO_SYMBOL(b) cat("", (b))
 #define CheckIsVariable(v) ((v) < 0)
 #define CheckIsStackIndex(v) ((v) >= 0, (v) < MAX_STACK_HEIGHT)
+#define CheckIsStackDelta(n) ((n) < MAX_STACK_HEIGHT, (n) > -MAX_STACK_HEIGHT)
 #define FUNCTION_SELECTOR "0x0"
 
 #include "../clientlib/util.dl"
@@ -244,7 +245,7 @@ Statement_Uses(stmt, var, n) :-
    postTrans.Statement_Uses_Local(stmt, stackIndex, n),
    CheckIsStackIndex(stackIndex),
    postTrans.Statement_Block(stmt, block),
-   BlockInputContents(_, block, stackIndex, var).
+   BlockInputontents(_, block, stackIndex, var).
 
 
 // Masks with all 1s
