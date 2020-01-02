@@ -1,27 +1,6 @@
 #define FRESH_VARIABLE(var, stmt, stackIndex) (IRStatementNum((stmt), _stmtNum), var=-0xFFFF+_stmtNum*MAX_STACK_HEIGHT+(stackIndex))
 
 
-#ifdef DEBUG
-.output BlockEdge, FallthroughEdge, BlockJumpValidTarget, BlockJumpTarget, BasicBlock_Tail, MaybeInFunctionUnderContext
-.output NotValidReturnBlock, NotValidReturnEdge
-.output MaybeFunctionCallReturn // DEBUG
-.output IsContext, CanReachUnderContext, CanReachUnderContextThroughBlock //DEBUG
-.output PotentialCall // DEBUG
-.output PossibleReturnAddress // DEBUG
-.output IsFunctionCallReturn // DEBUG
-.output IsFunctionEntry, IsFunctionCall, BlockToClone, MaybeInFunction // DEBUG
-.output PossibleImpreciseNumberOfFunctionArguments
-
-.output PossibleNumberOfFunctionArguments
-.output PossibleNumberOfFunctionReturnArguments
-.output PossibleCombinedNumberOfFunctionReturnsAndArguments
-.output NumberOfFunctionArguments
-.output NumberOfFunctionReturnArguments
-
-.output Variable_String
-#endif
-
-
 /*****
  * Function discovery logic
  *****/
@@ -329,16 +308,6 @@ IRFunctionCall(fromir, irFunc) :-
   !BlockToClone(func, prevfunc).
 
 
-// ///// This doesn't seem to be valid
-// // Regular return instructions should also count as IR returns? For
-// // use in possible #return values calculation.
-// IRFunction_Return(irFunc, retBlock) :-
-//   Statement_Opcode(stmt, "RETURN"),
-//   Statement_IRStatement(stmt, func, irstmt),
-//   IRBasicBlock_Tail(retBlock, irstmt),
-//   Function_IRFunction(func, irFunc).
-
-
 // Intra-function edges (i.e., real CFG edges)
 
 //// WARNING: Be careful when using! This is an unintuitive
@@ -575,7 +544,7 @@ FunctionalBlockPopDelta(from, newPopDelta) :-
   PossibleImpreciseNumberOfFunctionArguments(func, n_args),
   IRBlockStackDelta(from, stackDelta),
   tempPopDelta = n_args-stackDelta,
-  tempPopDelta < MAX_STACK_HEIGHT,
+  CheckIsStackIndex(tempPopDelta),
   ((tempPopDelta >= popDelta, newPopDelta = tempPopDelta);
    (tempPopDelta < popDelta, newPopDelta = popDelta)).
 
@@ -595,8 +564,7 @@ FunctionalBlockStackDelta(from, newStackDelta) :-
   PossibleCombinedNumberOfFunctionReturnsAndArguments(func, ret, n_args, n_ret),
   IRBlockStackDelta(from, stackDelta),
   newStackDelta = stackDelta - n_args + n_ret,
-  newStackDelta < MAX_STACK_HEIGHT,
-  newStackDelta > -MAX_STACK_HEIGHT.
+  CheckIsStackDelta(newStackDelta).
 
 // What about calls with no return? These don't get back to the
 // caller, so we never care about the level they leave the stack at,
@@ -610,8 +578,6 @@ IsImportantBlock(block) :-
    !LocalBlockEdge(prev, prev2),
    !LocalBlockEdge(prev2, prev),
    prev != prev2.
-
-
 
 // What's the total pop and stack delta since the beginning of the
 // function for (probably) cycle-free paths? Clearly these can have
@@ -653,7 +619,7 @@ PossibleFunctionalBlockPopAndStackDelta(func, to, newPath, newPopDelta, newStack
   ((tempPopDelta > prevPopDelta, newPopDelta = tempPopDelta);
    (tempPopDelta <= prevPopDelta, newPopDelta = prevPopDelta)),
   newStackDelta = stackDelta + prevStackDelta,
-  CheckIsStackDelta(newPopDelta), CheckIsStackDelta(newStackDelta),
+  CheckIsStackIndex(newPopDelta), CheckIsStackDelta(newStackDelta),
   newPath = @add_set(prevPath, to),
   newPath != prevPath.
   .plan 1:(3,2,1)
@@ -666,7 +632,7 @@ PossibleFunctionalBlockPopAndStackDelta(func, to, prevPath, newPopDelta, newStac
   ((tempPopDelta > prevPopDelta, newPopDelta = tempPopDelta);
    (tempPopDelta <= prevPopDelta, newPopDelta = prevPopDelta)),
   newStackDelta = stackDelta + prevStackDelta,
-  CheckIsStackDelta(newPopDelta), CheckIsStackDelta(newStackDelta).
+  CheckIsStackIndex(newPopDelta), CheckIsStackDelta(newStackDelta).
   .plan 1:(3,2,1)
 
 
@@ -680,7 +646,7 @@ PossibleCombinedNumberOfFunctionReturnsAndArguments(func, terminal, numArg, numR
   PossibleFunctionalBlockPopAndStackDelta(func, terminal, _, prevPopDelta, prevStackDelta),
   FunctionalBlockPopAndStackDelta(terminal, popDelta, stackDelta),
   newPopDelta = popDelta - prevStackDelta,
-  CheckIsStackDelta(newPopDelta),
+  CheckIsStackIndex(newPopDelta),
   ((newPopDelta > prevPopDelta, numArg = newPopDelta);
    (newPopDelta <= prevPopDelta, numArg = prevPopDelta)),
   numRet = prevStackDelta + stackDelta + numArg,
