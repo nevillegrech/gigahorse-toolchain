@@ -544,7 +544,7 @@ FunctionalBlockPopDelta(from, newPopDelta) :-
   PossibleImpreciseNumberOfFunctionArguments(func, n_args),
   IRBlockStackDelta(from, stackDelta),
   tempPopDelta = n_args-stackDelta,
-  CheckIsStackIndex(tempPopDelta),
+  CheckIsStackDelta(tempPopDelta),
   ((tempPopDelta >= popDelta, newPopDelta = tempPopDelta);
    (tempPopDelta < popDelta, newPopDelta = popDelta)).
 
