@@ -359,16 +359,9 @@ IRBlockEdge(irfrom, irto) :-
 IRBlockPath(irblk, irblk):-
   Block_IRBlock(_, _, irblk).
 
-IRBlockPath(irfrom, irto):-
-  IRBlockEdge(irfrom, irto).
-
-IRBlockPath(block, next):-
-  IRFunctionCallReturn(block, _, next).
-
-IRBlockPath(irfrom, irto):-
-  IRBlockPath(irfrom, irmid),
-  IRBlockPath(irmid, irto).
-  .plan 1:(2,1)
+IRBlockPath(from, next):-
+  IRBlockPath(from, to),
+  (IRFunctionCallReturn(to, _, next) ;   IRBlockEdge(to, next)).
 
 .decl ReachableFromFunHead(irblk:IRBlock)
 
