@@ -56,6 +56,12 @@ PrivateFunctionCaller(caller) :-
   !StaticBlockJumpTarget(caller, target).
 
 */
+
+Context_PublicFunction(ctx, pubFun):-
+  ReachableContext(ctx, _),
+  ctx = [pubFun, callCtx],
+  callCtx = callCtx.
+  
 .decl StaticBlockJumpTarget(caller: Block, target: Value)
 
 StaticBlockJumpTarget(caller, target) :-
