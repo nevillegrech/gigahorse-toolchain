@@ -168,6 +168,7 @@ MaxRankForPossibleReturnAddressSetter(targetSetter, rank) :-
   PossibleReturnAddressWithPos(targetSetter, retBlock, retTarget, pos),
   !PossibleReturnAddressWithLowerPos(targetSetter, _, _, _, pos).
 
+.output PossibleReturnAddressWithRank
 // If we find a direct jump (to a purported function) and the first
 // pushed return address (jumped-to by code reachable from the
 // purported function) before it, we detect a call-return pattern.
@@ -439,7 +440,17 @@ IRFunctionCall(fromir, irFunc) :-
 //   IRBasicBlock_Tail(retBlock, irstmt),
 //   Function_IRFunction(func, irFunc).
 
+/*
+  Taking advantage of the public function context(for contexts that include it)
+  in order to get more precise IRBlockEdges for public functions
+  When no public function context exists or the IRBlockEdge is not part of a public function 
+  the old logic is activated
+*/
+.decl PubFun(entry:symbol, hex:symbol)
+.decl Context_PublicFunction(ctx:Context, pubFun:symbol)
 
+PubFun("0x0", "0x0"):- Context_PublicFunction(_, _).
+PubFun(entry, sigHash):- Context_PublicFunction(_, sigHash), PublicFunction(entry, sigHash).
 // Intra-function edges (i.e., real CFG edges)
 
 //// WARNING: Be careful when using! This is an unintuitive
@@ -448,9 +459,22 @@ IRFunctionCall(fromir, irFunc) :-
 //// not the same as the "local" block edges of the functional IR,
 //// because these also continue the function code after a call.
 .decl IRBlockEdge(from: IRBlock, to: IRBlock)
+
+IRBlockEdge(irfrom, irto) :-
+  BlockEdge(ctxFrom, from, ctxTo, to),
+  Block_IRBlock(from, func, irfrom),
+  PubFun(func, pubFun),
+  CanReachUnderContext(_, func, ctxFrom, from),
+  Context_PublicFunction(ctxTo, pubFun),
+  !IsFunctionCallReturn(_, func, from, _),
+  !IsFunctionCallReturn(_, _, from, to),
+  !IsFunctionCallReturn(from, to, _, _),
+  Block_IRBlock(to, func, irto).
+
 IRBlockEdge(irfrom, irto) :-
   BlockEdge(ctxFrom, from, _, to),
   Block_IRBlock(from, func, irfrom),
+  !PubFun(func, _),
   CanReachUnderContext(_, func, ctxFrom, from),
   !IsFunctionCallReturn(_, func, from, _),
   !IsFunctionCallReturn(_, _, from, to),

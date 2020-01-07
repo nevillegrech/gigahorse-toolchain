@@ -13,9 +13,9 @@ NumberOfJumps(n1 + n2) :-
 
 .decl MaxContextDepth(d: number)
 
-MaxContextDepth(2).
+//MaxContextDepth(2).
 
-/*MaxContextDepth(m) :-
+MaxContextDepth(m) :-
    NumberOfJumps(n),
    m = ESTIMATE_DEPTH(n),
    m >= 2, m <= 15.
@@ -29,8 +29,23 @@ MaxContextDepth(15) :-
    NumberOfJumps(n),
    m = ESTIMATE_DEPTH(n),
    m > 15.
-*/
 
+
+/* ReachableContext_PubFun is for debugging/getting more analysis insights  */
+.decl ReachableContext_PubFun(ctx:Context, pubFun:symbol, block:Block)
+//.output ReachableContext_PubFun
+
+ReachableContext_PubFun(ctx, pubFun, block):-
+  ReachableContext(ctx, block),
+  ctx = [pubFun, callCtx],
+  callCtx = callCtx.
+
+.output Context_PublicFunction
+
+Context_PublicFunction(ctx, pubFun):-
+  ReachableContext(ctx, _),
+  ctx = [pubFun, callCtx],
+  callCtx = callCtx.
 
 .output MaxContextDepth
 
@@ -116,12 +131,12 @@ BlockHasTrivialControl(block) :-
   BasicBlock_Tail(block, stmt),
   !IsJump(stmt).
   
-//BlockHasTrivialControl(block) :-
-   //ImmediateBlockJumpTarget(block, _).
-
 BlockHasTrivialControl(block) :-
-  ImmediateBlockJumpTargetBlock(block, to),
-  !TargetOfTwoBlocks(to).
+   ImmediateBlockJumpTarget(block, _).
+
+//BlockHasTrivialControl(block) :-
+  //ImmediateBlockJumpTargetBlock(block, to),
+  //!TargetOfTwoBlocks(to).
 
 .decl ImmediateBlockJumpTargetBlock(block:Block, target:Block)
 //.output ImmediateBlockJumpTargetBlock, ImmediateBlockJumpTarget

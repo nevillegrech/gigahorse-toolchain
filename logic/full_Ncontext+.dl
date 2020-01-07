@@ -52,6 +52,12 @@ IsCallContext(init):-
 IsContext(init):-
   InitialContext(init).
 
+Context_PublicFunction(ctx, pubFun):-
+  ReachableContext(ctx, _),
+  ctx = [pubFun, callCtx],
+  callCtx = callCtx.
+
+
 .decl DropLast(ctx : CallContext, newCtx : CallContext)
 DropLast(callCtx, nil) :-
   IsCallContext(callCtx),
