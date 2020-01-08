@@ -9,7 +9,7 @@
 // useful intermediate outputs
 .output OpcodePossiblyHalts
 .output IRBlockEdge
-.output PublicFunction
+.output postTrans.PublicFunction(IO="file", filename = "PublicFunction.csv", delimiter = "\t")
 .output Statement_IRStatement
 .output IRBlock_Gas
 
@@ -71,10 +71,10 @@ PHILocation(block, stackIndex, cat(cat(block, "_"), stackIndexHex)) :-
 TAC_Variable_BlockValue(tacvar, irvalue) :-
   FunctionalStatement_Defines(stmt, var, _),
   Variable_Stmt_String(var, stmt, tacvar),
-  Variable_Value(var, value),
+  postTrans.Variable_Value(var, value),
   StatementAndBlockInSameFunction(stmt, CAST_TO_SYMBOL(value), irvalue),
    // value matches address of block
-  substr(value, 0, 2) = "0x".
+   STARTSWITH(value, "0x").
 
 .decl StatementAndBlockInSameFunction(stmt: IRStatement, block: Block, irblock: IRBlock)
 StatementAndBlockInSameFunction(stmt, block, irblock) :-
@@ -86,50 +86,49 @@ StatementAndBlockInSameFunction(stmt, block, irblock) :-
 TAC_Variable_Value(tacvar, value) :-
    FunctionalStatement_Defines(stmt, var, _),
    Variable_Stmt_String(var, stmt, tacvar),
-   Variable_Value(var, value),
-   substr(value, 0, 2) = "0x".
+   postTrans.Variable_Value(var, value),
+   STARTSWITH(value, "0x").
 
 // New Instructions
 // *returnArgs = CALLPRIVATE(stmt, function, *args)
-// *returnArgs = CALLPRIVATEI(cond, stmt, function, *args)
 // RETURNPRIVATE(stmt, *args)
 
 // Non-nop instructions
 TAC_Stmt(irstmt) :-
   Statement_IRStatement(stmt, _, irstmt),
-  ValidStatement(stmt),
+  postTrans.ValidStatement(stmt),
   !DeadStmt(irstmt),
   !IRTACNOP(stmt).
 
 TAC_Op(irstmt, op) :-
    IRStatement_Opcode(irstmt, op),
    Statement_IRStatement(stmt, _, irstmt),
-   ValidStatement(stmt),
+   postTrans.ValidStatement(stmt),
    !DeadStmt(irstmt),
    !IRTACNOP(irstmt),
-   !ThrowJump(stmt),
-   !PushValue(stmt, _),
-   !PC(stmt),
-   !REVERT(stmt),
-   !INVALID(stmt).
+   !postTrans.ThrowJump(stmt),
+   !postTrans.PushValue(stmt, _),
+   !postTrans.PC(stmt),
+   !postTrans.REVERT(stmt),
+   !postTrans.INVALID(stmt).
 
 TAC_Op(irstmt, "CONST") :-
    Statement_IRStatement(stmt, _, irstmt),
-   (PushValue(stmt, _) ; PC(stmt)).
+   (postTrans.PushValue(stmt, _) ; postTrans.PC(stmt)).
 
 TAC_Op(irstmt, "THROW") :-
    Statement_IRStatement(stmt, _, irstmt),
-   JUMP(stmt),
-   ThrowJump(stmt).
+   postTrans.JUMP(stmt),
+   postTrans.ThrowJump(stmt).
 
 TAC_Op(irstmt, "THROW") :-
    Statement_IRStatement(stmt, _, irstmt),
-   (INVALID(stmt) ; REVERT(stmt)).
+   (postTrans.INVALID(stmt) ; postTrans.REVERT(stmt)).
 
 TAC_Op(irstmt, "THROWI") :-
    Statement_IRStatement(stmt, _, irstmt),
-   JUMPI(stmt),
-   ThrowJump(stmt).
+   postTrans.JUMPI(stmt),
+   postTrans.ThrowJump(stmt).
 
 // Phi instructions
 TAC_Var(CAST_TO_SYMBOL(stmt)),
@@ -142,7 +141,7 @@ TAC_Op(stmt, "PHI") :-
 TAC_Var(var_rep),
 TAC_Def(stmt, var_rep, n) :-
    FunctionalStatement_Defines(stmt, var, n),
-  Variable_Stmt_String(var, stmt, var_rep).
+   Variable_Stmt_String(var, stmt, var_rep).
 
 // Case 1: Uses locally defined variable
 PRE_TAC_Use(stmt, var_rep, n) :-
@@ -264,12 +263,12 @@ ActualReturnArgs(caller, var_rep, n) :-
 .decl PRE_TAC_Statement_Next(stmt: Statement, next: Statement)
 
 PRE_TAC_Statement_Next(stmt, next) :-
-   Statement_Next(stmt, next).
+   postTrans.Statement_Next(stmt, next).
 
 PRE_TAC_Statement_Next(stmt, nextnext) :-
   PRE_TAC_Statement_Next(stmt, next),
   PRE_TAC_Statement_Next(next, nextnext),
-  TACNOP(next).
+  postTrans.TACNOP(next).
 
 
 /// WARNING: This only works intra-procedurally after the Functional IR conversion.
@@ -289,7 +288,7 @@ TAC_Statement_Next(irstmt, irnext) :-
 TAC_Block_Head(block, irstmt) :-
    TAC_Block(irstmt, block),
    Statement_IRStatement(stmt, _, irstmt),
-   IsBasicBlockHead(stmt).
+   postTrans.IsBasicBlockHead(stmt).
 
 
 /******
@@ -317,7 +316,6 @@ LOGStmt_SigHash(stmt, sigHash):-
 EventSignatureInContract(sigHash, sigText):-
   LOGStmt_SigHash(_, sigHash),
   EventSignature(sigHash, sigText).
-
 
 .decl ConstantPossibleSigHash(constSigHash:symbol, name:symbol)
 .output ConstantPossibleSigHash
