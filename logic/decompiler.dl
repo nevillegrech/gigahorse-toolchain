@@ -2,7 +2,6 @@
 // flow and detecting CFG edges (much like the Vandal decompiler) is here.
 
 #define MAX_STACK_HEIGHT 50
-#define CAST_TO_SYMBOL(b) cat("", (b))
 #define CheckIsVariable(v) ((v) < 0)
 #define CheckIsStackIndex(v) ((v) >= 0, (v) < MAX_STACK_HEIGHT)
 #define CheckIsStackDelta(n) ((n) < MAX_STACK_HEIGHT, (n) > -MAX_STACK_HEIGHT)
@@ -84,7 +83,7 @@ insertor.insertOps(pushStmt,
     STMT(JUMPI, "")
   )
 ),
-insertor.insertOps(CAST_TO_SYMBOL(jumpDestStmt),
+insertor.insertOps(jumpDestStmt,
   LIST(
     STMT(JUMPDEST, MAKE_LABEL_REFERENCE(jumpDestStmt)),
     STMT(PUSH4, CAST_TO_SYMBOL(jumpDestStmt)),
@@ -98,8 +97,6 @@ insertor.insertOps(CAST_TO_SYMBOL(jumpDestStmt),
    preTrans.PushValue(pushStmt, CAST_TO_SYMBOL(jumpDestStmt)),
    preTrans.Statement_Block(pushStmt, block),
    preTrans.BasicBlock_Tail(block, jumpStmt).
-
-
 
 /*
 // Fallback function TODO
