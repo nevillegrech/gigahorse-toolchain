@@ -575,17 +575,12 @@ FunctionalBlockStackDelta(from, newStackDelta) :-
 IsImportantBlock(block) :-
    LocalBlockEdge(prev, block),
    LocalBlockEdge(prev2, block),
-   !LocalBlockEdge(prev, prev2),
-   !LocalBlockEdge(prev2, prev),
+//   !LocalBlockEdge(prev, prev2),
+//   !LocalBlockEdge(prev2, prev),
    prev != prev2.
 
 // What's the total pop and stack delta since the beginning of the
-// function for (probably) cycle-free paths? Clearly these can have
-// multiple values. We need to keep track of all nodes avoided in the
-// path so far, so that we can extend the path cycle-free. We also
-// need to ensure both cumulative deltas are true for the *same* path,
-// not just different paths to the same end node. This makes for
-// complex rules.
+// function for cycle-free paths? 
 .decl PossibleFunctionalBlockPopAndStackDelta(func: IRFunction, from: IRBlock, path: symbol, popDelta: StackIndex, stackDelta: StackIndex)
 
 // Another auxiliary for optimization: avoid join in key innermost loop
@@ -597,7 +592,6 @@ FunctionalBlockPopAndStackDelta(from, popDelta, stackDelta) :-
 
 PossibleFunctionalBlockPopAndStackDelta(from, from, from, 0, 0) :-
   IRFunctionEntry(from).
-
 
 // rules added for optimization purposes
 .decl ImportantLocalBlockEdge(from: IRBlock, to: IRBlock)
