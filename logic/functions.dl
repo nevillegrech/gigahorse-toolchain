@@ -4,7 +4,7 @@
 
 
 #ifdef DEBUG
-.output BlockEdge, FallthroughEdge, BlockJumpValidTarget, BlockJumpTarget, BasicBlock_Tail, MaybeInFunctionUnderContext
+.output BlockEdge, FallthroughEdge, BlockJumpValidTarget, BlockJumpTarget, MaybeInFunctionUnderContext
 .output NotValidReturnBlock, NotValidReturnEdge
 .output MaybeFunctionCallReturn // DEBUG
 .output CanReachUnderContext, CanReachUnderContextThroughBlock //DEBUG
@@ -12,21 +12,15 @@
 .output PossibleReturnAddressWithPos // DEBUG
 .output IsFunctionCallReturn // DEBUG
 .output IsFunctionEntry, IsFunctionCall, BlockToClone, MaybeInFunction // DEBUG
-.output PossibleFunctionEdgePopAndStackDeltaBypassing
 .output PossibleImpreciseNumberOfFunctionArguments
 
-.output EdgePopDelta
-.output EdgeStackDelta
-.output PossibleFunctionEdgePopDelta
-.output PossibleFunctionEdgeStackDelta
+
 .output PossibleNumberOfFunctionArguments
 .output PossibleNumberOfFunctionReturnArguments
 .output PossibleCombinedNumberOfFunctionReturnsAndArguments
 .output NumberOfFunctionArguments
 .output NumberOfFunctionReturnArguments
 
-.output BlockComparesSig
-.output FunctionSelectorVariable
 .output Variable_String
 #endif
 
