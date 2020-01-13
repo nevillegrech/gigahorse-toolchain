@@ -10,9 +10,11 @@ Variable_Value(y, result) :-\
    .plan 1:(5, 4, 3, 2, 1, 6)
      
 
-
+// Local means within the same basic block
 .comp LocalAnalysis {
 
+
+  // inputs to the component
   .decl PushValue(stmt:Statement, v:Value)
   .decl Statement_Opcode(statement: Statement, opcode: Opcode)
   .decl Statement_Next(statement: Statement, statementNext: Statement)
@@ -57,9 +59,6 @@ Variable_Value(y, result) :-\
   
   OpcodePopWords("CALLPRIVATE", 1).
   OpcodePopWords("RETURNPRIVATE", 1).
-  OpcodePopWords("CALLPRIVATEI", 2).
-  OpcodePopWords("RETURNPRIVATEI", 2).
-
 
 
   .decl Variable_Value(variable: Variable, value: Value)
