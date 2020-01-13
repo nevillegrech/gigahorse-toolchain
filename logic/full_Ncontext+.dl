@@ -6,8 +6,8 @@
 .decl NumberOfJumps(n: number)
 
 NumberOfJumps(n1 + n2) :-
-   n1 = count : JUMP(_),
-   n2 = count : JUMPI(_).
+   n1 = count : preTrans.JUMP(_),
+   n2 = count : preTrans.JUMPI(_).
 
 #define ESTIMATE_DEPTH(n) (500000 / (n) / (n))
 
@@ -78,7 +78,7 @@ MergeContext(ctx, caller, newContext),
 IsCallContext(newCallContext),
 IsContext(newContext) :-
   ReachableContext(ctx, caller),
-  !PublicFunctionStart(caller, _),
+  !postTrans.PublicFunction(caller, _),
   ctx = [fun, callCtx],
   CallContextDepth(callCtx, depth),
   MaxContextDepth(maxDepth),
@@ -91,7 +91,7 @@ MergeContext(ctx, caller, newContext),
 IsCallContext(newCallContext),
 IsContext(newContext) :-
   ReachableContext(ctx, caller),
-  !PublicFunctionStart(caller, _),
+  !postTrans.PublicFunction(caller, _),
   ctx = [fun, callCtx],
   CallContextDepth(callCtx, depth),
   MaxContextDepth(depth),
@@ -104,7 +104,7 @@ MergeContext(ctx, caller, newContext),
 IsCallContext(newCallContext),
 IsContext(newContext) :-
   ReachableContext(ctx, caller),
-  PublicFunctionStart(caller, sigHash),
+  postTrans.PublicFunction(caller, sigHash),
   ctx = [fun, callCtx],
   CallContextDepth(callCtx, depth),
   MaxContextDepth(maxDepth),
@@ -117,7 +117,7 @@ MergeContext(ctx, caller, newContext),
 IsCallContext(newCallContext),
 IsContext(newContext) :-
   ReachableContext(ctx, caller),
-  PublicFunctionStart(caller, sigHash),
+  postTrans.PublicFunction(caller, sigHash),
   ctx = [fun, callCtx],
   CallContextDepth(callCtx, depth),
   MaxContextDepth(depth),
