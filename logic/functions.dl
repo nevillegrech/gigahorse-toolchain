@@ -12,7 +12,7 @@
 .output PossibleReturnAddressWithPos // DEBUG
 .output IsFunctionCallReturn // DEBUG
 .output IsFunctionEntry, IsFunctionCall, BlockToClone, MaybeInFunction // DEBUG
-.output PossibleImpreciseNumberOfFunctionArguments
+.output PossibleImpreciseNumberOfFunctionArguments, PossibleFunctionalBlockPopAndStackDelta
 
 
 .output PossibleNumberOfFunctionArguments
