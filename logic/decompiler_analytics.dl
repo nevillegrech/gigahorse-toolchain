@@ -231,15 +231,15 @@ Analytics_JumpToMany(blk):-
   TAC_Block(jump, blk),
   LocalBlockEdge(blk, one),
   LocalBlockEdge(blk, two),
-  one != two,
-  TAC_Use(jump, var, 0),
-  TAC_Variable_Value(var, _).
+  one != two.
+  //TAC_Use(jump, var, 0),
+  //TAC_Variable_Value(var, _).
 
 Analytics_JumpToMany(blk):-
   TAC_Op(jump, "JUMPI"),
   TAC_Block(jump, blk),
-  TAC_Use(jump, var, 0),
-  TAC_Variable_Value(var, _),
+  //TAC_Use(jump, var, 0),
+  //TAC_Variable_Value(var, _),
   LocalBlockEdge(blk, one),
   LocalBlockEdge(blk, two),
   LocalBlockEdge(blk, three),
