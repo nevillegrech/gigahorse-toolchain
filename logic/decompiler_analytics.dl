@@ -223,15 +223,6 @@ Analytics_BlockIsEmpty(block) :-
   !BlockIsNotEmpty(block).
 
 
-.decl Analytics_ConditionalCallOutsideSelector(stmt: IRStatement)
-.output Analytics_ConditionalCallOutsideSelector
-
-Analytics_ConditionalCallOutsideSelector(stmt) :-
-  IRInFunction(block, fun), fun != "0x0",
-  IRStatement_Block(stmt, block),
-  (TAC_Op(stmt, "CALLPRIVATEI") ; TAC_Op(stmt, "RETURNPRIVATEI")).
-
-
 .decl Analytics_JumpToMany(blk:IRBlock)
 .output Analytics_JumpToMany
 
