@@ -246,3 +246,14 @@ Analytics_JumpToMany(blk):-
   one != two,
   one != three,
   two != three.
+
+.decl Analytics_JumpToManyNonPopBlock(blk:IRBlock)
+.output Analytics_JumpToManyNonPopBlock
+
+Analytics_JumpToManyNonPopBlock(blk):-
+  Analytics_JumpToMany(blk),
+  TAC_Block(stmt, blk),
+  TAC_Op(stmt, op),
+  op != "JUMP",
+  op != "PHI",
+  op != "JUMPI".
