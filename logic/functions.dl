@@ -1,5 +1,28 @@
 #define FRESH_VARIABLE(var, stmt, stackIndex) (IRStatementNum((stmt), _stmtNum), var=-0xFFFF+_stmtNum*MAX_STACK_HEIGHT+(stackIndex))
 
+//#define DEBUG
+
+
+#ifdef DEBUG
+.output BlockEdge, FallthroughEdge, BlockJumpValidTarget, BlockJumpTarget, MaybeInFunctionUnderContext
+.output NotValidReturnBlock, NotValidReturnEdge
+.output MaybeFunctionCallReturn // DEBUG
+.output CanReachUnderContext, CanReachUnderContextThroughBlock //DEBUG
+.output PotentialCall // DEBUG
+.output PossibleReturnAddressWithPos // DEBUG
+.output IsFunctionCallReturn // DEBUG
+.output IsFunctionEntry, IsFunctionCall, BlockToClone, MaybeInFunction // DEBUG
+.output PossibleImpreciseNumberOfFunctionArguments, PossibleFunctionalBlockPopAndStackDelta
+
+
+.output PossibleNumberOfFunctionArguments
+.output PossibleNumberOfFunctionReturnArguments
+.output PossibleCombinedNumberOfFunctionReturnsAndArguments
+.output NumberOfFunctionArguments
+.output NumberOfFunctionReturnArguments
+
+.output Variable_String
+#endif
 
 /*****
  * Function discovery logic
@@ -53,16 +76,44 @@ PotentialCall(block) :-
   postTrans.ImmediateBlockJumpTarget(block, _).
 
 
+
 // Call-return pattern:
 // a) basic block jumps to a valid "non-locally-derived" address
 // b) address originates at a target-setter.
-.decl PossibleReturnAddress(caller:Block, retBlock:Block, retTarget:Block)
-PossibleReturnAddress(targetSetter, retBlock, retTarget) :-
+// Since there may be multiple return addresses pushed together (one for the first
+// call, one for another call after that, etc.) we want to rank them and match
+// them in order.
+.decl PossibleReturnAddressWithPos(targetSetter:Block, retBlock:Block, retTarget:Block, pos:number)
+PossibleReturnAddressWithPos(targetSetter, retBlock, retTarget, pos) :-
   OptNotImmediateBlockJumpTarget(retBlock, targetVariable, retTarget),
   postTrans.Statement_Defines(targetSetStatement, targetVariable),
   postTrans.Statement_Block(targetSetStatement, targetSetter),
   postTrans.BasicBlock_Tail(targetSetter, jumpStmt),
-  postTrans.JUMP(jumpStmt).
+  postTrans.JUMP(jumpStmt),
+  postTrans.BeforeLocalStackContents(jumpStmt, pos, targetVariable).
+
+.decl PossibleReturnAddressWithLowerPos(targetSetter:Block, retBlock:Block, retTarget:Block, pos:number, otherPos:number)
+PossibleReturnAddressWithLowerPos(targetSetter, retBlock, retTarget, pos, otherPos) :-
+  PossibleReturnAddressWithPos(targetSetter, retBlock, retTarget, pos),
+  PossibleReturnAddressWithPos(targetSetter, _, _, otherPos),
+  otherPos < pos.
+
+.decl PossibleReturnAddressWithRank(targetSetter:Block, retBlock:Block, retTarget:Block, rank:number)
+PossibleReturnAddressWithRank(targetSetter, retBlock, retTarget, rank) :-
+  PossibleReturnAddressWithPos(targetSetter, retBlock, retTarget, pos),
+  rank = count : PossibleReturnAddressWithLowerPos(targetSetter, retBlock, retTarget, pos, _).
+
+.decl MaxRankForPossibleReturnAddressSetter(targetSetter:Block, rank:number)
+MaxRankForPossibleReturnAddressSetter(targetSetter, rank) :-
+  PossibleReturnAddressWithRank(targetSetter, retBlock, retTarget, rank),
+  PossibleReturnAddressWithPos(targetSetter, retBlock, retTarget, pos),
+  !PossibleReturnAddressWithLowerPos(targetSetter, _, _, _, pos).
+
+.output PossibleReturnAddressWithRank
+// If we find a direct jump (to a purported function) and the first
+// pushed return address (jumped-to by code reachable from the
+// purported function) before it, we detect a call-return pattern.
+  
 
 .decl OptNotImmediateBlockJumpTarget(ret:Block, targetVariable:Variable, retTarget:Block)
 OptNotImmediateBlockJumpTarget(retBlock, targetVariable, retTarget) :-
@@ -74,23 +125,45 @@ OptNotImmediateBlockJumpTarget(retBlock, targetVariable, retTarget) :-
 // function may not be the one containing the return, in case of complex
 // call patterns (e.g., call-call, or call-return).
 .decl MaybeFunctionCallReturn(caller:Block, func:Block, retBlock:Block, retTarget:Block)
-
-// Context-sensitive version
 MaybeFunctionCallReturn(caller, func, retBlock, retTarget) :-
-  PossibleReturnAddress(caller, retBlock, retTarget),
+  PossibleReturnAddressWithRank(caller, retBlock, retTarget, 0),
   EnableCostlyAlgorithms(), // place second for parallelism
   postTrans.ImmediateBlockJumpTarget(caller, targetVar),
   BlockJumpValidTarget(_, caller, targetVar, func),
   CanReachUnderContextThroughBlock(_, caller, func, retCtx, retBlock),
   CanReachUnderContext(retCtx, retBlock, _, retTarget).
 
-// Insensitive version
 MaybeFunctionCallReturn(caller, func, retBlock, retTarget) :-
-  PossibleReturnAddress(caller, retBlock, retTarget),
+  PossibleReturnAddressWithRank(caller, retBlock, retTarget, 0),
   DisableCostlyAlgorithms(),
   postTrans.ImmediateBlockJumpTarget(caller, targetVar),
   BlockJumpValidTarget(_, caller, targetVar, func),
   CanReach(caller, retTarget),
+  CanReach(func, retBlock).
+
+// If we have found a likely call-return pattern, we propagate to the return
+// block the extra pushed return values of the former caller. Stacking return
+// values is a usual pattern in produced code.
+PossibleReturnAddressWithRank(caller, retBlock, retTarget, n-1+offset) :-
+  MaybeFunctionCallReturn(targetSetter, _, _, caller),
+  EnableCostlyAlgorithms(), // place second for parallelism
+  PossibleReturnAddressWithRank(targetSetter, retBlock, retTarget, n), n > 0,
+  postTrans.ImmediateBlockJumpTarget(caller, targetVar),
+  BlockJumpValidTarget(_, caller, targetVar, func),
+  ((MaxRankForPossibleReturnAddressSetter(caller, maxrank), offset = maxrank + 1);
+   (!PossibleReturnAddressWithPos(caller, _, _, _), offset = 0)),
+  CanReachUnderContextThroughBlock(_, targetSetter, func, retCtx, retBlock),
+  CanReachUnderContext(retCtx, retBlock, _, retTarget).
+
+PossibleReturnAddressWithRank(caller, retBlock, retTarget, n-1+offset) :-
+  MaybeFunctionCallReturn(targetSetter, _, _, caller),
+  DisableCostlyAlgorithms(), // place second for parallelism
+  PossibleReturnAddressWithRank(targetSetter, retBlock, retTarget, n), n > 0,
+  postTrans.ImmediateBlockJumpTarget(caller, targetVar),
+  BlockJumpValidTarget(_, caller, targetVar, func),
+  ((MaxRankForPossibleReturnAddressSetter(caller, maxrank), offset = maxrank + 1);
+   (!PossibleReturnAddressWithPos(caller, _, _, _), offset = 0)),
+  CanReach(targetSetter, retTarget),
   CanReach(func, retBlock).
 
 
@@ -109,8 +182,8 @@ IsReturn(retBlock, retTarget) :-
 // making much of a difference. 
 .decl MaybeReturn(ret:Block, target:Block)
 MaybeReturn(retBlock, retTarget) :-
-  PossibleReturnAddress(_, retBlock, retTarget).
-
+  PossibleReturnAddressWithPos(_, retBlock, retTarget, _).
+// PossibleReturnAddress(_, retBlock, retTarget).
 
 // Filtering for sanitization. The logic following can be arbitrarily
 // restrictive. We have all potential calls and all returns, now we
@@ -292,8 +365,8 @@ IRFunction_Return_Edge(retir, callerretir) :-
   Block_IRBlock(caller, prevfunc, callerir),
   Block_IRBlock(callerret, prevfunc, callerretir),
   CanReach(caller, callerret),
-  Function_IRFunction(func, irfunc),
-  !BlockToClone(func, prevfunc).
+  Function_IRFunction(func, irfunc).
+  //!BlockToClone(func, prevfunc).
 
 
 // REVIEW: IRFunctionCall will include the IRFunctionCallReturn
@@ -303,10 +376,32 @@ IRFunction_Return_Edge(retir, callerretir) :-
 .decl IRFunctionCall(from: IRBlock, func: IRFunction)
 IRFunctionCall(fromir, irFunc) :-
   IsFunctionCall(from, func),
-  Block_IRBlock(from, prevfunc, fromir),
-  Function_IRFunction(func, irFunc),
-  !BlockToClone(func, prevfunc).
+  Block_IRBlock(from, _ /* prevfunc */, fromir),
+  Function_IRFunction(func, irFunc).
+//  !BlockToClone(func, prevfunc).
 
+
+
+// ///// This doesn't seem to be valid
+// // Regular return instructions should also count as IR returns? For
+// // use in possible #return values calculation.
+// IRFunction_Return(irFunc, retBlock) :-
+//   Statement_Opcode(stmt, "RETURN"),
+//   Statement_IRStatement(stmt, func, irstmt),
+//   IRBasicBlock_Tail(retBlock, irstmt),
+//   Function_IRFunction(func, irFunc).
+
+/*
+  Taking advantage of the public function context(for contexts that include it)
+  in order to get more precise IRBlockEdges for public functions
+  When no public function context exists or the IRBlockEdge is not part of a public function 
+  the old logic is activated
+*/
+.decl PubFun(entry:symbol, hex:symbol)
+.decl Context_PublicFunction(ctx:Context, pubFun:symbol)
+
+PubFun("0x0", "0x0"):- Context_PublicFunction(_, _).
+PubFun(entry, sigHash):- Context_PublicFunction(_, sigHash), postTrans.PublicFunction(entry, sigHash).
 
 // Intra-function edges (i.e., real CFG edges)
 
@@ -316,11 +411,26 @@ IRFunctionCall(fromir, irFunc) :-
 //// not the same as the "local" block edges of the functional IR,
 //// because these also continue the function code after a call.
 .decl IRBlockEdge(from: IRBlock, to: IRBlock)
+
+IRBlockEdge(irfrom, irto) :-
+  BlockEdge(ctxFrom, from, ctxTo, to),
+  Block_IRBlock(from, func, irfrom),
+  PubFun(func, pubFun),
+  CanReachUnderContext(_, func, ctxFrom, from),
+  Context_PublicFunction(ctxTo, pubFun),
+  !IsFunctionCallReturn(_, func, from, _),
+  !IsFunctionCallReturn(_, _, from, to),
+  !IsFunctionCallReturn(from, to, _, _),
+  Block_IRBlock(to, func, irto).
+
 IRBlockEdge(irfrom, irto) :-
   BlockEdge(ctxFrom, from, _, to),
   Block_IRBlock(from, func, irfrom),
+  !PubFun(func, _),
   CanReachUnderContext(_, func, ctxFrom, from),
   !IsFunctionCallReturn(_, func, from, _),
+  !IsFunctionCallReturn(_, _, from, to),
+  !IsFunctionCallReturn(from, to, _, _),
   Block_IRBlock(to, func, irto).
 
 .decl IRBlockPath(from: IRBlock, to: IRBlock)
