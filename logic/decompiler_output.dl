@@ -109,7 +109,6 @@ TAC_Op(irstmt, op) :-
    !postTrans.ThrowJump(stmt),
    !postTrans.PushValue(stmt, _),
    !postTrans.PC(stmt),
-   !postTrans.REVERT(stmt),
    !postTrans.INVALID(stmt).
 
 TAC_Op(irstmt, "CONST") :-
@@ -123,7 +122,7 @@ TAC_Op(irstmt, "THROW") :-
 
 TAC_Op(irstmt, "THROW") :-
    Statement_IRStatement(stmt, _, irstmt),
-   (postTrans.INVALID(stmt) ; postTrans.REVERT(stmt)).
+   postTrans.INVALID(stmt).
 
 TAC_Op(irstmt, "THROWI") :-
    Statement_IRStatement(stmt, _, irstmt),
