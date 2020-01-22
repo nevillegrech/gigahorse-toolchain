@@ -257,6 +257,12 @@ THROWI(stmt, condVar) :-
   Statement_Opcode(stmt, "THROWI"),
   Statement_Uses(stmt, condVar, 0).
 
+.decl REVERT(stmt:Statement, memStart:Variable, memLength:Variable)
+REVERT(stmt, memStart, memLength) :-
+  Statement_Opcode(stmt, "REVERT"),
+  Statement_Uses(stmt, memStart, 0),
+  Statement_Uses(stmt, memLength, 1).
+
 
 .decl SELFDESTRUCT(stmt:Statement, address:Variable)
 SELFDESTRUCT(stmt, address) :-
