@@ -204,11 +204,23 @@ Variable_Value(y, result) :-\
     BeforeLocalStackContents(stmt, 0, var),
     CheckIsVariable(var).
 
+  .decl AlwaysJumps(stmt: Statement)
+  
+  AlwaysJumps(stmt) :-
+    JUMPI(stmt),
+    Statement_Uses_Local(stmt, pred, 1),
+    ISZERO(iszero),
+    Statement_Defines(iszero, pred),
+    Statement_Uses_Local(iszero, zero, 0),
+    Variable_Value(zero, "0x0").
+  
+
   .decl FallthroughStmt(stmt:Statement)
 
   FallthroughStmt(stmt) :-
     BasicBlock_Tail(_, stmt),
     !JUMP(stmt),
+    !AlwaysJumps(stmt),
     Statement_Opcode(stmt, opcode),
     !OpcodePossiblyHalts(opcode).   
 
@@ -428,7 +440,6 @@ Variable_Value(y, result) :-\
   .decl PublicFunctionJump(block:Block, funHex:symbol)
   .decl PublicFunction(block:Block, funHex:symbol)
 
-
   // Code inserted by compiler to compare function signature
   .decl BlockComparesSig(block: Block, sigHash: Value)
 
@@ -437,19 +448,31 @@ Variable_Value(y, result) :-\
     Statement_Block(pushStmt, block),
     (PUSH4(pushStmt, sigHash) ; PUSH3(pushStmt, sigHash)),
     Statement_Defines(pushStmt, sigHashVar),
-    Statement_Block(eqStmt, block),
     EQ(eqStmt),
     Statement_Uses_Local(eqStmt, sigHashVar, _),
-    Statement_Block(jumpiStmt, block),
-    JUMPI(jumpiStmt),
     Statement_Defines(eqStmt, pred),
+    JUMPI(jumpiStmt),
     Statement_Uses_Local(jumpiStmt, pred, 1).
-  
+
+
 }
 
-
 .comp PreTransLocalAnalysis : LocalAnalysis {
+
+  .decl BlockComparesSigVyper(block: Block, sigHash: Value)
+  .output BlockComparesSigVyper
   
+  BlockComparesSigVyper(block, sigHash) :-
+    Statement_Block(pushStmt, block),
+    (PUSH4(pushStmt, sigHash) ; PUSH3(pushStmt, sigHash)),
+    Statement_Defines(pushStmt, sigHashVar),
+    EQ(eqStmt), Statement_Uses_Local(eqStmt, sigHashVar, _),
+    Statement_Defines(eqStmt, pred),
+    ISZERO(isZeroStmt),  Statement_Uses_Local(isZeroStmt, pred, 0),
+    Statement_Defines(isZeroStmt, negPred),
+    JUMPI(jumpiStmt),
+    Statement_Uses_Local(jumpiStmt, negPred, 1).
+                                            
   PublicFunctionJump(block, sigHash):-
     ImmediateBlockJumpTarget(block, _),
     BasicBlock_Tail(block, jumpi),
@@ -462,7 +485,7 @@ Variable_Value(y, result) :-\
     CheckIsVariable(sigHashVar),
     Statement_Defines(push, sigHashVar),
       (PUSH4(push, sigHash) ; PUSH3(push, sigHash)).
-  
+
 
   PublicFunction(CAST_TO_SYMBOL(targetValue), sigHash) :-
     BlockComparesSig(block, sigHash),
@@ -472,10 +495,6 @@ Variable_Value(y, result) :-\
     JUMPDEST(CAST_TO_SYMBOL(targetValue)).
 
 
-  .decl Fallback(block: Block)
-  Fallback(b) :- Fallback(b).
-  .output Fallback
-  
   // Fallback functions
   PublicFunctionJump(block, "0x0"),
   PublicFunction(CAST_TO_SYMBOL(fallthrough), "0x0") :-
