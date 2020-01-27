@@ -19,6 +19,7 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
 
 #define ISLABEL(value) (substr(value, 0, 9) = "JUMPDEST:")
 #define MAKE_LABEL_REFERENCE(value) cat("JUMPDEST:", value)
+#define GET_LABEL_REFERENCE(value) substr(value, 9, 30)
 
 
 .comp StatementInsertor {
