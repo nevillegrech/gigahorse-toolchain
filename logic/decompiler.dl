@@ -121,11 +121,12 @@ postTrans.PublicFunctionJump(block, substr(meta, 19, 30)) :-
    postTrans.Statement_Block(stmt, block).
 
 // For Vyper
-postTrans.PublicFunction(block, GET_LABEL_REFERENCE(meta)) :-
+postTrans.PublicFunction(block, hash) :-
    insertor.MetaData(stmt, meta),
    postTrans.JUMPDEST(stmt),
-   ISLABEL(meta),
-   postTrans.Statement_Block(stmt, block).
+   postTrans.Statement_Block(stmt, block),
+   preTrans.BlockComparesSigVyper(_, hash),
+   ISLABEL(meta), hash = GET_LABEL_REFERENCE(meta).
 
 
 postTrans.PublicFunction(b, h) :- preTrans.PublicFunction(b, h).
