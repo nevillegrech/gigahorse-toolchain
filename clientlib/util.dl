@@ -1,3 +1,5 @@
+#pragma once
+
 #define STARTSWITH(s, b) (substr(s, 0, strlen(b)) = b)
 #define CAST_TO_SYMBOL(b) cat("", (b))
 
