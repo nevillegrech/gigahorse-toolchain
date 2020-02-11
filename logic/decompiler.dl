@@ -111,7 +111,37 @@ insertor.insertOps(functionStartStmt,
    preTrans.BlockComparesSigVyper(block, hash),
    preTrans.BasicBlock_Tail(block, tail),
    preTrans.Statement_Next(tail, functionStartStmt).
-    
+
+
+insertor.removeOp(codeCopy),
+insertor.removeOp(mload),
+insertor.insertOps(codeCopy,
+  LIST(
+    STMT(POP, ""),
+    STMT(POP, ""),
+    STMT(POP, "")
+  )
+),
+insertor.insertOps(mload,
+  LIST(
+    STMT(POP, ""),
+    STMT(PUSH32, const)
+  )
+) :-
+  preTrans.CODECOPYSmallConstWLoad(codeCopy, const, mload).
+
+insertor.removeOp(codeCopy),
+insertor.insertOps(codeCopy,
+  LIST(
+    STMT(SWAP2, ""),
+    STMT(POP, ""),
+    STMT(POP, ""),
+    STMT(PUSH32, const),
+    STMT(SWAP1, "")
+  )
+) :-
+  preTrans.CODECOPYSmallConstNoLoad(codeCopy, const).
+
 .init postTrans = PostTransLocalAnalysis
 
 // For Solidity, Vyper
