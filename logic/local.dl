@@ -446,6 +446,7 @@ Variable_Value(y, result) :-\
   // Compares label from stack to a constant: common public function dispatch pattern
   BlockComparesSig(block, sigHash) :-
     Statement_Block(pushStmt, block),
+    ImmediateBlockJumpTarget(block, _),
     (PUSH4(pushStmt, sigHash) ; PUSH3(pushStmt, sigHash)),
     Statement_Defines(pushStmt, sigHashVar),
     EQ(eqStmt),
@@ -472,20 +473,8 @@ Variable_Value(y, result) :-\
     Statement_Defines(isZeroStmt, negPred),
     JUMPI(jumpiStmt),
     Statement_Uses_Local(jumpiStmt, negPred, 1).
-                                            
-  PublicFunctionJump(block, sigHash):-
-    ImmediateBlockJumpTarget(block, _),
-    BasicBlock_Tail(block, jumpi),
-    Statement_Opcode(jumpi, "JUMPI"),
-    BeforeLocalStackContents(jumpi, 1, condVar),
-    CheckIsVariable(condVar),
-    Statement_Defines(eq, condVar),
-    Statement_Opcode(eq, "EQ"),
-    BeforeLocalStackContents(eq, 0, sigHashVar),
-    CheckIsVariable(sigHashVar),
-    Statement_Defines(push, sigHashVar),
-      (PUSH4(push, sigHash) ; PUSH3(push, sigHash)).
 
+  PublicFunctionJump(block, sigHash) :-   BlockComparesSig(block, sigHash).
 
   PublicFunction(CAST_TO_SYMBOL(targetValue), sigHash) :-
     BlockComparesSig(block, sigHash),
