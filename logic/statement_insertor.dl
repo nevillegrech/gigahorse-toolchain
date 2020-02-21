@@ -21,12 +21,19 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
 #define MAKE_LABEL_REFERENCE(value) cat("JUMPDEST:", value)
 #define GET_LABEL_REFERENCE(value) substr(value, 9, 30)
 
-
-.comp StatementInsertor {
+.comp CodeTransformer {
    // Inputs
   .decl Statement_Next(stmt: Statement, next: Statement)
   .decl Statement_Opcode(stmt: Statement, op: Opcode)
   .decl PushValue(stmt: Statement, value: Value)
+      
+  // Outputs
+  .decl Out_Statement_Next(stmt: Statement, next: Statement)
+  .decl Out_Statement_Opcode(stmt: Statement, op: Opcode)
+  .decl Out_PushValue(stmt: Statement, value: Value)
+}
+
+.comp StatementInsertor : CodeTransformer {
 
   .type Insertion = [ op: Opcode, value: Value ]
   .type Insertions = [ insertion:Insertion, rest:Insertions ]
@@ -42,10 +49,6 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
   .decl removeOp(stmt: Statement)
   removeOp(stmt) :- removeOp(stmt). // suppress warning
 
-  // Outputs
-  .decl Out_Statement_Next(stmt: Statement, next: Statement)
-  .decl Out_Statement_Opcode(stmt: Statement, op: Opcode)
-  .decl Out_PushValue(stmt: Statement, value: Value)
   .decl MetaData(newStmt: Statement, value: Value)
   
   // Simple translation
@@ -181,8 +184,3 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
   FAILIF(cat("Missing Push Value ", stmt), Out_Statement_Opcode(stmt, op), OpcodeIsPush(op), !Out_PushValue(stmt, _)).
   
 }
-
-
-.output insertor.Out_Statement_Opcode
-.output insertor.Out_Statement_Next
-.output insertor.Out_PushValue
