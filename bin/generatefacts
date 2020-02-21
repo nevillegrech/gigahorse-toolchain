@@ -26,14 +26,11 @@ def main(args):
         blocks = blockparse.EVMDasmParser(args.infile).parse()
     else:
         bytecode = ''.join([l.strip() for l in args.infile if len(l.strip()) > 0])
-        bytecode_file = open(args.outdir + "/bytecode.hex", "w")
-        bytecode_file.write(bytecode)
-        bytecode_file.close()
         blocks = blockparse.EVMBytecodeParser(bytecode).parse()
     logging.info("Initial parsing completed.")
 
     logging.info("Writing facts to disk.")
-    exporter.InstructionTsvExporter(blocks).export(output_dir=args.outdir)
+    exporter.InstructionTsvExporter(blocks).export(output_dir=args.outdir, bytecode_hex=bytecode)
 
 if __name__ == '__main__':
     # Configure argparse
