@@ -72,15 +72,20 @@
 .decl IsFunction(func: Function)
 .input IsFunction(IO="file", filename="Function.csv", delimiter="\t")
 
+.decl PublicFunctionSelector(func: Function, selector: symbol)
+.input PublicFunctionSelector(IO="file", filename="PublicFunction.csv", delimiter="\t")
+
 // A subset of IsFunction, represents public functions. All the rest of the functions
 // are private functions.
-.decl IsPublicFunction(func: Function)
-.input IsPublicFunction(IO="file", filename="PublicFunction.csv", delimiter="\t")
+IsPublicFunction(func) :- PublicFunctionSelector(func, _).
 
 // Name given to each function. May contain public signature too.
 // Useful for presentation purposes.
 .decl HighLevelFunctionName(func: Function, name: symbol)
 .input HighLevelFunctionName(IO="file", filename="HighLevelFunctionName.csv", delimiter="\t")
+
+// Selector given to each public function. 
+
 
 .decl EventSignatureInContract(sigHash:symbol, sigText:symbol)
 .input EventSignatureInContract(IO="file", filename="EventSignatureInContract.csv", delimiter="\t")
