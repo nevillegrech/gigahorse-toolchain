@@ -111,12 +111,17 @@ class InstructionTsvExporter(Exporter):
         """
         self.blocks.append((block.entry, str(block)))
     
-    def export(self, output_dir = ""):
+    def export(self, output_dir = "", bytecode_hex = None):
         """
         Print basic block info to tsv.
         """
         if output_dir != "":
             os.makedirs(output_dir, exist_ok=True)
+        
+        if bytecode_hex:
+            bytecode_file = open(output_dir + "/bytecode.hex", "w")
+            bytecode_file.write(bytecode_hex)
+            bytecode_file.close()
 
         signatures_filename_in = public_function_signature_filename
         signatures_filename_out = os.path.join(output_dir, 'PublicFunctionSignature.facts')

@@ -4,7 +4,10 @@
 // All sorts of different outputs of the decompiler, including
 // three-address code representation (which is later input and
 // re-formatted for use by clients), statistics, debugging relations.
+.decl ByteCodeHex(bytecode:symbol)
 
+.input ByteCodeHex(IO="file", filename="bytecode.hex")
+.output ByteCodeHex(IO="file", filename="bytecode.hex")
 
 // useful intermediate outputs
 .output OpcodePossiblyHalts
