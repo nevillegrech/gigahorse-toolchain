@@ -461,13 +461,11 @@ Variable_Value(y, result) :-\
 .comp PreTransLocalAnalysis : LocalAnalysis {
 
   .decl CODECOPYSmallConst(codeCopy:Statement, const:symbol)
-  .output CODECOPYSmallConst
+  //.output CODECOPYSmallConst, CODECOPYSmallConstNoLoad, CODECOPYSmallConstWLoad
   
   .decl CODECOPYSmallConstWLoad(codeCopy:Statement, const:symbol, load:Statement)
-  .output CODECOPYSmallConstWLoad
 
   .decl CODECOPYSmallConstNoLoad(codeCopy:Statement, const:symbol)
-  .output CODECOPYSmallConstNoLoad
 
   CODECOPYSmallConstWLoad(codeCopy, const, mload):-
     CODECOPYSmallConst(codeCopy, const),
