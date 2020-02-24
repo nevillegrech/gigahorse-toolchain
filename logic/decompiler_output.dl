@@ -9,7 +9,7 @@
 // useful intermediate outputs
 .output OpcodePossiblyHalts
 .output IRBlockEdge
-.output postTrans.PublicFunction(IO="file", filename = "PublicFunction.csv", delimiter = "\t")
+.output IRPublicFunction(IO="file", filename = "PublicFunction.csv", delimiter = "\t")
 .output Statement_IRStatement
 .output IRBlock_Gas
 
@@ -63,7 +63,6 @@ PHILocation(block, stackIndex, cat(cat(block, "_"), stackIndexHex)) :-
 .output TAC_Variable_Value
 .decl TAC_Variable_BlockValue(var: TACVariable, value: symbol)
 .output TAC_Variable_BlockValue
-
 
 /// Heuristically change the values of all constants that match cloned
 /// basic block labels! Don't up
