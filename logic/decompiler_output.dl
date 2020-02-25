@@ -4,12 +4,15 @@
 // All sorts of different outputs of the decompiler, including
 // three-address code representation (which is later input and
 // re-formatted for use by clients), statistics, debugging relations.
+.decl ByteCodeHex(bytecode:symbol)
 
+.input ByteCodeHex(IO="file", filename="bytecode.hex")
+.output ByteCodeHex(IO="file", filename="bytecode.hex")
 
 // useful intermediate outputs
 .output OpcodePossiblyHalts
 .output IRBlockEdge
-.output postTrans.PublicFunction(IO="file", filename = "PublicFunction.csv", delimiter = "\t")
+.output IRPublicFunction(IO="file", filename = "PublicFunction.csv", delimiter = "\t")
 .output Statement_IRStatement
 .output IRBlock_Gas
 
@@ -63,7 +66,6 @@ PHILocation(block, stackIndex, cat(cat(block, "_"), stackIndexHex)) :-
 .output TAC_Variable_Value
 .decl TAC_Variable_BlockValue(var: TACVariable, value: symbol)
 .output TAC_Variable_BlockValue
-
 
 /// Heuristically change the values of all constants that match cloned
 /// basic block labels! Don't up
