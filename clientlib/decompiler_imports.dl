@@ -15,6 +15,11 @@
 
 #include "tac_instructions.dl"
 #include "util.dl"
+
+/* Whole bytecode as a hex string */
+.decl ByteCodeHex(bytecode:symbol)
+.input ByteCodeHex(IO="file", filename="bytecode.hex")
+
  
 .decl OpcodePossiblyHalts(op: Opcode)
 .input OpcodePossiblyHalts(IO="file", filename="OpcodePossiblyHalts.csv", delimiter="\t")
@@ -72,15 +77,21 @@
 .decl IsFunction(func: Function)
 .input IsFunction(IO="file", filename="Function.csv", delimiter="\t")
 
+.decl PublicFunctionSelector(func: Function, selector: symbol)
+.input PublicFunctionSelector(IO="file", filename="PublicFunction.csv", delimiter="\t")
+
 // A subset of IsFunction, represents public functions. All the rest of the functions
 // are private functions.
 .decl IsPublicFunction(func: Function)
-.input IsPublicFunction(IO="file", filename="PublicFunction.csv", delimiter="\t")
+IsPublicFunction(func) :- PublicFunctionSelector(func, _).
 
 // Name given to each function. May contain public signature too.
 // Useful for presentation purposes.
 .decl HighLevelFunctionName(func: Function, name: symbol)
 .input HighLevelFunctionName(IO="file", filename="HighLevelFunctionName.csv", delimiter="\t")
+
+// Selector given to each public function. 
+
 
 .decl EventSignatureInContract(sigHash:symbol, sigText:symbol)
 .input EventSignatureInContract(IO="file", filename="EventSignatureInContract.csv", delimiter="\t")
@@ -245,4 +256,8 @@ ValidGlobalTerminalBlock(block) :-
 .decl GlobalEntryBlock(block: Block)
 
 GlobalEntryBlock("0x0").
+
+.decl FallbackFunction(func: Function)
+
+FallbackFunction(func) :- PublicFunctionSelector(func, "0x0").
 

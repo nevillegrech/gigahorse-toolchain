@@ -446,6 +446,7 @@ Variable_Value(y, result) :-\
   // Compares label from stack to a constant: common public function dispatch pattern
   BlockComparesSig(block, sigHash) :-
     Statement_Block(pushStmt, block),
+    ImmediateBlockJumpTarget(block, _),
     (PUSH4(pushStmt, sigHash) ; PUSH3(pushStmt, sigHash)),
     Statement_Defines(pushStmt, sigHashVar),
     EQ(eqStmt),
@@ -458,6 +459,42 @@ Variable_Value(y, result) :-\
 }
 
 .comp PreTransLocalAnalysis : LocalAnalysis {
+
+  .decl CODECOPYSmallConst(codeCopy:Statement, const:symbol)
+  //.output CODECOPYSmallConst, CODECOPYSmallConstNoLoad, CODECOPYSmallConstWLoad
+  
+  .decl CODECOPYSmallConstWLoad(codeCopy:Statement, const:symbol, load:Statement)
+
+  .decl CODECOPYSmallConstNoLoad(codeCopy:Statement, const:symbol)
+
+  CODECOPYSmallConstWLoad(codeCopy, const, mload):-
+    CODECOPYSmallConst(codeCopy, const),
+    BeforeLocalStackContents(codeCopy, 0, memLocVar),
+    CheckIsVariable(memLocVar),
+    Statement_Next(codeCopy, dupStmt),
+    Statement_Next(dupStmt, mload),
+    Statement_Opcode(mload, "MLOAD"),
+    BeforeLocalStackContents(mload, 0, memLocVar).
+
+  CODECOPYSmallConstNoLoad(codeCopy, const):-
+    CODECOPYSmallConst(codeCopy, const),
+    !CODECOPYSmallConstWLoad(codeCopy, const, _).
+
+  CODECOPYSmallConst(codeCopy, const):-
+    Statement_Opcode(codeCopy, "CODECOPY"),
+    BeforeLocalStackContents(codeCopy, 2, lenVar),
+    CheckIsVariable(lenVar),
+    Statement_Defines(pushLen, lenVar),
+    PushValue(pushLen, smallNumHex),
+    smallNum = @hex_to_number(smallNumHex),
+    smallNum <= 32,
+    BeforeLocalStackContents(codeCopy, 1, codeOffsetVar),
+    CheckIsVariable(codeOffsetVar),
+    Statement_Defines(pushCodeOffset, codeOffsetVar),
+    PushValue(pushCodeOffset, codeOffsetNumHex),
+    codeOffsetNum = @hex_to_number(codeOffsetNumHex),
+    ByteCodeHex(bytecodeStr),
+    const = cat("0x", substr(bytecodeStr, 2*codeOffsetNum, 2*smallNum)).
 
   .decl BlockComparesSigVyper(block: Block, sigHash: Value)
   .output BlockComparesSigVyper
@@ -472,20 +509,8 @@ Variable_Value(y, result) :-\
     Statement_Defines(isZeroStmt, negPred),
     JUMPI(jumpiStmt),
     Statement_Uses_Local(jumpiStmt, negPred, 1).
-                                            
-  PublicFunctionJump(block, sigHash):-
-    ImmediateBlockJumpTarget(block, _),
-    BasicBlock_Tail(block, jumpi),
-    Statement_Opcode(jumpi, "JUMPI"),
-    BeforeLocalStackContents(jumpi, 1, condVar),
-    CheckIsVariable(condVar),
-    Statement_Defines(eq, condVar),
-    Statement_Opcode(eq, "EQ"),
-    BeforeLocalStackContents(eq, 0, sigHashVar),
-    CheckIsVariable(sigHashVar),
-    Statement_Defines(push, sigHashVar),
-      (PUSH4(push, sigHash) ; PUSH3(push, sigHash)).
 
+  PublicFunctionJump(block, sigHash) :-   BlockComparesSig(block, sigHash).
 
   PublicFunction(CAST_TO_SYMBOL(targetValue), sigHash) :-
     BlockComparesSig(block, sigHash),

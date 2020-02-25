@@ -228,7 +228,7 @@ def analyze_contract(job_index: int, index: int, filename: str, result_queue, ti
 
             # Disassemble contract
             blocks = blockparse.EVMBytecodeParser(bytecode).parse()
-            exporter.InstructionTsvExporter(blocks).export(output_dir=work_dir)
+            exporter.InstructionTsvExporter(blocks).export(output_dir=work_dir, bytecode_hex=bytecode)
 
             # Run souffle on those relations
             decomp_start = time.time()
