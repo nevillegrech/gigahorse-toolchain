@@ -82,6 +82,7 @@
 
 // A subset of IsFunction, represents public functions. All the rest of the functions
 // are private functions.
+.decl IsPublicFunction(func: Function)
 IsPublicFunction(func) :- PublicFunctionSelector(func, _).
 
 // Name given to each function. May contain public signature too.
@@ -255,4 +256,8 @@ ValidGlobalTerminalBlock(block) :-
 .decl GlobalEntryBlock(block: Block)
 
 GlobalEntryBlock("0x0").
+
+.decl FallbackFunction(func: Function)
+
+FallbackFunction(func) :- PublicFunctionSelector(func, "0x0").
 
