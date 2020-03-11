@@ -58,8 +58,6 @@ DEFAULT_PATTERN = ".*.hex"
 DEFAULT_NUM_JOBS = int(cpu_count()*0.9)
 """The number of subprocesses to run at once."""
 
-RANGE_NAME = 'Analytics!A:B'
-
 # Command Line Arguments
 
 parser = argparse.ArgumentParser(
@@ -163,14 +161,6 @@ parser.add_argument("--reuse_datalog_bin",
                     action="store_true",
                     default=False,
                     help="Do not recompile.")
-
-parser.add_argument("--sheet",
-                    type=str,
-                    nargs="?",
-                    default=None,
-                    const=None,
-                    help="Export results to Google Sheets")
-
 
 metrics = statsd.StatsClient('18.237.49.242', 8125, prefix='analyze')
 
@@ -512,15 +502,6 @@ try:
     log("\nWriting results to {}".format(args.results_file))
     with open(args.results_file, 'w') as f:
         f.write(json.dumps(list(res_list), indent=1))
-
-    if args.sheet:
-        import google_utils
-        spreadsheet = google_utils.Spreadsheet(google_utils.create_sheet_service(), args.sheet) 
-
-        values = [[res, '{:.2f}%'.format(100 * count / total)] for res, count in counts_sorted]
-
-        spreadsheet.batch_update(values, RANGE_NAME)
-
 
 except Exception as e:
     metrics.incr(f"exception.{str(e)}.int")
