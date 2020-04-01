@@ -141,16 +141,22 @@ MaybeFunctionCallReturn(caller, func, retBlock, retTarget) :-
   CanReach(caller, retTarget),
   CanReach(func, retBlock).
 
+// Auxiliary, for optimization
+.decl PossibleReturnAddressWithPositiveRank(targetSetter:Block, retBlock:Block, retTarget:Block, rank:number)
+PossibleReturnAddressWithPositiveRank(caller, retBlock, retTarget, n) :-
+  PossibleReturnAddressWithRank(caller, retBlock, retTarget, n),
+  n > 0.
+
 // If we have found a likely call-return pattern, we propagate to the return
 // block the extra pushed return values of the former caller. Stacking return
 // values is a usual pattern in produced code.
 PossibleReturnAddressWithRank(caller, retBlock, retTarget, n-1+offset) :-
   MaybeFunctionCallReturn(targetSetter, _, _, caller),
   EnableCostlyAlgorithms(), // place second for parallelism
-  PossibleReturnAddressWithRank(targetSetter, retBlock, retTarget, n), n > 0,
+  PossibleReturnAddressWithPositiveRank(targetSetter, retBlock, retTarget, n),
   postTrans.ImmediateBlockJumpTarget(caller, targetVar),
   BlockJumpValidTarget(_, caller, targetVar, func),
-  ((MaxRankForPossibleReturnAddressSetter(caller, maxrank), offset = maxrank + 1);
+  ((MaxRankForPossibleReturnAddressSetter(caller, maxrank), offset = maxrank);
    (!PossibleReturnAddressWithPos(caller, _, _, _), offset = 0)),
   CanReachUnderContextThroughBlock(_, targetSetter, func, retCtx, retBlock),
   CanReachUnderContext(retCtx, retBlock, _, retTarget).
@@ -158,10 +164,10 @@ PossibleReturnAddressWithRank(caller, retBlock, retTarget, n-1+offset) :-
 PossibleReturnAddressWithRank(caller, retBlock, retTarget, n-1+offset) :-
   MaybeFunctionCallReturn(targetSetter, _, _, caller),
   DisableCostlyAlgorithms(), // place second for parallelism
-  PossibleReturnAddressWithRank(targetSetter, retBlock, retTarget, n), n > 0,
+  PossibleReturnAddressWithPositiveRank(targetSetter, retBlock, retTarget, n),
   postTrans.ImmediateBlockJumpTarget(caller, targetVar),
   BlockJumpValidTarget(_, caller, targetVar, func),
-  ((MaxRankForPossibleReturnAddressSetter(caller, maxrank), offset = maxrank + 1);
+  ((MaxRankForPossibleReturnAddressSetter(caller, maxrank), offset = maxrank);
    (!PossibleReturnAddressWithPos(caller, _, _, _), offset = 0)),
   CanReach(targetSetter, retTarget),
   CanReach(func, retBlock).
