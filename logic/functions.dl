@@ -98,14 +98,18 @@ PossibleReturnAddressWithLowerPos(targetSetter, retBlock, retTarget, pos, otherP
   PossibleReturnAddressWithPos(targetSetter, _, _, otherPos),
   otherPos < pos.
 
-.decl PossibleReturnAddressWithRank(targetSetter:Block, retBlock:Block, retTarget:Block, rank:number)
-PossibleReturnAddressWithRank(targetSetter, retBlock, retTarget, rank) :-
+.decl InitialPossibleReturnAddressWithRank(targetSetter:Block, retBlock:Block, retTarget:Block, rank:number)
+InitialPossibleReturnAddressWithRank(targetSetter, retBlock, retTarget, rank) :-
   PossibleReturnAddressWithPos(targetSetter, retBlock, retTarget, pos),
   rank = count : PossibleReturnAddressWithLowerPos(targetSetter, retBlock, retTarget, pos, _).
 
+.decl PossibleReturnAddressWithRank(targetSetter:Block, retBlock:Block, retTarget:Block, rank:number)
+PossibleReturnAddressWithRank(targetSetter, retBlock, retTarget, rank) :-
+  InitialPossibleReturnAddressWithRank(targetSetter, retBlock, retTarget, rank).
+
 .decl MaxRankForPossibleReturnAddressSetter(targetSetter:Block, rank:number)
 MaxRankForPossibleReturnAddressSetter(targetSetter, rank) :-
-  PossibleReturnAddressWithRank(targetSetter, retBlock, retTarget, rank),
+  InitialPossibleReturnAddressWithRank(targetSetter, retBlock, retTarget, rank),
   PossibleReturnAddressWithPos(targetSetter, retBlock, retTarget, pos),
   !PossibleReturnAddressWithLowerPos(targetSetter, _, _, _, pos).
 
@@ -156,7 +160,7 @@ PossibleReturnAddressWithRank(caller, retBlock, retTarget, n-1+offset) :-
   PossibleReturnAddressWithPositiveRank(targetSetter, retBlock, retTarget, n),
   postTrans.ImmediateBlockJumpTarget(caller, targetVar),
   BlockJumpValidTarget(_, caller, targetVar, func),
-  ((MaxRankForPossibleReturnAddressSetter(caller, maxrank), offset = maxrank);
+  ((MaxRankForPossibleReturnAddressSetter(caller, maxrank), offset = maxrank + 1, n < 10);
    (!PossibleReturnAddressWithPos(caller, _, _, _), offset = 0)),
   CanReachUnderContextThroughBlock(_, targetSetter, func, retCtx, retBlock),
   CanReachUnderContext(retCtx, retBlock, _, retTarget).
@@ -167,7 +171,7 @@ PossibleReturnAddressWithRank(caller, retBlock, retTarget, n-1+offset) :-
   PossibleReturnAddressWithPositiveRank(targetSetter, retBlock, retTarget, n),
   postTrans.ImmediateBlockJumpTarget(caller, targetVar),
   BlockJumpValidTarget(_, caller, targetVar, func),
-  ((MaxRankForPossibleReturnAddressSetter(caller, maxrank), offset = maxrank);
+  ((MaxRankForPossibleReturnAddressSetter(caller, maxrank), offset = maxrank + 1, n < 10);
    (!PossibleReturnAddressWithPos(caller, _, _, _), offset = 0)),
   CanReach(targetSetter, retTarget),
   CanReach(func, retBlock).
