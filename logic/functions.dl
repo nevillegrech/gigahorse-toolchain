@@ -75,6 +75,11 @@ CanReach(from, to) :-
 PotentialCall(block) :-
   postTrans.ImmediateBlockJumpTarget(block, _).
 
+.decl OptNotImmediateBlockJumpTarget(ret:Block, targetVariable:Variable, retTarget:Block)
+OptNotImmediateBlockJumpTarget(retBlock, targetVariable, retTarget) :-
+  BlockJumpValidTarget(_, retBlock, targetVariable, retTarget),
+  !postTrans.ImmediateBlockJumpTarget(retBlock, targetVariable).
+
 
 
 // Call-return pattern:
@@ -111,18 +116,19 @@ PossibleReturnAddressWithRank(targetSetter, retBlock, retTarget, rank) :-
 MaxRankForPossibleReturnAddressSetter(targetSetter, rank) :-
   InitialPossibleReturnAddressWithRank(targetSetter, retBlock, retTarget, rank),
   PossibleReturnAddressWithPos(targetSetter, retBlock, retTarget, pos),
-  !PossibleReturnAddressWithLowerPos(targetSetter, _, _, _, pos).
+  !PossibleReturnAddressWithLowerPos(targetSetter, _, _, _, pos),
+  rank < 10.
 
+
+MaxRankForPossibleReturnAddressSetter(caller, 0) :-
+   postTrans.Statement_Block(_, caller),
+   !PossibleReturnAddressWithPos(caller, _, _, _).
+   
 .output PossibleReturnAddressWithRank
 // If we find a direct jump (to a purported function) and the first
 // pushed return address (jumped-to by code reachable from the
 // purported function) before it, we detect a call-return pattern.
   
-
-.decl OptNotImmediateBlockJumpTarget(ret:Block, targetVariable:Variable, retTarget:Block)
-OptNotImmediateBlockJumpTarget(retBlock, targetVariable, retTarget) :-
-  BlockJumpValidTarget(_, retBlock, targetVariable, retTarget),
-  !postTrans.ImmediateBlockJumpTarget(retBlock, targetVariable).
 
 
 // Also match a subset of those with return addresses and full info. The
@@ -160,8 +166,7 @@ PossibleReturnAddressWithRank(caller, retBlock, retTarget, n-1+offset) :-
   PossibleReturnAddressWithPositiveRank(targetSetter, retBlock, retTarget, n),
   postTrans.ImmediateBlockJumpTarget(caller, targetVar),
   BlockJumpValidTarget(_, caller, targetVar, func),
-  ((MaxRankForPossibleReturnAddressSetter(caller, maxrank), offset = maxrank + 1, n < 10);
-   (!PossibleReturnAddressWithPos(caller, _, _, _), offset = 0)),
+  MaxRankForPossibleReturnAddressSetter(caller, offset),
   CanReachUnderContextThroughBlock(_, targetSetter, func, retCtx, retBlock),
   CanReachUnderContext(retCtx, retBlock, _, retTarget).
 
@@ -171,8 +176,7 @@ PossibleReturnAddressWithRank(caller, retBlock, retTarget, n-1+offset) :-
   PossibleReturnAddressWithPositiveRank(targetSetter, retBlock, retTarget, n),
   postTrans.ImmediateBlockJumpTarget(caller, targetVar),
   BlockJumpValidTarget(_, caller, targetVar, func),
-  ((MaxRankForPossibleReturnAddressSetter(caller, maxrank), offset = maxrank + 1, n < 10);
-   (!PossibleReturnAddressWithPos(caller, _, _, _), offset = 0)),
+  MaxRankForPossibleReturnAddressSetter(caller, offset),
   CanReach(targetSetter, retTarget),
   CanReach(func, retBlock).
 
