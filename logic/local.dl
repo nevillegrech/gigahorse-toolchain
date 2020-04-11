@@ -1,14 +1,4 @@
-#define BINOP_SEMANTICS(_OP, _functor) \
-Variable_Value(y, result) :-\
-   Variable_Value(x0, x0val),\
-   Statement_Uses_Local(s, x0, 0),\
-   Statement_Opcode(s, #_OP),\
-   Statement_Uses_Local(s, x1, 1),\
-   Variable_Value(x1, x1val),\
-   result = _functor(x0val, x1val),\
-   Statement_Defines(s, y).\
-   .plan 1:(5, 4, 3, 2, 1, 6)
-     
+#include "../clientlib/constant_folding_variable_value.dl"
 
 // Local means within the same basic block
 .comp LocalAnalysis {
@@ -60,6 +50,14 @@ Variable_Value(y, result) :-\
   OpcodePopWords("CALLPRIVATE", 1).
   OpcodePopWords("RETURNPRIVATE", 1).
 
+
+  .init variableValueConstantFolding = VariableValueConstantFolding
+
+  variableValueConstantFolding.Statement_Uses(stmt, var, n) :-
+    Statement_Uses_Local(stmt, var, n).
+
+  variableValueConstantFolding.Statement_Defines(stmt, var) :-
+    Statement_Defines(stmt, var).
 
   .decl Variable_Value(variable: Variable, value: Value)
     
@@ -117,7 +115,7 @@ Variable_Value(y, result) :-\
   
   // Heuristic to separate code from data:
   // Anything in a basic block after an instruction that alters flow or
-  // an invalid opcode is data.
+ // an invalid opcode is data.
   .decl PossiblyIsBasicBlockTail(statement:Statement)
   
   PossiblyIsBasicBlockTail(statement) :-
@@ -253,36 +251,17 @@ Variable_Value(y, result) :-\
     !TACNOP(stmt).
   
   // Constant values. Example of implementation of push1 to push32.
-  Variable_Value(var, value) :-
+  variableValueConstantFolding.Initial_Value(var, value) :-
     PushValue(stmt, value),
     Statement_Defines(stmt, var).
   
   // Get current program counter
-  Variable_Value(var, CAST_TO_SYMBOL(stmt)) :-
+  variableValueConstantFolding.Initial_Value(var, CAST_TO_SYMBOL(stmt)) :-
     PC(stmt),
     Statement_Defines(stmt, var).
 
-  // produce new values using constant folding
-  BINOP_SEMANTICS(ADD, @add_256)
-  BINOP_SEMANTICS(SUB, @sub_256)
-  BINOP_SEMANTICS(MUL, @mul_256)
-  BINOP_SEMANTICS(DIV, @div_256)
-  BINOP_SEMANTICS(MOD, @mod_256)
-  BINOP_SEMANTICS(AND, @and_256)
-  BINOP_SEMANTICS(OR, @or_256)
-  BINOP_SEMANTICS(XOR, @xor_256)
-  BINOP_SEMANTICS(GT, @gt_256)
-  BINOP_SEMANTICS(EQ, @eq_256)
-  BINOP_SEMANTICS(LT, @lt_256)
-  BINOP_SEMANTICS(EXP, @exp_256)
-  BINOP_SEMANTICS(SMOD, @smod_256)
-  BINOP_SEMANTICS(SDIV, @sdiv_256)
-  BINOP_SEMANTICS(SGT, @sgt_256)
-  BINOP_SEMANTICS(SLT, @slt_256)
-  BINOP_SEMANTICS(SHL, @shl_256)
-  BINOP_SEMANTICS(SHR, @shr_256)
-  BINOP_SEMANTICS(SAR, @sar_256)
-
+  Variable_Value(var, value) :-
+    variableValueConstantFolding.Variable_Value(var, value).
 
   // DUP
   LocalStackContents(stmt, 0, duplicated) :-
