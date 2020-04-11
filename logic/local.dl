@@ -212,6 +212,12 @@
     Statement_Uses_Local(iszero, zero, 0),
     Variable_Value(zero, "0x0").
   
+  AlwaysJumps(stmt) :-
+    JUMPI(stmt),
+    Statement_Uses_Local(stmt, pred, 1),
+    Variable_Value(pred, value),
+    value != "0x0".
+
 
   .decl FallthroughStmt(stmt:Statement)
 
