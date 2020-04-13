@@ -99,8 +99,8 @@ def renderBlock(k, stmts):
             ret = ''
         use = ' '.join(format_var(v) for v in tac_use[s])
         stmt_render = s+': '+ret+op+' '+use
-        if len(stmt_render) > 60:
-            stmt_render = stmt_render[:29] + '...' + stmt_render[-29:]
+        if len(stmt_render) > 460:
+            stmt_render = stmt_render[:229] + '...' + stmt_render[-229:]
         sorted_stmts.append(stmt_render)
     if len(sorted_stmts) > BLOCK_SIZE_LIMIT:
         half_limit = int(BLOCK_SIZE_LIMIT/2)
