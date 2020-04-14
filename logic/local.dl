@@ -1,4 +1,4 @@
-#include "../clientlib/constant_folding_variable_value.dl"
+#include "../clientlib/constants.dl"
 
 // Local means within the same basic block
 .comp LocalAnalysis {
@@ -50,16 +50,52 @@
   OpcodePopWords("CALLPRIVATE", 1).
   OpcodePopWords("RETURNPRIVATE", 1).
 
+  .init variableValueConstantFolding = ConstantFolding
 
-  .init variableValueConstantFolding = VariableValueConstantFolding
+  // Auxiliary relations for constant folding
+  .decl BinopStatementOpAndArgs(stmt: Statement, op: symbol, a: Variable, b: Variable)
+  BinopStatementOpAndArgs(stmt, op, a, b) :-
+    Statement_Opcode(stmt, op),
+    Statement_Uses_Local(stmt, a, 0),
+    Statement_Uses_Local(stmt, b, 1).
 
-  variableValueConstantFolding.Statement_Uses(stmt, var, n) :-
-    Statement_Uses_Local(stmt, var, n).
+  .decl BinopStatementOpAndConstantArgValues(stmt: Statement, op: symbol, a_val: Value, b_val: Value)
+  BinopStatementOpAndConstantArgValues(stmt, op, a_val, b_val) :-
+    Variable_Value(a, a_val),
+    BinopStatementOpAndArgs(stmt, op, a, b),
+    Variable_Value(b, b_val).
+  .plan 1:(3,2,1)
 
-  variableValueConstantFolding.Statement_Defines(stmt, var) :-
-    Statement_Defines(stmt, var).
+  .decl UnopStatementOpAndArgs(stmt: Statement, op: symbol, a: Variable)
+  UnopStatementOpAndArgs(stmt, op, a) :-
+    Statement_Opcode(stmt, op),
+    Statement_Uses_Local(stmt, a, 0),
+    !Statement_Uses_Local(stmt, _, 1).
+
+  .decl UnopStatementOpAndConstantArgValues(stmt: Statement, op: symbol, a_val: Value)
+  UnopStatementOpAndConstantArgValues(stmt, op, a_val) :-
+    Variable_Value(a, a_val),
+    UnopStatementOpAndArgs(stmt, op, a).
+
+  // Constant fold of variables holding unique constant numeric values
+  variableValueConstantFolding.RequestConstantFold2(op, a_val, b_val) :-
+    BinopStatementOpAndConstantArgValues(_, op, a_val, b_val).
+
+  variableValueConstantFolding.RequestConstantFold1(op, a_val) :-
+    UnopStatementOpAndConstantArgValues(_, op, a_val).
 
   .decl Variable_Value(variable: Variable, value: Value)
+
+  Variable_Value(to, result) :-
+    variableValueConstantFolding.ConstantFoldResult2(op, a_val, b_val, result),
+    BinopStatementOpAndConstantArgValues(stmt, op, a_val, b_val),
+    Statement_Defines(stmt, to).
+   .plan 1:(2,1,3)
+
+  Variable_Value(to, result) :-
+    variableValueConstantFolding.ConstantFoldResult1(op, a_val, result),
+    UnopStatementOpAndConstantArgValues(stmt, op, a_val),
+    Statement_Defines(stmt, to).
     
   .decl IsVariable(n:Variable)
   
@@ -257,17 +293,14 @@
     !TACNOP(stmt).
   
   // Constant values. Example of implementation of push1 to push32.
-  variableValueConstantFolding.Initial_Value(var, value) :-
+  Variable_Value(var, value) :-
     PushValue(stmt, value),
     Statement_Defines(stmt, var).
   
   // Get current program counter
-  variableValueConstantFolding.Initial_Value(var, CAST_TO_SYMBOL(stmt)) :-
+  Variable_Value(var, CAST_TO_SYMBOL(stmt)) :-
     PC(stmt),
     Statement_Defines(stmt, var).
-
-  Variable_Value(var, value) :-
-    variableValueConstantFolding.Variable_Value(var, value).
 
   // DUP
   LocalStackContents(stmt, 0, duplicated) :-
