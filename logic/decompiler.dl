@@ -98,6 +98,8 @@ insertor.insertOps(jumpDestStmt,
    preTrans.JUMPDEST(jumpDestStmt),
    preTrans.PushValue(pushStmt, CAST_TO_SYMBOL(jumpDestStmt)),
    preTrans.Statement_Block(pushStmt, block),
+   preTrans.Statement_Defines(pushStmt, pushedVar),
+   preTrans.Statement_Uses_Local(jumpStmt, pushedVar, 0),
    preTrans.BasicBlock_Tail(block, jumpStmt).
 
 // Vyper transformation
