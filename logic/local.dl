@@ -240,6 +240,8 @@
 
   .decl AlwaysJumps(stmt: Statement)
   
+  // This rule should be redundant, since we now constant fold ISZERO statements.
+  // TODO: Check this
   AlwaysJumps(stmt) :-
     JUMPI(stmt),
     Statement_Uses_Local(stmt, pred, 1),
