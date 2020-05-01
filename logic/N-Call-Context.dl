@@ -19,14 +19,14 @@ BlockHasTrivialControl(block) :-
 
 // We're only interested in private functions
 // No ambiguity for public functions
-.decl PrivateFunctionCaller(caller: Block)
+.decl PrivateFunctionCallOrReturn(caller: Block)
 
-PrivateFunctionCaller(caller) :-
+PrivateFunctionCallOrReturn(caller) :-
   StaticBlockJumpTarget(caller, target),
   StaticBlockJumpTarget(caller2, target),
   caller != caller2.
 
-PrivateFunctionCaller(caller) :-
+PrivateFunctionCallOrReturn(caller) :-
   postTrans.Statement_Block(_, caller),
   !BlockHasTrivialControl(caller).
 
@@ -51,12 +51,12 @@ MergeContext(ctx, caller, ctx) :-
   ctx = [pub, [ctx1, ctx2]], pub = pub, ctx2 = ctx2,
   ctx1 != "0x0",
   !postTrans.PublicFunction(caller, _),  
-  !PrivateFunctionCaller(caller).
+  !PrivateFunctionCallOrReturn(caller).
 
 // Complex control flow case, add
 MergeContext(ctx, caller, newContext) :-
   ReachableContext(ctx, caller),
-  (PrivateFunctionCaller(caller);
+  (PrivateFunctionCallOrReturn(caller);
    ctx1 = "0x0"),
   !postTrans.PublicFunction(caller, _),
   ctx = [pub, [ctx1, ctx2]], ctx1 = ctx1, // suppress warning
