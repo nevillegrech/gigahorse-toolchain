@@ -387,24 +387,14 @@
     Statement_Opcode(stmt, opcode),
     OpcodePopWords(opcode, delta).
   
-  // This intermediate relation was introduced for optimization purposes
-  .decl StatementPopDeltaNew(stmt: Statement, prevPopDelta: StackIndex, newPopDelta: StackIndex)
   
-  StatementPopDeltaNew(stmt, prevPopDelta, popDelta - prevStackDelta) :-
+  StatementPopDelta(stmt, @max2(prevPopDelta, popDelta - prevStackDelta)) :-
     StatementPopDelta(prevstmt, prevPopDelta),
     !BasicBlock_Tail(_, prevstmt),
     StatementStackDelta(prevstmt, prevStackDelta),
     Statement_Next(prevstmt, stmt),
     Statement_Opcode(stmt, opcode),
     OpcodePopWords(opcode, popDelta).
-  
-  StatementPopDelta(stmt, newPopDelta) :-
-    StatementPopDeltaNew(stmt, prevPopDelta, newPopDelta),
-    newPopDelta > prevPopDelta.
-  
-  StatementPopDelta(stmt, prevPopDelta) :-
-    StatementPopDeltaNew(stmt, prevPopDelta, newPopDelta),
-    newPopDelta <= prevPopDelta.
   
   BlockStackDelta(block, delta) :-
     BasicBlock_Tail(block, stmt),
