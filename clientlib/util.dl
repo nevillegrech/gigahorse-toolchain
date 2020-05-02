@@ -36,6 +36,9 @@
 .functor hex_to_number(symbol):number
 .functor number_to_hex(number):symbol
 
+.functor max2(number, number):number
+.functor min2(number, number):number
+
 .functor in_set(symbol,symbol):number
 .functor add_set(symbol,symbol):symbol
 
