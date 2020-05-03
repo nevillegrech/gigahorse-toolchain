@@ -93,19 +93,16 @@ Analytics_MissingJumpTarget(block) :-
 
 // Missing operands for IR statements.
 
-.decl Analytics_StmtMissingOperandBinop(stmt:IRStatement)
-.output Analytics_StmtMissingOperandBinop
+.decl Analytics_StmtMissingOperand(stmt:IRStatement)
+.output Analytics_StmtMissingOperand
 
-Analytics_StmtMissingOperandBinop(stmt):-
+Analytics_StmtMissingOperand(stmt):-
   OpcodePopWords(op, 2),
   TAC_Op(stmt, op),
   !(TAC_Use(stmt, _, 0), TAC_Use(stmt, _, 1)).
 
 
-.decl Analytics_StmtMissingOperandUnop(stmt:IRStatement)
-.output Analytics_StmtMissingOperandUnop
-
-Analytics_StmtMissingOperandUnop(stmt):-
+Analytics_StmtMissingOperand(stmt):-
   OpcodePopWords(op, 1),
   TAC_Op(stmt, op),
   !TAC_Use(stmt, _, 0).
@@ -257,3 +254,10 @@ Analytics_JumpToManyNonPopBlock(blk):-
   op != "JUMP",
   op != "PHI",
   op != "JUMPI".
+
+.decl Analytics_InitiallyMissedCycleEntry(blk: IRBlock)
+.output Analytics_InitiallyMissedCycleEntry
+
+Analytics_InitiallyMissedCycleEntry(block) :-
+   PotentialCycleEntry(block),
+   !PossibleFunctionalBlockPopAndStackDelta(_, block, _, _, _).

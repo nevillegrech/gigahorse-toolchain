@@ -693,15 +693,6 @@ FunctionalBlockStackDelta(from, newStackDelta) :-
 // caller, so we never care about the level they leave the stack at,
 // only about how deep in it they went.
 
-.decl IsImportantBlock(block: IRBlock)
-
-IsImportantBlock(block) :-
-   LocalBlockEdge(prev, block),
-   LocalBlockEdge(prev2, block),
-//   !LocalBlockEdge(prev, prev2),
-//   !LocalBlockEdge(prev2, prev),
-   prev != prev2.
-
 // What's the total pop and stack delta since the beginning of the
 // function for cycle-free paths? 
 .decl PossibleFunctionalBlockPopAndStackDelta(func: IRFunction, from: IRBlock, path: symbol, popDelta: StackIndex, stackDelta: StackIndex)
@@ -716,28 +707,53 @@ FunctionalBlockPopAndStackDelta(from, popDelta, stackDelta) :-
 PossibleFunctionalBlockPopAndStackDelta(from, from, from, 0, 0) :-
   IRFunctionEntry(from).
 
+.decl PotentialCycleEntry(block: IRBlock)
+
+PotentialCycleEntry(block) :-
+   LocalBlockEdge(prev, block),
+   LocalBlockEdge(prev2, block),
+//   !LocalBlockEdge(prev, prev2),
+//   !LocalBlockEdge(prev2, prev),
+   prev != prev2.
+
+
 // rules added for optimization purposes
-.decl ImportantLocalBlockEdge(from: IRBlock, to: IRBlock)
+.decl PotentialCycleEntryLocalBlockEdge(from: IRBlock, to: IRBlock)
 
-ImportantLocalBlockEdge(from, to) :-
+PotentialCycleEntryLocalBlockEdge(from, to) :-
    LocalBlockEdge(from, to),
-   IsImportantBlock(to).
+   PotentialCycleEntry(to).
 
-.decl UnimportantLocalBlockEdge(from: IRBlock, to: IRBlock)
-UnimportantLocalBlockEdge(from, to) :-
+.decl NotCyleEntryLocalBlockEdge(from: IRBlock, to: IRBlock)
+NotCyleEntryLocalBlockEdge(from, to) :-
    LocalBlockEdge(from, to),
-   !IsImportantBlock(to).
+   !PotentialCycleEntry(to).
 
 
 PossibleFunctionalBlockPopAndStackDelta(func, to, newPath, newPopDelta, newStackDelta) :-
   PossibleFunctionalBlockPopAndStackDelta(func, from, prevPath, prevPopDelta, prevStackDelta),
-  ((ImportantLocalBlockEdge(from, to), newPath = @add_set(prevPath, to), newPath != prevPath) ;
-    (UnimportantLocalBlockEdge(from, to), newPath = prevPath)),
+  ((PotentialCycleEntryLocalBlockEdge(from, to), newPath = @add_set(prevPath, to), newPath != prevPath) ;
+    (NotCyleEntryLocalBlockEdge(from, to), newPath = prevPath)),
   FunctionalBlockPopAndStackDelta(from, popDelta, stackDelta),
   newStackDelta = stackDelta + prevStackDelta,
   newPopDelta = @max2(popDelta - prevStackDelta, prevPopDelta),
   CheckIsStackDelta(newPopDelta), CheckIsStackDelta(newStackDelta).
   .plan 1:(3,2,1)
+
+// Basic blocks that need to be checked for cycles in path sensitive algorithms
+.decl CycleEntry(func: IRFunction, block: IRBlock)
+
+CycleEntry(func, to) :-
+   PossibleFunctionalBlockPopAndStackDelta(func, from, path, _, _),
+   LocalBlockEdge(from, to),
+   @in_set(to, path) > 0.
+   
+// We also need to factor in blocks that we have not been able to reach
+CycleEntry(func, block) :-
+   PotentialCycleEntry(block),
+   IRInFunction(block, func),
+   !PossibleFunctionalBlockPopAndStackDelta(func, block, _, _, _).
+
 
 // Combine both relative to a single terminal point, for precision.
 // We need to go one edge back to make sure it's a terminal point
