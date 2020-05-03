@@ -15,6 +15,7 @@
 .output IRPublicFunction(IO="file", filename = "PublicFunction.csv", delimiter = "\t")
 .output Statement_IRStatement
 .output IRBlock_Gas
+.output CycleEntry
 
 .decl Exit(block:IRBlock)
 
