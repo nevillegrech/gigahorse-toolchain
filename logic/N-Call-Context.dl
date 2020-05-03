@@ -23,8 +23,10 @@ BlockHasTrivialControl(block) :-
 
 PrivateFunctionCallOrReturn(caller) :-
   StaticBlockJumpTarget(caller, target),
-  StaticBlockJumpTarget(caller2, target),
-  caller != caller2.
+  postTrans.Statement_Block(stmt, caller),
+  postTrans.PushValue(stmt, val),
+  val != target,
+  postTrans.JUMPDEST(CAST_TO_SYMBOL(val)).
 
 PrivateFunctionCallOrReturn(caller) :-
   postTrans.Statement_Block(_, caller),
