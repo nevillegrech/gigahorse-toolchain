@@ -317,7 +317,3 @@ BlockToInline(next, func) :-
   BlockToInline(block, func),
   MaybeInFunction(next, func),
   BlockInMultipleFunctions(next).
-
-
-
-
