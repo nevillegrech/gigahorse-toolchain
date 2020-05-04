@@ -60,10 +60,12 @@ MergeContext(ctx, caller, ctx) :-
   ReachableContext(ctx, caller),
   ctx = [pub, [ctx1, ctx2]], pub = pub, ctx2 = ctx2,
   ctx1 != "0x0",
-  !postTrans.PublicFunction(caller, _),  
-  !PrivateFunctionCallOrReturn(caller).
+#ifndef NO_PRIVATE_CONTEXT
+  !PrivateFunctionCallOrReturn(caller),
+#endif
+  !postTrans.PublicFunction(caller, _).  
 
-#ifdef NO_PRIVATE_CONTEXT
+#ifndef NO_PRIVATE_CONTEXT
 // Complex control flow case, add
 MergeContext(ctx, caller, newContext) :-
   ReachableContext(ctx, caller),
