@@ -9,8 +9,13 @@
 
 #include "../clientlib/util.dl"
 #include "local.dl"
-#include "context-sensitivity/transactional-context.dl"
-//#include "full_Ncontext+.dl"
+
+#ifdef CONTEXT_SENSITIVITY
+  #include "context-sensitivity/" #CONTEXT_SENSITIVITY ".dl"
+#else
+  // transactional-context is default
+  #include "context-sensitivity/transactional-context.dl"
+#endif
 #include "decompiler_input_opcodes.dl"
 #include "functions.dl"
 #include "decompiler_output.dl"
