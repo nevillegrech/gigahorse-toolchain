@@ -29,14 +29,6 @@ PrivateFunctionCallOrReturn(caller) :-
   postTrans.JUMPDEST(CAST_TO_SYMBOL(val)).
 
 PrivateFunctionCallOrReturn(caller) :-
-  StaticBlockJumpTarget(caller, target),
-  postTrans.Statement_Block(stmt, caller),
-  postTrans.PushValue(stmt, val),
-  val != target,
-  postTrans.JUMPDEST(CAST_TO_SYMBOL(val)).
-
-
-PrivateFunctionCallOrReturn(caller) :-
   postTrans.Statement_Block(_, caller),
   !BlockHasTrivialControl(caller).
 

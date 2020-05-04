@@ -113,7 +113,7 @@ PossibleReturnAddressWithRank(targetSetter, retBlock, retTarget, rank) :-
   InitialPossibleReturnAddressWithRank(targetSetter, retBlock, retTarget, rank).
 
 .decl MaxRankForPossibleReturnAddressSetter(targetSetter:Block, rank:number)
-MaxRankForPossibleReturnAddressSetter(targetSetter, rank) :-
+MaxRankForPossibleReturnAddressSetter(targetSetter, rank + 1) :-
   InitialPossibleReturnAddressWithRank(targetSetter, retBlock, retTarget, rank),
   PossibleReturnAddressWithPos(targetSetter, retBlock, retTarget, pos),
   !PossibleReturnAddressWithLowerPos(targetSetter, _, _, _, pos),
