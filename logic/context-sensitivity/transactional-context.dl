@@ -29,6 +29,14 @@ PrivateFunctionCallOrReturn(caller) :-
   postTrans.JUMPDEST(CAST_TO_SYMBOL(val)).
 
 PrivateFunctionCallOrReturn(caller) :-
+  StaticBlockJumpTarget(caller, target),
+  postTrans.Statement_Block(stmt, caller),
+  postTrans.PushValue(stmt, val),
+  val != target,
+  postTrans.JUMPDEST(CAST_TO_SYMBOL(val)).
+
+
+PrivateFunctionCallOrReturn(caller) :-
   postTrans.Statement_Block(_, caller),
   !BlockHasTrivialControl(caller).
 
@@ -55,6 +63,7 @@ MergeContext(ctx, caller, ctx) :-
   !postTrans.PublicFunction(caller, _),  
   !PrivateFunctionCallOrReturn(caller).
 
+#ifdef NO_PRIVATE_CONTEXT
 // Complex control flow case, add
 MergeContext(ctx, caller, newContext) :-
   ReachableContext(ctx, caller),
@@ -63,7 +72,8 @@ MergeContext(ctx, caller, newContext) :-
   !postTrans.PublicFunction(caller, _),
   ctx = [pub, [ctx1, ctx2]], ctx1 = ctx1, // suppress warning
   newContext = [pub, [ctx2, caller]].
-
+#endif
+ 
 MergeContext(ctx, caller, newContext) :-
   ReachableContext(ctx, caller),
   postTrans.PublicFunction(caller, sigHash),
