@@ -1,4 +1,6 @@
+#ifndef MAX_CONTEXT_DEPTH
 #define MAX_CONTEXT_DEPTH 10
+#endif
 
 .type Context = [ block:Block, rest:Context ]
 
