@@ -140,9 +140,15 @@ parser.add_argument("-T",
                     help="Forcibly halt analysing any single contact after "
                          "the specified number of seconds.")
 
+parser.add_argument("-M",
+                    "--souffle_macros",
+                    default = "",
+                    help = "Prepocessor macro definitions to pass to Souffle using the -M parameter")
+
+
 parser.add_argument("-q",
                     "--quiet",
-                    action="store_true",
+                    nargs="?",
                     default=False,
                     help="Silence output.")
 
@@ -180,7 +186,8 @@ def prepare_working_dir(contract_name) -> (str, str):
 def compile_datalog(spec, executable):
     if args.reuse_datalog_bin and os.path.isfile(executable):
         return
-    compilation_command = [args.souffle_bin, '-c', '-M', 'BULK_ANALYSIS', '-o', executable, spec]
+    souffle_macros = f'"BULK_ANALYSIS= {args.souffle_macros}"'
+    compilation_command = [args.souffle_bin, '-c', '-M', souffle_macros, '-o', executable, spec]
     log("Compiling %s to C++ program and executable"%spec)
     process = subprocess.run(compilation_command, universal_newlines=True)
     assert not(process.returncode), "Compilation failed. Stopping."
@@ -190,6 +197,7 @@ def analyze_contract(job_index: int, index: int, filename: str, result_queue, ti
     """
     Perform dataflow analysis on a contract, storing the result in the queue.
     This is a worker function to be passed to a subprocess.
+
     Args:
         job_index: the job number for this invocation of analyze_contract
         index: the number of the particular contract being analyzed
@@ -301,6 +309,7 @@ def get_gigahorse_analytics(out_dir, analytics):
 def run_process(args, timeout: int, stdout = devnull, stderr = devnull, cwd = '.') -> float:
     ''' Runs process described by args, for a specific time period
     as specified by the timeout.
+
     Returns the time it took to run the process and -1 if the process
     times out
     '''
@@ -321,6 +330,7 @@ def run_process(args, timeout: int, stdout = devnull, stderr = devnull, cwd = '.
 def flush_queue(run_sig, result_queue, result_list):
     """
     For flushing the queue periodically to a list so it doesn't fill up.
+
     Args:
         period: flush the result_queue to result_list every period seconds
         run_sig: terminate when the Event run_sig is cleared.
