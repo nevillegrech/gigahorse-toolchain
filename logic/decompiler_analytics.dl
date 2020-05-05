@@ -36,7 +36,7 @@ ReachableStatement(stmt) :-
    IRInFunction(block, _),
    IRStatement_Block(stmt, block).
 
-.decl Analytics_UnknownOperand(stmt:IRStatement)
+.decl Analytics_UnknownOperand(stmt: IRStatement)
 .output Analytics_UnknownOperand
 
 //TODO: make this stronger
@@ -47,7 +47,7 @@ Analytics_UnknownOperand(stmt) :-
    IsStackIndexLessThan(n, words),
    !FunctionalStatement_Uses_Local(stmt, _, n).
 
-.decl Analytics_MissingImplementation(stmt:Statement, opcode:Opcode)
+.decl Analytics_MissingImplementation(stmt: Statement, opcode: Opcode)
 .output Analytics_MissingImplementation
 
 Analytics_MissingImplementation(stmt, opcode) :-
