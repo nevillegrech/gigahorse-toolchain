@@ -63,6 +63,19 @@ Analytics_PolymorphicTarget(block) :-
   !Function_Return(_, block),
   target1 != target2.
 
+
+// Except return statements
+.decl Analytics_PolymorphicTargetSameCtx(block: Block)
+.output Analytics_PolymorphicTargetSameCtx
+
+// Excludes function return blocks
+Analytics_PolymorphicTargetSameCtx(block) :-
+  Analytics_Jumps(block),
+  BlockJumpValidTarget(ctx, block, _, target1),
+  BlockJumpValidTarget(ctx, block, _, target2),
+  !Function_Return(_, block),
+  target1 != target2.
+
 .decl Analytics_MissingJumpTarget(block: Block)
 .output Analytics_MissingJumpTarget      
 
@@ -95,6 +108,23 @@ Analytics_JumpToAny(block) :-
 Analytics_JumpToAnyOnly(block) :-
   Analytics_JumpToAny(block),
   Analytics_MissingJumpTarget(block).
+
+// Missing operands for IR statements.
+
+.decl Analytics_StmtMissingOperand(stmt:IRStatement)
+.output Analytics_StmtMissingOperand
+
+Analytics_StmtMissingOperand(stmt):-
+  OpcodePopWords(op, 2),
+  TAC_Op(stmt, op),
+  !(TAC_Use(stmt, _, 0), TAC_Use(stmt, _, 1)).
+
+
+Analytics_StmtMissingOperand(stmt):-
+  OpcodePopWords(op, 1),
+  TAC_Op(stmt, op),
+  !TAC_Use(stmt, _, 0).
+
 
 // Sanity checking for functions
 

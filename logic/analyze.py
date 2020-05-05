@@ -14,10 +14,9 @@ import re
 import subprocess
 import sys
 import time
-from multiprocessing import Process, SimpleQueue, Manager, Event
+from multiprocessing import Process, SimpleQueue, Manager, Event, cpu_count
 from os.path import abspath, dirname, join, getsize
 import os
-
 
 # Add the source directory to the path to ensure the imports work
 src_path = join(dirname(abspath(__file__)), "../")
@@ -27,16 +26,12 @@ sys.path.insert(0, src_path)
 import src.exporter as exporter
 import src.blockparse as blockparse
 
-
 devnull = subprocess.DEVNULL
 
 ## Constants
 
 DEFAULT_SOUFFLE_BIN = 'souffle'
 """Location of the Souffle binary."""
-
-DEFAULT_POROSITY_BIN = 'porosity'
-"""Location of the porosity binary."""
 
 DEFAULT_CONTRACT_DIR = 'contracts'
 """Directory to fetch contract files from by default."""
@@ -56,13 +51,10 @@ TEMP_WORKING_DIR = ".temp"
 DEFAULT_TIMEOUT = 120
 """Default time before killing analysis of a contract."""
 
-DEFAULT_PATTERN = ".*runtime.hex"
+DEFAULT_PATTERN = ".*.hex"
 """Default filename pattern for contract files."""
 
-FLUSH_PERIOD = 3
-"""Wait a little to flush the files and join the processes when concluding."""
-
-DEFAULT_NUM_JOBS = 4
+DEFAULT_NUM_JOBS = int(cpu_count()*0.9)
 """The number of subprocesses to run at once."""
 
 # Command Line Arguments
@@ -129,15 +121,6 @@ parser.add_argument("-j",
                     metavar="NUM",
                     help="The number of subprocesses to run at once.")
 
-parser.add_argument("-n",
-                    "--num_contracts",
-                    type=int,
-                    nargs="?",
-                    default=None,
-                    metavar="NUM",
-                    help="The maximum number of contracts to process in this "
-                         "batch. Unlimited by default.")
-
 parser.add_argument("-k",
                     "--skip",
                     type=int,
@@ -163,63 +146,41 @@ parser.add_argument("-q",
                     default=False,
                     help="Silence output.")
 
-parser.add_argument("--clients_only",
+parser.add_argument("--rerun_clients",
                     action="store_true",
                     default=False,
                     help="Silence output.")
 
-parser.add_argument("--porosity",
-                    nargs="?",
-                    const=DEFAULT_POROSITY_BIN,
-                    metavar="BINARY",
-                    help="Use the Porosity decompiler.")
+parser.add_argument("--restart",
+                    action="store_true",
+                    default=False,
+                    help="Silence output.")
+
+parser.add_argument("--reuse_datalog_bin",
+                    action="store_true",
+                    default=False,
+                    help="Do not recompile.")
 
 
-# Functions
-def working_dir(index: int, output_dir: bool = False) -> str:
-    """
-    Return a path to the working directory for the job
-    indicated by index.
+def get_working_dir(contract_name):
+    return join(TEMP_WORKING_DIR, contract_name.split('.')[0])
 
-    Args:
-     index: return the directory specifically for this index.
-     output_dir: if true, return the output subdir, which souffle writes to.
-    """
+def prepare_working_dir(contract_name) -> (str, str):
+    newdir = get_working_dir(contract_name)
+    out_dir = join(newdir, 'out')
 
-    if output_dir:
-        return join(TEMP_WORKING_DIR, str(index), "out")
-    return join(TEMP_WORKING_DIR, str(index))
+    if os.path.isdir(newdir):
+        return True, newdir, out_dir
 
-
-def empty_working_dir(index) -> None:
-   """
-   Empty the working directory for the job indicated by index.
-   """
-   for d_triple in os.walk(working_dir(index)):
-        for fname in d_triple[2]:
-            os.remove(join(d_triple[0], fname))
-
-
-def compact_working_dir(index) -> None:
-   """
-   Empty the working directory for the job indicated by index.
-   """
-   for d_triple in os.walk(working_dir(index)):
-        for fname in d_triple[2]:
-            if fname.endswith('.facts'):
-                os.remove(join(d_triple[0], fname))
-
-def backup_and_empty_working_dir(index) -> None:
-    # compact
-    compact_working_dir(index)
-    
-    # copy 
-    shutil.copytree(working_dir(index), working_dir(index) + str(time.time()))
-
-    empty_working_dir(index)
+    # recreate dir
+    os.makedirs(newdir)
+    os.makedirs(out_dir)
+    return False, newdir, out_dir
             
 def compile_datalog(spec, executable):
-    compilation_command = [args.souffle_bin, '-c', '-o', executable, spec]
+    if args.reuse_datalog_bin and os.path.isfile(executable):
+        return
+    compilation_command = [args.souffle_bin, '-c', '-M', 'BULK_ANALYSIS', '-o', executable, spec]
     log("Compiling %s to C++ program and executable"%spec)
     process = subprocess.run(compilation_command, universal_newlines=True)
     assert not(process.returncode), "Compilation failed. Stopping."
@@ -229,7 +190,6 @@ def analyze_contract(job_index: int, index: int, filename: str, result_queue, ti
     """
     Perform dataflow analysis on a contract, storing the result in the queue.
     This is a worker function to be passed to a subprocess.
-
     Args:
         job_index: the job number for this invocation of analyze_contract
         index: the number of the particular contract being analyzed
@@ -238,26 +198,24 @@ def analyze_contract(job_index: int, index: int, filename: str, result_queue, ti
     """
 
     try:
+        # prepare working directory
+        exists, work_dir, out_dir = prepare_working_dir(filename)
+        assert not(args.restart and exists)
         analytics = {}
         disassemble_start = time.time()
         def calc_timeout():
             return timeout-time.time()+disassemble_start
-        if not args.clients_only:
-            with open(join(args.contract_dir, filename)) as file:
+        if exists:
+            decomp_start = time.time()
+        else:
+            contract_filename = join(args.contract_dir, filename)            
+            os.symlink(contract_filename, join(work_dir, 'contract.hex'))
+            with open(contract_filename) as file:
                 bytecode = ''.join([l.strip() for l in file if len(l.strip()) > 0])
+
             # Disassemble contract
             blocks = blockparse.EVMBytecodeParser(bytecode).parse()
-
-            # Export relations to temp working directory
-            backup_and_empty_working_dir(job_index)
-            work_dir = working_dir(job_index)
-            out_dir = working_dir(job_index, True)
-            exporter.InstructionTsvExporter(blocks).export(output_dir=work_dir)
-                                      
-            contract_filename = join(join(os.getcwd(), args.contract_dir), filename)
-            with open(join(work_dir, 'contract_filename.txt'),'w') as f:
-                f.write(contract_filename)
-            os.symlink(contract_filename, join(os.getcwd(),join(work_dir, 'contract.hex')))
+            exporter.InstructionTsvExporter(blocks).export(output_dir=work_dir, bytecode_hex=bytecode)
 
             # Run souffle on those relations
             decomp_start = time.time()
@@ -271,9 +229,8 @@ def analyze_contract(job_index: int, index: int, filename: str, result_queue, ti
                 log("{} timed out.".format(filename))
                 return
             # end decompilation
-        else:
-            decomp_start = time.time()
-            out_dir = join(join(TEMP_WORKING_DIR, filename), 'out')
+        if exists and not args.rerun_clients:
+            return
         client_start = time.time()
         for souffle_client in souffle_clients:
             analysis_args = [join(os.getcwd(), souffle_client+'_compiled'),
@@ -286,8 +243,8 @@ def analyze_contract(job_index: int, index: int, filename: str, result_queue, ti
                 log("{} timed out.".format(filename))
                 return
         for python_client in python_clients:
-            out_filename = out_dir+'/'+python_client.split('/')[-1]+'.out'
-            err_filename = out_dir+'/'+python_client.split('/')[-1]+'.err'
+            out_filename = join(out_dir, python_client.split('/')[-1]+'.out')
+            err_filename = join(out_dir, python_client.split('/')[-1]+'.err')
             runtime = run_process([join(os.getcwd(), python_client)], calc_timeout(), open(out_filename, 'w'), open(err_filename, 'w'), cwd = out_dir)
             if runtime < 0:
                 result_queue.put((filename, [], ["TIMEOUT"], {}))
@@ -305,7 +262,7 @@ def analyze_contract(job_index: int, index: int, filename: str, result_queue, ti
         analytics['disassemble_time'] = decomp_start - disassemble_start
         analytics['decomp_time'] = client_start - decomp_start
         analytics['client_time'] = time.time() - client_start
-        log("{}: {:.20}... completed in {:.2f} + {:.2f} + {:.2f} secs".format(
+        log("{}: {:.36} completed in {:.2f} + {:.2f} + {:.2f} secs".format(
             index, filename, analytics['disassemble_time'],
             analytics['decomp_time'], analytics['client_time']
         ))
@@ -344,7 +301,6 @@ def get_gigahorse_analytics(out_dir, analytics):
 def run_process(args, timeout: int, stdout = devnull, stderr = devnull, cwd = '.') -> float:
     ''' Runs process described by args, for a specific time period
     as specified by the timeout.
-
     Returns the time it took to run the process and -1 if the process
     times out
     '''
@@ -359,41 +315,12 @@ def run_process(args, timeout: int, stdout = devnull, stderr = devnull, cwd = '.
         if elapsed_time >= timeout:
             os.kill(p.pid, signal.SIGTERM)
             return -1
-        time.sleep(0.1)
+        time.sleep(0.01)
     return elapsed_time
 
-def analyze_contract_porosity(job_index: int, index: int, filename: str, result_queue, timeout: int) -> None:
-    try:
-        contract_filename = join(join(os.getcwd(), args.contract_dir), filename)
-        analytics = {}
-        out_dir = working_dir(job_index, True)
-        analysis_args = [DEFAULT_POROSITY_BIN,
-                         '--decompile', '--code-file', contract_filename]
-        f = open(out_dir+'/out.txt', "w")
-        porosity_time = run_process(analysis_args, timeout, f)
-        f.close()
-        if porosity_time < 0:
-            result_queue.put((filename, [], ["TIMEOUT"], {}))
-            log("{} timed out.".format(filename))
-            return
-        
-        output = open(out_dir+'/out.txt').read()
-        analytics['Functions'] = output.count('function ')
-        analytics["decomp_time"] = porosity_time
-        result_queue.put((filename, [], [], analytics))
-        log("{}: {:.20}... completed in {:.2f} secs".format(index, filename, porosity_time))
-    except Exception as e:
-        log("Error: {}".format(e))
-        result_queue.put((filename, [], ["error"], {}))
-
-
-
-
-def flush_queue(period, run_sig,
-                result_queue, result_list):
+def flush_queue(run_sig, result_queue, result_list):
     """
     For flushing the queue periodically to a list so it doesn't fill up.
-
     Args:
         period: flush the result_queue to result_list every period seconds
         run_sig: terminate when the Event run_sig is cleared.
@@ -401,7 +328,7 @@ def flush_queue(period, run_sig,
         result_list: the final list of results.
     """
     while run_sig.is_set():
-        time.sleep(period)
+        time.sleep(0.1)
         while not result_queue.empty():
             item = result_queue.get()
             result_list.append(item)
@@ -413,13 +340,9 @@ log_level = logging.WARNING if args.quiet else logging.INFO + 1
 log = lambda msg: logging.log(logging.INFO + 1, msg)
 logging.basicConfig(format='%(message)s', level=log_level)
 
-if args.porosity:
-    args.clients_only = True
-
 # Here we compile the decompiler and any of its clients in parallel :)
 compile_processes_args = []
-if not args.clients_only:
-    compile_processes_args.append((DEFAULT_DECOMPILER_DL, DEFAULT_SOUFFLE_EXECUTABLE))
+compile_processes_args.append((DEFAULT_DECOMPILER_DL, DEFAULT_SOUFFLE_EXECUTABLE))
 
 souffle_clients = [a for a in args.client.split(',') if a.endswith('.dl')]
 python_clients = [a for a in args.client.split(',') if a.endswith('.py')]
@@ -433,17 +356,16 @@ for compile_args in compile_processes_args:
     proc.start()
     running_processes.append(proc)
 
-if not args.clients_only:
+if args.restart:
     log("Removing working directory {}".format(TEMP_WORKING_DIR))
     shutil.rmtree(TEMP_WORKING_DIR, ignore_errors = True)    
     
 for p in running_processes:
     p.join()
 
-log("Setting up working directory {}.".format(TEMP_WORKING_DIR))
-for i in range(args.jobs):
-    os.makedirs(working_dir(i, True), exist_ok=True)
-    empty_working_dir(i)
+# check all programs have been compiled
+for _, v in compile_processes_args:
+    open(v, 'r') # check program exists
 
 # Extract contract filenames.
 log("Processing contract names.")
@@ -453,22 +375,18 @@ if args.from_file:
         unfiltered = [l.strip() for l in f.readlines()]
 else:
     # Otherwise just get all contracts in the contract directory.
-    if args.clients_only:
-        runtime_files_or_folders = os.listdir(TEMP_WORKING_DIR)
-    else:    
-        unfiltered = os.listdir(args.contract_dir)
-        # Filter according to the given pattern.
-        re_string = args.filename_pattern
-        if not re_string.endswith("$"):
-            re_string = re_string + "$"
-        pattern = re.compile(re_string)
-        runtime_files_or_folders = filter(
-            lambda filename: pattern.match(filename) is not None,
-            unfiltered
-        )
+    unfiltered = os.listdir(args.contract_dir)
+    # Filter according to the given pattern.
+    re_string = args.filename_pattern
+    if not re_string.endswith("$"):
+        re_string = re_string + "$"
+    pattern = re.compile(re_string)
+    runtime_files_or_folders = filter(
+        lambda filename: pattern.match(filename) is not None,
+        unfiltered
+    )
 
-stop_index = None if args.num_contracts is None else args.skip + args.num_contracts
-to_process = itertools.islice(runtime_files_or_folders, args.skip, stop_index)
+to_process = list(runtime_files_or_folders)[args.skip:]
 
 log("Setting up workers.")
 # Set up multiprocessing result list and queue.
@@ -484,8 +402,7 @@ res_queue = SimpleQueue()
 # Start the periodic flush process, only run while run_signal is set.
 run_signal = Event()
 run_signal.set()
-flush_proc = Process(target=flush_queue, args=(FLUSH_PERIOD, run_signal,
-                                               res_queue, res_list))
+flush_proc = Process(target=flush_queue, args=(run_signal, res_queue, res_list))
 flush_proc.start()
 
 workers = []
@@ -493,27 +410,24 @@ avail_jobs = list(range(args.jobs))
 contract_iter = enumerate(to_process)
 contracts_exhausted = False
 
-# which kind of analysis are we doing?
-if args.porosity:
-    analyze_function = analyze_contract_porosity
-else:
-    analyze_function = analyze_contract
-
-
-
 log("Analysing...\n")
 try:
     while not contracts_exhausted:
-
         # If there's both workers and contracts available, use the former to work on the latter.
         while not contracts_exhausted and len(avail_jobs) > 0:
             try:
-                index, fname = next(contract_iter)
+                index, contract_name = next(contract_iter)
+                working_dir = get_working_dir(contract_name)
+                if os.path.isdir(working_dir) and not args.rerun_clients:
+                    # no need to create another process
+                    continue
+
+                # reduce number of available jobs
                 job_index = avail_jobs.pop()
-                proc = Process(target=analyze_function, args=(job_index, index, fname, res_queue, args.timeout_secs))
+                proc = Process(target=analyze_contract, args=(job_index, index, contract_name, res_queue, args.timeout_secs))
                 proc.start()
                 start_time = time.time()
-                workers.append({"name": fname,
+                workers.append({"name": contract_name,
                                 "proc": proc,
                                 "time": start_time,
                                 "job_index": job_index})
@@ -550,14 +464,17 @@ try:
     # Conclude and write results to file.
     log("\nFinishing...\n")
     run_signal.clear()
-    flush_proc.join(FLUSH_PERIOD + 1)
+    flush_proc.join(1)
 
     counts = {}
     total_flagged = 0
+    vulns_flagged = 0
     for contract, vulns, meta, analytics in res_list:
         rlist = vulns + meta
         if len(rlist) > 0:
             total_flagged += 1
+        if len(vulns) > 0:
+            vulns_flagged += 1
         for res in rlist:
             if res not in counts:
                 counts[res] = 1
@@ -579,5 +496,3 @@ except Exception as e:
 
     traceback.print_exc()
     flush_proc.terminate()
-
-
