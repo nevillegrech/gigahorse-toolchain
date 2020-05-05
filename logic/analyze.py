@@ -140,9 +140,15 @@ parser.add_argument("-T",
                     help="Forcibly halt analysing any single contact after "
                          "the specified number of seconds.")
 
+parser.add_argument("-M",
+                    "--souffle_macros",
+                    default = "",
+                    help = "Prepocessor macro definitions to pass to Souffle using the -M parameter")
+
+
 parser.add_argument("-q",
                     "--quiet",
-                    action="store_true",
+                    nargs="?",
                     default=False,
                     help="Silence output.")
 
@@ -180,7 +186,8 @@ def prepare_working_dir(contract_name) -> (str, str):
 def compile_datalog(spec, executable):
     if args.reuse_datalog_bin and os.path.isfile(executable):
         return
-    compilation_command = [args.souffle_bin, '-c', '-M', 'BULK_ANALYSIS', '-o', executable, spec]
+    souffle_macros = f'"BULK_ANALYSIS= {args.souffle_macros}"'
+    compilation_command = [args.souffle_bin, '-c', '-M', souffle_macros, '-o', executable, spec]
     log("Compiling %s to C++ program and executable"%spec)
     process = subprocess.run(compilation_command, universal_newlines=True)
     assert not(process.returncode), "Compilation failed. Stopping."

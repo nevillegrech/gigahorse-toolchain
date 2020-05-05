@@ -10,12 +10,16 @@
 #include "../clientlib/util.dl"
 #include "local.dl"
 
-#ifdef CONTEXT_SENSITIVITY
-  #include "context-sensitivity/" #CONTEXT_SENSITIVITY ".dl"
-#else
+#ifndef CONTEXT_SENSITIVITY
   // transactional-context is default
-  #include "context-sensitivity/transactional-context.dl"
+  #define CONTEXT_SENSITIVITY transactional-context
 #endif
+
+// dynamically include context sensitivity based on Souffle params
+#define STRINGIFY(x) #x
+#define GET_CONTEXT_SENSITIVITY_FILENAME(ctx) STRINGIFY(context-sensitivity/ctx.dl)
+#include GET_CONTEXT_SENSITIVITY_FILENAME(CONTEXT_SENSITIVITY)
+
 #include "decompiler_input_opcodes.dl"
 #include "functions.dl"
 #include "decompiler_output.dl"
