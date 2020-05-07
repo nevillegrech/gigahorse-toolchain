@@ -45,3 +45,7 @@ IsContext(newContext) :-
   depth = MAX_CONTEXT_DEPTH,
   DropLast(ctx, cutDownCtx),
   newContext = [caller, cutDownCtx].
+
+MergeContext(ctx, caller, ctx) :-
+  MaxContextDepth(0),
+  ReachableContext(ctx, caller).
