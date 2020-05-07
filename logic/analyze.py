@@ -184,7 +184,6 @@ def compile_datalog(spec, executable):
         return
     souffle_macros = f'BULK_ANALYSIS= {args.souffle_macros}'
     compilation_command = [args.souffle_bin, '-c', '-M', souffle_macros, '-o', executable, spec]
-    print(compilation_command)
     log("Compiling %s to C++ program and executable"%spec)
     process = subprocess.run(compilation_command, universal_newlines=True)
     assert not(process.returncode), "Compilation failed. Stopping."
