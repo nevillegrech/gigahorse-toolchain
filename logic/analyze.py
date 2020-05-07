@@ -33,9 +33,6 @@ devnull = subprocess.DEVNULL
 DEFAULT_SOUFFLE_BIN = 'souffle'
 """Location of the Souffle binary."""
 
-DEFAULT_CONTRACT_DIR = 'contracts'
-"""Directory to fetch contract files from by default."""
-
 DEFAULT_RESULTS_FILE = 'results.json'
 """File to write results to by default."""
 
@@ -64,9 +61,8 @@ parser = argparse.ArgumentParser(
 
 parser.add_argument("-d",
                     "--contract_dir",
+                    default=".",
                     nargs="?",
-                    default=DEFAULT_CONTRACT_DIR,
-                    const=DEFAULT_CONTRACT_DIR,
                     metavar="DIR",
                     help="the location to grab contracts from (as bytecode "
                          "files).")
@@ -186,7 +182,7 @@ def prepare_working_dir(contract_name) -> (str, str):
 def compile_datalog(spec, executable):
     if args.reuse_datalog_bin and os.path.isfile(executable):
         return
-    souffle_macros = f'"BULK_ANALYSIS= {args.souffle_macros}"'
+    souffle_macros = f'BULK_ANALYSIS= {args.souffle_macros}'
     compilation_command = [args.souffle_bin, '-c', '-M', souffle_macros, '-o', executable, spec]
     log("Compiling %s to C++ program and executable"%spec)
     process = subprocess.run(compilation_command, universal_newlines=True)
