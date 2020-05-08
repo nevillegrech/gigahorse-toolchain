@@ -157,12 +157,13 @@ Analytics_BlocksLocalOrNot(block1, block2) :-
    IRInFunction(block2, fun2),
    fun1 != fun2.
 
-.decl Analytics_UnreachableBlock(block: IRBlock)
+
+.decl Analytics_UnreachableBlock(block: Block)
 .output Analytics_UnreachableBlock
 
 Analytics_UnreachableBlock(block) :-
-   IRStatement_Block(_, block),
-   !IRInFunction(block, _).
+   postTrans.Statement_Block(_, block),
+   !ReachableContext(_, block).
 
 .decl Analytics_FunctionCall(block: IRBlock)
 .output Analytics_FunctionCall
