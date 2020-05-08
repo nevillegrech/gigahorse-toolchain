@@ -126,6 +126,27 @@ Analytics_StmtMissingOperand(stmt):-
   !TAC_Use(stmt, _, 0).
 
 
+.decl Analytics_JumpToMany(blk:IRBlock)
+.output Analytics_JumpToMany
+
+Analytics_JumpToMany(blk):-
+  TAC_Op(jump, "JUMP"),
+  TAC_Block(jump, blk),
+  LocalBlockEdge(blk, one),
+  LocalBlockEdge(blk, two),
+  one != two.
+
+Analytics_JumpToMany(blk):-
+  TAC_Op(jump, "JUMPI"),
+  TAC_Block(jump, blk),
+  LocalBlockEdge(blk, one),
+  LocalBlockEdge(blk, two),
+  LocalBlockEdge(blk, three),
+  one != two,
+  one != three,
+  two != three.
+
+
 // Sanity checking for functions
 
 .decl Analytics_InexactFunctionArguments(func: IRFunction)
@@ -159,12 +180,12 @@ Analytics_BlockInNoFunctions(block) :-
    IRStatement_Block(_, block),
    !InFunction(block, _).
 
-.decl Analytics_UnreachableBlock(block: IRBlock)
+.decl Analytics_UnreachableBlock(block: Block)
 .output Analytics_UnreachableBlock
 
 Analytics_UnreachableBlock(block) :-
-   IRStatement_Block(_, block),
-   !InFunction(block, _).
+   Statement_Block(_, block),
+   !ReachableContext(_, block).
 
 .decl Analytics_FunctionCall(block: IRBlock)
 .output Analytics_FunctionCall
