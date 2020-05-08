@@ -33,6 +33,9 @@ BinArith("AND").
 BinArith("OR").
 BinArith("XOR").
 BinArith("BYTE").
+BinArith("SHL").
+BinArith("SHR").
+BinArith("SAR").
 
 .decl TernArith(opcode:Opcode)
 TernArith("ADDMOD").
