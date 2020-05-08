@@ -47,5 +47,5 @@ IsContext(newContext) :-
   newContext = [caller, cutDownCtx].
 
 MergeContext(ctx, caller, ctx) :-
-  MaxContextDepth(0),
+  MAX_CONTEXT_DEPTH = 0,
   ReachableContext(ctx, caller).
