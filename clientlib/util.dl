@@ -1,5 +1,8 @@
 #pragma once
 
+/***
+ * Macros
+***/
 #define STARTSWITH(s, b) (substr(s, 0, strlen(b)) = b)
 #define CAST_TO_SYMBOL(b) cat("", (b))
 
@@ -33,6 +36,10 @@
 #define LIST(...)     _LIST_OF_N(NUM_ARGS(__VA_ARGS__), __VA_ARGS__)                                
 #define STMT(a, b)    ([#a, b])
 
+
+/***
+* Functors
+***/                                          
 .functor hex_to_number(symbol):number
 .functor number_to_hex(number):symbol
 
@@ -64,6 +71,18 @@
 .functor sar_256(symbol,symbol):symbol
 .functor not_256(symbol):symbol
 
+/***
+* Utility relations
+***/
+
+.decl True()
+
+True().
+
+
+/***
+* Generic Graph algorithms
+***/
 .comp DominanceFrontier<NodeType> {
 
     // Inputs
