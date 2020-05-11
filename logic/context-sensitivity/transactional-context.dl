@@ -50,8 +50,6 @@ StaticBlockJumpTarget(caller, target) :-
 MergeContext(ctx, caller, ctx) :-
   ReachableContext(ctx, caller),
 #ifndef NO_PRIVATE_CONTEXT
-  ctx = [pub, [ctx1, ctx2]], pub = pub, ctx2 = ctx2,
-  ctx1 != "0x0",
   !PrivateFunctionCallOrReturn(caller),
 #endif
 #ifndef NO_PUBLIC_CONTEXT
@@ -64,8 +62,7 @@ MergeContext(ctx, caller, ctx) :-
 // Complex control flow case, add
 MergeContext(ctx, caller, newContext) :-
   ReachableContext(ctx, caller),
-  (PrivateFunctionCallOrReturn(caller);
-   ctx1 = "0x0"),
+  PrivateFunctionCallOrReturn(caller),
 #ifndef NO_PUBLIC_CONTEXT
   !postTrans.PublicFunction(caller, _),
 #endif
