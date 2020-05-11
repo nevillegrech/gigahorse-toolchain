@@ -6,31 +6,29 @@
 .decl InitialContext(ctx : Context)
 InitialContext(["0x0", ["0x0", "0x0"]]).
 
+// inverse-escape analysis
+.decl Block_Uses_Local(block: Block, var: Variable)
 
-.decl BlockHasTrivialControl(block: Block)
-
-BlockHasTrivialControl(block) :-
-  postTrans.BasicBlock_Tail(block, stmt),
-  !postTrans.IsJump(stmt).
-  
-BlockHasTrivialControl(block) :-
-   postTrans.ImmediateBlockJumpTarget(block, _).
-
+Block_Uses_Local(block, var) :-
+  postTrans.Statement_Block(stmt, block),
+  postTrans.Statement_Uses_Local(stmt, var, _).
 
 // We're only interested in private functions
 // No ambiguity for public functions
 .decl PrivateFunctionCallOrReturn(caller: Block)
 
 PrivateFunctionCallOrReturn(caller) :-
-  StaticBlockJumpTarget(caller, target),
+  StaticBlockJumpTarget(caller, _),
   postTrans.Statement_Block(stmt, caller),
-  postTrans.PushValue(stmt, val),
-  val != target,
-  postTrans.JUMPDEST(CAST_TO_SYMBOL(val)).
+  postTrans.Statement_Defines(stmt, var),
+  postTrans.Variable_Value(var, val),
+  postTrans.JUMPDEST(CAST_TO_SYMBOL(val)),
+  !Block_Uses_Local(caller, var).
 
 PrivateFunctionCallOrReturn(caller) :-
-  postTrans.Statement_Block(_, caller),
-  !BlockHasTrivialControl(caller).
+  postTrans.Statement_Block(stmt, caller),
+  postTrans.JUMP(stmt),
+  !postTrans.ImmediateBlockJumpTarget(caller, _).
 
 
 Context_PublicFunction(ctx, pubFun):-
