@@ -182,7 +182,7 @@ def prepare_working_dir(contract_name) -> (str, str):
 def compile_datalog(spec, executable):
     if args.reuse_datalog_bin and os.path.isfile(executable):
         return
-    souffle_macros = f'BULK_ANALYSIS= {args.souffle_macros}'
+    souffle_macros = f'BULK_ANALYSIS= {args.souffle_macros}'.strip()
     compilation_command = [args.souffle_bin, '-c', '-M', souffle_macros, '-o', executable, spec]
     log("Compiling %s to C++ program and executable"%spec)
     process = subprocess.run(compilation_command, universal_newlines=True)
