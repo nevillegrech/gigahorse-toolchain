@@ -29,13 +29,13 @@
 #include "decompiler_analytics.dl"
 #endif
 
-.type Block 
-.type Value
-.number_type Variable
-.number_type StackIndex
+.type Block <: symbol
+.type Value <: symbol
+.type Variable <: number
+.type StackIndex <: number
 .type VariableOrStackIndex = Variable | StackIndex
-.type Opcode
-.type Statement 
+.type Opcode <: symbol
+.type Statement <: symbol
 
 
 .decl IsStackIndex(n:StackIndex)
@@ -96,7 +96,7 @@ insertor.insertOps(pushStmt,
 insertor.insertOps(jumpDestStmt,
   LIST(
     STMT(JUMPDEST, MAKE_LABEL_REFERENCE(jumpDestStmt)),
-    STMT(PUSH4, CAST_TO_SYMBOL(jumpDestStmt)),
+    STMT(PUSH4, @cast_to_symbol(jumpDestStmt)),
     STMT(JUMP, cat("PublicFunctionJump:", hash))
   )
 ) :-
@@ -104,7 +104,7 @@ insertor.insertOps(jumpDestStmt,
    preTrans.PublicFunction(start, hash),
    preTrans.Statement_Block(jumpDestStmt, start),
    preTrans.JUMPDEST(jumpDestStmt),
-   preTrans.PushValue(pushStmt, CAST_TO_SYMBOL(jumpDestStmt)),
+   preTrans.PushValue(pushStmt, @cast_to_symbol(jumpDestStmt)),
    preTrans.Statement_Block(pushStmt, block),
    preTrans.Statement_Defines(pushStmt, pushedVar),
    preTrans.Statement_Uses_Local(jumpStmt, pushedVar, 0),
@@ -209,14 +209,14 @@ BlockOutputContents(calleeCtx, callee, index+delta, variable) :-
   postTrans.BlockStackDelta(callee, delta).
 
 // Handle the proper variables pushed by this basic block
-BlockOutputContents(ctx, block, index, var) :-
+BlockOutputContents(ctx, block, index, @cast_to_number(var)) :-
   ReachableContext(ctx, block),
   postTrans.BasicBlock_Tail(block, stmt),
   postTrans.LocalStackContents(stmt, index, var),
   CheckIsVariable(var).
 
 // Handle the stackIndexes pushed by this basic block
-BlockOutputContents(ctx, block, index, realVariable) :-
+BlockOutputContents(ctx, block, index, @cast_to_number(realVariable)) :-
   BlockInputContents(ctx, block, stackIndex, realVariable),
   postTrans.BasicBlock_Tail(block, stmt),
   postTrans.LocalStackContents(stmt, index, stackIndex),
@@ -239,10 +239,10 @@ BlockJumpTarget(ctx, block, realVariable) :-
 // is equal to the label of "target" block.
 .decl BlockJumpValidTarget(ctx:Context, block:Block, variable: Variable, target:Block)
 
-BlockJumpValidTarget(ctx, block, targetVar, CAST_TO_SYMBOL(targetValue)) :-
+BlockJumpValidTarget(ctx, block, targetVar, @cast_to_symbol(targetValue)) :-
   BlockJumpTarget(ctx, block, targetVar),
   postTrans.Variable_Value(targetVar, targetValue),
-  postTrans.JUMPDEST(CAST_TO_SYMBOL(targetValue)).
+  postTrans.JUMPDEST(@cast_to_symbol(targetValue)).
 
 
 /*
@@ -259,8 +259,8 @@ ReachableContext(initCtx, FUNCTION_SELECTOR) :-
 
 .decl FallthroughEdge(caller: Block, fallthroughBlock: Block)
 
-FallthroughEdge(caller, CAST_TO_SYMBOL(fallthrough)),
-BlockEdge(callerCtx, caller, calleeCtx, CAST_TO_SYMBOL(fallthrough)) :-
+FallthroughEdge(caller, @cast_to_symbol(fallthrough)),
+BlockEdge(callerCtx, caller, calleeCtx, @cast_to_symbol(fallthrough)) :-
   ReachableContext(callerCtx, caller),
   MergeContext(callerCtx, caller, calleeCtx),
   postTrans.FallthroughStmt(stmt),
@@ -278,7 +278,7 @@ BlockEdge(callerCtx, caller, calleeCtx, callee) :-
 .decl Statement_Uses(stmt:Statement, var:Variable, n:StackIndex)
 
 // Case: variable originates locally
-Statement_Uses(stmt, var, n) :-
+Statement_Uses(stmt, @cast_to_number(var), n) :-
    postTrans.Statement_Uses_Local(stmt, var, n),
    CheckIsVariable(var).
 

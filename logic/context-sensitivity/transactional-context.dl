@@ -7,7 +7,7 @@
 InitialContext(["0x0", ["0x0", "0x0"]]).
 
 // inverse-escape analysis
-.decl Block_Uses_Local(block: Block, var: Variable)
+.decl Block_Uses_Local(block: Block, var: VariableOrStackIndex)
 
 Block_Uses_Local(block, var) :-
   postTrans.Statement_Block(stmt, block),
@@ -22,7 +22,7 @@ PrivateFunctionCallOrReturn(caller) :-
   postTrans.Statement_Block(stmt, caller),
   postTrans.Statement_Defines(stmt, var),
   postTrans.Variable_Value(var, val),
-  postTrans.JUMPDEST(CAST_TO_SYMBOL(val)),
+  postTrans.JUMPDEST(@cast_to_symbol(val)),
   !Block_Uses_Local(caller, var).
 
 PrivateFunctionCallOrReturn(caller) :-
@@ -41,7 +41,7 @@ Context_PublicFunction(ctx, pubFun):-
 StaticBlockJumpTarget(caller, target) :-
   postTrans.ImmediateBlockJumpTarget(caller, targetVar),
   postTrans.Variable_Value(targetVar, target),
-  postTrans.JUMPDEST(CAST_TO_SYMBOL(target)).
+  postTrans.JUMPDEST(@cast_to_symbol(target)).
 
 .decl MergeContext(ctx : Context, caller : Block, newContext : Context)
 
