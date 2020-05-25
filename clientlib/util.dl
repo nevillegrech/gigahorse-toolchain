@@ -43,6 +43,9 @@
 .functor hex_to_number(symbol):number
 .functor number_to_hex(number):symbol
 
+.functor cast_to_number(number):number
+.functor cast_to_symbol(symbol):symbol
+
 .functor max2(number, number):number
 .functor min2(number, number):number
 

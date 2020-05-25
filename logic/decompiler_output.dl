@@ -1,6 +1,9 @@
 // VERY IMPORTANT: IF YOU CHANGE ANY OUTPUT RELATION IN THIS FILE,
 // PLEASE ALSO CHANGE clientlib/decompiler_imports.dl
 
+.type TACVariable <: symbol
+
+
 // All sorts of different outputs of the decompiler, including
 // three-address code representation (which is later input and
 // re-formatted for use by clients), statistics, debugging relations.
@@ -17,10 +20,6 @@
 .output IRBlock_Gas
 .output CycleEntry
 
-.decl Exit(block:IRBlock)
-
-Exit(block) :- IRStatement_Block(_, block), !IRBlockEdge(block, _).
-
 .decl FunctionalBlock_Uses_Local(block: IRBlock, stackIndex: StackIndex)
 
 FunctionalBlock_Uses_Local(block, stackIndex) :-
@@ -36,7 +35,7 @@ PolymorphicStackIndex(block, stackIndex) :-
   FunctionalBlockInputContents(block, stackIndex, var2),
   var1 != var2.
 
-.decl PHILocation(block: IRBlock, stackIndex: StackIndex, newVarSymbol: symbol)
+.decl PHILocation(block: IRBlock, stackIndex: StackIndex, newVarSymbol: IRStatement)
 
 // Find all polymorphic stackIndexes
 // These need phi instructions introduced at the dominance frontier
@@ -45,7 +44,6 @@ PHILocation(block, stackIndex, cat(cat(block, "_"), stackIndexHex)) :-
    PolymorphicStackIndex(block, stackIndex),
    stackIndexHex = @number_to_hex(stackIndex).
 
-.symbol_type TACVariable
 
 // Final decompiler outputs
 .decl TAC_Op(stmt:IRStatement, op:Opcode)
@@ -71,11 +69,11 @@ PHILocation(block, stackIndex, cat(cat(block, "_"), stackIndexHex)) :-
 /// Heuristically change the values of all constants that match cloned
 /// basic block labels! Don't up
 
-TAC_Variable_BlockValue(tacvar, irvalue) :-
+TAC_Variable_BlockValue(@cast_to_symbol(tacvar), irvalue) :-
   FunctionalStatement_Defines(stmt, var, _),
   Variable_Stmt_String(var, stmt, tacvar),
   postTrans.Variable_Value(var, value),
-  StatementAndBlockInSameFunction(stmt, CAST_TO_SYMBOL(value), irvalue),
+  StatementAndBlockInSameFunction(stmt, @cast_to_symbol(value), irvalue),
    // value matches address of block
    STARTSWITH(value, "0x").
 
@@ -86,7 +84,7 @@ StatementAndBlockInSameFunction(stmt, block, irblock) :-
 
 
 // Normal variable
-TAC_Variable_Value(tacvar, value) :-
+TAC_Variable_Value(@cast_to_symbol(tacvar), value) :-
    FunctionalStatement_Defines(stmt, var, _),
    Variable_Stmt_String(var, stmt, tacvar),
    postTrans.Variable_Value(var, value),
@@ -101,7 +99,7 @@ TAC_Stmt(irstmt) :-
   Statement_IRStatement(stmt, _, irstmt),
   postTrans.ValidStatement(stmt),
   !DeadStmt(irstmt),
-  !IRTACNOP(stmt).
+  !IRTACNOP(irstmt).
 
 TAC_Op(irstmt, op) :-
    IRStatement_Opcode(irstmt, op),
@@ -133,20 +131,22 @@ TAC_Op(irstmt, "THROWI") :-
    postTrans.ThrowJump(stmt).
 
 // Phi instructions
-TAC_Var(CAST_TO_SYMBOL(stmt)),
-TAC_Def(stmt, CAST_TO_SYMBOL(stmt), 0),
+TAC_Var(var),
+TAC_Def(stmt, var, 0),
 TAC_Stmt(stmt),
 TAC_Op(stmt, "PHI") :-
-  PHILocation(_, _, stmt).
+   PHILocation(_, _, stmt),
+   var = @cast_to_symbol(stmt).
 
 // Non-phi, non-call variable id same as stmt it is defined in
-TAC_Var(var_rep),
-TAC_Def(stmt, var_rep, n) :-
+TAC_Var(tac_var),
+TAC_Def(stmt, tac_var, n) :-
    FunctionalStatement_Defines(stmt, var, n),
-   Variable_Stmt_String(var, stmt, var_rep).
+   Variable_Stmt_String(var, stmt, var_rep),
+   tac_var = @cast_to_symbol(var_rep).
 
 // Case 1: Uses locally defined variable
-PRE_TAC_Use(stmt, var_rep, n) :-
+PRE_TAC_Use(stmt, @cast_to_symbol(var_rep), n) :-
   FunctionalStatement_Uses_Local(stmt, var, n),
   CheckIsVariable(var),
   Variable_Stmt_String(var, stmt, var_rep).
@@ -155,7 +155,7 @@ PRE_TAC_Use(stmt, var_rep, n) :-
 // Using the block in which the var is defined,
 // Fixes cases where a stmt in a cloned block is using
 // a variable defined in a non cloned block
-PRE_TAC_Use(stmt, var_rep, n) :-
+PRE_TAC_Use(stmt, @cast_to_symbol(var_rep), n) :-
   FunctionalStatement_Uses_Local(stmt, stackIndex, n),
   CheckIsStackIndex(stackIndex),
   IRStatement_Block(stmt, block),
@@ -168,7 +168,7 @@ PRE_TAC_Use(stmt, var_rep, n) :-
   Variable_Block_String(var, defBlock, var_rep).
 
 //Case 2.1: Uses arg(like the above case, but not defined)
-PRE_TAC_Use(stmt, var_rep, n) :-
+PRE_TAC_Use(stmt, @cast_to_symbol(var_rep), n) :-
   FunctionalStatement_Uses_Local(stmt, stackIndex, n),
   CheckIsStackIndex(stackIndex),
   IRStatement_Block(stmt, block),
@@ -179,7 +179,7 @@ PRE_TAC_Use(stmt, var_rep, n) :-
 
 
 // Case 3: Is a PHI statement
-PRE_TAC_Use(phiStmt, var_rep, -1) :-
+PRE_TAC_Use(phiStmt, @cast_to_symbol(var_rep), -1) :-
   PHILocation(block, stackIndex, phiStmt),
   FunctionalBlockInputContents(block, stackIndex, var),
   IRInFunction(block, fun),
@@ -189,29 +189,29 @@ PRE_TAC_Use(phiStmt, var_rep, -1) :-
   Variable_Block_String(var, defBlock, var_rep).
 
 // Case 3.1: Phis using args
-PRE_TAC_Use(phiStmt, var_rep, -1) :-
+PRE_TAC_Use(phiStmt, @cast_to_symbol(var_rep), -1) :-
   PHILocation(block, stackIndex, phiStmt),
   FunctionalBlockInputContents(block, stackIndex, var),
   FunctionArgument(_, _, var),
   Variable_String(var, var_rep).
 
 
-TAC_Use(stmt, var_rep, n) :-
+TAC_Use(stmt, var, n) :-
    !IRThrowJump(stmt),
-   PRE_TAC_Use(stmt, var_rep, n).
+   PRE_TAC_Use(stmt, var, n).
 
-TAC_Use(irstmt, var_rep, n-1) :-
+TAC_Use(irstmt, var, n-1) :-
    IRThrowJump(irstmt),
-   PRE_TAC_Use(irstmt, var_rep, n),
+   PRE_TAC_Use(irstmt, var, n),
    n > 0.
 
 
 // Case 4: Uses polymorphic variable
-PRE_TAC_Use(stmt, var_rep, n) :-
+PRE_TAC_Use(stmt, @cast_to_symbol(phiStmt), n) :-
   FunctionalStatement_Uses_Local(stmt, stackIndex, n),
   CheckIsStackIndex(stackIndex),
   IRStatement_Block(stmt, block),
-  PHILocation(block, stackIndex, var_rep).
+  PHILocation(block, stackIndex, phiStmt).
 
 TAC_Block(stmt, block) :-
   IRStatement_Block(stmt, block),
@@ -237,10 +237,10 @@ TAC_Block(phiStmt, block) :-
 .output IRFunction_Return
 .output IsFunctionEntry(IO="file", filename="Function.csv", delimiter="\t")
 
-.decl FormalArgs(func:IRFunction, var:symbol, n:number)
+.decl FormalArgs(func:IRFunction, var:TACVariable, n:number)
 .output FormalArgs
 
-FormalArgs(func, var_rep, n) :-
+FormalArgs(func, @cast_to_symbol(var_rep), n) :-
    FunctionArgument(func, n, var),
    Variable_String(var, var_rep).
 
