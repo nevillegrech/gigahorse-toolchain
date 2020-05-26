@@ -322,14 +322,14 @@ BlockToClone(next, func) :-
  ***********/
 #define FRESH_IRBLOCK(b, f) cat((b), (f))
 #define FRESH_IRSTATEMENT(s, f) cat((s), (f))
-#define BLOCK_TO_IRBLOCK CAST_TO_SYMBOL
-#define STATEMENT_TO_IRSTATEMENT CAST_TO_SYMBOL
-#define FUNCTION_TO_IRFUNCTION CAST_TO_SYMBOL
+#define BLOCK_TO_IRBLOCK @cast_to_symbol
+#define STATEMENT_TO_IRSTATEMENT @cast_to_symbol
+#define FUNCTION_TO_IRFUNCTION @cast_to_symbol
  
-.type IRBlock
+.type IRBlock <: symbol
 // exploit type checking in new IR
 #define IRFunction IRBlock
-.type IRStatement
+.type IRStatement <: symbol
 
 .decl Block_IRBlock(block: Block, func: Block, irblock: IRBlock)
 .decl Function_IRFunction(func: Block, irFunc: IRFunction)
@@ -583,8 +583,8 @@ IRBasicBlock_Tail(irblock, irtail) :-
 
 
 // Also translating concepts of how a block uses the stack
-.decl IRBlockPopDelta(from: IRBlock, n: StackIndex)
-.decl IRBlockStackDelta(from: IRBlock, stackDelta: StackIndex)
+.decl IRBlockPopDelta(from: IRBlock, n: number)
+.decl IRBlockStackDelta(from: IRBlock, stackDelta: number)
 
 IRBlockPopDelta(irblock, n) :-
   postTrans.BlockPopDelta(block, n),
@@ -641,7 +641,7 @@ IRBlock_Gas(irblock, gas) :-
 // should be taken for conditional calls.
 
 // How many (max) elements are popped from the stack during this block transition?
-.decl FunctionalBlockPopDelta(from: IRBlock, delta: StackIndex)
+.decl FunctionalBlockPopDelta(from: IRBlock, delta: number)
 
 // Not a function call case
 FunctionalBlockPopDelta(from, delta) :-
@@ -670,7 +670,7 @@ FunctionalBlockPopDelta(from, newPopDelta) :-
 
 
 // What is the total difference in stack level during this block ?
-.decl FunctionalBlockStackDelta(from: IRBlock, delta: StackIndex)
+.decl FunctionalBlockStackDelta(from: IRBlock, delta: number)
 
 // Not a call
 FunctionalBlockStackDelta(from, stackDelta) :-
@@ -690,19 +690,22 @@ FunctionalBlockStackDelta(from, newStackDelta) :-
 // caller, so we never care about the level they leave the stack at,
 // only about how deep in it they went.
 
+.type Path <: symbol
+
 // What's the total pop and stack delta since the beginning of the
 // function for cycle-free paths? 
-.decl PossibleFunctionalBlockPopAndStackDelta(func: IRFunction, from: IRBlock, path: symbol, popDelta: StackIndex, stackDelta: StackIndex)
+.decl PossibleFunctionalBlockPopAndStackDelta(func: IRFunction, from: IRBlock, path: Path, popDelta: number, stackDelta: number)
 
 // Another auxiliary for optimization: avoid join in key innermost loop
-.decl FunctionalBlockPopAndStackDelta(from: IRBlock, popDelta:StackIndex, stackDelta:StackIndex)
+.decl FunctionalBlockPopAndStackDelta(from: IRBlock, popDelta: number, stackDelta: number)
 FunctionalBlockPopAndStackDelta(from, popDelta, stackDelta) :-
   FunctionalBlockPopDelta(from, popDelta),
   FunctionalBlockStackDelta(from, stackDelta).
 .plan 1:(2,1)
 
-PossibleFunctionalBlockPopAndStackDelta(from, from, from, 0, 0) :-
-  IRFunctionEntry(from).
+PossibleFunctionalBlockPopAndStackDelta(from, from, initPath, 0, 0) :-
+   IRFunctionEntry(from),
+   initPath = @cast_to_symbol(from).
 
 .decl PotentialCycleEntry(block: IRBlock)
 
@@ -847,7 +850,7 @@ FunctionArgument(func, n, var) :-
   FunctionArgumentIndices(func, n),
   FRESH_VARIABLE(var, BLOCK_TO_IRBLOCK(func), n). // TODO: use entry?
 
-.decl FunctionArgumentIndices(func: IRFunction, n: number)
+.decl FunctionArgumentIndices(func: IRFunction, n: StackIndex)
 
 FunctionArgumentIndices(func, n) :-
   NumberOfFunctionArguments(func, n_args),
@@ -864,7 +867,7 @@ FunctionCallReturnArgument(caller, n, newVar) :-
   Statement_IRStatement(callStmtBefore, _ ,callStmt),
   FRESH_VARIABLE(newVar, callStmt, n).
 
-.decl FunctionReturnArgumentIndices(func: IRFunction, n: number)
+.decl FunctionReturnArgumentIndices(func: IRFunction, n: StackIndex)
 
 FunctionReturnArgumentIndices(func, n) :-
   NumberOfFunctionReturnArguments(func, n_args),
@@ -872,8 +875,8 @@ FunctionReturnArgumentIndices(func, n) :-
 
 // Renaming variables in functions
 // Involves Propagating variables, but doesn't require re-computing the CFG
-.decl FunctionalBlockInputContents(block:IRBlock, index:number, var:Variable)
-.decl FunctionalBlockOutputContents(block:IRBlock, index:number, var:Variable)
+.decl FunctionalBlockInputContents(block: IRBlock, index: StackIndex, var: Variable)
+.decl FunctionalBlockOutputContents(block: IRBlock, index: StackIndex, var: Variable)
 
 FunctionalBlockInputContents(entry, n, var) :-
    IRFunctionEntry(entry),
@@ -919,7 +922,7 @@ BeforeFunctionCallFunctionalBlockOutputContents(callee, index+delta, variable) :
   IRBlockStackDelta(callee, delta).
 
 // Handle the proper variables pushed by this basic block
-BeforeFunctionCallFunctionalBlockOutputContents(block, index, var) :-
+BeforeFunctionCallFunctionalBlockOutputContents(block, index, @cast_to_number(var)) :-
   IRInFunction(block, _),
   IRBasicBlock_Tail(block, stmt),
   IRLocalStackContents(stmt, index, var),
@@ -960,7 +963,7 @@ FunctionalStatement_Uses_Local(irstmt, varOrStackIndex, n) :-
    postTrans.Statement_Uses_Local(stmt, varOrStackIndex, n),
    Statement_IRStatement(stmt, _, irstmt).
 
-FunctionalStatement_Uses(irstmt, var, n) :-
+FunctionalStatement_Uses(irstmt, @cast_to_number(var), n) :-
    postTrans.Statement_Uses_Local(stmt, var, n),
    CheckIsVariable(var),
    Statement_IRStatement(stmt, _, irstmt).
@@ -976,7 +979,7 @@ FunctionalStatement_Uses(stmt, var, n) :-
    IRStatement_Block(stmt, block),
    FunctionalBlockInputContents(block, stackIndex, var).
 
-.decl PublicFunctionSignature(hex_signature: Value, text_signature: symbol)
+.decl PublicFunctionSignature(hex_signature: symbol, text_signature: symbol)
 .input PublicFunctionSignature
 
 PublicFunctionSignature("0x00000000", "fallback()").

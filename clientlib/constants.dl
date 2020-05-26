@@ -4,13 +4,13 @@
 
   // API: This is what clients pass as input and get as output.
   // 2-arg constant folding
-  .decl RequestConstantFold2(op: symbol, arg1: symbol, arg2: symbol)
-  .decl ConstantFoldResult2(op: symbol, arg1: symbol, arg2: symbol, result: symbol)
+  .decl RequestConstantFold2(op: Opcode, arg1: Value, arg2: Value)
+  .decl ConstantFoldResult2(op: Opcode, arg1: Value, arg2: Value, result: Value)
 
-  .decl RequestConstantFold1(op: symbol, arg: symbol)
-  .decl ConstantFoldResult1(op: symbol, arg: symbol, result: symbol)
+  .decl RequestConstantFold1(op: Opcode, arg: Value)
+  .decl ConstantFoldResult1(op: Opcode, arg: Value, result: Value)
 
-  .decl ValidConstantFoldOperation(op: symbol, arg1: symbol, arg2: symbol)
+  .decl ValidConstantFoldOperation(op: Opcode, arg1: Value, arg2: Value)
   ValidConstantFoldOperation(op, arg1, arg2) :-
     RequestConstantFold2(op, arg1, arg2),
     ((op != "DIV", op != "SDIV", op != "MOD") ;

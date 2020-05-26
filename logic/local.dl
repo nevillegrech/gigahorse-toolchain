@@ -53,26 +53,29 @@
   .init variableValueConstantFolding = ConstantFolding
 
   // Auxiliary relations for constant folding
-  .decl BinopStatementOpAndArgs(stmt: Statement, op: symbol, a: Variable, b: Variable)
-  BinopStatementOpAndArgs(stmt, op, a, b) :-
+  .decl BinopStatementOpAndArgs(stmt: Statement, op: Opcode, a: Variable, b: Variable)
+  BinopStatementOpAndArgs(stmt, op, @cast_to_number(a), @cast_to_number(b)) :-
     Statement_Opcode(stmt, op),
     Statement_Uses_Local(stmt, a, 0),
-    Statement_Uses_Local(stmt, b, 1).
+    Statement_Uses_Local(stmt, b, 1),
+    CheckIsVariable(a),
+    CheckIsVariable(b).
 
-  .decl BinopStatementOpAndConstantArgValues(stmt: Statement, op: symbol, a_val: Value, b_val: Value)
+  .decl BinopStatementOpAndConstantArgValues(stmt: Statement, op: Opcode, a_val: Value, b_val: Value)
   BinopStatementOpAndConstantArgValues(stmt, op, a_val, b_val) :-
     Variable_Value(a, a_val),
     BinopStatementOpAndArgs(stmt, op, a, b),
     Variable_Value(b, b_val).
   .plan 1:(3,2,1)
 
-  .decl UnopStatementOpAndArgs(stmt: Statement, op: symbol, a: Variable)
-  UnopStatementOpAndArgs(stmt, op, a) :-
+  .decl UnopStatementOpAndArgs(stmt: Statement, op: Opcode, a: Variable)
+  UnopStatementOpAndArgs(stmt, op, @cast_to_number(a)) :-
     Statement_Opcode(stmt, op),
     Statement_Uses_Local(stmt, a, 0),
-    !Statement_Uses_Local(stmt, _, 1).
+    !Statement_Uses_Local(stmt, _, 1),
+    CheckIsVariable(a).
 
-  .decl UnopStatementOpAndConstantArgValues(stmt: Statement, op: symbol, a_val: Value)
+  .decl UnopStatementOpAndConstantArgValues(stmt: Statement, op: Opcode, a_val: Value)
   UnopStatementOpAndConstantArgValues(stmt, op, a_val) :-
     Variable_Value(a, a_val),
     UnopStatementOpAndArgs(stmt, op, a).
@@ -111,12 +114,13 @@
   
   // We pre-assign variables to every statement except if they are
   // not really creating new values on the stack (e.g. no pushes or simple swaps)
-  IsVariable(n),
-  Statement_Defines(stmt, n) :-
+  IsVariable(var),
+  Statement_Defines(stmt, var) :-
     _StatementNum(stmt, n),
     Statement_Opcode(stmt, opcode),
     OpcodePushWords(opcode, m), m > 0,
-    !TACNOP(stmt).
+    !TACNOP(stmt),
+    var = @cast_to_number(n).
   
    
   .decl IsValue(v:Value)
@@ -169,10 +173,10 @@
   .decl Statement_BlockHead(statement:Statement, head:Statement)
   
   Statement_BlockHead(stmt, stmt),
-  Statement_Block(stmt, CAST_TO_SYMBOL(stmt)) :-
+  Statement_Block(stmt, @cast_to_symbol(stmt)) :-
     IsBasicBlockHead(stmt).
   
-  Statement_BlockHead(stmt, CAST_TO_SYMBOL(block)),
+  Statement_BlockHead(stmt, @cast_to_symbol(block)),
   Statement_Block(stmt, block) :-
     Statement_Block(prevstmt, block),
     Statement_Next(prevstmt, stmt),
@@ -222,17 +226,17 @@
   // from its caller. This is a high-watermark kind of measure: the consumed
   // data items may be replenished during execution, but we care about how high
   // the total will go.
-  .decl BlockPopDelta(block:Block, delta:StackIndex)
+  .decl BlockPopDelta(block:Block, delta:number)
   
   // What is the difference in stack height effected by the basic block
-  .decl BlockStackDelta(block:Block, delta:StackIndex)
+  .decl BlockStackDelta(block:Block, delta:number)
   
   // Same for the effects up to a statement, since the beginning of the
   // containing basic block.
-  .decl StatementPopDelta(statement:Statement, delta:StackIndex)
-  .decl StatementStackDelta(statement:Statement, delta:StackIndex)
+  .decl StatementPopDelta(statement: Statement, delta: number)
+  .decl StatementStackDelta(statement: Statement, delta: number)
   
-  ImmediateBlockJumpTarget(block, var) :-
+  ImmediateBlockJumpTarget(block, @cast_to_number(var)) :-
     BasicBlock_Tail(block, stmt),
     IsJump(stmt),
     BeforeLocalStackContents(stmt, 0, var),
@@ -272,7 +276,7 @@
   ThrowJump(jmp) :-
      ImmediateBlockJumpTarget(block, variable),
      Variable_Value(variable, targetValue),
-     !JUMPDEST(CAST_TO_SYMBOL(targetValue)),
+     !JUMPDEST(@cast_to_symbol(targetValue)),
      BasicBlock_Tail(block, jmp).
   
   /*
@@ -300,7 +304,7 @@
     Statement_Defines(stmt, var).
   
   // Get current program counter
-  Variable_Value(var, CAST_TO_SYMBOL(stmt)) :-
+  Variable_Value(var, @cast_to_symbol(stmt)) :-
     PC(stmt),
     Statement_Defines(stmt, var).
 
@@ -318,10 +322,10 @@
   
   // Optimization: before local stack contents for swaps
   // It's quite useful to optimize this case.
-  .decl BeforeSwapLocalStackContents(stmt: Statement, n: StackIndex, m: StackIndex, variable: Variable)
+  .decl BeforeSwapLocalStackContents(stmt: Statement, n: number, m: StackIndex, variable: VariableOrStackIndex)
   
-  BeforeSwapLocalStackContents(stmt, n, m, variable) :-
-    BeforeLocalStackContents(stmt, m, variable),
+  BeforeSwapLocalStackContents(stmt, n, m, varOrStackIndex) :-
+    BeforeLocalStackContents(stmt, m, varOrStackIndex),
     Statement_Opcode(stmt, opcode),
     SWAPN(opcode, n).
      
@@ -424,7 +428,7 @@
   IsValue(v) :-
      PushValue(_, v).
   
-  IsValue(CAST_TO_SYMBOL(v)) :-
+  IsValue(@cast_to_symbol(v)) :-
     PC(v).
   
   .decl DynamicStatement(stmt:Statement)
@@ -447,8 +451,8 @@
      Statement_Opcode(stmt, opcode),
      OpcodeGas(opcode, gas).
 
-  .decl PublicFunctionJump(block:Block, funHex:symbol)
-  .decl PublicFunction(block:Block, funHex:symbol)
+  .decl PublicFunctionJump(block:Block, funHex: Value)
+  .decl PublicFunction(block:Block, funHex: Value)
 
   // Code inserted by compiler to compare function signature
   .decl BlockComparesSig(block: Block, sigHash: Value)
@@ -522,17 +526,17 @@
 
   PublicFunctionJump(block, sigHash) :-   BlockComparesSig(block, sigHash).
 
-  PublicFunction(CAST_TO_SYMBOL(targetValue), sigHash) :-
+  PublicFunction(@cast_to_symbol(targetValue), sigHash) :-
     BlockComparesSig(block, sigHash),
     ImmediateBlockJumpTarget(block, var),
     Statement_Defines(push, var),
     PushValue(push, targetValue),
-    JUMPDEST(CAST_TO_SYMBOL(targetValue)).
+    JUMPDEST(@cast_to_symbol(targetValue)).
 
 
   // Fallback functions
   PublicFunctionJump(block, "0x0"),
-  PublicFunction(CAST_TO_SYMBOL(fallthrough), "0x0") :-
+  PublicFunction(@cast_to_symbol(fallthrough), "0x0") :-
     PushValue(stmt, "0x4"),
     Statement_Next(stmt, stmt2),
     CALLDATASIZE(stmt2),
