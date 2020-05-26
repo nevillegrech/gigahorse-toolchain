@@ -51,7 +51,7 @@ class Decompilation:
             DEFAULT_DECOMPILER_DL
         ]
 
-        subprocess.run(args, stdout=subprocess.DEVNULL)
+        subprocess.run(args)
 
 
 
