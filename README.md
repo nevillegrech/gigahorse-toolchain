@@ -16,9 +16,16 @@ cd souffle
 git checkout 3674206ebb0ceaf17078c563f6cda68c67d86cda
 ./bootstrap
 ./configure
-sudo make install
+sudo make install -j
 ```
 
+If you already have another souffle version installed and would like to distinguish between the two, use the following incantation instead for `configure`:
+
+```
+./configure --program-suffix=2
+```
+
+This will produce an executable called `souffle2`
 
 ### For visualization
 Requires PyDot:
