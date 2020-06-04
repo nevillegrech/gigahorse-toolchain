@@ -8,7 +8,17 @@ A decompiler (and related framework) from low-level EVM code to a higher-level f
 
 Requires a modern Python 3 distribution, e.g., the Anaconda Python distribution: https://anaconda.org/anaconda/python
 
-Requires Souffle: http://souffle-lang.org/
+Requires Souffle: http://souffle-lang.org/, specifically, the head 3674206ebb0ceaf17078c563f6cda68c67d86cda. In a nutshell, this is how you install it:
+
+```
+git clone git@github.com:souffle-lang/souffle.git
+cd souffle
+git checkout 3674206ebb0ceaf17078c563f6cda68c67d86cda
+./bootstrap
+./configure
+sudo make install
+```
+
 
 ### For visualization
 Requires PyDot:
