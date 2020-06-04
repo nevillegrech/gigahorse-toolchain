@@ -8,6 +8,8 @@
   .decl ConstantFoldResult2(op: Opcode, arg1: Value, arg2: Value, result: Value)
 
   .decl RequestConstantFold1(op: Opcode, arg: Value)
+
+  RequestConstantFold1(op, arg) :- RequestConstantFold1(op, arg). // suppress warning
   .decl ConstantFoldResult1(op: Opcode, arg: Value, result: Value)
 
   .decl ValidConstantFoldOperation(op: Opcode, arg1: Value, arg2: Value)
