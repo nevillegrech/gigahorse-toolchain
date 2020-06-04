@@ -1,4 +1,4 @@
-#define FRESH_VARIABLE(var, stmt, stackIndex) (IRStatementNum((stmt), _stmtNum), var=-0xFFFF+_stmtNum*MAX_STACK_HEIGHT+(stackIndex))
+#define FRESH_VARIABLE(var, stmt, stackIndex) (IRStatementNum((stmt), ?stmtNum), var=-0xFFFF+?stmtNum*MAX_STACK_HEIGHT+(stackIndex))
 
 //#define DEBUG
 
@@ -820,16 +820,16 @@ NumberOfFunctionReturnArguments(func, n) :-
 .decl Variable_Stmt_String(var:Variable, stmt: IRStatement, var_rep:symbol) inline
 
 Variable_Stmt_String(var, stmt, res) :-
-   res = cat(_stmt_str, _var_str),
-   IRStatement_VarString(stmt, _stmt_str),
-   Variable_String(var, _var_str).
+   res = cat(stmt_str, var_str),
+   IRStatement_VarString(stmt, stmt_str),
+   Variable_String(var, var_str).
         
 .decl Variable_Block_String(var:Variable, block: IRBlock, var_rep:symbol) inline
 
 Variable_Block_String(var, block, res) :-
-   res = cat(_block_str, _var_str),
-   IRBlock_VarString(block, _block_str),
-   Variable_String(var, _var_str).
+   res = cat(block_str, var_str),
+   IRBlock_VarString(block, block_str),
+   Variable_String(var, var_str).
 
 
 .decl FunctionArgument(func: IRFunction, n: StackIndex, var: Variable)
