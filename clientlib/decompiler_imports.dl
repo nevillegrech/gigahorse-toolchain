@@ -6,16 +6,17 @@
 // code, together with tac_instructions.dl, creates a different
 // intermediate representation (often reusing instruction names).
 
-.type Variable
-.type Statement
-.type Block
-.type Function
-.type Opcode
-.type Value
+.type Variable <: symbol
+.type Statement <: symbol
+.type Block <: symbol
+.type Function <: symbol
+.type Opcode <: symbol
+.type Value <: symbol
 
 #include "tac_instructions.dl"
 #include "util.dl"
-
+#include "constants.dl"
+ 
 /* Whole bytecode as a hex string */
 .decl ByteCodeHex(bytecode:symbol)
 .input ByteCodeHex(IO="file", filename="bytecode.hex")
