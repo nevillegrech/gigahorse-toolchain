@@ -119,9 +119,9 @@ class InstructionTsvExporter(Exporter):
             os.makedirs(output_dir, exist_ok=True)
         
         if bytecode_hex:
-            bytecode_file = open(output_dir + "/bytecode.hex", "w")
-            bytecode_file.write(bytecode_hex)
-            bytecode_file.close()
+            with open(output_dir + "/bytecode.hex", "w") as f:
+                assert '\n' not in bytecode_hex
+                f.write(bytecode_hex)
 
         signatures_filename_in = public_function_signature_filename
         signatures_filename_out = os.path.join(output_dir, 'PublicFunctionSignature.facts')
