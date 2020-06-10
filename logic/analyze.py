@@ -165,7 +165,7 @@ parser.add_argument("--reuse_datalog_bin",
 
 
 def get_working_dir(contract_name):
-    return join(TEMP_WORKING_DIR, contract_name.split('.')[0])
+    return join(os.path.abspath(TEMP_WORKING_DIR), contract_name.split('.')[0])
 
 def prepare_working_dir(contract_name) -> (str, str):
     newdir = get_working_dir(contract_name)
@@ -219,8 +219,10 @@ def analyze_contract(job_index: int, index: int, filename: str, result_queue, ti
             # Disassemble contract
             blocks = blockparse.EVMBytecodeParser(bytecode).parse()
             exporter.InstructionTsvExporter(blocks).export(output_dir=work_dir, bytecode_hex=bytecode)
-            os.symlink(join(work_dir, 'bytecode.hex'), join(out_dir, 'bytecode.hex'))
 
+            os.symlink(join(work_dir, 'bytecode.hex'), join(out_dir, 'bytecode.hex'))
+            
+            
             # Run souffle on those relations
             decomp_start = time.time()
             analysis_args = [join(os.getcwd(), DEFAULT_SOUFFLE_EXECUTABLE),
