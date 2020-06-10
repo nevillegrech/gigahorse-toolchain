@@ -214,7 +214,7 @@ def analyze_contract(job_index: int, index: int, filename: str, result_queue, ti
         else:
             contract_filename = join(args.contract_dir, filename)            
             with open(contract_filename) as file:
-                bytecode = ''.join([l.strip() for l in file if len(l.strip()) > 0])
+                bytecode = file.read()
 
             # Disassemble contract
             blocks = blockparse.EVMBytecodeParser(bytecode).parse()
