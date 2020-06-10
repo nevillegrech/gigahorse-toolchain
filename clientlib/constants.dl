@@ -15,7 +15,7 @@
   .decl ValidConstantFoldOperation(op: Opcode, arg1: Value, arg2: Value)
   ValidConstantFoldOperation(op, arg1, arg2) :-
     RequestConstantFold2(op, arg1, arg2),
-    ((op != "DIV", op != "SDIV", op != "MOD") ;
+    ((op != "DIV", op != "SDIV", op != "MOD", op != "SMOD");
      arg2 != "0x0").
 
   // Not the most efficient because the string matching of the operator
