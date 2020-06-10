@@ -213,13 +213,13 @@ def analyze_contract(job_index: int, index: int, filename: str, result_queue, ti
             decomp_start = time.time()
         else:
             contract_filename = join(args.contract_dir, filename)            
-            os.symlink(contract_filename, join(work_dir, 'contract.hex'))
             with open(contract_filename) as file:
                 bytecode = ''.join([l.strip() for l in file if len(l.strip()) > 0])
 
             # Disassemble contract
             blocks = blockparse.EVMBytecodeParser(bytecode).parse()
             exporter.InstructionTsvExporter(blocks).export(output_dir=work_dir, bytecode_hex=bytecode)
+            os.symlink(join(work_dir, 'bytecode.hex'), join(out_dir, 'bytecode.hex'))
 
             # Run souffle on those relations
             decomp_start = time.time()
