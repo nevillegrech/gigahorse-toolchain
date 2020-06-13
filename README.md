@@ -13,21 +13,12 @@ Requires Souffle: http://souffle-lang.org/, specifically, the head 3674206ebb0ce
 ```
 git clone git@github.com:souffle-lang/souffle.git
 cd souffle
-git checkout 3674206ebb0ceaf17078c563f6cda68c67d86cda
 ./bootstrap
 ./configure
 sudo make install -j
 ```
 
-If you already have another souffle version installed and would like to distinguish between the two, use the following incantation instead for `configure`:
-
-```
-./configure --program-suffix=2
-```
-
-This will produce an executable called `souffle2`
-
-### For visualization
+### For visualization (optional)
 Requires PyDot:
 ```
 conda install -c anaconda pydot
@@ -39,9 +30,6 @@ Installation on Debian:
 sudo apt install graphviz
 ```
 
-### For public function and event signature matching
-run `bin/crawlsignatures` and `bin/crawleventsignatures` (optional)
-
 ## Usage
 1. Fact generation
 2. Run decompiler using Souffle
@@ -49,13 +37,12 @@ run `bin/crawlsignatures` and `bin/crawleventsignatures` (optional)
 
 
 ```
-cd logic
-../bin/generatefacts <contract> facts
-souffle -F facts decompiler.dl
+./generatefacts <contract> facts
+souffle -F facts logic/decompiler.dl
 ./visualizeout.py
 ```
 
-For batch processing of contracts, we recommend the bulk analyzer script in `logic/analyze.py`.
+For batch processing of contracts, we recommend the bulk analyzer script:  `bulk_analyze.py`.
 
 
 ## Writing client analyses

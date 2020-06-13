@@ -18,10 +18,6 @@ from multiprocessing import Process, SimpleQueue, Manager, Event, cpu_count
 from os.path import abspath, dirname, join, getsize
 import os
 
-# Add the source directory to the path to ensure the imports work
-src_path = join(dirname(abspath(__file__)), "../")
-sys.path.insert(0, src_path)
-
 # Local project imports
 import src.exporter as exporter
 import src.blockparse as blockparse
@@ -36,7 +32,7 @@ DEFAULT_SOUFFLE_BIN = 'souffle'
 DEFAULT_RESULTS_FILE = 'results.json'
 """File to write results to by default."""
 
-DEFAULT_DECOMPILER_DL = 'decompiler.dl'
+DEFAULT_DECOMPILER_DL = join(dirname(abspath(__file__)), 'logic/decompiler.dl')
 """Decompiler specification file."""
 
 DEFAULT_SOUFFLE_EXECUTABLE = 'decompiler_compiled'
@@ -57,7 +53,8 @@ DEFAULT_NUM_JOBS = int(cpu_count()*0.9)
 # Command Line Arguments
 
 parser = argparse.ArgumentParser(
-    description="A batch analyzer for EVM bytecode programs.")
+    description="A batch analyzer for EVM bytecode programs."
+)
 
 parser.add_argument("-d",
                     "--contract_dir",
