@@ -122,8 +122,6 @@ class InstructionTsvExporter(Exporter):
             with open(output_dir + "/bytecode.hex", "w") as f:
                 assert '\n' not in bytecode_hex
                 f.write(bytecode_hex)
-            with open(output_dir + "/bytecode.hex") as f:
-                assert '\n' not in f.read()
 
         signatures_filename_in = public_function_signature_filename
         signatures_filename_out = os.path.join(output_dir, 'PublicFunctionSignature.facts')
