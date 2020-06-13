@@ -21,7 +21,7 @@ def main(args):
     if args.disassembly:
         blocks = blockparse.EVMDasmParser(args.infile).parse()
     else:
-        bytecode = ''.join([l.strip() for l in args.infile if len(l.strip()) > 0])
+        bytecode = args.infile.read().strip()
         blocks = blockparse.EVMBytecodeParser(bytecode).parse()
     logging.info("Initial parsing completed.")
 
