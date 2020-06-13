@@ -1,14 +1,23 @@
 [Gigahorse](https://vignette.wikia.nocookie.net/roadwarrior/images/e/ea/MMFR_Gigahorse-876x534.jpg/revision/latest?cb=20150427175606)
 =============================
 # The Gigahorse decompiler and toolchain [![Tweet](https://img.shields.io/twitter/url/http/shields.io.svg?style=social)](https://twitter.com/intent/tweet?text=Gigahorse%20-%20Decompilation%20and%20Analysis%20for%20Ethereum%20Smart%20Contracts&url=https://www.github.com/nevillegrech/gigahorse-toolchain)
-A decompiler (and related framework) from low-level EVM code to a higher-level function-based three-address representation, similar to LLVM IR or Jimple.
+A decompiler (and related framework) from low-level EVM code to a higher-level function-based three-address representation, similar to LLVM IR or Jimple. Many clients have been developed for this decompiler including:
+
+MadMax
+Ethainter
+
+
+This is currently a closed project. Please send question to the team if you would like to use this decompiler in your research project.
 
 
 ## Installation:
 
-Requires a modern Python 3 distribution, e.g., the Anaconda Python distribution: https://anaconda.org/anaconda/python
+### Python 3.8
+Refer to standard documentation.
 
-Requires Souffle: http://souffle-lang.org/, specifically, the head 3674206ebb0ceaf17078c563f6cda68c67d86cda. In a nutshell, this is how you install it:
+### Souffle
+
+http://souffle-lang.org/. In a nutshell, this is how you install it:
 
 ```
 git clone git@github.com:souffle-lang/souffle.git
@@ -17,6 +26,11 @@ cd souffle
 ./configure
 sudo make install -j
 ```
+
+
+### Souffle custom functors
+Refer here: https://github.com/plast-lab/souffle-addon
+
 
 ### For visualization (optional)
 Requires PyDot:
