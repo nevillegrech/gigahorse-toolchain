@@ -7,10 +7,6 @@ import sys
 from os.path import abspath, dirname, join
 
 
-# Prepend .. to $PATH so the project modules can be imported below
-src_path = join(dirname(abspath(__file__)), "..")
-sys.path.insert(0, src_path)
-
 # Local project imports
 import src.exporter as exporter
 import src.blockparse as blockparse
@@ -25,7 +21,7 @@ def main(args):
     if args.disassembly:
         blocks = blockparse.EVMDasmParser(args.infile).parse()
     else:
-        bytecode = ''.join([l.strip() for l in args.infile if len(l.strip()) > 0])
+        bytecode = args.infile.read().strip()
         blocks = blockparse.EVMBytecodeParser(bytecode).parse()
     logging.info("Initial parsing completed.")
 

@@ -49,12 +49,6 @@ results.json
 *_compiled
 *.ccerr
 *.cpp
-PublicFunctionSignature.dl
 
 # decompilation script symlink
 decompilation-results
-
-# google api auth
-token.pickle
-
-papereval.txt
