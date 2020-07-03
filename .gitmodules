@@ -1,0 +1,3 @@
+[submodule "souffle-addon"]
+	path = souffle-addon
+	url = https://github.com/plast-lab/souffle-addon

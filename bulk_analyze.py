@@ -18,10 +18,6 @@ from multiprocessing import Process, SimpleQueue, Manager, Event, cpu_count
 from os.path import abspath, dirname, join, getsize
 import os
 
-# Add the source directory to the path to ensure the imports work
-src_path = join(dirname(abspath(__file__)), "../")
-sys.path.insert(0, src_path)
-
 # Local project imports
 import src.exporter as exporter
 import src.blockparse as blockparse
@@ -36,7 +32,7 @@ DEFAULT_SOUFFLE_BIN = 'souffle'
 DEFAULT_RESULTS_FILE = 'results.json'
 """File to write results to by default."""
 
-DEFAULT_DECOMPILER_DL = 'decompiler.dl'
+DEFAULT_DECOMPILER_DL = join(dirname(abspath(__file__)), 'logic/decompiler.dl')
 """Decompiler specification file."""
 
 DEFAULT_SOUFFLE_EXECUTABLE = 'decompiler_compiled'
@@ -57,7 +53,8 @@ DEFAULT_NUM_JOBS = int(cpu_count()*0.9)
 # Command Line Arguments
 
 parser = argparse.ArgumentParser(
-    description="A batch analyzer for EVM bytecode programs.")
+    description="A batch analyzer for EVM bytecode programs."
+)
 
 parser.add_argument("-d",
                     "--contract_dir",
@@ -165,7 +162,7 @@ parser.add_argument("--reuse_datalog_bin",
 
 
 def get_working_dir(contract_name):
-    return join(TEMP_WORKING_DIR, contract_name.split('.')[0])
+    return join(os.path.abspath(TEMP_WORKING_DIR), contract_name.split('.')[0])
 
 def prepare_working_dir(contract_name) -> (str, str):
     newdir = get_working_dir(contract_name)
@@ -213,14 +210,16 @@ def analyze_contract(job_index: int, index: int, filename: str, result_queue, ti
             decomp_start = time.time()
         else:
             contract_filename = join(args.contract_dir, filename)            
-            os.symlink(contract_filename, join(work_dir, 'contract.hex'))
             with open(contract_filename) as file:
-                bytecode = ''.join([l.strip() for l in file if len(l.strip()) > 0])
+                bytecode = file.read().strip()
 
             # Disassemble contract
             blocks = blockparse.EVMBytecodeParser(bytecode).parse()
             exporter.InstructionTsvExporter(blocks).export(output_dir=work_dir, bytecode_hex=bytecode)
 
+            os.symlink(join(work_dir, 'bytecode.hex'), join(out_dir, 'bytecode.hex'))
+            
+            
             # Run souffle on those relations
             decomp_start = time.time()
             analysis_args = [join(os.getcwd(), DEFAULT_SOUFFLE_EXECUTABLE),
