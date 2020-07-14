@@ -38,22 +38,11 @@
 .type Statement <: symbol
 
 
-.decl IsStackIndex(n:StackIndex)
-        
-IsStackIndex(0).
-  
-IsStackIndex(n+1) :-
-  IsStackIndex(n),
-  n+1 < MAX_STACK_HEIGHT.
-  
 // Convenience predicate. Folds together bounds checking on valid
 // indices and less-than.
 .decl IsStackIndexLessThan(n:StackIndex, maximum:StackIndex) inline
                                                                
-IsStackIndexLessThan(n, maximum) :-
-  IsStackIndex(maximum),
-  IsStackIndex(n),
-  n < maximum.
+IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
 
 /*
  * Preprocessing of decompiler input, to yield convenient relations
