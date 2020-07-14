@@ -22,10 +22,10 @@
 
 .decl FunctionalBlock_Uses_Local(block: IRBlock, stackIndex: StackIndex)
 
-FunctionalBlock_Uses_Local(block, stackIndex) :-
+FunctionalBlock_Uses_Local(block, @cast_to_number(stackIndex)) :-
   IRStatement_Block(stmt, block),
   FunctionalStatement_Uses_Local(stmt, stackIndex, _),
-  IsStackIndex(stackIndex).
+  CheckIsStackIndex(stackIndex).
 
 .decl PolymorphicStackIndex(block: IRBlock, stackIndex: StackIndex)
 
