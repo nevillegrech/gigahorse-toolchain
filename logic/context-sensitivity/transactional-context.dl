@@ -1,10 +1,10 @@
-.type PrivateContext = [block1:Block, block2: Block]
+.type PrivateContext = [block1:Block, block2: Block, block3: Block, block4: Block]
 .type Context = [ publicFun:symbol, pri: PrivateContext ]
 
 // find number of jumps to estimate best context depth
 
 .decl InitialContext(ctx : Context)
-InitialContext(["0x0", ["0x0", "0x0"]]).
+InitialContext(["0x0", ["0x0", "0x0", "0x0", "0x0"]]).
 
 // inverse-escape analysis
 .decl Block_Uses_Local(block: Block, var: VariableOrStackIndex)
@@ -66,8 +66,8 @@ MergeContext(ctx, caller, newContext) :-
 #ifndef NO_PUBLIC_CONTEXT
   !postTrans.PublicFunction(caller, _),
 #endif
-  ctx = [pub, [ctx1, ctx2]], ctx1 = ctx1, // suppress warning
-  newContext = [pub, [ctx2, caller]].
+  ctx = [pub, [ctx1, ctx2, ctx3, ctx4]], ctx1 = ctx1, // suppress warning
+  newContext = [pub, [ctx2, ctx3, ctx4, caller]].
 #endif
  
 #ifndef NO_PUBLIC_CONTEXT
