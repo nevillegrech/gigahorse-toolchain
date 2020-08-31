@@ -184,11 +184,18 @@ postTrans.PublicFunction(b, h) :- preTrans.PublicFunction(b, h).
  ***********
  */
 
+.decl VariableContainsJumpTarget(var: Variable)
+
+VariableContainsJumpTarget(var) :-
+  postTrans.Variable_Value(var, value),
+  postTrans.JUMPDEST(@cast_to_symbol(value)).
+  
 BlockInputContents(calleeCtx, callee, index, variable) :-
   BlockOutputContents(callerCtx, caller, index, variable),
+  VariableContainsJumpTarget(variable),
   BlockEdge(callerCtx, caller, calleeCtx, callee).
-  .plan 1:(2,1)
-      
+  .plan 1:(3,2,1)
+  
 // Copy the stack variables untouched by the callee basic block
 BlockOutputContents(calleeCtx, callee, index+delta, variable) :-
   BlockInputContents(calleeCtx, callee, index, variable),
@@ -207,9 +214,10 @@ BlockOutputContents(ctx, block, index, @cast_to_number(var)) :-
 // Handle the stackIndexes pushed by this basic block
 BlockOutputContents(ctx, block, index, @cast_to_number(realVariable)) :-
   BlockInputContents(ctx, block, stackIndex, realVariable),
+  CheckIsStackIndex(stackIndex),
   postTrans.BasicBlock_Tail(block, stmt),
-  postTrans.LocalStackContents(stmt, index, stackIndex),
-  CheckIsStackIndex(stackIndex).
+  postTrans.LocalStackContents(stmt, index, stackIndex).
+
 
 
 BlockJumpTarget(ctx, block, var) :-
