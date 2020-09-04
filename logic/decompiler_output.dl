@@ -319,10 +319,24 @@ EventSignatureInContract(sigHash, sigText):-
   LOGStmt_SigHash(_, sigHash),
   EventSignature(sigHash, sigText).
 
+.decl Helper_Zeros(str:symbol, len:number)
+DEBUG_OUTPUT(Helper_Zeros)
+
+Helper_Zeros("", 0).
+
+Helper_Zeros(cat("0",old), i +1):-
+  Helper_Zeros(old, i),
+  i < 10.
+
 .decl ConstantPossibleSigHash(constSigHash:symbol, name:symbol)
 .output ConstantPossibleSigHash
 
-ConstantPossibleSigHash(sigHashBigVal, name):-
-  TAC_Variable_Value(_, sigHashBigVal),
-  sigHash = substr(sigHashBigVal, 0 , 10),
-  PublicFunctionSignature(sigHash, name).
+
+// Covers both small and big numbers
+ConstantPossibleSigHash(sigHash, name):-
+  TAC_Variable_Value(_, sigHash),
+  len = strlen(sigHash),
+  temp = min(10, len),
+  Helper_Zeros(zeroz, 10 - temp),
+  sigHashForm = cat("0x",cat(zeroz, substr(sigHash, 2, temp - 2))),
+  PublicFunctionSignature(sigHashForm, name).
