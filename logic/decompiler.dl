@@ -193,7 +193,7 @@ postTrans.PublicFunction(b, h) :- preTrans.PublicFunction(b, h).
 .decl VariableContainsJumpTarget(var: Variable)
 
 VariableContainsJumpTarget(var) :-
-  postTrans.Variable_Value(var, value),
+  ExtendedVariable_Value(_, var, value),
   postTrans.JUMPDEST(@cast_to_symbol(value)).
   
 BlockInputContents(calleeCtx, callee, index, variable) :-
@@ -236,29 +236,49 @@ BlockMemInputContents(calleeCtx, callee, offset, variable) :-
   BlockMemOutputContents(callerCtx, caller, offset, variable),
   VariableContainsJumpTarget(variable),
   BlockEdge(callerCtx, caller, calleeCtx, callee).
-  .plan 1:(3,1,2)
+ .plan 1:(3,1,2)
 
-BlockMemOutputContents(ctx, block, offset, variable):-
+BlockMemOutputContents(ctx, block, offset, variable) :-
   BlockMemInputContents(ctx, block, offset, variable),
-  !postTrans.MSTOREPotentialJUMPDEST(block, _, offset).
+  !postTrans.MSTOREAtConstantOffset(block, _, offset).
 
-BlockMemOutputContents(ctx, block, offset, realVariable):-
+BlockMemOutputContents(ctx, block, offset, @cast_to_number(fromVar)) :-
   ReachableContext(ctx, block),
-  postTrans.MSTOREPotentialJUMPDEST(block, store, offset),
-  BlockInputContents(ctx, block, stackIndex, realVariable),
-  postTrans.BeforeLocalStackContents(store, 1, stackIndex).
+  postTrans.MSTOREAtConstantOffset(block, mstore, offset),
+  postTrans.BeforeLocalStackContents(mstore, 1, fromVar),
+  CheckIsVariable(fromVar).
 
-.decl MLOADLoadsJumpDest(ctx:Context, mload:Statement, jumpdest:Value)
-.output MLOADLoadsJumpDest
-
-MLOADLoadsJumpDest(ctx, mload, jumpdest):-
+BlockMemOutputContents(ctx, block, offset, realVariable) :-
   ReachableContext(ctx, block),
-  postTrans.Statement_Block(mload, block),
-  postTrans.MLOAD(mload),
-  postTrans.Statement_Uses_Local(mload, offsetVar, 0),
-  postTrans.Variable_Value(offsetVar, offset),
-  BlockMemInputContents(ctx, block, offset, realVariable),
-  postTrans.Variable_Value(realVariable, jumpdest).
+  postTrans.MSTOREAtConstantOffset(block, mstore, offset),
+  postTrans.BeforeLocalStackContents(mstore, 1, fromStackIndex),
+  BlockInputContents(ctx, block, fromStackIndex, realVariable).
+ .plan 1:(4,3,2,1)
+
+// The Vyper ability to read and write constants (used as jump
+// targets) from/to (non-memory-read constant, thankfully) memory
+// addresses throws a wrench in the machinery. We patch things pretty
+// well by introducing an extended (context-sensitive) version of
+// Variable_Value, which also keeps track of constants read through
+// memory.
+.decl ExtendedVariable_Value(ctx:Context, var:Variable, val:Value)
+
+ExtendedVariable_Value(ctx, var, val) :-
+  ReachableContext(ctx, _),
+  postTrans.Variable_Value(var, val).
+
+ExtendedVariable_Value(ctx, def, val) :-
+  ReachableContext(ctx, block),
+  postTrans.MLOADAtConstantOffset(block, mload, offset),
+  postTrans.Statement_Defines(mload, def),
+  BlockMemInputContents(ctx, block, offset, var),
+  ExtendedVariable_Value(ctx, var, val).
+ .plan 1:(4,5,2,3,1), 2:(5,4,2,3,1)
+
+ExtendedVariable_Value(calleeCtx, var, val) :-
+  ExtendedVariable_Value(callerCtx, var, val),
+  BlockEdge(callerCtx, _, calleeCtx, _).
+ .plan 1:(2,1)
 
 BlockJumpTarget(ctx, block, var) :-
   ReachableContext(ctx, block),
@@ -271,11 +291,6 @@ BlockJumpTarget(ctx, block, realVariable) :-
   postTrans.IsJump(stmt),
   postTrans.BeforeLocalStackContents(stmt, 0, stackIndex).
 
-BlockJumpTarget(ctx, block, realVariable):-
-  BlockMemInputContents(ctx, block, offset, realVariable),
-  postTrans.Statement_Block(mload, block),
-  postTrans.MLOADToJumpDest(mload, _, offset).
-
 
 // Under ctx, the block's tail will jump to the value of "variable", which
 // is equal to the label of "target" block.
@@ -283,7 +298,7 @@ BlockJumpTarget(ctx, block, realVariable):-
 
 BlockJumpValidTarget(ctx, block, targetVar, @cast_to_symbol(targetValue)) :-
   BlockJumpTarget(ctx, block, targetVar),
-  postTrans.Variable_Value(targetVar, targetValue),
+  ExtendedVariable_Value(ctx, targetVar, targetValue),
   postTrans.JUMPDEST(@cast_to_symbol(targetValue)).
 
 

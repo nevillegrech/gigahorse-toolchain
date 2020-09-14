@@ -470,39 +470,24 @@
     JUMPI(jumpiStmt),
     Statement_Uses_Local(jumpiStmt, pred, 1).
 
-  .decl MSTOREPotentialJUMPDEST(block:Block, store:Statement, offset:Value)
-  .output MSTOREPotentialJUMPDEST
-
-  .decl MSTOREConcreteJUMPDEST(block:Block, store:Statement, offset:Value, jumpdest:Value)
-  .output MSTOREConcreteJUMPDEST
-  
-  MSTOREPotentialJUMPDEST(block, mstore, offset):-
+  // REVIEW: The case where offsetVar is a stack index is currently
+  // not handled, in either load or store.
+  .decl MSTOREAtConstantOffset(block:Block, store:Statement, offset:Value)
+  .output MSTOREAtConstantOffset
+  MSTOREAtConstantOffset(block, mstore, offset) :-
     MSTORE(mstore),
     Statement_Block(mstore, block),
     Statement_Uses_Local(mstore, offsetVar, 0),
     Variable_Value(offsetVar, offset).
-    //MLOADToJumpDest(_, _, offset).
 
-  //Never fires for now
-  MSTOREConcreteJUMPDEST(block, mstore, offset, jumpdest):-
-    MSTORE(mstore),
-    Statement_Block(mstore, block),
-    Statement_Uses_Local(mstore, offsetVar, 0),
-    Variable_Value(offsetVar, offset),
-    Statement_Uses_Local(mstore, jumpdestVar, 1),
-    Variable_Value(jumpdestVar, jumpdest),
-    JUMPDEST(@cast_to_symbol(jumpdest)).
-    //MLOADToJumpDest(_, _, offset).
-
-  .decl MLOADToJumpDest(mload:Statement, jump:Statement, memOffset:Value)
-  .output MLOADToJumpDest
-  MLOADToJumpDest(mload, jumpStmt, offset):-
+  .decl MLOADAtConstantOffset(block:Block, load:Statement, offset:Value)
+  .output MLOADAtConstantOffset
+  MLOADAtConstantOffset(block, mload, offset) :-
     MLOAD(mload),
+    Statement_Block(mload, block),
     Statement_Uses_Local(mload, offsetVar, 0),
-    Variable_Value(offsetVar, offset),
-    Statement_Defines(mload, def),
-    Statement_Uses_Local(jumpStmt, def, 0),
-    (JUMP(jumpStmt) ; JUMPI(jumpStmt)).
+    Variable_Value(offsetVar, offset).
+
 }
 
 .comp PreTransLocalAnalysis : LocalAnalysis {
