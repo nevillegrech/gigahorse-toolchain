@@ -10,6 +10,8 @@
 #include "../clientlib/util.dl"
 #include "local.dl"
 
+#define CONTEXT_SENSITIVITY full_Ncontext+
+
 #ifndef CONTEXT_SENSITIVITY
   // transactional-context is default
   #define CONTEXT_SENSITIVITY transactional-context
@@ -171,6 +173,10 @@ postTrans.PublicFunction(b, h) :- preTrans.PublicFunction(b, h).
 .decl BlockOutputContents(context:Context, block:Block, index:StackIndex, var:Variable)
 .decl BlockInputContents(context:Context, block:Block, index:StackIndex, var:Variable)
 
+// Constant Memory contents at input and output of a block, given its calling context.
+.decl BlockMemOutputContents(context:Context, block:Block, offset:Value, var:Variable)
+.decl BlockMemInputContents(context:Context, block:Block, offset:Value, var:Variable)
+
 // Var holding the (target block) address a block jumps to, under context.
 .decl BlockJumpTarget(context:Context, block:Block, var:Variable)
 
@@ -219,6 +225,40 @@ BlockOutputContents(ctx, block, index, @cast_to_number(realVariable)) :-
   postTrans.LocalStackContents(stmt, index, stackIndex).
 
 
+/*
+ *********
+ * Memory block modeling
+ *********
+ */
+.output BlockMemOutputContents, BlockMemInputContents
+
+BlockMemInputContents(calleeCtx, callee, offset, variable) :-
+  BlockMemOutputContents(callerCtx, caller, offset, variable),
+  VariableContainsJumpTarget(variable),
+  BlockEdge(callerCtx, caller, calleeCtx, callee).
+  .plan 1:(3,1,2)
+
+BlockMemOutputContents(ctx, block, offset, variable):-
+  BlockMemInputContents(ctx, block, offset, variable),
+  !postTrans.MSTOREPotentialJUMPDEST(block, _, offset).
+
+BlockMemOutputContents(ctx, block, offset, realVariable):-
+  ReachableContext(ctx, block),
+  postTrans.MSTOREPotentialJUMPDEST(block, store, offset),
+  BlockInputContents(ctx, block, stackIndex, realVariable),
+  postTrans.BeforeLocalStackContents(store, 1, stackIndex).
+
+.decl MLOADLoadsJumpDest(ctx:Context, mload:Statement, jumpdest:Value)
+.output MLOADLoadsJumpDest
+
+MLOADLoadsJumpDest(ctx, mload, jumpdest):-
+  ReachableContext(ctx, block),
+  postTrans.Statement_Block(mload, block),
+  postTrans.MLOAD(mload),
+  postTrans.Statement_Uses_Local(mload, offsetVar, 0),
+  postTrans.Variable_Value(offsetVar, offset),
+  BlockMemInputContents(ctx, block, offset, realVariable),
+  postTrans.Variable_Value(realVariable, jumpdest).
 
 BlockJumpTarget(ctx, block, var) :-
   ReachableContext(ctx, block),
@@ -230,6 +270,11 @@ BlockJumpTarget(ctx, block, realVariable) :-
   postTrans.BasicBlock_Tail(block, stmt),
   postTrans.IsJump(stmt),
   postTrans.BeforeLocalStackContents(stmt, 0, stackIndex).
+
+BlockJumpTarget(ctx, block, realVariable):-
+  BlockMemInputContents(ctx, block, offset, realVariable),
+  postTrans.Statement_Block(mload, block),
+  postTrans.MLOADToJumpDest(mload, _, offset).
 
 
 // Under ctx, the block's tail will jump to the value of "variable", which
