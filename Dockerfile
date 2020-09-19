@@ -25,12 +25,8 @@ RUN apt-get update && apt-get install -y \
 RUN ln -fs /usr/share/zoneinfo/Etc/UTC /etc/localtime
 RUN dpkg-reconfigure --frontend noninteractive tzdata
 
-# Install Python Anaconda3
-RUN echo 'export PATH=/opt/conda/bin:$PATH' > /etc/profile.d/conda.sh && \
-    wget --quiet https://repo.continuum.io/archive/Anaconda3-5.3.1-Linux-x86_64.sh -O ~/anaconda.sh && \
-    /bin/bash ~/anaconda.sh -b -p /opt/conda && \
-    rm ~/anaconda.sh
-ENV PATH /opt/conda/bin:$PATH
+# Install Python 3.8
+RUN apt-get update && apt-get install python3.8-dev python3-pip -y
 
 # Install tini (https://github.com/krallin/tini)
 RUN apt-get install -y curl grep sed dpkg && \
@@ -53,19 +49,19 @@ RUN apt-get update && apt-get install -y \
 
 
 # install souffle
-RUN wget https://github.com/souffle-lang/souffle/releases/download/1.7.1/souffle_1.7.1-1_amd64.deb -O /tmp/souffle.deb &&\
-    gdebi --n /tmp/souffle.deb
+RUN wget https://github.com/souffle-lang/souffle/releases/download/2.0.1/souffle_2.0.1-1_amd64.deb -O /tmp/souffle.deb
+RUN dpkg -i /tmp/souffle.deb
+RUN apt-get install -f -y
 
 
 # Souffle plugins
 RUN wget https://github.com/yanniss/souffle-num-addon/archive/master.zip -O /tmp/souffle-num-addon.zip
 RUN cd /tmp && unzip souffle-num-addon.zip
-RUN cd /tmp/souffle-num-addon && make && mv libsoufflenum.so /usr/lib/libfunctors.so
+RUN cd /tmp/souffle-num-addon-master && make && mv libsoufflenum.so /usr/lib/libfunctors.so
 RUN rm -rf /tmp/souffle-num-addon*
 
 # Dependencies for Gigahorse output viz
 RUN apt-get update && apt-get install -y graphviz
-RUN conda install -c anaconda pydot
 RUN apt-get update && apt-get install -y libssl-dev
 
 # When container is launched, tini will launch a bash shell
@@ -80,19 +76,18 @@ USER reviewer
 WORKDIR /home/reviewer
 
 # Copy our artifacts into reviewer's home dir
-MKDIR /home/reviewer/gigahorse-toolchain
-COPY * /home/reviewer/gigahorse-toolchain
+RUN mkdir /home/reviewer/gigahorse-toolchain
+COPY * /home/reviewer/gigahorse-toolchain/
 
 # Install Python packages needed for Jupyter notebook
 USER root
 WORKDIR /tmp
-RUN pip install --upgrade pip
-RUN pip install numpy pandas py-solc-x statsd docopt web3
+RUN python3.8 -m pip install --upgrade pip
+RUN python3.8 -m pip install pydot
 
 USER reviewer
 WORKDIR /home/reviewer
-RUN echo "export PATH=/opt/conda/bin:\$PATH" >> /home/reviewer/.bashrc  && \
-    echo "export HOME=/home/reviewer" >> /home/reviewer/.bashrc
+RUN echo "export HOME=/home/reviewer" >> /home/reviewer/.bashrc
 
 
 # Start reviewer user in logic subdir ready to run Gigahorse
