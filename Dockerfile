@@ -55,10 +55,10 @@ RUN apt-get install -f -y
 
 
 # Souffle plugins
-RUN wget https://github.com/yanniss/souffle-num-addon/archive/master.zip -O /tmp/souffle-num-addon.zip
-RUN cd /tmp && unzip souffle-num-addon.zip
-RUN cd /tmp/souffle-num-addon-master && make && mv libsoufflenum.so /usr/lib/libfunctors.so
-RUN rm -rf /tmp/souffle-num-addon*
+RUN wget https://github.com/plast-lab/souffle-addon/archive/master.zip -O /tmp/souffle-addon.zip
+RUN cd /tmp && unzip souffle-addon.zip
+RUN cd /tmp/souffle-addon-master && make && mv libsoufflenum.so /usr/lib/libfunctors.so
+RUN rm -rf /tmp/souffle-addon*
 
 # Dependencies for Gigahorse output viz
 RUN apt-get update && apt-get install -y graphviz
@@ -77,13 +77,19 @@ WORKDIR /home/reviewer
 
 # Copy our artifacts into reviewer's home dir
 RUN mkdir /home/reviewer/gigahorse-toolchain
-COPY * /home/reviewer/gigahorse-toolchain/
+COPY . /home/reviewer/gigahorse-toolchain/
 
 # Install Python packages needed for Jupyter notebook
 USER root
 WORKDIR /tmp
 RUN python3.8 -m pip install --upgrade pip
 RUN python3.8 -m pip install pydot
+
+# Make python3 point to python3.8
+RUN rm /usr/bin/python3 && ln -s /usr/bin/python3.8 /usr/bin/python3
+
+# Make reviewer the owner of everything under their home
+RUN chown -R reviewer:reviewer ~reviewer
 
 USER reviewer
 WORKDIR /home/reviewer
