@@ -417,6 +417,12 @@ RETURNDATACOPY(stmt) :- Statement_Opcode(stmt, "RETURNDATACOPY").
 .decl STATICCALL(stmt: Statement)
 STATICCALL(stmt) :- Statement_Opcode(stmt, "STATICCALL").
 
+.decl EXTCODEHASH(stmt: Statement)
+EXTCODEHASH(stmt) :- Statement_Opcode(stmt, "EXTCODEHASH").
+
+.decl CHAINID(stmt: Statement)
+CHAINID(stmt) :- Statement_Opcode(stmt, "CHAINID").
+
 .decl TXGASPRICE(stmt: Statement)
 TXGASPRICE(stmt) :- Statement_Opcode(stmt, "TXGASPRICE").
 
