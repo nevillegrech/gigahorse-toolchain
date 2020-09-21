@@ -117,7 +117,7 @@ if [ ! -d $INFACTDIR ] || [ $FORCEFACTS -eq 1 ] || [ $CACHE -eq 0 ]; then
     mkdir -p $INFACTDIR
     rm -rf $INFACTDIR/*
 
-    ../bin/generatefacts $CONTRACT $FACTDIR/"${ID}_facts"
+    ../generatefacts $CONTRACT $FACTDIR/"${ID}_facts"
 fi
 
 if [ $PROFILE -eq 0 ]; then
@@ -169,7 +169,7 @@ fi
 cd $OUTFACTDIR
 
 if [ $VISUALIZE -eq 1 ]; then
-    python3 ${LOGIC_HOME}/visualizeout.py > blocks.out
+    python3 ${LOGIC_HOME}/../visualizeout.py > contract.tac
 fi
 
 popd > /dev/null
