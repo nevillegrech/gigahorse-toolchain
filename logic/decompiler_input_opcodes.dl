@@ -327,6 +327,8 @@ OpcodeLogLen("REVERT", 0).
 OpcodeLogLen("RETURNDATASIZE", 0).
 OpcodeLogLen("RETURNDATACOPY", 0).
 OpcodeLogLen("STATICCALL", 0).
+OpcodeLogLen("EXTCODEHASH", 0).
+OpcodeLogLen("CHAINID", 0).
 OpcodeLogLen("GASPRICE", 0).
 
 OpcodePossiblyHalts("STOP").
@@ -474,6 +476,8 @@ OpcodePushLen("REVERT", 0).
 OpcodePushLen("RETURNDATASIZE", 0).
 OpcodePushLen("RETURNDATACOPY", 0).
 OpcodePushLen("STATICCALL", 0).
+OpcodePushLen("EXTCODEHASH", 0).
+OpcodePushLen("CHAINID", 0).
 OpcodePushLen("GASPRICE", 0).
 
 OpcodeStackDelta("STOP", 0).
@@ -615,6 +619,8 @@ OpcodeStackDelta("REVERT", -2).
 OpcodeStackDelta("RETURNDATASIZE", 1).
 OpcodeStackDelta("RETURNDATACOPY", -3).
 OpcodeStackDelta("STATICCALL", -5).
+OpcodeStackDelta("EXTCODEHASH", 0).
+OpcodeStackDelta("CHAINID", 1).
 OpcodeStackDelta("GASPRICE", 1).
 
 OpcodePopWords("STOP", 0).
@@ -756,6 +762,8 @@ OpcodePopWords("REVERT", 2).
 OpcodePopWords("RETURNDATASIZE", 0).
 OpcodePopWords("RETURNDATACOPY", 3).
 OpcodePopWords("STATICCALL", 6).
+OpcodePopWords("EXTCODEHASH", 1).
+OpcodePopWords("CHAINID", 0).
 OpcodePopWords("GASPRICE", 0).
 
 OpcodePushWords("STOP", 0).
@@ -897,6 +905,8 @@ OpcodePushWords("REVERT", 0).
 OpcodePushWords("RETURNDATASIZE", 1).
 OpcodePushWords("RETURNDATACOPY", 0).
 OpcodePushWords("STATICCALL", 1).
+OpcodePushWords("EXTCODEHASH", 1).
+OpcodePushWords("CHAINID", 1).
 OpcodePushWords("GASPRICE", 1).
 
 OpcodeGas("STOP", 0).
@@ -1038,6 +1048,8 @@ OpcodeGas("REVERT", 0).
 OpcodeGas("RETURNDATASIZE", 2).
 OpcodeGas("RETURNDATACOPY", 3).
 OpcodeGas("STATICCALL", 40).
+OpcodeGas("EXTCODEHASH", 700).
+OpcodeGas("CHAINID", 2).
 OpcodeGas("GASPRICE", 2).
 
 OpcodeOrd("STOP", 0).
@@ -1179,5 +1191,7 @@ OpcodeOrd("REVERT", 253).
 OpcodeOrd("RETURNDATASIZE", 61).
 OpcodeOrd("RETURNDATACOPY", 62).
 OpcodeOrd("STATICCALL", 250).
+OpcodeOrd("EXTCODEHASH", 63).
+OpcodeOrd("CHAINID", 70).
 OpcodeOrd("GASPRICE", 58).
 
