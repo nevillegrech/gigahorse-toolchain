@@ -173,5 +173,3 @@ if [ $VISUALIZE -eq 1 ]; then
 fi
 
 popd > /dev/null
-
-ln -sfn $OUTFACTDIR/.. decompilation-results
