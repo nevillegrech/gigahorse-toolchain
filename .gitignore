@@ -16,6 +16,9 @@ doc/source/modules
 # Cache dir used by pytest
 .cache/
 
+# Cache dir used for souffle executables
+cache/
+
 # Output files from decompiler
 *.facts
 

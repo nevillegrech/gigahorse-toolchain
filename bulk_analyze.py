@@ -14,6 +14,8 @@ import re
 import subprocess
 import sys
 import time
+import hashlib
+import pathlib
 from multiprocessing import Process, SimpleQueue, Manager, Event, cpu_count
 from os.path import abspath, dirname, join, getsize
 import os
@@ -37,6 +39,8 @@ DEFAULT_DECOMPILER_DL = join(dirname(abspath(__file__)), 'logic/decompiler.dl')
 
 DEFAULT_SOUFFLE_EXECUTABLE = 'decompiler_compiled'
 """Compiled vulnerability specification file."""
+
+DEFAULT_CACHE_DIR = join(dirname(abspath(__file__)), 'cache')
 
 TEMP_WORKING_DIR = ".temp"
 """Scratch working directory."""
@@ -179,11 +183,31 @@ def prepare_working_dir(contract_name) -> (str, str):
 def compile_datalog(spec, executable):
     if args.reuse_datalog_bin and os.path.isfile(executable):
         return
+
+    pathlib.Path(DEFAULT_CACHE_DIR).mkdir(exist_ok=True)
+
     souffle_macros = f'BULK_ANALYSIS= {args.souffle_macros}'.strip()
-    compilation_command = [args.souffle_bin, '-c', '-M', souffle_macros, '-o', executable, spec]
-    log("Compiling %s to C++ program and executable"%spec)
-    process = subprocess.run(compilation_command, universal_newlines=True)
-    assert not(process.returncode), "Compilation failed. Stopping."
+
+    # TODO: Need to pass all souffle macros each as a -D argument
+    preproc_command = ['cpp', '-P', spec, '-D', 'BULK_ANALYSIS']
+    preproc_process = subprocess.run(preproc_command, universal_newlines=True, capture_output=True)
+    assert not(preproc_process.returncode), "Preprocessing failed. Stopping."
+
+    hasher = hashlib.md5()
+    hasher.update(preproc_process.stdout.encode('utf-8'))
+    md5_hash = hasher.hexdigest()
+
+    cache_path = join(DEFAULT_CACHE_DIR, md5_hash)
+
+    if os.path.exists(cache_path):
+        log(f"Found cached executable for {spec}")
+    else:
+        log(f"Compiling {spec} to C++ program and executable")
+        compilation_command = [args.souffle_bin, '-c', '-M', souffle_macros, '-o', cache_path, spec]
+        process = subprocess.run(compilation_command, universal_newlines=True)
+        assert not(process.returncode), "Compilation failed. Stopping."
+
+    shutil.copyfile(cache_path, executable)
     
     
 def analyze_contract(job_index: int, index: int, filename: str, result_queue, timeout) -> None:
