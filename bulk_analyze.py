@@ -207,7 +207,7 @@ def compile_datalog(spec, executable):
         process = subprocess.run(compilation_command, universal_newlines=True)
         assert not(process.returncode), "Compilation failed. Stopping."
 
-    shutil.copyfile(cache_path, executable)
+    shutil.copy2(cache_path, executable)
     
     
 def analyze_contract(job_index: int, index: int, filename: str, result_queue, timeout) -> None:
