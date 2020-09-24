@@ -78,7 +78,7 @@ Analytics_PolymorphicTargetSameCtx(block) :-
   Analytics_Jumps(block),
   BlockJumpValidTarget(ctx, block, _, target1),
   BlockJumpValidTarget(ctx, block, _, target2),
-  !IsReturn(block, _),
+  //!IsReturn(block, _),
   target1 != target2.
 
 .decl Analytics_MissingJumpTarget(block: Block)
