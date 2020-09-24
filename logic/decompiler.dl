@@ -10,6 +10,7 @@
 #include "../clientlib/util.dl"
 #include "local.dl"
 
+#define CONTEXT_SENSITIVITY selective_Ncontext+
 #ifndef CONTEXT_SENSITIVITY
   // transactional-context is default
   #define CONTEXT_SENSITIVITY transactional-context

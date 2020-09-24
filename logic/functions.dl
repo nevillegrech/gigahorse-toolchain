@@ -316,6 +316,40 @@ BlockToClone(next, func) :-
   BlockInMultipleFunctions(next),
   next != func. // don't clone function entries, other functions will clone them
 
+.decl StackBalancingBlockPrevNextInFunction(ctx:Context, block:Block, func:Block, prev:Block, next:Block)
+.decl StackBalancingBlockJumpSequence(ctx:Context, block:Block, func:Block, prev:Block, next:Block, seq:symbol)
+.decl StackBalancingBlockJumpImprecision(block:Block, func:Block)
+
+
+StackBalancingBlockPrevNextInFunction(ctx, block, func, prev, next):-
+  postTrans.StackBalanceBlock(block),
+  MaybeInFunction(block, func),
+  BlockEdge(_, prev, ctx, block),
+  MaybeInFunction(prev, func),
+  BlockEdge(ctx, block, _, next),
+  MaybeInFunction(next, func),
+  !IsFunctionCallReturn(_, func, block, _).
+
+StackBalancingBlockJumpSequence(ctx, block, func, prev, next, cat(block, mid)):-
+  StackBalancingBlockPrevNextInFunction(ctx, block, func, prev, mid),
+  BlockEdge(ctx, block, nextCtx, mid),
+  StackBalancingBlockPrevNextInFunction(nextCtx, mid, func, block, next),
+  !postTrans.StackBalanceBlock(next).
+
+StackBalancingBlockJumpSequence(ctx, block, func, prev, next, cat(block, cat(mid1, mid2))):-
+  StackBalancingBlockPrevNextInFunction(ctx, block, func, prev, mid1),
+  BlockEdge(ctx, block, midCtx1, mid1),
+  StackBalancingBlockPrevNextInFunction(midCtx1, mid1, func, block, mid2),
+  BlockEdge(midCtx1, mid1, midCtx2, mid2),
+  StackBalancingBlockPrevNextInFunction(midCtx2, mid2, func, mid1, next),
+  !postTrans.StackBalanceBlock(next).
+
+.output StackBalancingBlockJumpImprecision, StackBalancingBlockPrevNextInFunction, StackBalancingBlockJumpSequence
+StackBalancingBlockJumpImprecision(block, func):-
+  StackBalancingBlockPrevNextInFunction(_, block, func, prev1, next1),
+  StackBalancingBlockPrevNextInFunction(_, block, func, prev2, next2),
+  next1 != next2,
+  prev1 != prev2.
 
 /***********
  * Introduce new IR
