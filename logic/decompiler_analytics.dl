@@ -234,6 +234,13 @@ Analytics_JumpToMany(blk):-
   //TAC_Variable_Value(var, _).
 
 Analytics_JumpToMany(blk):-
+  TAC_Op(jump, "CALLPRIVATE"),
+  TAC_Block(jump, blk),
+  LocalBlockEdge(blk, one),
+  LocalBlockEdge(blk, two),
+  one != two.
+
+Analytics_JumpToMany(blk):-
   TAC_Op(jump, "JUMPI"),
   TAC_Block(jump, blk),
   //TAC_Use(jump, var, 0),

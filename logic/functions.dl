@@ -42,6 +42,7 @@ CanReachUnderContext(ctxFrom, blockFrom, ctxTo, blockTo) :-
   BlockEdge(ctxOther, blockOther, ctxTo, blockTo).
 
 .decl EnableCostlyAlgorithms()
+EnableCostlyAlgorithms().
 EnableCostlyAlgorithms() :-
   n = count: CanReachUnderContext(_, _, _, _),
   n < 100000.
@@ -207,6 +208,12 @@ FunctionCalledMultipleTimes(func) :-
   MaybeFunctionCallReturn(caller2, func, retBlock, _),
   caller != caller2.
 
+.decl FunctionSharesReturnBlock(func:Block)
+FunctionSharesReturnBlock(func) :-
+  MaybeFunctionCallReturn(_, func, retBlock, _),
+  MaybeFunctionCallReturn(_, func2, retBlock, _),
+  func != func2.
+
 // Return block can only pertain to one function!
 .decl NotValidReturnBlock(func: Block, retBlock: Block) 
 NotValidReturnBlock(func, retBlock) :-
@@ -237,7 +244,7 @@ NotValidReturnEdge(retBlock, retTarget) :-
 .decl IsFunctionCallReturn(caller:Block, func:Block, retBlock:Block, retTarget:Block)
 IsFunctionCallReturn(caller, func, retBlock, retTarget) :-
   MaybeFunctionCallReturn(caller, func, retBlock, retTarget),
-  FunctionCalledMultipleTimes(func),
+  (FunctionCalledMultipleTimes(func) ; FunctionSharesReturnBlock(func)),
   //!NotValidReturnBlock(func, retBlock),
   !NotValidReturnEdge(retBlock, retTarget).
 
