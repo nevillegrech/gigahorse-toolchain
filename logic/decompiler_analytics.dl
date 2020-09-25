@@ -258,7 +258,21 @@ Analytics_JumpToManyNonPopBlock(blk):-
 Analytics_JumpToManyWithoutGlobalImprecision(irblk):-
   Analytics_JumpToMany(irblk),
   Block_IRBlock(blk, _, irblk),
+  !IRFunctionCallReturn(irblk, _, _),
   !Analytics_PolymorphicTargetSameCtx(blk).
+
+Analytics_JumpToManyWithoutGlobalImprecision(irblk):-
+  Analytics_JumpToMany(irblk),
+  IRFunctionCallReturn(irblk, irfunc, _),
+  !FunctionRetBlockHasPolyTargetSameCtx(irfunc).
+
+.decl FunctionRetBlockHasPolyTargetSameCtx(irfun:IRFunction)
+
+FunctionRetBlockHasPolyTargetSameCtx(irfunc):-
+  IRFunction_Return(irfunc, retir),
+  Block_IRBlock(ret, _, retir),
+  Analytics_PolymorphicTargetSameCtx(ret).
+
 
 .decl Analytics_InitiallyMissedCycleEntry(blk: IRBlock)
 .output Analytics_InitiallyMissedCycleEntry
