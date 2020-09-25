@@ -225,16 +225,7 @@ Analytics_BlockIsEmpty(block) :-
 .output Analytics_JumpToMany
 
 Analytics_JumpToMany(blk):-
-  TAC_Op(jump, "JUMP"),
-  TAC_Block(jump, blk),
-  LocalBlockEdge(blk, one),
-  LocalBlockEdge(blk, two),
-  one != two.
-  //TAC_Use(jump, var, 0),
-  //TAC_Variable_Value(var, _).
-
-Analytics_JumpToMany(blk):-
-  TAC_Op(jump, "CALLPRIVATE"),
+  (TAC_Op(jump, "JUMP") ; TAC_Op(jump, "CALLPRIVATE")),
   TAC_Block(jump, blk),
   LocalBlockEdge(blk, one),
   LocalBlockEdge(blk, two),
@@ -243,8 +234,6 @@ Analytics_JumpToMany(blk):-
 Analytics_JumpToMany(blk):-
   TAC_Op(jump, "JUMPI"),
   TAC_Block(jump, blk),
-  //TAC_Use(jump, var, 0),
-  //TAC_Variable_Value(var, _),
   LocalBlockEdge(blk, one),
   LocalBlockEdge(blk, two),
   LocalBlockEdge(blk, three),
@@ -262,6 +251,14 @@ Analytics_JumpToManyNonPopBlock(blk):-
   op != "JUMP",
   op != "PHI",
   op != "JUMPI".
+
+.decl Analytics_JumpToManyWithoutGlobalImprecision(blk:IRBlock)
+.output Analytics_JumpToManyWithoutGlobalImprecision
+
+Analytics_JumpToManyWithoutGlobalImprecision(irblk):-
+  Analytics_JumpToMany(irblk),
+  Block_IRBlock(blk, _, irblk),
+  !Analytics_PolymorphicTargetSameCtx(blk).
 
 .decl Analytics_InitiallyMissedCycleEntry(blk: IRBlock)
 .output Analytics_InitiallyMissedCycleEntry
