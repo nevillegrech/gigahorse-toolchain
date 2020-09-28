@@ -1,7 +1,7 @@
 #!/bin/bash
 set -x
 \rm -rf facts-tmp
-../bin/generatefacts $1 facts-tmp
+../generatefacts $1 facts-tmp
 \rm -rf tac-facts-tmp
 mkdir tac-facts-tmp
 pushd .
