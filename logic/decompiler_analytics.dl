@@ -111,9 +111,11 @@ Analytics_StmtMissingOperand(stmt):-
 
 .decl Analytics_InexactFunctionArguments(func: IRFunction)
 .decl Analytics_InexactFunctionReturnArguments(func: IRFunction)
+.decl Analytics_InexactFunctionCallArguments(call: IRStatement)
 
 .output Analytics_InexactFunctionArguments
 .output Analytics_InexactFunctionReturnArguments
+.output Analytics_InexactFunctionCallArguments
 
 Analytics_InexactFunctionArguments(func) :-
    NumberOfFunctionArguments(func, delta),
@@ -124,6 +126,16 @@ Analytics_InexactFunctionReturnArguments(func) :-
    NumberOfFunctionReturnArguments(func, delta),
    NumberOfFunctionReturnArguments(func, delta2),
    delta != delta2.
+
+Analytics_InexactFunctionCallArguments(call):-
+  IRFunctionCall(callblock, func),
+  NumberOfFunctionArguments(func, n_args),
+  IRStatement_Block(call, callblock),
+  IRStatement_Opcode(call, "CALLPRIVATE"),
+  IsStackIndexLessThan(n_arg, n_args),
+  !TAC_Use(call, _, n_arg).
+
+
 
 .decl Analytics_BlockInMultipleFunctions(block: IRBlock)
 .output Analytics_BlockInMultipleFunctions
