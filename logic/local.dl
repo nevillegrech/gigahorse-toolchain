@@ -365,7 +365,7 @@
     IsBasicBlockHead(stmt),
     Statement_Block(stmt, block),
     BlockPopDelta(block, delta),
-    IsStackIndexLessThan(stackIndex, delta).
+    IsStackIndexLessThan(stackIndex, delta + 10).
   
    /*
    ***********
