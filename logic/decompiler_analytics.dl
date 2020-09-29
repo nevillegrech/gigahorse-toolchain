@@ -130,8 +130,8 @@ Analytics_InexactFunctionReturnArguments(func) :-
 Analytics_InexactFunctionCallArguments(call):-
   IRFunctionCall(callblock, func),
   NumberOfFunctionArguments(func, n_args),
-  IRStatement_Block(call, callblock),
-  IRStatement_Opcode(call, "CALLPRIVATE"),
+  TAC_Block(call, callblock),
+  TAC_Op(call, "CALLPRIVATE"),
   IsStackIndexLessThan(n_arg, n_args),
   !TAC_Use(call, _, n_arg).
 
