@@ -22,6 +22,14 @@ Analytics_Jumps(block) :-
 Analytics_ReachableBlocks(blk):-
   ReachableContext(_, blk).
 
+.decl Analytics_ReachableBlocksInTAC(block: Block)
+.output Analytics_ReachableBlocksInTAC
+
+Analytics_ReachableBlocksInTAC(blk):-
+  ReachableContext(_, blk),
+  Block_IRBlock(blk, _, block),
+  TAC_Block(stmt, block).
+
 .decl Analytics_Blocks(block: IRBlock)
 .output Analytics_Blocks
 
