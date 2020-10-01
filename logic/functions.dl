@@ -189,9 +189,9 @@ PossibleReturnAddressWithRank(newCallCtx, caller, retCtx, retBlock, retTarget, n
 // It's important to note that a statement may be a return with respect
 // to one edge, but not with respect to others. There are many conditional
 // returns.
-.decl IsReturn(ret:Block, target:Block)
-IsReturn(retBlock, retTarget) :-
-  IsFunctionCallReturn(_, _, _, retBlock, retTarget).
+.decl IsReturn(retCtx:Context, ret:Block, target:Block)
+IsReturn(retCtx, retBlock, retTarget) :-
+  IsFunctionCallReturn(_, _, _, retCtx, retBlock, retTarget).
 
 // In this case the complete vs. precise version doesn't seem to be
 // making much of a difference. 
@@ -244,9 +244,9 @@ NotValidReturnEdge(retBlock, retTarget) :-
 
 // Caller calls func and func returns to retTarget. Should only be inferred with
 // high confidence.
-.decl IsFunctionCallReturn(ctx:Context, caller:Block, func:Block, retBlock:Block, retTarget:Block)
-IsFunctionCallReturn(ctx, caller, func, retBlock, retTarget) :-
-  MaybeFunctionCallReturn(ctx, caller, func, _, retBlock, retTarget),
+.decl IsFunctionCallReturn(ctx:Context, caller:Block, func:Block, retCtx:Context, retBlock:Block, retTarget:Block)
+IsFunctionCallReturn(ctx, caller, func, retCtx, retBlock, retTarget) :-
+  MaybeFunctionCallReturn(ctx, caller, func, retCtx, retBlock, retTarget),
   //FunctionCalledMultipleTimes(func),
   (FunctionCalledMultipleTimes(func) ; FunctionSharesReturnBlock(func)),
   //!NotValidReturnBlock(func, retBlock),
@@ -263,17 +263,25 @@ IsFunctionCallReturn(ctx, caller, func, retBlock, retTarget) :-
 .decl IsFunctionEntry(entry:Block)
 IsFunctionEntry(block) :- postTrans.PublicFunction(block, _).
 IsFunctionEntry(FUNCTION_SELECTOR).
-IsFunctionEntry(func) :- IsFunctionCallReturn(_, _, func, _, _).
+IsFunctionEntry(func) :- IsFunctionCallReturn(_, _, func, _, _, _).
 
 .decl IsFunctionCall(block:Block, func:Block)
-   
-IsFunctionCall(prev, func) :-
+
+.decl IsPrivateFunctionCall(ctx:Context, block:Block, func:Block)
+.decl IsPublicFunctionCall(block:Block, func:Block)
+
+IsFunctionCall(prev, func),
+IsPublicFunctionCall(prev, func) :-
    postTrans.PublicFunctionJump(prev, sigHash),
    postTrans.PublicFunction(func, sigHash).
 
-// Use the precise version here!
+
 IsFunctionCall(block, func) :-
-  IsFunctionCallReturn(_, block, func, _, _).
+  IsPrivateFunctionCall(_, block, func).
+
+// Use the precise version here!
+IsPrivateFunctionCall(ctx, block, func) :-
+  IsFunctionCallReturn(ctx, block, func, _, _, _).
 
 // Precise context-sensitive reasoning
 .decl MaybeInFunctionUnderContext(ctx: Context, block:Block, func:Block)
@@ -284,8 +292,10 @@ MaybeInFunctionUnderContext(ctx, block, block) :-
 MaybeInFunctionUnderContext(ctx, next, func) :-
   MaybeInFunctionUnderContext(prevCtx, block, func),
   BlockEdge(prevCtx, block, ctx, next),
-  !IsFunctionCall(block, next), //REVIEW
-  !IsReturn(block, next).
+  //!IsFunctionCall(block, next),         //REVIEW: Too general
+  !IsPublicFunctionCall(block, next),     //REVIEW: Maybe unneeded?
+  !IsPrivateFunctionCall(prevCtx, block, next),
+  !IsReturn(prevCtx, block, next).
 
 MaybeInFunctionUnderContext(ctx, next, func) :-
   OptMaybeInFunctionUnderContext(callerCtx, caller, func),
@@ -339,7 +349,7 @@ StackBalancingBlockPrevNextInFunction(ctx, block, func, prev, next):-
   MaybeInFunction(prev, func),
   BlockEdge(ctx, block, _, next),
   MaybeInFunction(next, func),
-  !IsFunctionCallReturn(_, _, func, block, _).
+  !IsFunctionCallReturn(_, _, func, _, block, _). // REVIEW if to make useful
 
 StackBalancingBlockJumpSequence(ctx, block, func, prev, next, cat(block, mid)):-
   StackBalancingBlockPrevNextInFunction(ctx, block, func, prev, mid),
@@ -416,7 +426,7 @@ IRInFunction(irblock, irFunc) :-
 IRFunction_Return(irfunc, retir),
 IRFunctionCallReturn(callerir, irfunc, callerretir),
 IRFunction_Return_Edge(retir, callerretir) :-
-  IsFunctionCallReturn(ctx, caller, func, ret, callerret),
+  IsFunctionCallReturn(ctx, caller, func, retCtx, ret, callerret),
   Block_IRBlock(ret, func, retir),
   Block_IRBlock(caller, prevfunc, callerir),
   Block_IRBlock(callerret, prevfunc, callerretir),
@@ -475,9 +485,9 @@ IRBlockEdge(irfrom, irto) :-
   PubFun(func, pubFun),
   CanReachUnderContext(_, func, ctxFrom, from),
   Context_PublicFunction(ctxTo, pubFun),
-  !IsFunctionCallReturn(_, _, func, from, _),
-  !IsFunctionCallReturn(_, _, _, from, to),
-  !IsFunctionCallReturn(ctxFrom, from, to, _, _),
+  !IsFunctionCallReturn(_, _, func, _, from, _), // REVIEW: is this correct?
+  !IsFunctionCallReturn(_, _, _, ctxFrom, from, to),
+  !IsFunctionCallReturn(ctxFrom, from, to, _, _, _),
   Block_IRBlock(to, func, irto).
 
 IRBlockEdge(irfrom, irto) :-
@@ -485,9 +495,9 @@ IRBlockEdge(irfrom, irto) :-
   Block_IRBlock(from, func, irfrom),
   !PubFun(func, _),
   CanReachUnderContext(_, func, ctxFrom, from),
-  !IsFunctionCallReturn(_, _, func, from, _),
-  !IsFunctionCallReturn(_, _, _, from, to),
-  !IsFunctionCallReturn(ctxFrom, from, to, _, _),
+  !IsFunctionCallReturn(_, _, func, _, from, _), // REVIEW: is this correct?
+  !IsFunctionCallReturn(_, _, _, ctxFrom, from, to),
+  !IsFunctionCallReturn(ctxFrom, from, to, _, _, _),
   Block_IRBlock(to, func, irto).
 
 .decl IRBlockPath(from: IRBlock, to: IRBlock)
