@@ -308,7 +308,7 @@ MaybeInFunctionUnderContext(ctx, next, func) :-
   OptMaybeInFunctionUnderContext(callerCtx, caller, func),
   EnableCostlyAlgorithms(), // place second for incrementality and parallelism
   // Use the complete version here!
-  MaybeFunctionCallReturn(callerCtx, caller, callee, retCtx, retBlock, next),
+  IsFunctionCallReturn(callerCtx, caller, callee, retCtx, retBlock, next),
   BlockEdge(retCtx, retBlock, ctx, next).
   // But add the same strict conditions as in its definition to find the context
   // REVIEW: Maybe we can remove these last clauses now that we have ctx in MaybeFunctionCallReturn
@@ -319,7 +319,7 @@ MaybeInFunctionUnderContext(ctx, next, func) :-
   OptMaybeInFunctionUnderContext(callerCtx, caller, func),
   DisableCostlyAlgorithms(),
   // Use the complete version here!
-  MaybeFunctionCallReturn(callerCtx, caller, _, retCtx, retBlock, next),
+  IsFunctionCallReturn(callerCtx, caller, _, retCtx, retBlock, next),
   BlockEdge(retCtx, retBlock, ctx, next).
   //CanReachUnderContext(callerCtx, caller, retCtx, retBlock),
   //CanReachUnderContext(callerCtx, caller, ctx, next). // still context-sensitive, but more scalable
