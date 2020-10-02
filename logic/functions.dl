@@ -136,6 +136,8 @@ MaybeFunctionCallReturn(ctx, caller, func, retCtx, retBlock, retTarget) :-
   PossibleReturnAddressWithRank(ctx, caller, retCtx, retBlock, retTarget, 0),
   EnableCostlyAlgorithms(), // place second for parallelism
   postTrans.ImmediateBlockJumpTarget(caller, targetVar),
+  postTrans.Statement_Block(jump, caller),
+  postTrans.Statement_Opcode(jump, "JUMP"),
   BlockJumpValidTarget(ctx, caller, targetVar, func),
   CanReachUnderContextThroughBlock(ctx, caller, func, retCtx, retBlock),
   CanReachUnderContext(retCtx, retBlock, _, retTarget).
@@ -285,9 +287,14 @@ IsPrivateFunctionCall(ctx, block, func) :-
 
 // Precise context-sensitive reasoning
 .decl MaybeInFunctionUnderContext(ctx: Context, block:Block, func:Block)
-MaybeInFunctionUnderContext(ctx, block, block) :-
-  IsFunctionEntry(block),
-  ReachableContext(ctx, block).
+
+MaybeInFunctionUnderContext(ctx, func, func) :-
+  (IsPublicFunctionCall(_, func) ; func = FUNCTION_SELECTOR),
+  ReachableContext(ctx, func).
+
+MaybeInFunctionUnderContext(ctx, func, func) :-
+  IsPrivateFunctionCall(prevCtx, block, func), //REVIEW: Could use MaybeFunctionCallReturn?
+  BlockEdge(prevCtx, block, ctx, func).
 
 MaybeInFunctionUnderContext(ctx, next, func) :-
   MaybeInFunctionUnderContext(prevCtx, block, func),
@@ -301,17 +308,21 @@ MaybeInFunctionUnderContext(ctx, next, func) :-
   OptMaybeInFunctionUnderContext(callerCtx, caller, func),
   EnableCostlyAlgorithms(), // place second for incrementality and parallelism
   // Use the complete version here!
-  MaybeFunctionCallReturn(callerCtx, caller, callee, _, retBlock, next),
+  MaybeFunctionCallReturn(callerCtx, caller, callee, retCtx, retBlock, next),
+  BlockEdge(retCtx, retBlock, ctx, next).
   // But add the same strict conditions as in its definition to find the context
-  CanReachUnderContextThroughBlock(callerCtx, caller, callee, retCtx, retBlock),
-  CanReachUnderContext(retCtx, retBlock, ctx, next).
+  // REVIEW: Maybe we can remove these last clauses now that we have ctx in MaybeFunctionCallReturn
+  //CanReachUnderContextThroughBlock(callerCtx, caller, callee, retCtx, retBlock),
+  //CanReachUnderContext(retCtx, retBlock, ctx, next).
 
 MaybeInFunctionUnderContext(ctx, next, func) :-
   OptMaybeInFunctionUnderContext(callerCtx, caller, func),
   DisableCostlyAlgorithms(),
   // Use the complete version here!
-  MaybeFunctionCallReturn(callerCtx, caller, _, _, _, next),
-  CanReachUnderContext(callerCtx, caller, ctx, next). // still context-sensitive, but more scalable
+  MaybeFunctionCallReturn(callerCtx, caller, _, retCtx, retBlock, next),
+  BlockEdge(retCtx, retBlock, ctx, next).
+  //CanReachUnderContext(callerCtx, caller, retCtx, retBlock),
+  //CanReachUnderContext(callerCtx, caller, ctx, next). // still context-sensitive, but more scalable
 
 .decl OptMaybeInFunctionUnderContext(callerCtx: Context, caller:Block, func:Block)
 OptMaybeInFunctionUnderContext(callerCtx, caller, func) :-
