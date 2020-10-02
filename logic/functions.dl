@@ -7,7 +7,7 @@
 .output BlockEdge, FallthroughEdge, BlockJumpValidTarget, BlockJumpTarget, MaybeInFunctionUnderContext
 .output NotValidReturnBlock, NotValidReturnEdge
 .output MaybeFunctionCallReturn // DEBUG
-.output CanReachUnderContext, CanReachUnderContextThroughBlock //DEBUG
+.output CanReachUnderContext //DEBUG
 .output PotentialCall // DEBUG
 .output PossibleReturnAddressWithPos // DEBUG
 .output IsFunctionCallReturn // DEBUG
@@ -41,22 +41,6 @@ CanReachUnderContext(ctxFrom, blockFrom, ctxTo, blockTo) :-
   CanReachUnderContext(ctxFrom, blockFrom, ctxOther, blockOther),
   BlockEdge(ctxOther, blockOther, ctxTo, blockTo).
 
-.decl EnableCostlyAlgorithms()
-EnableCostlyAlgorithms().
-EnableCostlyAlgorithms() :-
-  n = count: CanReachUnderContext(_, _, _, _),
-  n < 100000.
-
-// The complement is useful when we need to include both alternatives in a .plan
-.decl DisableCostlyAlgorithms()
-DisableCostlyAlgorithms() :- !EnableCostlyAlgorithms().
-
-// A very common combination, for scalability. Should only be used when "EnableCostlyAlgorithms" is true.
-.decl CanReachUnderContextThroughBlock(fromCtx: Context, from:Block, through:Block, ctx: Context, block: Block)
-CanReachUnderContextThroughBlock(fromCtx, from, through, ctx, block) :-
-  CanReachUnderContext(fromCtx, from, throughCtx, through),
-  EnableCostlyAlgorithms(), //place second for parallelism
-  CanReachUnderContext(throughCtx, through, ctx, block).
 
 // Derived from the context-sensitive version, maintains max precision when
 // contexts aren't needed.
@@ -134,22 +118,13 @@ MaxRankForPossibleReturnAddressSetter(targetSetter, rank) :-
 .decl MaybeFunctionCallReturn(ctx:Context, caller:Block, func:Block, retCtx:Context, retBlock:Block, retTarget:Block)
 MaybeFunctionCallReturn(ctx, caller, func, retCtx, retBlock, retTarget) :-
   PossibleReturnAddressWithRank(ctx, caller, retCtx, retBlock, retTarget, 0),
-  EnableCostlyAlgorithms(), // place second for parallelism
   postTrans.ImmediateBlockJumpTarget(caller, targetVar),
   postTrans.Statement_Block(jump, caller),
-  postTrans.Statement_Opcode(jump, "JUMP"),
+  postTrans.Statement_Opcode(jump, "JUMP"), //Added to invalidate JUMPIs we will need to deal with them though
   BlockJumpValidTarget(ctx, caller, targetVar, func),
-  //CanReachUnderContextThroughBlock(ctx, caller, func, retCtx, retBlock),
   CanReachUnderContext(ctx, caller, retCtx, retBlock),
   CanReachUnderContext(retCtx, retBlock, _, retTarget).
 
-MaybeFunctionCallReturn(ctx, caller, func, retCtx, retBlock, retTarget) :-
-  PossibleReturnAddressWithRank(ctx, caller, retCtx, retBlock, retTarget, 0),
-  DisableCostlyAlgorithms(),
-  postTrans.ImmediateBlockJumpTarget(caller, targetVar),
-  BlockJumpValidTarget(ctx, caller, targetVar, func),
-  CanReach(caller, retTarget),
-  CanReach(func, retBlock).
 
 // Auxiliary, for optimization
 .decl PossibleReturnAddressWithPositiveRank(callCtx:Context, targetSetter:Block, retCtx:Context, retBlock:Block, retTarget:Block, rank:number)
@@ -162,7 +137,6 @@ PossibleReturnAddressWithPositiveRank(callCtx, caller, retCtx, retBlock, retTarg
 // values is a usual pattern in produced code.
 PossibleReturnAddressWithRank(newCallCtx, caller, retCtx, retBlock, retTarget, n-1+offset) :-
   MaybeFunctionCallReturn(_, targetSetter, _, prevRetCtx, prevRet, caller),
-  EnableCostlyAlgorithms(), // place second for parallelism
   PossibleReturnAddressWithPositiveRank(_, targetSetter, retCtx, retBlock, retTarget, n),
   postTrans.ImmediateBlockJumpTarget(caller, targetVar),
   BlockEdge(prevRetCtx, prevRet, newCallCtx, caller),
@@ -172,18 +146,6 @@ PossibleReturnAddressWithRank(newCallCtx, caller, retCtx, retBlock, retTarget, n
   //CanReachUnderContextThroughBlock(_, targetSetter, func, retCtx, retBlock),
   CanReachUnderContext(_, targetSetter, retCtx, retBlock),
   CanReachUnderContext(retCtx, retBlock, _, retTarget).
-
-PossibleReturnAddressWithRank(newCallCtx, caller, retCtx, retBlock, retTarget, n-1+offset) :-
-  MaybeFunctionCallReturn(_, targetSetter, _, prevRetCtx, prevRet, caller),
-  DisableCostlyAlgorithms(), // place second for parallelism
-  PossibleReturnAddressWithPositiveRank(_, targetSetter, retCtx, retBlock, retTarget, n),
-  postTrans.ImmediateBlockJumpTarget(caller, targetVar),
-  BlockEdge(prevRetCtx, prevRet, newCallCtx, caller),
-  BlockJumpValidTarget(newCallCtx, caller, targetVar, func),
-  ((MaxRankForPossibleReturnAddressSetter(caller, maxrank), offset = maxrank + 1, n < 10);
-   (!PossibleReturnAddressWithPos(caller, _, _, _, _), offset = 0)),
-  CanReach(targetSetter, retTarget),
-  CanReach(func, retBlock).
 
 
 // Seems pretty certain we found a return. In fact, at this point,
@@ -308,23 +270,10 @@ MaybeInFunctionUnderContext(ctx, next, func) :-
 
 MaybeInFunctionUnderContext(ctx, next, func) :-
   OptMaybeInFunctionUnderContext(callerCtx, caller, func),
-  EnableCostlyAlgorithms(), // place second for incrementality and parallelism
   // Use the complete version here!
-  IsFunctionCallReturn(callerCtx, caller, callee, retCtx, retBlock, next),
+  IsFunctionCallReturn(callerCtx, caller, _, retCtx, retBlock, next), //REVIEW use maybefunccall?
   BlockEdge(retCtx, retBlock, ctx, next).
-  // But add the same strict conditions as in its definition to find the context
-  // REVIEW: Maybe we can remove these last clauses now that we have ctx in MaybeFunctionCallReturn
-  //CanReachUnderContextThroughBlock(callerCtx, caller, callee, retCtx, retBlock),
-  //CanReachUnderContext(retCtx, retBlock, ctx, next).
 
-MaybeInFunctionUnderContext(ctx, next, func) :-
-  OptMaybeInFunctionUnderContext(callerCtx, caller, func),
-  DisableCostlyAlgorithms(),
-  // Use the complete version here!
-  IsFunctionCallReturn(callerCtx, caller, _, retCtx, retBlock, next),
-  BlockEdge(retCtx, retBlock, ctx, next).
-  //CanReachUnderContext(callerCtx, caller, retCtx, retBlock),
-  //CanReachUnderContext(callerCtx, caller, ctx, next). // still context-sensitive, but more scalable
 
 .decl OptMaybeInFunctionUnderContext(callerCtx: Context, caller:Block, func:Block)
 OptMaybeInFunctionUnderContext(callerCtx, caller, func) :-
