@@ -426,7 +426,7 @@ IRInFunction(irblock, irFunc) :-
 IRFunction_Return(irfunc, retir),
 IRFunctionCallReturn(callerir, irfunc, callerretir),
 IRFunction_Return_Edge(retir, callerretir) :-
-  IsFunctionCallReturn(ctx, caller, func, retCtx, ret, callerret),
+  IsFunctionCallReturn(ctx, caller, func, retCtx, ret, callerret), //REVIEW: take advantage of retCtx
   Block_IRBlock(ret, func, retir),
   Block_IRBlock(caller, prevfunc, callerir),
   Block_IRBlock(callerret, prevfunc, callerretir),
@@ -485,7 +485,7 @@ IRBlockEdge(irfrom, irto) :-
   PubFun(func, pubFun),
   CanReachUnderContext(_, func, ctxFrom, from),
   Context_PublicFunction(ctxTo, pubFun),
-  !IsFunctionCallReturn(_, _, func, _, from, _), // REVIEW: is this correct?
+  //!IsFunctionCallReturn(_, _, func, _, from, _), // REVIEW: is this correct? does this matter?
   !IsFunctionCallReturn(_, _, _, ctxFrom, from, to),
   !IsFunctionCallReturn(ctxFrom, from, to, _, _, _),
   Block_IRBlock(to, func, irto).
@@ -495,7 +495,7 @@ IRBlockEdge(irfrom, irto) :-
   Block_IRBlock(from, func, irfrom),
   !PubFun(func, _),
   CanReachUnderContext(_, func, ctxFrom, from),
-  !IsFunctionCallReturn(_, _, func, _, from, _), // REVIEW: is this correct?
+  //!IsFunctionCallReturn(_, _, func, _, from, _), // REVIEW: is this correct? does this matter?
   !IsFunctionCallReturn(_, _, _, ctxFrom, from, to),
   !IsFunctionCallReturn(ctxFrom, from, to, _, _, _),
   Block_IRBlock(to, func, irto).
