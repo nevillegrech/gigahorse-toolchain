@@ -139,7 +139,8 @@ MaybeFunctionCallReturn(ctx, caller, func, retCtx, retBlock, retTarget) :-
   postTrans.Statement_Block(jump, caller),
   postTrans.Statement_Opcode(jump, "JUMP"),
   BlockJumpValidTarget(ctx, caller, targetVar, func),
-  CanReachUnderContextThroughBlock(ctx, caller, func, retCtx, retBlock),
+  //CanReachUnderContextThroughBlock(ctx, caller, func, retCtx, retBlock),
+  CanReachUnderContext(ctx, caller, retCtx, retBlock),
   CanReachUnderContext(retCtx, retBlock, _, retTarget).
 
 MaybeFunctionCallReturn(ctx, caller, func, retCtx, retBlock, retTarget) :-
@@ -168,7 +169,8 @@ PossibleReturnAddressWithRank(newCallCtx, caller, retCtx, retBlock, retTarget, n
   BlockJumpValidTarget(newCallCtx, caller, targetVar, func),
   ((MaxRankForPossibleReturnAddressSetter(caller, maxrank), offset = maxrank + 1, n < 10);
    (!PossibleReturnAddressWithPos(caller, _, _, _, _), offset = 0)),
-  CanReachUnderContextThroughBlock(_, targetSetter, func, retCtx, retBlock),
+  //CanReachUnderContextThroughBlock(_, targetSetter, func, retCtx, retBlock),
+  CanReachUnderContext(_, targetSetter, retCtx, retBlock),
   CanReachUnderContext(retCtx, retBlock, _, retTarget).
 
 PossibleReturnAddressWithRank(newCallCtx, caller, retCtx, retBlock, retTarget, n-1+offset) :-
@@ -453,11 +455,14 @@ IRFunction_Return_Edge(retir, callerretir) :-
 // to the same caller function. Seems later stages can handle this?
 
 .decl IRFunctionCall(from: IRBlock, func: IRFunction)
+
 IRFunctionCall(callerir, irfunc) :-
   IRFunctionCallReturn(callerir, irfunc, _).
-  //IsFunctionCall(from, func),
-  //Block_IRBlock(from, _ /* prevfunc */, fromir),
-  //Function_IRFunction(func, irFunc).
+
+IRFunctionCall(fromir, irfunc) :-
+  IsPublicFunctionCall(from, func),
+  Block_IRBlock(from, _ /* prevfunc */, fromir),
+  Function_IRFunction(func, irfunc).
 //  !BlockToClone(func, prevfunc).
 
 
