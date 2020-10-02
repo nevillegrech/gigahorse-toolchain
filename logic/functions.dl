@@ -453,10 +453,11 @@ IRFunction_Return_Edge(retir, callerretir) :-
 // to the same caller function. Seems later stages can handle this?
 
 .decl IRFunctionCall(from: IRBlock, func: IRFunction)
-IRFunctionCall(fromir, irFunc) :-
-  IsFunctionCall(from, func),
-  Block_IRBlock(from, _ /* prevfunc */, fromir),
-  Function_IRFunction(func, irFunc).
+IRFunctionCall(callerir, irfunc) :-
+  IRFunctionCallReturn(callerir, irfunc, _).
+  //IsFunctionCall(from, func),
+  //Block_IRBlock(from, _ /* prevfunc */, fromir),
+  //Function_IRFunction(func, irFunc).
 //  !BlockToClone(func, prevfunc).
 
 
