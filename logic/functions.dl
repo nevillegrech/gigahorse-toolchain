@@ -495,6 +495,7 @@ IRBlockEdge(irfrom, irto) :-
   BlockEdge(ctxFrom, from, ctxTo, to),
   Block_IRBlock(from, func, irfrom),
   MaybeInFunctionUnderContext(ctxFrom, from, func),
+  MaybeInFunctionUnderContext(ctxTo, to, func),
   PubFun(func, pubFun),
   CanReachUnderContext(_, func, ctxFrom, from),
   Context_PublicFunction(ctxTo, pubFun),
@@ -504,9 +505,10 @@ IRBlockEdge(irfrom, irto) :-
   Block_IRBlock(to, func, irto).
 
 IRBlockEdge(irfrom, irto) :-
-  BlockEdge(ctxFrom, from, _, to),
+  BlockEdge(ctxFrom, from, ctxTo, to),
   Block_IRBlock(from, func, irfrom),
   MaybeInFunctionUnderContext(ctxFrom, from, func),
+  MaybeInFunctionUnderContext(ctxTo, to, func),
   !PubFun(func, _),
   CanReachUnderContext(_, func, ctxFrom, from),
   //!IsFunctionCallReturn(_, _, func, _, from, _), // REVIEW: is this correct? does this matter?
