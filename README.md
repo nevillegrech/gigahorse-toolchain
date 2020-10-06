@@ -30,21 +30,24 @@ The Gigahorse framework also underpins the realtime decompiler and analysis tool
 ### Python 3.8
 Refer to standard documentation.
 
-### Souffle
-
-http://souffle-lang.org/. In a nutshell, this is how you install it:
-
-```
-git clone git@github.com:souffle-lang/souffle.git
-cd souffle
-./bootstrap
-./configure
-sudo make install -j
-```
-
+### Souffle 2.0+
+Refer to Souffle documentation. The easiest way to install this is to use the precompiled images from https://github.com/souffle-lang/souffle/releases
 
 ### Souffle custom functors
-Refer here: https://github.com/plast-lab/souffle-addon
+Navigate to the `souffle-addon` folder
+```
+cd souffle-addon
+```
+
+Build:
+```
+make
+```
+
+Move compiled object files to `gigahorse-toolchain` folder
+```
+mv *.so ..
+```
 
 
 ### For visualization (optional)
