@@ -400,7 +400,7 @@ pattern = re.compile(re_string)
 
 for filepath in args.filepath:
     if os.path.isdir(filepath):
-        unfiltered = os.listdir(filepath)
+        unfiltered = [join(filepath, f) for f in os.listdir(filepath)]
     else:
         unfiltered = [filepath]
         
