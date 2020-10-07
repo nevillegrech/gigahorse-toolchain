@@ -24,8 +24,17 @@ In addition, other research tools have been developed on top of Gigahorse, inclu
 The Gigahorse framework also underpins the realtime decompiler and analysis tool at [contract-library.com](https://contract-library.com).
 
 
+## Prerequisits
 
-## Installation:
+### Boost
+Requires boost libraries, e.g.,
+
+
+Installation on Debian:
+```
+sudo apt install libboost-all-dev
+```
+
 
 ### Python 3.8
 Refer to standard documentation.
@@ -33,22 +42,20 @@ Refer to standard documentation.
 ### Souffle 2.0+
 Refer to Souffle documentation. The easiest way to install this is to use the precompiled images from https://github.com/souffle-lang/souffle/releases
 
+## Gigahorse Installation
+
 ### Souffle custom functors
 Navigate to the `souffle-addon` folder
 ```
 cd souffle-addon
 ```
 
-Build:
-```
-make
-```
+Install:
 
-Move compiled object files to `gigahorse-toolchain` folder
-```
-mv *.so ..
-```
+    $ make                          # builds all, sets libfunctors.so as a link to libsoufflenum.so
+    $ export LD_LIBRARY_PATH=`pwd`  # or wherever you want to put the resulting libfunctors.so
 
+We suggest adding LD_LIBRARY_PATH to your `.bashrc` file
 
 ### For visualization (optional)
 Requires PyDot:
