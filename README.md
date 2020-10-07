@@ -63,7 +63,47 @@ Installation on Debian:
 sudo apt install graphviz
 ```
 
-## Usage
+## Running Gigahorse
+`gigahorse.py` is used to run an analysis on one or many contracts at a time.
+
+The `gigahorse.py` script can be run on a contract individually or on a
+collection of contract bytecode files in specified directory, and it will run the analysis given in `decompiler.dl` on
+each contract, optionally followed by any additional client analyses specified by the
+user using the `-C` flag.
+
+The expected file format for each contract is in hex format.
+
+Contracts that take too long to analyse will be skipped after a configurable
+timeout.
+
+The decompilation results are placed in the directory `.temp`, whereas metadate about the execution, e.g., metrics are placed in a `results.json` file, as a list of triples in the form:
+
+```[filename, properties, flags]```
+
+Here, `properties` is a list of the detected issues with the contract in filename,
+where any output relations in the datalog files that are non-empty will have their
+relation name placed in this list.
+`flags` is a list indicating auxiliary or exceptional information. It may include
+`"ERROR"` and `"TIMEOUT"`, which are self-explanatory.
+
+`gigahorse.py --help` for invocation instructions.
+
+
+Example (individual contract):
+
+```
+./gigahorse.py examples/long_running.hex
+```
+
+Example (with client analysis):
+
+```
+./gigahorse.py  -j <number of jobs> -C ethainter.dl <contracts>
+``` 
+
+
+
+## Running Gigahorse Manually (for development purposes)
 1. Fact generation
 2. Run decompiler using Souffle
 3. Visualize results
@@ -75,7 +115,7 @@ souffle -F facts logic/decompiler.dl
 ./visualizeout.py
 ```
 
-For batch processing of contracts, we recommend the bulk analyzer script:  `bulk_analyze.py`.
+For batch processing of contracts, we recommend the bulk analyzer script:  `gigahorse.py`.
 
 
 ## Writing client analyses
