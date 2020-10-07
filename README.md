@@ -61,14 +61,17 @@ sudo apt install graphviz
 ```
 
 ## Running Gigahorse
-`gigahorse.py` is used to run an analysis on one or many contracts at a time.
-
 The `gigahorse.py` script can be run on a contract individually or on a
-collection of contract bytecode files in specified directory, and it will run the analysis given in `decompiler.dl` on
-each contract, optionally followed by any additional client analyses specified by the
-user using the `-C` flag.
+collection of contract bytecode files in specified directory, and it will run the decompiler implemented in `logic/decompiler.dl` on
+each contract, optionally followed by any additional client analyses specified by the user using the `-C` flag.
 
-The expected file format for each contract is in hex format.
+The expected file format for each contract is in .hex format.
+
+Example (individual contract):
+
+```
+./gigahorse.py examples/long_running.hex
+```
 
 Contracts that take too long to analyse will be skipped after a configurable
 timeout.
@@ -86,11 +89,6 @@ relation name placed in this list.
 `gigahorse.py --help` for invocation instructions.
 
 
-Example (individual contract):
-
-```
-./gigahorse.py examples/long_running.hex
-```
 
 Example (with client analysis):
 
