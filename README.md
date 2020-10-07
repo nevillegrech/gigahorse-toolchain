@@ -24,23 +24,13 @@ In addition, other research tools have been developed on top of Gigahorse, inclu
 The Gigahorse framework also underpins the realtime decompiler and analysis tool at [contract-library.com](https://contract-library.com).
 
 
-## Prerequisits
+## Prerequisites
 
-### Boost
-Requires boost libraries, e.g.,
+- Boost libraries (Can be installed on Debian with `apt install libboost-all-dev`)
 
+- Python 3.8 (Refer to standard documentation)
 
-Installation on Debian:
-```
-sudo apt install libboost-all-dev
-```
-
-
-### Python 3.8
-Refer to standard documentation.
-
-### Souffle 2.0+
-Refer to Souffle documentation. The easiest way to install this is to use the precompiled images from https://github.com/souffle-lang/souffle/releases
+- Souffle 2.0+ (Refer to Souffle documentation. The easiest way to install this is to use the releases from https://github.com/souffle-lang/souffle/releases)
 
 ## Gigahorse Installation
 
@@ -107,8 +97,6 @@ Example (with client analysis):
 ```
 ./gigahorse.py  -j <number of jobs> -C ethainter.dl <contracts>
 ``` 
-
-
 
 ## Running Gigahorse Manually (for development purposes)
 1. Fact generation
