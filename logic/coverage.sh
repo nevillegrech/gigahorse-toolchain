@@ -1,8 +1,10 @@
 #!/usr/bin/bash
 average=0
-index=0
 blockAverage=0
+varAverage=0
+index=0
 blockIndex=0
+varIndex=0
 directory=$1
 for file in `ls $directory`
   do 
@@ -12,6 +14,8 @@ for file in `ls $directory`
 	     unreach=`cat $directory/$file/out/Metric_UnreachableFunctions.csv | wc -l`;
 	     allBlock=`cat $directory/$file/out/Metric_AllBlocks.csv | wc -l`;
 	     unreachBlock=`cat $directory/$file/out/Metric_UnreachableBlocks.csv | wc -l`;
+	     allVar=`cat $directory/$file/out/Metric_AllVars.csv | wc -l`;
+	     unreachVar=`cat $directory/$file/out/Metric_NoValueVars.csv | wc -l`;
 	     if [ $all != 0 ] 
 	     then
                 index=`expr $index + 1`
@@ -23,6 +27,7 @@ for file in `ls $directory`
                 average=`echo "(($average * ($index-1)) + $coverage) / $index" | bc -l`;
 		        echo "" ;
          fi;
+         
 	     if [ $allBlock != 0 ] 
 	     then
                 blockIndex=`expr $blockIndex + 1`
@@ -35,6 +40,19 @@ for file in `ls $directory`
 		        echo "" ;
          fi;
          
+	     if [ $allVar != 0 ] 
+	     then
+                varIndex=`expr $varIndex + 1`
+		        echo $file;
+                echo "#vars: $allVar";
+                echo "#unreachable vars: $unreachVar";
+                varCoverage=`echo "(($allVar) - ($unreachVar)) / ($allVar)" | bc -l`;
+		        echo "var coverage: $varCoverage";
+                varAverage=`echo "(($varAverage * ($varIndex-1)) + $varCoverage) / $varIndex" | bc -l`;
+		        echo "" ;
+         fi;
+
+         
 	 fi; 
 done
 
@@ -42,4 +60,6 @@ echo "Average private function coverage (over all successfully-analyzed contract
 echo $average;
 echo "Average block coverage (over all successfully-analyzed contracts)"
 echo $blockAverage;
+echo "Average var coverage (over all successfully-analyzed contracts)"
+echo $varAverage;
 echo
