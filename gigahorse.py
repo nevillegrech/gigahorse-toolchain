@@ -60,13 +60,12 @@ parser = argparse.ArgumentParser(
     description="A batch analyzer for EVM bytecode programs."
 )
 
-parser.add_argument("-d",
-                    "--contract_dir",
-                    default=".",
-                    nargs="?",
-                    metavar="DIR",
-                    help="the location to grab contracts from (as bytecode "
-                         "files).")
+parser.add_argument(
+    "filepath",
+    metavar = "DIR",
+    nargs="+",
+    help="The location to grab contracts from (as bytecode files). Accepts both filenames and directories. All contract filenames should be unique."
+)
 
 parser.add_argument("-S",
                     "--souffle_bin",
@@ -99,15 +98,6 @@ parser.add_argument("-r",
                     const=DEFAULT_RESULTS_FILE,
                     metavar="FILE",
                     help="the location to write the results.")
-
-parser.add_argument("-f",
-                    "--from_file",
-                    nargs="?",
-                    default=None,
-                    metavar="FILE",
-                    help="A file to extract the filenames of the contracts "
-                         "to analyze from, rather than simply processing all "
-                         "files in the contracts directory.")
 
 parser.add_argument("-j",
                     "--jobs",
@@ -166,7 +156,7 @@ parser.add_argument("--reuse_datalog_bin",
 
 
 def get_working_dir(contract_name):
-    return join(os.path.abspath(TEMP_WORKING_DIR), contract_name.split('.')[0])
+    return join(os.path.abspath(TEMP_WORKING_DIR), os.path.split(contract_name)[1].split('.')[0])
 
 def prepare_working_dir(contract_name) -> (str, str):
     newdir = get_working_dir(contract_name)
@@ -210,7 +200,7 @@ def compile_datalog(spec, executable):
     shutil.copy2(cache_path, executable)
     
     
-def analyze_contract(job_index: int, index: int, filename: str, result_queue, timeout) -> None:
+def analyze_contract(job_index: int, index: int, contract_filename: str, result_queue, timeout) -> None:
     """
     Perform dataflow analysis on a contract, storing the result in the queue.
     This is a worker function to be passed to a subprocess.
@@ -218,22 +208,22 @@ def analyze_contract(job_index: int, index: int, filename: str, result_queue, ti
     Args:
         job_index: the job number for this invocation of analyze_contract
         index: the number of the particular contract being analyzed
-        filename: the location of the contract bytecode file to process
+        contract_filename: the absolute path of the contract bytecode file to process
         result_queue: a multiprocessing queue in which to store the analysis results
     """
 
     try:
         # prepare working directory
-        exists, work_dir, out_dir = prepare_working_dir(filename)
+        exists, work_dir, out_dir = prepare_working_dir(contract_filename)
         assert not(args.restart and exists)
         analytics = {}
+        contract_name = os.path.split(contract_filename)[1]
         disassemble_start = time.time()
         def calc_timeout():
             return timeout-time.time()+disassemble_start
         if exists:
             decomp_start = time.time()
         else:
-            contract_filename = join(args.contract_dir, filename)            
             with open(contract_filename) as file:
                 bytecode = file.read().strip()
 
@@ -252,8 +242,8 @@ def analyze_contract(job_index: int, index: int, filename: str, result_queue, ti
             ]
             runtime = run_process(analysis_args, calc_timeout())
             if runtime < 0:
-                result_queue.put((filename, [], ["TIMEOUT"], {}))
-                log("{} timed out.".format(filename))
+                result_queue.put((contract_filename, [], ["TIMEOUT"], {}))
+                log("{} timed out.".format(contract_filename))
                 return
             # end decompilation
         if exists and not args.rerun_clients:
@@ -266,16 +256,16 @@ def analyze_contract(job_index: int, index: int, filename: str, result_queue, ti
             ]
             runtime = run_process(analysis_args, calc_timeout())
             if runtime < 0:
-                result_queue.put((filename, [], ["TIMEOUT"], {}))
-                log("{} timed out.".format(filename))
+                result_queue.put((contract_name, [], ["TIMEOUT"], {}))
+                log("{} timed out.".format(contract_name))
                 return
         for python_client in python_clients:
             out_filename = join(out_dir, python_client.split('/')[-1]+'.out')
             err_filename = join(out_dir, python_client.split('/')[-1]+'.err')
             runtime = run_process([join(os.getcwd(), python_client)], calc_timeout(), open(out_filename, 'w'), open(err_filename, 'w'), cwd = out_dir)
             if runtime < 0:
-                result_queue.put((filename, [], ["TIMEOUT"], {}))
-                log("{} timed out.".format(filename))
+                result_queue.put((contract_name, [], ["TIMEOUT"], {}))
+                log("{} timed out.".format(contract_name))
                 return
             
         # Collect the results and put them in the result queue
@@ -290,17 +280,17 @@ def analyze_contract(job_index: int, index: int, filename: str, result_queue, ti
         analytics['decomp_time'] = client_start - decomp_start
         analytics['client_time'] = time.time() - client_start
         log("{}: {:.36} completed in {:.2f} + {:.2f} + {:.2f} secs".format(
-            index, filename, analytics['disassemble_time'],
+            index, contract_name, analytics['disassemble_time'],
             analytics['decomp_time'], analytics['client_time']
         ))
 
         get_gigahorse_analytics(out_dir, analytics)
 
-        result_queue.put((filename, vulns, meta, analytics))
+        result_queue.put((contract_name, vulns, meta, analytics))
 
     except Exception as e:
         log("Error: {}".format(e))
-        result_queue.put((filename, [], ["error"], {}))
+        result_queue.put((contract_name, [], ["error"], {}))
 
 
 def get_gigahorse_analytics(out_dir, analytics):
@@ -398,24 +388,26 @@ for _, v in compile_processes_args:
 
 # Extract contract filenames.
 log("Processing contract names.")
-if args.from_file:
-    # Get contract filenames from a file if specified.
-    with open(args.from_file, 'r') as f:
-        unfiltered = [l.strip() for l in f.readlines()]
-else:
-    # Otherwise just get all contracts in the contract directory.
-    unfiltered = os.listdir(args.contract_dir)
-    # Filter according to the given pattern.
-    re_string = args.filename_pattern
-    if not re_string.endswith("$"):
-        re_string = re_string + "$"
-    pattern = re.compile(re_string)
-    runtime_files_or_folders = filter(
-        lambda filename: pattern.match(filename) is not None,
-        unfiltered
-    )
 
-to_process = list(runtime_files_or_folders)[args.skip:]
+contracts = []
+
+# Filter according to the given pattern.
+re_string = args.filename_pattern
+if not re_string.endswith("$"):
+    re_string = re_string + "$"
+pattern = re.compile(re_string)
+
+
+for filepath in args.filepath:
+    if os.path.isdir(filepath):
+        unfiltered = [join(filepath, f) for f in os.listdir(filepath)]
+    else:
+        unfiltered = [filepath]
+        
+    contracts += [u for u in unfiltered if pattern.match(u) is not None]
+
+contracts = contracts[args.skip:]
+
 
 log("Setting up workers.")
 # Set up multiprocessing result list and queue.
@@ -436,7 +428,7 @@ flush_proc.start()
 
 workers = []
 avail_jobs = list(range(args.jobs))
-contract_iter = enumerate(to_process)
+contract_iter = enumerate(contracts)
 contracts_exhausted = False
 
 log("Analysing...\n")

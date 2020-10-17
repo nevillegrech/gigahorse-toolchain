@@ -45,6 +45,7 @@ node_modules/
 
 .temp
 
+# decompilation results
 results.json
 
 # souffle compilation files
@@ -52,6 +53,3 @@ results.json
 *_compiled
 *.ccerr
 *.cpp
-
-# decompilation script symlink
-decompilation-results

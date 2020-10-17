@@ -37,11 +37,12 @@
 .decl IsStatement(stmt:Statement)
 .input IsStatement(IO="file", filename="TAC_Stmt.csv", delimiter="\t")
 
-// All the Variables
-// Some variable ids correspond to statement ids where the variable
-// is originally defined, but some don't e.g. formal arguments.
-.decl IsVariable(var: Variable)
-.input IsVariable(IO="file", filename="TAC_Var.csv", delimiter="\t")
+///// Removed, with anger! Doesn't include formals, confuses everyone.
+// // All the Variables
+// // Some variable ids correspond to statement ids where the variable
+// // is originally defined, but some don't e.g. formal arguments.
+// .decl IsVariable(var: Variable)
+// .input IsVariable(IO="file", filename="TAC_Var.csv", delimiter="\t")
 
 // Maps statements to their basic block. Note that:
 // a) A statement can (and has to) pertain to *one* basic block.

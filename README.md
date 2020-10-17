@@ -1,47 +1,51 @@
 [Gigahorse](https://vignette.wikia.nocookie.net/roadwarrior/images/e/ea/MMFR_Gigahorse-876x534.jpg/revision/latest?cb=20150427175606)
 =============================
+
+Note: you need to clone this repo using the `--recursive` flag since this repo has submodules, e.g., `git clone git@github.com:nevillegrech/gigahorse-toolchain.git --recursive`
+
+
 # The Gigahorse decompiler and toolchain [![Tweet](https://img.shields.io/twitter/url/http/shields.io.svg?style=social)](https://twitter.com/intent/tweet?text=Gigahorse%20-%20Decompilation%20and%20Analysis%20for%20Ethereum%20Smart%20Contracts&url=https://www.github.com/nevillegrech/gigahorse-toolchain)
 A decompiler (and related framework) from low-level EVM code to a higher-level function-based three-address representation, similar to LLVM IR or Jimple. Originally published as:
 
-Grech, N., Brent, L., Scholz, B., Smaragdakis, Y. (2019), Gigahorse: Thorough, Declarative Decompilation of Smart Contracts. In 41st ACM/IEEE International Conference on Software Engineering.
+- Grech, N., Brent, L., Scholz, B., Smaragdakis, Y. (2019), Gigahorse: Thorough, Declarative Decompilation of Smart Contracts. *In 41st ACM/IEEE International Conference on Software Engineering.*
 
 In addition, other research tools have been developed on top of Gigahorse, including:
 
-Grech, N., Kong, M., Jurisevic, A., Brent, L., Scholz, B., Smaragdakis, Y. (2018), MadMax: Surviving Out-of-Gas Conditions in Ethereum Smart Contracts. Proceedings of the ACM on Programming Languages (OOPSLA).
+-  Grech, N., Kong, M., Jurisevic, A., Brent, L., Scholz, B., Smaragdakis, Y. (2018), MadMax: Surviving Out-of-Gas Conditions in Ethereum Smart Contracts. *Proceedings of the ACM on Programming Languages (OOPSLA).*
 
-Brent, L., Grech, N., Scholz, B., Smaragdakis, Y. (2020), Ethainter: A Smart Contract Security Analyzer for Composite Vulnerabilities.
-In 41st ACM SIGPLAN Conference on Programming Language Design and Implementation.
+-  Brent, L., Grech, N., Scholz, B., Smaragdakis, Y. (2020), Ethainter: A Smart Contract Security Analyzer for Composite Vulnerabilities.
+*In 41st ACM SIGPLAN Conference on Programming Language Design and Implementation.*
 
-Lagouvardos, S., Grech, N., Tsatiris, I., and Smaragdakis, Y. (2020) Precise Static Modelling of Ethereum "Memory". Proceedings of the ACM in Programming Languages (OOPSLA).
+-  Lagouvardos, S., Grech, N., Tsatiris, I., and Smaragdakis, Y. (2020) Precise Static Modelling of Ethereum "Memory". *Proceedings of the ACM in Programming Languages (OOPSLA).*
 
-Grech, N., Kong, M., Jurisevic, A., Brent, L., Scholz, B., Smaragdakis, Y. (2020),  Analyzing the Out-of-Gas World of Smart Contracts. Communications of the ACM.
+-  Grech, N., Kong, M., Jurisevic, A., Brent, L., Scholz, B., Smaragdakis, Y. (2020),  Analyzing the Out-of-Gas World of Smart Contracts. *Communications of the ACM.*
 
 
 The Gigahorse framework also underpins the realtime decompiler and analysis tool at [contract-library.com](https://contract-library.com).
 
 
+## Prerequisites
 
-## Installation:
+- Boost libraries (Can be installed on Debian with `apt install libboost-all-dev`)
 
-### Python 3.8
-Refer to standard documentation.
+- Python 3.8 (Refer to standard documentation)
 
-### Souffle
+- Souffle 2.0+ (Refer to Souffle documentation. The easiest way to install this is to use the releases from https://github.com/souffle-lang/souffle/releases)
 
-http://souffle-lang.org/. In a nutshell, this is how you install it:
-
-```
-git clone git@github.com:souffle-lang/souffle.git
-cd souffle
-./bootstrap
-./configure
-sudo make install -j
-```
-
+## Gigahorse Installation
 
 ### Souffle custom functors
-Refer here: https://github.com/plast-lab/souffle-addon
+Navigate to the `souffle-addon` folder
+```
+cd souffle-addon
+```
 
+Install:
+
+    $ make                          # builds all, sets libfunctors.so as a link to libsoufflenum.so
+    $ export LD_LIBRARY_PATH=`pwd`  # or wherever you want to put the resulting libfunctors.so
+
+We suggest adding LD_LIBRARY_PATH to your `.bashrc` file
 
 ### For visualization (optional)
 Requires PyDot:
@@ -56,7 +60,43 @@ Installation on Debian:
 sudo apt install graphviz
 ```
 
-## Usage
+## Running Gigahorse
+The `gigahorse.py` script can be run on a contract individually or on a
+collection of contract bytecode files in specified directory, and it will run the decompiler implemented in `logic/decompiler.dl` on
+each contract, optionally followed by any additional client analyses specified by the user using the `-C` flag.
+
+The expected file format for each contract is in .hex format.
+
+Example (individual contract):
+
+```
+./gigahorse.py examples/long_running.hex
+```
+
+Contracts that take too long to analyse will be skipped after a configurable
+timeout.
+
+The decompilation results are placed in the directory `.temp`, whereas metadate about the execution, e.g., metrics are placed in a `results.json` file, as a list of triples in the form:
+
+```[filename, properties, flags]```
+
+Here, `properties` is a list of the detected issues with the contract in filename,
+where any output relations in the datalog files that are non-empty will have their
+relation name placed in this list.
+`flags` is a list indicating auxiliary or exceptional information. It may include
+`"ERROR"` and `"TIMEOUT"`, which are self-explanatory.
+
+`gigahorse.py --help` for invocation instructions.
+
+
+
+Example (with client analysis):
+
+```
+./gigahorse.py  -j <number of jobs> -C ethainter.dl <contracts>
+``` 
+
+## Running Gigahorse Manually (for development purposes)
 1. Fact generation
 2. Run decompiler using Souffle
 3. Visualize results
@@ -68,7 +108,7 @@ souffle -F facts logic/decompiler.dl
 ./visualizeout.py
 ```
 
-For batch processing of contracts, we recommend the bulk analyzer script:  `bulk_analyze.py`.
+For batch processing of contracts, we recommend the bulk analyzer script:  `gigahorse.py`.
 
 
 ## Writing client analyses
