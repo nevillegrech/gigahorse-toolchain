@@ -1,6 +1,6 @@
 #define FRESH_VARIABLE(var, stmt, stackIndex) (IRStatementNum((stmt), ?stmtNum), var=-0xFFFF+?stmtNum*MAX_STACK_HEIGHT+(stackIndex))
 
-#define DEBUG
+//#define DEBUG
 
 
 #ifdef DEBUG
@@ -135,18 +135,27 @@ PossibleReturnAddressWithPositiveRank(callCtx, caller, retCtx, retBlock, retTarg
 // If we have found a likely call-return pattern, we propagate to the return
 // block the extra pushed return values of the former caller. Stacking return
 // values is a usual pattern in produced code.
-PossibleReturnAddressWithRank(newCallCtx, caller, retCtx, retBlock, retTarget, n-1+offset) :-
+PossibleReturnAddressWithRank(newCallCtx, caller, retCtx, retBlock, retTarget, n + maxrank) :-
   MaybeFunctionCallReturn(_, targetSetter, _, prevRetCtx, prevRet, caller),
   PossibleReturnAddressWithPositiveRank(_, targetSetter, retCtx, retBlock, retTarget, n),
   postTrans.ImmediateBlockJumpTarget(caller, targetVar),
   BlockEdge(prevRetCtx, prevRet, newCallCtx, caller),
   BlockJumpValidTarget(newCallCtx, caller, targetVar, func),
-  ((MaxRankForPossibleReturnAddressSetter(caller, maxrank), offset = maxrank + 1, n < 10);
-   (!PossibleReturnAddressWithPos(caller, _, _, _, _), offset = 0)),
-  //CanReachUnderContextThroughBlock(_, targetSetter, func, retCtx, retBlock),
+  MaxRankForPossibleReturnAddressSetter(caller, maxrank), n < 10,
   CanReachUnderContext(_, targetSetter, retCtx, retBlock),
   CanReachUnderContext(retCtx, retBlock, _, retTarget).
+  .plan 1:(2,1,3,4,5,6,7,8)
 
+PossibleReturnAddressWithRank(newCallCtx, caller, retCtx, retBlock, retTarget, n-1) :-
+  MaybeFunctionCallReturn(_, targetSetter, _, prevRetCtx, prevRet, caller),
+  PossibleReturnAddressWithPositiveRank(_, targetSetter, retCtx, retBlock, retTarget, n),
+  postTrans.ImmediateBlockJumpTarget(caller, targetVar),
+  BlockEdge(prevRetCtx, prevRet, newCallCtx, caller),
+  BlockJumpValidTarget(newCallCtx, caller, targetVar, func),
+  CanReachUnderContext(_, targetSetter, retCtx, retBlock),
+  CanReachUnderContext(retCtx, retBlock, _, retTarget),
+  !PossibleReturnAddressWithPos(caller, _, _, _, _).
+  .plan 1:(2,1,3,4,5,6,7)
 
 // Seems pretty certain we found a return. In fact, at this point,
 // with the above logic, we have detected all original return
