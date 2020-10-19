@@ -125,6 +125,12 @@ MaybeFunctionCallReturn(ctx, caller, func, retCtx, retBlock, retTarget) :-
   CanReachUnderContext(ctx, caller, retCtx, retBlock),
   CanReachUnderContext(retCtx, retBlock, _, retTarget).
 
+// Introduced to use in many rules that don't use the context of the context-sensitive version
+// Should be used when possible because the latter can get very heavy
+.decl MaybeFunctionCallReturn_Ins(caller:Block, func:Block, retBlock:Block, retTarget:Block)
+MaybeFunctionCallReturn_Ins(caller, func, retBlock, retTarget):-
+  MaybeFunctionCallReturn(_, caller, func, _, retBlock, retTarget).
+
 
 // Auxiliary, for optimization
 .decl PossibleReturnAddressWithPositiveRank(callCtx:Context, targetSetter:Block, retCtx:Context, retBlock:Block, retTarget:Block, rank:number)
@@ -182,21 +188,21 @@ MaybeReturn(retBlock, retTarget) :-
 
 .decl FunctionCalledMultipleTimes(func: Block)
 FunctionCalledMultipleTimes(func) :-
-  MaybeFunctionCallReturn(_, caller, func, _, retBlock, _),
-  MaybeFunctionCallReturn(_, caller2, func, _, retBlock, _),
+  MaybeFunctionCallReturn_Ins(caller, func, retBlock, _),
+  MaybeFunctionCallReturn_Ins(caller2, func, retBlock, _),
   caller != caller2.
 
 .decl FunctionSharesReturnBlock(func:Block)
 FunctionSharesReturnBlock(func) :-
-  MaybeFunctionCallReturn(_, _, func, _, retBlock, _),
-  MaybeFunctionCallReturn(_, _, func2, _, retBlock, _),
+  MaybeFunctionCallReturn_Ins(_, func, retBlock, _),
+  MaybeFunctionCallReturn_Ins(_, func2, retBlock, _),
   func != func2.
 
 // Return block can only pertain to one function!
 .decl NotValidReturnBlock(func: Block, retBlock: Block) 
 NotValidReturnBlock(func, retBlock) :-
-  MaybeFunctionCallReturn(_, _, func, _, retBlock, _),
-  MaybeFunctionCallReturn(_, _, func2, _, retBlock, _),
+  MaybeFunctionCallReturn_Ins(_, func, retBlock, _),
+  MaybeFunctionCallReturn_Ins(_, func2, retBlock, _),
   ord(func) < ord(func2).
 
 /**
@@ -205,8 +211,8 @@ NotValidReturnBlock(func, retBlock) :-
   which was problematic in many cases and could end up cloning blocks but not mark them as return blocks
 **/
 BlockToClone(retBlock, func):-
-  MaybeFunctionCallReturn(_, _, func, _, retBlock, _),
-  MaybeFunctionCallReturn(_, _, func2, _, retBlock, _),
+  MaybeFunctionCallReturn_Ins(_, func, retBlock, _),
+  MaybeFunctionCallReturn_Ins(_, func2, retBlock, _),
   func != func2,
   func !=retBlock,
   func2 !=retBlock.
@@ -214,8 +220,8 @@ BlockToClone(retBlock, func):-
 // Block reached from return edge cannot also be called directly
 .decl NotValidReturnEdge(retBlock: Block, retTarget: Block)
 NotValidReturnEdge(retBlock, retTarget) :-
-  MaybeFunctionCallReturn(_, _, _, _, retBlock, retTarget),
-  MaybeFunctionCallReturn(_, _, retTarget, _, _, _).
+  MaybeFunctionCallReturn_Ins(_, _, retBlock, retTarget),
+  MaybeFunctionCallReturn_Ins(_, retTarget, _, _).
 
 // Caller calls func and func returns to retTarget. Should only be inferred with
 // high confidence.
