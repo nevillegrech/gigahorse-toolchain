@@ -73,6 +73,7 @@ OptNotImmediateBlockJumpTarget(retCtx, retBlock, targetVariable, retTarget) :-
 // Since there may be multiple return addresses pushed together (one for the first
 // call, one for another call after that, etc.) we want to rank them and match
 // them in order.
+// keeps the context of the return jump
 .decl PossibleReturnAddressWithPos(targetSetter:Block, retCtx:Context, retBlock:Block, retTarget:Block, pos:number)
 PossibleReturnAddressWithPos(targetSetter, retCtx, retBlock, retTarget, pos) :-
   OptNotImmediateBlockJumpTarget(retCtx, retBlock, targetVariable, retTarget),
@@ -115,6 +116,12 @@ MaxRankForPossibleReturnAddressSetter(targetSetter, rank) :-
 // Also match a subset of those with return addresses and full info. The
 // function may not be the one containing the return, in case of complex
 // call patterns (e.g., call-call, or call-return).
+// ctx is the context of the function call jump
+// retCtx is the context of the return jump
+// The basic reason for this is that something can be a call or return jump
+// under some context and not under others
+// Retaining ctx information at this level makes MaybeInFunctionUnderContext very precise
+// This in turn allows us to go from BlockEdges to IRBlockEdges with increased precision
 .decl MaybeFunctionCallReturn(ctx:Context, caller:Block, func:Block, retCtx:Context, retBlock:Block, retTarget:Block)
 MaybeFunctionCallReturn(ctx, caller, func, retCtx, retBlock, retTarget) :-
   PossibleReturnAddressWithRank(ctx, caller, retCtx, retBlock, retTarget, 0),
@@ -141,6 +148,8 @@ PossibleReturnAddressWithPositiveRank(callCtx, caller, retCtx, retBlock, retTarg
 // If we have found a likely call-return pattern, we propagate to the return
 // block the extra pushed return values of the former caller. Stacking return
 // values is a usual pattern in produced code.
+
+// Case where the caller pushes new return targets as well.
 PossibleReturnAddressWithRank(newCallCtx, caller, retCtx, retBlock, retTarget, n + maxrank) :-
   MaybeFunctionCallReturn(prevCallCtx, targetSetter, _, prevRetCtx, prevRet, caller),
   PossibleReturnAddressWithPositiveRank(prevCallCtx, targetSetter, retCtx, retBlock, retTarget, n),
@@ -152,6 +161,7 @@ PossibleReturnAddressWithRank(newCallCtx, caller, retCtx, retBlock, retTarget, n
   CanReachUnderContext(retCtx, retBlock, _, retTarget).
   .plan 1:(2,1,3,4,5,6,7,8)
 
+// Case where the caller doesn't push new return targets to the stack
 PossibleReturnAddressWithRank(newCallCtx, caller, retCtx, retBlock, retTarget, n-1) :-
   MaybeFunctionCallReturn(prevCallCtx, targetSetter, _, prevRetCtx, prevRet, caller),
   PossibleReturnAddressWithPositiveRank(prevCallCtx, targetSetter, retCtx, retBlock, retTarget, n),
@@ -403,7 +413,7 @@ IRInFunction(irblock, irFunc) :-
 IRFunction_Return(irfunc, retir),
 IRFunctionCallReturn(callerir, irfunc, callerretir),
 IRFunction_Return_Edge(retir, callerretir) :-
-  IsFunctionCallReturn(ctx, caller, func, retCtx, ret, callerret), //REVIEW: take advantage of retCtx
+  IsFunctionCallReturn(ctx, caller, func, _, ret, callerret), //REVIEW: take advantage of retCtx
   MaybeInFunctionUnderContext(ctx, caller, prevfunc),
   Block_IRBlock(ret, func, retir),
   Block_IRBlock(caller, prevfunc, callerir),
