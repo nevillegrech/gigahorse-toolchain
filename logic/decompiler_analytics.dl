@@ -28,7 +28,7 @@ Analytics_ReachableBlocks(blk):-
 Analytics_ReachableBlocksInTAC(blk):-
   ReachableContext(_, blk),
   Block_IRBlock(blk, _, block),
-  TAC_Block(stmt, block).
+  TAC_Block(_, block).
 
 .decl Analytics_Blocks(block: IRBlock)
 .output Analytics_Blocks

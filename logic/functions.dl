@@ -146,7 +146,7 @@ PossibleReturnAddressWithRank(newCallCtx, caller, retCtx, retBlock, retTarget, n
   PossibleReturnAddressWithPositiveRank(prevCallCtx, targetSetter, retCtx, retBlock, retTarget, n),
   postTrans.ImmediateBlockJumpTarget(caller, targetVar),
   BlockEdge(prevRetCtx, prevRet, newCallCtx, caller),
-  BlockJumpValidTarget(newCallCtx, caller, targetVar, func),
+  BlockJumpValidTarget(newCallCtx, caller, targetVar, _),
   MaxRankForPossibleReturnAddressSetter(caller, maxrank), n < 10,
   CanReachUnderContext(prevCallCtx, targetSetter, retCtx, retBlock),
   CanReachUnderContext(retCtx, retBlock, _, retTarget).
@@ -157,7 +157,7 @@ PossibleReturnAddressWithRank(newCallCtx, caller, retCtx, retBlock, retTarget, n
   PossibleReturnAddressWithPositiveRank(prevCallCtx, targetSetter, retCtx, retBlock, retTarget, n),
   postTrans.ImmediateBlockJumpTarget(caller, targetVar),
   BlockEdge(prevRetCtx, prevRet, newCallCtx, caller),
-  BlockJumpValidTarget(newCallCtx, caller, targetVar, func),
+  BlockJumpValidTarget(newCallCtx, caller, targetVar, _),
   CanReachUnderContext(prevCallCtx, targetSetter, retCtx, retBlock),
   CanReachUnderContext(retCtx, retBlock, _, retTarget),
   !PossibleReturnAddressWithPos(caller, _, _, _, _).
