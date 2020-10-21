@@ -365,7 +365,7 @@
     IsBasicBlockHead(stmt),
     Statement_Block(stmt, block),
     BlockPopDelta(block, delta),
-    IsStackIndexLessThan(stackIndex, delta).
+    IsStackIndexLessThan(stackIndex, delta + 10).
   
    /*
    ***********
@@ -470,7 +470,24 @@
     JUMPI(jumpiStmt),
     Statement_Uses_Local(jumpiStmt, pred, 1).
 
+  .decl SWAPDUPPOPJUMPJUMPDESTOP(op:Opcode)
+  SWAPDUPPOPJUMPJUMPDESTOP(opcode):-
+    DUPN(opcode, _);
+    SWAPN(opcode, _);
+    opcode = "JUMP";
+    opcode = "JUMPDEST";
+    opcode = "POP".
 
+  .decl StackBalanceBlock(block:Block)
+  StackBalanceBlock(block):-
+    Statement_Block(_, block),
+    stackAltCount = count: {
+      Statement_Block(stmt, block), 
+      Statement_Opcode(stmt, op), 
+      SWAPDUPPOPJUMPJUMPDESTOP(op)
+    },
+    allCount = count: Statement_Block(_, block),
+    stackAltCount = allCount.
 }
 
 .comp PreTransLocalAnalysis : LocalAnalysis {

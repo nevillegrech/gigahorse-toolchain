@@ -22,6 +22,14 @@ Analytics_Jumps(block) :-
 Analytics_ReachableBlocks(blk):-
   ReachableContext(_, blk).
 
+.decl Analytics_ReachableBlocksInTAC(block: Block)
+.output Analytics_ReachableBlocksInTAC
+
+Analytics_ReachableBlocksInTAC(blk):-
+  ReachableContext(_, blk),
+  Block_IRBlock(blk, _, block),
+  TAC_Block(_, block).
+
 .decl Analytics_Blocks(block: IRBlock)
 .output Analytics_Blocks
 
@@ -66,7 +74,7 @@ Analytics_PolymorphicTarget(block) :-
   Analytics_Jumps(block),                                                          
   BlockJumpValidTarget(_, block, _, target1),
   BlockJumpValidTarget(_, block, _, target2),
-  !IsReturn(block, _),
+  !IsReturn(_, block, _),
   target1 != target2.
 
 // Except return statements
@@ -111,9 +119,11 @@ Analytics_StmtMissingOperand(stmt):-
 
 .decl Analytics_InexactFunctionArguments(func: IRFunction)
 .decl Analytics_InexactFunctionReturnArguments(func: IRFunction)
+.decl Analytics_InexactFunctionCallArguments(call: IRStatement)
 
 .output Analytics_InexactFunctionArguments
 .output Analytics_InexactFunctionReturnArguments
+.output Analytics_InexactFunctionCallArguments
 
 Analytics_InexactFunctionArguments(func) :-
    NumberOfFunctionArguments(func, delta),
@@ -124,6 +134,16 @@ Analytics_InexactFunctionReturnArguments(func) :-
    NumberOfFunctionReturnArguments(func, delta),
    NumberOfFunctionReturnArguments(func, delta2),
    delta != delta2.
+
+Analytics_InexactFunctionCallArguments(call):-
+  IRFunctionCall(callblock, func),
+  NumberOfFunctionArguments(func, n_args),
+  TAC_Block(call, callblock),
+  TAC_Op(call, "CALLPRIVATE"),
+  IsStackIndexLessThan(n_arg, n_args),
+  !TAC_Use(call, _, n_arg).
+
+
 
 .decl Analytics_BlockInMultipleFunctions(block: IRBlock)
 .output Analytics_BlockInMultipleFunctions
@@ -225,19 +245,15 @@ Analytics_BlockIsEmpty(block) :-
 .output Analytics_JumpToMany
 
 Analytics_JumpToMany(blk):-
-  TAC_Op(jump, "JUMP"),
+  (TAC_Op(jump, "JUMP") ; TAC_Op(jump, "CALLPRIVATE")),
   TAC_Block(jump, blk),
   LocalBlockEdge(blk, one),
   LocalBlockEdge(blk, two),
   one != two.
-  //TAC_Use(jump, var, 0),
-  //TAC_Variable_Value(var, _).
 
 Analytics_JumpToMany(blk):-
   TAC_Op(jump, "JUMPI"),
   TAC_Block(jump, blk),
-  //TAC_Use(jump, var, 0),
-  //TAC_Variable_Value(var, _),
   LocalBlockEdge(blk, one),
   LocalBlockEdge(blk, two),
   LocalBlockEdge(blk, three),
@@ -255,6 +271,28 @@ Analytics_JumpToManyNonPopBlock(blk):-
   op != "JUMP",
   op != "PHI",
   op != "JUMPI".
+
+.decl Analytics_JumpToManyWithoutGlobalImprecision(blk:IRBlock)
+.output Analytics_JumpToManyWithoutGlobalImprecision
+
+Analytics_JumpToManyWithoutGlobalImprecision(irblk):-
+  Analytics_JumpToMany(irblk),
+  Block_IRBlock(blk, _, irblk),
+  !IRFunctionCallReturn(irblk, _, _),
+  !Analytics_PolymorphicTargetSameCtx(blk).
+
+Analytics_JumpToManyWithoutGlobalImprecision(irblk):-
+  Analytics_JumpToMany(irblk),
+  IRFunctionCallReturn(irblk, irfunc, _),
+  !FunctionRetBlockHasPolyTargetSameCtx(irfunc).
+
+.decl FunctionRetBlockHasPolyTargetSameCtx(irfun:IRFunction)
+
+FunctionRetBlockHasPolyTargetSameCtx(irfunc):-
+  IRFunction_Return(irfunc, retir),
+  Block_IRBlock(ret, _, retir),
+  Analytics_PolymorphicTargetSameCtx(ret).
+
 
 .decl Analytics_InitiallyMissedCycleEntry(blk: IRBlock)
 .output Analytics_InitiallyMissedCycleEntry
