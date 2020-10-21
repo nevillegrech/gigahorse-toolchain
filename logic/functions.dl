@@ -479,7 +479,11 @@ IRBlockEdge(irfrom, irto) :-
   PubFun(func, pubFun),
   CanReachUnderContext(_, func, ctxFrom, from),
   Context_PublicFunction(ctxTo, pubFun),
-  //!IsFunctionCallReturn(_, _, func, _, from, _), // REVIEW: Keeping this for now. We need to fix it.
+  // The following negation makes our code incomplete in cases where the return block
+  // can be shared by callee and caller, but keeps our produced IR precise.
+  // Removing it results in inconsistent IR (return blocks with local edges from them)
+  // and less precise, but also more complete output.
+  !IsFunctionCallReturn(_, _, func, _, from, _), // REVIEW: Keeping this for now. We need to fix it.
   !IsFunctionCallReturn(_, _, _, ctxFrom, from, to),
   !IsFunctionCallReturn(ctxFrom, from, to, _, _, _),
   Block_IRBlock(to, func, irto).
@@ -491,11 +495,11 @@ IRBlockEdge(irfrom, irto) :-
   MaybeInFunctionUnderContext(ctxTo, to, func),
   !PubFun(func, _),
   CanReachUnderContext(_, func, ctxFrom, from),
-  // The next predicate makes our code incomplete in cases
-  // return block can be shared by callee and caller,
-  // resulting in inconsistent IR (return blocks with local edges from them)
-  // but also more complete code.
-  //!IsFunctionCallReturn(_, _, func, _, from, _), // REVIEW: Keeping this for now. We need to fix it.
+  // The following negation makes our code incomplete in cases where the return block
+  // can be shared by callee and caller, but keeps our produced IR precise.
+  // Removing it results in inconsistent IR (return blocks with local edges from them)
+  // and less precise, but also more complete output.
+  !IsFunctionCallReturn(_, _, func, _, from, _), // REVIEW: Keeping this for now. We need to fix it.
   !IsFunctionCallReturn(_, _, _, ctxFrom, from, to),
   !IsFunctionCallReturn(ctxFrom, from, to, _, _, _),
   Block_IRBlock(to, func, irto).
