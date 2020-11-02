@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 
-"""analyze.py: batch analyzes smart contracts and categorises them."""
-
 ## IMPORTS
 
 import argparse
