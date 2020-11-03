@@ -43,9 +43,7 @@ cd souffle-addon
 Install:
 
     $ make                          # builds all, sets libfunctors.so as a link to libsoufflenum.so
-    $ export LD_LIBRARY_PATH=`pwd`  # or wherever you want to put the resulting libfunctors.so
 
-We suggest adding LD_LIBRARY_PATH to your `.bashrc` file
 
 ### For visualization (optional)
 Requires PyDot:
@@ -100,6 +98,13 @@ Example (with client analysis):
 1. Fact generation
 2. Run decompiler using Souffle
 3. Visualize results
+
+First, make sure that LD_LIBRARY_PATH and LIBRARY_PATH are set:
+    $ cd souffle-addon
+    $ export LD_LIBRARY_PATH=`pwd`  # or wherever you want to put the resulting libfunctors.so
+    $ export LIBRARY_PATH=`pwd`  # or wherever you want to put the resulting libfunctors.so
+
+We suggest adding LD_LIBRARY_PATH and LIBRARY_PATH to your `.bashrc` file
 
 
 ```

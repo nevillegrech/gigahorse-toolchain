@@ -152,6 +152,17 @@ parser.add_argument("--reuse_datalog_bin",
                     default=False,
                     help="Do not recompile.")
 
+souffle_env = os.environ.copy()
+functor_path = join(os.path.dirname(__file__), 'souffle-addon')
+souffle_env["LD_LIBRARY_PATH"] = functor_path
+souffle_env["LIBRARY_PATH"] = functor_path
+
+if not os.path.isfile(join(functor_path, 'libfunctors.so')):
+    raise Exception(
+        f'Cannot find libfunctors.so in {functor_path}. Make sure you have checked '\
+        f'out this repo with --recursive and '\
+        f'that you have installed gigahorse correctly (see README.md)'
+    )
 
 def get_working_dir(contract_name):
     return join(os.path.abspath(TEMP_WORKING_DIR), os.path.split(contract_name)[1].split('.')[0])
@@ -192,7 +203,7 @@ def compile_datalog(spec, executable):
     else:
         log(f"Compiling {spec} to C++ program and executable")
         compilation_command = [args.souffle_bin, '-c', '-M', souffle_macros, '-o', cache_path, spec]
-        process = subprocess.run(compilation_command, universal_newlines=True)
+        process = subprocess.run(compilation_command, universal_newlines=True, env = souffle_env)
         assert not(process.returncode), "Compilation failed. Stopping."
 
     shutil.copy2(cache_path, executable)
@@ -323,7 +334,7 @@ def run_process(args, timeout: int, stdout = devnull, stderr = devnull, cwd = '.
     if timeout < 0:
         return -1
     start_time = time.time()
-    p = subprocess.Popen(args, stdout = stdout, stderr = stderr, cwd = cwd)
+    p = subprocess.Popen(args, stdout = stdout, stderr = stderr, cwd = cwd, env = souffle_env)
     while True:
         elapsed_time = time.time() - start_time
         if p.poll() is not None:
