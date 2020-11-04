@@ -5,7 +5,11 @@
 // find number of jumps to estimate best context depth
 .decl MaxContextDepth(d: number)
 
-MaxContextDepth(4).
+#ifndef MAX_CONTEXT_DEPTH
+  MaxContextDepth(4).
+#else
+  MaxContextDepth(MAX_CONTEXT_DEPTH).
+#endif
 
 .decl InitialPrivateContext(ctx : PrivateContext)
 InitialPrivateContext(nil).
