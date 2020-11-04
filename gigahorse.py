@@ -177,7 +177,7 @@ def compile_datalog(spec, executable):
     souffle_macros = f'BULK_ANALYSIS= {args.souffle_macros}'.strip()
 
     # TODO: Need to pass all souffle macros each as a -D argument
-    preproc_command = ['cpp', '-P', spec, '-D', 'BULK_ANALYSIS']
+    preproc_command = ['cpp', '-P', spec, '-D', 'BULK_ANALYSIS', '-M', args.souffle_macros]
     preproc_process = subprocess.run(preproc_command, universal_newlines=True, capture_output=True)
     assert not(preproc_process.returncode), "Preprocessing failed. Stopping."
 
