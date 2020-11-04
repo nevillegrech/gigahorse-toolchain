@@ -130,6 +130,10 @@ FormalReturnArgs(fn, a, pos - 2) :-
 .decl Statement_Defines(stmt: Statement, var: Variable, n: number)
 .input Statement_Defines(IO="file", filename="TAC_Def.csv", delimiter="\t")
 
+.decl isVariable(v: Variable)
+
+isVariable(x) :-
+   Statement_Uses(_, x, _) ; Statement_Defines(_, x, _) ; FormalArgs(_, x, _).
 
 // A total order which models all instructions except PHI instructions.
 // PHI instrucions do not appear in this relation.
