@@ -229,7 +229,7 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
             blocks = blockparse.EVMBytecodeParser(bytecode).parse()
             exporter.InstructionTsvExporter(blocks).export(output_dir=work_dir)
 
-            os.symlink(join(work_dir, 'bytecode.hex'), join(out_dir, 'bytecode.hex'))
+            #os.symlink(join(work_dir, 'bytecode.hex'), join(out_dir, 'bytecode.hex'))
             
             
             # Run souffle on those relations
