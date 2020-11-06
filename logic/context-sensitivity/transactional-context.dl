@@ -99,13 +99,14 @@ StaticBlockJumpTarget(caller, target) :-
 .decl MergeContext(ctx : Context, caller : Block, newContext : Context)
 
 
-// Trivial control flow case
+// Trivial control flow case for when there is no function call
+// OR max conext depth is zero
 MergeContext(ctx, caller, ctx) :-
   ReachableContext(ctx, caller),
 #ifndef NO_PUBLIC_CONTEXT
   !postTrans.PublicFunction(caller, _),
 #endif
-  !PrivateFunctionCallOrReturn(caller). // todo
+  (!PrivateFunctionCallOrReturn(caller) ; MaxContextDepth(0)). 
 
 // Complex control flow case
 IsPrivateContext(newPrivateContext),
@@ -119,7 +120,6 @@ MergeContext(ctx, caller, newContext) :-
   newPrivateContext = [caller, cutDownPri],
   newContext = [pub, newPrivateContext].
 .plan 1:(3,2,1)
-
 
 #ifndef NO_PUBLIC_CONTEXT
 MergeContext(ctx, caller, newContext) :-
