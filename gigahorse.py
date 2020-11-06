@@ -23,6 +23,7 @@ import src.exporter as exporter
 import src.blockparse as blockparse
 
 devnull = subprocess.DEVNULL
+GIGAHORSE_DIR = dirname(abspath(__file__))
 
 ## Constants
 
@@ -32,13 +33,13 @@ DEFAULT_SOUFFLE_BIN = 'souffle'
 DEFAULT_RESULTS_FILE = 'results.json'
 """File to write results to by default."""
 
-DEFAULT_DECOMPILER_DL = join(dirname(abspath(__file__)), 'logic/decompiler.dl')
+DEFAULT_DECOMPILER_DL = join(GIGAHORSE_DIR, 'logic/decompiler.dl')
 """Decompiler specification file."""
 
 DEFAULT_SOUFFLE_EXECUTABLE = 'decompiler_compiled'
 """Compiled vulnerability specification file."""
 
-DEFAULT_CACHE_DIR = join(dirname(abspath(__file__)), 'cache')
+DEFAULT_CACHE_DIR = join(GIGAHORSE_DIR, 'cache')
 
 TEMP_WORKING_DIR = ".temp"
 """Scratch working directory."""
@@ -153,7 +154,7 @@ parser.add_argument("--reuse_datalog_bin",
                     help="Do not recompile.")
 
 souffle_env = os.environ.copy()
-functor_path = join(os.path.dirname(__file__), 'souffle-addon')
+functor_path = join(GIGAHORSE_DIR, 'souffle-addon')
 souffle_env["LD_LIBRARY_PATH"] = functor_path
 souffle_env["LIBRARY_PATH"] = functor_path
 
@@ -185,7 +186,7 @@ def compile_datalog(spec, executable):
 
     pathlib.Path(DEFAULT_CACHE_DIR).mkdir(exist_ok=True)
 
-    souffle_macros = f'BULK_ANALYSIS= {args.souffle_macros}'.strip()
+    souffle_macros = f'GIGAHORSE_DIR={GIGAHORSE_DIR} BULK_ANALYSIS= {args.souffle_macros}'.strip()
 
     cpp_macros = []
     for macro_def in souffle_macros.split(' '):
