@@ -15,6 +15,19 @@ Analytics_Jumps(block) :-
   BasicBlock_Tail(block, tail),
   IsJump(tail).
 
+.decl Analytics_ReachableBlocks(block: Block)
+.output Analytics_ReachableBlocks
+
+Analytics_ReachableBlocks(blk):-
+  ReachableContext(_, blk).
+
+.decl Analytics_ReachableBlocksInTAC(block: Block)
+.output Analytics_ReachableBlocksInTAC
+
+Analytics_ReachableBlocksInTAC(blk):-
+  ReachableContext(_, blk),
+  Block_IRBlock(blk, block),
+  TAC_Block(_, block).
 
 .decl Analytics_Blocks(block: IRBlock)
 .output Analytics_Blocks
@@ -64,16 +77,13 @@ Analytics_PolymorphicTarget(block) :-
   target1 != target2.
 
 
-// Except return statements
 .decl Analytics_PolymorphicTargetSameCtx(block: Block)
 .output Analytics_PolymorphicTargetSameCtx
 
-// Excludes function return blocks
 Analytics_PolymorphicTargetSameCtx(block) :-
   Analytics_Jumps(block),
   BlockJumpValidTarget(ctx, block, _, target1),
   BlockJumpValidTarget(ctx, block, _, target2),
-  !Function_Return(_, block),
   target1 != target2.
 
 .decl Analytics_MissingJumpTarget(block: Block)
@@ -237,3 +247,23 @@ Analytics_PublicFunctionNameResolved(func) :-
    PublicFunction(func, sigHash),
    PublicFunctionSignature(sigHash, _).
 
+.decl Analytics_JumpToManyWithoutGlobalImprecision(blk:IRBlock)
+.output Analytics_JumpToManyWithoutGlobalImprecision
+
+Analytics_JumpToManyWithoutGlobalImprecision(irblk):-
+  Analytics_JumpToMany(irblk),
+  Block_IRBlock(blk, irblk),
+  !IRFunctionCallReturn(irblk, _, _),
+  !Analytics_PolymorphicTargetSameCtx(blk).
+
+Analytics_JumpToManyWithoutGlobalImprecision(irblk):-
+  Analytics_JumpToMany(irblk),
+  IRFunctionCallReturn(irblk, irfunc, _),
+  !FunctionRetBlockHasPolyTargetSameCtx(irfunc).
+
+.decl FunctionRetBlockHasPolyTargetSameCtx(irfun:IRFunction)
+
+FunctionRetBlockHasPolyTargetSameCtx(irfunc):-
+  IRFunction_Return(irfunc, retir),
+  Block_IRBlock(ret, retir),
+  Analytics_PolymorphicTargetSameCtx(ret).
