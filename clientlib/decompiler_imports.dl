@@ -42,6 +42,12 @@
 .decl Statement_Block(stmt: Statement, block: Block)
 .input Statement_Block(IO="file", filename="TAC_Block.csv", delimiter="\t")
 
+.decl Statement_Function(s: Statement, f: Function)
+
+Statement_Function(s, f) :-
+   Statement_Block(s, b),
+   InFunction(b, f).
+
 // Value which a variable may have. Concrete values only.
 .decl Variable_Value(var: Variable, value: Value)
 .input Variable_Value(IO="file", filename="TAC_Variable_Value.csv", delimiter="\t")
