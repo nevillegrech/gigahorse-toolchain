@@ -106,6 +106,10 @@ IsPublicFunction(func) :- PublicFunctionSelector(func, _).
 .decl Block_Gas(block:Block, gas:number)
 .input Block_Gas(IO="file", filename="IRBlock_Gas.csv", delimiter="\t")
 
+// Relation that links blocks to statements in the original bytecode
+.decl OriginalStatement_Block(stmt:symbol, block:Block)
+.input OriginalStatement_Block(IO="file", filename="TAC_OriginalStatement_Block.csv", delimiter="\t")
+
 // Export max context depth of decompilation, possibly useful for client analysis tuning
 .decl MaxContextDepth(n:number)
 .input MaxContextDepth(IO="file", filename="MaxContextDepth.csv", delimiter="\t")

@@ -293,6 +293,32 @@ TAC_Block_Head(block, irstmt) :-
    postTrans.IsBasicBlockHead(stmt).
 
 
+.decl TAC_OriginalStatement_Block(stmt: Statement, irbock: IRBlock)
+.output TAC_OriginalStatement_Block
+
+// unmodified statements
+TAC_OriginalStatement_Block(stmt, irblock) :-
+  postTrans.Statement_Block(_, block),
+  preTrans.Statement_Block(stmt, block),
+  Block_IRBlock(block, _, irblock).
+
+
+// imperfect solution, e.g., assumes
+// that there was exactly one original block
+// linking the "generated" basic block in postTrans
+TAC_OriginalStatement_Block(stmt, irblock) :-
+  postTrans.Statement_Block(_, block),
+  !preTrans.Statement_Block(_, block),
+  BlockEdge(_, caller, _, block),
+  preTrans.Statement_Block(stmt, caller),                  
+  Block_IRBlock(block, _, irblock).
+
+.decl UnmappedStatements(stmt: Statement)
+.output UnmappedStatements
+
+UnmappedStatements(stmt) :-
+  preTrans.Statement_Block(stmt, _),
+  !TAC_OriginalStatement_Block(stmt, _).
 /******
  * Event signatures
  *****/
