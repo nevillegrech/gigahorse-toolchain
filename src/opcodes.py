@@ -317,6 +317,7 @@ STATICCALL = OpCode("STATICCALL", 0xfa, 6, 1, 40)
 # New Instanbul and St. Petersburg Opcodes
 EXTCODEHASH = OpCode("EXTCODEHASH", 0x3f, 1, 1, 700)
 CHAINID = OpCode("CHAINID", 0x46, 0, 1, 2)
+SELFBALANCE = OpCode("SELFBALANCE", 0x47, 0, 1, 5)
 
 # Produce mappings from names and instruction codes to opcode objects
 OPCODES = {
