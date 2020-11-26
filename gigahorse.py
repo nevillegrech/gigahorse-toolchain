@@ -153,6 +153,12 @@ parser.add_argument("--reuse_datalog_bin",
                     default=False,
                     help="Do not recompile.")
 
+parser.add_argument("-i",
+                    "--interpreted",
+                    action="store_true",
+                    default=False,
+                    help="Run souffle in interpreted mode.")
+
 souffle_env = os.environ.copy()
 functor_path = join(GIGAHORSE_DIR, 'souffle-addon')
 souffle_env["LD_LIBRARY_PATH"] = functor_path
@@ -250,10 +256,19 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
             
             # Run souffle on those relations
             decomp_start = time.time()
-            analysis_args = [join(os.getcwd(), DEFAULT_SOUFFLE_EXECUTABLE),
-                         "--facts={}".format(work_dir),
-                         "--output={}".format(out_dir)
-            ]
+
+            if not args.interpreted:
+                analysis_args = [join(os.getcwd(), DEFAULT_SOUFFLE_EXECUTABLE),
+                             "--facts={}".format(work_dir),
+                             "--output={}".format(out_dir)
+                ]
+            else:
+                analysis_args = [DEFAULT_SOUFFLE_BIN,
+                             DEFAULT_DECOMPILER_DL,
+                             "--fact-dir={}".format(work_dir),
+                             "--output-dir={}".format(out_dir)
+                ]
+
             runtime = run_process(analysis_args, calc_timeout())
             if runtime < 0:
                 result_queue.put((contract_filename, [], ["TIMEOUT"], {}))
@@ -264,10 +279,17 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
             return
         client_start = time.time()
         for souffle_client in souffle_clients:
-            analysis_args = [join(os.getcwd(), souffle_client+'_compiled'),
-                         "--facts={}".format(out_dir),
-                         "--output={}".format(out_dir)
-            ]
+            if not args.interpreted:
+                analysis_args = [join(os.getcwd(), souffle_client+'_compiled'),
+                             "--facts={}".format(out_dir),
+                             "--output={}".format(out_dir)
+                ]
+            else:
+                analysis_args = [DEFAULT_SOUFFLE_BIN,
+                             join(os.getcwd(), souffle_client),
+                             "--fact-dir={}".format(out_dir),
+                             "--output-dir={}".format(out_dir)
+                ]
             runtime = run_process(analysis_args, calc_timeout())
             if runtime < 0:
                 result_queue.put((contract_name, [], ["TIMEOUT"], {}))
@@ -380,25 +402,27 @@ compile_processes_args.append((DEFAULT_DECOMPILER_DL, DEFAULT_SOUFFLE_EXECUTABLE
 souffle_clients = [a for a in args.client.split(',') if a.endswith('.dl')]
 python_clients = [a for a in args.client.split(',') if a.endswith('.py')]
 
-for c in souffle_clients:
-    compile_processes_args.append((c, c+'_compiled'))
+if not args.interpreted:
+    for c in souffle_clients:
+        compile_processes_args.append((c, c+'_compiled'))
 
-running_processes = []
-for compile_args in compile_processes_args:
-    proc = Process(target = compile_datalog, args=compile_args)
-    proc.start()
-    running_processes.append(proc)
+    running_processes = []
+    for compile_args in compile_processes_args:
+        proc = Process(target = compile_datalog, args=compile_args)
+        proc.start()
+        running_processes.append(proc)
 
 if args.restart:
     log("Removing working directory {}".format(TEMP_WORKING_DIR))
     shutil.rmtree(TEMP_WORKING_DIR, ignore_errors = True)    
     
-for p in running_processes:
-    p.join()
+if not args.interpreted:
+    for p in running_processes:
+        p.join()
 
-# check all programs have been compiled
-for _, v in compile_processes_args:
-    open(v, 'r') # check program exists
+    # check all programs have been compiled
+    for _, v in compile_processes_args:
+        open(v, 'r') # check program exists
 
 # Extract contract filenames.
 log("Processing contract names.")
@@ -414,6 +438,8 @@ pattern = re.compile(re_string)
 
 for filepath in args.filepath:
     if os.path.isdir(filepath):
+        if args.interpreted:
+            log("[WARNING]: Running batch analysis in interpreted mode.")
         unfiltered = [join(filepath, f) for f in os.listdir(filepath)]
     else:
         unfiltered = [filepath]
