@@ -671,11 +671,6 @@ IRLocalStackContents(irstmt, n, varOrStackIndex) :-
   postTrans.LocalStackContents(stmt, n, varOrStackIndex),
   Statement_IRStatement(stmt, _, irstmt).
 
-.decl IRThrowJump(irstmt: IRStatement)
-IRThrowJump(irstmt) :-
-  postTrans.ThrowJump(stmt),
-  Statement_IRStatement(stmt, _, irstmt).
-
 .decl IRBlock_Gas(irblock: IRBlock, gas: number)
 IRBlock_Gas(irblock, gas) :-
   Block_IRBlock(block, _, irblock),

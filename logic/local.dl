@@ -245,16 +245,6 @@
 
   .decl AlwaysJumps(stmt: Statement)
   
-  // This rule should be redundant, since we now constant fold ISZERO statements.
-  // TODO: Check this
-  AlwaysJumps(stmt) :-
-    JUMPI(stmt),
-    Statement_Uses_Local(stmt, pred, 1),
-    ISZERO(iszero),
-    Statement_Defines(iszero, pred),
-    Statement_Uses_Local(iszero, zero, 0),
-    Variable_Value(zero, "0x0").
-  
   AlwaysJumps(stmt) :-
     JUMPI(stmt),
     Statement_Uses_Local(stmt, pred, 1),
@@ -262,14 +252,14 @@
     value != "0x0".
 
 
-  .decl FallthroughStmt(stmt:Statement)
+  .decl FallthroughStmt(stmt:Statement, next: Statement)
 
-  FallthroughStmt(stmt) :-
+  FallthroughStmt(stmt, next) :-
     BasicBlock_Tail(_, stmt),
     !JUMP(stmt),
-    !AlwaysJumps(stmt),
     Statement_Opcode(stmt, opcode),
-    !OpcodePossiblyHalts(opcode).   
+    !OpcodePossiblyHalts(opcode),
+    Statement_Next(stmt, next).
 
 
   .decl ThrowJump(stmt:Statement)

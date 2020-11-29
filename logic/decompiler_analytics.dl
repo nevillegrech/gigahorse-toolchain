@@ -92,8 +92,6 @@ Analytics_PolymorphicTargetSameCtx(block) :-
 Analytics_MissingJumpTarget(block) :-
   Analytics_Jumps(block),
   !BlockJumpValidTarget(_, block, _, _),
-  postTrans.BasicBlock_Tail(block, jump),
-  !postTrans.ThrowJump(jump),
   postTrans.JUMPDEST(_). // if there are not valid jumpdests then don't flag
 
 // Missing operands for IR statements.

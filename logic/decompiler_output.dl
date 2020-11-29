@@ -50,7 +50,6 @@ PHILocation(block, stackIndex, cat(cat(block, "_"), stackIndexHex)) :-
 .output TAC_Op
 .decl TAC_Stmt(stmt:IRStatement)
 .output TAC_Stmt
-.decl PRE_TAC_Use(stmt: IRStatement, var: TACVariable, i: number)
 .decl TAC_Use(stmt: IRStatement, var: TACVariable, i: number)
 .output TAC_Use
 .decl TAC_Def(stmt: IRStatement, var: TACVariable, n: number)
@@ -107,7 +106,6 @@ TAC_Op(irstmt, op) :-
    postTrans.ValidStatement(stmt),
    !DeadStmt(irstmt),
    !IRTACNOP(irstmt),
-   !postTrans.ThrowJump(stmt),
    !postTrans.PushValue(stmt, _),
    !postTrans.PC(stmt),
    !postTrans.INVALID(stmt).
@@ -118,17 +116,7 @@ TAC_Op(irstmt, "CONST") :-
 
 TAC_Op(irstmt, "THROW") :-
    Statement_IRStatement(stmt, _, irstmt),
-   postTrans.JUMP(stmt),
-   postTrans.ThrowJump(stmt).
-
-TAC_Op(irstmt, "THROW") :-
-   Statement_IRStatement(stmt, _, irstmt),
    postTrans.INVALID(stmt).
-
-TAC_Op(irstmt, "THROWI") :-
-   Statement_IRStatement(stmt, _, irstmt),
-   postTrans.JUMPI(stmt),
-   postTrans.ThrowJump(stmt).
 
 // Phi instructions
 TAC_Var(var),
@@ -146,7 +134,7 @@ TAC_Def(stmt, tac_var, n) :-
    tac_var = @cast_to_symbol(var_rep).
 
 // Case 1: Uses locally defined variable
-PRE_TAC_Use(stmt, @cast_to_symbol(var_rep), n) :-
+TAC_Use(stmt, @cast_to_symbol(var_rep), n) :-
   FunctionalStatement_Uses_Local(stmt, var, n),
   CheckIsVariable(var),
   Variable_Stmt_String(var, stmt, var_rep).
@@ -155,7 +143,7 @@ PRE_TAC_Use(stmt, @cast_to_symbol(var_rep), n) :-
 // Using the block in which the var is defined,
 // Fixes cases where a stmt in a cloned block is using
 // a variable defined in a non cloned block
-PRE_TAC_Use(stmt, @cast_to_symbol(var_rep), n) :-
+TAC_Use(stmt, @cast_to_symbol(var_rep), n) :-
   FunctionalStatement_Uses_Local(stmt, stackIndex, n),
   CheckIsStackIndex(stackIndex),
   IRStatement_Block(stmt, block),
@@ -168,7 +156,7 @@ PRE_TAC_Use(stmt, @cast_to_symbol(var_rep), n) :-
   Variable_Block_String(var, defBlock, var_rep).
 
 //Case 2.1: Uses arg(like the above case, but not defined)
-PRE_TAC_Use(stmt, @cast_to_symbol(var_rep), n) :-
+TAC_Use(stmt, @cast_to_symbol(var_rep), n) :-
   FunctionalStatement_Uses_Local(stmt, stackIndex, n),
   CheckIsStackIndex(stackIndex),
   IRStatement_Block(stmt, block),
@@ -179,7 +167,7 @@ PRE_TAC_Use(stmt, @cast_to_symbol(var_rep), n) :-
 
 
 // Case 3: Is a PHI statement
-PRE_TAC_Use(phiStmt, @cast_to_symbol(var_rep), -1) :-
+TAC_Use(phiStmt, @cast_to_symbol(var_rep), -1) :-
   PHILocation(block, stackIndex, phiStmt),
   FunctionalBlockInputContents(block, stackIndex, var),
   IRInFunction(block, fun),
@@ -189,25 +177,15 @@ PRE_TAC_Use(phiStmt, @cast_to_symbol(var_rep), -1) :-
   Variable_Block_String(var, defBlock, var_rep).
 
 // Case 3.1: Phis using args
-PRE_TAC_Use(phiStmt, @cast_to_symbol(var_rep), -1) :-
+TAC_Use(phiStmt, @cast_to_symbol(var_rep), -1) :-
   PHILocation(block, stackIndex, phiStmt),
   FunctionalBlockInputContents(block, stackIndex, var),
   FunctionArgument(_, _, var),
   Variable_String(var, var_rep).
 
 
-TAC_Use(stmt, var, n) :-
-   !IRThrowJump(stmt),
-   PRE_TAC_Use(stmt, var, n).
-
-TAC_Use(irstmt, var, n-1) :-
-   IRThrowJump(irstmt),
-   PRE_TAC_Use(irstmt, var, n),
-   n > 0.
-
-
 // Case 4: Uses polymorphic variable
-PRE_TAC_Use(stmt, @cast_to_symbol(phiStmt), n) :-
+TAC_Use(stmt, @cast_to_symbol(phiStmt), n) :-
   FunctionalStatement_Uses_Local(stmt, stackIndex, n),
   CheckIsStackIndex(stackIndex),
   IRStatement_Block(stmt, block),

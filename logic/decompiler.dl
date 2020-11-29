@@ -10,7 +10,6 @@
 #include "../clientlib/util.dl"
 #include "local.dl"
 
-//#define CONTEXT_SENSITIVITY selective_Ncontext+
 #ifndef CONTEXT_SENSITIVITY
   // transactional-context is default
   #define CONTEXT_SENSITIVITY transactional-context
@@ -75,6 +74,8 @@ COPY_CODE(preTrans, factReader)
 
 INITIALIZE_STATEMENT_INSERTOR_FROM(insertor, preTrans, postTrans)
 
+
+// This one removes conditional calls
 insertor.removeOp(jumpStmt),
 insertor.removeOp(pushStmt),
 insertor.insertOps(pushStmt,
@@ -112,6 +113,42 @@ insertor.insertOps(functionStartStmt,
    preTrans.BasicBlock_Tail(block, tail),
    preTrans.Statement_Next(tail, functionStartStmt).
 
+
+// This one removes "throw jumps"
+insertor.removeOp(jmp),
+insertor.insertOps(jmp,
+  LIST(
+    STMT(POP, ""),
+    STMT(INVALID, "")
+  )
+) :-
+  preTrans.ThrowJump(jmp),
+  preTrans.JUMP(jmp).
+
+// This one removes conditional "throw jumps"
+insertor.removeOp(jmp),
+insertor.insertOps(jmp,
+  LIST(
+    STMT(POP, ""),
+    STMT(PUSH4, MAKE_LABEL_REFERENCE(jmp)),
+    STMT(JUMPI, ""),
+    STMT(JUMPDEST, MAKE_LABEL_REFERENCE(jmp)),
+    STMT(INVALID, "")
+  )
+) :-
+  preTrans.ThrowJump(jmp),
+  preTrans.JUMPI(jmp).
+
+// This one removes conditional jumps that "always" jump
+insertor.removeOp(jmpi),
+insertor.insertOps(jmpi,
+  LIST(
+    STMT(SWAP1, ""),
+    STMT(POP, ""),
+    STMT(JUMP, "")
+  )
+) :-
+  preTrans.AlwaysJumps(jmpi).
 
 insertor.removeOp(codeCopy),
 insertor.removeOp(mload),
@@ -261,11 +298,10 @@ FallthroughEdge(caller, @cast_to_symbol(fallthrough)),
 BlockEdge(callerCtx, caller, calleeCtx, @cast_to_symbol(fallthrough)) :-
   ReachableContext(callerCtx, caller),
   MergeContext(callerCtx, caller, calleeCtx),
-  postTrans.FallthroughStmt(stmt),
-  postTrans.Statement_Block(stmt, caller),
-  postTrans.Statement_Next(stmt, fallthrough),
-  postTrans.IsBasicBlockHead(fallthrough).
-  .plan 1:(2,1,3,4,5,6)
+  postTrans.FallthroughStmt(stmt, fallthrough),
+  postTrans.IsBasicBlockHead(fallthrough),
+  postTrans.Statement_Block(stmt, caller).
+  .plan 1:(2,1,3,4,5)
 
 BlockEdge(callerCtx, caller, calleeCtx, callee) :-
   BlockJumpValidTarget(callerCtx, caller, _, callee),

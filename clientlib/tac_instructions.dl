@@ -252,11 +252,6 @@ JUMPI(stmt, dest, condVar) :-
 THROW(stmt) :-
   Statement_Opcode(stmt, "THROW").
 
-.decl THROWI(stmt:Statement, condVar:Variable)
-THROWI(stmt, condVar) :-
-  Statement_Opcode(stmt, "THROWI"),
-  Statement_Uses(stmt, condVar, 0).
-
 .decl REVERT(stmt:Statement, memStart:Variable, memLength:Variable)
 REVERT(stmt, memStart, memLength) :-
   Statement_Opcode(stmt, "REVERT"),
