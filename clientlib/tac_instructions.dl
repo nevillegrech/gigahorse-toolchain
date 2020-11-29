@@ -114,11 +114,6 @@ RuntimeKnowable("BLOCKHASH").
 RuntimeKnowable("NUMBER").
 RuntimeKnowable("TIMESTAMP").
 
-.decl IsThrow(stmt:Statement)
-IsThrow(stmt) :- Statement_Opcode(stmt, "THROW").
-IsThrow(stmt) :- Statement_Opcode(stmt, "THROWI").
-
-
 .decl StatementStoresMemory(stmt: Statement)
 
 StatementStoresMemory(stmt) :-

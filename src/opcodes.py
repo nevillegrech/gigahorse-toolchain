@@ -119,7 +119,7 @@ class OpCode:
     
     def is_exception(self) -> bool:
         """Predicate: opcode causes the EVM to throw an exception."""
-        return (self.code in (THROW.code, THROWI.code, REVERT.code)) \
+        return (self.code in (INVALID.code, REVERT.code)) \
                 or self.is_invalid()
 
     def halts(self) -> bool:
