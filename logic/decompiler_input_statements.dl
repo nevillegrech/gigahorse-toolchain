@@ -423,6 +423,9 @@ EXTCODEHASH(stmt) :- Statement_Opcode(stmt, "EXTCODEHASH").
 .decl CHAINID(stmt: Statement)
 CHAINID(stmt) :- Statement_Opcode(stmt, "CHAINID").
 
+.decl SELFBALANCE(stmt: Statement)
+SELFBALANCE(stmt) :- Statement_Opcode(stmt, "SELFBALANCE").
+
 .decl TXGASPRICE(stmt: Statement)
 TXGASPRICE(stmt) :- Statement_Opcode(stmt, "TXGASPRICE").
 
