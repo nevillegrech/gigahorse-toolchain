@@ -288,8 +288,8 @@ MaybeInFunctionUnderContext(ctx, func, func) :-
 MaybeInFunctionUnderContext(ctx, next, func) :-
   MaybeInFunctionUnderContext(prevCtx, block, func),
   BlockEdge(prevCtx, block, ctx, next),
-  //!IsFunctionCall(block, next),         //REVIEW: Too general
-  !IsPublicFunctionCall(block, next),     //REVIEW: Maybe unneeded?
+  // Not binding 'block' to cover case where fallback is reached from more than one prev blocks
+  !IsPublicFunctionCall(_, next),
   !IsPrivateFunctionCall(prevCtx, block, next),
   !IsReturn(prevCtx, block, next).
 
