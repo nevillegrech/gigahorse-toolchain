@@ -1,0 +1,616 @@
+#pragma once
+#define DATA_STRUCTURE_SUPPORT
+
+#include "dominators.dl"
+#include "flows.dl"
+
+// data structure analysis requires better constant folding
+// Does constant folding for addition
+Variable_Value(resVar, @add_256(val0, val1)) :-
+  ADD(_, var0, var1, resVar),
+  Variable_Value(var0, val0),
+  Variable_Value(var1, val1).
+
+.decl LocalAlias(stmt1:Statement, var1:Variable, stmt2:Statement, var2:Variable)
+
+LocalAlias(stmt1, var1, stmt2, var2) :-
+  PostDominatesInBlock(stmt2, stmt1),
+  Statement_Uses(stmt1, var1, _),
+  Statement_Uses(stmt2, var2, _),
+  Variable_Value(var1, val),
+  Variable_Value(var2, val).
+      
+.decl KeyToOffset(keyVar:Variable, storeOffsetVar:Variable, keySize: Value)
+.decl NestedDataStructure(keyVar:Variable, storeOffsetVar:Variable, keySize: Value)
+
+// keyVar is a variable whose valued is SHA3ed to yield storeOffsetVar
+// In the case of an array, only a "fixed" offset is SHA'd
+// In the case of a map, a "key" is appended to a "fixed" offset and SHA'd.
+// We mostly ignore maps for now as these cannot be iterated
+// TODO: use alias analysis to improve soundness/precision
+
+.decl DataStructuresTempStmt(stmt: Statement)
+
+DataStructuresTempStmt(mstoreStmt),
+DataStructuresTempStmt(shaStmt),
+KeyToOffset(keyVar, storeOffsetVar, keySize) :-
+  SHA3(shaStmt, shaStart, keySizeVar, storeOffsetVar),
+  LocalAlias(mstoreStmt, shaStart2, shaStmt, shaStart),
+  MSTORE(mstoreStmt, shaStart2, keyVar),
+  Variable_Value(keySizeVar, keySize),
+  DataFlows(storeOffsetVar, index),
+  StorageIndexVar(index).
+
+// Same, but in this instance storage is not used
+DataStructuresTempStmt(mstoreStmt),
+DataStructuresTempStmt(shaStmt),
+KeyToOffset(keyVar, storeOffsetVar, keySize) :-
+  SHA3(shaStmt, shaStart, keySizeVar, storeOffsetVar),
+  LocalAlias(mstoreStmt, shaStart2, shaStmt, shaStart),
+  MSTORE(mstoreStmt, shaStart2, keyVar),
+  Variable_Value(keySizeVar, keySize),
+  KeyToOffset(_, _, keySize).
+
+
+NestedDataStructure(keyVar1, storeOffsetVar2, keySize),
+KeyToOffset(keyVar1, storeOffsetVar2, keySize) :-
+  KeyToOffset(keyVar1, storeOffsetVar1, _),
+  DataFlows(storeOffsetVar1, keyVar2),
+  KeyToOffset(keyVar2, storeOffsetVar2, keySize).
+//#endif
+
+
+.decl StorageIndexVar(index: Variable)
+
+StorageIndexVar(index) :-
+  SSTORE(_, index, _) ;
+  SLOAD(_, index, _).      
+
+.decl ArrayIdToStorageIndex(c:Value, storeOffsetVar:Variable)
+
+// the constant value that’s SHA3ed to yield storeOffsetVar is c
+ArrayIdToStorageIndex(const, storeOffsetVar) :-
+   // Remember that the length of a key is the same as the word length (32)
+   KeyToOffset(keyVar, storeOffsetVar, "0x20"),
+   Variable_Value(keyVar, const).
+
+.decl MapKeyToStorageIndex(keyVar:Variable, storeOffsetVar:Variable)
+
+MapKeyToStorageIndex(keyVar, storeOffsetVar) :-
+   KeyToOffset(keyVar, storeOffsetVar, "0x40").
+
+.decl MapIdToStorageIndex(keyVar:Value, storeOffsetVar:Variable)
+
+DataStructuresTempStmt(mstoreStmt),
+MapIdToStorageIndex(mapId, storeOffsetVar) :-
+   KeyToOffset(_, storeOffsetVar, "0x40"),
+   MSTORE(mstoreStmt, mstoreStart, idVar),
+   Variable_Value(mstoreStart, "0x20"),
+   Statement_Defines(shaStmt, storeOffsetVar, _),
+   PostDominatesInBlock(shaStmt, mstoreStmt),
+   Variable_Value(idVar, mapId).
+
+.decl MapElementStmt(stmt: Statement, id: Value, keyVar: Variable)
+
+MapElementStmt(stmt, id, keyVar) :-
+   (SSTORE(stmt, index, _) ; SLOAD(stmt, index, _)),
+   MapIdToStorageIndex(id, index),
+   MapKeyToStorageIndex(keyVar, index).
+
+/***
+ Map with string keys
+****/
+DEBUG_OUTPUT(MapElementStmt)
+
+#ifdef MEMORY_MODELING_SUPPORT
+MapElementStmt(stmt, mapId, fromArray):-
+  (SSTORE(stmt, storeIndex, _) ; SLOAD(stmt, storeIndex, _)),
+  SHA3(_, arrVar, _, storeIndex),
+  RawDataArrayVar_ClassRep(arrVar, arrId),
+  PossibleArrayCopy(_, _, arrId, fromArray),
+  ArrayStore(_, arrId, mapIdVar),
+  Variable_Value(mapIdVar, mapId).
+#endif
+                
+.decl MapElementElementStmt(stmt: Statement, id: Value, keyVar: Variable, element: Variable)
+
+MapElementElementStmt(stmt, id, keyVar, elementVar) :-
+   (SSTORE(stmt, storeIndex, _) ; SLOAD(stmt, storeIndex, _)),
+   (ADD(_, index, elementVar, storeIndex) ; ADD(_, elementVar, index, storeIndex)),
+   MapIdToStorageIndex(id, index),
+   MapKeyToStorageIndex(keyVar, index).
+
+.decl ArrayElementStmt(stmt: Statement, id: Value, indexVar: Variable)
+
+ArrayElementStmt(stmt, id, keyVar) :-
+   (SSTORE(stmt, storeIndex, _) ; SLOAD(stmt, storeIndex, _)),
+   (ADD(_, index, keyVar, storeIndex) ; ADD(_, keyVar, index, storeIndex)),
+   ArrayIdToStorageIndex(id, index).
+
+.decl ArraySizeStmt(stmt:Statement, const:Value)
+
+ArraySizeStmt(stmt, const) :-
+  (SLOAD(stmt, index, _) ; SSTORE(stmt, index, _)),
+  Variable_Value(index, const),
+  ArrayIdToStorageIndex(const, _).
+
+.decl AppendToArray(storeStmt: Statement, const: Value)
+
+AppendToArray(storeStmt, const) :-
+  ArrayIdToStorageIndex(const, index),
+  Variable_Value(sizeIndex, const),
+  SLOAD(_, sizeIndex, size), // TODO check 
+  DataFlows(size, newIndex),
+  DataFlows(index, newIndex),
+  SSTORE(storeStmt, newIndex, _). 
+
+.decl LoadFromDataStructure(stmt: Statement, id: Value, keyVar: Variable, var: Variable)
+.decl StoreToDataStructure(stmt: Statement, id: Value, var: Variable)
+
+
+LoadFromDataStructure(stmt, id, keyVar, var) :-
+   (MapElementStmt(stmt, id, keyVar) ;
+    ArrayElementStmt(stmt, id, keyVar) ;
+    MapElementElementStmt(stmt, id, keyVar, _)),
+  SLOAD(stmt, _, var).
+
+
+StoreToDataStructure(stmt, id, var) :-
+   (MapElementStmt(stmt, id, _) ;
+    ArrayElementStmt(stmt, id, _) ;
+    MapElementElementStmt(stmt, id, _, _)),
+  SSTORE(stmt, _, var).
+
+
+.decl PossibleArraySizeVariable(resVar:Variable, const:Value)
+
+// resVar is possibly the size of an array identified by const: when reading directly at address const,
+// we get the size of an array. When we want its contents, we need to take the SHA3 of const.
+PossibleArraySizeVariable(resVar, const) :-
+  SLOAD(_, index, resVar),
+  Variable_Value(index, const),
+  ArrayIdToStorageIndex(const, _).
+
+
+#ifdef MEMORY_MODELING_SUPPORT
+/***
+ New Storage Model
+ Aims to support arbituary nested data structures
+***/
+
+#define STORAGE_CONSTRUCT(kind, parCons, index) cat(cat(cat(cat(kind ,"++["), parCons), "]++"), to_string(index))
+
+.type CompositeStorageIndex <: symbol
+
+.type CompositeStorageIndexInfo = [kind:symbol, cons:StorageIndex, index:number]
+
+.type ConstantStorageIndex = Value
+
+.type StorageIndex = CompositeStorageIndex | ConstantStorageIndex
+
+.type StorageConstruct = [kind:symbol, index:StorageIndex]
+
+.decl CompositeStorageIndex_Info(cons:CompositeStorageIndex, info:CompositeStorageIndexInfo)
+
+.decl IsStorageIndex(construct:StorageIndex, parentCons:StorageIndex)
+
+.decl PossibleStorageIndex(construct:StorageIndex, parentCons:StorageIndex)
+
+//.decl OffsetStorageIndex(construct:StorageIndex, parentCons:StorageIndex, offset:number)
+
+.decl StorageAccessStmt(stmt:Statement, cons:StorageIndex, key:Variable)
+
+.decl Variable_StorageIndex(var:Variable, construct:StorageIndex)
+
+.decl IsStorageConstruct(cons:StorageConstruct)
+
+//.output PossibleStorageIndex, IsStorageIndex, IsStorageConstruct
+
+PossibleStorageIndex(val, "GLOBALSCOPE"),
+Variable_StorageIndex(var, val):-
+  Variable_Value(var, val).
+
+PossibleStorageIndex(cons, parentCons),
+Variable_StorageIndex(def, cons),
+CompositeStorageIndex_Info(cons, [kind, parentCons, index]):-
+  Variable_StorageIndex(arg2, sameParCons),
+  CompositeStorageIndex_Info(sameParCons, [kind, parentCons, oldIndex]),
+  ADDFix(_, arg2, constVar, def),
+  Variable_Value(constVar, const),
+  index = @hex_to_number(const) + oldIndex,
+  cons = STORAGE_CONSTRUCT(kind, parentCons, index).
+
+PossibleStorageIndex(cons, parentCons),
+Variable_StorageIndex(def, cons),
+StorageAccessStmt(stmt, cons, arg1),
+CompositeStorageIndex_Info(cons, ["MAP", parentCons, 0]):-
+  Variable_StorageIndex(arg2, parentCons),
+  SHA3_2ARG(stmt, arg1, arg2, def),
+  cons = STORAGE_CONSTRUCT("MAP", parentCons, 0).
+
+PossibleStorageIndex(cons, parentCons),
+Variable_StorageIndex(def, cons),
+StorageAccessStmt(stmt, cons, var),
+CompositeStorageIndex_Info(cons, ["ARRAY", parentCons, 0]):-
+  Variable_StorageIndex(arg, parentCons),
+  SHA3_1ARG(_, arg, shaDef),
+  ADDFix(stmt, shaDef, varTimesConst, def),
+  VarTimesConstant(var, _, varTimesConst),
+  cons = STORAGE_CONSTRUCT("ARRAY", parentCons, 0).
+
+PossibleStorageIndex(cons, parentCons),
+Variable_StorageIndex(def, cons),
+StorageAccessStmt(stmt, cons, index),
+CompositeStorageIndex_Info(cons, ["ARRAY", parentCons, 0]):-
+  Variable_StorageIndex(arg, parentCons),
+  SHA3_1ARG(_, arg, shaDef),
+  ADDFix(stmt, shaDef, index, def),
+  !VarTimesConstant(_, _, index),
+  cons = STORAGE_CONSTRUCT("ARRAY", parentCons, 0).
+
+IsStorageIndex(cons, parentCons):-
+  Variable_StorageIndex(var, cons),
+  PossibleStorageIndex(cons, parentCons),
+  (SLOAD(_, var, _) ; SSTORE(_, var, _)).
+
+IsStorageIndex(parentCons, parentParentCons):-
+  IsStorageIndex(_, parentCons),
+  PossibleStorageIndex(parentCons, parentParentCons).
+
+IsStorageConstruct(["VAR", index]):-
+  IsStorageIndex(index, _),
+  !IsStorageIndex(_, index).
+
+IsStorageConstruct([kind, parIndex]):-
+  IsStorageIndex(index, parIndex),
+  CompositeStorageIndex_Info(index, [kind, _, _]).
+
+#endif
+
+.decl BytesOrStringLength(storVar:symbol, lenVar:Variable)
+//.output BytesOrStringLength
+
+BytesOrStringLength(storVar, lenVar):-
+  VarHoldsBytesOfStorVar(storLoad, _, storVar, 0, 31),
+  (AND(_, storLoad, oneVar, lastBitVar) ; AND(_, oneVar, storLoad, lastBitVar)),
+  Variable_Value(oneVar, "0x1"),
+  ISZERO(_, lastBitVar, notLastBitVar),
+  LShiftBytes(shiftStmt, notLastBitVar, 1),
+  Statement_Defines(shiftStmt, shifted, 0),
+  SUB(_, shifted, otherOneVar, minOne),
+  Variable_Value(otherOneVar, "0x1"),
+  (AND(_, minOne, storLoad, almost) ; AND(_, storLoad, minOne, almost)),
+  DIV(_, almost, twoVar, lenVar),
+  Variable_Value(twoVar, "0x2").
+
+
+.decl KnownLoad(stmt: Statement, addr: Value, var: Variable)
+
+KnownLoad(stmt, addr, var) :-
+  LoadFromDataStructure(stmt, addr, _, var).
+
+KnownLoad(stmt, constaddr, src) :-
+  SLOAD(stmt, idx, src),
+  Variable_Value(idx, constaddr).
+
+.decl KnownStore(stmt: Statement, addr: Value, var: Variable)
+
+KnownStore(stmt, addr, var) :-
+  StoreToDataStructure(stmt, addr, var).
+
+KnownStore(stmt, constaddr, src) :-
+  SSTORE(stmt, idx, src),
+  Variable_Value(idx, constaddr).
+
+.decl ValueWithEvenLength(val:Value, len:number)
+.decl ValueMasksOrKeepsByteAtIndex(val:Value, masksOrKeeps:number, byte:number)
+.decl ValueIsByteMask(val:Value)
+.decl ByteMask_ZerosMinMax(val:Value, minV:number, maxV:number)
+.decl ValueIsNotAntiByteMask(val:Value)
+.decl AntiByteMask(val:Value, low:number, high:number)
+
+
+ValueWithEvenLength(val, len):-
+  Variable_Value(_, val),
+  len = strlen(val),
+  len % 2 = 0.
+
+ValueMasksOrKeepsByteAtIndex(val, res, (len - i - 2)/2):-
+  ValueWithEvenLength(val, len),
+  i = range(2, len - 1, 2),
+  sub = substr(val, i, 2),
+  (
+    (sub = "ff", res = 1) ;
+    (sub = "00", res = 0) ;
+    (sub != "00", sub != "ff", res = -1)
+  ).
+
+ValueIsByteMask(val):-
+  ValueWithEvenLength(val, _),
+  !ValueMasksOrKeepsByteAtIndex(val, -1, _).
+
+ByteMask_ZerosMinMax(val, minV, maxV):-
+  ValueIsByteMask(val),
+  minV = min i : ValueMasksOrKeepsByteAtIndex(val, 0, i),
+  maxV = max i : ValueMasksOrKeepsByteAtIndex(val, 0, i).
+
+ValueIsNotAntiByteMask(val):-
+  ByteMask_ZerosMinMax(val, low, high),
+  ValueMasksOrKeepsByteAtIndex(val, 1, i), 
+  i >= low,
+   i < high.
+
+AntiByteMask(val, low, high):-
+  ByteMask_ZerosMinMax(val, low, high),
+  !ValueIsNotAntiByteMask(val).
+
+.decl ShiftConst(val:Value, shiftBytes:number)
+.decl RShiftBytes(stmt:Statement, shiftedVar:Variable, bytes:number)
+.decl LShiftBytes(stmt:Statement, shiftedVar:Variable, bytes:number)
+.decl CastedAndShiftedVar(originVar:Variable, toVar:Variable, shiftedBy:number, castedTo:number)
+
+.decl LowBytesMaskOp(fromVar:Variable, toVar:Variable, maskLen:number)
+.output LowBytesMaskOp, AntiMaskOp
+
+.decl AntiMaskOp(fromVar:Variable, toVar:Variable, byteLow:number, byteHigh:number) 
+
+/* Not actually a byte mask but a boolean cast */
+LowBytesMaskOp(from, to, 1):-
+  ISZERO(_, from, tmp),
+  ISZERO(_, tmp, to).
+
+
+LowBytesMaskOp(from, to, castedTo):-
+  ValueIsByteMask(mask),
+  Mask_Length(mask, castedTo),
+  Variable_Value(maskVar, mask),
+  (AND(_, from, maskVar, to) ; AND(_, maskVar, from, to)).
+
+AntiMaskOp(originVar, to, byteLow, byteHigh):-
+  (AND(_, antiMaskVar, originVar, to) ; AND(_, originVar, antiMaskVar, to)),
+  Variable_Value(antiMaskVar, antiMask),
+  AntiByteMask(antiMask, byteLow, byteHigh).
+
+AntiMaskOp(originVar, to, byteLow, byteHigh):-
+  AntiMaskOp(originVar, mid, byteLow, byteHigh),
+  (AND(_, antiMaskVar, mid, to) ; AND(_, mid, antiMaskVar, to)),
+  Variable_Value(antiMaskVar, antiMask),
+  AntiByteMask(antiMask, byteLow, byteHigh).
+
+//.output RShiftBytes, LShiftBytes, VarHoldsBytesOfStorVar, CastedAndShiftedVar
+
+ShiftConst("0x1", 0).
+
+ShiftConst(val, n+1):-
+  ShiftConst(oldVal, n),
+  val = cat(oldVal, "00"),
+  n < 30.
+
+RShiftBytes(stmt, shiftedVar, bytes):-
+  DIV(stmt, shiftedVar, var, _),
+  Variable_Value(var, shitftConst),
+  ShiftConst(shitftConst, bytes).
+
+LShiftBytes(stmt, shiftedVar, bytes):-
+  ( MUL(stmt, shiftedVar, var, _); MUL(stmt, var, shiftedVar, _)),
+  Variable_Value(var, shitftConst),
+  ShiftConst(shitftConst, bytes).
+
+RShiftBytes(stmt, shiftedVar, @hex_to_number(shitftBits) % 8):-
+  SHR(stmt, var, shiftedVar, _),
+  Variable_Value(var, shitftBits),
+  @hex_to_number(shitftBits) % 8 = 0.
+
+LShiftBytes(stmt, shiftedVar, @hex_to_number(shitftBits) % 8):-
+  SHL(stmt, var, shiftedVar, _),
+  Variable_Value(var, shitftBits),
+  @hex_to_number(shitftBits) % 8 = 0.
+
+CastedAndShiftedVar(originVar, toVar, shiftedBy, castedTo):-
+  LowBytesMaskOp(originVar, castedVar, castedTo),
+  LShiftBytes(stmt, castedVar, shiftedBy),
+  Statement_Defines(stmt, toVar, 0).
+
+CastedAndShiftedVar(caller, caller, 0, 20):-
+  CALLER(_, caller).
+
+.decl VarHoldsBytesOfStorVar(var:Variable, srcLoad:Statement, storVar:symbol, byteLow:number, byteHigh:number)
+
+.decl VarHoldsBytesOfStorVarFinal(var:Variable, srcLoad:Statement, storVar:symbol, byteLow:number, byteHigh:number)
+.output VarHoldsBytesOfStorVarFinal
+
+VarHoldsBytesOfStorVar(to, load, storVar, 0, 31):-
+  SLOAD(load, index, to),
+  Variable_Value(index, storVar).
+
+VarHoldsBytesOfStorVar(to, load, storVar, low + bytes, high):-
+  VarHoldsBytesOfStorVar(shiftedVar, load, storVar, low, high),
+  RShiftBytes(stmt, shiftedVar, bytes),
+  Statement_Defines(stmt, to, 0).
+
+VarHoldsBytesOfStorVar(to, load, storVar, low, newHigh):-
+  VarHoldsBytesOfStorVar(var, load, storVar, low, high),
+  newHigh = min(high, low + maskLen - 1),
+  LowBytesMaskOp(var, to, maskLen).
+
+VarHoldsBytesOfStorVarFinal(var, load, storVar, low, high):-
+  VarHoldsBytesOfStorVar(var, load, storVar, low, high),
+  //!LShiftBytes(_, var, _),
+  !RShiftBytes(_, var, _),
+  !LowBytesMaskOp(var, _, _),
+  !AntiMaskOp(var, _, _, _).
+
+.decl AnyLoadStoreStorVarBytes(loadOrStore:Statement, storVar:symbol, low:number, high:number)
+
+.decl FailedMergedStorageModeling(storVar:symbol)
+//.output FailedMergedStorageModeling
+.decl SuccessfulMergedStorageModeling(storVar:symbol)
+
+.decl LoadOrStoreToStoreVar(stmt:Statement, storVar:symbol)
+
+AnyLoadStoreStorVarBytes(stmt, storVar, low, high):-
+  VarHoldsBytesOfStorVarFinal(_, stmt, storVar, low, high);
+  VarWrittenToBytesOfStorVar(_, stmt, _, storVar, low, high);
+  ConstWrittenToBytesOfStorVar(_, _, stmt, _, storVar, low, high).
+
+FailedMergedStorageModeling(storVar):-
+  AnyLoadStoreStorVarBytes(_, storVar, low, high),
+  AnyLoadStoreStorVarBytes(_, storVar, otherLow, otherHigh),
+  !ArrayIdToStorageIndex(@cast_to_symbol(storVar), _),
+  (low != otherLow ; high != otherHigh),
+  ( (low < otherLow , otherLow < high) ; (low < otherHigh, otherHigh < high) ).
+
+LoadOrStoreToStoreVar(stmt, storVar):-
+  (SLOAD(stmt, index, _) ; SLOAD(stmt, index, _)),
+  Variable_Value(index, storVar).
+
+//.output LoadOrStoreToStoreVar, AnyLoadStoreStorVarBytes, CastedAndShiftedVar
+
+FailedMergedStorageModeling(storVar):-
+  AnyLoadStoreStorVarBytes(_, storVar, _, _),
+  LoadOrStoreToStoreVar(stmt, storVar),
+  !AnyLoadStoreStorVarBytes(stmt, storVar, _, _),
+  !VarWrittenToBytesOfStorVar(_, _, stmt, storVar, _, _),
+  !ConstWrittenToBytesOfStorVar(_, _, _, stmt, storVar, _, _),
+  !ArrayIdToStorageIndex(@cast_to_symbol(storVar), _).
+
+
+SuccessfulMergedStorageModeling(storVar):-
+  AnyLoadStoreStorVarBytes(_, storVar, _, _),
+  !FailedMergedStorageModeling(storVar),
+  !ArrayIdToStorageIndex(@cast_to_symbol(storVar), _).
+
+.decl VarWrittenToBytesOfStorVar(var:Variable, store:Statement, load:Statement, storVar:symbol, byteLow:number, byteHigh:number)
+.output VarWrittenToBytesOfStorVar
+
+.decl VarWrittenToBytesOfStorVarIsMergedVar(var:Variable, modeledVar:Variable, store:Statement, load:Statement, storVar:symbol, byteLow:number, byteHigh:number)
+.output VarWrittenToBytesOfStorVarIsMergedVar
+
+.decl VarWrittenToBytesOfStorVarFinal(var:Variable, store:Statement, load:Statement, storVar:symbol, byteLow:number, byteHigh:number)
+.output VarWrittenToBytesOfStorVarFinal
+
+.decl ConstWrittenToBytesOfStorVar(constVar:Variable, const:Value, store:Statement, load:Statement, storVar:symbol, byteLow:number, byteHigh:number)
+.output ConstWrittenToBytesOfStorVar
+
+VarWrittenToBytesOfStorVar(writtenVar, store, load, storVar, byteLow, byteHigh):-
+  VarHoldsBytesOfStorVar(originVar, load, storVar, 0, 31),
+  AntiMaskOp(originVar, oldMasked, byteLow, byteHigh),
+  CastedAndShiftedVar(writtenVar, toVar, byteLow, byteHigh - byteLow + 1),
+  (OR(_, toVar, oldMasked, storedVar) ; OR(_, oldMasked, toVar, storedVar)),
+  SSTORE(store, index, storedVar),
+  Variable_Value(index, storVar).
+
+VarWrittenToBytesOfStorVar(writtenVar, store, load, storVar, 0, byteHigh):-
+  VarHoldsBytesOfStorVar(originVar, load, storVar, 0, 31),
+  AntiMaskOp(originVar, oldMasked, 0, byteHigh),
+  LowBytesMaskOp(writtenVar, toVar, byteHigh + 1),
+  (OR(_, toVar, oldMasked, storedVar) ; OR(_, oldMasked, toVar, storedVar)),
+  SSTORE(store, index, storedVar),
+  Variable_Value(index, storVar).
+
+/**
+ Special case to fix a bug when writting from one storage location to another,
+**/
+VarWrittenToBytesOfStorVarIsMergedVar(writtenVar, modeledVar, store, load, storVar, 0, byteHigh):-
+  VarWrittenToBytesOfStorVar(writtenVar, store, load, storVar, 0, byteHigh),
+  Statement_Defines(otherLoad, writtenVar, 0),
+  VarHoldsBytesOfStorVar(modeledVar, otherLoad, _, 0, byteHigh),
+  Statement_Uses(store, storedVar, 1),
+  DataFlows(modeledVar, storedVar).
+
+VarWrittenToBytesOfStorVarFinal(modeledVar, store, load, storVar, byteLow, byteHigh):-
+  VarWrittenToBytesOfStorVar(writtenVar, store, load, storVar, byteLow, byteHigh),
+  VarWrittenToBytesOfStorVarIsMergedVar(writtenVar, modeledVar, store, load, storVar, byteLow, byteHigh).
+
+VarWrittenToBytesOfStorVarFinal(writtenVar, store, load, storVar, byteLow, byteHigh):-
+  VarWrittenToBytesOfStorVar(writtenVar, store, load, storVar, byteLow, byteHigh),
+  !VarWrittenToBytesOfStorVarIsMergedVar(writtenVar, _, store, load, storVar, byteLow, byteHigh).
+
+
+ConstWrittenToBytesOfStorVar(constVar, @shr_256(@number_to_hex(byteLow * 8), const), store, load, storVar, byteLow, byteHigh):-
+  VarHoldsBytesOfStorVar(originVar, load, storVar, 0, 31),
+  AntiMaskOp(originVar, oldMasked, byteLow, byteHigh),
+  (OR(_, constVar, oldMasked, storedVar) ; OR(_, oldMasked, constVar, storedVar)),
+  Variable_Value(constVar, const),
+  SSTORE(store, index, storedVar),
+  Variable_Value(index, storVar),
+  !VarWrittenToBytesOfStorVar(_, store, _, storVar, _, _).
+
+ConstWrittenToBytesOfStorVar("0xNoVar", "0x0", store, load, storVar, byteLow, byteHigh):-
+  VarHoldsBytesOfStorVar(originVar, load, storVar, 0, 31),
+  AntiMaskOp(originVar, storedVar, byteLow, byteHigh),
+  SSTORE(store, index, storedVar),
+  Variable_Value(index, storVar).
+
+/*
+ * Global Variables
+ */
+
+
+.decl GlobalVariable(v: Value)
+
+.decl LoadGlobalVariable(stmt: Statement, val: Value, var: Variable)
+
+.decl StoreGlobalVariable(stmt: Statement, val: Value, var: Variable)
+
+
+
+/* Old logic
+GlobalVariable(v) :-
+  SLOAD(_, index, _),
+  Variable_Value(index, v).
+*/
+
+GlobalVariable(v):-
+  LoadGlobalVariable(_, v, _) ;
+  StoreGlobalVariable(_, v, _).
+
+
+LoadGlobalVariable(stmt, val, var):-
+  SLOAD(stmt, index, var),
+  Variable_Value(index, val),
+  FailedMergedStorageModeling(val).
+
+LoadGlobalVariable(stmt, @cast_to_symbol(storVar), var):-
+  SuccessfulMergedStorageModeling(storVar),
+  VarHoldsBytesOfStorVarFinal(var, _, storVar, 0, 31),
+  Statement_Defines(stmt, var, 0).
+
+LoadGlobalVariable(stmt, v, var):-
+  SuccessfulMergedStorageModeling(storVar),
+  VarHoldsBytesOfStorVarFinal(var, _, storVar, low, high),
+  Statement_Defines(stmt, var, 0),
+  (low != 0 ; high != 31),
+  v = cat(storVar, cat("_", cat(to_string(low), cat("_", to_string(high))))).
+
+StoreGlobalVariable(stmt, val, var):-
+  SSTORE(stmt, index, var),
+  Variable_Value(index, val),
+  FailedMergedStorageModeling(val).
+
+StoreGlobalVariable(stmt, storVar, var):-
+  SSTORE(stmt, index, var),
+  Variable_Value(index, storVar),
+  SuccessfulMergedStorageModeling(storVar),
+  VarHoldsBytesOfStorVarFinal(_, _, storVar, 0, 31).
+
+StoreGlobalVariable(store, v, writtenVar):-
+  SuccessfulMergedStorageModeling(storVar),
+  VarWrittenToBytesOfStorVarFinal(writtenVar, store, _, storVar, byteLow, byteHigh),
+  v = cat(storVar, cat("_", cat(to_string(byteLow), cat("_", to_string(byteHigh))))).
+
+StoreGlobalVariable(store, v, constVar):-
+  SuccessfulMergedStorageModeling(storVar),
+  ConstWrittenToBytesOfStorVar(constVar, _, store, _, storVar, byteLow, byteHigh),
+  v = cat(storVar, cat("_", cat(to_string(byteLow), cat("_", to_string(byteHigh))))).
+
+
+/**
+  Temp statements for the source decompiler to hide
+**/
+
+DataStructuresTempStmt(load):-
+  SuccessfulMergedStorageModeling(storVar),
+  VarHoldsBytesOfStorVarFinal(var, load, storVar, _, _),
+  Statement_Defines(stmt, var, 0),
+  stmt != load.

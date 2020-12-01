@@ -1,0 +1,77 @@
+#pragma once
+
+//// ** Recognize structured loops and related stuff **
+
+.decl StructuredLoopBackEdge(from:Block, to:Block)
+.decl StructuredLoopHead(s:Block)
+
+StructuredLoopBackEdge(from,to),
+StructuredLoopHead(to) :-
+  LocalBlockEdge(from,to),
+  Dominates(to,from).
+
+// Detect a loop body *without* also capturing surrounding loops (i.e., not just SCC)
+.decl BlockInStructuredLoop(s:Block, loophead:Block)
+BlockInStructuredLoop(backEdgeNode,loophead) :- StructuredLoopBackEdge(backEdgeNode,loophead).
+BlockInStructuredLoop(loophead,loophead) :- StructuredLoopHead(loophead).
+
+// Can reach back edge node without going through loop head!
+BlockInStructuredLoop(s,loophead) :-
+  BlockInStructuredLoop(other,loophead),
+  LocalBlockEdge(s,other),
+  other != loophead.
+
+.decl ContainsInnerStructuredLoop(loophead: Block, innerLoopHead: Block)
+ContainsInnerStructuredLoop(loophead,innerLoopHead) :-
+  StructuredLoopHead(loophead),
+  StructuredLoopHead(innerLoopHead),
+  BlockInStructuredLoop(innerLoopHead,loophead),
+  innerLoopHead != loophead.
+
+
+.decl StatementInStructuredLoop(s: Statement, loop: Block)
+
+StatementInStructuredLoop(s, loop) :-
+   BlockInStructuredLoop(b, loop),
+   Statement_Block(s, b).
+   
+
+.decl InnermostStructuredLoop(loophead:Block)
+InnermostStructuredLoop(loophead) :-
+  StructuredLoopHead(loophead),
+  !ContainsInnerStructuredLoop(loophead,_).
+
+// condVar determines whether a loop is exited
+.decl LoopExitCond(condVar: Variable, loop: Block)
+
+// control flows to other block within the same function
+// TODO: need more info on consequent and alternative branches
+LoopExitCond(condVar, loop) :-
+   BlockInStructuredLoop(jmpiBlock, loop),
+   Block_Tail(jmpiBlock, jmpi),
+   JUMPI(jmpi, _, condVar),
+   LocalBlockEdge(jmpiBlock, out),
+   !BlockInStructuredLoop(out, loop),
+   LocalBlockEdge(jmpiBlock, in),
+   BlockInStructuredLoop(in, loop).
+
+.decl CanReachBlock(s:Block, t:Block)
+
+CanReachBlock(x, y), CanReachBlock(y, y), CanReachBlock(x, x) :- LocalBlockEdge(x, y).
+CanReachBlock(x, z) :- CanReachBlock(x, y), LocalBlockEdge(y, z).
+
+.decl InSameSCC(x:Block, y:Block)
+InSameSCC(y, y), InSameSCC(x, x) :- LocalBlockEdge(x, y).
+InSameSCC(x, y) :- CanReachBlock(x,y), CanReachBlock(y,x).
+
+.decl InSameSCCLoop(x:Block, y:Block)
+InSameSCCLoop(x, y) :- InSameSCC(x, y), (x != y ; LocalBlockEdge(x, y)).
+
+.decl BlockInSCCLoop(x:Block, scc: number)
+
+BlockInSCCLoop(x, scc) :-
+   IsBlock(x),
+   scc = min ord(y) : InSameSCCLoop(x, y).
+
+
+

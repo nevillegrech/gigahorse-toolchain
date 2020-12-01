@@ -1,0 +1,80 @@
+#pragma once
+
+// Both arguments are basic block heads
+// There is a path from the entry to s that does not go through candidate
+.decl DoesNotDominate(candidate:Block, b:Block)
+DoesNotDominate(candidate,s) :-
+  FunctionEntry(s),
+  InFunction(s, f), 
+  InFunction(candidate, f),
+  candidate != s.
+
+DoesNotDominate(notdom, s) :-
+  DoesNotDominate(notdom, other),
+  LocalBlockEdge(other, s), s != notdom.
+
+// Both arguments are basic block heads
+// There is a path from s to the exit that does not go through candidate
+.decl DoesNotPostDominate(candidate:Block, exitNode:Block)
+DoesNotPostDominate(candidate,exitNode) :-
+  FunctionExit(exitNode),
+  InFunction(exitNode, f),
+  InFunction(candidate, f),
+  exitNode != candidate.
+
+DoesNotPostDominate(candidate,s) :-
+  DoesNotPostDominate(candidate,other),
+  LocalBlockEdge(s, other),
+  s != candidate.
+
+// The Dominates/PostDominates relation is defined on basic blocks,
+// represented by their first instruction (Bhead). Defining
+// a dense quadratic relation, like Dominates, on individual
+// instructions would be expensive.
+.decl Dominates(dominator:Block, s:Block)
+Dominates(dominator,s) :-
+  InFunction(dominator, f),
+  InFunction(s, f),
+  !DoesNotDominate(dominator,s).
+
+.decl PostDominates(postdominator:Block, s:Block)
+PostDominates(postdominator,s) :-
+  InFunction(postdominator, f),
+  InFunction(s, f),
+  !DoesNotPostDominate(postdominator,s).
+
+.decl PostDominatesInBlock(stmt:Statement, stmt2: Statement)
+        
+PostDominatesInBlock(stmt2, stmt) :-
+  Statement_Next(stmt, stmt2),
+  Statement_Block(stmt, block),
+  Statement_Block(stmt2, block).
+
+PostDominatesInBlock(stmt3, stmt1) :-
+  PostDominatesInBlock(stmt2, stmt1),
+  Statement_Next(stmt2, stmt3),
+  Statement_Block(stmt2, block),
+  Statement_Block(stmt3, block).
+
+
+// Trivial but useful, and here is probably the right place
+.decl HappensAfter(next: Statement, stmt: Statement)
+.decl HappensAfterBase(next: Statement, stmt: Statement)
+
+HappensAfterBase(next, stmt) :-
+  Statement_Next(stmt, next),
+  Statement_Block(stmt, block),
+  Statement_Block(next, block).
+
+HappensAfterBase(nextstmt, stmt) :-
+  LocalBlockEdge(from, to),
+  Statement_Block(stmt, from),
+  Statement_Block(nextstmt, to).
+
+HappensAfter(next, stmt) :-
+  HappensAfterBase(next, stmt).
+  
+HappensAfter(nextnext, stmt) :-
+  HappensAfter(next, stmt),
+  HappensAfterBase(nextnext, next).
+

@@ -1,0 +1,198 @@
+#pragma once
+
+//
+// *** Data flow and dependency analysis ***
+//
+
+.comp GlobalFlowAnalysis {
+  .decl TransferOpcode(op: Opcode)
+  .decl InitialFlowVar(var: Variable)
+  .decl Flows(from:Variable, to:Variable)
+  .decl TransferBoundary(block: Block)
+      
+   // Maps formals args (or locals) to formal return args
+   Flows(x, x) :- InitialFlowVar(x).
+
+   //   Flows(x, y) :- Flows(_, x), PHI(_, x, y).
+   /// This is commented out on purpose and will be eliminated later!
+   /// Please don't put it back in without consulting--it will break
+   /// the type inference client. It will make no difference for most
+   /// other clients, since their TransferOpcodes include PHIs anyway.
+
+   Flows(x, y) :-
+     Flows(_, x),
+     Statement_Uses(stmt, x, _),
+     Statement_Defines(stmt, y, _),
+     Statement_Opcode(stmt, op),
+     TransferOpcode(op),
+     Statement_Block(stmt, block),
+     TransferBoundary(block).
+
+   // Case: Flows from formal to formal return
+   Flows(actual, actualReturn) :-
+      FunctionFlowSummary(fn, formal, m),
+      FunctionCallReturn(block, fn, _),
+      FormalArgs(fn, formal, n),
+      ActualArgs(block, actual, n),
+      ActualReturnArgs(block, actualReturn, m),
+      TransferBoundary(block).
+   
+   // Case: Flows from local variable to formal return
+   Flows(variable, actualReturn) :-
+      FunctionFlowSummary(fn, variable, m),
+      FunctionCallReturn(block, fn, _),
+      !FormalArgs(fn, variable, _),
+      ActualReturnArgs(block, actualReturn, m),
+      TransferBoundary(block).
+   
+   // Recursive Case
+   Flows(x, z) :- Flows(x, y), Flows(y, z).
+      
+   
+   // Flows from variable to return argument
+   .decl FunctionFlowSummary(fn: Function, from:Variable, n:number)
+   
+   // Flow from local or formal to formal return
+   FunctionFlowSummary(fn, from, n) :-
+      Flows(from, to),
+      FormalReturnArgs(fn, to, n).
+   
+   // Case: flow within the same function, or back to local
+   
+   .decl GlobalFlows(from:Variable, to:Variable)
+   GlobalFlows(x, y) :- Flows(x, y).
+   
+   // Case: forward inter-procedural assignment only
+   GlobalFlows(x, y) :-
+      GlobalFlows(x, actual),
+      ActualArgs(caller, actual, n),
+      TransferBoundary(caller),
+      CallGraphEdge(caller, fn),
+      FormalArgs(fn, formal, n),
+      Flows(formal, y).
+}
+
+.init standardflowanalysis = GlobalFlowAnalysis
+standardflowanalysis.TransferOpcode(op) :- FlowOp(op).
+standardflowanalysis.InitialFlowVar(v) :- isVariable(v).
+standardflowanalysis.TransferBoundary(b) :- IsBlock(b).
+
+#define DataFlows standardflowanalysis.GlobalFlows
+
+// Need a custom data flow analysis? Of course you do!
+// Initialise this component and indicate with opcodes to use as transfer functions.
+// Also indicate the transfer boundary (e.g. Loop blocks for induction variables)
+.comp LocalFlowAnalysis {
+  .decl Flows(x: Variable, y: Variable)
+  .decl NonTransitiveFlows(x: Variable, y: Variable)
+
+  NonTransitiveFlows(x, x),
+  Flows(x, x) :- isVariable(x).
+
+  NonTransitiveFlows(x, y),
+  Flows(x, y) :-
+    TransferOpcodeArgument(op, n),
+    Statement_Opcode(stmt, op),
+    Statement_Block(stmt, block),
+    TransferBoundary(block),
+    Statement_Defines(stmt, y, _),
+    Statement_Uses(stmt, x, n).
+  
+  NonTransitiveFlows(x, y),
+  Flows(x, y) :-
+    TransferOpcode(op),
+    Statement_Opcode(stmt, op),
+    Statement_Block(stmt, block),
+    TransferBoundary(block),
+    Statement_Defines(stmt, y, _),
+    Statement_Uses(stmt, x, _).
+
+  Flows(x, z) :-
+    Flows(x, y),
+    Flows(y, z).
+    .plan 1:(2,1)
+
+  .decl TransferOpcodeArgument(op: Opcode, argument: number)
+  TransferOpcodeArgument(op, n) :- TransferOpcodeArgument(op, n). // suppress warning
+
+  .decl TransferOpcode(op: Opcode)
+  TransferOpcode("PHI"). // PHI instructions should always transfer
+
+  .decl TransferBoundary(block: Block)
+}
+
+// Note that this is an inter-procedural analysis with no context sensitivity
+// The value of x depends on the value of y
+// I.e. y is used to calculate x, either directly as an input of the operation
+// that defined x, or transitively.
+.init dependencyAnalysis = LocalFlowAnalysis
+
+dependencyAnalysis.TransferOpcode(op) :- Statement_Opcode(_, op).
+dependencyAnalysis.TransferBoundary(block) :- IsBlock(block).
+
+#define DependsOn dependencyAnalysis.Flows
+
+// x controls whether y is executed.
+.decl Controls(x:Statement, y:Block)
+
+.decl DecisionEdge(jmpi: Statement, w1: Block, w2: Block)
+
+DecisionEdge(jmpi, w1, w2) :-
+  LocalBlockEdge(x, w1),
+  FallthroughEdge(x, w2),
+  w1 != w2,
+  Block_Tail(x, jmpi),
+  JUMPI(jmpi, _, _).
+
+Controls(jmpi, y) :-
+  (DecisionEdge(jmpi, w1, w2) ; DecisionEdge(jmpi, w2, w1)),
+  Dominates(w2, y),
+  !Dominates(w1, y).
+
+Controls(x, z) :- Controls(x, y), Statement_Block(yjmp, y), Controls(yjmp, z). // Transitivity
+
+// var is the guard variable of some conditional jump or throw stmt
+.decl ConditionVar(var: Variable, stmt:Statement)
+ConditionVar(var, stmt) :- JUMPI(stmt, _, var).
+
+// x controls whether y executes by the value in condVar
+.decl ControlsWith(x:Statement, y:Block, condVar:Variable)
+ControlsWith(x, yHead, condVar) :-
+  Controls(x, yHead),
+  ConditionVar(condVar, x).
+
+.decl ThrowBlock(block: Block)
+
+ThrowBlock(revertblock) :-
+   Block_Tail(revertblock, revert),
+   (THROW(revert) ; REVERT(revert, _, _)).
+
+.decl NonLinearEdge(block: Block)
+
+NonLinearEdge(block) :-
+   GlobalBlockEdge(block, next),
+   GlobalBlockEdge(block, next2),
+   next2 != next.
+   
+ThrowBlock(block) :-
+   GlobalBlockEdge(block, next),
+   !NonLinearEdge(block),
+   ThrowBlock(next).
+
+.decl AddResult(b: Variable, d: Variable)
+
+AddResult(b, d) :-
+   (ADD(_, b, c, d) ; ADD(_, c, b, d)),
+   !NOT(_, _, c).   
+
+// calls
+.decl CallSuccessControlsException(callStmt:Statement, throwStmt: Statement)
+// The return value of a call (callStmt) controls
+// whether an exception is thrown by throwStmt
+// Either through a control dependency        
+CallSuccessControlsException(callStmt, throwStmt) :-
+  CallResult(resVar, callStmt),
+  DataFlows(resVar, condVar),
+  JUMPI(throwStmt, _, condVar),
+  ControlsWith(_, throwBlock, condVar),
+  ThrowBlock(throwBlock).

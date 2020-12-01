@@ -1,0 +1,51 @@
+#pragma once
+#include "loops.dl"
+#include "flows.dl"
+
+.init inductionVariableFlow = LocalFlowAnalysis
+
+inductionVariableFlow.TransferOpcode("AND").
+inductionVariableFlow.TransferBoundary(block) :- BlockInStructuredLoop(block, _).
+
+// A variable that is monotonically increasing with each successive iteration in loop
+.decl InductionVariable(v:Variable, loop: Block)
+
+// YS: strictly speaking, adding does not guarantee increasing...
+InductionVariable(inductionVar, loop) :-
+   (ADD(addStmt, v, _, x) ; ADD(addStmt, _, v, x)),
+   StatementInStructuredLoop(addStmt, loop),
+   inductionVariableFlow.Flows(x, v),
+   inductionVariableFlow.Flows(x, inductionVar).
+   //!VariabledDefinedByNonAddInLoop(v, loop).
+
+
+.decl VariabledDefinedByNonAddInLoop(v:Variable, loop:Block)
+// A variable that is defined by any statement other than ADD
+VariabledDefinedByNonAddInLoop(v, loop) :-
+   Statement_Defines(stmt, v, _),
+   StatementInStructuredLoop(stmt, loop),
+   !ADD(stmt, _, _, v),
+   !PHI(stmt, _, v),
+   !AND(stmt, _, _, v).
+
+VariabledDefinedByNonAddInLoop(v, loop) :-
+   VariabledDefinedByNonAddInLoop(v_in, loop),
+   PHI(stmt, v_in, v),
+   StatementInStructuredLoop(stmt, loop).
+
+.decl GlobalInductionVariableStore(storeVal:Value, loop:Block)
+
+GlobalInductionVariableStore(storeVal, loop) :-
+   SLOAD(loadStmt, index, var),
+   (ADD(addStmt, var, _, addvar) ; ADD(addStmt, _, var, addvar)),
+   SSTORE(storeStmt, index, addvar),
+   StatementInStructuredLoop(loadStmt, loop),
+   StatementInStructuredLoop(addStmt, loop),
+   StatementInStructuredLoop(storeStmt, loop),
+   Variable_Value(index, storeVal).
+
+InductionVariable(var, loop) :-
+  SLOAD(loadStmt, index, var),
+  Variable_Value(index, storeVal),
+  GlobalInductionVariableStore(storeVal, loop),
+  StatementInStructuredLoop(loadStmt, loop).

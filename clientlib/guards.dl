@@ -1,0 +1,94 @@
+#pragma once
+
+#include "data_structures.dl"
+#include "flows.dl"
+
+
+.decl StaticallyGuardedBlock(guardedBlock: Block, globalVal: Value)
+.output StaticallyGuardedBlock, Dominates
+StaticallyGuardedBlock(guardedBlock, globalVal) :-
+  ControlsWith(_, guardedBlock, predicate),
+  SenderGuard(globalVal, predicate).
+
+.decl EQVars(a: Variable, b: Variable, res: Variable)
+
+EQVars(a, b, res) :-
+   EQ(_, a, b, res) ; EQ(_, b, a, res).
+
+.decl SenderGuard(globalVal: Value, predicate: Variable)
+
+SenderGuard(cat("CONSTANT_", val), predicate) :-
+  (CALLER(_, msgsenderFrom) ; ORIGIN(_, msgsenderFrom)),
+  DataFlows(msgsenderFrom, msgsender),
+  EQVars(const, msgsender, predicateFrom),
+  Variable_Value(const, val),
+  DataFlows(predicateFrom, predicate).
+
+SenderGuard(globalVal, predicate) :-
+  (CALLER(_, msgsenderFrom) ; ORIGIN(_, msgsenderFrom)),
+  DataFlows(msgsenderFrom, msgsender),
+  EQVars(global, msgsender, predicateFrom),
+  LoadGlobalVariable(_, globalVal, globalFrom),
+  DataFlows(globalFrom, global),
+  DataFlows(predicateFrom, predicate).
+
+#ifdef DATA_STRUCTURE_SUPPORT
+SenderGuard(dataId, predicate) :-
+  (CALLER(_, msgsenderFrom) ; ORIGIN(_, msgsenderFrom)),
+  DataFlows(msgsenderFrom, msgsender),
+  LoadFromDataStructure(_, dataId, msgsender, inop_result),
+  DataFlows(inop_result, predicate).
+.output StaticallyGuardedBlock, ControlsWith, LoadFromDataStructure, SenderGuard
+SenderGuard(dataId, predicate) :-
+  (CALLER(_, msgsenderFrom) ; ORIGIN(_, msgsenderFrom)),
+  DataFlows(msgsenderFrom, msgsender),
+  EQVars(constDataStrLoad, msgsender, predicateFrom),
+  LoadFromDataStructure(_, dataId, constVar, constDataStrLoadFrom),
+  Variable_Value(constVar, _),
+  DataFlows(constDataStrLoadFrom, constDataStrLoad),
+  DataFlows(predicateFrom, predicate).
+#endif
+
+#ifdef MEMORY_MODELING_SUPPORT
+
+SenderGuard(globalVal, predicate) :-
+  (CALLER(_, msgsenderFrom) ; ORIGIN(_, msgsenderFrom)),
+  DataFlows(msgsenderFrom, msgsender),
+  EQVars(callReturn, msgsender, predicateFrom),
+  LoadGlobalVariable(_, globalVal, globalFrom),
+  DataFlows(globalFrom, global),
+  Statement_Uses(call, global, 1),
+  ExternalCall_NumOfArgs(call, 0),
+  ExternalCall_ActualReturn(call, callReturnFrom),
+  DataFlows(callReturnFrom, callReturn),
+  DataFlows(predicateFrom, predicate).
+
+SenderGuard(globalVal, predicate) :-
+  (CALLER(_, msgsenderFrom) ; ORIGIN(_, msgsenderFrom)),
+  DataFlows(msgsenderFrom, msgsender),
+  StatementUsesMemory_ActualMemoryArg(call, _, 1, msgsender),
+  ExternalCall_NumOfArgs(call, 1),
+  Statement_Uses(call, global, 1),
+  DataFlows(globalFrom, global),
+  LoadGlobalVariable(_, globalVal, globalFrom),
+  ExternalCall_ActualReturn(call, callReturnFrom),
+  DataFlows(callReturnFrom, predicate).
+
+#endif
+
+           
+SenderGuard("this", predicate) :-
+  CALLER(_, msgsender),
+  EQVars(this, msgsender, predicateFrom),
+  ADDRESS(_, thisFrom),
+  DataFlows(thisFrom, this),
+  DataFlows(predicateFrom, predicate).
+
+
+.decl UnguardedGlobalBlockEdge(from: Block, to: Block)
+
+UnguardedGlobalBlockEdge(block, next) :-
+   GlobalBlockEdge(block, next),
+   !StaticallyGuardedBlock(block, _),
+   !StaticallyGuardedBlock(next, _).
+
