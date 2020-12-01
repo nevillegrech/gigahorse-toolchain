@@ -433,6 +433,13 @@ VarHoldsBytesOfStorVar(to, load, storVar, low, newHigh):-
   newHigh = min(high, low + maskLen - 1),
   LowBytesMaskOp(var, to, maskLen).
 
+/*
+ This is a heuristic, we use the "Final" forms of loaded vars
+ (seeing when a variable from storage is no longer shifted or masked)
+ to see that the limits of merged variables are modeled correctly
+ but then any VarHoldsBytesOfStorVar corresponding to a valid variable
+ is considered a LOAD of that variable.
+*/
 VarHoldsBytesOfStorVarFinal(var, load, storVar, low, high):-
   VarHoldsBytesOfStorVar(var, load, storVar, low, high),
   //!LShiftBytes(_, var, _),
@@ -578,7 +585,8 @@ LoadGlobalVariable(stmt, @cast_to_symbol(storVar), var):-
 
 LoadGlobalVariable(stmt, v, var):-
   SuccessfulMergedStorageModeling(storVar),
-  VarHoldsBytesOfStorVarFinal(var, _, storVar, low, high),
+  VarHoldsBytesOfStorVarFinal(_, _, storVar, low, high),
+  VarHoldsBytesOfStorVar(var, _, storVar, low, high),
   Statement_Defines(stmt, var, 0),
   (low != 0 ; high != 31),
   v = cat(storVar, cat("_", cat(to_string(low), cat("_", to_string(high))))).
