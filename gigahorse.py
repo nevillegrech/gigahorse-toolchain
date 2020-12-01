@@ -202,7 +202,7 @@ def compile_datalog(spec, executable):
 
     preproc_command = ['cpp', '-P', spec] + cpp_macros
     preproc_process = subprocess.run(preproc_command, universal_newlines=True, capture_output=True)
-    assert not(preproc_process.returncode), "Preprocessing failed. Stopping."
+    assert not(preproc_process.returncode), f"Preprocessing for {spec} failed. Stopping."
 
     hasher = hashlib.md5()
     hasher.update(preproc_process.stdout.encode('utf-8'))
