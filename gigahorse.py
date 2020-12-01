@@ -14,6 +14,7 @@ import sys
 import time
 import hashlib
 import pathlib
+from collections import defaultdict
 from multiprocessing import Process, SimpleQueue, Manager, Event, cpu_count
 from os.path import abspath, dirname, join, getsize
 import os
@@ -305,11 +306,11 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
                 return
             
         # Collect the results and put them in the result queue
-        vulns = []
+        files = []
         for fname in os.listdir(out_dir):
             fpath = join(out_dir, fname)
             if getsize(fpath) != 0:
-                vulns.append(fname.split(".")[0])
+                files.append(fname.split(".")[0])
         meta = []
         # Decompile + Analysis time
         analytics['disassemble_time'] = decomp_start - disassemble_start
@@ -322,7 +323,7 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
 
         get_gigahorse_analytics(out_dir, analytics)
 
-        result_queue.put((contract_name, vulns, meta, analytics))
+        result_queue.put((contract_name, files, meta, analytics))
 
     except Exception as e:
         log("Error: {}".format(e))
@@ -334,22 +335,18 @@ def get_gigahorse_analytics(out_dir, analytics):
         fpath = join(out_dir, fname)
         if not fname.startswith('Analytics_'):
             continue
-        stat_name = fname.split(".")[0][10:]
+        stat_name = fname.split(".")[0]
         analytics[stat_name] = sum(1 for line in open(join(out_dir, fname)))
 
-    for fname in os.listdir(out_dir):
-        fpath = join(out_dir, fname)
-        if not fname.startswith('Vulnerability_'):
-            continue
-        stat_name = fname.split(".")[0][14:]
-        analytics[stat_name] = open(join(out_dir, fname)).read()
-
-    for fname in os.listdir(out_dir):
-        fpath = join(out_dir, fname)
-        if not fname.startswith('Verbatim_'):
-            continue
-        stat_name = fname.split(".")[0][9:]
-        analytics[stat_name] = open(join(out_dir, fname)).read()
+    for desc_fname in os.listdir(out_dir):
+        if desc_fname.startswith('VulnerabilityDescription_'):
+            fname = desc_fname[25:]
+            stat_name = fname.split(".")[0]
+            fpath = join(out_dir, fname)
+            if os.path.exists(fpath):
+                analytics[stat_name] = open(fpath).read()
+            else:
+                analytics[stat_name] = ''
 
 def run_process(args, timeout: int, stdout = devnull, stderr = devnull, cwd = '.') -> float:
     ''' Runs process described by args, for a specific time period
@@ -523,31 +520,57 @@ try:
             time.sleep(0.01)
 
     # Conclude and write results to file.
-    log("\nFinishing...\n")
     run_signal.clear()
     flush_proc.join(1)
-
-    counts = {}
-    total_flagged = 0
-    vulns_flagged = 0
-    for contract, vulns, meta, analytics in res_list:
-        rlist = vulns + meta
-        if len(rlist) > 0:
-            total_flagged += 1
-        if len(vulns) > 0:
-            vulns_flagged += 1
-        for res in rlist:
-            if res not in counts:
-                counts[res] = 1
-            else:
-                counts[res] += 1
-
+    # it's important to count the total after proc.join
     total = len(res_list)
-    log("{} of {} contracts flagged.\n".format(total_flagged, total))
-    counts_sorted = sorted(list(counts.items()), key = lambda a: a[0])
-    for res, count in counts_sorted:
-        log("  {}: {:.2f}%".format(res, 100 * count / total))
+    log(f"\nFinished {total} contracts...\n")
 
+    vulnerability_counts = defaultdict(int)
+    analytics_sums = defaultdict(int)
+    meta_counts = defaultdict(int)
+    all_files = set()
+    for contract, files, meta, analytics in res_list:
+        for f in files:
+            all_files.add(f)
+        for m in meta:
+            meta_counts[m] += 1
+        for k, a in analytics.items():
+            if isinstance(a, int):
+                analytics_sums[k] += a
+            if isinstance(a, str):
+                # whether it's flagged or not
+                vulnerability_counts[k] += int(len(a) > 0)
+            if k in all_files:
+                all_files.remove(k)
+
+    analytics_sums_sorted = sorted(list(analytics_sums.items()), key = lambda a: a[0])
+    if analytics_sums_sorted:
+        log('\n')
+        log('-'*80)
+        log('Analytics')
+        log('-'*80)
+        for res, sums in analytics_sums_sorted:
+            log("  {}: {}".format(res, sums))
+        log('\n')
+        
+    vulnerability_counts_sorted = sorted(list(vulnerability_counts.items()), key = lambda a: a[0])
+    if vulnerability_counts_sorted:
+        log('-'*80)
+        log('Summary (flagged contracts)')
+        log('-'*80)
+    
+        for res, count in vulnerability_counts_sorted:
+            log("  {}: {:.2f}%".format(res, 100 * count / total))
+
+    if meta_counts:
+        log('-'*80)
+        log('Timeouts and Errors')
+        log('-'*80)
+        for k, v in meta_counts.items():
+            log(f"  {k}: {v} of {total} contracts")
+        log('\n')
+            
     log("\nWriting results to {}".format(args.results_file))
     with open(args.results_file, 'w') as f:
         f.write(json.dumps(list(res_list), indent=1))
