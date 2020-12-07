@@ -204,7 +204,7 @@ PossibleArraySizeVariable(resVar, const) :-
 
 .decl IsStorageConstruct(cons:StorageConstruct)
 
-//.output PossibleStorageIndex, IsStorageIndex, IsStorageConstruct
+.output PossibleStorageIndex, IsStorageIndex, IsStorageConstruct, CompositeStorageIndex_Info, Variable_StorageIndex, StorageAccessStmt
 
 PossibleStorageIndex(val, "GLOBALSCOPE"),
 Variable_StorageIndex(var, val):-
@@ -248,10 +248,24 @@ CompositeStorageIndex_Info(cons, ["ARRAY", parentCons, 0]):-
   !VarTimesConstant(_, _, index),
   cons = STORAGE_CONSTRUCT("ARRAY", parentCons, 0).
 
+PossibleStorageIndex(cons, parentCons),
+Variable_StorageIndex(shaDef, cons),
+CompositeStorageIndex_Info(cons, ["ARRAY", parentCons, 0]):-
+  Variable_StorageIndex(arg, parentCons),
+  SHA3_1ARG(_, arg, shaDef),
+  cons = STORAGE_CONSTRUCT("ARRAY", parentCons, 0).
+
+
 IsStorageIndex(cons, parentCons):-
   Variable_StorageIndex(var, cons),
   PossibleStorageIndex(cons, parentCons),
   (SLOAD(_, var, _) ; SSTORE(_, var, _)).
+
+IsStorageIndex(cons, parentCons):-
+  PHI(_, var, phiVar),
+  Variable_StorageIndex(var, cons),
+  PossibleStorageIndex(cons, parentCons),
+  (SLOAD(_, phiVar, _) ; SSTORE(_, phiVar, _)).
 
 IsStorageIndex(parentCons, parentParentCons):-
   IsStorageIndex(_, parentCons),
@@ -264,6 +278,22 @@ IsStorageConstruct(["VAR", index]):-
 IsStorageConstruct([kind, parIndex]):-
   IsStorageIndex(index, parIndex),
   CompositeStorageIndex_Info(index, [kind, _, _]).
+
+.decl NewModelKnownLoad(stmt: Statement, cons:StorageIndex)
+.decl NewModelKnownStore(stmt: Statement, cons:StorageIndex)
+.output NewModelKnownStore, NewModelKnownLoad
+
+NewModelKnownLoad(store, cons):-
+  SLOAD(store, index, _),
+  ( Variable_StorageIndex(index, cons);
+    (PHI(_, var, index),
+  Variable_StorageIndex(var, cons))).
+
+NewModelKnownStore(store, cons):-
+  SSTORE(store, index, _),
+  ( Variable_StorageIndex(index, cons);
+    (PHI(_, var, index),
+  Variable_StorageIndex(var, cons))).
 
 #endif
 
