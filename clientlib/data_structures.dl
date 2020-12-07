@@ -652,3 +652,86 @@ DataStructuresTempStmt(load):-
   VarHoldsBytesOfStorVarFinal(var, load, storVar, _, _),
   Statement_Defines(stmt, var, 0),
   stmt != load.
+
+/**
+ METRICS
+**/
+
+.decl IsKnownLoad(stmt:Statement)
+.output IsKnownLoad
+
+.decl IsKnownStore(stmt:Statement)
+.output IsKnownStore
+
+IsKnownStore(stmt):-
+  KnownStore(stmt, _, _).
+
+IsKnownLoad(stmt):-
+  KnownLoad(stmt, _, _).
+
+
+.decl Verbatim_KnownAndAllStores(known:number, all:number)
+.output Verbatim_KnownAndAllStores
+
+.decl Verbatim_KnownAndAllLoads(known:number, all:number)
+.output Verbatim_KnownAndAllLoads
+
+Verbatim_KnownAndAllStores(known, all):-
+  known = count: IsKnownStore(_),
+  all = count: SSTORE(_, _, _).
+
+Verbatim_KnownAndAllLoads(known, all):-
+  known = count: IsKnownLoad(_),
+  all = count: SLOAD(_, _, _).
+
+.decl Verbatim_NewModelKnownAndAllStores(known:number, all:number)
+.output Verbatim_NewModelKnownAndAllStores
+
+.decl Verbatim_NewModelKnownAndAllLoads(known:number, all:number)
+.output Verbatim_NewModelKnownAndAllLoads
+
+Verbatim_NewModelKnownAndAllStores(known, all):-
+  known = count: NewModelKnownStore(_, _),
+  all = count: SSTORE(_, _, _).
+
+Verbatim_NewModelKnownAndAllLoads(known, all):-
+  known = count: NewModelKnownLoad(_, _),
+  all = count: SLOAD(_, _, _).
+
+.decl AllStoresKnown()
+.output AllStoresKnown
+
+.decl AllLoadsKnown()
+.output AllLoadsKnown
+
+.decl AllStorageOpsKnown()
+.output AllStorageOpsKnown
+
+AllStoresKnown():-
+  Verbatim_KnownAndAllStores(all, all).
+
+AllLoadsKnown():-
+  Verbatim_KnownAndAllLoads(all, all).  
+
+AllStorageOpsKnown():-
+  AllLoadsKnown(),
+  AllStoresKnown().
+
+.decl NewModelAllStoresKnown()
+.output NewModelAllStoresKnown
+
+.decl NewModelAllLoadsKnown()
+.output NewModelAllLoadsKnown
+
+.decl NewModelAllStorageOpsKnown()
+.output NewModelAllStorageOpsKnown
+
+NewModelAllStoresKnown():-
+  Verbatim_NewModelKnownAndAllStores(all, all).
+
+NewModelAllLoadsKnown():-
+  Verbatim_NewModelKnownAndAllLoads(all, all).  
+
+NewModelAllStorageOpsKnown():-
+  NewModelAllLoadsKnown(),
+  NewModelAllStoresKnown().
