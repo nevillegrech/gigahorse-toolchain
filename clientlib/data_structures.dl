@@ -707,6 +707,9 @@ Verbatim_NewModelKnownAndAllLoads(known, all):-
 .decl AllStorageOpsKnown()
 .output AllStorageOpsKnown
 
+.decl HasStorageOpsUnknown()
+.output HasStorageOpsUnknown
+
 AllStoresKnown():-
   Verbatim_KnownAndAllStores(all, all).
 
@@ -717,6 +720,9 @@ AllStorageOpsKnown():-
   AllLoadsKnown(),
   AllStoresKnown().
 
+HasStorageOpsUnknown():-
+  !AllStorageOpsKnown().
+
 .decl NewModelAllStoresKnown()
 .output NewModelAllStoresKnown
 
@@ -725,6 +731,9 @@ AllStorageOpsKnown():-
 
 .decl NewModelAllStorageOpsKnown()
 .output NewModelAllStorageOpsKnown
+
+.decl NewModelHasStorageOpsUnknown()
+.output NewModelHasStorageOpsUnknown
 
 NewModelAllStoresKnown():-
   Verbatim_NewModelKnownAndAllStores(all, all).
@@ -735,3 +744,6 @@ NewModelAllLoadsKnown():-
 NewModelAllStorageOpsKnown():-
   NewModelAllLoadsKnown(),
   NewModelAllStoresKnown().
+
+NewModelHasStorageOpsUnknown():-
+  !NewModelAllStorageOpsKnown().
