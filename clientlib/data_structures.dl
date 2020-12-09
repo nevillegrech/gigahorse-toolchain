@@ -698,6 +698,20 @@ Verbatim_NewModelKnownAndAllLoads(known, all):-
   known = count: NewModelKnownLoad(_, _),
   all = count: SLOAD(_, _, _).
 
+.decl NewModelIsUnknownLoad(load:Statement)
+.output NewModelIsUnknownLoad
+
+NewModelIsUnknownLoad(load):-
+  SLOAD(load, _, _),
+  !NewModelKnownLoad(load, _).
+
+.decl NewModelIsUnknownStore(store:Statement)
+.output NewModelIsUnknownStore
+
+NewModelIsUnknownStore(store):-
+  SSTORE(store, _, _),
+  !NewModelKnownStore(store, _).
+
 .decl AllStoresKnown()
 .output AllStoresKnown
 
