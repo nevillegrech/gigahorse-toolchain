@@ -169,7 +169,7 @@ isVariable(x) :-
 .decl Variable_Function(v: Variable, f: Function)
 Variable_Function(v, f) :-
    (Statement_Uses(s, v, _) ;
-    Statement_Defines(_, v, _)),
+    Statement_Defines(s, v, _)),
    Statement_Block(s, b),
    InFunction(b, f).
 Variable_Function(v, f) :-
