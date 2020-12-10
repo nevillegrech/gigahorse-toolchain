@@ -204,6 +204,8 @@ PossibleArraySizeVariable(resVar, const) :-
 
 .decl IsStorageConstruct(cons:StorageConstruct)
 
+.decl PHITrans(from:Variable, to:Variable)
+
 .output PossibleStorageIndex, IsStorageIndex, IsStorageConstruct, CompositeStorageIndex_Info, Variable_StorageIndex, StorageAccessStmt
 
 PossibleStorageIndex(val, "GLOBALSCOPE"),
@@ -262,7 +264,7 @@ IsStorageIndex(cons, parentCons):-
   (SLOAD(_, var, _) ; SSTORE(_, var, _)).
 
 IsStorageIndex(cons, parentCons):-
-  PHI(_, var, phiVar),
+  PHITrans(var, phiVar),
   Variable_StorageIndex(var, cons),
   PossibleStorageIndex(cons, parentCons),
   (SLOAD(_, phiVar, _) ; SSTORE(_, phiVar, _)).
@@ -286,14 +288,21 @@ IsStorageConstruct([kind, parIndex]):-
 NewModelKnownLoad(store, cons):-
   SLOAD(store, index, _),
   ( Variable_StorageIndex(index, cons);
-    (PHI(_, var, index),
+    (PHITrans(var, index),
   Variable_StorageIndex(var, cons))).
 
 NewModelKnownStore(store, cons):-
   SSTORE(store, index, _),
   ( Variable_StorageIndex(index, cons);
-    (PHI(_, var, index),
+    (PHITrans(var, index),
   Variable_StorageIndex(var, cons))).
+
+PHITrans(from, to):-
+  PHI(_, from, to).
+
+PHITrans(from, to):-
+  PHITrans(from, mid),
+  PHITrans(mid, to).
 
 #endif
 
