@@ -169,7 +169,7 @@ isVariable(x) :-
 .decl Variable_Function(v: Variable, f: Function)
 Variable_Function(v, f) :-
    (Statement_Uses(s, v, _) ;
-    Statement_Defines(_, v, _)),
+    Statement_Defines(s, v, _)),
    Statement_Block(s, b),
    InFunction(b, f).
 Variable_Function(v, f) :-
@@ -276,3 +276,15 @@ GlobalEntryBlock("0x0").
 
 FallbackFunction(func) :- PublicFunctionSelector(func, "0x0").
 
+
+
+// Dynamic Information
+
+// Storage Snapshot Relations
+// (only contain entries when running with decompile_address in clients)
+
+.decl StorageContents(addr: symbol, contents: symbol)
+.input StorageContents(IO="file", filename="StorageContents.csv", delimiter="\t")
+
+.decl SHA3Decompositions(addr: symbol, base1: symbol, base2: symbol, offset: symbol)
+.input SHA3Decompositions(IO="file", filename="SHA3Decompositions.csv", delimiter="\t")
