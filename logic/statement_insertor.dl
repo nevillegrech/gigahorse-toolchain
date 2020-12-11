@@ -130,7 +130,7 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
     !ISLABEL(value),
     OpcodeIsPush(op).
 
-  Out_PushValue(newStmt, CAST_TO_SYMBOL(actualLabel)) :-
+  Out_PushValue(newStmt, @cast_to_symbol(actualLabel)) :-
     insertOp(stmt, op, label, order),
     OpcodeIsPush(op),
     ISLABEL(label),
