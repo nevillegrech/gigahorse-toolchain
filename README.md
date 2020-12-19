@@ -14,6 +14,7 @@ A binary lifter (and related framework) from low-level EVM code to a higher-leve
 ## Gigahorse Installation
 
 ### Souffle custom functors
+
 Navigate to the `souffle-addon` folder
 ```
 cd souffle-addon
