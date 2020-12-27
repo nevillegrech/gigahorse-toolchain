@@ -1,4 +1,5 @@
 #pragma once
+#include "dominators.dl"
 
 //
 // *** Data flow and dependency analysis ***
