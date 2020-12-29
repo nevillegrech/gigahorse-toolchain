@@ -3,7 +3,9 @@ Note: you need to clone this repo using the `--recursive` flag since this repo h
 # The Gigahorse binary lifter and toolchain [![Tweet](https://img.shields.io/twitter/url/http/shields.io.svg?style=social)](https://twitter.com/intent/tweet?text=Gigahorse%20-%20Decompilation%20and%20Analysis%20for%20Ethereum%20Smart%20Contracts&url=https://www.github.com/nevillegrech/gigahorse-toolchain)
 A binary lifter (and related framework) from low-level EVM code to a higher-level function-based three-address representation, similar to LLVM IR or Jimple. 
 
-## Prerequisites
+## Quickstart
+
+First make sure you have the following things installed on your system:
 
 - Boost libraries (Can be installed on Debian with `apt install libboost-all-dev`)
 
@@ -11,32 +13,17 @@ A binary lifter (and related framework) from low-level EVM code to a higher-leve
 
 - Souffle 2.0+ (Refer to Souffle documentation. The easiest way to install this is to use the releases from https://github.com/souffle-lang/souffle/releases)
 
-## Gigahorse Installation
+Now install the Souffle custom functors. Just navigate to the `souffle-addon` folder:
 
-### Souffle custom functors
-
-Navigate to the `souffle-addon` folder
 ```
 cd souffle-addon
 ```
 
-Install:
+And run make to install:
 
     $ make                          # builds all, sets libfunctors.so as a link to libsoufflenum.so
 
-
-### For visualization (optional)
-Requires PyDot:
-```
-pip install pydot
-```
-
-Requires Graphviz
-
-Installation on Debian:
-```
-sudo apt install graphviz
-```
+You should now be ready to run Gigahorse.
 
 ## Running Gigahorse
 The `gigahorse.py` script can be run on a contract individually or on a
@@ -76,11 +63,13 @@ Example (with client analysis):
 Gigahorse can also be used in "bulk analysis" mode, by replacing <contracts> by a directory filled with contracts.
 
 ## Running Gigahorse Manually (for development purposes)
+To use this framework for development purposes (e.g., writing security analyses), you an understanding of the analysis pipeline will be helpful. This section describes one common use case --- that of visualizing the CFG of the lifted IR. The pipeline will consist of the manual execution of following three steps:
+
 1. Fact generation
 2. Run decompiler.dl using Souffle
 3. Visualize results
 
-First, make sure that LD_LIBRARY_PATH and LIBRARY_PATH are set:
+In order to proceed, make sure that LD_LIBRARY_PATH and LIBRARY_PATH are set:
 
     $ cd souffle-addon
     $ export LD_LIBRARY_PATH=`pwd`  # or wherever you want to put the resulting libfunctors.so
@@ -89,21 +78,36 @@ First, make sure that LD_LIBRARY_PATH and LIBRARY_PATH are set:
 We suggest adding LD_LIBRARY_PATH and LIBRARY_PATH to your `.bashrc` file
 
 
-```
-./generatefacts <contract> facts
-souffle -F facts logic/decompiler.dl
-./visualizeout.py
-```
+Visualizationa also requires PyDot and Graphviz:
+
+
+
+    $ pip install pydot                     # installs PyDot to your python enviroment
+
+
+    $ sudo apt install graphviz             # installs Graphviz in debian
+
+
+Now let's manually execute the pipeline above:
+
+
+    $ ./generatefacts <contract> facts      # fact generation (translates EVM bytecode into relational format)
+    $ souffle -F facts logic/decompiler.dl  # runs the main decompilation step (written as a Datalog program)
+    $ clients/visualizeout.py               # visualizes the IR and outputs (all outputs of Datalog programs are in a relational format)
 
 
 ## Writing client analyses
 
-In order to write client analyses for decompiled bytecode, we recommend that you create a souffle logic file that includes `clientlib/decompiler_imports.dl`, for instance:
+Client analyses can be written in any language by reading the relational files that are written by the decompilation step (`decompiler.dl`). This framework however provides preferential treatment for clients written in Datalog. The most notable example of client analysis for the Gigahorse framework is [MadMax](https://github.com/nevillegrech/MadMax). This uses several of the "analysis client libraries" under [clientlib](https://github.com/nevillegrech/gigahorse-toolchain/tree/master/clientlib). These libraries include customizable dataflow analysis, data structure reconstruction and others.
+
+A common template for client analyses for decompiled bytecode is to create souffle datalog file that includes `clientlib/decompiler_imports.dl`, for instance:
 ```
 #include "clientlib/decompiler_imports.dl"
 
 .output ...
 ```
+
+
 ## Uses of Gigahorse
 The Gigahorse toolchain was originally published as:
 
