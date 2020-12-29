@@ -63,7 +63,7 @@ Example (with client analysis):
 Gigahorse can also be used in "bulk analysis" mode, by replacing <contracts> by a directory filled with contracts.
 
 ## Running Gigahorse Manually (for development purposes)
-To use this framework for development purposes (e.g., writing security analyses), you an understanding of the analysis pipeline will be helpful. This section describes one common use case --- that of visualizing the CFG of the lifted IR. The pipeline will consist of the manual execution of following three steps:
+To use this framework for development purposes (e.g., writing security analyses), an understanding of the analysis pipeline will be helpful. This section describes one common use case --- that of visualizing the CFG of the lifted IR. The pipeline will consist of the manual execution of following three steps:
 
 1. Fact generation
 2. Run decompiler.dl using Souffle
@@ -78,7 +78,7 @@ In order to proceed, make sure that LD_LIBRARY_PATH and LIBRARY_PATH are set:
 We suggest adding LD_LIBRARY_PATH and LIBRARY_PATH to your `.bashrc` file
 
 
-Visualizationa also requires PyDot and Graphviz:
+Visualization also requires PyDot and Graphviz:
 
 
 
