@@ -183,7 +183,7 @@ if not os.path.isfile(join(functor_path, 'libfunctors.so')):
     )
 
 def get_working_dir(contract_name):
-    return join(os.path.abspath(TEMP_WORKING_DIR), os.path.split(contract_name)[1].split('.')[0])
+    return join(os.path.abspath(args.working_dir), os.path.split(contract_name)[1].split('.')[0])
 
 def prepare_working_dir(contract_name) -> (str, str):
     newdir = get_working_dir(contract_name)
@@ -420,8 +420,8 @@ if not args.interpreted:
         running_processes.append(proc)
 
 if args.restart:
-    log("Removing working directory {}".format(TEMP_WORKING_DIR))
-    shutil.rmtree(TEMP_WORKING_DIR, ignore_errors = True)    
+    log("Removing working directory {}".format(args.working_dir))
+    shutil.rmtree(args.working_dir, ignore_errors = True)    
     
 if not args.interpreted:
     for p in running_processes:
