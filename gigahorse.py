@@ -51,7 +51,9 @@ DEFAULT_TIMEOUT = 120
 DEFAULT_PATTERN = ".*.hex"
 """Default filename pattern for contract files."""
 
-DEFAULT_NUM_JOBS = int(cpu_count()*0.9)
+DEFAULT_NUM_JOBS = max(int(cpu_count() * 0.9), 1)
+"""Bugfix for one core systems."""
+
 """The number of subprocesses to run at once."""
 
 # Command Line Arguments
