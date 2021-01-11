@@ -99,6 +99,14 @@ parser.add_argument("-r",
                     metavar="FILE",
                     help="the location to write the results.")
 
+parser.add_argument("-w",
+                    "--working_dir",
+                    nargs="?",
+                    default=TEMP_WORKING_DIR,
+                    const=TEMP_WORKING_DIR,
+                    metavar="DIR",
+                    help="the location to were temporary files are placed.")
+
 parser.add_argument("-j",
                     "--jobs",
                     type=int,

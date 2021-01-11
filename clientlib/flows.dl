@@ -197,3 +197,23 @@ CallSuccessControlsException(callStmt, throwStmt) :-
   JUMPI(throwStmt, _, condVar),
   ControlsWith(_, throwBlock, condVar),
   ThrowBlock(throwBlock).
+
+.decl CallFailureControls(call: Statement, to: Block)
+
+CallFailureControls(call, to) :-
+   CallResult(res, call),
+   ISZERO(_, res, notres),
+   JUMPI(jmp, _, notres),
+   Statement_Block(jmp, from),
+   LocalBlockEdge(from, to),
+   !FallthroughEdge(from, to).
+
+CallFailureControls(call, to) :-
+   CallResult(res, call),
+   JUMPI(jmp, _, res),
+   Statement_Block(jmp, from),
+   FallthroughEdge(from, to).
+
+CallFailureControls(call, to) :-
+   CallFailureControls(call, from),
+   Dominates(from, to).
