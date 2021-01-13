@@ -435,12 +435,12 @@ LShiftBytes(stmt, shiftedVar, bytes):-
   Variable_Value(var, shitftConst),
   ShiftConst(shitftConst, bytes).
 
-RShiftBytes(stmt, shiftedVar, @hex_to_number(shitftBits) % 8):-
+RShiftBytes(stmt, shiftedVar, @hex_to_number(shitftBits) / 8):-
   SHR(stmt, var, shiftedVar, _),
   Variable_Value(var, shitftBits),
   @hex_to_number(shitftBits) % 8 = 0.
 
-LShiftBytes(stmt, shiftedVar, @hex_to_number(shitftBits) % 8):-
+LShiftBytes(stmt, shiftedVar, @hex_to_number(shitftBits) / 8):-
   SHL(stmt, var, shiftedVar, _),
   Variable_Value(var, shitftBits),
   @hex_to_number(shitftBits) % 8 = 0.
