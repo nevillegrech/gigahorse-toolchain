@@ -70,10 +70,6 @@ class BlockParser(abc.ABC):
         """
         self._ops = []
         return self._ops
-    
-    def get_offset_mapping(self) -> t.Mapping[str, int]:
-        return {hex(op.pc): i for i, op in enumerate(self._ops)}
-
 
 
 class EVMDasmParser(BlockParser):

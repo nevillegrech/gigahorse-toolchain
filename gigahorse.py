@@ -267,13 +267,10 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
                 bytecode = file.read().strip()
 
             # Disassemble contract
-            parser = blockparse.EVMBytecodeParser(bytecode)
-            blocks = parser.parse()
+            blocks = blockparse.EVMBytecodeParser(bytecode).parse()
             exporter.InstructionTsvExporter(blocks).export(output_dir=work_dir, bytecode_hex=bytecode)
 
             os.symlink(join(work_dir, 'bytecode.hex'), join(out_dir, 'bytecode.hex'))
-           with open(join(work_dir, 'instructions.json'), 'w') as f:
-               json.dump(parser.get_offset_mapping(), f)
             
             
             # Run souffle on those relations
