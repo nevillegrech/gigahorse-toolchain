@@ -3,6 +3,7 @@
 # Standard lib imports
 import argparse
 import logging
+import json
 import sys
 from os.path import abspath, dirname, join
 
@@ -18,15 +19,23 @@ def main(args):
         logging.info("Generating decompiler input interface")
         exporter.generate_interface()
         return
+
     if args.disassembly:
-        blocks = blockparse.EVMDasmParser(args.infile).parse()
+        parser = blockparse.EVMDasmParser(args.infile)
     else:
         bytecode = args.infile.read().strip()
-        blocks = blockparse.EVMBytecodeParser(bytecode).parse()
+        parser = blockparse.EVMBytecodeParser(bytecode)
+    
+    blocks = parser.parse()
+
     logging.info("Initial parsing completed.")
 
     logging.info("Writing facts to disk.")
     exporter.InstructionTsvExporter(blocks).export(output_dir=args.outdir, bytecode_hex=bytecode)
+
+    logging.info("Writing raw op sequence.")
+    with open("instructions.json") as f:
+        json.dump(parser._ops)
 
 if __name__ == '__main__':
     # Configure argparse
