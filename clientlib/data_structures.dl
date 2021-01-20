@@ -588,6 +588,25 @@ ConstWrittenToBytesOfStorVar("0xNoVar", "0x0", store, load, storVar, byteLow, by
   SSTORE(store, index, storedVar),
   Variable_Value(index, storVar).
 
+/**
+  HACK (?) HACK (?) HACK (?)
+  If the variable that is being stored on the update of a merged storage var
+  is used again, we consider it a fresh "load" of the storage var
+  its' shifts and masks populate VarHoldsBytesOfStorVar
+  This can happen in optimized code, its good to support it.
+**/
+
+VarHoldsBytesOfStorVar(to, store, storVar, bytes, 31):-
+  VarWrittenToBytesOfStorVar(_, store, _, storVar, _, _),
+  Statement_Uses(store, storedVar, 1),
+  RShiftBytes(stmt, storedVar, bytes),
+  Statement_Defines(stmt, to, 0).
+
+VarHoldsBytesOfStorVar(to, store, storVar, 0, maskLen - 1):-
+  VarWrittenToBytesOfStorVar(_, store, _, storVar, _, _),
+  Statement_Uses(store, storedVar, 1),
+  LowBytesMaskOp(storedVar, to, maskLen).
+
 /*
  * Global Variables
  */
