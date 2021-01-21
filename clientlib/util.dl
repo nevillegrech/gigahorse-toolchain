@@ -4,8 +4,9 @@
  * Macros
 ***/
 #define STARTSWITH(s, b) (substr(s, 0, strlen(b)) = b)
-#define CAST_TO_SYMBOL(b) cat("", (b))
-
+#define cat3(a, b, c) cat(cat(a, b), c)
+#define cat4(a, b, c, d) cat(cat3(a, b, c), d)
+ 
 .decl Fail(msg: symbol)
 Fail(a) :- Fail(a). // suppress warning
 #define FAILIF(message, ...) Fail(msg) :- msg = message, __VA_ARGS__

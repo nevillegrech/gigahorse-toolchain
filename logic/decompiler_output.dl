@@ -65,6 +65,18 @@ PHILocation(block, stackIndex, cat(cat(block, "_"), stackIndexHex)) :-
 .decl TAC_Variable_BlockValue(var: TACVariable, value: symbol)
 .output TAC_Variable_BlockValue
 
+
+// Storage snapshot relations
+// These are always empty, unless filled by decompile_address in gigahorse-clients
+// We only output them empty here to avoid nonexistent file errors in clients
+
+.decl StorageContents(addr: symbol, contents: symbol)
+.output StorageContents
+
+.decl SHA3Decompositions(addr: symbol, base1: symbol, base2: symbol, offset: symbol)
+.output SHA3Decompositions
+
+
 /// Heuristically change the values of all constants that match cloned
 /// basic block labels! Don't up
 

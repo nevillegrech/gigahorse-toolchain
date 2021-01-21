@@ -51,7 +51,9 @@ DEFAULT_TIMEOUT = 120
 DEFAULT_PATTERN = ".*.hex"
 """Default filename pattern for contract files."""
 
-DEFAULT_NUM_JOBS = int(cpu_count()*0.9)
+DEFAULT_NUM_JOBS = max(int(cpu_count() * 0.9), 1)
+"""Bugfix for one core systems."""
+
 """The number of subprocesses to run at once."""
 
 # Command Line Arguments
@@ -98,6 +100,22 @@ parser.add_argument("-r",
                     const=DEFAULT_RESULTS_FILE,
                     metavar="FILE",
                     help="the location to write the results.")
+
+parser.add_argument("-w",
+                    "--working_dir",
+                    nargs="?",
+                    default=TEMP_WORKING_DIR,
+                    const=TEMP_WORKING_DIR,
+                    metavar="DIR",
+                    help="the location to were temporary files are placed.")
+
+parser.add_argument('--cache_dir',
+                    nargs="?",
+                    default=DEFAULT_CACHE_DIR,
+                    const=DEFAULT_CACHE_DIR,
+                    metavar="DIR",
+                    help="the location to were temporary files are placed.")
+                    
 
 parser.add_argument("-j",
                     "--jobs",
@@ -173,7 +191,7 @@ if not os.path.isfile(join(functor_path, 'libfunctors.so')):
     )
 
 def get_working_dir(contract_name):
-    return join(os.path.abspath(TEMP_WORKING_DIR), os.path.split(contract_name)[1].split('.')[0])
+    return join(os.path.abspath(args.working_dir), os.path.split(contract_name)[1].split('.')[0])
 
 def prepare_working_dir(contract_name) -> (str, str):
     newdir = get_working_dir(contract_name)
@@ -191,7 +209,7 @@ def compile_datalog(spec, executable):
     if args.reuse_datalog_bin and os.path.isfile(executable):
         return
 
-    pathlib.Path(DEFAULT_CACHE_DIR).mkdir(exist_ok=True)
+    pathlib.Path(args.cache_dir).mkdir(exist_ok=True)
 
     souffle_macros = f'GIGAHORSE_DIR={GIGAHORSE_DIR} BULK_ANALYSIS= {args.souffle_macros}'.strip()
 
@@ -208,7 +226,7 @@ def compile_datalog(spec, executable):
     hasher.update(preproc_process.stdout.encode('utf-8'))
     md5_hash = hasher.hexdigest()
 
-    cache_path = join(DEFAULT_CACHE_DIR, md5_hash)
+    cache_path = join(args.cache_dir, md5_hash)
 
     if os.path.exists(cache_path):
         log(f"Found cached executable for {spec}")
@@ -296,10 +314,19 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
                 result_queue.put((contract_name, [], ["TIMEOUT"], {}))
                 log("{} timed out.".format(contract_name))
                 return
-        for python_client in python_clients:
-            out_filename = join(out_dir, python_client.split('/')[-1]+'.out')
-            err_filename = join(out_dir, python_client.split('/')[-1]+'.err')
-            runtime = run_process([join(os.getcwd(), python_client)], calc_timeout(), open(out_filename, 'w'), open(err_filename, 'w'), cwd = out_dir)
+        for other_client in other_clients:
+            other_client_split = [o for o in other_client.split(' ') if o]
+            other_client_split[0] = join(os.getcwd(), other_client_split[0])
+            other_client_name = other_client_split[0].split('/')[-1]
+            out_filename = join(out_dir, other_client_name+'.out')
+            err_filename = join(out_dir, other_client_name+'.err')
+            runtime = run_process(
+                other_client_split,
+                calc_timeout(),
+                open(out_filename, 'w'),
+                open(err_filename, 'w'),
+                cwd = out_dir
+            )
             if runtime < 0:
                 result_queue.put((contract_name, [], ["TIMEOUT"], {}))
                 log("{} timed out.".format(contract_name))
@@ -403,8 +430,9 @@ logging.basicConfig(format='%(message)s', level=log_level)
 compile_processes_args = []
 compile_processes_args.append((DEFAULT_DECOMPILER_DL, DEFAULT_SOUFFLE_EXECUTABLE))
 
-souffle_clients = [a for a in args.client.split(',') if a.endswith('.dl')]
-python_clients = [a for a in args.client.split(',') if a.endswith('.py')]
+clients_split = [a.strip() for a in args.client.split(',')]
+souffle_clients = [a for a in clients_split if a.endswith('.dl')]
+other_clients = [a for a in clients_split if not a.endswith('.dl')]
 
 if not args.interpreted:
     for c in souffle_clients:
@@ -417,8 +445,8 @@ if not args.interpreted:
         running_processes.append(proc)
 
 if args.restart:
-    log("Removing working directory {}".format(TEMP_WORKING_DIR))
-    shutil.rmtree(TEMP_WORKING_DIR, ignore_errors = True)    
+    log("Removing working directory {}".format(args.working_dir))
+    shutil.rmtree(args.working_dir, ignore_errors = True)    
     
 if not args.interpreted:
     for p in running_processes:
