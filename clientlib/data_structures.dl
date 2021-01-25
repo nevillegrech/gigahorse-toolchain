@@ -304,6 +304,63 @@ PHITrans(from, to):-
   PHITrans(from, mid),
   PHITrans(mid, to).
 
+//METRICS
+
+
+.decl Verbatim_NewModelKnownAndAllStores(known:number, all:number)
+.output Verbatim_NewModelKnownAndAllStores
+
+.decl Verbatim_NewModelKnownAndAllLoads(known:number, all:number)
+.output Verbatim_NewModelKnownAndAllLoads
+
+Verbatim_NewModelKnownAndAllStores(known, all):-
+  known = count: NewModelKnownStore(_, _),
+  all = count: SSTORE(_, _, _).
+
+Verbatim_NewModelKnownAndAllLoads(known, all):-
+  known = count: NewModelKnownLoad(_, _),
+  all = count: SLOAD(_, _, _).
+
+.decl NewModelIsUnknownLoad(load:Statement)
+.output NewModelIsUnknownLoad
+
+NewModelIsUnknownLoad(load):-
+  SLOAD(load, _, _),
+  !NewModelKnownLoad(load, _).
+
+.decl NewModelIsUnknownStore(store:Statement)
+.output NewModelIsUnknownStore
+
+NewModelIsUnknownStore(store):-
+  SSTORE(store, _, _),
+  !NewModelKnownStore(store, _).
+
+
+.decl NewModelAllStoresKnown()
+.output NewModelAllStoresKnown
+
+.decl NewModelAllLoadsKnown()
+.output NewModelAllLoadsKnown
+
+.decl NewModelAllStorageOpsKnown()
+.output NewModelAllStorageOpsKnown
+
+.decl NewModelHasStorageOpsUnknown()
+.output NewModelHasStorageOpsUnknown
+
+NewModelAllStoresKnown():-
+  Verbatim_NewModelKnownAndAllStores(all, all).
+
+NewModelAllLoadsKnown():-
+  Verbatim_NewModelKnownAndAllLoads(all, all).  
+
+NewModelAllStorageOpsKnown():-
+  NewModelAllLoadsKnown(),
+  NewModelAllStoresKnown().
+
+NewModelHasStorageOpsUnknown():-
+  !NewModelAllStorageOpsKnown().
+
 #endif
 
 .decl BytesOrStringLength(storVar:symbol, lenVar:Variable)
@@ -712,34 +769,6 @@ Verbatim_KnownAndAllLoads(known, all):-
   known = count: IsKnownLoad(_),
   all = count: SLOAD(_, _, _).
 
-.decl Verbatim_NewModelKnownAndAllStores(known:number, all:number)
-.output Verbatim_NewModelKnownAndAllStores
-
-.decl Verbatim_NewModelKnownAndAllLoads(known:number, all:number)
-.output Verbatim_NewModelKnownAndAllLoads
-
-Verbatim_NewModelKnownAndAllStores(known, all):-
-  known = count: NewModelKnownStore(_, _),
-  all = count: SSTORE(_, _, _).
-
-Verbatim_NewModelKnownAndAllLoads(known, all):-
-  known = count: NewModelKnownLoad(_, _),
-  all = count: SLOAD(_, _, _).
-
-.decl NewModelIsUnknownLoad(load:Statement)
-.output NewModelIsUnknownLoad
-
-NewModelIsUnknownLoad(load):-
-  SLOAD(load, _, _),
-  !NewModelKnownLoad(load, _).
-
-.decl NewModelIsUnknownStore(store:Statement)
-.output NewModelIsUnknownStore
-
-NewModelIsUnknownStore(store):-
-  SSTORE(store, _, _),
-  !NewModelKnownStore(store, _).
-
 .decl AllStoresKnown()
 .output AllStoresKnown
 
@@ -764,28 +793,3 @@ AllStorageOpsKnown():-
 
 HasStorageOpsUnknown():-
   !AllStorageOpsKnown().
-
-.decl NewModelAllStoresKnown()
-.output NewModelAllStoresKnown
-
-.decl NewModelAllLoadsKnown()
-.output NewModelAllLoadsKnown
-
-.decl NewModelAllStorageOpsKnown()
-.output NewModelAllStorageOpsKnown
-
-.decl NewModelHasStorageOpsUnknown()
-.output NewModelHasStorageOpsUnknown
-
-NewModelAllStoresKnown():-
-  Verbatim_NewModelKnownAndAllStores(all, all).
-
-NewModelAllLoadsKnown():-
-  Verbatim_NewModelKnownAndAllLoads(all, all).  
-
-NewModelAllStorageOpsKnown():-
-  NewModelAllLoadsKnown(),
-  NewModelAllStoresKnown().
-
-NewModelHasStorageOpsUnknown():-
-  !NewModelAllStorageOpsKnown().
