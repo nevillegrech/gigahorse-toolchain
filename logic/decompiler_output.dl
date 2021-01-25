@@ -356,3 +356,14 @@ ConstantPossibleSigHash(sigHash, name):-
   Helper_Zeros(zeroz, 10 - temp),
   sigHashForm = cat("0x",cat(zeroz, substr(sigHash, 2, temp - 2))),
   PublicFunctionSignature(sigHashForm, name).
+
+// REVIEW (YS): I don't fully understand the above. Why truncate the
+// first two digits of the constant and prepend "0x"? If the two digits
+// were not relevant, they were "0x" to begin with. Anyway, I'm leaving
+// as-is to be safe, and adding more cases below.
+ConstantPossibleSigHash(sigHash, name):-
+  TAC_Variable_Value(_, sigHash),
+  len = strlen(sigHash),
+  ((len >= 9, sigHashForm = cat("0x0", substr(sigHash, 2, 7)));
+   (len >= 8, sigHashForm = cat("0x00", substr(sigHash, 2, 6)))),
+  PublicFunctionSignature(sigHashForm, name).

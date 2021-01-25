@@ -365,6 +365,13 @@ def get_gigahorse_analytics(out_dir, analytics):
         stat_name = fname.split(".")[0]
         analytics[stat_name] = sum(1 for line in open(join(out_dir, fname)))
 
+    for fname in os.listdir(out_dir):
+        fpath = join(out_dir, fname)
+        if not fname.startswith('Verbatim_'):
+            continue
+        stat_name = fname.split(".")[0]
+        analytics[stat_name] = open(join(out_dir, fname)).read()
+
     for desc_fname in os.listdir(out_dir):
         if desc_fname.startswith('VulnerabilityDescription_'):
             fname = desc_fname[25:]
@@ -566,7 +573,7 @@ try:
         for k, a in analytics.items():
             if isinstance(a, int):
                 analytics_sums[k] += a
-            if isinstance(a, str):
+            if isinstance(a, str) and not k.startswith('Verbatim_'):
                 # whether it's flagged or not
                 vulnerability_counts[k] += int(len(a) > 0)
             if k in all_files:
