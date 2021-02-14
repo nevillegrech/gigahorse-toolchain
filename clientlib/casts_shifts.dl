@@ -9,7 +9,7 @@
 
 
 ValueWithEvenLength(val, len):-
-  Variable_Value(_, val),
+  BasicVariable_Value(_, val),
   len = strlen(val),
   len % 2 = 0.
 
@@ -61,18 +61,18 @@ LowBytesMaskOp(from, to, 1):-
 LowBytesMaskOp(from, to, castedTo):-
   ValueIsByteMask(mask),
   Mask_Length(mask, castedTo),
-  Variable_Value(maskVar, mask),
+  BasicVariable_Value(maskVar, mask),
   (AND(_, from, maskVar, to) ; AND(_, maskVar, from, to)).
 
 AntiMaskOp(originVar, to, byteLow, byteHigh):-
   (AND(_, antiMaskVar, originVar, to) ; AND(_, originVar, antiMaskVar, to)),
-  Variable_Value(antiMaskVar, antiMask),
+  BasicVariable_Value(antiMaskVar, antiMask),
   AntiByteMask(antiMask, byteLow, byteHigh).
 
 AntiMaskOp(originVar, to, byteLow, byteHigh):-
   AntiMaskOp(originVar, mid, byteLow, byteHigh),
   (AND(_, antiMaskVar, mid, to) ; AND(_, mid, antiMaskVar, to)),
-  Variable_Value(antiMaskVar, antiMask),
+  BasicVariable_Value(antiMaskVar, antiMask),
   AntiByteMask(antiMask, byteLow, byteHigh).
 
 //.output RShiftBytes, LShiftBytes, VarHoldsBytesOfStorVar, CastedAndShiftedVar
@@ -86,22 +86,22 @@ ShiftConst(val, n+1):-
 
 RShiftBytes(stmt, shiftedVar, bytes):-
   DIV(stmt, shiftedVar, var, _),
-  Variable_Value(var, shitftConst),
+  BasicVariable_Value(var, shitftConst),
   ShiftConst(shitftConst, bytes).
 
 LShiftBytes(stmt, shiftedVar, bytes):-
   ( MUL(stmt, shiftedVar, var, _); MUL(stmt, var, shiftedVar, _)),
-  Variable_Value(var, shitftConst),
+  BasicVariable_Value(var, shitftConst),
   ShiftConst(shitftConst, bytes).
 
 RShiftBytes(stmt, shiftedVar, @hex_to_number(shitftBits) / 8):-
   SHR(stmt, var, shiftedVar, _),
-  Variable_Value(var, shitftBits),
+  BasicVariable_Value(var, shitftBits),
   @hex_to_number(shitftBits) % 8 = 0.
 
 LShiftBytes(stmt, shiftedVar, @hex_to_number(shitftBits) / 8):-
   SHL(stmt, var, shiftedVar, _),
-  Variable_Value(var, shitftBits),
+  BasicVariable_Value(var, shitftBits),
   @hex_to_number(shitftBits) % 8 = 0.
 
 CastedAndShiftedVar(originVar, toVar, shiftedBy, castedTo):-
