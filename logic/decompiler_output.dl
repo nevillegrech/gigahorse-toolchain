@@ -10,6 +10,20 @@
 .decl ByteCodeHex(bytecode:symbol)
 
 .input ByteCodeHex(IO="file", filename="bytecode.hex")
+
+.decl _ByteCodeHex(bytecode:symbol)
+.input _ByteCodeHex(IO="file", filename="bytecode.hex")
+
+// strip '0x' from the start of the bytecode if present
+// keeping it would have all the uses of the bytecode wrong (handling codecopies)
+ByteCodeHex(bytecode):-
+  _ByteCodeHex(bytecode),
+  !contains("0x", bytecode).
+
+ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
+  _ByteCodeHex(bytecode),
+  contains("0x", bytecode).
+
 .output ByteCodeHex(IO="file", filename="bytecode.hex")
 
 // useful intermediate outputs
