@@ -6,7 +6,7 @@
 .decl MaxContextDepth(d: number)
 
 #ifndef MAX_CONTEXT_DEPTH
-  MaxContextDepth(4).
+  MaxContextDepth(8).
 #else
   MaxContextDepth(MAX_CONTEXT_DEPTH).
 #endif
@@ -14,20 +14,19 @@
 .decl InitialPrivateContext(ctx : PrivateContext)
 InitialPrivateContext(nil).
 
-.decl IsPrivateContext(rest:PrivateContext)
-IsPrivateContext(nil).
+.decl IsPrivateContext(ctx:PrivateContext, block:Block, rest:PrivateContext)
+IsPrivateContext(nil, "", nil).
 
 .decl DropLast(ctx : PrivateContext, newCtx : PrivateContext)
 DropLast(ctx, nil) :-
-  IsPrivateContext(ctx),
+  IsPrivateContext(ctx, block, nil),
   ctx = [ block, nil ], block = block.
 
-IsPrivateContext(newCtx),
+IsPrivateContext(newCtx, block, newRest),
 PrivateContextDepth(newCtx, depth - 1),
 DropLast(ctx, newCtx) :-
-  IsPrivateContext(ctx),
+  IsPrivateContext(ctx, block, rest),
   PrivateContextDepth(ctx, depth),
-  ctx = [ block, rest ],
   DropLast(rest, newRest),
   newCtx = [ block, newRest ].
   .plan 1:(2,1,3), 2:(3,1,2)
@@ -37,7 +36,7 @@ PrivateContextDepth(init, 0) :-
   InitialPrivateContext(init).
 
 PrivateContextDepth(ctx, depth + 1) :-
-  IsPrivateContext(ctx), ctx = [ block, rest ],	block = block,
+  IsPrivateContext(ctx, block, rest), ctx = [ block, rest ],	block = block,
   PrivateContextDepth(rest, depth).
   .plan 1:(2,1)
 
@@ -98,6 +97,10 @@ StaticBlockJumpTarget(caller, target) :-
 
 .decl MergeContext(ctx : Context, caller : Block, newContext : Context)
 
+.decl ContextComponents(ctx:Context, publicFun:symbol, private:PrivateContext)
+
+ContextComponents(ctx, publicFun, private):-
+  ReachableContext(ctx, _), ctx = [publicFun, private].
 
 // Trivial control flow case for when there is no function call
 // OR max conext depth is zero
@@ -109,9 +112,10 @@ MergeContext(ctx, caller, ctx) :-
   (!PrivateFunctionCallOrReturn(caller) ; MaxContextDepth(0)). 
 
 // Complex control flow case
-IsPrivateContext(newPrivateContext),
+IsPrivateContext(newPrivateContext, caller, cutDownPri),
 MergeContext(ctx, caller, newContext) :-
-  ReachableContext(ctx, caller),   ctx = [pub, pri],
+  ReachableContext(ctx, caller),
+  ContextComponents(ctx, pub, pri),
   PrivateFunctionCallOrReturn(caller),
 #ifndef NO_PUBLIC_CONTEXT
   !postTrans.PublicFunction(caller, _),
@@ -119,7 +123,7 @@ MergeContext(ctx, caller, newContext) :-
   TruncateContext(pri, cutDownPri),
   newPrivateContext = [caller, cutDownPri],
   newContext = [pub, newPrivateContext].
-.plan 1:(3,2,1)
+.plan 1:(2,1,3,4), 2:(4,2,1,3)
 
 #ifndef NO_PUBLIC_CONTEXT
 MergeContext(ctx, caller, newContext) :-
