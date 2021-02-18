@@ -6,7 +6,7 @@
 .decl MaxContextDepth(d: number)
 
 #ifndef MAX_CONTEXT_DEPTH
-  MaxContextDepth(8).
+  MaxContextDepth(4).
 #else
   MaxContextDepth(MAX_CONTEXT_DEPTH).
 #endif
