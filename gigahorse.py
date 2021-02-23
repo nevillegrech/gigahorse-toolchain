@@ -432,7 +432,7 @@ compile_processes_args.append((DEFAULT_DECOMPILER_DL, DEFAULT_SOUFFLE_EXECUTABLE
 
 clients_split = [a.strip() for a in args.client.split(',')]
 souffle_clients = [a for a in clients_split if a.endswith('.dl')]
-other_clients = [a for a in clients_split if not a.endswith('.dl')]
+other_clients = [a for a in clients_split if not (a.endswith('.dl') or a == '')]
 
 if not args.interpreted:
     for c in souffle_clients:
