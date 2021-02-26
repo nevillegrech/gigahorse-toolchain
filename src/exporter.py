@@ -6,7 +6,10 @@ import logging
 import os
 from collections import defaultdict
 import src.opcodes as opcodes
-from src.common import public_function_signature_filename, event_signature_filename
+from src.common import public_function_signature_filename, event_signature_filename, \
+  all_checkedTransferCall_filename, all_checkedTransferFromCall_filename, \
+  all_readFromTrustedStorageId_filename, all_unguardedDelegateCallToSig_filename, \
+  all_unguardedExternalCallToSig_filename, all_writeToUntrustedStorageId_filename
 
 
 opcode_output = {'alters_flow':bool, 'halts':bool, 'is_arithmetic':bool,
@@ -123,6 +126,19 @@ class InstructionTsvExporter(Exporter):
                 assert '\n' not in bytecode_hex
                 f.write(bytecode_hex)
 
+        for filename in [all_checkedTransferCall_filename, all_checkedTransferFromCall_filename,
+                  all_readFromTrustedStorageId_filename, all_unguardedDelegateCallToSig_filename,
+                  all_unguardedExternalCallToSig_filename, all_writeToUntrustedStorageId_filename]:
+            basename = os.path.basename(filename)
+            filename_out = os.path.join(output_dir, basename)
+            if os.path.isfile(filename):
+                try:
+                    os.symlink(filename, filename_out)
+                except FileExistsError:
+                    pass
+            else:
+                open(filename_out, 'w').close()
+
         signatures_filename_in = public_function_signature_filename
         signatures_filename_out = os.path.join(output_dir, 'PublicFunctionSignature.facts')
         if os.path.isfile(signatures_filename_in):
@@ -132,7 +148,7 @@ class InstructionTsvExporter(Exporter):
                 pass
         else:
             open(signatures_filename_out, 'w').close()
-            
+        
         events_filename_in = event_signature_filename
         events_filename_out = os.path.join(output_dir, 'EventSignature.facts')
         if os.path.isfile(events_filename_in):
