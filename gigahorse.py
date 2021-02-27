@@ -18,6 +18,9 @@ from collections import defaultdict
 from multiprocessing import Process, SimpleQueue, Manager, Event, cpu_count
 from os.path import abspath, dirname, join, getsize
 import os
+from src.common import all_checkedTransferCall_filename, all_checkedTransferFromCall_filename, \
+  all_readFromTrustedStorageId_filename, all_unguardedDelegateCallToSig_filename, \
+  all_unguardedExternalCallToSig_filename, all_writeToUntrustedStorageId_filename
 
 # Local project imports
 import src.exporter as exporter
@@ -293,6 +296,13 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
                 result_queue.put((contract_filename, [], ["TIMEOUT"], {}))
                 log("{} timed out.".format(contract_filename))
                 return
+            
+            for filename in [all_checkedTransferCall_filename, all_checkedTransferFromCall_filename,
+                  all_readFromTrustedStorageId_filename, all_unguardedDelegateCallToSig_filename,
+                  all_unguardedExternalCallToSig_filename, all_writeToUntrustedStorageId_filename]:
+                basename = os.path.basename(filename)
+                os.symlink(join(work_dir, basename), join(out_dir, basename))
+
             # end decompilation
         if exists and not args.rerun_clients:
             return
