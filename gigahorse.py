@@ -301,8 +301,15 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
                   all_readFromTrustedStorageId_filename, all_unguardedDelegateCallToSig_filename,
                   all_unguardedExternalCallToSig_filename, all_writeToUntrustedStorageId_filename]:
                 basename = os.path.basename(filename)
-                os.symlink(join(work_dir, basename), join(out_dir, basename))
-
+                filename_out = os.path.join(out_dir, basename)
+                if os.path.isfile(filename):
+                    try:
+                        os.symlink(filename, filename_out)
+                    except FileExistsError:
+                        pass
+                else:
+                    open(filename_out, 'w').close()
+                    
             # end decompilation
         if exists and not args.rerun_clients:
             return
