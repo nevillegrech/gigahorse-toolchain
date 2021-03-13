@@ -2,6 +2,7 @@
 
 //#define DEBUG
 
+#define RETURN_ADDRESS_RANK_THRESHOLD 25
 
 #ifdef DEBUG
 .output BlockEdge, FallthroughEdge, BlockJumpValidTarget, BlockJumpTarget, MaybeInFunctionUnderContext
@@ -143,7 +144,15 @@ MaybeFunctionCallReturn_Ins(caller, func, retBlock, retTarget):-
 .decl PossibleReturnAddressWithPositiveRank(callCtx:Context, targetSetter:Block, retCtx:Context, retBlock:Block, retTarget:Block, rank:number)
 PossibleReturnAddressWithPositiveRank(callCtx, caller, retCtx, retBlock, retTarget, n) :-
   PossibleReturnAddressWithRank(callCtx, caller, retCtx, retBlock, retTarget, n),
-  n > 0.
+  CanReachUnderContext(callCtx, caller, retCtx, retBlock),
+  CanReachUnderContext(retCtx, retBlock, _, retTarget),
+  n > 0,
+  n < RETURN_ADDRESS_RANK_THRESHOLD.
+
+.decl MaybeFunctionCallReturnNewContext(ctx:Context, caller:Block, retTargetCtx:Context, retTarget:Block)
+MaybeFunctionCallReturnNewContext(ctx, caller, retTargetCtx, retTarget) :-
+  MaybeFunctionCallReturn(ctx, caller, _, retCtx, ret, retTarget),
+  BlockEdge(retCtx, ret, retTargetCtx, retTarget).
 
 // If we have found a likely call-return pattern, we propagate to the return
 // block the extra pushed return values of the former caller. Stacking return
@@ -151,27 +160,22 @@ PossibleReturnAddressWithPositiveRank(callCtx, caller, retCtx, retBlock, retTarg
 
 // Case where the caller pushes new return targets as well.
 PossibleReturnAddressWithRank(newCallCtx, caller, retCtx, retBlock, retTarget, n + maxrank) :-
-  MaybeFunctionCallReturn(prevCallCtx, targetSetter, _, prevRetCtx, prevRet, caller),
+  MaybeFunctionCallReturnNewContext(prevCallCtx, targetSetter, newCallCtx, caller),
   PossibleReturnAddressWithPositiveRank(prevCallCtx, targetSetter, retCtx, retBlock, retTarget, n),
-  postTrans.ImmediateBlockJumpTarget(caller, targetVar),
-  BlockEdge(prevRetCtx, prevRet, newCallCtx, caller),
   BlockJumpValidTarget(newCallCtx, caller, targetVar, _),
-  MaxRankForPossibleReturnAddressSetter(caller, maxrank), n < 10,
-  CanReachUnderContext(prevCallCtx, targetSetter, retCtx, retBlock),
-  CanReachUnderContext(retCtx, retBlock, _, retTarget).
-  .plan 1:(2,1,3,4,5,6,7,8)
+  postTrans.ImmediateBlockJumpTarget(caller, targetVar),
+  MaxRankForPossibleReturnAddressSetter(caller, maxrank),
+  n + maxrank < RETURN_ADDRESS_RANK_THRESHOLD.
+ .plan 1:(2,1,3,4,5)
 
 // Case where the caller doesn't push new return targets to the stack
 PossibleReturnAddressWithRank(newCallCtx, caller, retCtx, retBlock, retTarget, n-1) :-
-  MaybeFunctionCallReturn(prevCallCtx, targetSetter, _, prevRetCtx, prevRet, caller),
+  MaybeFunctionCallReturnNewContext(prevCallCtx, targetSetter, newCallCtx, caller),
   PossibleReturnAddressWithPositiveRank(prevCallCtx, targetSetter, retCtx, retBlock, retTarget, n),
-  postTrans.ImmediateBlockJumpTarget(caller, targetVar),
-  BlockEdge(prevRetCtx, prevRet, newCallCtx, caller),
   BlockJumpValidTarget(newCallCtx, caller, targetVar, _),
-  CanReachUnderContext(prevCallCtx, targetSetter, retCtx, retBlock),
-  CanReachUnderContext(retCtx, retBlock, _, retTarget),
+  postTrans.ImmediateBlockJumpTarget(caller, targetVar),
   !PossibleReturnAddressWithPos(caller, _, _, _, _).
-  .plan 1:(2,1,3,4,5,6,7)
+ .plan 1:(2,1,3,4)
 
 // Seems pretty certain we found a return. In fact, at this point,
 // with the above logic, we have detected all original return
@@ -722,7 +726,7 @@ FunctionalBlockPopDelta(from, newPopDelta) :-
   PossibleImpreciseNumberOfFunctionArguments(func, n_args),
   IRBlockStackDelta(from, stackDelta),
   tempPopDelta = n_args-stackDelta,
-  CheckIsStackDelta(tempPopDelta),
+  CheckIsPopDelta(tempPopDelta),
   newPopDelta = @max2(tempPopDelta, popDelta).
 
 
@@ -781,8 +785,8 @@ PotentialCycleEntryLocalBlockEdge(from, to) :-
    LocalBlockEdge(from, to),
    PotentialCycleEntry(to).
 
-.decl NotCyleEntryLocalBlockEdge(from: IRBlock, to: IRBlock)
-NotCyleEntryLocalBlockEdge(from, to) :-
+.decl NotCycleEntryLocalBlockEdge(from: IRBlock, to: IRBlock)
+NotCycleEntryLocalBlockEdge(from, to) :-
    LocalBlockEdge(from, to),
    !PotentialCycleEntry(to).
 
@@ -790,11 +794,11 @@ NotCyleEntryLocalBlockEdge(from, to) :-
 PossibleFunctionalBlockPopAndStackDelta(func, to, newPath, newPopDelta, newStackDelta) :-
   PossibleFunctionalBlockPopAndStackDelta(func, from, prevPath, prevPopDelta, prevStackDelta),
   ((PotentialCycleEntryLocalBlockEdge(from, to), newPath = @add_set(prevPath, to), newPath != prevPath) ;
-    (NotCyleEntryLocalBlockEdge(from, to), newPath = prevPath)),
+    (NotCycleEntryLocalBlockEdge(from, to), newPath = prevPath)),
   FunctionalBlockPopAndStackDelta(from, popDelta, stackDelta),
   newStackDelta = stackDelta + prevStackDelta,
   newPopDelta = @max2(popDelta - prevStackDelta, prevPopDelta),
-  CheckIsStackDelta(newPopDelta), CheckIsStackDelta(newStackDelta).
+  CheckIsPopDelta(newPopDelta), CheckIsStackDelta(newStackDelta).
   .plan 1:(3,2,1)
 
 // Basic blocks that need to be checked for cycles in path sensitive algorithms
@@ -822,7 +826,7 @@ PossibleCombinedNumberOfFunctionReturnsAndArguments(func, terminal, numArg, numR
   PossibleFunctionalBlockPopAndStackDelta(func, terminal, _, prevPopDelta, prevStackDelta),
   FunctionalBlockPopAndStackDelta(terminal, popDelta, stackDelta),
   newPopDelta = popDelta - prevStackDelta,
-  CheckIsStackDelta(newPopDelta),
+  CheckIsPopDelta(newPopDelta),
   numArg = @max2(newPopDelta, prevPopDelta),
   numRet = prevStackDelta + stackDelta + numArg,
   CheckIsStackIndex(numRet).
