@@ -725,9 +725,8 @@ FunctionalBlockPopDelta(from, newPopDelta) :-
   IRFunctionCall(from, func),
   PossibleImpreciseNumberOfFunctionArguments(func, n_args),
   IRBlockStackDelta(from, stackDelta),
-  tempPopDelta = n_args-stackDelta,
-  CheckIsPopDelta(tempPopDelta),
-  newPopDelta = @max2(tempPopDelta, popDelta).
+  newPopDelta = @max2(n_args - stackDelta, popDelta),
+  CheckIsPopDelta(newPopDelta).
 
 
 // What is the total difference in stack level during this block ?
@@ -825,9 +824,8 @@ CycleEntry(func, block) :-
 PossibleCombinedNumberOfFunctionReturnsAndArguments(func, terminal, numArg, numRet) :-
   PossibleFunctionalBlockPopAndStackDelta(func, terminal, _, prevPopDelta, prevStackDelta),
   FunctionalBlockPopAndStackDelta(terminal, popDelta, stackDelta),
-  newPopDelta = popDelta - prevStackDelta,
-  CheckIsPopDelta(newPopDelta),
-  numArg = @max2(newPopDelta, prevPopDelta),
+  numArg = @max2(popDelta - prevStackDelta, prevPopDelta),
+  CheckIsPopDelta(numArg),
   numRet = prevStackDelta + stackDelta + numArg,
   CheckIsStackIndex(numRet).
     // When leaving the stack with d more items but it originally
