@@ -57,6 +57,16 @@
    FunctionFlowSummary(fn, from, n) :-
       Flows(from, to),
       FormalReturnArgs(fn, to, n).
+
+    .decl InterFunctionArgFlow(actual:Variable, formal:Variable)
+
+    InterFunctionActualArgFlow(actual, inFunctionVar):-
+      ActualArgs(caller, actual, n),
+      TransferBoundary(caller),
+      CallGraphEdge(caller, fn),
+      FormalArgs(fn, formal, n),
+      Flows(formal, inFunctionVar).
+
    
    // Case: flow within the same function, or back to local
    
@@ -64,13 +74,9 @@
    GlobalFlows(x, y) :- Flows(x, y).
    
    // Case: forward inter-procedural assignment only
-   GlobalFlows(x, y) :-
-      GlobalFlows(x, actual),
-      ActualArgs(caller, actual, n),
-      TransferBoundary(caller),
-      CallGraphEdge(caller, fn),
-      FormalArgs(fn, formal, n),
-      Flows(formal, y).
+   GlobalFlows(from, to) :-
+      InterFunctionActualArgFlow(actual, to),
+      GlobalFlows(from, actual).
 }
 
 .init standardflowanalysis = GlobalFlowAnalysis
