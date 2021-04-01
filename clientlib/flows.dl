@@ -58,7 +58,7 @@
       Flows(from, to),
       FormalReturnArgs(fn, to, n).
 
-    .decl InterFunctionArgFlow(actual:Variable, formal:Variable)
+    .decl InterFunctionActualArgFlow(actual:Variable, formal:Variable)
 
     InterFunctionActualArgFlow(actual, inFunctionVar):-
       ActualArgs(caller, actual, n),
