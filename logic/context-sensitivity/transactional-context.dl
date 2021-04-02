@@ -14,18 +14,21 @@
 .decl InitialPrivateContext(ctx : PrivateContext)
 InitialPrivateContext(nil).
 
+/*
+Keeping this commented for now to see if it makes a difference
 .decl IsPrivateContext(ctx:PrivateContext, block:Block, rest:PrivateContext)
 IsPrivateContext(nil, "", nil).
+*/
+.decl DecomposePrivateContext(priCtx: PrivateContext, block: Block, rest: PrivateContext)
 
 .decl DropLast(ctx : PrivateContext, newCtx : PrivateContext)
 DropLast(ctx, nil) :-
-  IsPrivateContext(ctx, block, nil),
-  ctx = [ block, nil ], block = block.
+  DecomposePrivateContext(ctx, _, nil).
 
-IsPrivateContext(newCtx, block, newRest),
+DecomposePrivateContext(newCtx, block, newRest),
 PrivateContextDepth(newCtx, depth - 1),
 DropLast(ctx, newCtx) :-
-  IsPrivateContext(ctx, block, rest),
+  DecomposePrivateContext(ctx, block, rest),
   PrivateContextDepth(ctx, depth),
   DropLast(rest, newRest),
   newCtx = [ block, newRest ].
@@ -36,7 +39,7 @@ PrivateContextDepth(init, 0) :-
   InitialPrivateContext(init).
 
 PrivateContextDepth(ctx, depth + 1) :-
-  IsPrivateContext(ctx, block, rest), ctx = [ block, rest ],	block = block,
+  DecomposePrivateContext(ctx, _, rest),
   PrivateContextDepth(rest, depth).
   .plan 1:(2,1)
 
@@ -112,7 +115,11 @@ MergeContext(ctx, caller, ctx) :-
   (!PrivateFunctionCallOrReturn(caller) ; MaxContextDepth(0)). 
 
 // Complex control flow case
+<<<<<<< HEAD
 IsPrivateContext(newPrivateContext, caller, cutDownPri),
+=======
+DecomposePrivateContext(newPrivateContext, caller, cutDownPri),
+>>>>>>> master
 MergeContext(ctx, caller, newContext) :-
   ReachableContext(ctx, caller),
   ContextComponents(ctx, pub, pri),
