@@ -115,11 +115,8 @@ MergeContext(ctx, caller, ctx) :-
   (!PrivateFunctionCallOrReturn(caller) ; MaxContextDepth(0)). 
 
 // Complex control flow case
-<<<<<<< HEAD
-IsPrivateContext(newPrivateContext, caller, cutDownPri),
-=======
+
 DecomposePrivateContext(newPrivateContext, caller, cutDownPri),
->>>>>>> master
 MergeContext(ctx, caller, newContext) :-
   ReachableContext(ctx, caller),
   ContextComponents(ctx, pub, pri),
