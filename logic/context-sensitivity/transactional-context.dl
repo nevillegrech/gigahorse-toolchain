@@ -100,9 +100,9 @@ StaticBlockJumpTarget(caller, target) :-
 
 .decl MergeContext(ctx : Context, caller : Block, newContext : Context)
 
-.decl ContextComponents(ctx:Context, publicFun:symbol, private:PrivateContext)
+.decl DecomposeContext(ctx:Context, publicFun:symbol, private:PrivateContext)
 
-ContextComponents(ctx, publicFun, private):-
+DecomposeContext(ctx, publicFun, private):-
   ReachableContext(ctx, _), ctx = [publicFun, private].
 
 // Trivial control flow case for when there is no function call
@@ -119,7 +119,7 @@ MergeContext(ctx, caller, ctx) :-
 DecomposePrivateContext(newPrivateContext, caller, cutDownPri),
 MergeContext(ctx, caller, newContext) :-
   ReachableContext(ctx, caller),
-  ContextComponents(ctx, pub, pri),
+  DecomposeContext(ctx, pub, pri),
   PrivateFunctionCallOrReturn(caller),
 #ifndef NO_PUBLIC_CONTEXT
   !postTrans.PublicFunction(caller, _),
@@ -131,9 +131,9 @@ MergeContext(ctx, caller, newContext) :-
 
 #ifndef NO_PUBLIC_CONTEXT
 MergeContext(ctx, caller, newContext) :-
-  ReachableContext(ctx, caller), 
+  ReachableContext(ctx, caller),
+  DecomposeContext(ctx, _, pri),
   postTrans.PublicFunction(caller, sigHash),
-  ctx = [pub, pri], pub = pub,
   newContext = [sigHash, pri].
 #endif
 
