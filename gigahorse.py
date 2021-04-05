@@ -161,10 +161,10 @@ parser.add_argument("-M",
                     default = "",
                     help = "Prepocessor macro definitions to pass to Souffle using the -M parameter")
 
-parser.add_argument("--inline",
+parser.add_argument("--disable_inline",
                     action="store_true",
                     default=False,
-                    help="Inlines small functions to produce a more high-level IR.")
+                    help="Disables the inlining of small functions (performed to produce a more high-level IR).")
 
 parser.add_argument("-q",
                     "--quiet",
@@ -323,7 +323,7 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
                     open(filename_out, 'w').close()
             
             inline_start = time.time()
-            if args.inline:
+            if not args.disable_inline:
                 if not args.interpreted:
                     inliner_args = [join(os.getcwd(), DEFAULT_INLINER_EXECUTABLE),
                                 "--facts={}".format(out_dir),
@@ -480,7 +480,7 @@ logging.basicConfig(format='%(message)s', level=log_level)
 compile_processes_args = []
 compile_processes_args.append((DEFAULT_DECOMPILER_DL, DEFAULT_SOUFFLE_EXECUTABLE))
 
-if args.inline:
+if not args.disable_inline:
     compile_processes_args.append((DEFAULT_INLINER_DL, DEFAULT_INLINER_EXECUTABLE))
 
 clients_split = [a.strip() for a in args.client.split(',')]
