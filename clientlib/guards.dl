@@ -59,7 +59,7 @@ SenderGuard(globalVal, predicate) :-
   DataFlows(globalFrom, global),
   Statement_Uses(call, global, 1),
   ExternalCall_NumOfArgs(call, 0),
-  ExternalCall_ActualReturn(call, callReturnFrom),
+  ExternalCall_ActualReturn(call, callReturnFrom, _),
   DataFlows(callReturnFrom, callReturn),
   DataFlows(predicateFrom, predicate).
 
@@ -71,7 +71,7 @@ SenderGuard(globalVal, predicate) :-
   Statement_Uses(call, global, 1),
   DataFlows(globalFrom, global),
   LoadGlobalVariable(_, globalVal, globalFrom),
-  ExternalCall_ActualReturn(call, callReturnFrom),
+  ExternalCall_ActualReturn(call, callReturnFrom, _),
   DataFlows(callReturnFrom, predicate).
 
 #endif
