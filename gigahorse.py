@@ -86,6 +86,11 @@ parser.add_argument("-C",
                     default="",
                     help="additional clients to run after decompilation.")
 
+parser.add_argument("-P",
+                    "--pre-client",
+                    nargs="?",
+                    default="",
+                    help="additional clients to run before decompilation.")
 
 parser.add_argument("-p",
                     "--filename_pattern",
@@ -275,6 +280,43 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
 
             os.symlink(join(work_dir, 'bytecode.hex'), join(out_dir, 'bytecode.hex'))
             
+            # Run pre-clients
+            for souffle_client in souffle_pre_clients:
+                if not args.interpreted:
+                    analysis_args = [join(os.getcwd(), souffle_client+'_compiled'),
+                                 "--facts={}".format(work_dir),
+                                 "--output={}".format(work_dir)
+                    ]
+                else:
+                    analysis_args = [DEFAULT_SOUFFLE_BIN,
+                                 join(os.getcwd(), souffle_client),
+                                 "--fact-dir={}".format(work_dir),
+                                 "--output-dir={}".format(work_dir)
+                    ]
+                runtime = run_process(analysis_args, calc_timeout())
+                if runtime < 0:
+                    result_queue.put((contract_name, [], ["TIMEOUT"], {}))
+                    log("{} timed out.".format(contract_name))
+                    return
+
+            for other_client in other_pre_clients:
+                other_client_split = [o for o in other_client.split(' ') if o]
+                other_client_split[0] = join(os.getcwd(), other_client_split[0])
+                other_client_name = other_client_split[0].split('/')[-1]
+                out_filename = join(work_dir, other_client_name+'.out')
+                err_filename = join(work_dir, other_client_name+'.err')
+                runtime = run_process(
+                    other_client_split,
+                    calc_timeout(),
+                    open(out_filename, 'w'),
+                    open(err_filename, 'w'),
+                    cwd=work_dir
+                )
+                if runtime < 0:
+                    result_queue.put((contract_name, [], ["TIMEOUT"], {}))
+                    log("{} timed out.".format(contract_name))
+                    return
+
             
             # Run souffle on those relations
             decomp_start = time.time()
@@ -451,7 +493,14 @@ clients_split = [a.strip() for a in args.client.split(',')]
 souffle_clients = [a for a in clients_split if a.endswith('.dl')]
 other_clients = [a for a in clients_split if not (a.endswith('.dl') or a == '')]
 
+pre_clients_split = [a.strip() for a in args.pre_client.split(',')]
+souffle_pre_clients = [a for a in pre_clients_split if a.endswith('.dl')]
+other_pre_clients = [a for a in pre_clients_split if not (a.endswith('.dl') or a == '')]
+
 if not args.interpreted:
+    for c in souffle_pre_clients:
+        compile_processes_args.append((c, c+'_compiled'))
+
     for c in souffle_clients:
         compile_processes_args.append((c, c+'_compiled'))
 
