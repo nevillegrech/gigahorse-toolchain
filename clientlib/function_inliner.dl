@@ -527,6 +527,15 @@
 
 .init inliner = AnalysisHelpInliner
 
+.decl NeedsMoreInlining(fun:Function)
+.output NeedsMoreInlining
+
+NeedsMoreInlining(fun):-
+  inliner.InlineCandidate(fun),
+  inliner.SafelyInlinableFunction(fun),
+  !inliner.FunctionToInline(fun),
+  !IsPublicFunction(fun).
+
 inliner.In_Statement_Opcode(stmt, op):- Statement_Opcode(stmt, op).
 inliner.In_IsStatement(stmt):-IsStatement(stmt).
 inliner.In_Statement_Block(stmt, block):-Statement_Block(stmt, block).

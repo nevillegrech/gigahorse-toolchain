@@ -43,6 +43,14 @@ DEFAULT_DECOMPILER_DL = join(GIGAHORSE_DIR, 'logic/decompiler.dl')
 DEFAULT_SOUFFLE_EXECUTABLE = 'decompiler_compiled'
 """Compiled vulnerability specification file."""
 
+DEFAULT_INLINER_DL = join(GIGAHORSE_DIR, 'clientlib/function_inliner.dl')
+"""IR helping inliner specification file."""
+
+DEFAULT_INLINER_EXECUTABLE = 'inliner_compiled'
+"""Compiled inliner file."""
+
+DEFAULT_INLINER_ROUNDS = 4
+
 DEFAULT_CACHE_DIR = join(GIGAHORSE_DIR, 'cache')
 
 TEMP_WORKING_DIR = ".temp"
@@ -153,6 +161,10 @@ parser.add_argument("-M",
                     default = "",
                     help = "Prepocessor macro definitions to pass to Souffle using the -M parameter")
 
+parser.add_argument("--inline",
+                    action="store_true",
+                    default=False,
+                    help="Inlines small functions to produce a more high-level IR.")
 
 parser.add_argument("-q",
                     "--quiet",
@@ -309,6 +321,26 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
                         pass
                 else:
                     open(filename_out, 'w').close()
+            
+            inline_start = time.time()
+            if args.inline:
+                if not args.interpreted:
+                    inliner_args = [join(os.getcwd(), DEFAULT_INLINER_EXECUTABLE),
+                                "--facts={}".format(out_dir),
+                                "--output={}".format(out_dir)
+                    ]
+                else:
+                    inliner_args = [DEFAULT_SOUFFLE_BIN,
+                                DEFAULT_INLINER_DL,
+                                "--fact-dir={}".format(out_dir),
+                                "--output-dir={}".format(out_dir)
+                    ]
+                for i in range(DEFAULT_INLINER_ROUNDS):
+                   runtime = run_process(inliner_args, calc_timeout())
+                   needs_more_file = join(out_dir, 'NeedsMoreInlining.csv')
+                   if os.path.exists(needs_more_file):
+                       if os.path.getsize(needs_more_file) == 0:
+                           break
                     
             # end decompilation
         if exists and not args.rerun_clients:
@@ -358,11 +390,12 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
         meta = []
         # Decompile + Analysis time
         analytics['disassemble_time'] = decomp_start - disassemble_start
-        analytics['decomp_time'] = client_start - decomp_start
+        analytics['decomp_time'] = inline_start - decomp_start
+        analytics['inline_time'] = client_start - inline_start
         analytics['client_time'] = time.time() - client_start
-        log("{}: {:.36} completed in {:.2f} + {:.2f} + {:.2f} secs".format(
+        log("{}: {:.36} completed in {:.2f} + {:.2f} + {:.2f} + {:.2f} secs".format(
             index, contract_name, analytics['disassemble_time'],
-            analytics['decomp_time'], analytics['client_time']
+            analytics['decomp_time'], analytics['inline_time'], analytics['client_time']
         ))
 
         get_gigahorse_analytics(out_dir, analytics)
@@ -446,6 +479,9 @@ logging.basicConfig(format='%(message)s', level=log_level)
 # Here we compile the decompiler and any of its clients in parallel :)
 compile_processes_args = []
 compile_processes_args.append((DEFAULT_DECOMPILER_DL, DEFAULT_SOUFFLE_EXECUTABLE))
+
+if args.inline:
+    compile_processes_args.append((DEFAULT_INLINER_DL, DEFAULT_INLINER_EXECUTABLE))
 
 clients_split = [a.strip() for a in args.client.split(',')]
 souffle_clients = [a for a in clients_split if a.endswith('.dl')]
