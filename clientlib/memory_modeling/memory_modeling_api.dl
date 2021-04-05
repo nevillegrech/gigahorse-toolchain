@@ -1,0 +1,76 @@
+/*
+  Arrays can have many aliasing vars referencing them
+  this maps a unique id for each "class" of aliasing arrays 
+*/
+
+.type ArrayVariable <: Variable
+
+.decl VarIsArray(var:Variable, arrId: ArrayVariable)
+
+//.decl RegularArray(arrId:symbol)
+
+//.decl TightlyPackedArray(arrId:symbol)
+
+//.decl ABIEncodedArray(arrId:symbol)
+
+/**
+  elemSize is the width of the array's elements, can also be "??"
+**/
+.decl ArrayAllocation(arrId:ArrayVariable, elemSize:Value, arrayLength:Variable)
+
+/**
+  ArrayStore and ArrayLoad and the respective 'AtIndex relations do not overlap
+  The AtIndex relations map to high level stores and loads, while the others map to 
+  correspond to implicit array copying patterns. 
+**/
+
+.decl ArrayStore(stmt:Statement, arrId:ArrayVariable, from:Variable)
+
+.decl ArrayLoad(stmt:Statement, arrId:ArrayVariable, to:Variable)
+
+.decl ArrayStoreAtIndex(stmt:Statement, arrId:ArrayVariable, index:Variable, from:Variable)
+
+.decl ArrayLoadAtIndex(stmt:Statement, arrId:ArrayVariable, index:Variable, to:Variable)
+
+.decl ArrayLengthVar(arrId:ArrayVariable, lenVar:Variable)
+
+/**
+  Actual arguments or uses for statements using memory,
+  this can combine memory and
+  non memory args (in LOGs and CALLs)
+  Producing results for:
+
+    LOGx statements,
+      The indexed args (1 for LOG1, 2 for LOG2, etc)
+      followed by the ABI encoded actual memory args
+
+    CALL statements have the following args,
+    all followed by the actual memory args:
+      CALL: gas, targetAddr, value
+      STATICCALL: gas, targetAddr
+      DELEGATECALL: gas, targetAddr
+    Note: In high level calls the function selector
+    is the 0th actual memory arg
+
+    SHA3:
+      The actual memory args.
+
+    RETURN:
+      The actual memory args, ABI encoded.
+
+    CALLDATALOAD:
+      The 0th actual arg is the array written to
+
+    MLOADS:
+      0th actual arg can be a var that will definately be red from it
+      (that has been stored previously using MSTORE)
+**/
+.decl MemoryStatement_ActualArg(stmt:Statement, actual:Variable, index:number)
+
+.decl MemoryStatement_ActualArgNew(stmt:Statement, actual:MemoryArgument, index:number)
+
+.decl ExternalCall_ActualReturn(call:Statement, actual:Variable, index:number)
+
+.decl ArbitraryCall(call:Statement)
+
+.decl PublicFunctionArg(pubFun:Function, arg:Variable, index:number)

@@ -1,0 +1,310 @@
+#pragma once
+
+/**
+ * Modeling of the free memory pointer based values that are used
+ * as memory addresses
+**/
+
+.decl MSTOREFreePtr(mstore:Statement)
+DEBUG_OUTPUT(MSTOREFreePtr)
+
+.decl MLOADFreePtr(mload:Statement)
+DEBUG_OUTPUT(MLOADFreePtr)
+
+.decl MLOADFreePtr_To(mload:Statement, to:Variable)
+DEBUG_OUTPUT(MLOADFreePtr_To)
+
+.decl MSTOREToFreePtrAddr(mstore:Statement, storedVar:Variable)
+DEBUG_OUTPUT(MSTOREToFreePtrAddr)
+
+
+MSTOREFreePtr(mstore):-
+  MSTORE(mstore, addrVar, _),
+  BasicVariable_Value(addrVar, "0x40").
+
+MLOADFreePtr(mload):-
+  MLOAD(mload, addrVar, _),
+  BasicVariable_Value(addrVar, "0x40").
+
+MLOADFreePtr_To(mload, to):-
+  MLOADFreePtr(mload),
+  MLOAD(mload, _, to).  
+
+MSTOREToFreePtrAddr(mstore, from):-
+  MSTORE(mstore, addrVar, from),
+  MLOADFreePtr_To(_, addrVar).
+
+
+.decl MSTOREFreePtrOrder(mstore1:Statement, mstore2:Statement)
+DEBUG_OUTPUT(MSTOREFreePtrOrder)
+
+.decl MLOADFreePtrLoadsValueStoredAt(mload:Statement, mstore:Statement)
+DEBUG_OUTPUT(MLOADFreePtrLoadsValueStoredAt)
+
+.decl CALLUpdatesFreePtr(call:Statement)
+
+.decl FunctionUpdatesFreePtr(fun:Function)
+
+FunctionUpdatesFreePtr(fun):-
+  Statement_Function(stmt, fun),
+  (CALLUpdatesFreePtr(stmt) ; MSTOREFreePtr(stmt)).
+
+CALLUpdatesFreePtr(callStmt):-
+  CallGraphEdge(callBlock, fun),
+  FunctionUpdatesFreePtr(fun),
+  Block_Tail(callBlock, callStmt).
+
+.init mstoreFreePtrOrder = ReachableByPassing
+
+mstoreFreePtrOrder.From(stmt) :- MSTOREFreePtr(stmt).
+mstoreFreePtrOrder.Bypassing(stmt) :- MSTOREFreePtr(stmt) ; CALLUpdatesFreePtr(stmt).
+mstoreFreePtrOrder.To(stmt) :- MSTOREFreePtr(stmt);
+                                      MLOADFreePtr(stmt).
+
+MSTOREFreePtrOrder(mstore1, mstore2):-
+  mstoreFreePtrOrder.ReachableBypassingAny(mstore1, mstore2),
+  MSTOREFreePtr(mstore2).
+
+/*
+MSTOREFreePtrOrder("FIRSTINGLOBAL", mstore):-
+  MSTOREFreePtr(mstore),
+  Statement_Function(mstore, pubfun),
+  IsPublicFunction(pubfun),
+  !mstoreFreePtrOrder.ReachableBypassingAny(_, mstore).
+*/
+
+MLOADFreePtrLoadsValueStoredAt(mload, mstore):-
+  mstoreFreePtrOrder.ReachableBypassingAny(mstore, mload),
+  MLOADFreePtr(mload).
+
+/*
+MLOADFreePtrLoadsValueStoredAt(mload, "FIRSTINGLOBAL"):-
+  MLOADFreePtr(mload),
+  Statement_Function(mload, pubfun),
+  IsPublicFunction(pubfun),
+  !mstoreFreePtrOrder.ReachableBypassingAny(_, mload).
+*/
+.decl MSTOREFreePtr_IncByAmount(mstore:Statement, amount:number)
+DEBUG_OUTPUT(MSTOREFreePtr_IncByAmount)
+
+
+MSTOREFreePtr_IncByAmount(mstore, amount):-
+  MSTOREFreePtr(mstore),
+  MSTORE(mstore, _, storedVar),
+  Variable_SymbolicValue(storedVar, storedVal),
+  FreePointerBasedValue(storedVal, mload, _, amount),
+  MSTOREFreePtrOrder(prevMstore, mstore),
+  MLOADFreePtrLoadsValueStoredAt(mload, prevMstore).
+
+
+/**
+  We find loads of the free memory pointer (0x40) that do not have an update of the 
+  free memory pointer adress between them. These are used for aliasing between pointers 
+  There are two ways to do this:
+    1) Consider aliasing adresses between memory consuming statements, this has the potential
+       of being more sound by covering possible writes to memory being used by multiple memory consuming
+       statements, which I(Sifis) have not seen in practise yet.
+    2) Having memory consuming statements as well as stores to the free memory pointer breaking the aliasing.
+    
+    Right now we produce both and use the precise version to filter out the possible imprecision.
+**/
+
+.decl MLOADSFreePtrUnchanged(mload1:Statement, mload2:Statement)
+DEBUG_OUTPUT(MLOADSFreePtrUnchanged)
+
+.init mloadAliases = ReachableByPassing
+
+mloadAliases.From(stmt) :- MLOADFreePtr(stmt).
+mloadAliases.Bypassing(stmt) :- MSTOREFreePtr(stmt) ; CALLUpdatesFreePtr(stmt).
+mloadAliases.To(stmt) :- MLOADFreePtr(stmt).
+
+
+MLOADSFreePtrUnchanged(mload1, mload2):-
+  mloadAliases.ReachableBypassingAny(mload1, mload2);
+  mloadAliases.ReachableBypassingAny(mload2, mload1).
+
+MLOADSFreePtrUnchanged(mloadFreePtr, mloadFreePtr):-
+  MLOADFreePtr(mloadFreePtr).
+
+/*
+ 
+ */
+
+.decl MLOADSFreePtrUnchangedNoMemReuse(mload1:Statement, mload2:Statement)
+DEBUG_OUTPUT(MLOADSFreePtrUnchangedNoMemReuse)
+
+.init mloadAliasesPrecise = ReachableByPassing
+
+mloadAliasesPrecise.From(stmt) :- MLOADFreePtr(stmt).
+mloadAliasesPrecise.Bypassing(stmt) :- 
+  MSTOREFreePtr(stmt) ; 
+  (StatementUsesMemory(stmt, _), !StatementUsesMemoryReadsFromZero(stmt,_)).
+mloadAliasesPrecise.To(stmt) :- MLOADFreePtr(stmt).
+
+
+MLOADSFreePtrUnchangedNoMemReuse(mload1, mload2):-
+  mloadAliasesPrecise.ReachableBypassingAny(mload1, mload2);
+  mloadAliasesPrecise.ReachableBypassingAny(mload2, mload1).
+
+MLOADSFreePtrUnchangedNoMemReuse(mloadFreePtr, mloadFreePtr):-
+  MLOADFreePtr(mloadFreePtr).
+
+.decl StatementUsesMemoryReadsFromZero(stmt:Statement, kind:symbol)
+DEBUG_OUTPUT(StatementUsesMemoryReadsFromZero)
+
+StatementUsesMemoryReadsFromZero(stmt, kind):-
+  StatementUsesMemory_StartVar(stmt, kind, start),
+  BasicVariable_Value(start, "0x0").
+
+/**
+ Symbolic execution of FreePointerBasedValues
+ Supports ADD and SUB of constants + free pointer based values
+ **/
+
+.decl Variable_SymbolicValue(var:Variable, value:Value)
+DEBUG_OUTPUT(Variable_SymbolicValue)
+
+.decl FreePointerBasedValue(val:Value, defInstr:Statement, depth:number, numericValue:number)
+DEBUG_OUTPUT(FreePointerBasedValue)
+
+.decl FreePointerBasedValuesWithFreePointerAliases(val1:Value, val2:Value)
+DEBUG_OUTPUT(FreePointerBasedValuesWithFreePointerAliases)
+
+.decl FreePointerBasedValuesNumDiff(val1:Value, val2:Value, numDiff:number)
+DEBUG_OUTPUT(FreePointerBasedValuesNumDiff)
+
+.decl FreePointerBasedValuesWithFreePointerAliasesNumVals(val1:Value, val2:Value, numVal1:number, numVal2:number)
+DEBUG_OUTPUT(FreePointerBasedValuesWithFreePointerAliasesNumVals)
+
+.decl FreePointerBasedValuesEqual(val1:Value, val2:Value)
+DEBUG_OUTPUT(FreePointerBasedValuesEqual)
+
+// Chooses a rep from all the aliasing values, used elsewhere
+.decl FreePointerBasedValue_AliasRep(val:Value, valRep:Value)
+DEBUG_OUTPUT(FreePointerBasedValue_AliasRep)
+
+Variable_SymbolicValue(to, val),
+FreePointerBasedValue(val, msize, 0, 0):-
+  MSIZE(msize, to),
+  val = cat(cat(msize, "++"), "0").
+
+Variable_SymbolicValue(to, val1):-
+  PHIStmtTwoUses(_, msizeVar, mloadFreePtrVar, to),
+  Variable_SymbolicValue(msizeVar, val1),
+  Variable_SymbolicValue(mloadFreePtrVar, val2),
+  FreePointerBasedValue(val1, msize, 0, 0),
+  MSIZE(msize, _),
+  FreePointerBasedValue(val2, mload, 0, 0),
+  MLOADFreePtr(mload).
+
+Variable_SymbolicValue(to, val),
+FreePointerBasedValue(val, mload, 0, 0):-
+  MLOADFreePtr_To(mload, to),
+  val = cat(cat(mload, "++"), "0").
+
+/**
+ The depth is not used to limit the new values being created but to count how
+ many times a constant has been added to the value for arg inference.
+ **/
+Variable_SymbolicValue(to, val),
+FreePointerBasedValue(val, mload, newDepth, res):-
+  ADDFix(_, numVar, freePtrBasedVar, to),
+  Variable_NumericValue(numVar, numVal),
+  Variable_SymbolicValue(freePtrBasedVar, freePtrBasedVal),
+  FreePointerBasedValue(freePtrBasedVal, mload, depth, numVal2),
+  res = numVal + numVal2,
+  (
+  (res != numVal2, newDepth = depth);
+  (res = numVal2, newDepth = depth)
+  ),
+  val = cat(cat(mload, "++"), to_string(res)).
+
+Variable_SymbolicValue(to, val),
+FreePointerBasedValue(val, mload, newDepth, res):-
+  SUB(_, freePtrBasedVar, numVar, to),
+  Variable_NumericValue(numVar, numVal),
+  Variable_SymbolicValue(freePtrBasedVar, freePtrBasedVal),
+  FreePointerBasedValue(freePtrBasedVal, mload, depth, numVal2),
+  res = numVal2 - numVal,
+  (
+  (res != numVal2, newDepth = depth);
+  (res = numVal2, newDepth = depth)
+  ),
+  val = cat(cat(mload, "++"), to_string(res)).
+
+/*
+  Creating new values for the modeling of writes that are copied
+  in loops of constant length
+*/
+
+Variable_SymbolicValue(newIndexVar, val),
+FreePointerBasedValue(val, mload, newDepth, res):-
+  StatementWritesMemoryCopiedFromLoop(_, newIndexVar, memAddrTo, numDiff, _),
+  Variable_SymbolicValue(memAddrTo, freePtrBasedVal),
+  FreePointerBasedValue(freePtrBasedVal, mload, depth, numVal),
+  res = numDiff + numVal,
+  (
+  (res != numVal, newDepth = depth);
+  (res = numVal, newDepth = depth)
+  ),
+  val = cat(cat(mload, "++"), to_string(res)).
+
+/**
+ subtractions of aliasing memory pointers, functoring out the memory pointers
+ to get a constant
+ **/
+//TODO: use diff relation, after all other fixes
+Variable_Value(to, @number_to_hex(res)):-
+  SUB(_, var1, var2, to),
+  Variable_SymbolicValue(var1, freePtrBasedVal1),
+  FreePointerBasedValue(freePtrBasedVal1, _, _, numVal1),
+  Variable_SymbolicValue(var2, freePtrBasedVal2),
+  FreePointerBasedValue(freePtrBasedVal2, _, _, numVal2),
+  FreePointerBasedValuesWithFreePointerAliases(freePtrBasedVal1, freePtrBasedVal2),
+  res = numVal1 - numVal2.
+
+FreePointerBasedValuesWithFreePointerAliases(val1, val2):-
+  FreePointerBasedValue(val1, mload1, _, _),
+  MLOADSFreePtrUnchanged(mload1, mload2),
+  FreePointerBasedValue(val2, mload2, _, _).
+ .plan 1:(3,2,1)
+
+FreePointerBasedValuesWithFreePointerAliases(val1, val2):-
+  FreePointerBasedValue(val1, msize, _, _),
+  MSIZE(msize, _),
+  FreePointerBasedValue(val2, msize, _, _).
+ .plan 1:(3,2,1)
+
+FreePointerBasedValuesWithFreePointerAliasesNumVals(val1, val2, numVal1, numVal2):-
+  FreePointerBasedValuesWithFreePointerAliases(val1, val2),
+  FreePointerBasedValue(val1, _, _, numVal1),
+  FreePointerBasedValue(val2, _, _, numVal2).
+ .plan 1:(2,1,3),2:(3,1,2)
+
+FreePointerBasedValuesNumDiff(val1, val2, num1 - num2):-
+  FreePointerBasedValuesWithFreePointerAliasesNumVals(val1, val2, num1, num2).
+
+FreePointerBasedValuesNumDiff(val1, val2, -amount - numVal2 + numVal1),
+FreePointerBasedValuesNumDiff(val2, val1, amount + numVal2 - numVal1):-
+  MSTOREFreePtrOrder(mstore1, mstore2),
+  MSTOREFreePtr_IncByAmount(mstore2, amount),
+  MLOADFreePtrLoadsValueStoredAt(mload1, mstore1),
+  FreePointerBasedValue(val1, mload1, _, numVal1),
+  MLOADFreePtrLoadsValueStoredAt(mload2, mstore2),
+  FreePointerBasedValue(val2, mload2, _, numVal2).
+ .plan 1:(4,3,1,2,5,6),2:(6,5,2,1,3,4)
+
+//TODO: Make sure we can remove it
+FreePointerBasedValuesEqual(val1, val2):-
+  FreePointerBasedValuesWithFreePointerAliases(val1, val2),
+  FreePointerBasedValue(val1, _, _, numVal),
+  FreePointerBasedValue(val2, _, _, numVal).
+
+FreePointerBasedValuesEqual(val1, val2):-
+  FreePointerBasedValuesNumDiff(val1, val2, 0).
+
+FreePointerBasedValue_AliasRep(val, repVal):-
+  FreePointerBasedValue(val, _, _, _),
+  maxordy = max ord(otherVal) : FreePointerBasedValuesEqual(val, otherVal),
+  FreePointerBasedValuesEqual(val, repVal),
+  maxordy = ord(repVal).

@@ -1,0 +1,512 @@
+#pragma once
+
+/*
+
+ */
+
+/*
+  Describing statements that bulk copy continuous data from memory
+  CALLDATACOPY, RETURNDATACOPY, CODECOPY, EXTCODECOPY
+*/
+.decl VariableLengthMemoryCopyStatement(stmt:Statement, memAddrVar:Variable, lenVar:Variable)
+DEBUG_OUTPUT(VariableLengthMemoryCopyStatement)
+
+VariableLengthMemoryCopyStatement(stmt, memAddrVar, lenVar):-
+  ( Statement_Opcode(stmt, "CALLDATACOPY");
+    Statement_Opcode(stmt, "RETURNDATACOPY");
+    Statement_Opcode(stmt, "CODECOPY")),
+  Statement_Uses(stmt, memAddrVar, 0),
+  Statement_Uses(stmt, lenVar, 2).
+
+VariableLengthMemoryCopyStatement(stmt, memAddrVar, lenVar):-
+  Statement_Opcode(stmt, "EXTCODECOPY"),
+  Statement_Uses(stmt, memAddrVar, 1),
+  Statement_Uses(stmt, lenVar, 3).
+
+.decl PartialMSTORE(mstore:Statement, mload:Statement, storedVar:Variable, updateBytes:number)
+.output PartialMSTORE, LShiftBytes
+
+PartialMSTORE(mstore, mload, realFrom, 32 - maskBytes):-
+  MLOAD(mload, indexVar, loaded),
+  MSTORE(mstore, indexVar, from),
+  LocalStatementPathInBlock(mload , mstore),
+  LowBytesMaskOp(loaded, loadedMasked, maskBytes),
+  (OR(_, loadedMasked, shifted, from) ; OR(_, shifted, loadedMasked, from)),
+  Statement_Defines(shiftStmt, shifted, 0),
+  LShiftBytes(shiftStmt, realFrom, maskBytes).
+
+
+
+/**
+  Memory-reading-related relations
+**/
+
+.decl StatementUsesMemory(stmt:Statement, kind:symbol)
+DEBUG_OUTPUT(StatementUsesMemory)
+
+.decl StatementUsesMemory_StartVar(stmt:Statement, kind:symbol, var:Variable)
+DEBUG_OUTPUT(StatementUsesMemory_StartVar)
+
+.decl StatementUsesMemory_LengthVar(stmt:Statement, kind:symbol, var:Variable)
+DEBUG_OUTPUT(StatementUsesMemory_LengthVar)
+
+.decl StatementUsesMemoryReadsRawData(stmt:Statement, kind:symbol)
+DEBUG_OUTPUT(StatementUsesMemoryReadsRawData)
+
+.decl StatementUsesMemoryReadsABIEnc(stmt:Statement, kind:symbol)
+DEBUG_OUTPUT(StatementUsesMemoryReadsABIEnc)
+
+.decl StatementUsesMemoryReadsABIEncWSelector(stmt:Statement, kind:symbol)
+DEBUG_OUTPUT(StatementUsesMemoryReadsABIEncWSelector)
+
+.decl StatementUsesMemoryOfInitiallyComputableLength(stmt:Statement, var:Variable, length:number)
+DEBUG_OUTPUT(StatementUsesMemoryOfInitiallyComputableLength)
+
+.decl StatementUsesMemoryOfComputableLength(stmt:Statement, var:Variable, length:number)
+DEBUG_OUTPUT(StatementUsesMemoryOfComputableLength)
+
+.decl StatementUsesMemoryOfNonComputableLength(stmt:Statement, kind:symbol, var:Variable)
+DEBUG_OUTPUT(StatementUsesMemoryOfNonComputableLength)
+
+
+StatementUsesMemory(stmt, kind):-
+  StatementUsesMemory_LengthVar(stmt, kind, _).
+
+StatementUsesMemory_StartVar(stmt, kind, startVar):-
+  (SHA3(stmt, startVar, _, _), kind = "SHA3");
+  (LOGStatement(stmt, _), Statement_Uses(stmt, startVar, 0), kind = "LOG");
+  (REVERT(stmt, startVar, _), kind = "REVERT");
+  (RETURN(stmt, startVar, _),kind = "RETURN");
+  (STATICCALL(stmt, _, _, startVar, _, _, _, _), kind = "STATICCALL");
+  (DELEGATECALL(stmt, _, _, startVar, _, _, _, _), kind = "DELEGATECALL");
+  (CALL(stmt, _, _, _, startVar, _, _, _, _), kind = "CALL").
+
+StatementUsesMemory_LengthVar(stmt, kind, lenvar):-
+  (SHA3(stmt, _, lenvar, _), kind = "SHA3");
+  (LOGStatement(stmt, _), Statement_Uses(stmt, lenvar, 1), kind = "LOG");
+  (REVERT(stmt, _, lenvar), kind = "REVERT");
+  (RETURN(stmt, _, lenvar),kind = "RETURN");
+  (CALL(stmt, _, _, _, _, lenvar, _, _, _), kind = "CALL");
+  (STATICCALL(stmt, _, _, _, lenvar, _, _, _), kind = "STATICCALL");
+  (DELEGATECALL(stmt, _, _, _, lenvar, _, _, _), kind = "DELEGATECALL").
+
+StatementUsesMemoryReadsABIEnc(stmt, kind):-
+  StatementUsesMemory(stmt, kind),
+  (kind = "LOG" ; kind = "RETURN").
+
+StatementUsesMemoryReadsABIEncWSelector(stmt, kind):-
+  StatementUsesMemory(stmt, kind),
+  (kind = "CALL" ; kind = "STATICCALL" ; kind = "DELEGATECALL" ; kind = "REVERT").
+
+StatementUsesMemoryReadsRawData(stmt, kind):-
+  StatementUsesMemory(stmt, kind),
+  (kind = "SHA3").
+
+
+// For metrics
+StatementUsesMemoryOfInitiallyComputableLength(stmt, lenvar, length):-
+  StatementUsesMemory_LengthVar(stmt, _, lenvar),
+  BasicVariable_Value(lenvar, val),
+  length = @hex_to_number(val).
+
+StatementUsesMemoryOfComputableLength(stmt, lenvar, length):-
+  StatementUsesMemory_LengthVar(stmt, _, lenvar),
+  Variable_Value(lenvar, val),
+  length = @hex_to_number(val).
+
+StatementUsesMemoryOfNonComputableLength(stmt, kind, lenvar):-
+  StatementUsesMemory_LengthVar(stmt, kind, lenvar),
+  !Variable_Value(lenvar, _).
+
+/*
+ *  StatementWritesMemoryOfConstantLength:
+ *    contains all statements that write memory of a length we can compute
+ *
+ *  StatementWritesMemoryOfLength:
+ *    contains the above and uses an approximation for the rest.
+ */
+
+.decl StatementWritesMemoryOfConstantLength(stmt:Statement, addrVar:Variable, length:number)
+DEBUG_OUTPUT(StatementWritesMemoryOfConstantLength)
+
+.decl StatementWritesMemoryOfLength(stmt:Statement, addrVar:Variable, length:number)
+DEBUG_OUTPUT(StatementWritesMemoryOfLength)
+
+StatementWritesMemoryOfConstantLength(mstore, addrVar, 32):-
+  MSTORE(mstore, addrVar, _),
+  !PartialMSTORE(mstore, _, _, _).
+
+StatementWritesMemoryOfConstantLength(mstore, addrVar, bytes):-
+  MSTORE(mstore, addrVar, _),
+  PartialMSTORE(mstore, _, _, bytes).
+
+StatementWritesMemoryOfConstantLength(mstore, addrVar, 1):-
+  MSTORE8(mstore, addrVar, _).
+
+StatementWritesMemoryOfConstantLength(call, addrVar, length):-
+  CALLReturnsFixedSizeData(call, length),
+  CALLReturnDataStartVar(call, addrVar).
+
+StatementWritesMemoryOfConstantLength(stmt, addrVar, length):-
+  VariableLengthMemoryCopyStatement(stmt, addrVar, lenVar),
+  Variable_Value(lenVar, lenHex),
+  length = @hex_to_number(lenHex).
+
+
+/* REVIEW: Using an probably big enough approximation for writtes non computable length
+ * These need to be here to disqualify previous writes to these addresses to be considered
+ * by following reads.
+ */
+StatementWritesMemoryOfLength(stmt, addrVar, 320):-
+  VariableLengthMemoryCopyStatement(stmt, addrVar, lenVar),
+  !Variable_Value(lenVar, _).
+
+StatementWritesMemoryOfLength(stmt, addrVar, length):-
+  StatementWritesMemoryOfConstantLength(stmt, addrVar, length).
+
+StatementWritesMemoryOfLength(stmt, newIndexVar, length):-
+  StatementWritesMemoryCopiedFromLoop(stmt, newIndexVar, _, _, length).
+
+.decl StatementReadsMemoryOfConstantLength(stmt:Statement, var:Variable, length:number)
+DEBUG_OUTPUT(StatementReadsMemoryOfConstantLength)
+
+StatementReadsMemoryOfConstantLength(memConsStmt, startVar, length):-
+  StatementUsesMemoryOfComputableLength(memConsStmt, _, length),
+  StatementUsesMemory_StartVar(memConsStmt, _, startVar).
+
+StatementReadsMemoryOfConstantLength(mload, indexVar, 32):-
+  MLOAD(mload, indexVar, _).
+
+
+/**
+  Memory Write to consuming statement update
+ **/
+
+.decl MemoryAddressVar(var:Variable)
+
+.decl MemoryAddressVarsNumDiff(var1:Variable, var2:Variable, numDiff:number)
+DEBUG_OUTPUT(MemoryAddressVarsNumDiff)
+
+MemoryAddressVar(indexVar):-
+  MSTORE(_, indexVar, _);
+  MSTORE8(_, indexVar, _);
+  VariableLengthMemoryCopyStatement(_, indexVar, _);
+  CALLReturnDataStartVar(_, indexVar);
+  StatementUsesMemory_StartVar(_, _, indexVar);
+  MLOAD(_, indexVar, _);
+  Variable_SymbolicValue(indexVar, _). // Needed because of the way the aliasing works.
+
+MemoryAddressVarsNumDiff(var1, var2, numDiff):-
+  MemoryAddressVar(var1),
+  Variable_NumericValue(var1, num1),
+  Variable_Function(var1, fun),
+  Variable_Function(var2, fun),
+  MemoryAddressVar(var2),
+  Variable_NumericValue(var2, num2),
+  numDiff = num1 - num2.
+  .plan 1:(2,1,3,4,5,6),2:(5,6,4,3,2,1),3:(6,5,4,3,2,1)
+
+MemoryAddressVarsNumDiff(var1, var2, numDiff):-
+  Variable_SymbolicValue(var1, freePtrBasedVal1),
+  FreePointerBasedValuesNumDiff(freePtrBasedVal1, freePtrBasedVal2, numDiff),
+  Variable_SymbolicValue(var2, freePtrBasedVal2).
+ .plan 1:(2,1,3),2:(3,2,1)
+
+/**
+  Memory Write to memory reading statement
+  We first try to compute the lengths of memory writting and reading
+  statements.
+  If this is not possible we use heuristics for the length of reads
+  while also keeping the writes that are before this statement but 
+  we cannot produce constant or symbolic indexes for, as writes 
+  attributing to the memory used by it.
+  
+  This difference in the way statement reading operations are handled
+  is shown in MemWriteToMemConsStmtWithNonComputableLength 
+  and MemWriteToMemConsStmtWithConstantLength.
+
+  We then use constant and symbolic addresses to identify
+  their uses through memory with byte precision 
+  (identifying the last write affecting each byte read by an operation).
+ **/
+
+
+.decl MemWriteToMemConsStmt(mstore:Statement, memConsStmt:Statement)
+DEBUG_OUTPUT(MemWriteToMemConsStmt)
+
+.decl InitialMemWriteToMemConsStmtWithNonComputableLength(mstore:Statement, memConsStmt:Statement)
+DEBUG_OUTPUT(InitialMemWriteToMemConsStmtWithNonComputableLength)
+
+.decl MemWriteToMemConsStmtWithNonComputableLength(mstore:Statement, memConsStmt:Statement)
+DEBUG_OUTPUT(MemWriteToMemConsStmtWithNonComputableLength)
+
+.decl MemWriteToMemConsStmtWithConstantLength(mstore:Statement, memConsStmt:Statement, writeAddrRep:symbol)
+DEBUG_OUTPUT(MemWriteToMemConsStmtWithConstantLength)
+
+MemWriteToMemConsStmt(mstore, memConsStmt):-
+  MemWriteToMemConsStmtWithNonComputableLength(mstore, memConsStmt);
+  MemWriteToMemConsStmtWithConstantLength(mstore, memConsStmt, _).
+
+.init mstoreToMemConsStmt = ReachableBypassingWArg
+
+mstoreToMemConsStmt.From(stmt, "CONST") :-  StatementWritesMemoryOfLength(stmt, index, _), Variable_Value(index, _).
+mstoreToMemConsStmt.From(stmt, "SYMBOLIC") :-  StatementWritesMemoryOfLength(stmt, index, _), !Variable_Value(index, _).
+
+mstoreToMemConsStmt.Bypassing(stmt, "CONST") :-  StatementUsesMemory_StartVar(stmt, _, startAddr), Variable_Value(startAddr, _).
+mstoreToMemConsStmt.Bypassing(stmt, "SYMBOLIC") :-  StatementUsesMemory_StartVar(stmt, _, startAddr), !Variable_Value(startAddr, _).
+
+mstoreToMemConsStmt.To(stmt, "CONST") :-  StatementUsesMemory_StartVar(stmt, _, startAddr), Variable_Value(startAddr, _).
+mstoreToMemConsStmt.To(stmt, "SYMBOLIC") :-  StatementUsesMemory_StartVar(stmt, _, startAddr), !Variable_Value(startAddr, _).
+
+InitialMemWriteToMemConsStmtWithNonComputableLength(mstore, memConsStmt):-
+  StatementUsesMemory_LengthVar(memConsStmt, kind, lenvar),
+  StatementUsesMemoryOfNonComputableLength(memConsStmt, kind, lenvar),
+  mstoreToMemConsStmt.ReachableBypassingAny(mstore, memConsStmt, _).
+
+
+/**
+  Used to find all the (already generated) memory addresses that 
+  can be affected by this write
+**/
+.decl StatementWritesMemoryOfConstantLengthAtMemAlias(memWriteStmt:Statement, valRep:symbol, relativeLength:number)
+
+StatementWritesMemoryOfConstantLengthAtMemAlias(memWriteStmt, valRep, length - numDiff):-
+  StatementWritesMemoryOfLength(memWriteStmt, startVar, length),
+  MemoryAddressVarsNumDiff(indexVar, startVar, numDiff),
+  0 <= numDiff, numDiff < length,
+  ((Variable_SymbolicValue(indexVar, indexVal),
+  FreePointerBasedValue_AliasRep(indexVal, valRep));
+  Variable_Value(indexVar, valRep)).
+
+/*
+StatementWritesMemoryOfConstantLengthAtMemAlias(memWriteStmt, valRep, length):-
+  StatementWritesMemoryCopiedFromLoop(memWriteStmt, memAddrTo, numDiff, writeLength),
+  Variable_SymbolicValue(memAddrTo, symbVal),
+  FreePointerBasedValuesNumDiff(freePtrBasedVal1, freePtrBasedVal2, numDiff)
+*/
+
+
+.decl StatementReadsMemoryOfConstantLengthAtMemAlias(memReadStmt:Statement, valRep:symbol, relativeLength:number)
+
+StatementReadsMemoryOfConstantLengthAtMemAlias(memConsStmt, valRep, length - numDiff):-
+  ( StatementReadsMemoryOfConstantLength(memConsStmt, startVar, length);
+    StatementUsesMemoryOfNonComputableLength_LengthApprox(memConsStmt, startVar, length)),
+  MemoryAddressVarsNumDiff(indexVar, startVar, numDiff),
+  0 <= numDiff, numDiff < length,
+  StatementWritesMemoryOfLength(_, indexVar, _),
+  ((Variable_SymbolicValue(indexVar, indexVal),
+  FreePointerBasedValue_AliasRep(indexVal, valRep));
+  Variable_Value(indexVar, valRep)).
+
+.decl StatementUsesMemoryOfNonComputableLength_LengthApprox(memConsStmt:Statement, startVar:Variable, approx:number)
+.output StatementUsesMemoryOfNonComputableLength_LengthApprox
+
+StatementUsesMemoryOfNonComputableLength_LengthApprox(memConsStmt, startVar, approx):-
+  StatementUsesMemoryOfNonComputableLength(memConsStmt, kind, _),
+  StatementUsesMemory_StartVar(memConsStmt, kind, startVar),
+  maxWriteByte = max approxCandidate : {
+    InitialMemWriteToMemConsStmtWithNonComputableLength(memWriteStmt, memConsStmt),
+    StatementWritesMemoryOfLength(memWriteStmt, writeStartVar, length),
+    MemoryAddressVarsNumDiff(writeStartVar, startVar, diff),
+    approxCandidate = diff + length
+  },
+  approx = 32 + maxWriteByte.
+
+.init memWriteToMemConsStmtImpr =  ReachableBypassingWArgAndLen
+
+memWriteToMemConsStmtImpr.From(memWriteStmt, valRep, relativeLength):-
+  StatementWritesMemoryOfConstantLengthAtMemAlias(memWriteStmt, valRep, relativeLength).
+
+memWriteToMemConsStmtImpr.Bypassing(memWriteStmt, valRep, relativeLength):-
+  StatementWritesMemoryOfConstantLengthAtMemAlias(memWriteStmt, valRep, relativeLength).
+
+memWriteToMemConsStmtImpr.To(memConsStmt, valRep, relativeLength):-
+  StatementReadsMemoryOfConstantLengthAtMemAlias(memConsStmt, valRep, relativeLength).
+
+MemWriteToMemConsStmtWithConstantLength(memWriteStmt, memConsStmt, writeAddr):-
+  StatementReadsMemoryOfConstantLength(memConsStmt, _, _),
+  memWriteToMemConsStmtImpr.ReachableBypassingAny(memWriteStmt, memConsStmt, writeAddr).
+
+MemWriteToMemConsStmtWithNonComputableLength(memWriteStmt, memConsStmt):-
+  StatementUsesMemoryOfNonComputableLength(memConsStmt, _, _),
+  memWriteToMemConsStmtImpr.ReachableBypassingAny(memWriteStmt, memConsStmt, _).
+
+MemWriteToMemConsStmtWithNonComputableLength(memWriteStmt, memConsStmt):-
+  StatementUsesMemoryOfNonComputableLength(memConsStmt, _, _),
+  StatementUsesMemory_StartVar(memConsStmt, _, startVar),
+  InitialMemWriteToMemConsStmtWithNonComputableLength(memWriteStmt, memConsStmt),
+  StatementWritesMemoryOfLength(memWriteStmt, writeStartVar, _),
+  !MemoryAddressVarsNumDiff(writeStartVar, startVar, _).
+
+/**
+  We then need to post-process the results produced by memWriteToMemConsStmtImpr
+  
+  This processing is needed in order to:
+    1) identify some (few) writes that end up being completely overriden
+    2) for the writes that actually persist (the vast majority) 
+    find the bytes that they write that end up actually being read
+    accounting for partial overwrites.
+
+  The end results are populating MemWriteToMemConsStmtResolved.
+**/
+
+
+.decl MemWriteToMemConsStmtConflUpperLimit(memWriteStmt:Statement, memConsStmt:Statement, memAddr:symbol, upLimitByte:number)
+.decl MemWriteToMemConsStmtConflLowerLimit(memWriteStmt:Statement, memConsStmt:Statement, memAddr:symbol, lowLimitByte:number)
+.decl MemWriteToMemConsStmtUpperLimit(memWriteStmt:Statement, memConsStmt:Statement, memAddr:symbol, upLimitByte:number)
+.decl MemWriteToMemConsStmtLowerLimit(memWriteStmt:Statement, memConsStmt:Statement, memAddr:symbol, lowLimitByte:number)
+
+.decl MemWriteToMemConsStmtInfoInit(memWriteStmt:Statement, memConsStmt:Statement, memAddr:symbol, relIndex:number, length:number)
+.decl MemWriteToMemConsStmtInvalid(memWriteStmt:Statement, memConsStmt:Statement, memAddr:symbol, relIndex:number, length:number)
+.decl MemWriteToMemConsStmtInfo(memWriteStmt:Statement, memConsStmt:Statement, memAddr:symbol, relIndex:number, length:number)
+
+.output MemWriteToMemConsStmtInfoInit, MemWriteToMemConsStmtInfo, MemWriteToMemConsStmtInvalid, StatementWritesMemoryOfConstantLengthAtMemAlias
+
+MemWriteToMemConsStmtInfoInit(memWriteStmt, memConsStmt, writeAddr, relIndex, writeLen):-
+  MemWriteToMemConsStmt(memWriteStmt, memConsStmt),
+  memWriteToMemConsStmtImpr.ReachableBypassingAny(memWriteStmt, memConsStmt, writeAddr),
+  StatementWritesMemoryOfConstantLengthAtMemAlias(memWriteStmt, writeAddr, writeLen),
+  (StatementUsesMemory_StartVar(memConsStmt, _, readStartVar) ; MLOAD(memConsStmt, readStartVar, _)),
+  (Variable_Value(writeStartVar, writeAddr) ; Variable_SymbolicValue(writeStartVar, writeAddr)),
+  MemoryAddressVarsNumDiff(writeStartVar, readStartVar, relIndex).
+
+
+.output MemWriteToMemConsStmtUpperLimit, MemWriteToMemConsStmtLowerLimit
+
+MemWriteToMemConsStmtInvalid(memWriteStmt, memConsStmt, writeAddr, relIndex, writeLen):-
+  MemWriteToMemConsStmtInfoInit(memWriteStmt, memConsStmt, writeAddr, relIndex, writeLen),
+  highLimit = min diff :{
+    MemWriteToMemConsStmtInfoInit(otherMemWriteStmt1, memConsStmt, _, otherRelIndex, _),
+    otherMemWriteStmt1 != memWriteStmt,
+    diff = otherRelIndex - relIndex,
+    diff > 0, diff < writeLen
+  },
+  lowLimit = max otherLength : {
+    MemWriteToMemConsStmtInfoInit(otherMemWriteStmt2, memConsStmt, writeAddr, _, otherLength),
+    otherMemWriteStmt2 != memWriteStmt,
+    otherLength < writeLen
+  },
+  highLimit <= lowLimit.
+
+
+MemWriteToMemConsStmtInfo(memWriteStmt, memConsStmt, writeAddr, relIndex, writeLen):-
+  MemWriteToMemConsStmtInfoInit(memWriteStmt, memConsStmt, writeAddr, relIndex, writeLen),
+  !MemWriteToMemConsStmtInvalid(memWriteStmt, memConsStmt, writeAddr, relIndex, writeLen).
+
+
+/*
+  Even though the memWriteStmt writes more bytes, the ones after the upper limit are 
+  overwritten when read by the memConsStmt
+*/
+MemWriteToMemConsStmtConflUpperLimit(memWriteStmt, memConsStmt, writeAddr, upLimit):-
+  MemWriteToMemConsStmtInfo(memWriteStmt, memConsStmt, writeAddr, relIndex, writeLen),
+  upLimit = min diff :{
+    MemWriteToMemConsStmtInfo(otherMemWriteStmt, memConsStmt, _, otherRelIndex, _),
+    otherMemWriteStmt != memWriteStmt,
+    diff = otherRelIndex - relIndex,
+    diff > 0, diff < writeLen
+  }.
+
+/*
+  Statement writes more bytes that the ones that are read
+*/
+MemWriteToMemConsStmtConflUpperLimit(memWriteStmt, memConsStmt, writeAddr, readLen):-
+  MemWriteToMemConsStmtInfo(memWriteStmt, memConsStmt, writeAddr, _, writeLen),
+  StatementReadsMemoryOfConstantLengthAtMemAlias(memConsStmt, writeAddr, readLen),
+  readLen < writeLen.
+
+MemWriteToMemConsStmtUpperLimit(memWriteStmt, memConsStmt, writeAddr, writeLen):-
+  MemWriteToMemConsStmtInfo(memWriteStmt, memConsStmt, writeAddr, _, writeLen),
+  !MemWriteToMemConsStmtConflUpperLimit(memWriteStmt, memConsStmt, writeAddr, _).
+
+MemWriteToMemConsStmtUpperLimit(memWriteStmt, memConsStmt, writeAddr, upByte):-
+  MemWriteToMemConsStmtInfo(memWriteStmt, memConsStmt, writeAddr, _, _),
+  MemWriteToMemConsStmtConflUpperLimit(memWriteStmt, memConsStmt, writeAddr, upByte).
+
+MemWriteToMemConsStmtConflLowerLimit(memWriteStmt, memConsStmt, writeAddr, lowLimit):-
+  MemWriteToMemConsStmtInfo(memWriteStmt, memConsStmt, writeAddr, _, writeLen),
+  lowLimit = max otherLength : {
+    MemWriteToMemConsStmtInfo(otherMemWriteStmt, memConsStmt, writeAddr, _, otherLength),
+    otherMemWriteStmt != memWriteStmt,
+    otherLength < writeLen
+  }.
+
+MemWriteToMemConsStmtLowerLimit(memWriteStmt, memConsStmt, writeAddr, 0):-
+  MemWriteToMemConsStmtInfo(memWriteStmt, memConsStmt, writeAddr, _, _),
+  !MemWriteToMemConsStmtConflLowerLimit(memWriteStmt, memConsStmt, writeAddr, _).
+
+MemWriteToMemConsStmtLowerLimit(memWriteStmt, memConsStmt, writeAddr, lowLimit):-
+  MemWriteToMemConsStmtInfo(memWriteStmt, memConsStmt, writeAddr, _, _),
+  MemWriteToMemConsStmtConflLowerLimit(memWriteStmt, memConsStmt, writeAddr, lowLimit).
+
+.decl MemWriteToMemConsStmtPartOfPrev(memWriteStmt:Statement, memConsStmt:Statement, relativeIndex:number)
+.output MemWriteToMemConsStmtPartOfPrev
+MemWriteToMemConsStmtPartOfPrev(memWriteStmt, memConsStmt, relativeIndex):-
+  MemWriteToMemConsStmtInfo(memWriteStmt, memConsStmt, writeAddr, relativeIndex, _),
+  MemWriteToMemConsStmtLowerLimit(memWriteStmt, memConsStmt, writeAddr, lowB1),
+  MemWriteToMemConsStmtUpperLimit(memWriteStmt, memConsStmt, writeAddr, highB1),
+  MemWriteToMemConsStmtInfo(memWriteStmt, memConsStmt, otherWriteAddr, otherRelativeIndex, _),
+  MemWriteToMemConsStmtLowerLimit(memWriteStmt, memConsStmt, otherWriteAddr, lowB2),
+  MemWriteToMemConsStmtUpperLimit(memWriteStmt, memConsStmt, otherWriteAddr, highB2),
+  otherRelativeIndex < relativeIndex,
+  otherRelativeIndex + lowB2 + highB2 = relativeIndex + lowB1 + highB1.
+
+
+
+.decl MemWriteToMemConsStmtResolved(memWriteStmt:Statement, memConsStmt:Statement, relativeIndex:number, lowB:number, highB:number)
+.output MemWriteToMemConsStmtResolved
+
+MemWriteToMemConsStmtResolved(memWriteStmt, memConsStmt, relativeIndex, lowB, highB):-
+  MemWriteToMemConsStmtInfo(memWriteStmt, memConsStmt, writeAddr, relativeIndex, _),
+  MemWriteToMemConsStmtLowerLimit(memWriteStmt, memConsStmt, writeAddr, lowB),
+  MemWriteToMemConsStmtUpperLimit(memWriteStmt, memConsStmt, writeAddr, highB),
+  !MemWriteToMemConsStmtPartOfPrev(memWriteStmt, memConsStmt, relativeIndex),
+  lowB < highB.
+
+/**
+  When we identify that a write is partial and the written var was the result
+  of another variable shifted appropriately, we consider the shifted variable
+  to be the one that was actually 'used'. This is useful when identifying 
+  tightely packing variables in memory.
+**/
+
+.decl MSTOREToMemConsStmtWritesShiftedVar(mstore:Statement, memConsStmt:Statement, relativeIndex:number, var:Variable)
+.output MSTOREToMemConsStmtWritesShiftedVar
+
+.decl MSTOREToMemConsStmt_WrittenVar(mstore:Statement, memConsStmt:Statement, relativeIndex:number, var:Variable)
+.output MSTOREToMemConsStmt_WrittenVar
+
+MSTOREToMemConsStmtWritesShiftedVar(mstore, memConsStmt, relativeIndex, realStoredVar):-
+  MemWriteToMemConsStmtResolved(mstore, memConsStmt, relativeIndex, 0, highLimit),
+  MSTORE(mstore, _, storedVar),
+  Statement_Defines(shiftStmt, storedVar, 0),
+  LShiftBytes(shiftStmt, realStoredVar, 32 - highLimit).
+
+MSTOREToMemConsStmt_WrittenVar(mstore, memConsStmt, relativeIndex, realStoredVar):-
+  MSTOREToMemConsStmtWritesShiftedVar(mstore, memConsStmt, relativeIndex, realStoredVar).
+
+MSTOREToMemConsStmt_WrittenVar(mstore, memConsStmt, relativeIndex, storedVar):-
+  MemWriteToMemConsStmtResolved(mstore, memConsStmt, relativeIndex, _, _),
+  PartialMSTORE(mstore, _, storedVar, _).
+
+MSTOREToMemConsStmt_WrittenVar(mstore, memConsStmt, relativeIndex, storedVar):-
+  MemWriteToMemConsStmtResolved(mstore, memConsStmt, relativeIndex, _, _),
+  MSTORE(mstore, _, storedVar),
+  !PartialMSTORE(mstore, _, _, _),
+  !MSTOREToMemConsStmtWritesShiftedVar(mstore, memConsStmt, relativeIndex, _).
+
+.decl MSTOREToMemConsStmt_WrittenValue(mstore:Statement, memConsStmt:Statement, relativeIndex:number, storedVar:Variable, val:Value)
+DEBUG_OUTPUT(MSTOREToMemConsStmt_WrittenValue)
+
+MSTOREToMemConsStmt_WrittenValue(mstore, memConsStmt, relativeIndex, storedVar, storedVal):-
+  MemWriteToMemConsStmtResolved(mstore, memConsStmt, relativeIndex, 0, highLimit),
+  MSTORE(mstore, _, storedVar),
+  Variable_Value(storedVar, storedVal),
+  (highLimit = 32 ; (strlen(storedVal) - 2)/2 <= highLimit).
+
+MSTOREToMemConsStmt_WrittenValue(mstore, memConsStmt, relativeIndex, storedVar, realStoredVal):-
+  MemWriteToMemConsStmtResolved(mstore, memConsStmt, relativeIndex, 0, highLimit),
+  MSTORE(mstore, _, storedVar),
+  Variable_Value(storedVar, storedVal),
+  (strlen(storedVal) - 2)/2 > highLimit,
+  realStoredVal = substr(storedVal, 0, 2 + 2*highLimit).

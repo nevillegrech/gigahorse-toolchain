@@ -1,0 +1,176 @@
+#pragma once
+
+/*
+ * What would not fit elsewhere
+ */
+
+/**
+  Artifact of removed CODECOPIES, may be able to remove these at an earlier stage
+**/
+
+.decl RetainMemPattern(mload:Statement, mstore:Statement)
+
+MemoryModelingTempStmt(mstore),
+MemoryModelingTempStmt(mload):-
+  RetainMemPattern(mload, mstore).
+
+
+RetainMemPattern(mload, mstore):-
+  MLOAD(mload, indexVar1, retain),
+  Variable_Value(indexVar1, "0x0"),
+  Statement_Next(mload, const1),
+  Statement_Opcode(const1, "CONST"),
+  Statement_Next(const1, const2),
+  Statement_Opcode(const2, "CONST"),
+  Statement_Next(const2, const3),
+  Statement_Opcode(const3, "CONST"),
+  Statement_Next(const3, mstore),
+  MSTORE(mstore, indexVar2, retain),
+  Variable_Value(indexVar2, "0x0").
+
+.decl ValueIsPossibleSigHash(value:Value, possSigHash:symbol)
+DEBUG_OUTPUT(ValueIsPossibleSigHash)
+
+.decl Helper_BigValueFilter(value:Value, len:number)
+DEBUG_OUTPUT(Helper_BigValueFilter)
+
+.decl Helper_Zeros(str:symbol, len:number)
+DEBUG_OUTPUT(Helper_Zeros)
+
+Helper_Zeros("", 0).
+Helper_Zeros("0", 1).
+Helper_Zeros("00", 2).
+Helper_Zeros("000", 3).
+Helper_Zeros("0000", 4).
+Helper_Zeros("00000", 5).
+Helper_Zeros("000000", 6).
+Helper_Zeros("0000000", 7).
+Helper_Zeros("00000000", 8).
+Helper_Zeros("000000000", 9).
+
+/**
+  The function selector is 4 bytes that are in the begining of calldata
+  In our representation it is usually in the form of "0xabababab"
+  could be smaller if the last digit is 0 with a chance of 6.25%
+  The chance of having two zeros is much smaller (0.3%) so we do not care for
+  these in order not to reduce our precision
+  These values are then shifted and written to memory
+**/
+
+ValueIsPossibleSigHash(sigHashVal, sigHashVal):-
+  Variable_Value(_, sigHashVal),
+  sigHashVal != "0xffffffff",
+  (9 = strlen(sigHashVal);
+  10 = strlen(sigHashVal)).
+
+Helper_BigValueFilter(val, len):-
+  Variable_Value(_, val),
+  len = strlen(val),
+  len > 60.
+
+/**
+  On optimized code these constants can take the following form:
+  "0xabababab00000000000000000000000000000000000000000000000000000000"
+  This code is general enough to detect these when the begining has zeros.
+**/
+
+ValueIsPossibleSigHash(sigHashVal, sigHash):-
+  Helper_BigValueFilter(sigHashVal, len),
+  addzeros = 66-len,
+  "00000000000000000000000000000000000000000000000000000000" = substr(sigHashVal, 10 - addzeros, 56),
+  Helper_Zeros(zeros, addzeros),
+  pre = cat("0x", zeros),
+  post = substr(sigHashVal, 2 + addzeros, 8 - addzeros),
+  sigHash = cat(pre, post).
+
+.decl CALLWithPossibleSigHash(call:Statement, possibleSigHash:symbol)
+
+.decl CALLWithPossibleSigHashFromSHA3(call:Statement, sha3:Statement)
+
+.decl CALLWithNoPossibleSigHash(call:Statement)
+
+.decl CALLToPrecompiledFunction(call:Statement, precIndex:number)
+
+//TODO: make more precise
+CALLWithPossibleSigHash(call, possibleSigHash):-
+  CALLStatement(call, _),
+  StatementUsesMemory_ActualMemoryArg(call, _, 0, actual),
+  DataFlows(sigVar, actual),
+  Variable_Value(sigVar, sigHashVal),
+  ValueIsPossibleSigHash(sigHashVal, possibleSigHash).
+
+CALLWithPossibleSigHashFromSHA3(call, sha3):-
+  CALLStatement(call, _),
+  StatementUsesMemory_ActualMemoryArg(call, _, 0, actual),
+  DataFlows(sigVar, actual),
+  SHA3(sha3, _, _, sigVar).
+
+CALLToPrecompiledFunction(call, num):-
+  CALL(call, _, target, _, _, _, _, _, _),
+  Variable_NumericValue(target, num),
+  num > 0,
+  num < 9.
+
+CALLWithNoPossibleSigHash(call):-
+  CALLStatement(call, _),
+  StatementUsesMemory_ActualMemoryArg(call, _, 0, _),
+  !CALLWithPossibleSigHash(call, _),
+  !CALLToPrecompiledFunction(call, _),
+  !CALLWithPossibleSigHashFromSHA3(call, _).
+
+/**
+ A hack to get more variable_value facts for more constants. 
+ TODO: Improve it and find a better place to place it.
+**/
+
+.decl MLOADMSTORESameAddrVar(store: Statement, load: Statement)
+MLOADMSTORESameAddrVar(store, load) :-
+  MSTORE(store, var, _),
+  MLOAD(load, var, _).
+
+.decl NonUniqueMLOADMSTOREForAddrVar(store: Statement, load: Statement)
+NonUniqueMLOADMSTOREForAddrVar(store, load) :-
+  MLOADMSTORESameAddrVar(store, load),
+  MLOADMSTORESameAddrVar(store2, load),
+  store != store2.
+  
+.decl UniqueMSTOREMLOADForAddrVar(store: Statement, load: Statement)
+UniqueMSTOREMLOADForAddrVar(store, load) :-
+  MLOADMSTORESameAddrVar(store, load),
+  !NonUniqueMLOADMSTOREForAddrVar(store, load).
+
+Variable_Value(to, val):-
+  UniqueMSTOREMLOADForAddrVar(store, load),
+  MSTORE(store, var, from),
+  MLOAD(load, var, to),
+  LocalStatementPathInBlock(store, load),
+  Variable_Value(from, val).
+
+//REVIEW: Should probably optimize
+Variable_Value(to, val):-
+  UniqueMSTOREMLOADForAddrVar(store, load),
+  MSTORE(store, var, from),
+  MLOAD(load, var, to),
+  Statement_Block(store, storeBlock),
+  Statement_Block(load, loadBlock),
+  Dominates(storeBlock, loadBlock),
+  Variable_Value(from, val).
+
+
+/**
+  ECRECOVER solc bug
+**/
+.decl EcrecoverCompilerBug(insn:Statement)
+.output EcrecoverCompilerBug
+
+.decl StoreFreeMemPtrToMemZero(insn:Statement)
+
+StoreFreeMemPtrToMemZero(mstore):-
+  MLOADFreePtr_To(_, to),
+  MSTORE(mstore, index, to),
+  Variable_Value(index, "0x0").
+
+EcrecoverCompilerBug(call):-
+  StoreFreeMemPtrToMemZero(mstore),
+  LocalStatementPathInBlock(mstore, call),
+  CALLToPrecompiledFunction(call, 1).

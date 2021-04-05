@@ -1,0 +1,53 @@
+#pragma once
+
+#include "constants.dl"
+
+.init variableValueConstantFolding = ConstantFolding
+
+.decl AuxStatementOpAndArgs(stmt:Statement, op:Opcode, a:Variable, b_val:Variable)
+AuxStatementOpAndArgs(stmt, op, a, b) :-
+  Statement_Uses(stmt, a, 0),
+  Statement_Uses(stmt, b, 1),
+  !Statement_Defines(stmt, a, _),
+  !Statement_Defines(stmt, b, _),
+  Statement_Opcode(stmt, op).
+
+.decl AuxStatementOpAndConstantArgValues(stmt:Statement, op:Opcode, a_val:Value, b_val:Value)
+
+AuxStatementOpAndConstantArgValues(stmt, op, a_val, b_val) :-
+  Variable_Value(a, a_val),
+  AuxStatementOpAndArgs(stmt, op, a, b),
+  Variable_Value(b, b_val).
+ .plan 1:(3,2,1)
+
+// Constant fold of variables holding unique constant numeric values
+variableValueConstantFolding.RequestConstantFold2(op, a_val, b_val) :-
+  AuxStatementOpAndConstantArgValues(_, op, a_val, b_val).
+
+Variable_Value(to, result) :-
+  variableValueConstantFolding.ConstantFoldResult2(op, a_val, b_val, result),
+  AuxStatementOpAndConstantArgValues(stmt, op, a_val, b_val),
+  Statement_Defines(stmt, to, _).
+ .plan 1:(2,1,3)
+
+
+.init basicVariableValueConstantFolding = ConstantFolding
+
+.decl BasicAuxStatementOpAndConstantArgValues(stmt:Statement, op:Opcode, a_val:Value, b_val:Value)
+
+BasicAuxStatementOpAndConstantArgValues(stmt, op, a_val, b_val) :-
+  BasicVariable_Value(a, a_val),
+  AuxStatementOpAndArgs(stmt, op, a, b),
+  BasicVariable_Value(b, b_val).
+ .plan 1:(3,2,1)
+
+// Constant fold of variables holding unique constant numeric values
+basicVariableValueConstantFolding.RequestConstantFold2(op, a_val, b_val) :-
+  BasicAuxStatementOpAndConstantArgValues(_, op, a_val, b_val).
+
+BasicVariable_Value(to, result) :-
+  basicVariableValueConstantFolding.ConstantFoldResult2(op, a_val, b_val, result),
+  BasicAuxStatementOpAndConstantArgValues(stmt, op, a_val, b_val),
+  Statement_Defines(stmt, to, _).
+ .plan 1:(2,1,3)
+
