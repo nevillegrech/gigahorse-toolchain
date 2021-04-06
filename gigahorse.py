@@ -282,6 +282,7 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
             return timeout-time.time()+disassemble_start
         if exists:
             decomp_start = time.time()
+            inline_start = time.time()
         else:
             with open(contract_filename) as file:
                 bytecode = file.read().strip()
