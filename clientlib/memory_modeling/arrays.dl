@@ -452,7 +452,7 @@ ArrayAllocationInternal(mstore, array, "0x1", arrayLengthVar):-
   MSTORE(_, array, arrayLengthVar),
   //VarTimesConstant(arrayLengthVar, elementSize, arraySizeBytes),
   VarPlusThrirtyOneAndNotThirtyOne(arrayLengthVar, arraySizeBytes),
-  VarPlusThirtyTwo(arraySizeBytes, arraySizeBytesPlusLength),
+  VarPlusThirtyTwo(arraySizeBytes, arraySizeBytesPlusLength1),
   VarPlusThrirtyOneAndNotThirtyOne(arraySizeBytesPlusLength1, arraySizeBytesPlusLength2),
   ADDFix(_, arraySizeBytesPlusLength2, array, updatedFMP),
   Statement_Uses(mstore, updatedFMP, 1),
