@@ -26,6 +26,7 @@
   .decl In_FunctionCallReturn(block: Block, function: Function, return: Block)
   .decl In_IsFunction(func: Function)
   .decl In_Block_Gas(block:Block, gas:number)
+  .decl In_OriginalStatement_Block(stmt:symbol, block:Block)
   .decl In_FormalArgs(fn: Function, a: Variable, pos: number)
   .decl In_Statement_Uses(stmt: Statement, var: Variable, i: number)
   .decl In_Statement_Defines(stmt: Statement, var: Variable, n: number)
@@ -45,6 +46,7 @@
   .decl Out_FunctionCallReturn(block: Block, function: Function, return: Block)   //CHECK
   .decl Out_IsFunction(func: Function)  //CHECK
   .decl Out_Block_Gas(block:Block, gas:number)  //CHECK
+  .decl Out_OriginalStatement_Block(stmt:symbol, block:Block)
   .decl Out_FormalArgs(fn: Function, a: Variable, pos: number) //CHECK
   .decl Out_Statement_Uses(stmt: Statement, var: Variable, i: number)  //CHECK
   .decl Out_Statement_Defines(stmt: Statement, var: Variable, n: number)  //CHECK
@@ -243,6 +245,10 @@
   
   Out_Block_Gas(outBlock, gas):-
     In_Block_Gas(inBlock, gas),
+    InBlock_OutBlock(inBlock, _, outBlock).
+
+  Out_OriginalStatement_Block(stmt, outBlock):-
+    In_OriginalStatement_Block(stmt, inBlock),
     InBlock_OutBlock(inBlock, _, outBlock).
 
   Out_FallthroughEdge(outFrom, outTo):-
@@ -547,6 +553,7 @@ inliner.In_CallGraphEdge(block, function):- CallGraphEdge(block, function).
 inliner.In_FunctionCallReturn(block, function, return):- FunctionCallReturn(block, function, return).
 inliner.In_IsFunction(func):- IsFunction(func).
 inliner.In_Block_Gas(block, gas):- Block_Gas(block, gas).
+inliner.In_OriginalStatement_Block(stmt, block):- OriginalStatement_Block(stmt, block).
 inliner.In_FormalArgs(fn, a, pos):- FormalArgs(fn, a, pos).
 inliner.In_Statement_Uses(stmt, var, i):- Statement_Uses(stmt, var, i).
 inliner.In_Statement_Defines(stmt, var, n):- Statement_Defines(stmt, var, n).
@@ -570,6 +577,7 @@ inliner.In_ActualReturnArgs(caller, arg, pos):- ActualReturnArgs(caller, arg, po
 .output inliner.Out_FunctionCallReturn(IO="file", filename="IRFunctionCallReturn.csv", delimiter="\t")
 .output inliner.Out_IsFunction(IO="file", filename="Function.csv", delimiter="\t")
 .output inliner.Out_Block_Gas(IO="file", filename="IRBlock_Gas.csv", delimiter="\t")
+.output inliner.Out_OriginalStatement_Block(IO="file", filename="TAC_OriginalStatement_Block.csv", delimiter="\t")
 .output inliner.Out_FormalArgs(IO="file", filename="FormalArgs.csv", delimiter="\t")
 .output inliner.Out_Statement_Uses(IO="file", filename="TAC_Use.csv", delimiter="\t")
 .output inliner.Out_Statement_Defines(IO="file", filename="TAC_Def.csv", delimiter="\t")
