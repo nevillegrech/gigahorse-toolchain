@@ -445,6 +445,18 @@ ArrayAllocationInternal(mstore, array, "0x1", arrayLengthVar):-
   Statement_Uses(mstore, updatedFMP, 1),
   MSTOREFreePtr(mstore).
 
+IsRegularArrayVar(array),
+Array_ElementLength(array, "0x1"),
+ArrayAllocationInternal(mstore, array, "0x1", arrayLengthVar):-
+  PossibleArray(array),
+  MSTORE(_, array, arrayLengthVar),
+  //VarTimesConstant(arrayLengthVar, elementSize, arraySizeBytes),
+  VarPlusThrirtyOneAndNotThirtyOne(arrayLengthVar, arraySizeBytes),
+  VarPlusThirtyTwo(arraySizeBytes, arraySizeBytesPlusLength),
+  VarPlusThrirtyOneAndNotThirtyOne(arraySizeBytesPlusLength1, arraySizeBytesPlusLength2),
+  ADDFix(_, arraySizeBytesPlusLength2, array, updatedFMP),
+  Statement_Uses(mstore, updatedFMP, 1),
+  MSTOREFreePtr(mstore).
 
 IsRegularArrayVar(array),
 Array_ElementLength(array, "0x1"),
