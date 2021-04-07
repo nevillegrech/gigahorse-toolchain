@@ -514,10 +514,23 @@
 
   InlineCandidate(fun):-
     In_FormalArgs(fun, formalArg, _),
-    MLOAD(_, formalArg, loaded),
-    DataFlows(loaded, formalRet),
-    In_FormalReturnArgs(fun, formalRet, _).
+    DataFlows(formalArg, loadAddr),
+    MLOAD(_, loadAddr, loaded),
+    ( DataFlows(loaded, formalRet);
+      DataFlows(formalArg, formalRet)),
+    In_FormalReturnArgs(fun, formalRet, _),
+    !VarIsArray(formalArg, _).
 
+  InlineCandidate(fun):-
+    MLOADFreePtr_To(_, loadedAddr),
+    In_FormalReturnArgs(fun, loadedAddr, _),
+    !VarIsArray(loadedAddr, _).
+
+  InlineCandidate(fun):-
+    In_FormalArgs(fun, formalArg, _),
+    DataFlows(formalArg, storeAddr),
+    MSTORE(_, storeAddr, _),
+    !VarIsArray(formalArg, _).
 
   .decl FunctionContainsMemConsStmt(fun:Function)
 
