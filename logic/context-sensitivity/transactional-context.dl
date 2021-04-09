@@ -5,10 +5,15 @@
 // find number of jumps to estimate best context depth
 .decl MaxContextDepth(d: number)
 
+.decl InputMaxContextDepth(d: number)
+.input InputMaxContextDepth(filename="MaxContextDepth.csv")
+
+MaxContextDepth(d) :- InputMaxContextDepth(d).
+
 #ifndef MAX_CONTEXT_DEPTH
-  MaxContextDepth(4).
+  MaxContextDepth(4) :- !InputMaxContextDepth(_).
 #else
-  MaxContextDepth(MAX_CONTEXT_DEPTH).
+  MaxContextDepth(MAX_CONTEXT_DEPTH) :- !InputMaxContextDepth(_).
 #endif
 
 .decl InitialPrivateContext(ctx : PrivateContext)
