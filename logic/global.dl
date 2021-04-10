@@ -22,6 +22,7 @@
 .type VariableOrStackIndex = Variable | StackIndex
 .type Opcode <: symbol
 .type Statement <: symbol
+.type FunctionSignature <: symbol
 
 
 // Convenience predicate. Folds together bounds checking on valid

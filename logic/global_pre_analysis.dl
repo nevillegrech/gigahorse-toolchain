@@ -1,0 +1,103 @@
+#include "global.dl"
+
+
+/*
+ * Very simple context sensitivity that includes only public function signature
+ *
+ */
+.type Context = FunctionSignature
+
+.decl InitialContext(ctx : Context)
+
+InitialContext("0x0").
+
+.decl MergeContext(ctx: Context, caller: Block, newContext: Context)
+
+MergeContext(ctx, caller, @cast_to_symbol(sigHash)) :-
+  ReachableContext(ctx, caller),
+  postTrans.PublicFunction(caller, sigHash).
+
+MergeContext(ctx, caller, ctx) :-
+  ReachableContext(ctx, caller),
+  !postTrans.PublicFunction(caller, _).
+
+/* start aggregating analytics by context (i.e., public function) */
+
+.decl Contexts(ctx: Context)
+
+Contexts(ctx) :- ReachableContext(ctx, _).
+
+.decl FeatureName(name: symbol)
+FeatureName("C_INS").
+FeatureName("C_Variables").
+FeatureName("C_Edges").
+FeatureName("C_BlockOutputContents").
+FeatureName("MaxPopDelta").
+FeatureName("MaxOpcodePop").
+
+.decl PreAnalysisFeatures(name: symbol, sigHash: FunctionSignature, n: number)
+.output PreAnalysisFeatures
+
+// The following logic is only to get default values
+PreAnalysisFeatures(name, ctx, n) :-
+  _PreAnalysisFeatures(name, ctx, n).
+
+PreAnalysisFeatures(name, ctx, 0) :-
+   Contexts(ctx),
+   FeatureName(name),
+   !_PreAnalysisFeatures(name, ctx, _).
+   
+
+.decl _PreAnalysisFeatures(name: symbol, sigHash: FunctionSignature, n: number)
+
+_PreAnalysisFeatures("C_INS", ctx, n) :-
+   Contexts(ctx),
+   n = count : {
+      ReachableContext(ctx, block),
+      postTrans.Statement_Block(_, block)
+   }.
+
+
+_PreAnalysisFeatures("C_Variables", ctx, n):-
+   Contexts(ctx),
+   n = sum m : {
+      ReachableContext(ctx, block),
+      postTrans.Statement_Block(statement, block),
+      postTrans.Statement_Opcode(statement, opcode),
+      OpcodePopWords(opcode, m)
+  }.
+
+
+_PreAnalysisFeatures("C_Edges", ctx, n) :-
+   Contexts(ctx),
+   n = count : {
+      BlockEdge(ctx, _, _, _)
+   }.
+
+
+_PreAnalysisFeatures("C_BlockOutputContents", ctx, n) :-
+   Contexts(ctx),
+   n = count : {
+      BlockOutputContents(ctx, _, _, _)
+   }.
+
+
+_PreAnalysisFeatures("MaxPopDelta", sigHash, n) :-
+   Contexts(sigHash),
+   n = max delta : {
+      ReachableContext(sigHash, block),
+      postTrans.BlockPopDelta(block, delta)
+   }.
+
+
+_PreAnalysisFeatures("MaxOpcodePop", sigHash, n) :-
+   Contexts(sigHash),
+   n = max m : {
+      ReachableContext(sigHash, block),
+      postTrans.Statement_Block(stmt, block),
+      postTrans.Statement_Opcode(stmt, opcode),
+      OpcodePopWords(opcode, m)
+   }.
+
+
+

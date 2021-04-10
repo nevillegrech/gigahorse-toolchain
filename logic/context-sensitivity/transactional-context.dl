@@ -100,9 +100,9 @@ StaticBlockJumpTarget(caller, target) :-
   postTrans.Variable_Value(targetVar, target),
   postTrans.JUMPDEST(@cast_to_symbol(target)).
 
-.decl MergeContext(ctx : Context, caller : Block, newContext : Context)
+.decl MergeContext(ctx: Context, caller: Block, newContext: Context)
 
-.decl DecomposeContext(ctx:Context, publicFun:symbol, private:PrivateContext)
+.decl DecomposeContext(ctx: Context, publicFun: symbol, private: PrivateContext)
 
 DecomposeContext(ctx, publicFun, private):-
   ReachableContext(ctx, _), ctx = [publicFun, private].
@@ -114,12 +114,13 @@ MergeContext(ctx, caller, ctx) :-
 #ifndef NO_PUBLIC_CONTEXT
   !postTrans.PublicFunction(caller, _),
 #endif
-  (!PrivateFunctionCallOrReturn(caller) ; DecomposeContext(ctx, pub, _), MaxContextDepth(pub, 0)). 
+   (!PrivateFunctionCallOrReturn(caller) ;
+    DecomposeContext(ctx, pub, _), MaxContextDepth(pub, 0)). 
 
 // Complex control flow case
 
 DecomposePrivateContext(newPrivateContext, caller, cutDownPri),
-MergeContext(ctx, caller, newContext) :-
+MergeContext(ctx, caller, [pub, newPrivateContext]) :-
   ReachableContext(ctx, caller),
   PrivateFunctionCallOrReturn(caller),
   DecomposeContext(ctx, pub, pri),
@@ -127,8 +128,7 @@ MergeContext(ctx, caller, newContext) :-
   !postTrans.PublicFunction(caller, _),
 #endif
   TruncateContext(pub, pri, cutDownPri),
-  newPrivateContext = [caller, cutDownPri],
-  newContext = [pub, newPrivateContext].
+  newPrivateContext = [caller, cutDownPri].
 .plan 1:(2,1,3,4), 2:(4,2,1,3)
 
 #ifndef NO_PUBLIC_CONTEXT
