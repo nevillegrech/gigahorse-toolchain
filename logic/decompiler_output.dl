@@ -85,9 +85,11 @@ PHILocation(block, stackIndex, cat(cat(block, "_"), stackIndexHex)) :-
 // We only output them empty here to avoid nonexistent file errors in clients
 
 .decl StorageContents(addr: symbol, contents: symbol)
+StorageContents(a, b) :- StorageContents(a, b).
 .output StorageContents
 
 .decl SHA3Decompositions(addr: symbol, base1: symbol, base2: symbol, offset: symbol)
+SHA3Decompositions(a, b, c, d) :- SHA3Decompositions(a, b, c, d).
 .output SHA3Decompositions
 
 

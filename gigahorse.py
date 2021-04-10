@@ -37,7 +37,7 @@ DEFAULT_SOUFFLE_BIN = 'souffle'
 DEFAULT_RESULTS_FILE = 'results.json'
 """File to write results to by default."""
 
-DEFAULT_DECOMPILER_DL = join(GIGAHORSE_DIR, 'logic/decompiler.dl')
+DEFAULT_DECOMPILER_DL = join(GIGAHORSE_DIR, 'logic/main.dl')
 """Decompiler specification file."""
 
 DEFAULT_SOUFFLE_EXECUTABLE = 'decompiler_compiled'
