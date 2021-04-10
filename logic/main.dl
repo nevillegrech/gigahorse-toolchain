@@ -1,0 +1,23 @@
+#include "global.dl"
+#include "functions.dl"
+#include "decompiler_output.dl"
+
+
+/*
+ * Context sensitivity selection needs a little bit of macro expansion for generality
+ */
+
+#ifndef CONTEXT_SENSITIVITY
+  // transactional-context is default
+  #define CONTEXT_SENSITIVITY transactional-context
+#endif
+
+// dynamically include context sensitivity based on Souffle params
+#define STRINGIFY(x) #x
+#define GET_CONTEXT_SENSITIVITY_FILENAME(ctx) STRINGIFY(context-sensitivity/ctx.dl)
+#include GET_CONTEXT_SENSITIVITY_FILENAME(CONTEXT_SENSITIVITY)
+
+#ifndef NO_ANALYTICS
+#include "decompiler_analytics.dl"
+#endif
+
