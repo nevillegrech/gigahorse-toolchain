@@ -1,0 +1,798 @@
+#pragma once
+
+/**
+ Arrays
+ **/
+
+.decl IsCallDataArrayVar(var:Variable, argHex:symbol)
+DEBUG_OUTPUT(IsCallDataArrayVar)
+
+.decl IsRegularArrayVar(var:Variable)
+DEBUG_OUTPUT(IsRegularArrayVar)
+
+.decl IsRawDataArrayVar(var:Variable)
+DEBUG_OUTPUT(IsRawDataArrayVar)
+
+.decl IsABIEncodedArrayVar(var:Variable)
+DEBUG_OUTPUT(IsABIEncodedArrayVar)
+
+/*
+ * cdl loads the array's offset in the calldata 
+ * cdl2 loads the array's length
+*/
+
+.decl CallDataLoadReadsLength(cdl:Statement, cdl2:Statement, cdlArrayVar:Variable, lenVar:Variable, argHex:symbol)
+DEBUG_OUTPUT(CallDataLoadReadsLength)
+
+.decl CallDataCopyArgInfo(callDataCopy:Statement, arrayVar:Variable, argHex:symbol)
+DEBUG_OUTPUT(CallDataCopyArgInfo)
+
+.decl Array_ElementLength(array:Variable, elementSize:symbol)
+DEBUG_OUTPUT(Array_ElementLength)
+
+.decl ArrayVarLengthVar(array:Variable, arrayLen:Variable)
+DEBUG_OUTPUT(ArrayVarLengthVar)
+
+.decl ArrayDataStartVar(array:Variable, arrayDataStart:Variable)
+DEBUG_OUTPUT(ArrayDataStartVar)
+
+.decl ArgArrayLenWrittenTo(lenVar:Variable, arrayVar:Variable)
+DEBUG_OUTPUT(ArgArrayLenWrittenTo)
+
+.decl ArrayIndexAccess(array:Variable, indexVar:Variable, index:Variable)
+DEBUG_OUTPUT(ArrayIndexAccess)
+
+.decl CallDataArrayGet(stmt:Statement, array:Variable, index:Variable, to:Variable)
+DEBUG_OUTPUT(CallDataArrayGet)
+
+.decl MemArrayGet(stmt:Statement, array:Variable, index:Variable, to:Variable)
+DEBUG_OUTPUT(MemArrayGet)
+
+.decl MemArrayPut(stmt:Statement, array:Variable, index:Variable, from:Variable)
+DEBUG_OUTPUT(MemArrayPut)
+
+.decl StatementUsesMemory_UsesArray(stmt:Statement, kind:symbol, array:Variable)
+DEBUG_OUTPUT(StatementUsesMemory_UsesArray)
+
+.decl MLOADReadsArrayLength(stmt:Statement)
+
+IsCallDataArrayVar(plusFourVar, argHex),
+CallDataLoadReadsLength(cdl, cdl2, plusFourVar, lenVar, argHex):-
+  CALLDATALOAD(cdl, argIdVar, toVar),
+  Variable_Value(argIdVar, argHex),
+  ADDFix(_, toVar, fourVar, plusFourVar),
+  Variable_NumericValue(fourVar, 4),
+  CALLDATALOAD(cdl2, plusFourVar, lenVar).
+
+Array_ElementLength(plusFourVar, elemSize):-
+  IsCallDataArrayVar(plusFourVar, argHex),
+  CallDataLoadReadsLength(_, _, plusFourVar, lenVar, argHex),
+  VarTimesConstant(lenVar, elemSize, _).
+
+
+
+Array_ElementLength(array, elementSize):-
+  IsCallDataArrayVar(array, _),
+  ArrayDataStartVar(array, dataStartVar),
+  ADDFix(_, dataStartVar, indexTimesCons, cdlIndex),
+  VarTimesConstant(_, elementSize, indexTimesCons),
+  CALLDATALOAD(_, cdlIndex, _).
+
+
+ArrayDataStartVar(array, dataStartVar):-
+  CallDataLoadReadsLength(cdl, _, array, _, _),
+  CALLDATALOAD(cdl, _, to),
+  ADDFix(_, to, x24, dataStartVar),
+  Variable_NumericValue(x24, 36).
+
+IsRegularArrayVar(arrayVar),
+Array_ElementLength(arrayVar, "0x1"),
+CallDataCopyArgInfo(callDataCopy, arrayVar, argHex):-
+  CallDataLoadReadsLength(_, _, _, lenVar, argHex),
+  CALLDATACOPY(callDataCopy, arrayDataStart, _, lenVar),
+  ArgArrayLenWrittenTo(lenVar, arrayVar),
+  VarPlusThirtyTwo(arrayVar, arrayDataStart).
+
+
+IsRegularArrayVar(arrayVar),
+Array_ElementLength(arrayVar, elemSize),
+CallDataCopyArgInfo(callDataCopy, arrayVar, argHex):-
+  CallDataLoadReadsLength(_, _, _, lenVar, argHex),
+  VarTimesConstant(lenVar, elemSize, lenBytes),
+  CALLDATACOPY(callDataCopy, arrayDataStart, _, lenBytes),
+  ArgArrayLenWrittenTo(lenVar, arrayVar),
+  VarPlusThirtyTwo(arrayVar, arrayDataStart).
+
+ArgArrayLenWrittenTo(lenVar, arrayVar):-
+  CallDataLoadReadsLength(_, _, _, lenVar, _),
+  MSTORE(_, arrayVar, lenVar).
+
+
+ArrayDataStartVar(array, arrayStart):-
+  IsRegularArrayVar(array),
+  VarPlusThirtyTwo(array, arrayStart).
+
+// REVIEW: This generates too many results
+ArrayDataStartVar(array, arrayStart):-
+  IsRegularArrayVar(array),
+  Variable_SymbolicValue(array, arrayVal),
+  FreePointerBasedValuesNumDiff(dataStartVal, arrayVal, 32),
+  Variable_SymbolicValue(arrayStart, dataStartVal),
+  Statement_Defines(stmt2, arrayStart, _),
+  Statement_Block(stmt2, block2),
+  Statement_Defines(stmt1, array, _),
+  Statement_Block(stmt1, block1),
+  (Dominates(block1, block2) ; LocalStatementPathInBlock(stmt1, stmt2)).
+
+/**
+  Special case for raw data arrays.
+**/
+
+ArrayDataStartVar(array, array):-
+  IsRawDataArrayVar(array).
+
+ArrayVarLengthVar(array, arrayLength):-
+  IsRegularArrayVar(array),
+  MLOAD(_, array, arrayLength).
+
+StatementUsesMemory_UsesArray(stmt, kind, array):-
+  StatementUsesMemory_LengthVar(stmt, kind, arrayLength),
+  StatementUsesMemory_StartVar(stmt, kind, arrayStart),
+  ArrayVarLengthVar(array, arrayLength),
+  ArrayDataStartVar(array, arrayStart).
+
+StatementUsesMemory_UsesArray(stmt, kind, array):-
+  //StatementUsesMemory_LengthVar(stmt, kind, arrayLength),
+  StatementUsesMemory_StartVar(stmt, kind, arrayStart),
+  ArrayDataStartVar(array, arrayStart),
+  IsRawDataArrayVar(array).
+
+StatementUsesMemory_ActualMemoryArg(stmt, kind, 0, arrVarRep):-
+  StatementUsesMemory_UsesArray(stmt, kind, array),
+  VarIsArray(array, arrVarRep),
+  StatementUsesMemoryReadsRawData(stmt, kind),
+  !StatementUsesMemoryOfComputableLength(stmt, _, _).
+
+MemoryStatement_ActualArg(stmt, arrVarRep, 0):-
+  StatementUsesMemory_UsesArray(stmt, _, array),
+  VarIsArray(array, arrVarRep),
+  !StatementUsesMemoryOfComputableLength(stmt, _, _).
+
+MemoryStatement_ActualArg(stmt, actual, index):-
+  StatementUsesMemory_ActualArg(stmt, actual, index).
+
+ArrayIndexAccess(array, indexVar, index):-
+  Array_ElementLength(array, elementSize),
+  ADDFix(_, var, array, indexVar),
+  VarPlusThirtyTwo(other, var),
+  VarTimesConstant(index, elementSize, other).
+
+ArrayIndexAccess(array, indexVar, index):-
+  Array_ElementLength(array, elementSize),
+  VarTimesConstant(index, elementSize, other),
+  ADDFix(_, other, array, temp),
+  VarPlusThirtyTwo(temp, indexVar).
+
+ArrayIndexAccess(array, indexVar, index):-
+  Array_ElementLength(array, elementSize),
+  VarPlusThirtyTwo(array, arrayStart),
+  ADDFix(_, indexTimesSize, arrayStart, indexVar),
+  VarTimesConstant(index, elementSize, indexTimesSize).
+
+ArrayIndexAccess(array, indexVar, index):-
+  Array_ElementLength(array, elementSize),
+  VarTimesConstant(index, elementSize, other),
+  ADDFix(_, other, array, temp),
+  VarPlusThirtyTwo(temp, indexVar).
+
+ArrayIndexAccess(array, indexVar, index):-
+  Array_ElementLength(array, elementSize),
+  ArrayDataStartVar(array, dataStartVar),
+  ADDFix(_, dataStartVar, indexTimesCons, indexVar),
+  VarTimesConstant(index, elementSize, indexTimesCons).
+
+MemArrayPut(mstore, array, index, from):-
+  ArrayIndexAccess(array, indexVar, index),
+  MSTORE(mstore, indexVar, from).
+
+
+MemArrayGet(mload, array, index, to):-
+  ArrayIndexAccess(array, indexVar, index),
+  MLOAD(mload, indexVar, to).
+
+ArrayLoadAtIndex(mload, arrVarRep, index, to):-
+  MemArrayGet(mload, array, index, to),
+  RegularArrayVar_ClassRep(array, arrVarRep).
+
+ArrayStoreAtIndex(mstore, arrVarRep, index, from):-
+  MemArrayPut(mstore, array, index, from),
+  RegularArrayVar_ClassRep(array, arrVarRep).
+
+CallDataArrayGet(stmt, array, index, to):-
+  ArrayIndexAccess(array, indexVar, index),
+  CALLDATALOAD(stmt, indexVar, to).
+
+/**
+    ArrayLoad
+and ArrayStore
+**/
+
+DEBUG_OUTPUT(ArrayLoad)
+DEBUG_OUTPUT(ArrayStore)
+
+ArrayLoad(mload, arrId, to):-
+  MLOAD(mload, indexVar, to),
+  standardflowanalysis.Flows(arrayDataStart, indexVar),
+  ArrayDataStartVar(array, arrayDataStart),
+  VarIsArray(array, arrId),
+  !ArrayLoadAtIndex(mload, _, _, _).
+
+ArrayStore(mstore, arrId, from):-
+  MSTORE(mstore, indexVar, from),
+  standardflowanalysis.Flows(arrayDataStart, indexVar),
+  ArrayDataStartVar(array, arrayDataStart),
+  VarIsArray(array, arrId),
+  !ArrayStoreAtIndex(mstore, _, _, _).
+
+ArrayLoad(mload, arrId, to):-
+  MLOAD(mload, indexVar, to),
+  standardflowanalysis.Flows(rawDataArray, indexVar),
+  RawDataArrayVar_ClassRep(rawDataArray, arrId).
+  
+ArrayStore(mstore, arrId, from):-
+  MSTORE(mstore, indexVar, from),
+  standardflowanalysis.Flows(rawDataArray, indexVar),
+  RawDataArrayVar_ClassRep(rawDataArray, arrId).
+
+ArrayLengthVar(arrId, lenVar):-
+  ArrayVarLengthVar(array, lenVar),
+  RegularArrayVar_ClassRep(array, arrId).
+
+MLOADReadsArrayLength(mload):-
+  IsRegularArrayVar(array),
+  MLOAD(mload, array, _).
+
+/**
+  Points somewhere in an array's data 
+**/
+#ifdef IMPRECISE_ARRAY_FLOW
+.decl ArrayDataVar(array:Variable, arrayData:Variable)
+DEBUG_OUTPUT(ArrayDataVar)
+
+ArrayDataVar(array, arrayData):-
+  IsRegularArrayVar(array),
+  ADDFix(_, array, otherPlusThirtyTwo, arrayData),
+  VarPlusThirtyTwo(_, otherPlusThirtyTwo).
+
+ArrayLoad(mload, arrId, to):-
+  MLOAD(mload, indexVar, to),
+  standardflowanalysis.Flows(arrayData, indexVar),
+  ArrayDataVar(array, arrayData),
+  VarIsArray(array, arrId),
+  !ArrayLoadAtIndex(mload, _, _, _).
+#endif
+
+.decl ArrayWriteToRelativeIndex(arrayVar:Variable, mstore:Statement, relativeIndex:number)
+.output ArrayWriteToRelativeIndex
+ArrayWriteToRelativeIndex(arrayVar, mstore, relativeIndex):-
+  ArrayDataStartVar(arrayVar, arrayDataStartVar),
+  Statement_Defines(stmt1, arrayVar, _),
+  Statement_Block(stmt1, block1),
+  Variable_SymbolicValue(arrayDataStartVar, arrayDataStartVal),
+  FreePointerBasedValuesNumDiff(relIndexWriteVal, arrayDataStartVal, relativeIndex),
+  Variable_SymbolicValue(relIndexWriteVar, relIndexWriteVal),
+  Statement_Defines(stmt2, relIndexWriteVar, _),
+  Statement_Block(stmt2, block2),
+  (Dominates(block1, block2) ; LocalStatementPathInBlock(stmt1, stmt2)),
+  MSTORE(mstore, relIndexWriteVar, _).
+
+
+ArrayStore(mstore, arrId, from):-
+  ArrayHasConstantLength(arrayVar, length),
+  VarIsArray(arrayVar, arrId),
+  ArrayWriteToRelativeIndex(arrayVar, mstore, relativeIndex),
+  MSTORE(mstore, _, from),
+  relativeIndex > 0,
+  relativeIndex < length + 32,
+  !ArrayStoreAtIndex(mstore, _, _, _).
+
+
+.decl PossibleArray(array:Variable)
+DEBUG_OUTPUT(PossibleArray)
+
+PossibleArray(array):-
+  MLOADFreePtr_To(_, array),
+  VarPlusThirtyTwo(array, _).
+
+PossibleArray(array):-
+  MSIZE(_, array).
+
+PossibleArray(array):-
+  PHIStmtTwoUses(_, msizeVar, mloadFreePtrVar, array),
+  MSIZE(_, msizeVar),
+  Statement_Defines(mload, mloadFreePtrVar, 0),
+  MLOADFreePtr(mload).
+
+//More general
+//PossibleArray(array):-
+//  Variable_SymbolicValue(array, freePointerBasedVal),
+//  FreePointerBasedValue(freePointerBasedVal, _, _, _),
+//  VarPlusThirtyTwo(array, _).
+
+.decl PossibleArrayLoose(array:Variable)
+DEBUG_OUTPUT(PossibleArrayLoose)
+
+PossibleArrayLoose(array):-
+  MLOAD(_, array, _),
+  VarPlusThirtyTwo(array, _).
+
+PossibleArrayLoose(array):-
+  MSTORE(_, array, _),
+  VarPlusThirtyTwo(array, _).
+
+PossibleArrayLoose(array):-
+  Statement_Opcode(callDataCopy, "CALLDATACOPY"),
+  Statement_Uses(callDataCopy, arrayDataStart, 0),
+  Variable_SymbolicValue(arrayDataStart, val1),
+  FreePointerBasedValuesNumDiff(val1, val2, 32),
+  Variable_SymbolicValue(array, val2).
+
+PossibleArrayLoose(array):-
+  MSTORE(_, array, _),
+  Variable_SymbolicValue(array, val1),
+  FreePointerBasedValuesNumDiff(val2, val1, 32),
+  Variable_SymbolicValue(_, val2).
+
+PossibleArrayLoose(array):-
+  VarPlusThirtyTwo(array, arrayDataStart),
+  RETURNDATACOPY(_, arrayDataStart, _, _).
+
+
+.decl ArrayHasConstantLength(arrayVar:Variable, length:number)
+
+ArrayHasConstantLength(arrayVar, length):-
+  ArrayAllocationInternal(_, arrayVar, _, arrayLengthVar),
+  Variable_Value(arrayLengthVar, arrLenHex),
+  length = @hex_to_number(arrLenHex).
+
+
+/**
+  Array allocations
+  **/
+
+.decl ArrayFromArray(newArray:Variable, oldArray:Variable)
+DEBUG_OUTPUT(ArrayFromArray)
+
+.decl ArrayAllocationInternal(mstore:Statement, array:Variable, elemSize:Value, arrayLength:Variable)
+DEBUG_OUTPUT(ArrayAllocationInternal)
+DEBUG_OUTPUT(ArrayAllocation)
+
+ArrayAllocation(arrId, elementSize, arrayLengthVar):-
+  ArrayAllocationInternal(_, arrayVar, elementSize, arrayLengthVar),
+  RegularArrayVar_ClassRep(arrayVar, arrId).
+
+
+//Allocations of arrays with unknown types.
+ArrayAllocationInternal(mstore, array, "??", arrayLengthVar):-
+  IsRegularArrayVar(array),
+  MSTORE(mstore, array, arrayLengthVar),
+  !Array_ElementLength(array, _).
+
+IsRegularArrayVar(array),
+ArrayFromArray(array, oldArray):-
+  PossibleArray(array),
+  MSTORE(_, array, arrayLength),
+  ArrayVarLengthVar(oldArray, arrayLength).
+
+IsRegularArrayVar(array):-
+  PossibleArray(array),
+  PossibleArrayAlias(array, arrayAlias),
+  VarPlusThirtyTwo(arrayAlias, arrayStart),
+  StatementUsesMemory_StartVar(stmt, _, arrayStart),
+  StatementUsesMemoryReadsRawData(stmt, _),
+  !StatementUsesMemoryOfComputableLength(stmt, _, _).
+
+/**
+  Maybe not general enough, maybe general enough
+**/
+
+IsRawDataArrayVar(array):-
+  StatementUsesMemoryReadsRawData(stmt, _),
+  StatementUsesMemory_StartVar(stmt, _, array),
+  MLOADFreePtr_To(_, array).
+
+
+IsRegularArrayVar(array),
+Array_ElementLength(array, elementSize),
+ArrayAllocationInternal(mstore, array, elementSize, arrayLengthVar):-
+  PossibleArray(array),
+  MSTORE(_, array, arrayLengthVar),
+  VarTimesConstant(arrayLengthVar, elementSize, arraySizeBytes),
+  VarPlusThirtyTwo(arraySizeBytes, arraySizeBytesPlusLength),
+  ADDFix(_, arraySizeBytesPlusLength, array, updatedFMP),
+  Statement_Uses(mstore, updatedFMP, 1),
+  MSTOREFreePtr(mstore).
+
+/**
+ Not proven to work so far
+ **/
+IsRegularArrayVar(array),
+Array_ElementLength(array, elementSize),
+ArrayAllocationInternal(mstore, array, elementSize, arrayLengthVar):-
+  PossibleArray(array),
+  MSTORE(_, array, arrayLengthVar),
+  VarPlusThirtyTwo(array, arrayStart),
+  VarTimesConstant(arrayLengthVar, elementSize, arraySizeBytes),
+  ADDFix(_, arraySizeBytes, arrayStart, updatedFMP),
+  Statement_Uses(mstore, updatedFMP, 1),
+  MSTOREFreePtr(mstore).
+
+
+/**
+  bytes or strings
+ **/
+
+
+IsRegularArrayVar(array),
+Array_ElementLength(array, "0x1"),
+ArrayAllocationInternal(mstore, array, "0x1", arrayLengthVar):-
+  PossibleArray(array),
+  MSTORE(_, array, arrayLengthVar),
+  //VarTimesConstant(arrayLengthVar, elementSize, arraySizeBytes),
+   VarPlusThrirtyOneAndNotThirtyOne(arrayLengthVar, arraySizeBytes),
+  VarPlusThirtyTwo(arraySizeBytes, arraySizeBytesPlusLength),
+  ADDFix(_, arraySizeBytesPlusLength, array, updatedFMP),
+  Statement_Uses(mstore, updatedFMP, 1),
+  MSTOREFreePtr(mstore).
+
+IsRegularArrayVar(array),
+Array_ElementLength(array, "0x1"),
+ArrayAllocationInternal(mstore, array, "0x1", arrayLengthVar):-
+  PossibleArray(array),
+  MSTORE(_, array, arrayLengthVar),
+  //VarTimesConstant(arrayLengthVar, elementSize, arraySizeBytes),
+  VarPlusThrirtyOneAndNotThirtyOne(arrayLengthVar, arraySizeBytes),
+  VarPlusThirtyTwo(arraySizeBytes, arraySizeBytesPlusLength1),
+  VarPlusThrirtyOneAndNotThirtyOne(arraySizeBytesPlusLength1, arraySizeBytesPlusLength2),
+  ADDFix(_, arraySizeBytesPlusLength2, array, updatedFMP),
+  Statement_Uses(mstore, updatedFMP, 1),
+  MSTOREFreePtr(mstore).
+
+IsRegularArrayVar(array),
+Array_ElementLength(array, "0x1"),
+ArrayAllocationInternal(mstore, array, "0x1", arrayLengthVar):-
+  PossibleArray(array),
+  MSTORE(_, array, arrayLengthVar),
+  VarPlusThrirtyOneDivMulSixtyFour(arrayLengthVar, arraySizeBytes),
+  VarPlusThirtyTwo(arraySizeBytes, arraySizeBytesPlusLength),
+  ADDFix(_, arraySizeBytesPlusLength, array, updatedFMP),
+  Statement_Uses(mstore, updatedFMP, 1),
+  MSTOREFreePtr(mstore).
+
+IsRegularArrayVar(array),
+Array_ElementLength(array, "0x1"),
+ArrayAllocationInternal(mstore, array, "0x1", arrayLengthVar):-
+  PossibleArray(array),
+  MSTORE(_, array, arrayLengthVar),
+  VarPlusThrirtyOneDivMulSixtyFour(arrayLengthVar, arraySizeBytes),
+  ADDFix(_, arraySizeBytes, array, arrayPlusSizeBytes),
+  VarPlusThirtyTwo(arrayPlusSizeBytes, updatedFMP),
+  Statement_Uses(mstore, updatedFMP, 1),
+  MSTOREFreePtr(mstore).
+
+IsRegularArrayVar(array),
+Array_ElementLength(array, elemLenVal),
+ArrayAllocationInternal(mstore, array, "0x1", arrayLengthVar):-
+  PossibleArray(array),
+  MSTORE(_, array, arrayLengthVar),
+  Variable_Value(arrayLengthVar, constantLengthVal),
+  ADDFix(_, arraySizeBytes, array, arrayPlusSizeBytes),
+  Variable_Value(arraySizeBytes, sizeBytesVal),
+  dataSizeVal = @sub_256(sizeBytesVal, "0x20"),
+  constantLengthVal != "0x0",
+  elemLenVal = @div_256(dataSizeVal, constantLengthVal),
+  Statement_Uses(mstore, arrayPlusSizeBytes, 1),
+  MSTOREFreePtr(mstore).
+
+
+/*
+  RETURNDATA
+*/
+.decl ReturnDataByteArray(arrVar:Variable, abiEncArrVar:Variable, call:Statement)
+DEBUG_OUTPUT(ReturnDataByteArray)
+
+ReturnDataByteArray(array, arrayStart, call),
+IsRegularArrayVar(array),
+Array_ElementLength(array, "0x1"),
+ArrayAllocationInternal(mstore, array, "0x1", arrayLengthVar):-
+  RETURNDATASIZEOfCALL(_, arrayLengthVar, call),
+  MSTORE(_, array, arrayLengthVar),
+  VarPlusThirtyTwo(array, arrayStart),
+  RETURNDATACOPYAllDataOfCALL(_, arrayStart, call),
+  RETURNDATASIZEOfCALL(_, arrayLengthVarAlt, call),
+  VarPlusSixtyThreeAndNotThirtyOne(arrayLengthVarAlt, arraySizeBytes),
+  ADDFix(_, arraySizeBytes, array, arrayPlusSizeBytes),
+  Statement_Uses(mstore, arrayPlusSizeBytes, 1),
+  MSTOREFreePtr(mstore).
+
+
+/**
+  
+**/
+
+MemoryModelingTempStmt(mstore):-
+  ArrayAllocationInternal(mstore, _, _, _).
+
+MemoryModelingTempStmt(mstore):-
+  IsRegularArrayVar(array),
+  MSTORE(mstore, array, _).
+
+
+
+
+/**
+  Flow extensions 
+ 
+**/
+.decl DirectMemoryMove(from:Variable, to:Variable)
+
+.decl DirectReadFromArray(arrVarRep:ArrayVariable, to:Variable)
+.decl DirectWriteToArray(arrVarRep:ArrayVariable, to:Variable)
+
+
+DirectMemoryMove(from, to):-
+  StatementUsesMemory_ActualMemoryArg(stmt, _, _, from),
+  Statement_Defines(stmt, to, _).
+
+DirectMemoryMove(from, to):-
+  StatementUsesMemory_UsesArray(stmt, _, arrVarRep),
+  DirectWriteToArray(arrVarRep, from),
+  Statement_Defines(stmt, to, _).
+
+/* */
+
+DirectReadFromArray(arrVarRep, to):-
+  ArrayLoadAtIndex(_, arrVarRep, _, to);
+  ArrayLoad(_, arrVarRep, to).
+
+DirectWriteToArray(arrVarRep, from):-
+  ArrayStoreAtIndex(_, arrVarRep, _, from);
+  ArrayStore(_, arrVarRep, from).
+
+DirectMemoryMove(from, to):-
+  DirectWriteToArray(arrVarRep, from),
+  DirectReadFromArray(arrVarRep, to).
+
+/*
+  Find functions accepting arrays as args or returning them
+*/
+
+// kind is "Regular", "RawData", "ABI"
+.decl ArrayActualArg(caller:Block, fun:Function, index: number, kind:symbol)
+
+.decl ArrayDataActualArg(caller:Block, fun:Function, index: number, kind:symbol)
+
+.decl ArrayFormalRet(fun:Function, index: number, kind:symbol)
+
+.output ArrayActualArg, ArrayDataActualArg
+
+ArrayActualArg(caller, function, pos, "Regular"):-
+  ActualArgs(caller, actual, pos),
+  IsRegularArrayVar(actual),
+  CallGraphEdge(caller, function),
+  FormalArgs(function, _, pos).
+
+ArrayDataActualArg(caller, function, pos, "Data"):-
+  ActualArgs(caller, actual, pos),
+  ArrayDataStartVar(arr, actual),
+  IsRegularArrayVar(arr),
+  CallGraphEdge(caller, function),
+  FormalArgs(function, _, pos).
+
+ArrayFormalRet(fun, index, "Regular"):-
+  FormalReturnArgs(fun, formalRet, index),
+  IsRegularArrayVar(formalRet).
+
+IsRegularArrayVar(formal):-
+  ArrayActualArg(_, function, pos, "Regular"),
+  FormalArgs(function, formal, pos).
+
+IsRegularArrayVar(actual):-
+  ArrayFormalRet(fun, index, "Regular"),
+  CallGraphEdge(caller, fun),
+  ActualReturnArgs(caller, actual, index).
+
+/**
+  Constant arrays and their contents.
+**/
+
+
+.decl ConstArray_Contents(arrayRep:ArrayVariable, hex:symbol)
+
+MemoryModelingTempStmt(mstore),
+ConstArray_Contents(arrayRep, val):-
+  ArrayHasConstantLength(arrayVar, length),
+  VarIsArray(arrayVar, arrayRep),
+  length <= 32,
+  ArrayWriteToRelativeIndex(arrayVar, mstore, 0),
+  MSTORE(mstore, _, storedVar),
+  Variable_Value(storedVar, val).
+
+
+MemoryModelingTempStmt(mstore1),
+MemoryModelingTempStmt(mstore2),
+ConstArray_Contents(arrayRep, val):-
+  ArrayHasConstantLength(arrayVar, length),
+  VarIsArray(arrayVar, arrayRep),
+  length <= 64,
+  ArrayWriteToRelativeIndex(arrayVar, mstore1, 0),
+  MSTORE(mstore1, _, storedVar1),
+  Variable_Value(storedVar1, val1),
+  ArrayWriteToRelativeIndex(arrayVar, mstore2, 32),
+  MSTORE(mstore2, _, storedVar2),
+  Variable_Value(storedVar2, val2),
+  val = cat(val1 , substr(val2, 2, strlen(val2)-2)).
+
+MemoryModelingTempStmt(mstore1),
+MemoryModelingTempStmt(mstore2),
+MemoryModelingTempStmt(mstore3),
+ConstArray_Contents(arrayRep, val):-
+  ArrayHasConstantLength(arrayVar, length),
+  VarIsArray(arrayVar, arrayRep),
+  length <= 96,
+  ArrayWriteToRelativeIndex(arrayVar, mstore1, 0),
+  MSTORE(mstore1, _, storedVar1),
+  Variable_Value(storedVar1, val1),
+  ArrayWriteToRelativeIndex(arrayVar, mstore2, 32),
+  MSTORE(mstore2, _, storedVar2),
+  Variable_Value(storedVar2, val2),
+  ArrayWriteToRelativeIndex(arrayVar, mstore3, 64),
+  MSTORE(mstore3, _, storedVar3),
+  Variable_Value(storedVar3, val3),
+  val = cat(val1 , cat(substr(val2, 2, strlen(val2)-2), substr(val3, 2, strlen(val3)-2))).
+
+MemoryModelingTempStmt(codeCopy),
+ConstArray_Contents(arrayRep, const):-
+  ArrayHasConstantLength(arrayVar, _),
+  VarIsArray(arrayVar, arrayRep),
+  ArrayDataStartVar(arrayVar, arrayDataStartVar),
+  Statement_Opcode(codeCopy, "CODECOPY"),
+  Statement_Uses(codeCopy, arrayDataStartVar, 0),
+  Statement_Uses(codeCopy, codeIndex, 1),
+  Variable_Value(codeIndex, codeIndexHex),
+  codeIndexNum = @hex_to_number(codeIndexHex),
+  Statement_Uses(codeCopy, copyLen, 2),
+  Variable_Value(copyLen, copyLenHex),
+  copyLenNum = @hex_to_number(copyLenHex),
+  ByteCodeHex(bytecodeStr),
+  const = cat("0x", substr(bytecodeStr, 2*codeIndexNum, 2*copyLenNum)).
+
+/**
+  PossibleCopy
+  TODO: Replace its usage in data_structures with something more precise
+**/
+
+.decl PossibleArrayCopy(store: Statement, load: Statement, toArray: Variable, fromArray: Variable)
+DEBUG_OUTPUT(PossibleArrayCopy)
+
+PossibleArrayCopy(store, load, toArray, fromArray):-
+  ArrayLoad(load, fromArray, temp),
+  ArrayStore(store, toArray, temp).
+
+/**
+  Finding array var aliases and using them to get the represenative for the aliasing class
+**/
+
+.decl PossibleArrayAlias(arrVar1:Variable, arrVar2:Variable)
+DEBUG_OUTPUT(PossibleArrayAlias)
+
+.decl RegularArrayVarsInSameClass(arrVar1:Variable, arrVar2:Variable)
+DEBUG_OUTPUT(RegularArrayVarsInSameClass)
+
+.decl RawDataArrayVarsInSameClass(arrVar1:Variable, arrVar2:Variable)
+DEBUG_OUTPUT(RawDataArrayVarsInSameClass)
+
+.decl RawDataArrayVar_ClassRep(arrVar:Variable, classRep:ArrayVariable)
+DEBUG_OUTPUT(RawDataArrayVar_ClassRep)
+
+.decl RegularArrayVar_ClassRep(arrVar:Variable, classRep:ArrayVariable)
+DEBUG_OUTPUT(RegularArrayVar_ClassRep)
+
+.decl ABIEncodedArrayVarsInSameClass(arrVar1:Variable, arrVar2:Variable)
+DEBUG_OUTPUT(ABIEncodedArrayVarsInSameClass)
+
+.decl ABIEncodedArrayVar_ClassRep(arrVar:Variable, classRep:ArrayVariable)
+DEBUG_OUTPUT(ABIEncodedArrayVar_ClassRep)
+
+PossibleArrayAlias(possibleArray, possibleArray):-
+  PossibleArray(possibleArray).
+
+PossibleArrayAlias(possibleArray1, possibleArray2):-
+  PossibleArray(possibleArray1),
+  Variable_SymbolicValue(possibleArray1, val1),
+  FreePointerBasedValuesEqual(val1, val2),
+  FreePointerBasedValue(val1, mload1, _ ,_),
+  FreePointerBasedValue(val2, mload2, _ ,_),
+  MLOADSFreePtrUnchangedNoMemReuse(mload1, mload2),
+  Variable_SymbolicValue(possibleArray2, val2).
+
+RegularArrayVarsInSameClass(arrVar1, arrVar1):-
+  IsRegularArrayVar(arrVar1).
+
+IsRegularArrayVar(arrVar2),
+RegularArrayVarsInSameClass(arrVar1, arrVar2):-
+  IsRegularArrayVar(arrVar1),
+  Variable_SymbolicValue(arrVar1, arrVal),
+  Variable_SymbolicValue(arrVar2, arrVal).
+
+Array_ElementLength(arrayAlias, elementSize):-
+  Array_ElementLength(array, elementSize),
+  RegularArrayVarsInSameClass(array, arrayAlias).
+
+
+IsRegularArrayVar(arrVar2),
+RegularArrayVarsInSameClass(arrVar1, arrVar2):-
+  IsRegularArrayVar(arrVar1),
+  Variable_SymbolicValue(arrVar1, val1),
+  FreePointerBasedValuesEqual(val1, val2),
+  FreePointerBasedValue(val1, mload1, _ ,_),
+  FreePointerBasedValue(val2, mload2, _ ,_),
+  MLOADSFreePtrUnchangedNoMemReuse(mload1, mload2),
+  Variable_SymbolicValue(arrVar2, val2).
+
+RawDataArrayVarsInSameClass(arrVar1, arrVar1):-
+  IsRawDataArrayVar(arrVar1).
+
+IsRawDataArrayVar(arrVar2),
+RawDataArrayVarsInSameClass(arrVar1, arrVar2):-
+  IsRawDataArrayVar(arrVar1),
+  Variable_SymbolicValue(arrVar1, val1),
+  FreePointerBasedValuesEqual(val1, val2),
+  FreePointerBasedValue(val1, mload1, _ ,_),
+  FreePointerBasedValue(val2, mload2, _ ,_),
+  MLOADSFreePtrUnchangedNoMemReuse(mload1, mload2),
+  Variable_SymbolicValue(arrVar2, val2).
+
+ABIEncodedArrayVarsInSameClass(arrVar1, arrVar1):-
+  IsABIEncodedArrayVar(arrVar1).
+
+IsABIEncodedArrayVar(arrVar2),
+ABIEncodedArrayVarsInSameClass(arrVar1, arrVar2):-
+  IsABIEncodedArrayVar(arrVar1),
+  Variable_SymbolicValue(arrVar1, val1),
+  FreePointerBasedValuesEqual(val1, val2),
+  FreePointerBasedValue(val1, mload1, _ ,_),
+  FreePointerBasedValue(val2, mload2, _ ,_),
+  MLOADSFreePtrUnchangedNoMemReuse(mload1, mload2),
+  Variable_SymbolicValue(arrVar2, val2).
+
+ABIEncodedArrayVar_ClassRep(arrVar, @cast_to_symbol(arrVarRep)):-
+  IsABIEncodedArrayVar(arrVar),
+  maxordy = max ord(arrVar2) : ABIEncodedArrayVarsInSameClass(arrVar, arrVar2),
+  ABIEncodedArrayVarsInSameClass(arrVar, arrVarRep),
+  maxordy = ord(arrVarRep).
+
+RegularArrayVar_ClassRep(arrVar, @cast_to_symbol(arrVarRep)):-
+  arrayClassRep.Var_ClassRep(arrVar, arrVarRep).
+
+
+.init assertVarIsArray = AssertIsFunction
+assertVarIsArray.From(arrVar):-IsRegularArrayVar(arrVar).
+assertVarIsArray.FunRelation(arrVar, arrVarRep):-RegularArrayVar_ClassRep(arrVar, arrVarRep).
+
+DEBUG_OUTPUT(VarIsArray)
+
+.init arrayClassRep = DominatorInClass
+
+arrayClassRep.InSameClass(arrVar1, arrVar2):- RegularArrayVarsInSameClass(arrVar1, arrVar2).
+
+.init rawDataArrayClassRep = DominatorInClass
+rawDataArrayClassRep.InSameClass(arrVar1, arrVar2):- RawDataArrayVarsInSameClass(arrVar1, arrVar2).
+
+RawDataArrayVar_ClassRep(arrVar, @cast_to_symbol(classRep)):-
+  rawDataArrayClassRep.Var_ClassRep(arrVar, classRep).
+
+
+VarIsArray(array, arrVarRep):-
+  RegularArrayVar_ClassRep(array, arrVarRep);
+  RawDataArrayVar_ClassRep(array, arrVarRep).

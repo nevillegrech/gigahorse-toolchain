@@ -1,0 +1,666 @@
+#pragma once
+
+/**
+  General Memory arguments
+  Two different models are WIP right now
+  1) uses a general (tagged union-like) record with the first part having the
+     this is chosen due to the restrictions are due to the inability to use union types with records.
+  2) uses souffle's new Algebraic Data Types. This modeling is nicer but it may have limitations
+     (interfacing, performance) due to ADTs not being mature enough.
+**/
+
+.type VarOrStatement = Variable | Statement
+.type MemoryRange = [index:Variable, length:Variable]
+.type MemoryArgument = [type:symbol, extra:VarOrStatement, memRange:MemoryRange]
+
+
+.type MemoryArgumentNew = VariableArgument { v : Variable }
+                     | CalldataArgument {callDataIndex:Variable, length:Variable}
+                     | ReturndataArgument {call:Statement, callDataIndex:Variable, length:Variable}
+                     | CodeArgument {codeIndex:Variable, length:Variable}
+                     | ExtCodeArgument {extContract:Variable, extcodeIndex:Variable, length:Variable}
+
+
+#define WrapInQuotes(S) (cat("'",cat(S, "'")))
+
+.decl MemoryModelingTempStmt(stmt: Statement)
+
+.output PublicFunctionArg
+
+PublicFunctionArg(pubFun, arg, (constNum - 4) / 32):-
+  CALLDATALOADOfConstant(cdl, _, constNum),
+  CALLDATALOAD(cdl, _, arg),
+  Statement_Function(cdl, pubFun),
+  !CallDataLoadReadsLength(cdl, _, _, _, _),
+  (constNum - 4) % 32 = 0.
+
+PublicFunctionArg(pubFun, arg, constNum):-
+  CALLDATALOADOfConstant(cdl, _, constNum),
+  CALLDATALOAD(cdl, _, arg),
+  Statement_Function(cdl, pubFun),
+  !CallDataLoadReadsLength(cdl, _, _, _, _),
+  (constNum - 4) % 32 != 0.
+
+PublicFunctionArg(pubFun, arrayArg, (@hex_to_number(constHex) - 4) / 32):-
+  IsCallDataArrayVar(arrayArg, constHex),
+  Variable_Function(arrayArg, pubFun),
+  (@hex_to_number(constHex) - 4) % 32 = 0.
+
+PublicFunctionArg(pubFun, arrayArg, @hex_to_number(constHex)):-
+  IsCallDataArrayVar(arrayArg, constHex),
+  Variable_Function(arrayArg, pubFun),
+  (@hex_to_number(constHex) - 4) % 32 != 0.
+
+// e.g., for a statement 
+// MEM[mem1] = a
+// SHA3(mem1, len)
+// (this is pseudocode, meaning that the stack contains mem1 and len)
+//  index is 0
+//  actual is 'a'
+
+.decl StatementUsesMemory_ActualMemoryArg(stmt:Statement, kind:symbol, index:number, actual:Variable)
+DEBUG_OUTPUT(StatementUsesMemory_ActualMemoryArg)
+
+.decl StatementUsesMemoryMemoryArgument(stmt:Statement, kind:symbol, index:number, arg:MemoryArgument)
+DEBUG_OUTPUT(StatementUsesMemoryMemoryArgument)
+
+.decl StatementUsesMemoryMemoryArgumentNew(stmt:Statement, kind:symbol, index:number, arg:MemoryArgumentNew)
+DEBUG_OUTPUT(StatementUsesMemoryMemoryArgumentNew)
+
+.decl StatementUsesMemory_ActualArg(stmt:Statement, actual:Variable, index:number)
+DEBUG_OUTPUT(StatementUsesMemory_ActualArg)
+
+/***
+ Statement uses memory (not ABI encoded)
+ of a constant length
+***/
+.decl StatementUsesMemoryWriteAtRelativeIndex(stmt:Statement, kind:symbol, write:Statement, relIndex:number)
+DEBUG_OUTPUT(StatementUsesMemoryWriteAtRelativeIndex)
+
+.decl StatementUsesMemoryWriteAtRelativeIndex_Order(stmt:Statement, kind:symbol, write:Statement, relIndex:number, order:number)
+DEBUG_OUTPUT(StatementUsesMemoryWriteAtRelativeIndex_Order)
+
+.decl StatementUsesMemoryWritesAtRelativeIndexOrdered(stmt:Statement, kind:symbol, index1:number, index2:number)
+DEBUG_OUTPUT(StatementUsesMemoryWritesAtRelativeIndexOrdered)
+
+.decl StatementUsesMemoryWritesAtRelativeIndexNotNext(stmt:Statement, kind:symbol, index1:number, index2:number)
+DEBUG_OUTPUT(StatementUsesMemoryWritesAtRelativeIndexNotNext)
+
+.decl StatementUsesMemoryWritesAtRelativeIndexNext(stmt:Statement, kind:symbol, index1:number, index2:number)
+DEBUG_OUTPUT(StatementUsesMemoryWritesAtRelativeIndexNext)
+
+
+StatementUsesMemoryWriteAtRelativeIndex(memConsStmt, kind, memWriteStmt, relativeIndex):-
+  StatementUsesMemoryReadsRawData(memConsStmt, kind),
+  StatementUsesMemoryOfComputableLength(memConsStmt, _, _),
+  MemWriteToMemConsStmtResolved(memWriteStmt, memConsStmt, relativeIndex, _, _).
+
+
+StatementUsesMemoryWritesAtRelativeIndexOrdered(stmt, kind, index1, index2):-
+  StatementUsesMemoryWriteAtRelativeIndex(stmt, kind, _, index1),
+  StatementUsesMemoryWriteAtRelativeIndex(stmt, kind, _, index2),
+  index1 < index2.
+
+StatementUsesMemoryWritesAtRelativeIndexNotNext(stmt, kind, index1, index2):-
+  StatementUsesMemoryWritesAtRelativeIndexOrdered(stmt, kind, index1, index2),
+  StatementUsesMemoryWritesAtRelativeIndexOrdered(stmt, kind, index1, indexMid),
+  StatementUsesMemoryWritesAtRelativeIndexOrdered(stmt, kind, indexMid, index2).
+
+StatementUsesMemoryWritesAtRelativeIndexNext(stmt, kind, index1, index2):-
+  StatementUsesMemoryWritesAtRelativeIndexOrdered(stmt, kind, index1, index2),
+  !StatementUsesMemoryWritesAtRelativeIndexNotNext(stmt, kind, index1, index2).
+
+StatementUsesMemoryWriteAtRelativeIndex_Order(stmt, kind, store, index, 0):-
+  StatementUsesMemoryWriteAtRelativeIndex(stmt, kind, store, index),
+  !StatementUsesMemoryWritesAtRelativeIndexNext(stmt, kind, _, index).
+
+StatementUsesMemoryWriteAtRelativeIndex_Order(stmt, kind, store, index, i+1):-
+  StatementUsesMemoryWriteAtRelativeIndex_Order(stmt, kind, _, prevIndex, i),
+  StatementUsesMemoryWritesAtRelativeIndexNext(stmt, kind, prevIndex, index),
+  StatementUsesMemoryWriteAtRelativeIndex(stmt, kind, store, index).
+
+StatementUsesMemory_ActualMemoryArg(memConsStmt, kind, i, actual):-
+  StatementUsesMemoryWriteAtRelativeIndex_Order(memConsStmt, kind, mstore, relativeIndex, i),
+  MSTOREToMemConsStmt_WrittenVar(mstore, memConsStmt, relativeIndex, actual).
+
+StatementUsesMemoryMemoryArgumentNew(memConsStmt, kind, i, $VariableArgument(actual)),
+StatementUsesMemoryMemoryArgument(memConsStmt, kind, i, ["VAR", actual, nil]):-
+  StatementUsesMemoryWriteAtRelativeIndex_Order(memConsStmt, kind, mstore, relativeIndex, i),
+  MSTOREToMemConsStmt_WrittenVar(mstore, memConsStmt, relativeIndex, actual).
+
+.output MemoryStatement_ActualArgNew
+MemoryStatement_ActualArgNew(memConsStmt, [WrapInQuotes(type), WrapInQuotes(info), nil], index):-
+  StatementUsesMemoryMemoryArgument(memConsStmt, _, index, [type, info, nil]).
+
+MemoryStatement_ActualArgNew(memConsStmt, [WrapInQuotes(type), WrapInQuotes(info), [WrapInQuotes(indexv), WrapInQuotes(length)]], index):-
+  StatementUsesMemoryMemoryArgument(memConsStmt, _, index, [type, info, [indexv, length]]).
+
+MemoryModelingTempStmt(mstore):-
+  StatementUsesMemoryWriteAtRelativeIndex(_, _, mstore, _).
+
+
+/***
+  Finding loads that come after stores to the same adress
+  and producing StatementUsesMemory_ActualArg for these.
+  Note that for now MLOADs do not populate StatementUsesMemory
+  maybe review it at some point.
+  REVIEW: To replace with a handling similar to the one above,
+  allowing it to be more general (mloads can be affected by multiple memory writting ops)
+***/
+
+.init varIndex = ReachableBypassingWArg
+
+varIndex.From(mstore, valRep):-
+  MSTORE(mstore, indexVar, _),
+  Variable_SymbolicValue(indexVar, indexVal),
+  FreePointerBasedValue_AliasRep(indexVal, valRep).
+
+varIndex.Bypassing(mstore, valRep):-
+  MSTORE(mstore, indexVar, _),
+  Variable_SymbolicValue(indexVar, indexVal),
+  FreePointerBasedValue_AliasRep(indexVal, valRep).
+
+varIndex.To(mload, valRep):-
+  MLOAD(mload, indexVar, _),
+  Variable_SymbolicValue(indexVar, indexVal),
+  FreePointerBasedValue_AliasRep(indexVal, valRep).
+
+MemoryModelingTempStmt(mstore),
+StatementUsesMemory_ActualArg(mload, actual, 0):-
+  //varIndex.ReachableBypassingAny(mstore, mload),
+  memWriteToMemConsStmtImpr.ReachableBypassingAny(mstore, mload, addr),
+  MLOAD(mload, _, _),
+  MSTORE(mstore, _, actual),
+  // We handle the loads and stores of the free memory pointer differently
+  addr != "0x40".
+
+
+/**
+  More sound modeling of MLOADs for constant indexes
+  Usefull to improve the coverage of our modeling for Vyper contracts
+**/
+/*
+.init constantIndex =  ReachableByPassingWArg
+
+constantIndex.From(store, indexVal):-
+  MSTORE(store, index, _),
+  BasicVariable_Value(index, indexVal).
+
+constantIndex.Bypassing(store, indexVal):-
+  MSTORE(store, index, _),
+  BasicVariable_Value(index, indexVal).
+
+constantIndex.To(load, indexVal):-
+  MLOAD(load, index, _),
+  BasicVariable_Value(index, indexVal).
+
+MemoryModelingTempStmt(mstore),
+StatementUsesMemory_ActualArg(mload, actual, 0):-
+  constantIndex.ReachableBypassingAny(mstore, mload),
+  MSTORE(mstore, _, actual).
+*/
+
+/**
+  Event logs
+  They need to be handled specially because they have 2 kinds of arguements
+  indexed, that are "normal" args and non indexed that are stored in memory
+  In solidity events, the 0th indexed argument is the topic (the hash of the signature)
+**/
+
+.decl LOGStatement(logStmt:Statement, nIndexedArgs:number)
+
+LOGStatement(stmt, 0):-
+  Statement_Opcode(stmt, "LOG0").
+
+LOGStatement(stmt, 1):-
+  Statement_Opcode(stmt, "LOG1").
+
+LOGStatement(stmt, 2):-
+  Statement_Opcode(stmt, "LOG2").  
+
+LOGStatement(stmt, 3):-
+  Statement_Opcode(stmt, "LOG3").
+
+LOGStatement(stmt, 4):-
+  Statement_Opcode(stmt, "LOG4").
+
+
+.decl CALLStatement(call:Statement, nOtherArgs:number)
+
+CALLStatement(call, 3):-
+  CALL(call, _, _, _, _, _, _, _, _).
+
+CALLStatement(call, 2):-
+  STATICCALL(call, _, _, _, _, _, _, _).
+
+CALLStatement(call, 2):-
+  DELEGATECALL(call, _, _, _, _, _, _, _).
+
+/**
+  ABI Encoded Arrays
+**/
+
+.decl ABIEncodedArrayIncludesArray(abiArr:ArrayVariable, memConsStmt:Statement, innerArr:Variable, index:number)
+DEBUG_OUTPUT(ABIEncodedArrayIncludesArray)
+
+.decl ABIEncodedArrayWFunctionSelector(abiArr:ArrayVariable)
+DEBUG_OUTPUT(ABIEncodedArrayWFunctionSelector)
+
+.decl ABIEncodedArrayNoFunctionSelector(abiArr:ArrayVariable)
+DEBUG_OUTPUT(ABIEncodedArrayNoFunctionSelector)
+
+.decl ABIEncodedArrayIncludesArrayAtConcreteIndex(abiArr:ArrayVariable, memConsStmt:Statement, innerArr:Variable, index:number, arrayStartIndex:number)
+DEBUG_OUTPUT(ABIEncodedArrayIncludesArrayAtConcreteIndex)
+
+.decl ABIEncodedArrayWriteTo(memWriteStmt:Statement, abiArr:ArrayVariable, memConsStmt:Statement, index:number)
+DEBUG_OUTPUT(ABIEncodedArrayWriteTo)
+
+.decl ABIEncodedArrayHasVarAtIndex(abiArr:ArrayVariable, memConsStmt:Statement, varWritten:Variable, index:number)
+DEBUG_OUTPUT(ABIEncodedArrayHasVarAtIndex)
+
+.decl ABIEncodedArrayWriteToIsNotArrayOrLen(memWriteStmt:Statement, abiArr:ArrayVariable, memConsStmt:Statement, index:number)
+DEBUG_OUTPUT(ABIEncodedArrayWriteToIsNotArrayOrLen)
+
+.decl ABIEncodedArrayReadByStmt(abiArr:ArrayVariable, memConsStmt:Statement)
+DEBUG_OUTPUT(ABIEncodedArrayReadByStmt)
+
+.decl WriteToArrayUsedByABIEncodedArray(mstore:Statement, abiArr:ArrayVariable)
+DEBUG_OUTPUT(WriteToArrayUsedByABIEncodedArray)
+
+.decl CALLDATACOPY_AllCalldata(calldatacopy:Statement)
+
+ABIEncodedArrayReadByStmt(abiArr, memConsStmt):-
+  ABIEncodedArrayVar_ClassRep(abiArrVar, abiArr),
+  StatementUsesMemory_StartVar(memConsStmt, _, abiArrVar).
+
+CALLDATACOPY_AllCalldata(callDataCopy):-
+  CALLDATACOPY(callDataCopy, _, startVar, lenVar),
+  Variable_NumericValue(startVar, 0),
+  Statement_Defines(datasize, lenVar, 0),
+  Statement_Opcode(datasize, "CALLDATASIZE").
+
+//Not sure if we will need this information later on
+ExternalCall_ActualReturn(call, innerArr, index / 32):-
+  ExternalCall_ActualReturn(call, abiArrVar, -1),
+  ABIEncodedArrayVar_ClassRep(abiArrVar, abiArr),
+  ABIEncodedArrayIncludesArray(abiArr, _, innerArr, index).
+
+StatementUsesMemory_UsesArray(stmt, kind, innerArr):-
+  StatementUsesMemoryReadsABIEnc(stmt, kind),
+  StatementUsesMemory_StartVar(stmt, kind, abiArrVar),
+  ABIEncodedArrayVar_ClassRep(abiArrVar, abiArr),
+  ABIEncodedArrayIncludesArray(abiArr, stmt, innerArr, _).
+
+IsRegularArrayVar(innerArrayVar):-
+  ABIEncodedArrayIncludesArray(_, _, innerArrayVar, _).
+
+ABIEncodedArrayIncludesArray(abiArr, memConsStmt, abiAddrPlusIndex, index):-
+  ABIEncodedArrayVar_ClassRep(abiArrVar, abiArr),
+  ABIEncodedArrayReadByStmt(abiArrVar, memConsStmt),
+  MLOAD(mload, _, abiArrVar),
+  FreePointerBasedValue(abiVal, mload, _, index),
+  Variable_SymbolicValue(innnerArrIndex, abiVal),
+  MLOAD(_, innnerArrIndex, indexVar),
+  ADDFix(_, indexVar, abiArrVar, abiAddrPlusIndex),
+  PossibleArrayLoose(abiAddrPlusIndex).
+
+
+ABIEncodedArrayIncludesArray(abiArr, memConsStmt, abiAddrPlusIndex, arrayPointerIndex):-
+  ABIEncodedArrayVar_ClassRep(abiArrVar, abiArr),
+  ABIEncodedArrayNoFunctionSelector(abiArr),
+  ABIEncodedArrayWriteTo(mstore, abiArr, memConsStmt, arrayPointerIndex),
+  MSTORE(mstore, _, arrayLocationIndex),
+  ADDFixx(_, arrayLocationIndex, abiArrVar, abiAddrPlusIndex),
+  PossibleArrayLoose(abiAddrPlusIndex).
+
+ABIEncodedArrayIncludesArray(abiArr, memConsStmt, abiAddrPlusIndex, arrayPointerIndex):-
+  ABIEncodedArrayVar_ClassRep(abiArrVar, abiArr),
+  ABIEncodedArrayWFunctionSelector(abiArr),
+  ABIEncodedArrayWriteTo(mstore, abiArr, memConsStmt, arrayPointerIndex),
+  MSTORE(mstore, _, arrayLocationIndex),
+  ADDFix(_, abiArrVar, fourVar, abiPlusFour),
+  Variable_NumericValue(fourVar, 4),
+  ADDFixx(_, arrayLocationIndex, abiPlusFour, abiAddrPlusIndex),
+  PossibleArrayLoose(abiAddrPlusIndex).
+
+ABIEncodedArrayIncludesArray(abiArr, memConsStmt, arrayVar, arrayPointerIndex):-
+  ABIEncodedArrayIncludesArrayAtConcreteIndex(abiArr, memConsStmt, arrayVar, arrayPointerIndex, _).
+
+
+/**
+  2 patterns for recognising ABI arrays encoded at a constant index
+**/
+ABIEncodedArrayIncludesArrayAtConcreteIndex(abiArr, memConsStmt, abiAddrPlusIndex, arrayPointerIndex, arrayLocationIndex):-
+  ABIEncodedArrayVar_ClassRep(abiArrVar, abiArr),
+  ABIEncodedArrayWriteTo(mstore1, abiArr, memConsStmt, arrayPointerIndex),
+  MSTORE(mstore1, _, arrayLocationVar),
+  Variable_NumericValue(arrayLocationVar, arrayLocationIndex),
+  Variable_NumericValue(otherIndexVar, arrayLocationIndex),
+  arrayPointerIndex < arrayLocationIndex,
+  ADDFix(_, otherIndexVar, abiArrVar, abiAddrPlusIndex),
+  PossibleArrayLoose(abiAddrPlusIndex).
+
+ABIEncodedArrayIncludesArrayAtConcreteIndex(abiArr, memConsStmt, indexVar, arrayPointerIndex, arrayLocationIndex):-
+  ABIEncodedArrayWriteTo(mstore1, abiArr, memConsStmt, arrayPointerIndex),
+  MSTORE(mstore1, _, arrayLocationVar),
+  Variable_NumericValue(arrayLocationVar, arrayLocationIndex),
+  arrayLocationIndex != 0, //Cant start an array at 0 index
+  ABIEncodedArrayWriteTo(mstore2, abiArr, memConsStmt, arrayLocationIndex),
+  arrayPointerIndex < arrayLocationIndex,
+  MSTORE(mstore2, indexVar, _),
+  PossibleArrayLoose(indexVar).
+
+
+MemoryModelingTempStmt(memWriteStmt):-
+  ABIEncodedArrayWriteTo(memWriteStmt, _, _, _),
+  !ArrayStore(memWriteStmt, _, _),
+  !ArrayStoreAtIndex(memWriteStmt, _, _, _).
+
+ABIEncodedArrayWriteTo(memWriteStmt, abiArr, memConsStmt, relativeIndex):-
+  ABIEncodedArrayNoFunctionSelector(abiArr),
+  ABIEncodedArrayReadByStmt(abiArr, memConsStmt),
+  MemWriteToMemConsStmtResolved(memWriteStmt, memConsStmt, relativeIndex, _, _).
+
+ABIEncodedArrayWriteTo(memWriteStmt, abiArr, memConsStmt, relativeIndex - 4):-
+  ABIEncodedArrayWFunctionSelector(abiArr),
+  ABIEncodedArrayReadByStmt(abiArr, memConsStmt),
+  MemWriteToMemConsStmtResolved(memWriteStmt, memConsStmt, relativeIndex, _, _).
+
+WriteToArrayUsedByABIEncodedArray(mstore, abiArr):-
+  (ABIEncodedArrayIncludesArray(abiArr, _, innerArrVar, _);
+    ABIEncodedArrayIncludesArrayAtConcreteIndex(abiArr, _, innerArrVar, _, index)),
+  VarIsArray(innerArrVar, innerArr),
+  (ArrayStore(mstore, innerArr, _);
+    ArrayStoreAtIndex(mstore, innerArr, _, _)).
+
+ABIEncodedArrayWriteToIsNotArrayOrLen(memWriteStmt, abiArr, memConsStmt, index):-
+  ABIEncodedArrayWriteTo(memWriteStmt, abiArr, memConsStmt, index),
+  !ABIEncodedArrayIncludesArray(abiArr, memConsStmt, _, index),
+  !ABIEncodedArrayIncludesArrayAtConcreteIndex(abiArr, _, _, _, index),
+  !WriteToArrayUsedByABIEncodedArray(memWriteStmt, abiArr).
+
+ABIEncodedArrayHasVarAtIndex(abiArr, memConsStmt, varWritten, index):-
+  (ABIEncodedArrayWriteToIsNotArrayOrLen(mstore, abiArr, memConsStmt, index),
+   MSTOREToMemConsStmt_WrittenVar(mstore, memConsStmt, _, varWritten));
+  ABIEncodedArrayIncludesArray(abiArr, memConsStmt, varWritten, index).
+
+IsABIEncodedArrayVar(abiArr):-
+  StatementUsesMemoryReadsABIEnc(stmt, _),
+  StatementUsesMemory_StartVar(stmt, _, abiArr).
+
+ABIEncodedArrayNoFunctionSelector(abiArr):-
+  StatementUsesMemoryReadsABIEnc(stmt, _),
+  StatementUsesMemory_StartVar(stmt, _, abiArrVar),
+  ABIEncodedArrayVar_ClassRep(abiArrVar, abiArr).
+
+
+IsABIEncodedArrayVar(abiArr):-
+  StatementUsesMemoryReadsABIEncWSelector(stmt, _),
+  StatementUsesMemory_StartVar(stmt, _, abiArr).
+
+ABIEncodedArrayWFunctionSelector(abiArr):-
+  StatementUsesMemoryReadsABIEncWSelector(stmt, _),
+  StatementUsesMemory_StartVar(stmt, _, abiArrVar),
+  ABIEncodedArrayVar_ClassRep(abiArrVar, abiArr).
+
+StatementUsesMemory_ActualMemoryArg(stmt, kind, index, actual):-
+  StatementUsesMemory_StartVar(stmt, kind, abiArrVar),
+  ABIEncodedArrayVar_ClassRep(abiArrVar, abiArrRep),
+  ABIEncodedArrayNoFunctionSelector(abiArrRep),
+  ABIEncodedArrayHasVarAtIndex(abiArrRep, stmt, actual, relativeIndex),
+  relativeIndex != -4,  
+  index = relativeIndex/32.
+
+StatementUsesMemory_ActualMemoryArg(stmt, kind, index, actual):-
+  StatementUsesMemory_StartVar(stmt, kind, abiArrVar),
+  ABIEncodedArrayVar_ClassRep(abiArrVar, abiArrRep),
+  ABIEncodedArrayWFunctionSelector(abiArrRep),
+  ABIEncodedArrayHasVarAtIndex(abiArrRep, stmt, actual, relativeIndex),
+  relativeIndex != -4,
+  index = 1 + relativeIndex/32.
+
+StatementUsesMemory_ActualMemoryArg(stmt, kind, 0, actual):-
+  StatementUsesMemory_StartVar(stmt, kind, abiArrVar),
+  ABIEncodedArrayVar_ClassRep(abiArrVar, abiArrRep),
+  ABIEncodedArrayWFunctionSelector(abiArrRep),
+  ABIEncodedArrayHasVarAtIndex(abiArrRep, stmt, actual, -4).
+
+
+
+/**
+ StatementUsesMemory_ActualArg
+ **/
+
+StatementUsesMemory_ActualArg(stmt, actual, index):-
+  !LOGStatement(stmt, _),
+  !CALLStatement(stmt, _),
+  StatementUsesMemory_ActualMemoryArg(stmt, _, index, actual).
+
+StatementUsesMemory_ActualArg(stmt, actual, index + numOfNonDataArgs):-
+  LOGStatement(stmt, numOfNonDataArgs),
+  StatementUsesMemory_ActualMemoryArg(stmt, _, index, actual).
+
+StatementUsesMemory_ActualArg(stmt, actual, index - 2):-
+  LOGStatement(stmt, _),
+  Statement_Uses(stmt, actual, index),
+  index > 1.
+
+StatementUsesMemory_ActualArg(stmt, actual, index):-
+  CALLStatement(stmt, nOtherArgs),
+  (StatementUsesMemoryOfComputableLength(stmt, _, 0);
+    StatementUsesMemory_ActualMemoryArg(stmt, _, _, _)),
+  Statement_Uses(stmt, actual, index),
+  index < nOtherArgs. 
+
+StatementUsesMemory_ActualArg(stmt, actual, index + nOtherArgs):-
+  CALLStatement(stmt, nOtherArgs),
+  StatementUsesMemory_ActualMemoryArg(stmt, _, index, actual).
+
+
+/**
+  Special case when we notice that the whole call-data is copied from
+  another array. It is both an ABIEncoded and a RawData Array
+*/
+
+.decl ExternalCallTakesWholeCallData(call:Statement)
+.output ExternalCallTakesWholeCallData
+
+ExternalCallTakesWholeCallData(stmt),
+StatementUsesMemory_ActualMemoryArg(stmt, kind, 0, abiArrVar):-
+  StatementUsesMemory_StartVar(stmt, kind, abiArrVar),
+  ABIEncodedArrayVar_ClassRep(abiArrVar, arrVarRep),
+  ABIEncodedArrayWFunctionSelector(arrVarRep),
+  IsRawDataArrayVar(abiArrVar).
+
+.output ArbitraryCall
+
+ArbitraryCall(call):-
+  StatementUsesMemory_StartVar(call, _, abiArrVar),
+  ABIEncodedArrayVar_ClassRep(abiArrVar, arrVarRep),
+  ABIEncodedArrayWFunctionSelector(arrVarRep),
+  RawDataArrayVarsInSameClass(abiArrVar, abiArrVarAlias),
+  MemoryCopyLoop(_, argArrayDataVar, abiArrVarAlias),
+  ArrayDataStartVar(argArrayVar, argArrayDataVar),
+  CallDataCopyArgInfo(_, argArrayVar, _).
+
+/**
+ Return data for CALL, DELEGATECALL, STATICCALL
+**/
+
+.decl CALLReturnDataStartVar(call:Statement, startVar:Variable)
+DEBUG_OUTPUT(CALLReturnDataStartVar)
+
+.decl CALLReturnDataLengthVar(call:Statement, lenVar:Variable)
+DEBUG_OUTPUT(CALLReturnDataLengthVar)
+
+.decl CALLReturnDataLengthVal(call:Statement, length:number)
+
+.decl CALLReturnsFixedSizeData(call:Statement, length:number)
+DEBUG_OUTPUT(CALLReturnsFixedSizeData)
+
+.decl CALLReturnsArray(call:Statement)
+DEBUG_OUTPUT(CALLReturnsArray)
+
+.decl CALLReturnsNoData(call:Statement)
+DEBUG_OUTPUT(CALLReturnsNoData)
+
+.decl AfterCALLCheckRetDataSize(call:Statement)
+
+CALLReturnDataStartVar(call, startVar):-
+  CALL(call, _, _, _, _, _, startVar, _, _);
+  DELEGATECALL(call, _, _, _, _, startVar, _, _);
+  STATICCALL(call, _, _, _, _, startVar, _, _).
+
+CALLReturnDataLengthVar(call, lenVar):-
+  CALL(call, _, _, _, _, _, _, lenVar, _);
+  DELEGATECALL(call, _, _, _, _, _, lenVar, _);
+  STATICCALL(call, _, _, _, _, _, lenVar, _).
+
+CALLReturnDataLengthVal(call, length):-
+  CALLReturnDataLengthVar(call, lenVar),
+  Variable_NumericValue(lenVar, length).
+
+AfterCALLCheckRetDataSize(call):-
+  CALLReturnDataStartVar(call, _),
+  Statement_Block(call, callBlock),
+  LocalBlockEdge(callBlock, nonThrowBlock),
+  Statement_Block(retData, nonThrowBlock),
+  RETURNDATASIZE(retData, _),
+  !DirectThrowBlock(nonThrowBlock).
+
+CALLReturnsNoData(call):-
+  CALLReturnDataLengthVal(call, 0),
+  !AfterCALLCheckRetDataSize(call).
+
+CALLReturnsFixedSizeData(call, length):-
+  CALLReturnDataLengthVal(call, length),
+  length != 0.
+
+CALLReturnsArray(call):-
+  CALLReturnDataLengthVal(call, 0),
+  AfterCALLCheckRetDataSize(call).
+
+.decl AllCALLsClassified(all:number)
+.output AllCALLsClassified
+
+AllCALLsClassified(all):-
+  all = count: CALLReturnDataStartVar(_, _),
+  a = count: CALLReturnsFixedSizeData(_, _),
+  b = count: CALLReturnsNoData(_),
+  c = count: CALLReturnsArray(_),
+  all = a + b + c.
+
+.decl RETURNDATACOPYOfCALL(returndatacopy:Statement, memoryStart:Variable, retDataStart:Variable, length:Variable, call:Statement)
+DEBUG_OUTPUT(RETURNDATACOPYOfCALL)
+
+.decl RETURNDATACOPYAllDataOfCALL(returndatacopy:Statement, memoryStart:Variable, call:Statement)
+DEBUG_OUTPUT(RETURNDATACOPYAllDataOfCALL)
+
+.decl RETURNDATASIZEOfCALL(returndatasize:Statement, sizevar:Variable, call:Statement)
+DEBUG_OUTPUT(RETURNDATASIZEOfCALL)
+
+.init callToReturnDataOp = ReachableByPassing
+
+callToReturnDataOp.From(call) :-  CALLReturnDataStartVar(call, _).
+callToReturnDataOp.Bypassing(call) :-  CALLReturnDataStartVar(call, _).
+callToReturnDataOp.To(stmt) :-  RETURNDATASIZE(stmt, _); RETURNDATACOPY(stmt, _, _, _).
+
+RETURNDATACOPYOfCALL(retDataCopy, memStartVar, retDataStartVar, length, call):-
+  callToReturnDataOp.ReachableBypassingAny(call, retDataCopy),
+  RETURNDATACOPY(retDataCopy, memStartVar, retDataStartVar, length).
+
+RETURNDATASIZEOfCALL(retDataSize, sizeVar, call):-
+  callToReturnDataOp.ReachableBypassingAny(call, retDataSize),
+  RETURNDATASIZE(retDataSize, sizeVar).
+
+RETURNDATACOPYAllDataOfCALL(retDataCopy, memStartVar, call):-
+  RETURNDATACOPYOfCALL(retDataCopy, memStartVar, retDataStartVar, lenVar, call),
+  BasicVariable_Value(retDataStartVar, "0x0"),
+  RETURNDATASIZEOfCALL(_, lenVar, call).
+
+IsABIEncodedArrayVar(memStartVar),
+ExternalCall_ActualReturn(call, memStartVar, -1):-
+  CALLReturnsArray(call),
+  RETURNDATACOPYAllDataOfCALL(_, memStartVar, call),
+  Variable_SymbolicValue(memStartVar, _).
+
+// TODO: It doesn't work correctly for unpacking the ABIencoded arrays returns.
+
+IsABIEncodedArrayVar(abiEncodedArrayVar),
+ExternalCall_ActualReturn(call, abiEncodedArrayVar, -1):-
+  ReturnDataByteArray(arrayVar, _, call),
+  PHIStmtTwoUses(_, arrayVar, ninetySixVar, phiVar),
+  BasicVariable_Value(ninetySixVar, "0x60"),
+  VarPlusThirtyTwo(phiVar, abiEncodedArrayVar).
+
+.decl RevertAllCallRetData(revert:Statement, call:Statement)
+
+MemoryModelingTempStmt(retDataCopy),
+RevertAllCallRetData(revert, call):-
+  MemWriteToMemConsStmtResolved(retDataCopy, revert, 0, _, _),
+  RETURNDATACOPYOfCALL(retDataCopy, _, _, retDataLen, call),
+  RETURNDATASIZEOfCALL(_, retDataLen, call),
+  REVERT(revert, _, revertLen),
+  RETURNDATASIZEOfCALL(_, revertLen, call).
+
+MemoryModelingTempStmt(retDataCopy),
+StatementUsesMemoryMemoryArgumentNew(memConsStmt, kind, 0, $ReturndataArgument(call, retDataIndex, retDataLen)),
+StatementUsesMemoryMemoryArgument(memConsStmt, kind, 0, ["RETURNDATA", call, [retDataIndex, retDataLen]]):-
+  StatementUsesMemory_LengthVar(memConsStmt, kind, memReadLen),
+  RETURNDATASIZEOfCALL(_, memReadLen, call),
+  MemWriteToMemConsStmtResolved(retDataCopy, memConsStmt, 0, _, _),
+  RETURNDATACOPYOfCALL(retDataCopy, _, retDataIndex, retDataLen, call),
+  RETURNDATASIZEOfCALL(_, retDataLen, call).
+
+StatementUsesMemoryMemoryArgumentNew(memConsStmt, kind, 0, $CalldataArgument(callDataIndex, callDataLen)),
+StatementUsesMemoryMemoryArgument(memConsStmt, kind, 0, ["CALLDATA", "None", [callDataIndex, callDataLen]]):-
+  StatementUsesMemory_LengthVar(memConsStmt, kind, memReadLen),
+  CALLDATASIZE(_, memReadLen),
+  MemWriteToMemConsStmtResolved(callDataCopy, memConsStmt, 0, _, _),
+  CALLDATACOPY(callDataCopy, _, callDataIndex, callDataLen),
+  CALLDATASIZE(_, callDataLen).
+
+.decl MLOADReadsReturnOfCALL(mload:Statement, call:Statement, relateIndex:number)
+DEBUG_OUTPUT(MLOADReadsReturnOfCALL)
+
+
+MLOADReadsReturnOfCALL(mload, call, diff):-
+  CALLReturnsFixedSizeData(call, retLen),
+  CALLReturnDataStartVar(call, startVar),
+  Variable_SymbolicValue(startVar, startVal),
+  FreePointerBasedValuesNumDiff(loadVal, startVal, diff),
+  Variable_SymbolicValue(indexVar, loadVal),
+  MLOAD(mload, indexVar, _),
+  retLen > diff,
+  diff >= 0,
+  memWriteToMemConsStmtImpr.ReachableBypassingAny(call, mload, _).
+
+DEBUG_OUTPUT(ExternalCall_ActualReturn)
+
+MemoryModelingTempStmt(mload),
+ExternalCall_ActualReturn(call, to, relativeIndex / 32):-
+  MLOADReadsReturnOfCALL(mload, call, relativeIndex),
+  MLOAD(mload, _, to).
+
+
+.decl CDArg(arg:MemoryArgumentNew)
+.output CDArg
+
+CDArg(cdarg):-
+  StatementUsesMemoryMemoryArgumentNew(_, _, _, cdarg),
+  cdarg = $CalldataArgument(from, to),
+  from = from, to = to. // suppress warnings
+
+/**
+
+**/
+
+StatementUsesMemory_ActualArg(callDataCopy, arrayVar, 0),
+StatementUsesMemory_ActualMemoryArg(callDataCopy, "CALLDATACOPY", 0, arrayVar):-
+  CallDataCopyArgInfo(callDataCopy, arrayVar, _).
+
+StatementUsesMemory_ActualArg(callDataCopy, arrVarRep, 0),
+StatementUsesMemory_ActualMemoryArg(callDataCopy, "CALLDATACOPY", 0, arrVarRep):-
+  CALLDATACOPY_AllCalldata(callDataCopy),
+  CALLDATACOPY(callDataCopy, array, _, _),
+  VarIsArray(array, arrVarRep).

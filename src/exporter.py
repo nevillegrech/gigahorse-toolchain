@@ -132,7 +132,7 @@ class InstructionTsvExporter(Exporter):
                 pass
         else:
             open(signatures_filename_out, 'w').close()
-            
+        
         events_filename_in = event_signature_filename
         events_filename_out = os.path.join(output_dir, 'EventSignature.facts')
         if os.path.isfile(events_filename_in):

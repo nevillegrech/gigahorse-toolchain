@@ -11,7 +11,7 @@ First make sure you have the following things installed on your system:
 
 - Python 3.8 (Refer to standard documentation)
 
-- Souffle 2.0+ (Refer to Souffle documentation. The easiest way to install this is to use the releases from https://github.com/souffle-lang/souffle/releases)
+- Souffle 2.0.2 (We only test using the release versions, later development versions may work but are untested by us. Refer to Souffle documentation. The easiest way to install this is to use the release from https://github.com/souffle-lang/souffle/releases/tag/2.0.2)
 
 Now install the Souffle custom functors. Just navigate to the `souffle-addon` folder:
 

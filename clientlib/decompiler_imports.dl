@@ -53,8 +53,20 @@
 .input Statement_Block(IO="file", filename="TAC_Block.csv", delimiter="\t")
 
 // Value which a variable may have. Concrete values only.
+// Will be constant-folded and new values will be added during memory modeling
 .decl Variable_Value(var: Variable, value: Value)
 .input Variable_Value(IO="file", filename="TAC_Variable_Value.csv", delimiter="\t")
+
+// Used by some components that do not need the new values created during memory modeling
+// Will be constant folded
+.decl BasicVariable_Value(var: Variable, value: Value)
+.input BasicVariable_Value(IO="file", filename="TAC_Variable_Value.csv", delimiter="\t")
+
+// Like the 2 above but in instances of inlining jump target variables point to the 'value'
+// that corresponds to our representation of that block and not in the actual hexadecimal value
+// of that block in the original bytecode. Used by the source decompiler.
+.decl Variable_BlockValue(var: Variable, value: Value)
+.input Variable_BlockValue(IO="file", filename="TAC_Variable_BlockValue.csv", delimiter="\t")
 
 // Control flow & functions
 

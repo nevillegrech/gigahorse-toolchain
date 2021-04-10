@@ -1,0 +1,139 @@
+#pragma once
+
+/**
+ Direct throw block
+**/
+.decl DirectThrowBlock(block:Block)
+
+DirectThrowBlock(block):-
+  (Statement_Opcode(throw, "THROW"), Statement_Opcode(throw, "REVERT")),
+  Statement_Block(throw, block).
+
+DEBUG_OUTPUT(Variable_Value)
+DEBUG_OUTPUT(Variable_NumericValue)
+
+/**
+  Helper, only works correctly with small numbers
+  as the default souffle number type is signed 32 bit
+**/
+
+.decl Variable_NumericValue(var: Variable, value: number)
+Variable_NumericValue(var, @hex_to_number(val)):-
+  Variable_Value(var, val).
+
+/**
+  
+**/
+
+.decl LocalBlockPath(from:Block, to:Block)
+
+LocalBlockPath(src, target):-
+  LocalBlockEdge(src, target).
+
+LocalBlockPath(src, target):-
+  LocalBlockPath(src, mid),
+  LocalBlockEdge(mid, target).
+
+.decl LocalStatementPathInBlock(stmt1:Statement, stmt2:Statement)
+
+LocalStatementPathInBlock(stmt1, stmt2):-
+  Helper_NextStatementInSameBlock(stmt1, stmt2).
+
+LocalStatementPathInBlock(stmt1, stmt3):-
+  LocalStatementPathInBlock(stmt1, stmt2),
+  Helper_NextStatementInSameBlock(stmt2, stmt3).
+
+.decl MSTORE8(stmt:Statement, index:Variable, from:Variable)
+MSTORE8(stmt, index, from):-
+  Statement_Opcode(stmt, "MSTORE8"),
+  Statement_Uses(stmt, index, 0),
+  Statement_Uses(stmt, from, 1).
+
+.decl MSIZE(stmt:Statement, to:Variable)
+MSIZE(stmt, to):-
+  Statement_Opcode(stmt, "MSIZE"),
+  Statement_Defines(stmt, to, 0).
+
+.decl ADDFix(stmt:Statement, a:Variable, b:Variable, to:Variable)
+.decl ADDFixx(stmt:Statement, a:Variable, b:Variable, to:Variable)
+
+ADDFix(stmt, a, b, aPlusB):-
+  ADD(stmt, a, b, aPlusB);
+  ADD(stmt, b, a, aPlusB).
+
+
+ADDFixx(stmt, a, b, aPlusB):-
+  ADDFix(stmt, a, b, aPlusB);
+  SUB(stmt, aPlusB, a, b);
+  SUB(stmt, aPlusB, b, a).
+
+
+
+.decl VarPlusThirtyTwo(var:Variable, varPlus:Variable)
+DEBUG_OUTPUT(VarPlusThirtyTwo)
+
+.decl VarPlusConst(var:Variable, varPlus:Variable, const:Value)
+DEBUG_OUTPUT(VarPlusConst)
+
+.decl VarMinusConst(var:Variable, varMinus:Variable, const:Value)
+DEBUG_OUTPUT(VarMinusConst)
+
+.decl VarPlusThrirtyOneAndNotThirtyOne(var:Variable, varPlus:Variable)
+DEBUG_OUTPUT(VarPlusThrirtyOneAndNotThirtyOne)
+
+.decl VarPlusSixtyThreeAndNotThirtyOne(var:Variable, varPlus:Variable)
+DEBUG_OUTPUT(VarPlusSixtyThreeAndNotThirtyOne)
+
+.decl VarPlusThrirtyOneDivMulSixtyFour(var:Variable, varAfter:Variable)
+DEBUG_OUTPUT(VarPlusThrirtyOneDivMulSixtyFour)
+
+.decl VarTimesConstant(var:Variable, constant:Value, result:Variable)
+DEBUG_OUTPUT(VarTimesConstant)
+
+.decl VarDivByConstant(var:Variable, constant:Value, result:Variable)
+DEBUG_OUTPUT(VarDivByConstant)
+
+VarPlusThirtyTwo(var, varPlus):-
+  ADDFix(_, var, thirtyTwo, varPlus),
+  BasicVariable_Value(thirtyTwo, "0x20").
+
+VarPlusConst(var, varPlus, const):-
+  ADDFix(_, var, constVar, varPlus),
+  BasicVariable_Value(constVar, const).
+
+VarMinusConst(var, varMinus, const):-
+  SUB(_, var, constVar, varMinus),
+  BasicVariable_Value(constVar, const).
+
+VarPlusThrirtyOneAndNotThirtyOne(var, result):-
+  Variable_Value(notThrirtyOne, "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0"),
+  Variable_Value(temp2, "0x1f"),
+  ADDFix(_, var, temp2, varPlus),
+  (AND(_, notThrirtyOne, varPlus, result); AND(_, varPlus, notThrirtyOne, result)).
+
+VarPlusSixtyThreeAndNotThirtyOne(var, result):-
+  Variable_Value(temp2, "0x3f"),
+  ADDFix(_, var, temp2, varPlus),
+  (AND(_, notThrirtyOne, varPlus, result); AND(_, varPlus, notThrirtyOne, result)),
+  Variable_Value(notThrirtyOne, "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0").
+
+VarPlusThrirtyOneDivMulSixtyFour(var, result):-
+  ADDFix(_, var, temp, varPlus),
+  Variable_Value(temp, "0x1f"),
+  VarDivByConstant(varPlus, "0x20", varDiv),
+  VarTimesConstant(varDiv, "0x20", result).
+
+VarTimesConstant(var, constVal, result):-
+  (MUL(_, var, constVar, result); MUL(_, constVar, var, result)),
+  Variable_Value(constVar, constVal).
+
+VarDivByConstant(var, constVal, result):-
+  DIV(_, var, constVar, result),
+  Variable_Value(constVar, constVal).  
+
+.decl CALLDATALOADOfConstant(cdl:Statement, constHex:symbol, constNum:number)
+
+CALLDATALOADOfConstant(cdl, constHex, constNum):-
+  CALLDATALOAD(cdl, index, _),
+  Variable_Value(index, constHex),
+  Variable_NumericValue(index, constNum).

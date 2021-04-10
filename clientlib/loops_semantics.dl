@@ -18,6 +18,12 @@ InductionVariable(inductionVar, loop) :-
    inductionVariableFlow.Flows(x, inductionVar).
    //!VariabledDefinedByNonAddInLoop(v, loop).
 
+InductionVariable(inductionVar, loop) :-
+   SUB(subStmt, v, _, x),
+   StatementInStructuredLoop(subStmt, loop),
+   inductionVariableFlow.Flows(x, v),
+   inductionVariableFlow.Flows(x, inductionVar).
+   //!VariabledDefinedByNonAddInLoop(v, loop).
 
 .decl VariabledDefinedByNonAddInLoop(v:Variable, loop:Block)
 // A variable that is defined by any statement other than ADD

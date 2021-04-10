@@ -1,0 +1,123 @@
+#pragma once
+
+/*
+ *
+ */
+
+.decl PHIStmtTwoUses(phi:Statement, var1:Variable, var2:Variable, def:Variable)
+
+
+PHIStmtTwoUses(phi, var1, var2, def):-
+  PHI(phi, _, _),
+  2 = count: Statement_Uses(phi, _, _),
+  Statement_Defines(phi, def, 0),
+  Statement_Uses(phi, var1, -1),
+  Statement_Uses(phi, var2, -1),
+  var1 != var2.
+
+DEBUG_OUTPUT(InductionVariable)
+DEBUG_OUTPUT(InductionVariableIncreasesByConst)
+DEBUG_OUTPUT(InductionVariableDecreasesByConst)
+DEBUG_OUTPUT(InductionVariableStartsAtConst)
+DEBUG_OUTPUT(InductionVariableLowerBoundVar)
+DEBUG_OUTPUT(InductionVariableUpperBoundVar)
+DEBUG_OUTPUT(WellFromedLoopInductionVariable)
+DEBUG_OUTPUT(MemoryCopyLoop)
+DEBUG_OUTPUT(MemoryCopyLoopConstLength)
+
+.type SimpleInductionVariable = [beforeLoopVar:Variable, inLoopVar:Variable]
+
+.decl InductionVariableIncreasesByConst(loop:Block, simpleIndVar:SimpleInductionVariable, const:number)
+.decl InductionVariableDecreasesByConst(loop:Block, simpleIndVar:SimpleInductionVariable, const:number)
+.decl InductionVariableStartsAtConst(loop:Block, simpleIndVar:SimpleInductionVariable, const:Value)
+.decl InductionVariableLowerBoundVar(loop:Block, indVar:SimpleInductionVariable, bound:Variable)
+.decl InductionVariableUpperBoundVar(loop:Block, indVar:SimpleInductionVariable, bound:Variable)
+.decl MemoryCopyLoop(loop:Block, memAddrFrom:Variable, memAddrTo:Variable)
+.decl MemoryCopyLoopConstLength(loop:Block, memAddrFrom:Variable, memAddrTo:Variable, length:number)
+.decl WellFromedLoopInductionVariable(loop:Block, inductionPhiVar:Variable, simpleIndVar:SimpleInductionVariable)
+
+WellFromedLoopInductionVariable(loop, phiVar, [beforeLoopVar, inLoopVar]):-
+  InductionVariable(phiVar, loop),
+  PHIStmtTwoUses(_, beforeLoopVar, inLoopVar, phiVar),
+  Statement_Defines(beforeStmt, beforeLoopVar, _),
+  Statement_Block(beforeStmt, beforeBlock),
+  Dominates(beforeBlock, loop),
+  Statement_Defines(inLoopStmt, inLoopVar, _),
+  StatementInStructuredLoop(inLoopStmt, loop).
+
+InductionVariableIncreasesByConst(loop, [beforeLoopVar, inLoopVar], @hex_to_number(const)):-
+  WellFromedLoopInductionVariable(loop, phiVar, [beforeLoopVar, inLoopVar]),
+  VarPlusConst(phiVar, inLoopVar, const).
+
+InductionVariableDecreasesByConst(loop, [beforeLoopVar, inLoopVar], @hex_to_number(const)):-
+  WellFromedLoopInductionVariable(loop, phiVar, [beforeLoopVar, inLoopVar]),
+  VarMinusConst(phiVar, inLoopVar, const).
+
+InductionVariableStartsAtConst(loop, [beforeLoopVar, inLoopVar], const):-
+  WellFromedLoopInductionVariable(loop, _, [beforeLoopVar, inLoopVar]),
+  BasicVariable_Value(beforeLoopVar, const).
+
+InductionVariableLowerBoundVar(loop, [beforeLoopVar, inLoopVar], boundVar):-
+  LoopExitCond(condVar, loop),
+  WellFromedLoopInductionVariable(loop, _, [beforeLoopVar, inLoopVar]),
+  PHIStmtTwoUses(_, beforeLoopVar, inLoopVar, phiVar),
+  LT(_, phiVar, boundVar, condVar).
+
+InductionVariableUpperBoundVar(loop, [beforeLoopVar, inLoopVar], boundVar):-
+  LoopExitCond(condVar, loop),
+  WellFromedLoopInductionVariable(loop, _, [beforeLoopVar, inLoopVar]),
+  PHIStmtTwoUses(_, beforeLoopVar, inLoopVar, phiVar),
+  GT(_, phiVar, boundVar, condVar).
+
+InductionVariableUpperBoundVar(loop, [beforeLoopVar, inLoopVar], boundVar):-
+  LoopExitCond(condVar, loop),
+  WellFromedLoopInductionVariable(loop, _, [beforeLoopVar, inLoopVar]),
+  PHIStmtTwoUses(_, beforeLoopVar, inLoopVar, phiVar),
+  LT(_, phiVar, boundVar, ltVar),
+  ISZERO(_, ltVar, condVar).
+
+MemoryCopyLoop(loop, memAddrFrom, memAddrTo):-
+  InductionVariableIncreasesByConst(loop, [beforeLoopVar, inLoopVar], 32),
+  PHIStmtTwoUses(_, beforeLoopVar, inLoopVar, phiVar),
+  ADDFix(_, phiVar, memAddrFrom, fromIndexVar),
+  MLOAD(_, fromIndexVar, copiedVar),
+  ADDFix(_, phiVar, memAddrTo, toIndexVar),
+  MSTORE(_, toIndexVar, copiedVar).
+
+MemoryCopyLoop(loop, beforeLoopVarFrom, beforeLoopVarTo):-
+  InductionVariableIncreasesByConst(loop, [beforeLoopVarFrom, inLoopVarFrom], 32),
+  PHIStmtTwoUses(_, beforeLoopVarFrom, inLoopVarFrom, fromIndexVar),
+  MLOAD(_, fromIndexVar, copiedVar),
+  InductionVariableIncreasesByConst(loop, [beforeLoopVarTo, inLoopVarTo], 32),
+  PHIStmtTwoUses(_, beforeLoopVarTo, inLoopVarTo, toIndexVar),
+  MSTORE(_, toIndexVar, copiedVar).
+
+MemoryCopyLoopConstLength(loop, memAddrFrom, memAddrTo, length):-
+  MemoryCopyLoop(loop, memAddrFrom, memAddrTo),
+  InductionVariableLowerBoundVar(loop, [beforeLoopVar, inLoopVar], boundVar),
+  inLoopVar = inLoopVar, // to fix warning
+  Variable_NumericValue(boundVar, 32),
+  Variable_NumericValue(beforeLoopVar, length).
+
+MemoryCopyLoopConstLength(loop, memAddrFrom, memAddrTo, length):-
+  MemoryCopyLoop(loop, memAddrFrom, memAddrTo),
+  InductionVariableUpperBoundVar(loop, [beforeLoopVar, inLoopVar], boundVar),
+  inLoopVar = inLoopVar, // to fix warning
+  Variable_NumericValue(beforeLoopVar, 0),
+  Variable_NumericValue(boundVar, length).
+
+IsRawDataArrayVar(toRawArray):-
+  MemoryCopyLoop(_, fromArrayData, toRawArray),
+  ArrayDataStartVar(_, fromArrayData),
+  IsABIEncodedArrayVar(toRawArray).
+
+
+.decl StatementWritesMemoryCopiedFromLoop(memWriteStmt:Statement, newIndexVar:Variable, memAddrTo:Variable, numDiff:number, writeLength:number)
+DEBUG_OUTPUT(StatementWritesMemoryCopiedFromLoop)
+
+StatementWritesMemoryCopiedFromLoop(memWriteStmt, newIndexVar, memAddrTo, numDiff, writeLength):-
+  MemoryCopyLoopConstLength(_, memAddrFrom, memAddrTo, loopLength),
+  StatementWritesMemoryOfConstantLength(memWriteStmt, startVar, writeLength),
+  MemoryAddressVarsNumDiff(startVar, memAddrFrom, numDiff),
+  0 <= numDiff, numDiff < loopLength,
+  newIndexVar = cat(startVar, "_gen").

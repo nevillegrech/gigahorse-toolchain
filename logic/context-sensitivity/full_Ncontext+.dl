@@ -11,18 +11,27 @@ NumberOfJumps(n1 + n2) :-
 
 #define ESTIMATE_DEPTH(n) (500000 / (n) / (n))
 
+.decl InputMaxContextDepth(d: number)
+.input InputMaxContextDepth(filename="MaxContextDepth.csv")
+
 .decl MaxContextDepth(d: number)
+MaxContextDepth(depth) :-
+    InputMaxContextDepth(depth).
+
 MaxContextDepth(m) :-
+   !InputMaxContextDepth(_),
    NumberOfJumps(n),
    m = ESTIMATE_DEPTH(n),
    m >= 2, m <= 15.
 
 MaxContextDepth(2) :-
+   !InputMaxContextDepth(_),
    NumberOfJumps(n),
    m = ESTIMATE_DEPTH(n),
    m < 2.
 
 MaxContextDepth(15) :-
+   !InputMaxContextDepth(_),
    NumberOfJumps(n),
    m = ESTIMATE_DEPTH(n),
    m > 15.

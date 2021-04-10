@@ -5,35 +5,33 @@
 // find number of jumps to estimate best context depth
 .decl MaxContextDepth(sigHash: symbol, d: number)
 
+.decl InputMaxContextDepth(sigHash: symbol, d: number)
+.input InputMaxContextDepth(filename="MaxContextDepth.facts")
+
+MaxContextDepth(sigHash, d) :- InputMaxContextDepth(sigHash, d).
+
 #ifndef MAX_CONTEXT_DEPTH
 MaxContextDepth(sigHash, 4) :-
-  postTrans.PublicFunction(_, sigHash).
+  postTrans.PublicFunction(_, sigHash), !InputMaxContextDepth(sigHash, _).
 #else
-  #if MAX_CONTEXT_DEPTH == -1
-    .input MaxContextDepth
-  #else
-    MaxContextDepth(sigHash, MAX_CONTEXT_DEPTH) :-
-      postTrans.PublicFunction(_, sigHash).
-  #endif
+MaxContextDepth(sigHash, MAX_CONTEXT_DEPTH) :-
+  postTrans.PublicFunction(_, sigHash), !InputMaxContextDepth(sigHash, _).
 #endif
 
 .decl InitialPrivateContext(ctx : PrivateContext)
 InitialPrivateContext(nil).
 
-.decl IsPrivateContext(rest:PrivateContext)
-IsPrivateContext(nil).
+.decl DecomposePrivateContext(priCtx: PrivateContext, block: Block, rest: PrivateContext)
 
 .decl DropLast(ctx : PrivateContext, newCtx : PrivateContext)
 DropLast(ctx, nil) :-
-  IsPrivateContext(ctx),
-  ctx = [ block, nil ], block = block.
+  DecomposePrivateContext(ctx, _, nil).
 
-IsPrivateContext(newCtx),
+DecomposePrivateContext(newCtx, block, newRest),
 PrivateContextDepth(newCtx, depth - 1),
 DropLast(ctx, newCtx) :-
-  IsPrivateContext(ctx),
+  DecomposePrivateContext(ctx, block, rest),
   PrivateContextDepth(ctx, depth),
-  ctx = [ block, rest ],
   DropLast(rest, newRest),
   newCtx = [ block, newRest ].
   .plan 1:(2,1,3), 2:(3,1,2)
@@ -43,7 +41,7 @@ PrivateContextDepth(init, 0) :-
   InitialPrivateContext(init).
 
 PrivateContextDepth(ctx, depth + 1) :-
-  IsPrivateContext(ctx), ctx = [ block, rest ],	block = block,
+  DecomposePrivateContext(ctx, _, rest),
   PrivateContextDepth(rest, depth).
   .plan 1:(2,1)
 
@@ -104,6 +102,10 @@ StaticBlockJumpTarget(caller, target) :-
 
 .decl MergeContext(ctx : Context, caller : Block, newContext : Context)
 
+.decl DecomposeContext(ctx:Context, publicFun:symbol, private:PrivateContext)
+
+DecomposeContext(ctx, publicFun, private):-
+  ReachableContext(ctx, _), ctx = [publicFun, private].
 
 // Trivial control flow case for when there is no function call
 // OR max conext depth is zero
@@ -116,23 +118,26 @@ MergeContext(ctx, caller, ctx) :-
   (!PrivateFunctionCallOrReturn(caller) ; MaxContextDepth(pub, 0)). 
 
 // Complex control flow case
-IsPrivateContext(newPrivateContext),
+
+DecomposePrivateContext(newPrivateContext, caller, cutDownPri),
 MergeContext(ctx, caller, newContext) :-
-  ReachableContext(ctx, caller),   ctx = [pub, pri],
+  ReachableContext(ctx, caller),
   PrivateFunctionCallOrReturn(caller),
+  DecomposeContext(ctx, pub, pri),
 #ifndef NO_PUBLIC_CONTEXT
   !postTrans.PublicFunction(caller, _),
 #endif
   TruncateContext(pub, pri, cutDownPri),
   newPrivateContext = [caller, cutDownPri],
   newContext = [pub, newPrivateContext].
-.plan 1:(3,2,1)
+.plan 1:(2,1,3,4), 2:(4,2,1,3)
 
 #ifndef NO_PUBLIC_CONTEXT
 MergeContext(ctx, caller, newContext) :-
-  ReachableContext(ctx, caller), 
+  ReachableContext(ctx, caller),
   postTrans.PublicFunction(caller, sigHash),
-  ctx = [pub, pri], pub = pub,
+  !MaxContextDepth(sigHash, -1),
+  DecomposeContext(ctx, _, pri),
   newContext = [sigHash, pri].
 #endif
 

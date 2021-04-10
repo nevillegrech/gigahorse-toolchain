@@ -1,0 +1,115 @@
+#pragma once
+
+/**
+ * Helpers that can be reused by client analyses
+ * but do not need to be part of the API.
+**/
+
+
+.decl SHA3_1ARG(stmt: Statement, arg1: Variable, def: Variable)
+
+SHA3_1ARG(stmt, arg1, def) :-
+  SHA3(stmt, _, _, def),
+  MemoryStatement_ActualArg(stmt, arg1, 0),
+  !MemoryStatement_ActualArg(stmt, _, 1).
+
+.decl SHA3_2ARG(stmt: Statement, arg1: Variable, arg2: Variable, def: Variable)
+
+SHA3_2ARG(stmt, arg1, arg2, def) :-
+  SHA3(stmt, _, _, def),
+  MemoryStatement_ActualArg(stmt, arg1, 0),
+  MemoryStatement_ActualArg(stmt, arg2, 1),
+  !MemoryStatement_ActualArg(stmt, _, 2).
+
+.decl SHA3_3ARG(stmt: Statement, arg1: Variable, arg2: Variable, arg3: Variable, def: Variable)
+
+SHA3_3ARG(stmt, arg1, arg2, arg3, def) :-
+  SHA3(stmt, _, _, def),
+  MemoryStatement_ActualArg(stmt, arg1, 0),
+  MemoryStatement_ActualArg(stmt, arg2, 1),
+  MemoryStatement_ActualArg(stmt, arg3, 2),
+  !MemoryStatement_ActualArg(stmt, _, 3).
+
+.decl SHA3_KnownContent(stmt:Statement, hexContent:symbol)
+DEBUG_OUTPUT(SHA3_KnownContent)
+
+SHA3_KnownContent(sha3, val):-
+  SHA3_1ARG(sha3, arg, _),
+  MSTOREToMemConsStmt_WrittenValue(_, sha3, _, arg, val).
+
+SHA3_KnownContent(sha3, hexContent):-
+  SHA3_2ARG(sha3, arg1, arg2, _),
+  MSTOREToMemConsStmt_WrittenValue(_, sha3, _, arg1, val1),
+  MSTOREToMemConsStmt_WrittenValue(_, sha3, _, arg2, val2),
+  hexContent = cat(val1, substr(val2, 2, strlen(val2))).
+
+SHA3_KnownContent(sha3, hexContent):-
+  SHA3_3ARG(sha3, arg1, arg2, arg3, _),
+  MSTOREToMemConsStmt_WrittenValue(_, sha3, _, arg1, val1),
+  MSTOREToMemConsStmt_WrittenValue(_, sha3, _, arg2, val2),
+  MSTOREToMemConsStmt_WrittenValue(_, sha3, _, arg3, val3),
+  hexContent = cat(val1, substr(val2, 2, strlen(val2)), substr(val3, 2, strlen(val3))).
+
+.decl CallToSignatureFromSHA3(call:Statement, sigText:symbol)
+DEBUG_OUTPUT(CallToSignatureFromSHA3)
+
+CallToSignatureFromSHA3(call, sigText):-
+  CALLWithPossibleSigHashFromSHA3(call, sha3),
+  SHA3_KnownContent(sha3, hexContent),
+  strlen(hexContent) % 2 = 0,
+  sigText = @hex_to_str(hexContent).
+
+/**
+  ExternalCall_NumOfArgs excluding the first arg which is the function selector
+**/
+
+.decl ExternalCall_NumOfArgs(call:Statement, numOfArgs:number)
+
+ExternalCall_NumOfArgs(call, numOfArgs):-
+  StatementUsesMemory(call, kind),
+  (kind = "CALL" ; kind = "STATICCALL" ; kind = "DELEGATECALL"),
+  allArgs = count: StatementUsesMemory_ActualMemoryArg(call, _, _, _),
+  numOfArgs = allArgs - 1.
+
+.decl CallToSignature(call:Statement, sigText:symbol)
+.output CallToSignature, CallToSignatureFromSHA3
+
+CallToSignature(call, sigText):-
+  ConstantPossibleSigHash(sigHashVal, sigText),
+  Variable_Value(sigVar, sigHashVal),
+  standardflowanalysis.Flows(sigVar, actual),
+  StatementUsesMemory_ActualMemoryArg(call, _, 0, actual),
+  CALLStatement(call, _).
+
+CallToSignature(call, sigText):-
+  CallToSignatureFromSHA3(call, sigText).
+
+/**
+  ERC-20 transfer methods
+
+**/
+
+.decl ERC20TransferCall(call:Statement, to:Variable, value:Variable)
+DEBUG_OUTPUT(ERC20TransferCall)
+
+.decl ERC20TransferFromCall(call:Statement, from:Variable, to:Variable, value:Variable)
+DEBUG_OUTPUT(ERC20TransferFromCall)
+
+.decl ERC20ApproveCall(call:Statement, spender:Variable, value:Variable)
+DEBUG_OUTPUT(ERC20ApproveCall)
+
+ERC20TransferCall(call, toAddr, value) :-
+  CallToSignature(call, "transfer(address,uint256)"),
+  StatementUsesMemory_ActualMemoryArg(call, _, 1, toAddr),
+  StatementUsesMemory_ActualMemoryArg(call, _, 2, value).
+
+ERC20TransferFromCall(call, from, to, value) :-
+  CallToSignature(call, "transferFrom(address,address,uint256)"),
+  StatementUsesMemory_ActualMemoryArg(call, _, 1, from),
+  StatementUsesMemory_ActualMemoryArg(call, _, 2, to),
+  StatementUsesMemory_ActualMemoryArg(call, _, 3, value).
+
+ERC20ApproveCall(call, spender, value) :-
+  CallToSignature(call, "approve(address,uint256)"),
+  StatementUsesMemory_ActualMemoryArg(call, _, 1, spender),
+  StatementUsesMemory_ActualMemoryArg(call, _, 2, value).

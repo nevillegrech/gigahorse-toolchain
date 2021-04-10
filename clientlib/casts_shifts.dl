@@ -1,0 +1,113 @@
+#pragma once
+
+.decl ValueWithEvenLength(val:Value, len:number)
+.decl ValueMasksOrKeepsByteAtIndex(val:Value, masksOrKeeps:number, byte:number)
+.decl ValueIsByteMask(val:Value)
+.decl ByteMask_ZerosMinMax(val:Value, minV:number, maxV:number)
+.decl ValueIsNotAntiByteMask(val:Value)
+.decl AntiByteMask(val:Value, low:number, high:number)
+
+
+ValueWithEvenLength(val, len):-
+  BasicVariable_Value(_, val),
+  len = strlen(val),
+  len % 2 = 0.
+
+ValueMasksOrKeepsByteAtIndex(val, res, (len - i - 2)/2):-
+  ValueWithEvenLength(val, len),
+  i = range(2, len - 1, 2),
+  sub = substr(val, i, 2),
+  (
+    (sub = "ff", res = 1) ;
+    (sub = "00", res = 0) ;
+    (sub != "00", sub != "ff", res = -1)
+  ).
+
+ValueIsByteMask(val):-
+  ValueWithEvenLength(val, _),
+  !ValueMasksOrKeepsByteAtIndex(val, -1, _).
+
+ByteMask_ZerosMinMax(val, minV, maxV):-
+  ValueIsByteMask(val),
+  minV = min i : ValueMasksOrKeepsByteAtIndex(val, 0, i),
+  maxV = max i : ValueMasksOrKeepsByteAtIndex(val, 0, i).
+
+ValueIsNotAntiByteMask(val):-
+  ByteMask_ZerosMinMax(val, low, high),
+  ValueMasksOrKeepsByteAtIndex(val, 1, i), 
+  i >= low,
+   i < high.
+
+AntiByteMask(val, low, high):-
+  ByteMask_ZerosMinMax(val, low, high),
+  !ValueIsNotAntiByteMask(val).
+
+.decl ShiftConst(val:Value, shiftBytes:number)
+.decl RShiftBytes(stmt:Statement, shiftedVar:Variable, bytes:number)
+.decl LShiftBytes(stmt:Statement, shiftedVar:Variable, bytes:number)
+.decl CastedAndShiftedVar(originVar:Variable, toVar:Variable, shiftedBy:number, castedTo:number)
+
+.decl LowBytesMaskOp(fromVar:Variable, toVar:Variable, maskLen:number)
+.output LowBytesMaskOp, AntiMaskOp
+
+.decl AntiMaskOp(fromVar:Variable, toVar:Variable, byteLow:number, byteHigh:number) 
+
+/* Not actually a byte mask but a boolean cast */
+LowBytesMaskOp(from, to, 1):-
+  ISZERO(_, from, tmp),
+  ISZERO(_, tmp, to).
+
+
+LowBytesMaskOp(from, to, castedTo):-
+  ValueIsByteMask(mask),
+  Mask_Length(mask, castedTo),
+  BasicVariable_Value(maskVar, mask),
+  (AND(_, from, maskVar, to) ; AND(_, maskVar, from, to)).
+
+AntiMaskOp(originVar, to, byteLow, byteHigh):-
+  (AND(_, antiMaskVar, originVar, to) ; AND(_, originVar, antiMaskVar, to)),
+  BasicVariable_Value(antiMaskVar, antiMask),
+  AntiByteMask(antiMask, byteLow, byteHigh).
+
+AntiMaskOp(originVar, to, byteLow, byteHigh):-
+  AntiMaskOp(originVar, mid, byteLow, byteHigh),
+  (AND(_, antiMaskVar, mid, to) ; AND(_, mid, antiMaskVar, to)),
+  BasicVariable_Value(antiMaskVar, antiMask),
+  AntiByteMask(antiMask, byteLow, byteHigh).
+
+//.output RShiftBytes, LShiftBytes, VarHoldsBytesOfStorVar, CastedAndShiftedVar
+
+ShiftConst("0x1", 0).
+
+ShiftConst(val, n+1):-
+  ShiftConst(oldVal, n),
+  val = cat(oldVal, "00"),
+  n < 30.
+
+RShiftBytes(stmt, shiftedVar, bytes):-
+  DIV(stmt, shiftedVar, var, _),
+  BasicVariable_Value(var, shitftConst),
+  ShiftConst(shitftConst, bytes).
+
+LShiftBytes(stmt, shiftedVar, bytes):-
+  ( MUL(stmt, shiftedVar, var, _); MUL(stmt, var, shiftedVar, _)),
+  BasicVariable_Value(var, shitftConst),
+  ShiftConst(shitftConst, bytes).
+
+RShiftBytes(stmt, shiftedVar, @hex_to_number(shitftBits) / 8):-
+  SHR(stmt, var, shiftedVar, _),
+  BasicVariable_Value(var, shitftBits),
+  @hex_to_number(shitftBits) % 8 = 0.
+
+LShiftBytes(stmt, shiftedVar, @hex_to_number(shitftBits) / 8):-
+  SHL(stmt, var, shiftedVar, _),
+  BasicVariable_Value(var, shitftBits),
+  @hex_to_number(shitftBits) % 8 = 0.
+
+CastedAndShiftedVar(originVar, toVar, shiftedBy, castedTo):-
+  LowBytesMaskOp(originVar, castedVar, castedTo),
+  LShiftBytes(stmt, castedVar, shiftedBy),
+  Statement_Defines(stmt, toVar, 0).
+
+CastedAndShiftedVar(caller, caller, 0, 20):-
+  CALLER(_, caller).

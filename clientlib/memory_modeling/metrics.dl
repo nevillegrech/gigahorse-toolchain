@@ -1,0 +1,232 @@
+#pragma once
+
+/*
+ * Analytics
+ */
+
+.decl Analytics_ERC20TransferCall(call:Statement)
+.output Analytics_ERC20TransferCall
+
+.decl Analytics_ERC20TransferFromCall(call:Statement)
+.output Analytics_ERC20TransferFromCall
+
+.decl Analytics_ERC20ApproveCall(call:Statement)
+.output Analytics_ERC20ApproveCall
+
+.decl Analytics_CallWithSig(call:Statement)
+.output Analytics_CallWithSig
+
+/**
+  Approximation to 'reused' memory reading statements.
+  An example would be two require statements in source being
+  using the same revert statement in the compiled bytecode.
+  Seen it in optimized 0.8.x code.
+*/
+.decl Analytics_MemConsStmtUsesFromDistinctPaths(memConsStmt:Statement)
+.output Analytics_MemConsStmtUsesFromDistinctPaths
+
+.decl Analytics_NonModeledMSTORE(mstore:Statement)
+.output Analytics_NonModeledMSTORE
+
+.decl Analytics_NonModeledMLOAD(mload:Statement)
+.output Analytics_NonModeledMLOAD
+
+.decl Analytics_PublicFunctionArg(arg:Variable)
+.output Analytics_PublicFunctionArg
+
+.decl Analytics_PublicFunctionArrayArg(arg:Variable)
+.output Analytics_PublicFunctionArrayArg
+
+Analytics_ERC20TransferCall(call):-
+  ERC20TransferCall(call, _, _).
+
+Analytics_ERC20TransferFromCall(call):-
+  ERC20TransferFromCall(call, _, _, _).
+
+Analytics_ERC20ApproveCall(call):-
+  ERC20ApproveCall(call, _, _).
+
+Analytics_CallWithSig(call):-
+  CallToSignature(call, _).
+
+Analytics_MemConsStmtUsesFromDistinctPaths(memConsStmt):-
+  StatementUsesMemory_LengthVar(memConsStmt, _, lenVar),
+  DataFlows(phiVar, lenVar),
+  PHI(_, _, phiVar).
+
+Analytics_NonModeledMSTORE(mstore):-
+  NonModeledMSTORE(mstore).
+
+Analytics_NonModeledMLOAD(mload):-
+  NonModeledMLOAD(mload).
+
+Analytics_PublicFunctionArg(arg):-
+  PublicFunctionArg(_, arg, _).
+
+Analytics_PublicFunctionArrayArg(arrayArg):-
+  PublicFunctionArg(_, arrayArg, _),
+  IsCallDataArrayVar(arrayArg, _).
+
+/*
+ * Other metrics
+ */
+
+.decl ArrayStoreSimple(stmt:Statement)
+.decl ArrayStoreI(stmt:Statement)
+
+.decl ArrayLoadSimple(stmt:Statement)
+.decl ArrayLoadI(stmt:Statement)
+
+.decl ModeledMSTORE(stmt:Statement)
+
+.decl AllocationAny(stmt:Statement)
+
+.decl NonModeledMSTORE(stmt:Statement)
+DEBUG_OUTPUT(NonModeledMSTORE)
+
+.decl Verbatim_AllVsModeledMSTOREs(numOfMemStmts:number, freeptr:number, storei:number, store:number, allocate:number, arg:number)
+.output Verbatim_AllVsModeledMSTOREs
+
+.decl Verbatim_AllVsModeledMLOADs(mloads:number, freeptr:number, retRead:number, arrLen:number, arrloadi:number, arrload:number)
+.output Verbatim_AllVsModeledMLOADs
+
+.decl Verbatim_MemConsStmtsLengths(numOfMemConsStmts:number, haveLengthInit:number, haveLength:number)
+.output Verbatim_MemConsStmtsLengths
+
+.decl Verbatim_CDLAllVSStaticVSArr(allnum:number, staticAddr:number, arrGet:number)
+.output Verbatim_CDLAllVSStaticVSArr
+
+.decl ABIWriteMSTORE(mstore:Statement)
+
+.decl ArgWriteAny(mstore:Statement)
+
+ArgWriteAny(mstore):-
+  ABIWriteMSTORE(mstore);
+  StatementUsesMemoryWriteAtRelativeIndex(_, _, mstore, _).
+
+// We do not always consider this write to be the allocation
+AllocationAny(mstore):-
+  IsRegularArrayVar(array),
+  MSTORE(mstore, array, _).
+
+ABIWriteMSTORE(mstore):-
+  ABIEncodedArrayWriteToIsNotArrayOrLen(mstore, _, _, _).
+
+ABIWriteMSTORE(mstore):-
+  ABIEncodedArrayIncludesArrayAtConcreteIndex(abiArr, _, _, index, _),
+  ABIEncodedArrayWriteTo(mstore, abiArr, _, index).
+
+ArrayStoreSimple(stmt):- ArrayStore(stmt, _, _), !ArgWriteAny(stmt).
+ArrayStoreI(stmt):- ArrayStoreAtIndex(stmt, _, _, _).
+
+
+ModeledMSTORE(mstore):-
+  MSTOREFreePtr(mstore);
+  ArrayStoreAtIndex(mstore, _, _, _);
+  ArrayStore(mstore, _, _);
+  AllocationAny(mstore);
+  ABIWriteMSTORE(mstore);
+  StatementUsesMemoryWriteAtRelativeIndex(_, _, mstore, _).
+
+
+Verbatim_AllVsModeledMSTOREs(all, freeptr, storei, store, allocate, arg):-
+  all = count :MSTORE(_, _, _),
+  freeptr = count :MSTOREFreePtr(_),
+  storei = count :ArrayStoreI(_),
+  store = count :ArrayStoreSimple(_),
+  allocate = count :AllocationAny(_),
+  arg = count : ArgWriteAny(_).
+
+Verbatim_MemConsStmtsLengths(all, initLength,  haveLength):-
+  all = count: StatementUsesMemory_LengthVar(_, _, _),
+  initLength = count: StatementUsesMemoryOfInitiallyComputableLength(_, _, _),
+  haveLength = count: StatementUsesMemoryOfComputableLength(_, _, _).
+
+NonModeledMSTORE(mstore):-
+  MSTORE(mstore, _, _),
+  !ModeledMSTORE(mstore).
+
+.decl Analytics_LenVarHasManyVars(stmt:Statement, lenvar:Variable)
+.output Analytics_LenVarHasManyVars
+
+.decl LenVarHasValAndNoArgs(stmt:Statement)
+
+.decl LenVarHasNoValAndNoArgs(stmt:Statement)
+
+
+Analytics_LenVarHasManyVars(stmt, lenvar):-
+  StatementUsesMemoryOfComputableLength(stmt, lenvar, val1),
+  StatementUsesMemoryOfComputableLength(stmt, lenvar, val2),
+  val1 != val2.
+
+LenVarHasNoValAndNoArgs(stmt):-
+  StatementUsesMemory_LengthVar(stmt, kind, lenvar),
+  StatementUsesMemoryOfNonComputableLength(stmt, kind, lenvar),
+  !StatementUsesMemory_ActualMemoryArg(stmt, _, _, _).
+
+LenVarHasValAndNoArgs(stmt):-
+  StatementUsesMemoryOfComputableLength(stmt, _, _),
+  !StatementUsesMemory_ActualMemoryArg(stmt, _, _, _).
+
+
+.decl SHA3NoActualArgs(stmt:Statement)
+DEBUG_OUTPUT(SHA3NoActualArgs)
+
+SHA3NoActualArgs(stmt):-
+  SHA3(stmt, _, _, _),
+  !StatementUsesMemory_ActualArg(stmt, _, _).
+
+.decl StatementConsumesMemoryNoArgs(stmt:Statement)
+DEBUG_OUTPUT(StatementConsumesMemoryNoArgs)
+
+StatementConsumesMemoryNoArgs(stmt):-
+  StatementUsesMemory_LengthVar(stmt, _, lenvar),
+  Statement_Opcode(stmt, op),
+  op != "REVERT", //will fix reverts later
+  !Variable_Value(lenvar, "0x0"),
+  !StatementUsesMemory_ActualMemoryArg(stmt, _, _, _).
+
+.decl ModeledMLOAD(stmt:Statement)
+
+.decl NonModeledMLOAD(stmt:Statement)
+DEBUG_OUTPUT(NonModeledMLOAD)
+
+ModeledMLOAD(mload):-
+  MLOADReadsReturnOfCALL(mload, _, _);
+  MLOADFreePtr(mload);
+  MLOADReadsArrayLength(mload);
+  ArrayLoad(mload, _, _);
+  ArrayLoadAtIndex(mload, _, _, _).
+
+
+ArrayLoadSimple(stmt):-ArrayLoad(stmt, _, _).
+ArrayLoadI(stmt):- ArrayLoadAtIndex(stmt, _, _, _).
+
+NonModeledMLOAD(mload):-
+  MLOAD(mload, _, _),
+  !ModeledMLOAD(mload).
+
+Verbatim_AllVsModeledMLOADs(all, freeptr, retRead, arrLen, arrloadi, arrload):-
+  all = count: MLOAD(_, _, _),
+  freeptr = count: MLOADFreePtr(_),
+  retRead = count: MLOADReadsReturnOfCALL(_, _, _),
+  arrLen = count: MLOADReadsArrayLength(_),
+  arrloadi = count: ArrayLoadI(_),
+  arrload = count: ArrayLoadSimple(_).
+
+.decl CALLDATALOADOfStaticAddr(stmt:Statement)
+.decl CALLDATALOADArrayRelated(stmt:Statement)
+
+CALLDATALOADOfStaticAddr(stmt):-
+  CALLDATALOAD(stmt, index, _),
+  Variable_Value(index, _).
+
+CALLDATALOADArrayRelated(stmt):-
+  CallDataLoadReadsLength(_, stmt, _, _, _);
+  CallDataArrayGet(stmt, _, _, _).
+
+
+Verbatim_CDLAllVSStaticVSArr(allnum, staticAddr, arrGet):-
+  allnum = count : CALLDATALOAD(_, _, _),
+  staticAddr = count : CALLDATALOADOfStaticAddr(_),
+  arrGet = count : CALLDATALOADArrayRelated(_).
