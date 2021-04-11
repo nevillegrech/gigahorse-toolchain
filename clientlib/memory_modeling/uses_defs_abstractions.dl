@@ -169,10 +169,12 @@ MemoryModelingTempStmt(mstore),
 StatementUsesMemory_ActualArg(mload, actual, 0):-
   //varIndex.ReachableBypassingAny(mstore, mload),
   memWriteToMemConsStmtImpr.ReachableBypassingAny(mstore, mload, addr),
-  MLOAD(mload, _, _),
+  MLOAD(mload, indexVar, _),
   MSTORE(mstore, _, actual),
   // We handle the loads and stores of the free memory pointer differently
-  addr != "0x40".
+  addr != "0x40",
+  // skip loads of an array's length for now
+  !VarIsArray(indexVar, _).
 
 
 /**
