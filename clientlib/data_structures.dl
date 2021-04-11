@@ -387,8 +387,7 @@ KnownLoad(stmt, addr, var) :-
   LoadFromDataStructure(stmt, addr, _, var).
 
 KnownLoad(stmt, constaddr, src) :-
-  SLOAD(stmt, idx, src),
-  Variable_Value(idx, constaddr).
+  SLOADOfConst(stmt, constaddr, src).
 
 .decl KnownStore(stmt: Statement, addr: Value, var: Variable)
 
@@ -396,9 +395,18 @@ KnownStore(stmt, addr, var) :-
   StoreToDataStructure(stmt, addr, var).
 
 KnownStore(stmt, constaddr, src) :-
-  SSTORE(stmt, idx, src),
-  Variable_Value(idx, constaddr).
+  SSTOREToConst(stmt, constaddr, src).
 
+.decl SLOADOfConst(sload:Statement, const:Value, var:Variable)
+.decl SSTOREToConst(sstore:Statement, const:Value, var:Variable)
+
+SLOADOfConst(sload, const, var):-
+  SLOAD(sload, constVar, var),
+  Variable_Value(constVar, const).
+
+SSTOREToConst(sstore, const, var):-
+  SSTORE(sstore, constVar, var),
+  Variable_Value(constVar, const).
 
 .decl VarHoldsBytesOfStorVar(var:Variable, srcLoad:Statement, storVar:symbol, byteLow:number, byteHigh:number)
 
@@ -406,8 +414,7 @@ KnownStore(stmt, constaddr, src) :-
 .output VarHoldsBytesOfStorVarFinal
 
 VarHoldsBytesOfStorVar(to, load, storVar, 0, 31):-
-  SLOAD(load, index, to),
-  Variable_Value(index, storVar).
+  SLOADOfConst(load, storVar, to).
 
 VarHoldsBytesOfStorVar(to, load, storVar, low + bytes, high):-
   VarHoldsBytesOfStorVar(shiftedVar, load, storVar, low, high),
@@ -436,8 +443,9 @@ VarHoldsBytesOfStorVarFinal(var, load, storVar, low, high):-
 .decl AnyLoadStoreStorVarBytes(loadOrStore:Statement, storVar:symbol, low:number, high:number)
 
 .decl FailedMergedStorageModeling(storVar:symbol)
-//.output FailedMergedStorageModeling
+DEBUG_OUTPUT(FailedMergedStorageModeling)
 .decl SuccessfulMergedStorageModeling(storVar:symbol)
+DEBUG_OUTPUT(SuccessfulMergedStorageModeling)
 
 .decl LoadOrStoreToStoreVar(stmt:Statement, storVar:symbol)
 
@@ -445,6 +453,10 @@ AnyLoadStoreStorVarBytes(stmt, storVar, low, high):-
   VarHoldsBytesOfStorVarFinal(_, stmt, storVar, low, high);
   VarWrittenToBytesOfStorVar(_, stmt, _, storVar, low, high);
   ConstWrittenToBytesOfStorVar(_, _, stmt, _, storVar, low, high).
+
+AnyLoadStoreStorVarBytes(stmt, storVar, 0, 31):-
+  SSTOREToConst(stmt, storVar, _),
+  !SLOADOfConst(_, storVar, _).
 
 FailedMergedStorageModeling(storVar):-
   AnyLoadStoreStorVarBytes(_, storVar, low, high),
@@ -454,8 +466,8 @@ FailedMergedStorageModeling(storVar):-
   ( (low < otherLow , otherLow < high) ; (low < otherHigh, otherHigh < high) ).
 
 LoadOrStoreToStoreVar(stmt, storVar):-
-  (SLOAD(stmt, index, _) ; SLOAD(stmt, index, _)),
-  Variable_Value(index, storVar).
+  SLOADOfConst(stmt, storVar, _);
+  SSTOREToConst(stmt, storVar, _).
 
 //.output LoadOrStoreToStoreVar, AnyLoadStoreStorVarBytes, CastedAndShiftedVar
 
@@ -490,16 +502,14 @@ VarWrittenToBytesOfStorVar(writtenVar, store, load, storVar, byteLow, byteHigh):
   AntiMaskOp(originVar, oldMasked, byteLow, byteHigh),
   CastedAndShiftedVar(writtenVar, toVar, byteLow, byteHigh - byteLow + 1),
   (OR(_, toVar, oldMasked, storedVar) ; OR(_, oldMasked, toVar, storedVar)),
-  SSTORE(store, index, storedVar),
-  Variable_Value(index, storVar).
+  SSTOREToConst(store, storVar, storedVar).
 
 VarWrittenToBytesOfStorVar(writtenVar, store, load, storVar, 0, byteHigh):-
   VarHoldsBytesOfStorVar(originVar, load, storVar, 0, 31),
   AntiMaskOp(originVar, oldMasked, 0, byteHigh),
   LowBytesMaskOp(writtenVar, toVar, byteHigh + 1),
   (OR(_, toVar, oldMasked, storedVar) ; OR(_, oldMasked, toVar, storedVar)),
-  SSTORE(store, index, storedVar),
-  Variable_Value(index, storVar).
+  SSTOREToConst(store, storVar, storedVar).
 
 /**
  Special case to fix a bug when writting from one storage location to another,
@@ -525,15 +535,13 @@ ConstWrittenToBytesOfStorVar(constVar, @shr_256(@number_to_hex(byteLow * 8), con
   AntiMaskOp(originVar, oldMasked, byteLow, byteHigh),
   (OR(_, constVar, oldMasked, storedVar) ; OR(_, oldMasked, constVar, storedVar)),
   Variable_Value(constVar, const),
-  SSTORE(store, index, storedVar),
-  Variable_Value(index, storVar),
+  SSTOREToConst(store, storVar, storedVar),
   !VarWrittenToBytesOfStorVar(_, store, _, storVar, _, _).
 
 ConstWrittenToBytesOfStorVar("0xNoVar", "0x0", store, load, storVar, byteLow, byteHigh):-
   VarHoldsBytesOfStorVar(originVar, load, storVar, 0, 31),
   AntiMaskOp(originVar, storedVar, byteLow, byteHigh),
-  SSTORE(store, index, storedVar),
-  Variable_Value(index, storVar).
+  SSTOREToConst(store, storVar, storedVar).
 
 /**
   HACK (?) HACK (?) HACK (?)
@@ -578,10 +586,9 @@ GlobalVariable(v):-
   StoreGlobalVariable(_, v, _).
 
 
-LoadGlobalVariable(stmt, val, var):-
-  SLOAD(stmt, index, var),
-  Variable_Value(index, val),
-  FailedMergedStorageModeling(val).
+LoadGlobalVariable(stmt, storVar, var):-
+  SLOADOfConst(stmt, storVar, var),
+  FailedMergedStorageModeling(storVar).
 
 LoadGlobalVariable(stmt, @cast_to_symbol(storVar), var):-
   SuccessfulMergedStorageModeling(storVar),
@@ -596,16 +603,14 @@ LoadGlobalVariable(stmt, v, var):-
   (low != 0 ; high != 31),
   v = cat(storVar, cat("_", cat(to_string(low), cat("_", to_string(high))))).
 
-StoreGlobalVariable(stmt, val, var):-
-  SSTORE(stmt, index, var),
-  Variable_Value(index, val),
-  FailedMergedStorageModeling(val).
+StoreGlobalVariable(stmt, storVar, var):-
+  SSTOREToConst(stmt, storVar, var),
+  FailedMergedStorageModeling(storVar).
 
 StoreGlobalVariable(stmt, storVar, var):-
-  SSTORE(stmt, index, var),
-  Variable_Value(index, storVar),
+  SSTOREToConst(stmt, storVar, var),
   SuccessfulMergedStorageModeling(storVar),
-  VarHoldsBytesOfStorVarFinal(_, _, storVar, 0, 31).
+  (VarHoldsBytesOfStorVarFinal(_, _, storVar, 0, 31); !SLOADOfConst(_, storVar, _)).
 
 StoreGlobalVariable(store, v, writtenVar):-
   SuccessfulMergedStorageModeling(storVar),
