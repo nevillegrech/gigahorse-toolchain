@@ -33,6 +33,15 @@ FeatureName("C_Variables").
 FeatureName("C_Edges").
 FeatureName("C_BlockOutputContents").
 FeatureName("MaxPopDelta").
+FeatureName("MaxStackDelta").
+FeatureName("C_Jumps").
+FeatureName("C_NonImmediateJumps").
+FeatureName("C_CALLDATALOADs").
+FeatureName("C_CALLDATACOPIEs").
+FeatureName("C_SLOADs").
+FeatureName("C_SSTOREs").
+FeatureName("MaxDup").
+FeatureName("C_REVERTs").
 FeatureName("MaxOpcodePop").
 
 .decl PreAnalysisFeatures(name: symbol, sigHash: FunctionSignature, n: number)
@@ -89,6 +98,75 @@ _PreAnalysisFeatures("MaxPopDelta", sigHash, n) :-
       postTrans.BlockPopDelta(block, delta)
    }.
 
+_PreAnalysisFeatures("MaxStackDelta", sigHash, n) :-
+   Contexts(sigHash),
+   n = max delta : {
+      ReachableContext(sigHash, block),
+      postTrans.BlockStackDelta(block, delta)
+   }.
+
+_PreAnalysisFeatures("C_Jumps", sigHash, n) :-
+   Contexts(sigHash),
+   n = count : {
+      ReachableContext(sigHash, block),
+      postTrans.Statement_Block(jump, block),
+      postTrans.IsJump(jump)
+   }.
+
+_PreAnalysisFeatures("C_NonImmediateJumps", sigHash, n) :-
+   Contexts(sigHash),
+   n = count : {
+      ReachableContext(sigHash, block),
+      !postTrans.ImmediateBlockJumpTarget(block, _)
+   }.
+
+_PreAnalysisFeatures("C_CALLDATALOADs", sigHash, n) :-
+   Contexts(sigHash),
+   n = count : {
+      ReachableContext(sigHash, block),
+      postTrans.Statement_Block(cdl, block),
+      postTrans.Statement_Opcode(cdl, "CALLDATALOAD")
+   }.
+
+_PreAnalysisFeatures("C_CALLDATACOPIEs", sigHash, n) :-
+   Contexts(sigHash),
+   n = count : {
+      ReachableContext(sigHash, block),
+      postTrans.Statement_Block(cdl, block),
+      postTrans.Statement_Opcode(cdl, "CALLDATACOPY")
+   }.
+
+_PreAnalysisFeatures("C_SLOADs", sigHash, n) :-
+   Contexts(sigHash),
+   n = count : {
+      ReachableContext(sigHash, block),
+      postTrans.Statement_Block(cdc, block),
+      postTrans.Statement_Opcode(cdc, "SLOAD")
+   }.
+
+_PreAnalysisFeatures("C_SSTOREs", sigHash, n) :-
+   Contexts(sigHash),
+   n = count : {
+      ReachableContext(sigHash, block),
+      postTrans.Statement_Block(cdc, block),
+      postTrans.Statement_Opcode(cdc, "SSTORE")
+   }.
+
+_PreAnalysisFeatures("MaxDup", sigHash, n) :-
+   Contexts(sigHash),
+   n = max dupn : {
+      ReachableContext(sigHash, block),
+      postTrans.Statement_Block(dup, block),
+      postTrans.Statement_Opcode(dup, dupOp),
+      postTrans.DUPN(dupOp, dupn)
+   }.
+
+_PreAnalysisFeatures("C_REVERTs", sigHash, n) :-
+   Contexts(sigHash),
+   n = count : {
+      ReachableContext(sigHash, block),
+      RevertOrThrowBlock(block)
+   }.
 
 _PreAnalysisFeatures("MaxOpcodePop", sigHash, n) :-
    Contexts(sigHash),
@@ -99,5 +177,9 @@ _PreAnalysisFeatures("MaxOpcodePop", sigHash, n) :-
       OpcodePopWords(opcode, m)
    }.
 
+.decl RevertOrThrowBlock(block: Block)
 
-
+RevertOrThrowBlock(block):-
+  postTrans.Statement_Block(revert, block),
+      postTrans.Statement_Opcode(revert, op),
+      (op = "REVERT" ; op = "THROW" ; op = "THROWI").
