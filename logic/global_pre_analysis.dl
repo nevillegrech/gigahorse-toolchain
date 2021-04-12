@@ -42,6 +42,7 @@ FeatureName("C_SLOADs").
 FeatureName("C_SSTOREs").
 FeatureName("MaxDup").
 FeatureName("C_REVERTs").
+FeatureName("C_ExternalCalls").
 FeatureName("MaxOpcodePop").
 
 .decl PreAnalysisFeatures(name: symbol, sigHash: FunctionSignature, n: number)
@@ -168,6 +169,14 @@ _PreAnalysisFeatures("C_REVERTs", sigHash, n) :-
       RevertOrThrowBlock(block)
    }.
 
+_PreAnalysisFeatures("C_ExternalCalls", sigHash, n) :-
+   Contexts(sigHash),
+   n = count : {
+      ReachableContext(sigHash, block),
+      postTrans.Statement_Block(call, block),
+      ExternalCall(call)
+   }.
+
 _PreAnalysisFeatures("MaxOpcodePop", sigHash, n) :-
    Contexts(sigHash),
    n = max m : {
@@ -181,5 +190,11 @@ _PreAnalysisFeatures("MaxOpcodePop", sigHash, n) :-
 
 RevertOrThrowBlock(block):-
   postTrans.Statement_Block(revert, block),
-      postTrans.Statement_Opcode(revert, op),
-      (op = "REVERT" ; op = "THROW" ; op = "THROWI").
+  postTrans.Statement_Opcode(revert, op),
+  (op = "REVERT" ; op = "THROW" ; op = "THROWI").
+
+.decl ExternalCall(stmt: Statement)
+
+ExternalCall(call):-
+  postTrans.Statement_Opcode(call, op),
+  (op = "CALL" ; op = "STATICCALL" ; op = "DELEGATECALL").
