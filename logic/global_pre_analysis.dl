@@ -36,6 +36,9 @@ FeatureName("MaxPopDelta").
 FeatureName("MaxStackDelta").
 FeatureName("C_Jumps").
 FeatureName("C_NonImmediateJumps").
+FeatureName("C_NonImmediateJumpTargets").
+FeatureName("C_StackBalancingBlocks").
+FeatureName("C_StackBalancingBlockTargets").
 FeatureName("C_CALLDATALOADs").
 FeatureName("C_CALLDATACOPIEs").
 FeatureName("C_SLOADs").
@@ -119,6 +122,27 @@ _PreAnalysisFeatures("C_NonImmediateJumps", sigHash, n) :-
    n = count : {
       ReachableContext(sigHash, block),
       !postTrans.ImmediateBlockJumpTarget(block, _)
+   }.
+
+_PreAnalysisFeatures("C_NonImmediateJumpTargets", sigHash, n) :-
+   Contexts(sigHash),
+   n = count : {
+      BlockEdge(sigHash, block, sigHash, _),
+      !postTrans.ImmediateBlockJumpTarget(block, _)
+   }.
+
+_PreAnalysisFeatures("C_StackBalancingBlocks", sigHash, n) :-
+   Contexts(sigHash),
+   n = count : {
+      ReachableContext(sigHash, block),
+      postTrans.StackBalanceBlock(block)
+   }.
+
+_PreAnalysisFeatures("C_StackBalancingBlockTargets", sigHash, n) :-
+   Contexts(sigHash),
+   n = count : {
+      BlockEdge(sigHash, block, sigHash, _),
+      postTrans.StackBalanceBlock(block)
    }.
 
 _PreAnalysisFeatures("C_CALLDATALOADs", sigHash, n) :-
