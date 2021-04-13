@@ -6,7 +6,7 @@
 .decl MaxContextDepth(sigHash: symbol, d: number)
 
 .decl InputMaxContextDepth(sigHash: symbol, d: number)
-.input InputMaxContextDepth(filename="MaxContextDepth.facts")
+.input InputMaxContextDepth(filename="MaxContextDepth.csv")
 
 MaxContextDepth(sigHash, d) :- InputMaxContextDepth(sigHash, d).
 
@@ -137,10 +137,10 @@ MergeContext(ctx, caller, [pub, newPrivateContext]) :-
   ReachableContext(ctx, caller),
   PrivateFunctionCallOrReturn(caller),
   DecomposeContext(ctx, pub, pri),
+  TruncateContext(pub, pri, cutDownPri),
 #ifndef NO_PUBLIC_CONTEXT
   !postTrans.PublicFunction(caller, _),
 #endif
-  TruncateContext(pub, pri, cutDownPri),
   newPrivateContext = [caller, cutDownPri].
 .plan 1:(3,1,2,4), 2:(4,3,1,2)
 
