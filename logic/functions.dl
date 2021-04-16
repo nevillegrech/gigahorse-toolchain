@@ -160,22 +160,22 @@ MaybeFunctionCallReturnNewContext(ctx, caller, retTargetCtx, retTarget) :-
 
 // Case where the caller pushes new return targets as well.
 PossibleReturnAddressWithRank(newCallCtx, caller, retCtx, retBlock, retTarget, n + maxrank) :-
-  MaybeFunctionCallReturnNewContext(prevCallCtx, targetSetter, newCallCtx, caller),
   PossibleReturnAddressWithPositiveRank(prevCallCtx, targetSetter, retCtx, retBlock, retTarget, n),
+  MaybeFunctionCallReturnNewContext(prevCallCtx, targetSetter, newCallCtx, caller),
   BlockJumpValidTarget(newCallCtx, caller, targetVar, _),
   postTrans.ImmediateBlockJumpTarget(caller, targetVar),
   MaxRankForPossibleReturnAddressSetter(caller, maxrank),
   n + maxrank < RETURN_ADDRESS_RANK_THRESHOLD.
- .plan 1:(2,1,3,4,5)
+ .plan 1:(2,3,1,4,5)
 
 // Case where the caller doesn't push new return targets to the stack
 PossibleReturnAddressWithRank(newCallCtx, caller, retCtx, retBlock, retTarget, n-1) :-
-  MaybeFunctionCallReturnNewContext(prevCallCtx, targetSetter, newCallCtx, caller),
   PossibleReturnAddressWithPositiveRank(prevCallCtx, targetSetter, retCtx, retBlock, retTarget, n),
+  MaybeFunctionCallReturnNewContext(prevCallCtx, targetSetter, newCallCtx, caller),
   BlockJumpValidTarget(newCallCtx, caller, targetVar, _),
   postTrans.ImmediateBlockJumpTarget(caller, targetVar),
   !PossibleReturnAddressWithPos(caller, _, _, _, _).
- .plan 1:(2,1,3,4)
+ .plan 1:(2,3,1,4)
 
 // Seems pretty certain we found a return. In fact, at this point,
 // with the above logic, we have detected all original return
