@@ -39,8 +39,9 @@ CanReachUnderContext(ctx, block, ctx, block) :-
   ReachableContext(ctx, block).
 
 CanReachUnderContext(ctxFrom, blockFrom, ctxTo, blockTo) :-
-  CanReachUnderContext(ctxFrom, blockFrom, ctxOther, blockOther),
-  BlockEdge(ctxOther, blockOther, ctxTo, blockTo).
+  BlockEdge(ctxOther, blockOther, ctxTo, blockTo),
+  CanReachUnderContext(ctxFrom, blockFrom, ctxOther, blockOther).
+
 
 
 // Derived from the context-sensitive version, maintains max precision when
