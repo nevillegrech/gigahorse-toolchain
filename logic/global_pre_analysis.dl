@@ -48,6 +48,24 @@ FeatureName("C_REVERTs").
 FeatureName("C_ExternalCalls").
 FeatureName("MaxOpcodePop").
 
+.decl MaxFeat(name: symbol)
+MaxFeat("MaxOpcodePop").
+MaxFeat("MaxDup").
+MaxFeat("MaxPopDelta").
+MaxFeat("MaxStackDelta").
+
+.decl PreAnalysisFeaturesContract(name: symbol, n: number)
+.output PreAnalysisFeaturesContract
+
+PreAnalysisFeaturesContract(name, n) :-
+    MaxFeat(name),
+    n = max n_: PreAnalysisFeatures(name, _, n_).
+
+PreAnalysisFeaturesContract(name, n) :-
+    FeatureName(name),
+    !MaxFeat(name),
+    n = sum n_: PreAnalysisFeatures(name, _, n_).
+
 .decl PreAnalysisFeatures(name: symbol, sigHash: FunctionSignature, n: number)
 .output PreAnalysisFeatures
 
