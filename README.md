@@ -26,9 +26,8 @@ And run make to install:
 You should now be ready to run Gigahorse.
 
 ## Running Gigahorse
-The `gigahorse.py` script can be run on a contract individually or on a
-collection of contract bytecode files in specified directory, and it will run the binary lifter implemented in `logic/decompiler.dl` on
-each contract, optionally followed by any additional client analyses specified by the user using the `-C` flag.
+The `gigahorse.py` script can be run on a contract individually or on a collection of contract bytecode files in specified directory, and it will run the binary lifter implemented in `logic/main.dl` on each contract, optionally followed by any additional client analyses specified by the user using the `-C` flag.
+The Gigahorse pipeline also includes a few rounds of inlining of small functions in order to help the subsequent client libraries get more high-level inferences. The inlining functionality can be disabled with `--disable_inline`.
 
 The expected file format for each contract is in .hex format.
 
@@ -38,8 +37,7 @@ Example (individual contract):
 ./gigahorse.py examples/long_running.hex
 ```
 
-Contracts that take too long to analyse will be skipped after a configurable
-timeout.
+Contracts that take too long to analyse will be skipped after a configurable timeout.
 
 The decompilation results are placed in the directory `.temp`, whereas metadate about the execution, e.g., metrics are placed in a `results.json` file, as a list of triples in the form:
 
@@ -56,12 +54,37 @@ relation name placed in this list.
 
 Example (with client analysis):
 
+ ```
+./gigahorse.py  -j <number of jobs> -C clients/visualizeout.py <contracts>
 ```
-./gigahorse.py  -j <number of jobs> -C ethainter.dl <contracts>
-``` 
 
 Gigahorse can also be used in "bulk analysis" mode, by replacing <contracts> by a directory filled with contracts.
 
+## Textual representation of the lifted IR
+Client analysis `clients/visualizeout.py` can be used to provide a pretty-printed textual representation of the IR produced by Gigahorse.
+The pretty-printed text file is named `contract.tac` and will be placed in the `out/` folder for each analyzed contract.
+For example the output for `./gigahorse.py -C clients/visualizeout.py examples/long_running.hex` will be placed in `.temp/long_running/out/contract.tac`.
+
+A block visualized in `contract.tac` looks like:
+```
+Begin block 0x3e
+prev = {'0xb'}, next = {'0x10ee', '0x49'}
+----------------------------------
+Block 0x3e
+0x3f: v3f(0xf42fdfb) = CONST 
+0x44: v44 = EQ v3f(0xf42fdfb) v32
+0x10c7: v10c7(0x10ee) = CONST 
+0x10c8: JUMPI v10c7(0x10ee) v44
+----------------------------------
+```
+
+Keep in mind that the pretty-printed variable identifiers do not correspond to their identifiers in the underlying datalog facts.
+
+Visualization also requires PyDot and Graphviz:
+```
+ pip install pydot                     # installs PyDot to your python enviroment
+ sudo apt install graphviz             # installs Graphviz in debian
+```
 ## Running Gigahorse Manually (for development purposes)
 To use this framework for development purposes (e.g., writing security analyses), an understanding of the analysis pipeline will be helpful. This section describes one common use case --- that of visualizing the CFG of the lifted IR. The pipeline will consist of the manual execution of following three steps:
 
@@ -78,16 +101,6 @@ In order to proceed, make sure that LD_LIBRARY_PATH and LIBRARY_PATH are set:
 We suggest adding LD_LIBRARY_PATH and LIBRARY_PATH to your `.bashrc` file
 
 
-Visualization also requires PyDot and Graphviz:
-
-
-
-    $ pip install pydot                     # installs PyDot to your python enviroment
-
-
-    $ sudo apt install graphviz             # installs Graphviz in debian
-
-
 Now let's manually execute the pipeline above:
 
 
@@ -98,7 +111,7 @@ Now let's manually execute the pipeline above:
 
 ## Writing client analyses
 
-Client analyses can be written in any language by reading the relational files that are written by the decompilation step (`decompiler.dl`). This framework however provides preferential treatment for clients written in Datalog. The most notable example of client analysis for the Gigahorse framework is [MadMax](https://github.com/nevillegrech/MadMax). This uses several of the "analysis client libraries" under [clientlib](https://github.com/nevillegrech/gigahorse-toolchain/tree/master/clientlib). These libraries include customizable dataflow analysis, data structure reconstruction and others.
+Client analyses can be written in any language by reading the relational files that are written by the decompilation step (`decompiler.dl`). This framework however provides preferential treatment for clients written in Datalog. The most notable example of client analysis for the Gigahorse framework is [MadMax](https://github.com/nevillegrech/MadMax). This uses several of the "analysis client libraries" under [clientlib](https://github.com/nevillegrech/gigahorse-toolchain/tree/master/clientlib). These libraries include customizable dataflow analysis, memory modeling, data structure reconstruction and others.
 
 A common template for client analyses for decompiled bytecode is to create souffle datalog file that includes `clientlib/decompiler_imports.dl`, for instance:
 ```
