@@ -19,15 +19,15 @@ Arguments in the following relations can have scalar or array types even though 
 Variable `actual` is the `index`'th arguement of memory reading statement `stmt`.  
 There is ongoing work to output a more general type of argument that would also include other memory slices.
 
-Includes results for:
-  - `LOGx` statements,
+Includes results for:  
+  - `LOGx` statements:
       The indexed args (1 for `LOG1`, 2 for `LOG2`, etc)
       followed by the ABI encoded actual memory args
   - `CALL` statements have the following args, all followed by the actual memory args:
     - `CALL`: gas, targetAddr, value
     - `STATICCALL`: gas, targetAddr
-    - `DELEGATECALL`: gas, targetAddr
-  Note: In high level calls the function selector is the 0th actual memory arg
+    - `DELEGATECALL`: gas, targetAddr  
+     Note: In high level calls the function selector is the 0th actual memory arg
   - `SHA3`: The actual memory args.
   - `RETURN`: The actual memory args, ABI encoded.
   - `CALLDATALOAD`: The 0th actual arg is the array written to.
