@@ -3,9 +3,8 @@
 The code in this folder is originating from our OOPSLA20 [paper](https://doi.org/10.1145/3428258) "Precise Static Modeling of Ethereum "Memory"".
 An earlier version of this codebase can be found in the peer-reviwed [artifact](https://zenodo.org/record/4059797) of the paper.
 
-This documentation is aimed at helping with the integration of the memory modeling by new client analyses.
-
-If you wish to contribute fixes or new features the comments in the corresponding files provide deeper insights.
+This documentation is aimed at helping with the integration of the memory modeling by new client analyses.  
+If you wish to contribute fixes or new features the comments in the corresponding files provide deeper insights.  
 
 Client analyses should just include file `memory_modeling.dl`.
 
@@ -16,8 +15,7 @@ Arguments in the following relations can have scalar or array types even though 
 
 * `MemoryStatement_ActualArg(stmt:Statement, actual:Variable, index:number)`
 
-Variable `actual` is the `index`'th arguement of memory reading statement `stmt`.
-
+Variable `actual` is the `index`'th arguement of memory reading statement `stmt`.  
 There is ongoing work to output a more general type of argument that would also include other memory slices.
 
 Includes results for:
@@ -49,8 +47,8 @@ Variable `arg` is the `index`th argument of public function `pubFun`.
 
 #### Array related
 * `VarIsArray(var:Variable, arrId: ArrayVariable)`
-Variable `var` is array `arrId`.
 
+Variable `var` is array `arrId`.  
 To account for aliasing between different `vars` that point to the same memory address (that is an array) `arrId` is computed and used as a representative var.
 
 * `ArrayAllocation(arrId:ArrayVariable, elemSize:Value, arrayLength:Variable)`
@@ -78,8 +76,7 @@ The following are relations defined in `clienthelpers.dl` that are not part of t
 * `SHA3_2ARG(stmt: Statement, arg1: Variable, arg2: Variable, def: Variable)`
 * `SHA3_3ARG(stmt: Statement, arg1: Variable, arg2: Variable, arg3: Variable, def: Variable)`
 
-Most common cases of `SHA3` statements with 1, 2, or 3 arguments.
-
+Most common cases of `SHA3` statements with 1, 2, or 3 arguments.  
 `SHA3_1ARG` and `SHA3_2ARG` are used to construct storage arrays and mappings.
 
 * `SHA3_KnownContent(stmt:Statement, hexContent:symbol)`
