@@ -89,7 +89,7 @@ Visualization also requires PyDot and Graphviz:
 To use this framework for development purposes (e.g., writing security analyses), an understanding of the analysis pipeline will be helpful. This section describes one common use case --- that of visualizing the CFG of the lifted IR. The pipeline will consist of the manual execution of following three steps:
 
 1. Fact generation
-2. Run decompiler.dl using Souffle
+2. Run main.dl using Souffle
 3. Visualize results
 
 In order to proceed, make sure that LD_LIBRARY_PATH and LIBRARY_PATH are set:
@@ -105,13 +105,13 @@ Now let's manually execute the pipeline above:
 
 
     $ ./generatefacts <contract> facts      # fact generation (translates EVM bytecode into relational format)
-    $ souffle -F facts logic/decompiler.dl  # runs the main decompilation step (written as a Datalog program)
+    $ souffle -F facts logic/main.dl  # runs the main decompilation step (written as a Datalog program)
     $ clients/visualizeout.py               # visualizes the IR and outputs (all outputs of Datalog programs are in a relational format)
 
 
 ## Writing client analyses
 
-Client analyses can be written in any language by reading the relational files that are written by the decompilation step (`decompiler.dl`). This framework however provides preferential treatment for clients written in Datalog. The most notable example of client analysis for the Gigahorse framework is [MadMax](https://github.com/nevillegrech/MadMax). This uses several of the "analysis client libraries" under [clientlib](https://github.com/nevillegrech/gigahorse-toolchain/tree/master/clientlib). These libraries include customizable dataflow analysis, memory modeling, data structure reconstruction and others.
+Client analyses can be written in any language by reading the relational files that are written by the decompilation step (`main.dl`). This framework however provides preferential treatment for clients written in Datalog. The most notable example of client analysis for the Gigahorse framework is [MadMax](https://github.com/nevillegrech/MadMax). This uses several of the "analysis client libraries" under [clientlib](https://github.com/nevillegrech/gigahorse-toolchain/tree/master/clientlib). These libraries include customizable dataflow analysis, memory modeling, data structure reconstruction and others.
 
 A common template for client analyses for decompiled bytecode is to create souffle datalog file that includes `clientlib/decompiler_imports.dl`, for instance:
 ```
