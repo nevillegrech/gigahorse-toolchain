@@ -133,12 +133,15 @@ for fro, to in edges:
         continue
     graph.add_edge(pydot.Edge(nodeDict[fro], nodeDict[to], dir = 'forward', arrowHead = 'normal'))
 
+out_file = open("contract.tac", "w")
 for key in sorted(rendered_statements, key = lambda a: int(a.split('0x')[1], 16)):
-    print()
-    print('Begin block %s'%key)
-    print('prev = %s, next = %s'%(prev_block(key) if len(prev_block(key)) != 0 else "{}", next_block(key) if len(next_block(key)) != 0 else "{}"))
-    print('----------------------------------')
-    print('\n'.join(rendered_statements[key]))
-    print('----------------------------------')
+    out_file.write('\n')
+    out_file.write('Begin block %s\n'%key)
+    out_file.write('prev = %s, next = %s\n'%(prev_block(key) if len(prev_block(key)) != 0 else "{}", next_block(key) if len(next_block(key)) != 0 else "{}"))
+    out_file.write('----------------------------------\n')
+    out_file.write('\n'.join(rendered_statements[key]))
+    out_file.write('\n----------------------------------\n')
+out_file.close()
+
 graph.write_png('graph.png')
 
