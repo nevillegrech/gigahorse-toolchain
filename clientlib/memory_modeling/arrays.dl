@@ -494,7 +494,6 @@ ArrayAllocationInternal(mstore, array, "0x1", arrayLengthVar):-
   constantLengthVal != "0x0",
   dataSizeVal != "0x0",
   elemLenVal = @div_256(dataSizeVal, constantLengthVal),
-  "0x0" = @mod_256(dataSizeVal, constantLengthVal),
   elemLenVal != "0x0",
   Statement_Uses(mstore, arrayPlusSizeBytes, 1),
   MSTOREFreePtr(mstore).
