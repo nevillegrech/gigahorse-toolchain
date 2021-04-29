@@ -2,6 +2,7 @@
 // flow and detecting CFG edges (much like the Vandal decompiler) is here.
 
 #define MAX_STACK_HEIGHT 50
+#define LIMITSIZE_BLOCK_OUTPUT_CONTENTS 5000000
 #define CheckIsVariable(v) ((v) < 0)
 #define CheckIsStackIndex(v) ((v) >= 0, (v) < MAX_STACK_HEIGHT)
 #define CheckIsPopDelta(v) ((v) >= 0, (v) < MAX_STACK_HEIGHT)
@@ -194,6 +195,8 @@ postTrans.PublicFunction(b, h) :- preTrans.PublicFunction(b, h).
 
 // Stack contents at input and output of a block, given its calling context.
 .decl BlockOutputContents(context:Context, block:Block, index:StackIndex, var:Variable)
+.limitsize BlockOutputContents(n=LIMITSIZE_BLOCK_OUTPUT_CONTENTS)
+
 .decl BlockInputContents(context:Context, block:Block, index:StackIndex, var:Variable)
 
 // Var holding the (target block) address a block jumps to, under context.

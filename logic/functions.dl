@@ -3,6 +3,7 @@
 //#define DEBUG
 
 #define RETURN_ADDRESS_RANK_THRESHOLD 25
+#define LIMITSIZE_CAN_REACH_UNDER_CONTEXT 25000000
 
 #ifdef DEBUG
 .output BlockEdge, FallthroughEdge, BlockJumpValidTarget, BlockJumpTarget, MaybeInFunctionUnderContext
@@ -35,6 +36,8 @@
 ******/
 
 .decl CanReachUnderContext(fromCtx: Context, from:Block, ctx: Context, block: Block)
+.limitsize CanReachUnderContext(n=LIMITSIZE_CAN_REACH_UNDER_CONTEXT)
+
 CanReachUnderContext(ctx, block, ctx, block) :-
   ReachableContext(ctx, block).
 
