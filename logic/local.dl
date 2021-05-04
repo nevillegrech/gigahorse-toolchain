@@ -1,4 +1,11 @@
 #include "../clientlib/constants.dl"
+#include "statement_insertor.dl"
+
+// Convenience predicate. Folds together bounds checking on valid
+// indices and less-than.
+.decl IsStackIndexLessThan(n:StackIndex, maximum:StackIndex) inline
+                                                               
+IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
 
 // All sorts of different outputs of the decompiler, including
 // three-address code representation (which is later input and
@@ -522,21 +529,27 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     !CODECOPYSmallConstWLoad(codeCopy, const, _).
 
   CODECOPYSmallConst(codeCopy, const):-
+    CODECOPYStatement(codeCopy, codeOffsetNumHex, smallNumHex),              
+    smallNum = @hex_to_number(smallNumHex),
+    smallNum <= 32,
+    codeOffsetNum = @hex_to_number(codeOffsetNumHex),
+    ByteCodeHex(bytecodeStr),
+    const = cat("0x", substr(bytecodeStr, 2*codeOffsetNum, 2*smallNum)).
+
+  .decl CODECOPYStatement(stmt: Statement, offset: Value, size: Value)
+
+  CODECOPYStatement(codeCopy, codeOffsetNumHex, smallNumHex) :-
     Statement_Opcode(codeCopy, "CODECOPY"),
     BeforeLocalStackContents(codeCopy, 2, lenVar),
     CheckIsVariable(lenVar),
     Statement_Defines(pushLen, lenVar),
     PushValue(pushLen, smallNumHex),
-    smallNum = @hex_to_number(smallNumHex),
-    smallNum <= 32,
     BeforeLocalStackContents(codeCopy, 1, codeOffsetVar),
     CheckIsVariable(codeOffsetVar),
     Statement_Defines(pushCodeOffset, codeOffsetVar),
-    PushValue(pushCodeOffset, codeOffsetNumHex),
-    codeOffsetNum = @hex_to_number(codeOffsetNumHex),
-    ByteCodeHex(bytecodeStr),
-    const = cat("0x", substr(bytecodeStr, 2*codeOffsetNum, 2*smallNum)).
-
+    PushValue(pushCodeOffset, codeOffsetNumHex).
+              
+              
   .decl BlockComparesSigVyper(block: Block, sigHash: Value)
   .output BlockComparesSigVyper
   
@@ -580,4 +593,180 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
 .comp PostTransLocalAnalysis : LocalAnalysis {
                                              
 }
-                                             
+
+
+/*
+ * Preprocessing of decompiler input, to yield convenient relations
+ */
+
+.comp StatementFactReader {                                         
+  .decl PushValue(stmt:Statement, v:Value)
+  .decl Statement_Opcode(statement: Statement, opcode: Opcode)
+  .decl Statement_Next(statement: Statement, statementNext: Statement)
+
+  .input PushValue(IO="file", filename="PushValue.facts")
+  .input Statement_Opcode(IO="file", filename="Statement_Opcode.facts")
+  .input Statement_Next(IO="file", filename="Statement_Next.facts")
+  
+}
+
+.init factReader = StatementFactReader
+
+
+/*
+ ***********
+ * Transformation-aided decompilation
+ ***********
+ */
+
+.init preTrans = PreTransLocalAnalysis
+COPY_CODE(preTrans, factReader)
+
+INITIALIZE_STATEMENT_INSERTOR_FROM(insertor, preTrans, postTrans)
+
+
+// This one removes conditional calls
+insertor.removeOp(jumpStmt),
+insertor.removeOp(pushStmt),
+insertor.insertOps(pushStmt,
+  LIST(
+    STMT(PUSH4, MAKE_LABEL_REFERENCE(jumpDestStmt)),
+    STMT(JUMPI, "")
+  )
+),
+insertor.insertOps(jumpDestStmt,
+  LIST(
+    STMT(JUMPDEST, MAKE_LABEL_REFERENCE(jumpDestStmt)),
+    STMT(PUSH4, @cast_to_symbol(jumpDestStmt)),
+    STMT(JUMP, cat("PublicFunctionJump:", hash))
+  )
+) :-
+   preTrans.PublicFunctionJump(block, hash),
+   preTrans.PublicFunction(start, hash),
+   preTrans.Statement_Block(jumpDestStmt, start),
+   preTrans.JUMPDEST(jumpDestStmt),
+   preTrans.PushValue(pushStmt, @cast_to_symbol(jumpDestStmt)),
+   preTrans.Statement_Block(pushStmt, block),
+   preTrans.Statement_Defines(pushStmt, pushedVar),
+   preTrans.Statement_Uses_Local(jumpStmt, pushedVar, 0),
+   preTrans.BasicBlock_Tail(block, jumpStmt).
+
+// Vyper transformation
+insertor.insertOps(functionStartStmt,
+  LIST(
+    STMT(PUSH4, MAKE_LABEL_REFERENCE(hash)),
+    STMT(JUMP, cat("PublicFunctionJump:", hash)),
+    STMT(JUMPDEST, MAKE_LABEL_REFERENCE(hash))
+  )
+) :-
+   preTrans.BlockComparesSigVyper(block, hash),
+   preTrans.BasicBlock_Tail(block, tail),
+   preTrans.Statement_Next(tail, functionStartStmt).
+
+
+// This one removes "throw jumps"
+insertor.removeOp(jmp),
+insertor.insertOps(jmp,
+  LIST(
+    STMT(POP, ""),
+    STMT(INVALID, "")
+  )
+) :-
+  preTrans.ThrowJump(jmp),
+  preTrans.JUMP(jmp).
+
+// This one removes conditional "throw jumps"
+insertor.removeOp(jmp),
+insertor.insertOps(jmp,
+  LIST(
+    STMT(POP, ""),
+    STMT(PUSH4, MAKE_LABEL_REFERENCE(jmp)),
+    STMT(JUMPI, ""),
+    STMT(JUMPDEST, MAKE_LABEL_REFERENCE(jmp)),
+    STMT(INVALID, "")
+  )
+) :-
+  preTrans.ThrowJump(jmp),
+  preTrans.JUMPI(jmp).
+
+// This one removes conditional jumps that "always" jump
+insertor.removeOp(jmpi),
+insertor.insertOps(jmpi,
+  LIST(
+    STMT(SWAP1, ""),
+    STMT(POP, ""),
+    STMT(JUMP, "")
+  )
+) :-
+  preTrans.AlwaysJumps(jmpi).
+
+insertor.removeOp(codeCopy),
+insertor.removeOp(mload),
+insertor.insertOps(codeCopy,
+  LIST(
+    STMT(POP, ""),
+    STMT(POP, ""),
+    STMT(POP, "")
+  )
+),
+insertor.insertOps(mload,
+  LIST(
+    STMT(POP, ""),
+    STMT(PUSH32, const)
+  )
+) :-
+  preTrans.CODECOPYSmallConstWLoad(codeCopy, const, mload).
+
+insertor.removeOp(codeCopy),
+insertor.insertOps(codeCopy,
+  LIST(
+    STMT(SWAP2, ""),
+    STMT(POP, ""),
+    STMT(POP, ""),
+    STMT(PUSH32, const),
+    STMT(SWAP1, "")
+  )
+) :-
+  preTrans.CODECOPYSmallConstNoLoad(codeCopy, const).
+
+.init postTrans = PostTransLocalAnalysis
+
+// For Solidity, Vyper
+postTrans.PublicFunctionJump(block, substr(meta, 19, 30)) :-
+   insertor.MetaData(stmt, meta),
+   STARTSWITH(meta, "PublicFunctionJump:"),
+   postTrans.Statement_Block(stmt, block).
+
+// For Vyper
+postTrans.PublicFunction(block, hash) :-
+   insertor.MetaData(stmt, meta),
+   postTrans.JUMPDEST(stmt),
+   postTrans.Statement_Block(stmt, block),
+   preTrans.BlockComparesSigVyper(_, hash),
+   ISLABEL(meta), hash = GET_LABEL_REFERENCE(meta).
+
+
+postTrans.PublicFunction(b, h) :- preTrans.PublicFunction(b, h).
+
+// Code chunking logic reserved for future EIP
+
+#define CHUNK_SIZE 31
+.type Chunk <: number
+
+.decl Block_CodeChunkAcessed(b: Block, c: Chunk)
+
+Block_CodeChunkAcessed(block, @hex_to_number(stmt) / CHUNK_SIZE) :-
+  preTrans.Statement_Block(stmt, block).
+
+Block_CodeChunkAcessed(block, n / CHUNK_SIZE) :-
+  preTrans.Statement_Block(stmt, block),          
+  preTrans.CODECOPYStatement(stmt, codeOffsetNumHex, lenHex),
+  codeOffset = @hex_to_number(codeOffsetNumHex),
+  len = @hex_to_number(lenHex),
+  n = range(codeOffset, codeOffset + len, 1).
+
+Block_CodeChunkAcessed(block, @hex_to_number(targetValue) / CHUNK_SIZE) :-
+  preTrans.Statement_Block(stmt, block),
+  preTrans.ThrowJump(stmt), preTrans.JUMP(stmt),
+  preTrans.ImmediateBlockJumpTarget(block, variable),
+  preTrans.Variable_Value(variable, targetValue).
