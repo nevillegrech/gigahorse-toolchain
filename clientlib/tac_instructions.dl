@@ -232,6 +232,14 @@ CALLDATACOPY(stmt, mem_start, calldata_start, length) :-
    Statement_Uses(stmt, calldata_start, 1),
    Statement_Uses(stmt, length, 2).
 
+.decl EXTCODECOPY(s: Statement, target:Variable, mem_start: Variable, calldata_start: Variable, length: Variable)
+EXTCODECOPY(stmt, target, mem_start, extcode_start, length):-
+  Statement_Opcode(stmt, "EXTCODECOPY"),
+  Statement_Uses(stmt, target, 0),
+  Statement_Uses(stmt, mem_start, 1),
+  Statement_Uses(stmt, extcode_start, 2),
+  Statement_Uses(stmt, length, 3).
+
 .decl JUMP(stmt:Statement, dest:Variable)
 JUMP(stmt, dest) :-
   Statement_Opcode(stmt, "JUMP"),

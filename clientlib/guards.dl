@@ -3,6 +3,8 @@
 #include "data_structures.dl"
 #include "flows.dl"
 
+// TODO: Add some kind of Mask Flow to avoid using DataFlows all over the place
+
 
 .decl StaticallyGuardedBlock(guardedBlock: Block, globalVal: Value)
 .output StaticallyGuardedBlock, Dominates
@@ -78,10 +80,11 @@ SenderGuard(globalVal, predicate) :-
 
            
 SenderGuard("this", predicate) :-
-  CALLER(_, msgsender),
+  CALLER(_, msgsenderFrom),
+  DataFlows(msgsenderFrom, msgsender),
   EQVars(this, msgsender, predicateFrom),
-  ADDRESS(_, thisFrom),
   DataFlows(thisFrom, this),
+  ADDRESS(_, thisFrom),
   DataFlows(predicateFrom, predicate).
 
 

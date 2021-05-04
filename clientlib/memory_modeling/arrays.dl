@@ -286,7 +286,7 @@ ArrayWriteToRelativeIndex(arrayVar, mstore, relativeIndex):-
   (Dominates(block1, block2) ; LocalStatementPathInBlock(stmt1, stmt2)),
   MSTORE(mstore, relIndexWriteVar, _).
 
-
+DEBUG_OUTPUT(ArrayHasConstantLength)
 ArrayStore(mstore, arrId, from):-
   ArrayHasConstantLength(arrayVar, length),
   VarIsArray(arrayVar, arrId),
@@ -353,7 +353,8 @@ PossibleArrayLoose(array):-
 ArrayHasConstantLength(arrayVar, length):-
   ArrayAllocationInternal(_, arrayVar, _, arrayLengthVar),
   Variable_Value(arrayLengthVar, arrLenHex),
-  length = @hex_to_number(arrLenHex).
+  length = @hex_to_number(arrLenHex),
+  length < 2 ^ 28. //Some very big number that should never be possible.
 
 
 /**
@@ -480,6 +481,7 @@ ArrayAllocationInternal(mstore, array, "0x1", arrayLengthVar):-
   Statement_Uses(mstore, updatedFMP, 1),
   MSTOREFreePtr(mstore).
 
+// REVIEW: This rule is maybe too imprecise and should be removed.
 IsRegularArrayVar(array),
 Array_ElementLength(array, elemLenVal),
 ArrayAllocationInternal(mstore, array, "0x1", arrayLengthVar):-
@@ -490,7 +492,9 @@ ArrayAllocationInternal(mstore, array, "0x1", arrayLengthVar):-
   Variable_Value(arraySizeBytes, sizeBytesVal),
   dataSizeVal = @sub_256(sizeBytesVal, "0x20"),
   constantLengthVal != "0x0",
+  dataSizeVal != "0x0",
   elemLenVal = @div_256(dataSizeVal, constantLengthVal),
+  elemLenVal != "0x0",
   Statement_Uses(mstore, arrayPlusSizeBytes, 1),
   MSTOREFreePtr(mstore).
 

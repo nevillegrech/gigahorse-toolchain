@@ -5,6 +5,8 @@
 #include "flows.dl"
 #include "casts_shifts.dl"
 
+#define MERGED_STORAGE_VAR(storVar,byteLow,byteHigh) cat(storVar, cat("_", cat(to_string(byteLow), cat("_", to_string(byteHigh)))))
+
 // data structure analysis requires better constant folding
 // Does constant folding for addition
 Variable_Value(resVar, @add_256(val0, val1)) :-
@@ -573,6 +575,7 @@ VarHoldsBytesOfStorVar(to, store, storVar, 0, maskLen - 1):-
 
 .decl StoreGlobalVariable(stmt: Statement, val: Value, var: Variable)
 
+.decl StorageVariableInfo(storageVariable:symbol, storageSlot:symbol, byteLow:number, byteHigh:number)
 
 
 /* Old logic
@@ -601,7 +604,7 @@ LoadGlobalVariable(stmt, v, var):-
   VarHoldsBytesOfStorVar(var, _, storVar, low, high),
   Statement_Defines(stmt, var, 0),
   (low != 0 ; high != 31),
-  v = cat(storVar, cat("_", cat(to_string(low), cat("_", to_string(high))))).
+  v = MERGED_STORAGE_VAR(storVar, low, high).
 
 StoreGlobalVariable(stmt, storVar, var):-
   SSTOREToConst(stmt, storVar, var),
@@ -615,13 +618,91 @@ StoreGlobalVariable(stmt, storVar, var):-
 StoreGlobalVariable(store, v, writtenVar):-
   SuccessfulMergedStorageModeling(storVar),
   VarWrittenToBytesOfStorVarFinal(writtenVar, store, _, storVar, byteLow, byteHigh),
-  v = cat(storVar, cat("_", cat(to_string(byteLow), cat("_", to_string(byteHigh))))).
+  v = MERGED_STORAGE_VAR(storVar, byteLow, byteHigh).
 
 StoreGlobalVariable(store, v, constVar):-
   SuccessfulMergedStorageModeling(storVar),
   ConstWrittenToBytesOfStorVar(constVar, _, store, _, storVar, byteLow, byteHigh),
-  v = cat(storVar, cat("_", cat(to_string(byteLow), cat("_", to_string(byteHigh))))).
+  v = MERGED_STORAGE_VAR(storVar, byteLow, byteHigh).
 
+StorageVariableInfo(MERGED_STORAGE_VAR(storVar, byteLow, byteHigh), storVar, byteLow, byteHigh):-
+  SuccessfulMergedStorageModeling(storVar),
+  (
+    ConstWrittenToBytesOfStorVar(_, _, _, _, storVar, byteLow, byteHigh);
+    VarWrittenToBytesOfStorVarFinal(_, _, _, storVar, byteLow, byteHigh);
+    VarHoldsBytesOfStorVarFinal(_, _, storVar, byteLow, byteHigh)
+  ),
+  byteHigh - byteLow != 31.
+
+StorageVariableInfo(storVar, storVar, 0, 31):-
+  SuccessfulMergedStorageModeling(storVar),
+  (
+    ConstWrittenToBytesOfStorVar(_, _, _, _, storVar, 0, 31);
+    VarWrittenToBytesOfStorVarFinal(_, _, _, storVar, 0, 31);
+    VarHoldsBytesOfStorVarFinal(_, _, storVar, 0, 31)
+  ).
+
+StorageVariableInfo(storVar, storVar, 0, 31):-
+  FailedMergedStorageModeling(storVar).
+/**
+  Basic type inference
+  Hacky for now just to print the correct uintX or address if nessesary.
+**/
+
+.decl StorageVariableType(storVar:symbol, type:symbol)
+.output StorageVariableType
+
+.decl SpecialStorageVariableType(storVar:symbol, type:symbol)
+
+StorageVariableType(storVar, type):-
+  StorageVariableInfo(storVar, _, byteLow, byteHigh),
+  widthBytes = 1 + byteHigh - byteLow,
+  !SpecialStorageVariableType(storVar, _),
+  type = cat("uint", to_string(widthBytes * 8)).
+
+StorageVariableType(storVar, type):-
+  StorageVariableInfo(storVar, _, _, _),
+  SpecialStorageVariableType(storVar, type).
+
+SpecialStorageVariableType(storVar, "address"):-
+  StorageVariableInfo(storVar, originStorVar, byteLow, byteHigh),
+  VarHoldsBytesOfStorVarFinal(var, _, originStorVar, byteLow, byteHigh),
+  widthBytes = 1 + byteHigh - byteLow,
+  widthBytes = 20,
+  DataFlows(var, addr),
+  AddressTypedVar(addr).
+
+SpecialStorageVariableType(storVar, "address"):-
+  StorageVariableInfo(storVar, originStorVar, byteLow, byteHigh),
+  VarWrittenToBytesOfStorVarFinal(var, _, _, originStorVar, byteLow, byteHigh),
+  widthBytes = 1 + byteHigh - byteLow,
+  widthBytes = 20,
+  DataFlows(addr, var),
+  AddressTypedVar(addr).
+
+// Hack to cover msg.sender == var and other similar things
+SpecialStorageVariableType(storVar, "address"):-
+  AddressTypedVar(addrFrom),
+  DataFlows(addrFrom, addr),
+  (EQ(_, otherAddr, addr, _) ; EQ(_, addr, otherAddr, _)),
+  DataFlows(var, otherAddr),
+  VarHoldsBytesOfStorVarFinal(var, _, originStorVar, byteLow, byteHigh),
+  StorageVariableInfo(storVar, originStorVar, byteLow, byteHigh),
+  widthBytes = 1 + byteHigh - byteLow,
+  widthBytes = 20.
+
+.decl AddressTypedVar(addrVar:Variable)
+AddressTypedVar(addr):-
+  CALL(_, _, addr, _, _, _, _, _, _);
+  STATICCALL(_, _, addr, _, _, _, _, _);
+  DELEGATECALL(_, _, addr, _, _, _, _, _);
+  SELFDESTRUCT(_, addr);
+  EXTCODECOPY(_, addr, _, _, _);
+  EXTCODESIZE(_, addr, _);
+  EXTCODEHASH(_, addr, _);
+  CALLER(_, addr);
+  ORIGIN(_, addr);
+  ADDRESS(_, addr).
 
 /**
   Temp statements for the source decompiler to hide
