@@ -81,9 +81,10 @@
   
   .output InVar_OutVar
 
+  .decl CallToClonedFunction(cloneBlock:Block, callStmt:Statement, fun:Function)
   .decl ClonedCallArgs(cloneBlock:Block, callStmt:Statement, fun:Function, actualArg:Variable, formalArg:Variable)
   .decl ClonedCallRets(cloneBlock:Block, callStmt:Statement, fun:Function, retStmt:Statement, actualRet:Variable, formalRet:Variable)
-  .output ClonedCallArgs, ClonedCallRets
+  .output ClonedCallArgs, ClonedCallRets, FunctionToInline_RetStmt, CallToClonedFunction
 
   .decl BlockToClone(block:Block, fromFun:Function, callerBlock:Block, callerFun:Function, newBlock:Block)
   .decl StatementToClone(stmt:Statement, fromFun:Function, callerBlock:Block, callerFun:Function, newStmt:Statement)
@@ -316,22 +317,25 @@
   Out_Statement_Opcode(outStmt, opcode):-
     In_Statement_Opcode(inStmt, opcode),
     InStatement_OutStatement(inStmt, _, outStmt),
-    !ClonedCallArgs(_, inStmt, _, _, _),
+    !CallToClonedFunction(_, inStmt, _),
     !FunctionToInline_RetStmt(_, inStmt).
 
   Out_Statement_Opcode(outStmt, "JUMP"):-
     InStatement_OutStatement(inStmt, _, outStmt),
-    ( ClonedCallArgs(_, inStmt, _, _, _) ; FunctionToInline_RetStmt(_, inStmt)).
+    (CallToClonedFunction(_, inStmt, _); FunctionToInline_RetStmt(_, inStmt)).
 
   Out_IsStatement(outStmt):-
     InStatement_OutStatement(_, _, outStmt).
 
-  /* Helper predicate identifying call stmts actual-formal args for cloned calls */
-  ClonedCallArgs(callerBlock, callStmt, callee, actualArg, formalArg):-
+  CallToClonedFunction(callerBlock, callStmt, callee):-
     FunctionToInline(callee),
     In_CallGraphEdge(callerBlock, callee),
     In_Statement_Block(callStmt, callerBlock),
-    In_Statement_Opcode(callStmt, "CALLPRIVATE"),
+    In_Statement_Opcode(callStmt, "CALLPRIVATE").
+
+  /* Helper predicate identifying call stmts actual-formal args for cloned calls */
+  ClonedCallArgs(callerBlock, callStmt, callee, actualArg, formalArg):-
+    CallToClonedFunction(callerBlock, callStmt, callee),
     In_Statement_Uses(callStmt, actualArg, i),
     i > 0,
     In_FormalArgs(callee, formalArg, i-1).
@@ -344,10 +348,7 @@
 
   /* Helper predicate identifying call and return stmts actual-formal rets for cloned calls */
   ClonedCallRets(callerBlock, callStmt, callee, retStmt, actualRet, formalRet):-
-    FunctionToInline(callee),
-    In_CallGraphEdge(callerBlock, callee),
-    In_Statement_Block(callStmt, callerBlock),
-    In_Statement_Opcode(callStmt, "CALLPRIVATE"),
+    CallToClonedFunction(callerBlock, callStmt, callee),
     In_Statement_Defines(callStmt, actualRet, i),
     FunctionToInline_RetStmt(callee, retStmt),
     In_Statement_Uses(retStmt, formalRet, i + 1).
