@@ -467,7 +467,7 @@
 
   /* Inline guards to help our analysis */
   InlineCandidate(fun):-
-    In_Statement_Opcode(callerOp, "CALLER"),
+    (In_Statement_Opcode(callerOp, "CALLER"); In_Statement_Opcode(callerOp, "ORIGIN")),
     In_Statement_Defines(callerOp, sender, 0),
     DataFlows(sender, formalRet),
     In_FormalReturnArgs(fun, formalRet, _).
