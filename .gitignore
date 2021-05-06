@@ -53,3 +53,6 @@ results.json
 *_compiled
 *.ccerr
 *.cpp
+
+# testing files
+.tests/**
