@@ -61,6 +61,17 @@ class LogicTestCase(unittest.TestCase):
             capture_output=True
         )
 
+    def __relation_size(self, name: str) -> int:
+        hex_name = self.test_path.split('/')[-1].split('.')[-2]
+
+        if isfile(join(self.working_dir, hex_name, 'out', f'{name}.csv')):
+            path = join(self.working_dir, hex_name, 'out', f'{name}.csv')
+        else:
+            path = join(self.working_dir, hex_name, f'{name}.csv')
+
+        with open(path) as f:
+            return len(f.readlines())
+
     def runTest(self):
         def within_margin(actual: int, expected: int, margin: float) -> bool:
             return (1 - margin) * expected <= actual <= (1 + margin) * expected
@@ -76,7 +87,14 @@ class LogicTestCase(unittest.TestCase):
         self.assertTrue(result.returncode == 0)
 
         with open(self.results_file) as f:
-            (_, _, _, analytics), = json.load(f)
+            (_, _, _, temp_analytics), = json.load(f)
+
+        analytics = {}
+        for x, y in temp_analytics.items():
+            if isinstance(y, str):
+                analytics[x] = len(y.splitlines()) if y else 0
+            else:
+                analytics[x] = y
 
         self.assertTrue(all(within_margin(analytics[metric], expected, margin) for metric, expected, margin in self.expected_results))
 
