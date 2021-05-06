@@ -104,7 +104,7 @@ def discover_logic_tests(current_config: MutableMapping[str, Any], directory: st
 
 
 def run_tests(test_dirs: List[str]):
-    makedirs(TEST_WORKING_DIR)
+    makedirs(TEST_WORKING_DIR, exist_ok=True)
 
     for test_dir in (abspath(x) for x in test_dirs):
         print(f'Running testcases under {test_dir}')
