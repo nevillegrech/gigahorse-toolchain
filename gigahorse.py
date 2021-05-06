@@ -718,3 +718,5 @@ except Exception as e:
 
     traceback.print_exc()
     flush_proc.terminate()
+
+    sys.exit(1)
