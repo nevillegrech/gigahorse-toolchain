@@ -30,6 +30,15 @@ Analytics_ReachableBlocksInTAC(blk):-
   Block_IRBlock(blk, _, block),
   TAC_Block(_, block).
 
+// Incompleteness metric: this can happen due to our precision-favoring heuristics
+// or incompleteness due to the use of limitsize for scalability
+.decl Analytics_BlocksReachableInGlobalButNotInTAC(block: Block)
+.output Analytics_BlocksReachableInGlobalButNotInTAC
+
+Analytics_BlocksReachableInGlobalButNotInTAC(blk):-
+  Analytics_ReachableBlocks(blk),
+  !Analytics_ReachableBlocksInTAC(blk).
+
 .decl Analytics_Blocks(block: IRBlock)
 .output Analytics_Blocks
 
