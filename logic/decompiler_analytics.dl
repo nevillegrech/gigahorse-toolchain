@@ -36,6 +36,16 @@ Analytics_ReachableBlocksInTAC(blk):-
 Analytics_Blocks(block) :-
   IRInFunction(block, _).
 
+// This is a special metric
+// Dead blocks are "declared dead" because they are most likely
+// artifacts of imprecision but in cases they can also be a sign of incompleteness,
+// given that we sometimes choose precision over completeness when going from Block to IRBlock
+.decl Analytics_DeadBlocks(block: IRBlock)
+.output Analytics_DeadBlocks
+
+Analytics_DeadBlocks(irblk) :-
+  DeadBlock(irblk).
+
 // Sanity checking and analytics
 
 .decl ReachableStatement(stmt: IRStatement)
