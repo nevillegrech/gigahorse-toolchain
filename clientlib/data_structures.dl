@@ -462,7 +462,7 @@ AnyLoadStoreStorVarBytes(stmt, storVar, 0, 31):-
 
 FailedMergedStorageModeling(storVar):-
   AnyLoadStoreStorVarBytes(_, storVar, low, high),
-  AnyLoadStoreStorVarBytes(_, storVar, otherLow, otherHigh),
+  AnyLoadStoreStorVarBytes(_, storVar, otherLow, otherHigh),  otherLow = otherLow, otherHigh = otherHigh, // NOWARN
   !ArrayIdToStorageIndex(@cast_to_symbol(storVar), _),
   (low != otherLow ; high != otherHigh),
   ( (low < otherLow , otherLow < high) ; (low < otherHigh, otherHigh < high) ).
