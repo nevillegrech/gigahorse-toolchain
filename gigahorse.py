@@ -166,6 +166,13 @@ parser.add_argument("-M",
                     default = "",
                     help = "Prepocessor macro definitions to pass to Souffle using the -M parameter")
 
+parser.add_argument("-cd",
+                    "--context_depth",
+                    type=int,
+                    nargs="?",
+                    metavar="NUM",
+                    help="Override the maximum context depth for decompilation (default is 4).")
+
 parser.add_argument("--disable_inline",
                     action="store_true",
                     default=False,
@@ -330,6 +337,11 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
                     log("{} timed out.".format(contract_name))
                     return
 
+            if args.context_depth:
+                context_depth_filename = os.path.join(work_dir, 'MaxContextDepth.csv')
+                context_depth_file = open(context_depth_filename, "w")
+                context_depth_file.write(f"{args.context_depth}\n")
+                context_depth_file.close()
             
             # Run souffle on those relations
             decomp_start = time.time()
