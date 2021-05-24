@@ -275,37 +275,35 @@ Analytics_JumpToMany(blk):-
   one != three,
   two != three.
 
+
+.decl JumpToMany_ImprecisionSource(reportBlock:IRBlock, sourceBlock:Block)
+JumpToMany_ImprecisionSource(reportBlock, sourceBlock):-
+  Analytics_JumpToMany(reportBlock),
+  IRFunctionCallReturn(reportBlock, irfunc, _),
+  IRFunction_Return(irfunc, retir),
+  Block_IRBlock(sourceBlock, _, retir).
+
+JumpToMany_ImprecisionSource(reportBlock, sourceBlock):-
+  Analytics_JumpToMany(reportBlock),
+  Block_IRBlock(sourceBlock, _, reportBlock),
+  !IRFunctionCallReturn(reportBlock, _, _).
+
+
 .decl Analytics_JumpToManyNonPopBlock(blk:IRBlock)
 .output Analytics_JumpToManyNonPopBlock
 
-Analytics_JumpToManyNonPopBlock(blk):-
-  Analytics_JumpToMany(blk),
-  TAC_Block(stmt, blk),
-  TAC_Op(stmt, op),
-  op != "JUMP",
-  op != "PHI",
-  op != "JUMPI".
+Analytics_JumpToManyNonPopBlock(reportBlock):-
+  Analytics_JumpToMany(reportBlock),
+  JumpToMany_ImprecisionSource(reportBlock, sourceBlock),
+  !postTrans.StackBalanceBlock(sourceBlock).
 
 .decl Analytics_JumpToManyWithoutGlobalImprecision(blk:IRBlock)
 .output Analytics_JumpToManyWithoutGlobalImprecision
 
-Analytics_JumpToManyWithoutGlobalImprecision(irblk):-
-  Analytics_JumpToMany(irblk),
-  Block_IRBlock(blk, _, irblk),
-  !IRFunctionCallReturn(irblk, _, _),
-  !Analytics_PolymorphicTargetSameCtx(blk).
-
-Analytics_JumpToManyWithoutGlobalImprecision(irblk):-
-  Analytics_JumpToMany(irblk),
-  IRFunctionCallReturn(irblk, irfunc, _),
-  !FunctionRetBlockHasPolyTargetSameCtx(irfunc).
-
-.decl FunctionRetBlockHasPolyTargetSameCtx(irfun:IRFunction)
-
-FunctionRetBlockHasPolyTargetSameCtx(irfunc):-
-  IRFunction_Return(irfunc, retir),
-  Block_IRBlock(ret, _, retir),
-  Analytics_PolymorphicTargetSameCtx(ret).
+Analytics_JumpToManyWithoutGlobalImprecision(reportBlock):-
+  Analytics_JumpToMany(reportBlock),
+  JumpToMany_ImprecisionSource(reportBlock, sourceBlock),
+  !Analytics_PolymorphicTargetSameCtx(sourceBlock).
 
 
 .decl Analytics_InitiallyMissedCycleEntry(blk: IRBlock)
