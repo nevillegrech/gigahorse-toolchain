@@ -210,6 +210,11 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     !IsBasicBlockHead(stmt),
     !PossiblyIsBasicBlockTail(prevstmt).
   
+  .decl BasicBlock_Head(block:Block, head:Statement)
+  BasicBlock_Head(block, head):-
+    Statement_BlockHead(stmt, head),
+    Statement_Block(stmt, block).
+  
   .decl BasicBlock_Tail(block:Block, tail:Statement)
   
   BasicBlock_Tail(block, tail) :-
@@ -621,7 +626,8 @@ COPY_CODE(blockCloner, factReader)
  */
 
 .init preTrans = PreTransLocalAnalysis
-COPY_CODE(preTrans, factReader)
+COPY_OUTPUT(preTrans, blockCloner)
+//COPY_CODE(preTrans, factReader)
 
 INITIALIZE_STATEMENT_INSERTOR_FROM(insertor, preTrans, postTrans)
 

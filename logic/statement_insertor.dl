@@ -6,6 +6,10 @@ to.Statement_Next(stmt, next) :- from.Statement_Next(stmt, next).\
 to.Statement_Opcode(stmt, op) :- from.Statement_Opcode(stmt, op).\
 to.PushValue(stmt, value) :- from.PushValue(stmt, value).
 
+#define COPY_OUTPUT(to, from)\
+to.Statement_Next(stmt, next) :- from.Out_Statement_Next(stmt, next).\
+to.Statement_Opcode(stmt, op) :- from.Out_Statement_Opcode(stmt, op).\
+to.PushValue(stmt, value) :- from.Out_PushValue(stmt, value).
 
 #define INITIALIZE_STATEMENT_INSERTOR(_insertor, to)\
 .init _insertor = StatementInsertor \
@@ -235,6 +239,8 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
   localAnalysis.Statement_Opcode(stmt, op):- Statement_Opcode(stmt, op).
   localAnalysis.Statement_Next(stmt, stmtNext):- Statement_Next(stmt, stmtNext).
 
+  .output Out_Statement_Opcode, Out_Statement_Next, Out_PushValue
+  .output Statement_Opcode, Statement_Next, PushValue
   // find the last statement in the original bytecode, start adding from there.
   .decl MaxOriginalStatement(stmt:Statement)
   // compute the block size to use on the cloned blocks
@@ -244,6 +250,8 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
 
   .decl DirectBlockEdge(from:Block, to:Block)
 
+  .decl DirectBlockJumpToAddrPushedBy(from:Block, pushStmt:Statement)
+
   // To make this more flexible we'll be performing the cloning at the use level:
   //   pick the interesting blocks
   //   find their uses (pushes to the stack) that we want to clone
@@ -251,6 +259,11 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
   .decl BlockToClone(pushBlock:Block, blockToClone:Block)
   // For each fact of BlockToClone we create an identifier and sort them based on it
   .decl BlockToCloneOpID(pushBlock:Block, blockToClone:Block, opID:symbol)
+
+  // After we compute the order of the inserted clone blocks, we assign each cloned instance to a starting bytecode offset.
+  .decl BlockToCloneNewInstance(pushBlock:Block, blockToClone:Block, generatedBlock:Block)
+
+  .decl StatementToClonedStatement(pushBlock:Block, blockToClone:Block, stmt:Statement, generatedStatement:Statement)
 
   .init cloneOpSorter = OrdAscentingSorter
 
@@ -266,10 +279,13 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
   Statement_BlockOffset(stmt, block, @hex_to_number(stmt) - @hex_to_number(block)):-
     localAnalysis.Statement_Block(stmt, block).
 
-  .output localAnalysis.ImmediateBlockJumpTarget
   DirectBlockEdge(from, @cast_to_symbol(to)):-
     localAnalysis.ImmediateBlockJumpTarget(from, pushedVar),
     localAnalysis.Variable_Value(pushedVar, to).
+
+  DirectBlockJumpToAddrPushedBy(from, pushStmt):-
+    localAnalysis.ImmediateBlockJumpTarget(from, pushedVar),
+    localAnalysis.Statement_Defines(pushStmt, pushedVar).
 
   // Lets start by cloning all non immediate blocks.
   BlockToClone(from, to):-
@@ -278,6 +294,82 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
     localAnalysis.StackBalanceBlock(to),
     from != otherFrom,
     !localAnalysis.ImmediateBlockJumpTarget(to, _).
+
+  BlockToCloneOpID(pushBlock, blockToClone, cat(pushBlock, blockToClone)):-
+    BlockToClone(pushBlock, blockToClone).
+
+  cloneOpSorter.Input(opID):- BlockToCloneOpID(_, _, opID).
+
+  BlockToCloneNewInstance(pushBlock, blockToClone, generatedBlock):-
+    BlockToCloneOpID(pushBlock, blockToClone, opID),
+    !cloneOpSorter.Input_Next(_, opID),
+    MaxOriginalStatement(maxStmt),
+    generatedBlock = @add_256(maxStmt, "0x20").
+
+  BlockToCloneNewInstance(pushBlock, blockToClone, generatedBlock):-
+    BlockToCloneOpID(prevPushBlock, prevBlockToClone, prevOpID),
+    cloneOpSorter.Input_Next(prevOpID, opID),
+    BlockToCloneNewInstance(prevPushBlock, prevBlockToClone, prevCloneInstance),
+    BlockToCloneOpID(pushBlock, blockToClone, opID),
+    BlockSize(prevBlockToClone, prevCloneBlockSize),
+    generatedBlock = @add_256(prevCloneInstance, @number_to_hex(prevCloneBlockSize + 32)).
+
+  StatementToClonedStatement(pushBlock, blockToClone, stmt, generatedStatement):-
+    BlockToCloneNewInstance(pushBlock, blockToClone, generatedBlock),
+    localAnalysis.Statement_Block(stmt, blockToClone),
+    generatedStatement = @add_256(generatedBlock, @sub_256(stmt, blockToClone)).
+
+
+  // Keep order for all original statements.
+  Out_Statement_Next(stmt, nextStmt):-
+    Statement_Next(stmt, nextStmt).
+
+  Out_Statement_Next(lastOriginalStmt, clonedHead):-
+    MaxOriginalStatement(lastOriginalStmt),
+    BlockToCloneOpID(pushBlock, blockToClone, opID),
+    !cloneOpSorter.Input_Next(_, opID),
+    localAnalysis.BasicBlock_Head(blockToClone, oldHead),
+    StatementToClonedStatement(pushBlock, blockToClone, oldHead, clonedHead).
+
+  Out_Statement_Next(genStmt, nextGenStmt):-
+    StatementToClonedStatement(pushBlock, blockToClone, stmt, genStmt),
+    Statement_Next(stmt, nextStmt),
+    StatementToClonedStatement(pushBlock, blockToClone, nextStmt, nextGenStmt).
+
+  Out_Statement_Next(prevClonedTail, nextClonedHead):-
+    cloneOpSorter.Input_Next(prevOpID, nextOpID),
+    BlockToCloneOpID(prevPushBlock, prevBlockToClone, prevOpID),
+    BlockToCloneOpID(nextPushBlock, nextBlockToClone, nextOpID),
+    localAnalysis.BasicBlock_Tail(prevBlockToClone, oldTail),
+    localAnalysis.BasicBlock_Head(nextBlockToClone, oldHead),
+    StatementToClonedStatement(prevPushBlock, prevBlockToClone, oldTail, prevClonedTail),
+    StatementToClonedStatement(nextPushBlock, nextBlockToClone, oldHead, nextClonedHead).
+
+  Out_Statement_Opcode(oldStmt, op):-
+    Statement_Opcode(oldStmt, op).
+
+  Out_Statement_Opcode(clonedStmt, op):-
+    Statement_Opcode(oldStmt, op),
+    StatementToClonedStatement(_, _, oldStmt, clonedStmt).
+
+  Out_PushValue(oldStmt, oldVal):-
+    PushValue(oldStmt, oldVal),
+    !DirectBlockJumpToAddrPushedBy(_, oldStmt).
+
+  Out_PushValue(oldStmt, oldVal):-
+    PushValue(oldStmt, oldVal),
+    DirectBlockJumpToAddrPushedBy(pushBlock, oldStmt),
+    !BlockToClone(pushBlock, _).
+
+  Out_PushValue(oldStmt, @cast_to_symbol(newVal)):-
+    PushValue(oldStmt, _),
+    DirectBlockJumpToAddrPushedBy(pushBlock, oldStmt),
+    BlockToCloneNewInstance(pushBlock, _, newVal).
+
+  Out_PushValue(clonedStmt, val):-
+    PushValue(oldStmt, val),
+    StatementToClonedStatement(_, _, oldStmt, clonedStmt).
+
 }
 
 // Adding analytic here to 
