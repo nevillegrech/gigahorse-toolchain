@@ -612,7 +612,8 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
 
 .init factReader = StatementFactReader
 
-
+.init blockCloner = BlockCloner
+COPY_CODE(blockCloner, factReader)
 /*
  ***********
  * Transformation-aided decompilation

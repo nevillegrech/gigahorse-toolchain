@@ -184,3 +184,115 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
   FAILIF(cat("Missing Push Value ", stmt), Out_Statement_Opcode(stmt, op), OpcodeIsPush(op), !Out_PushValue(stmt, _)).
   
 }
+
+/**
+  Component to perform an anscenting sort of an input set.
+*/
+.comp AbstractAscentingSorter {
+  .decl Input(id:symbol)
+
+  .decl InputToNumber(id:symbol, idNum:number) overridable
+
+  .decl IsLessThan(id1:symbol, id2:symbol)
+  .decl IsLessThanNotNext(id1:symbol, id2:symbol)
+
+  .decl Input_Next(prev:symbol, next:symbol)
+
+  IsLessThan(id1, id2):-
+    InputToNumber(id1, num1),
+    InputToNumber(id2, num2),
+    num1 < num2.
+
+  IsLessThanNotNext(id1, id2):-
+    IsLessThan(id1, id2),
+    IsLessThan(id1, other),
+    IsLessThan(other, id2).
+
+  Input_Next(prev, next):-
+    IsLessThan(prev, next),
+    !IsLessThanNotNext(prev, next).
+}
+
+/**
+  Sort using souffle's internal ordinal number.
+  Useful when we just want to get any order.
+*/
+.comp OrdAscentingSorter : AbstractAscentingSorter {
+
+  .override InputToNumber
+  InputToNumber(id, ord(id)):-
+    Input(id).
+}
+
+/**
+  
+*/
+.comp BlockCloner : CodeTransformer {
+
+  .init localAnalysis = LocalAnalysis
+
+  localAnalysis.PushValue(push, val):- PushValue(push, val).
+  localAnalysis.Statement_Opcode(stmt, op):- Statement_Opcode(stmt, op).
+  localAnalysis.Statement_Next(stmt, stmtNext):- Statement_Next(stmt, stmtNext).
+
+  // find the last statement in the original bytecode, start adding from there.
+  .decl MaxOriginalStatement(stmt:Statement)
+  // compute the block size to use on the cloned blocks
+  .decl BlockSize(block:Block, size:number)
+  // find the offset (numeric diff from block head) of every statement, helps with cloning
+  .decl Statement_BlockOffset(statement:Statement, block:Block, offset:number)
+
+  .decl DirectBlockEdge(from:Block, to:Block)
+
+  // To make this more flexible we'll be performing the cloning at the use level:
+  //   pick the interesting blocks
+  //   find their uses (pushes to the stack) that we want to clone
+  // Basic way to compute this would be to only inline blocks for direct jumps
+  .decl BlockToClone(pushBlock:Block, blockToClone:Block)
+  // For each fact of BlockToClone we create an identifier and sort them based on it
+  .decl BlockToCloneOpID(pushBlock:Block, blockToClone:Block, opID:symbol)
+
+  .init cloneOpSorter = OrdAscentingSorter
+
+  .output BlockToClone, DirectBlockEdge
+
+  MaxOriginalStatement(maxStmt):-
+    maxStmtNumber = max stmtNumber : { Statement_Opcode(stmt, _), stmtNumber = @hex_to_number(stmt)},
+    maxStmt = @number_to_hex(maxStmtNumber).
+
+  BlockSize(block, @hex_to_number(tail) - @hex_to_number(block)):-
+    localAnalysis.BasicBlock_Tail(block, tail).
+
+  Statement_BlockOffset(stmt, block, @hex_to_number(stmt) - @hex_to_number(block)):-
+    localAnalysis.Statement_Block(stmt, block).
+
+  .output localAnalysis.ImmediateBlockJumpTarget
+  DirectBlockEdge(from, @cast_to_symbol(to)):-
+    localAnalysis.ImmediateBlockJumpTarget(from, pushedVar),
+    localAnalysis.Variable_Value(pushedVar, to).
+
+  // Lets start by cloning all non immediate blocks.
+  BlockToClone(from, to):-
+    DirectBlockEdge(from, to),
+    DirectBlockEdge(otherFrom, to),
+    localAnalysis.StackBalanceBlock(to),
+    from != otherFrom,
+    !localAnalysis.ImmediateBlockJumpTarget(to, _).
+}
+
+// Adding analytic here to 
+// .decl Analytics_JumpToManyWouldNotHaveBeenCloned(blk:IRBlock)
+// .output Analytics_JumpToManyWouldNotHaveBeenCloned
+
+// Analytics_JumpToManyWouldNotHaveBeenCloned(irblk):-
+//   Analytics_JumpToMany(irblk),
+//   JumpToMany_ImprecisionSource(irblk, blk),
+//   !blockCloner.BlockToClone(_, blk).
+
+.decl Analytics_JumpToManyWouldHaveBeenCloned(blk:IRBlock)
+.output Analytics_JumpToManyWouldHaveBeenCloned
+
+Analytics_JumpToManyWouldHaveBeenCloned(irblk):-
+  Analytics_JumpToMany(irblk),
+  JumpToMany_ImprecisionSource(irblk, blk),
+  blockCloner.BlockToClone(_, blk).
