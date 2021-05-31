@@ -15,15 +15,15 @@
          Generic basic block Reachable-from implementation
 ******/
 
-.decl CanReachUnderContext(fromCtx: Context, ctx: Context, block: Block)
+.decl CanReachUnderContext(fromCtx: Context, ctx: Context)
 .limitsize CanReachUnderContext(n=LIMITSIZE_CAN_REACH_UNDER_CONTEXT)
 
-CanReachUnderContext(ctx, ctx, block) :-
-  ReachableContext(ctx, block).
+CanReachUnderContext(ctx, ctx) :-
+  ReachableContext(ctx, _).
 
-CanReachUnderContext(ctxFrom, ctxTo, blockTo) :-
-  BlockEdge(ctxOther, blockOther, ctxTo, blockTo),
-  CanReachUnderContext(ctxFrom, ctxOther, blockOther).
+CanReachUnderContext(ctxFrom, ctxTo) :-
+  BlockEdge(ctxOther, _, ctxTo, _),
+  CanReachUnderContext(ctxFrom, ctxOther).
 
 
 
@@ -113,7 +113,7 @@ MaybeFunctionCallReturn(ctx, caller, func, retCtx, retBlock, retTarget) :-
   postTrans.Statement_Block(jump, caller),
   postTrans.Statement_Opcode(jump, "JUMP"), //Added to invalidate JUMPIs we will need to deal with them though
   BlockJumpValidTarget(ctx, caller, targetVar, func),
-  CanReachUnderContext(ctx, /*caller,*/ retCtx, retBlock),
+  CanReachUnderContext(ctx, /*caller,*/ retCtx/*, retBlock*/),
   BlockJumpValidTarget(retCtx, retBlock, _, retTarget).
 
 // Introduced to use in many rules that don't use the context of the context-sensitive version
@@ -127,7 +127,7 @@ MaybeFunctionCallReturn_Ins(caller, func, retBlock, retTarget):-
 .decl PossibleReturnAddressWithPositiveRank(callCtx:Context, targetSetter:Block, retCtx:Context, retBlock:Block, retTarget:Block, rank:number)
 PossibleReturnAddressWithPositiveRank(callCtx, caller, retCtx, retBlock, retTarget, n) :-
   PossibleReturnAddressWithRank(callCtx, caller, retCtx, retBlock, retTarget, n),
-  CanReachUnderContext(callCtx, /*caller,*/ retCtx, retBlock),
+  CanReachUnderContext(callCtx, /*caller,*/ retCtx/*, retBlock*/),
   BlockJumpValidTarget(retCtx, retBlock, _, retTarget),
   n > 0,
   n < RETURN_ADDRESS_RANK_THRESHOLD.
