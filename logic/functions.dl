@@ -15,6 +15,10 @@
          Generic basic block Reachable-from implementation
 ******/
 
+.decl ContextEdge(ctxFrom:Context, ctxTo:Context)
+ContextEdge(ctxFrom, ctxTo):-
+  BlockEdge(ctxFrom, _, ctxTo, _).
+
 .decl CanReachUnderContext(fromCtx: Context, ctx: Context)
 .limitsize CanReachUnderContext(n=LIMITSIZE_CAN_REACH_UNDER_CONTEXT)
 
@@ -22,7 +26,8 @@ CanReachUnderContext(ctx, ctx) :-
   ReachableContext(ctx, _).
 
 CanReachUnderContext(ctxFrom, ctxTo) :-
-  BlockEdge(ctxOther, _, ctxTo, _),
+  //BlockEdge(ctxOther, _, ctxTo, _),
+  ContextEdge(ctxOther, ctxTo),
   CanReachUnderContext(ctxFrom, ctxOther).
 
 
