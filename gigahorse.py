@@ -171,7 +171,7 @@ parser.add_argument("-cd",
                     type=int,
                     nargs="?",
                     metavar="NUM",
-                    help="Override the maximum context depth for decompilation (default is 4).")
+                    help="Override the maximum context depth for decompilation (default is 8).")
 
 parser.add_argument("--disable_inline",
                     action="store_true",

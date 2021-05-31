@@ -14,7 +14,7 @@ MaxContextDepth(sigHash, d) :-
    InputMaxContextDepth(d).
 
 #ifndef MAX_CONTEXT_DEPTH
-MaxContextDepth(sigHash, 4) :-
+MaxContextDepth(sigHash, 8) :-
   (postTrans.PublicFunction(_, sigHash);
    sigHash = "0x0"),
   !InputMaxContextDepth(_).
