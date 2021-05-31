@@ -408,7 +408,7 @@ IRFunction_Return_Edge(retir, callerretir) :-
   Block_IRBlock(caller, prevfunc, callerir),
   Block_IRBlock(callerret, prevfunc, callerretir),
   //CanReach(caller, callerret),
-  CanReachUnderContext(ctx, caller, _, callerret),
+  //CanReachUnderContext(ctx, caller, _, callerret),
   Function_IRFunction(func, irfunc).
   //!BlockToClone(func, prevfunc).
 
@@ -466,7 +466,7 @@ IRBlockEdge(irfrom, irto) :-
   MaybeInFunctionUnderContext(ctxFrom, from, func),
   MaybeInFunctionUnderContext(ctxTo, to, func),
   PubFun(func, pubFun),
-  CanReachUnderContext(_, func, ctxFrom, from),
+  //CanReachUnderContext(_, func, ctxFrom, from),
   Context_PublicFunction(ctxTo, pubFun),
   // The following negation makes our code incomplete in cases where the return block
   // can be shared by callee and caller, but keeps our produced IR precise.
@@ -483,7 +483,7 @@ IRBlockEdge(irfrom, irto) :-
   MaybeInFunctionUnderContext(ctxFrom, from, func),
   MaybeInFunctionUnderContext(ctxTo, to, func),
   !PubFun(func, _),
-  CanReachUnderContext(_, func, ctxFrom, from),
+  //CanReachUnderContext(_, func, ctxFrom, from),
   // The following negation makes our code incomplete in cases where the return block
   // can be shared by callee and caller, but keeps our produced IR precise.
   // Removing it results in inconsistent IR (return blocks with local edges from them)
