@@ -231,7 +231,7 @@ NotValidReturnEdge(retBlock, retTarget) :-
 IsFunctionCallReturn(ctx, caller, func, retCtx, retBlock, retTarget) :-
   MaybeFunctionCallReturn(ctx, caller, func, retCtx, retBlock, retTarget),
   //FunctionCalledMultipleTimes(func),
-  (FunctionCalledMultipleTimes(func) ; FunctionSharesReturnBlock(func)),
+  (FunctionCalledMultipleTimes(func) ; FunctionSharesReturnBlock(func) ; postTrans.StackBalanceBlock(retBlock)),
   //!NotValidReturnBlock(func, retBlock),
   !NotValidReturnEdge(retBlock, retTarget).
 
