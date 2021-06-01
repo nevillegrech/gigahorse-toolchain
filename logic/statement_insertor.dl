@@ -267,7 +267,9 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
 
   .init cloneOpSorter = OrdAscentingSorter
 
-  .output BlockToClone, DirectBlockEdge
+  .decl Block_OriginalBlock(block:Block, originalBlock:Block)
+  .output Block_OriginalBlock
+  .output BlockToClone, DirectBlockEdge, BlockToCloneNewInstance
 
   MaxOriginalStatement(maxStmt):-
     maxStmtNumber = max stmtNumber : { Statement_Opcode(stmt, _), stmtNumber = @hex_to_number(stmt)},
@@ -370,6 +372,11 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
     PushValue(oldStmt, val),
     StatementToClonedStatement(_, _, oldStmt, clonedStmt).
 
+  Block_OriginalBlock(block, block):-
+    localAnalysis.Statement_Block(_, block).
+  
+  Block_OriginalBlock(block, originalBlock):-
+    BlockToCloneNewInstance(_, originalBlock, block).
 }
 
 // Adding analytic here to 
@@ -382,7 +389,7 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
 //   !blockCloner.BlockToClone(_, blk).
 
 .decl Analytics_JumpToManyWouldHaveBeenCloned(blk:IRBlock)
-.output Analytics_JumpToManyWouldHaveBeenCloned
+.output Analytics_JumpToManyWouldHaveBeenCloned, PrivateFunctionCallOrReturn
 
 Analytics_JumpToManyWouldHaveBeenCloned(irblk):-
   Analytics_JumpToMany(irblk),
