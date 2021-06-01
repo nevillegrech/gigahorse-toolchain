@@ -264,7 +264,7 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
   .decl BlockToCloneNewInstance(pushBlock:Block, blockToClone:Block, generatedBlock:Block)
 
   .decl StatementToClonedStatement(pushBlock:Block, blockToClone:Block, stmt:Statement, generatedStatement:Statement)
-
+  .output StatementToClonedStatement
   .init cloneOpSorter = OrdAscentingSorter
 
   .decl Block_OriginalBlock(block:Block, originalBlock:Block)
@@ -294,6 +294,8 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
     DirectBlockEdge(from, to),
     DirectBlockEdge(otherFrom, to),
     localAnalysis.StackBalanceBlock(to),
+    localAnalysis.Statement_Block(stmt, to),
+    localAnalysis.Statement_Opcode(stmt, "JUMP"),
     from != otherFrom,
     !localAnalysis.ImmediateBlockJumpTarget(to, _).
 
