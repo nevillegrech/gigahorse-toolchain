@@ -5,32 +5,12 @@
 #define RETURN_ADDRESS_RANK_THRESHOLD 25
 #define LIMITSIZE_CAN_REACH_UNDER_CONTEXT 25000000
 
-#ifdef DEBUG
-.output BlockEdge, FallthroughEdge, BlockJumpValidTarget, BlockJumpTarget, MaybeInFunctionUnderContext
-.output NotValidReturnBlock, NotValidReturnEdge
-.output MaybeFunctionCallReturn // DEBUG
-.output CanReachUnderContext //DEBUG
-.output PotentialCall // DEBUG
-.output PossibleReturnAddressWithPos // DEBUG
-.output IsFunctionCallReturn // DEBUG
-.output IsFunctionEntry, IsFunctionCall, BlockToClone, MaybeInFunction // DEBUG
-.output PossibleImpreciseNumberOfFunctionArguments, PossibleFunctionalBlockPopAndStackDelta
-.output MaxRankForPossibleReturnAddressSetter
-
-.output PossibleNumberOfFunctionArguments
-.output PossibleNumberOfFunctionReturnArguments
-.output PossibleCombinedNumberOfFunctionReturnsAndArguments
-.output NumberOfFunctionArguments
-.output NumberOfFunctionReturnArguments
-
-.output Variable_String
-#endif
 
 /*****
  * Function discovery logic
  *****/
 
-   
+
 /******
          Generic basic block Reachable-from implementation
 ******/
@@ -310,7 +290,7 @@ MaybeInFunctionUnderContext(ctx, next, func) :-
 .decl OptMaybeInFunctionUnderContext(callerCtx: Context, caller:Block, func:Block)
 OptMaybeInFunctionUnderContext(callerCtx, caller, func) :-
   MaybeInFunctionUnderContext(callerCtx, caller, func),
-  MaybeFunctionCallReturn(callerCtx, caller, _, _, _, _).
+  MaybeFunctionCallReturn(callerCtx, caller, _, _, _, _). // TODO: Make this consistent.
 
 
 .decl MaybeInFunction(block:Block, func:Block)

@@ -21,3 +21,6 @@
 #include "decompiler_analytics.dl"
 #endif
 
+#ifdef DEBUG
+#include "debug.dl"
+#endif
