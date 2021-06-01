@@ -200,6 +200,12 @@ FunctionSharesReturnBlock(func) :-
   MaybeFunctionCallReturn_Ins(_, func2, retBlock, _),
   func != func2.
 
+.decl FunctionReturnIsStackBalanceBlock(func:Block)
+FunctionReturnIsStackBalanceBlock(func) :-
+  MaybeFunctionCallReturn_Ins(_, func, retBlock, _),
+  postTrans.StackBalanceBlock(retBlock).
+
+
 // Return block can only pertain to one function!
 .decl NotValidReturnBlock(func: Block, retBlock: Block) 
 NotValidReturnBlock(func, retBlock) :-
@@ -231,7 +237,7 @@ NotValidReturnEdge(retBlock, retTarget) :-
 IsFunctionCallReturn(ctx, caller, func, retCtx, retBlock, retTarget) :-
   MaybeFunctionCallReturn(ctx, caller, func, retCtx, retBlock, retTarget),
   //FunctionCalledMultipleTimes(func),
-  (FunctionCalledMultipleTimes(func) ; FunctionSharesReturnBlock(func) ; postTrans.StackBalanceBlock(retBlock)),
+  (FunctionCalledMultipleTimes(func) ; FunctionSharesReturnBlock(func) ; FunctionReturnIsStackBalanceBlock(func)),
   //!NotValidReturnBlock(func, retBlock),
   !NotValidReturnEdge(retBlock, retTarget).
 
