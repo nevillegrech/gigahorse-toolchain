@@ -5,53 +5,38 @@
 #define RETURN_ADDRESS_RANK_THRESHOLD 25
 #define LIMITSIZE_CAN_REACH_UNDER_CONTEXT 25000000
 
-#ifdef DEBUG
-.output BlockEdge, FallthroughEdge, BlockJumpValidTarget, BlockJumpTarget, MaybeInFunctionUnderContext
-.output NotValidReturnBlock, NotValidReturnEdge
-.output MaybeFunctionCallReturn // DEBUG
-.output CanReachUnderContext //DEBUG
-.output PotentialCall // DEBUG
-.output PossibleReturnAddressWithPos // DEBUG
-.output IsFunctionCallReturn // DEBUG
-.output IsFunctionEntry, IsFunctionCall, BlockToClone, MaybeInFunction // DEBUG
-.output PossibleImpreciseNumberOfFunctionArguments, PossibleFunctionalBlockPopAndStackDelta
-.output MaxRankForPossibleReturnAddressSetter
-
-.output PossibleNumberOfFunctionArguments
-.output PossibleNumberOfFunctionReturnArguments
-.output PossibleCombinedNumberOfFunctionReturnsAndArguments
-.output NumberOfFunctionArguments
-.output NumberOfFunctionReturnArguments
-
-.output Variable_String
-#endif
 
 /*****
  * Function discovery logic
  *****/
 
-   
+
 /******
          Generic basic block Reachable-from implementation
 ******/
 
-.decl CanReachUnderContext(fromCtx: Context, from:Block, ctx: Context, block: Block)
+.decl ContextEdge(ctxFrom:Context, ctxTo:Context)
+ContextEdge(ctxFrom, ctxTo):-
+  BlockEdge(ctxFrom, _, ctxTo, _).
+
+.decl CanReachUnderContext(fromCtx: Context, ctx: Context)
 .limitsize CanReachUnderContext(n=LIMITSIZE_CAN_REACH_UNDER_CONTEXT)
 
-CanReachUnderContext(ctx, block, ctx, block) :-
-  ReachableContext(ctx, block).
+CanReachUnderContext(ctx, ctx) :-
+  ReachableContext(ctx, _).
 
-CanReachUnderContext(ctxFrom, blockFrom, ctxTo, blockTo) :-
-  BlockEdge(ctxOther, blockOther, ctxTo, blockTo),
-  CanReachUnderContext(ctxFrom, blockFrom, ctxOther, blockOther).
+CanReachUnderContext(ctxFrom, ctxTo) :-
+  //BlockEdge(ctxOther, _, ctxTo, _),
+  ContextEdge(ctxOther, ctxTo),
+  CanReachUnderContext(ctxFrom, ctxOther).
 
 
 
 // Derived from the context-sensitive version, maintains max precision when
 // contexts aren't needed.
-.decl CanReach(from:Block, block:Block)
-CanReach(from, to) :-
-  CanReachUnderContext(_, from, _, to).
+//.decl CanReach(from:Block, block:Block)
+//CanReach(from, to) :-
+//  CanReachUnderContext(_, from, _, to).
 
 /******
          Heuristics for detecting call-return patterns
@@ -133,8 +118,8 @@ MaybeFunctionCallReturn(ctx, caller, func, retCtx, retBlock, retTarget) :-
   postTrans.Statement_Block(jump, caller),
   postTrans.Statement_Opcode(jump, "JUMP"), //Added to invalidate JUMPIs we will need to deal with them though
   BlockJumpValidTarget(ctx, caller, targetVar, func),
-  CanReachUnderContext(ctx, caller, retCtx, retBlock),
-  CanReachUnderContext(retCtx, retBlock, _, retTarget).
+  CanReachUnderContext(ctx, /*caller,*/ retCtx/*, retBlock*/),
+  BlockJumpValidTarget(retCtx, retBlock, _, retTarget).
 
 // Introduced to use in many rules that don't use the context of the context-sensitive version
 // Should be used when possible because the latter can get very heavy
@@ -147,8 +132,8 @@ MaybeFunctionCallReturn_Ins(caller, func, retBlock, retTarget):-
 .decl PossibleReturnAddressWithPositiveRank(callCtx:Context, targetSetter:Block, retCtx:Context, retBlock:Block, retTarget:Block, rank:number)
 PossibleReturnAddressWithPositiveRank(callCtx, caller, retCtx, retBlock, retTarget, n) :-
   PossibleReturnAddressWithRank(callCtx, caller, retCtx, retBlock, retTarget, n),
-  CanReachUnderContext(callCtx, caller, retCtx, retBlock),
-  CanReachUnderContext(retCtx, retBlock, _, retTarget),
+  CanReachUnderContext(callCtx, /*caller,*/ retCtx/*, retBlock*/),
+  BlockJumpValidTarget(retCtx, retBlock, _, retTarget),
   n > 0,
   n < RETURN_ADDRESS_RANK_THRESHOLD.
 
@@ -310,7 +295,7 @@ MaybeInFunctionUnderContext(ctx, next, func) :-
 .decl OptMaybeInFunctionUnderContext(callerCtx: Context, caller:Block, func:Block)
 OptMaybeInFunctionUnderContext(callerCtx, caller, func) :-
   MaybeInFunctionUnderContext(callerCtx, caller, func),
-  MaybeFunctionCallReturn(callerCtx, caller, _, _, _, _).
+  MaybeFunctionCallReturn(callerCtx, caller, _, _, _, _). // TODO: Make this consistent.
 
 
 .decl MaybeInFunction(block:Block, func:Block)
@@ -428,7 +413,7 @@ IRFunction_Return_Edge(retir, callerretir) :-
   Block_IRBlock(caller, prevfunc, callerir),
   Block_IRBlock(callerret, prevfunc, callerretir),
   //CanReach(caller, callerret),
-  CanReachUnderContext(ctx, caller, _, callerret),
+  //CanReachUnderContext(ctx, caller, _, callerret),
   Function_IRFunction(func, irfunc).
   //!BlockToClone(func, prevfunc).
 
@@ -486,7 +471,7 @@ IRBlockEdge(irfrom, irto) :-
   MaybeInFunctionUnderContext(ctxFrom, from, func),
   MaybeInFunctionUnderContext(ctxTo, to, func),
   PubFun(func, pubFun),
-  CanReachUnderContext(_, func, ctxFrom, from),
+  //CanReachUnderContext(_, func, ctxFrom, from),
   Context_PublicFunction(ctxTo, pubFun),
   // The following negation makes our code incomplete in cases where the return block
   // can be shared by callee and caller, but keeps our produced IR precise.
@@ -503,7 +488,7 @@ IRBlockEdge(irfrom, irto) :-
   MaybeInFunctionUnderContext(ctxFrom, from, func),
   MaybeInFunctionUnderContext(ctxTo, to, func),
   !PubFun(func, _),
-  CanReachUnderContext(_, func, ctxFrom, from),
+  //CanReachUnderContext(_, func, ctxFrom, from),
   // The following negation makes our code incomplete in cases where the return block
   // can be shared by callee and caller, but keeps our produced IR precise.
   // Removing it results in inconsistent IR (return blocks with local edges from them)
