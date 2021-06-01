@@ -252,6 +252,7 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
 
   .decl DirectBlockJumpToAddrPushedBy(from:Block, pushStmt:Statement)
 
+  .decl BlockPushesBlockToStack(from: Block, pushedBlock: Block)
   // To make this more flexible we'll be performing the cloning at the use level:
   //   pick the interesting blocks
   //   find their uses (pushes to the stack) that we want to clone
@@ -269,7 +270,7 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
 
   .decl Block_OriginalBlock(block:Block, originalBlock:Block)
   .output Block_OriginalBlock
-  .output BlockToClone, DirectBlockEdge, BlockToCloneNewInstance
+  .output BlockToClone, DirectBlockEdge, BlockPushesBlockToStack, BlockToCloneNewInstance
 
   MaxOriginalStatement(maxStmt):-
     maxStmtNumber = max stmtNumber : { Statement_Opcode(stmt, _), stmtNumber = @hex_to_number(stmt)},
@@ -289,10 +290,19 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
     localAnalysis.ImmediateBlockJumpTarget(from, pushedVar),
     localAnalysis.Statement_Defines(pushStmt, pushedVar).
 
+  BlockPushesBlockToStack(block, @cast_to_symbol(pushedBlock)):-
+    localAnalysis.Variable_Value(pushedVar, pushedBlock),
+    localAnalysis.JUMPDEST(@cast_to_symbol(pushedBlock)),
+    localAnalysis.Statement_Defines(pushStmt, pushedVar),
+    localAnalysis.Statement_Block(pushStmt, block).
+
   // Lets start by cloning all non immediate blocks.
   BlockToClone(from, to):-
     DirectBlockEdge(from, to),
-    DirectBlockEdge(otherFrom, to),
+    //DirectBlockEdge(otherFrom, to),
+    // REVIEW: Used to be that they had 2 distinct direct jumps to them
+    // Now one is enough, as long as another block also pushes it to its stack
+    BlockPushesBlockToStack(otherFrom, to),
     localAnalysis.StackBalanceBlock(to),
     localAnalysis.Statement_Block(stmt, to),
     localAnalysis.Statement_Opcode(stmt, "JUMP"),
