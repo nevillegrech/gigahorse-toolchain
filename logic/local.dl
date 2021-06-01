@@ -501,7 +501,8 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
 
   .decl StackBalanceBlock(block:Block)
   StackBalanceBlock(block):-
-    Statement_Block(_, block),
+    Statement_Block(jump, block),
+    Statement_Opcode(jump, "JUMP"),
     stackAltCount = count: {
       Statement_Block(stmt, block), 
       Statement_Opcode(stmt, op), 

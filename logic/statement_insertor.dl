@@ -304,8 +304,6 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
     // Now one is enough, as long as another block also pushes it to its stack
     BlockPushesBlockToStack(otherFrom, to),
     localAnalysis.StackBalanceBlock(to),
-    localAnalysis.Statement_Block(stmt, to),
-    localAnalysis.Statement_Opcode(stmt, "JUMP"),
     from != otherFrom,
     !localAnalysis.ImmediateBlockJumpTarget(to, _).
 
