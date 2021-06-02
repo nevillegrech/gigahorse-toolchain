@@ -271,7 +271,7 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
 
   .decl Block_OriginalBlock(block:Block, originalBlock:Block)
   .output Block_OriginalBlock
-  .output BlockToClone, DirectBlockEdge, BlockPushedToStack, BlockPushesBlockToStack, BlockToCloneNewInstance
+  .output BlockToClone, DirectBlockEdge, BlockPushedToStack, BlockPushesBlockToStack, BlockToCloneNewInstance, ClonedBlockAddressPushedBy
 
   MaxOriginalStatement(maxStmt):-
     maxStmtNumber = max stmtNumber : { Statement_Opcode(stmt, _), stmtNumber = @hex_to_number(stmt)},
@@ -297,7 +297,7 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
     BlockToClone(pushBlock, blockToClone),
     BlockPushesBlockToStack(pushBlock, blockToClone),
     BlockPushedToStack(pushStmt, _, blockToClone),
-    localAnalysis.Statement_Block(pushStmt, blockToClone).
+    localAnalysis.Statement_Block(pushStmt, pushBlock).
 
   BlockPushedToStack(pushStmt, pushedVar, @cast_to_symbol(pushedBlock)):-
     localAnalysis.Variable_Value(pushedVar, pushedBlock),
