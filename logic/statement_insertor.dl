@@ -250,8 +250,9 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
 
   .decl DirectBlockEdge(from:Block, to:Block)
 
-  .decl DirectBlockJumpToAddrPushedBy(from:Block, pushStmt:Statement)
+  .decl ClonedBlockAddressPushedBy(pushBlock:Block, pushStmt:Statement, blockToClone:Block)
 
+  .decl BlockPushedToStack(pushStmt:Statement, pushedVar:Variable, pushedBlock:Block)
   .decl BlockPushesBlockToStack(from: Block, pushedBlock: Block)
   // To make this more flexible we'll be performing the cloning at the use level:
   //   pick the interesting blocks
@@ -270,7 +271,7 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
 
   .decl Block_OriginalBlock(block:Block, originalBlock:Block)
   .output Block_OriginalBlock
-  .output BlockToClone, DirectBlockEdge, BlockPushesBlockToStack, BlockToCloneNewInstance
+  .output BlockToClone, DirectBlockEdge, BlockPushedToStack, BlockPushesBlockToStack, BlockToCloneNewInstance
 
   MaxOriginalStatement(maxStmt):-
     maxStmtNumber = max stmtNumber : { Statement_Opcode(stmt, _), stmtNumber = @hex_to_number(stmt)},
@@ -286,19 +287,30 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
     localAnalysis.ImmediateBlockJumpTarget(from, pushedVar),
     localAnalysis.Variable_Value(pushedVar, to).
 
-  DirectBlockJumpToAddrPushedBy(from, pushStmt):-
-    localAnalysis.ImmediateBlockJumpTarget(from, pushedVar),
-    localAnalysis.Statement_Defines(pushStmt, pushedVar).
+  // Disable this for now. Try different way to inline.
+  // DirectBlockJumpToAddrPushedBy(from, pushStmt):-
+  //   localAnalysis.ImmediateBlockJumpTarget(from, pushedVar),
+  //   localAnalysis.Statement_Defines(pushStmt, pushedVar).
+  
+  //Maybe change it to only consider direct block edges again?
+  ClonedBlockAddressPushedBy(pushBlock, pushStmt, blockToClone):-
+    BlockToClone(pushBlock, blockToClone),
+    BlockPushesBlockToStack(pushBlock, blockToClone),
+    BlockPushedToStack(pushStmt, _, blockToClone),
+    localAnalysis.Statement_Block(pushStmt, blockToClone).
 
-  BlockPushesBlockToStack(block, @cast_to_symbol(pushedBlock)):-
+  BlockPushedToStack(pushStmt, pushedVar, @cast_to_symbol(pushedBlock)):-
     localAnalysis.Variable_Value(pushedVar, pushedBlock),
     localAnalysis.JUMPDEST(@cast_to_symbol(pushedBlock)),
-    localAnalysis.Statement_Defines(pushStmt, pushedVar),
+    localAnalysis.Statement_Defines(pushStmt, pushedVar).
+
+  BlockPushesBlockToStack(block, pushedBlock):-
+    BlockPushedToStack(pushStmt, _, pushedBlock),
     localAnalysis.Statement_Block(pushStmt, block).
 
   // Lets start by cloning all non immediate blocks.
   BlockToClone(from, to):-
-    DirectBlockEdge(from, to),
+    BlockPushesBlockToStack(from, to),
     //DirectBlockEdge(otherFrom, to),
     // REVIEW: Used to be that they had 2 distinct direct jumps to them
     // Now one is enough, as long as another block also pushes it to its stack
@@ -366,18 +378,14 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
 
   Out_PushValue(oldStmt, oldVal):-
     PushValue(oldStmt, oldVal),
-    !DirectBlockJumpToAddrPushedBy(_, oldStmt).
-
-  Out_PushValue(oldStmt, oldVal):-
-    PushValue(oldStmt, oldVal),
-    DirectBlockJumpToAddrPushedBy(pushBlock, oldStmt),
-    !BlockToClone(pushBlock, _).
+    !ClonedBlockAddressPushedBy(_, oldStmt, _).
 
   Out_PushValue(oldStmt, @cast_to_symbol(newVal)):-
     PushValue(oldStmt, _),
-    DirectBlockJumpToAddrPushedBy(pushBlock, oldStmt),
-    BlockToCloneNewInstance(pushBlock, _, newVal).
+    ClonedBlockAddressPushedBy(pushBlock, oldStmt, blockToClone),
+    BlockToCloneNewInstance(pushBlock, blockToClone, newVal).
 
+  // Note: For now the cloned blocks should have no pushes
   Out_PushValue(clonedStmt, val):-
     PushValue(oldStmt, val),
     StatementToClonedStatement(_, _, oldStmt, clonedStmt).
