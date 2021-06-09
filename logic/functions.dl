@@ -5,12 +5,6 @@
 #define RETURN_ADDRESS_RANK_THRESHOLD 25
 #define LIMITSIZE_CAN_REACH_UNDER_CONTEXT 25000000
 
-// Experiment with different limits than global stack
-#define MAX_FUNCTIONAL_STACK_HEIGHT 50
-#define CheckIsFunctionalStackIndex(v) ((v) >= 0, (v) < MAX_FUNCTIONAL_STACK_HEIGHT)
-#define CheckIsFunctionalPopDelta(v) ((v) >= 0, (v) < MAX_FUNCTIONAL_STACK_HEIGHT)
-#define CheckIsFunctionalStackDelta(n) ((n) < MAX_FUNCTIONAL_STACK_HEIGHT, (n) > -MAX_FUNCTIONAL_STACK_HEIGHT)
-
 
 /*****
  * Function discovery logic
@@ -726,7 +720,7 @@ FunctionalBlockPopDelta(from, newPopDelta) :-
   PossibleImpreciseNumberOfFunctionArguments(func, n_args),
   IRBlockStackDelta(from, stackDelta),
   newPopDelta = @max2(n_args - stackDelta, popDelta),
-  CheckIsFunctionalPopDelta(newPopDelta).
+  CheckIsPopDelta(newPopDelta).
 
 
 // What is the total difference in stack level during this block ?
@@ -744,7 +738,7 @@ FunctionalBlockStackDelta(from, newStackDelta) :-
   PossibleCombinedNumberOfFunctionReturnsAndArguments(func, ret, n_args, n_ret),
   IRBlockStackDelta(from, stackDelta),
   newStackDelta = stackDelta - n_args + n_ret,
-  CheckIsFunctionalStackDelta(newStackDelta).
+  CheckIsStackDelta(newStackDelta).
 
 // What about calls with no return? These don't get back to the
 // caller, so we never care about the level they leave the stack at,
@@ -789,58 +783,15 @@ NotCycleEntryLocalBlockEdge(from, to) :-
    LocalBlockEdge(from, to),
    !PotentialCycleEntry(to).
 
-.decl PossibleCyclicFunctionalBlockPopAndStackDeltaHelper(func: IRFunction, from: IRBlock, oldPath: Path, newPath: Path, popDelta: number, stackDelta: number)
-
-.decl PossibleCyclicFunctionalBlockEdgePopAndStackDeltaHelper(func: IRFunction, from: IRBlock, to: IRBlock, oldPath: Path, newPath: Path, prevPopDelta: number, prevStackDelta: number)
-
-.decl AddToPathRequest(prevPath:Path, blockToAdd:IRBlock)
-
-.decl AddToPathResponse(prevPath:Path, blockToAdd:IRBlock, newPath:Path)
-
-AddToPathRequest(prevPath, to):-
-  PossibleFunctionalBlockPopAndStackDelta(_, from, prevPath, _, _),
-  PotentialCycleEntryLocalBlockEdge(from, to).
-
-AddToPathResponse(prevPath, to, @add_set(prevPath, to)):-
-  AddToPathRequest(prevPath, to).
-
-// PossibleCyclicFunctionalBlockEdgePopAndStackDeltaHelper(func, from, to, prevPath, newPath, prevPopDelta, prevStackDelta):-
-//   PossibleFunctionalBlockPopAndStackDelta(func, from, prevPath, prevPopDelta, prevStackDelta),
-//   PotentialCycleEntryLocalBlockEdge(from, to),
-//   AddToPathResponse(prevPath, to, newPath).
-//   .plan 1:(3,2,1)
-
-PossibleCyclicFunctionalBlockPopAndStackDeltaHelper(func, to, prevPath, newPath, newPopDelta, newStackDelta):-
-  // PossibleCyclicFunctionalBlockEdgePopAndStackDeltaHelper(func, from, to, prevPath, newPath, prevPopDelta, prevStackDelta),
-  PossibleFunctionalBlockPopAndStackDelta(func, from, prevPath, prevPopDelta, prevStackDelta),
-  PotentialCycleEntryLocalBlockEdge(from, to),
-  AddToPathResponse(prevPath, to, newPath),
-  FunctionalBlockPopAndStackDelta(from, popDelta, stackDelta),
-  newStackDelta = stackDelta + prevStackDelta,
-  newPopDelta = @max2(popDelta - prevStackDelta, prevPopDelta).
-  .plan 1:(3,1,2,4), 2:(4,1,2,3)
 
 PossibleFunctionalBlockPopAndStackDelta(func, to, newPath, newPopDelta, newStackDelta) :-
-  //PossibleCyclicFunctionalBlockPopAndStackDeltaHelper(func, to, prevPath, newPath, newPopDelta, newStackDelta),
   PossibleFunctionalBlockPopAndStackDelta(func, from, prevPath, prevPopDelta, prevStackDelta),
-  PotentialCycleEntryLocalBlockEdge(from, to),
-  AddToPathResponse(prevPath, to, newPath),
+  ((PotentialCycleEntryLocalBlockEdge(from, to), newPath = @add_set(prevPath, to), newPath != prevPath) ;
+    (NotCycleEntryLocalBlockEdge(from, to), newPath = prevPath)),
   FunctionalBlockPopAndStackDelta(from, popDelta, stackDelta),
   newStackDelta = stackDelta + prevStackDelta,
   newPopDelta = @max2(popDelta - prevStackDelta, prevPopDelta),
-  newPath != prevPath,
-  CheckIsFunctionalPopDelta(newPopDelta),
-  CheckIsFunctionalStackDelta(newStackDelta).
-  .plan 1:(3,1,2,4), 2:(4,1,2,3)
-  // TODO: Improve plan 1
-
-PossibleFunctionalBlockPopAndStackDelta(func, to, prevPath, newPopDelta, newStackDelta) :-
-  PossibleFunctionalBlockPopAndStackDelta(func, from, prevPath, prevPopDelta, prevStackDelta),
-  NotCycleEntryLocalBlockEdge(from, to),
-  FunctionalBlockPopAndStackDelta(from, popDelta, stackDelta),
-  newStackDelta = stackDelta + prevStackDelta,
-  newPopDelta = @max2(popDelta - prevStackDelta, prevPopDelta),
-  CheckIsFunctionalPopDelta(newPopDelta), CheckIsFunctionalStackDelta(newStackDelta).
+  CheckIsPopDelta(newPopDelta), CheckIsStackDelta(newStackDelta).
   .plan 1:(3,2,1)
 
 // Basic blocks that need to be checked for cycles in path sensitive algorithms
@@ -868,9 +819,9 @@ PossibleCombinedNumberOfFunctionReturnsAndArguments(func, terminal, numArg, numR
   PossibleFunctionalBlockPopAndStackDelta(func, terminal, _, prevPopDelta, prevStackDelta),
   FunctionalBlockPopAndStackDelta(terminal, popDelta, stackDelta),
   numArg = @max2(popDelta - prevStackDelta, prevPopDelta),
-  CheckIsFunctionalPopDelta(numArg),
+  CheckIsPopDelta(numArg),
   numRet = prevStackDelta + stackDelta + numArg,
-  CheckIsFunctionalStackIndex(numRet).
+  CheckIsStackIndex(numRet).
     // When leaving the stack with d more items but it originally
     // contained a args, the total number of returned values is d+a.
  .plan 1:(2,1)
@@ -1013,7 +964,7 @@ FunctionalBlockOutputContents(caller, newIndex, variable) :-
    NumberOfFunctionArguments(func, n_in),
    index >= n_in,
    newIndex = index+n_out-n_in,
-   CheckIsFunctionalStackIndex(newIndex).
+   CheckIsStackIndex(newIndex).
 
 .decl BeforeFunctionCallFunctionalBlockOutputContents(caller: IRBlock, index: StackIndex, variable: Variable)
 
@@ -1037,7 +988,7 @@ BeforeFunctionCallFunctionalBlockOutputContents(block, index, realVariable) :-
   FunctionalBlockInputContents(block, stackIndex, realVariable),
   IRBasicBlock_Tail(block, stmt),
   IRLocalStackContents(stmt, index, stackIndex),
-  CheckIsFunctionalStackIndex(stackIndex).
+  CheckIsStackIndex(stackIndex).
 
 
 // TODO, check case for function call
@@ -1079,7 +1030,7 @@ FunctionalStatement_Defines(irstmt, newVar, 0) :-
 // Case: variable originates elsewhere
 FunctionalStatement_Uses(stmt, var, n) :-
    IRStatement_Uses_Local(stmt, stackIndex, n),
-   CheckIsFunctionalStackIndex(stackIndex),
+   CheckIsStackIndex(stackIndex),
    IRStatement_Block(stmt, block),
    FunctionalBlockInputContents(block, stackIndex, var).
 
