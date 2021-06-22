@@ -22,7 +22,9 @@ ContextEdge(ctxFrom, ctxTo):-
   BlockEdge(ctxFrom, _, ctxTo, _).
 
 .decl ContextCanReach(fromCtx: Context, ctx: Context)
+#ifdef ENABLE_LIMITSIZE
 .limitsize ContextCanReach(n=LIMITSIZE_CAN_REACH_UNDER_CONTEXT)
+#endif
 
 ContextCanReach(ctx, ctx) :-
   ReachableContext(ctx, _).
