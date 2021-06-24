@@ -73,7 +73,4 @@ def main():
 
 
 if __name__ == "__main__":
-    try:
-        main()
-    except:
-        __import__('pdb').set_trace()
+    main()
