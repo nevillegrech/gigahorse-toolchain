@@ -14,7 +14,7 @@ MaxContextDepth(sigHash, d) :-
    InputMaxContextDepth(d).
 
 #ifndef MAX_CONTEXT_DEPTH
-MaxContextDepth(sigHash, 8) :-
+MaxContextDepth(sigHash, 66) :-
   (postTrans.PublicFunction(_, sigHash);
    sigHash = "0x0"),
   !InputMaxContextDepth(_).
@@ -43,6 +43,13 @@ DropLast(ctx, newCtx) :-
   newCtx = [ block, newRest ].
   .plan 1:(2,1,3), 2:(3,1,2)
 
+.decl PrivateContextContainsElement(ctx: PrivateContext, element: Block)
+PrivateContextContainsElement(ctx, element) :-
+  DecomposePrivateContext(ctx, element, _).
+PrivateContextContainsElement(ctx, element) :-
+  PrivateContextContainsElement(rest, element),
+  DecomposePrivateContext(ctx, _, rest).
+  
 .decl PrivateContextDepth(ctx : PrivateContext, depth : number)
 PrivateContextDepth(init, 0) :-
   InitialPrivateContext(init).
@@ -53,13 +60,13 @@ PrivateContextDepth(ctx, depth + 1) :-
   .plan 1:(2,1)
 
 .decl TruncateContext(publicFun:symbol, ctx: PrivateContext, newCtx : PrivateContext)
-
+/*
 TruncateContext(pub, ctx, newCtx) :-
   PrivateContextDepth(ctx, maxDepth),
   MaxContextDepth(pub, maxDepth),
   DropLast(ctx, newCtx).
   .plan 1:(3,1,2)
-
+*/
 TruncateContext(pub, ctx, ctx) :-
   PrivateContextDepth(ctx, depth),
   MaxContextDepth(pub, maxDepth),
