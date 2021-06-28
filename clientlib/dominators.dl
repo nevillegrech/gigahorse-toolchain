@@ -104,23 +104,25 @@ LocalStatementPathInBlock(stmt1, stmt3):-
 /**
   Component used to get a cheap statement-level global may happen before relation if we can describe the sets of statements
   relevant to our query at compile time.
-  This can be used to answer questions like: "Can we have an SSTORE statement to the same address, one followed by the other?"
+  This can be used to answer questions like: "Can we have two SSTORE statements to the same address, one followed by the other?"
 
   This is useful because computing such relations (all-pairs) at the statement-level is prohibitively expensive
   but computing them top-down (on demand) like this makes it very cheap even inter-procedurally.
 
-  The Before(before:Statement, arg:symbol) and After(after:Statement, arg:symbol) input relations are populated at every instantiation of the component
-  to describe the relevant sets of statements for our query.
+  The Before(before:Statement, arg:symbol) and After(after:Statement, arg:symbol) input relations
+  are populated at every instantiation of the component to describe the relevant sets of statements for our query.
 
   Output relation MayHappenBefore(before:Statement, after:Statement, arg:symbol) will contain a subset of statements `before`,`after` such that
   statement `before` can be executed before statement `after` for some program path. Both statements are associated with the same `arg`.
 
+  Only external (outside of the component) library relations used are LocalStatementPathInBlock and LocalBlockPath.
+
   The example described above would be:
-    .init storesSameAddress = MayHappenBeforeWithArg
+    .init storesSameAddress = MayHappenBeforeGlobalWithArg
     storesSameAddress.Before(before, val):- SSTORE(before, var, _), Variable_Value(var, val).
     storesSameAddress.After(after, val):- SSTORE(after, var, _), Variable_Value(var, val).
 */
-.comp MayHappenBeforeWithArg {
+.comp MayHappenBeforeGlobalWithArg {
   // Input relations
   .decl Before(before:Statement, arg:symbol)
   .decl After(after:Statement, arg:symbol)
@@ -182,8 +184,10 @@ LocalStatementPathInBlock(stmt1, stmt3):-
   This is useful because computing such relations (all-pairs) at the statement-level is prohibitively expensive
   but computing them top-down (on demand) like this makes it very cheap even inter-procedurally.
 
-  The Before(before:Statement) and After(after:Statement) input relations are populated at every instantiation of the component
-  to describe the relevant sets of statements for our query.
+  Internally it uses MayHappenBeforeGlobalWithArg.
+
+  The Before(before:Statement) and After(after:Statement) input relations are populated
+  at every instantiation of the component to describe the relevant sets of statements for our query.
 
   Output relation MayHappenBefore(before:Statement, after:Statement) will contain a subset of statements `before`,`after` such that
   statement `before` can be executed before statement `after` for some program path.
@@ -202,7 +206,7 @@ LocalStatementPathInBlock(stmt1, stmt3):-
   // Output relation 'before' can happen before 'after'
   .decl MayHappenBefore(before:Statement, after:Statement)
 
-  .init mayHappenBeforeInternal = MayHappenBeforeWithArg
+  .init mayHappenBeforeInternal = MayHappenBeforeGlobalWithArg
 
   mayHappenBeforeInternal.Before(before, "NULL"):- Before(before).
   mayHappenBeforeInternal.After(after, "NULL"):- After(after).
@@ -210,11 +214,29 @@ LocalStatementPathInBlock(stmt1, stmt3):-
   MayHappenBefore(before, after):- mayHappenBeforeInternal.MayHappenBefore(before, after, "NULL").
 }
 
+/**
+  Component used to get a cheap statement-level global may happen before relation if we can describe the sets of statements
+  relevant to our query at compile time.
+
+  This is useful because computing such relations (all-pairs) at the statement-level is prohibitively expensive
+  but computing them top-down (on demand) like this makes it very cheap even inter-procedurally.
+
+  Internally it uses two instantiations of MayHappenBeforeGlobal.
+
+  The Before(before:Statement), Between(between:Statement), and After(after:Statement) input relations
+  are populated at every instantiation of the component to describe the relevant sets of statements for our query.
+
+  Output relation MayHappenInBetween(before:Statement, between:Statement, after:Statement) will contain a subset of statements `before`, `between`, `after`
+  such that statement `between` can be executed after statement `before` and before statement `after`, for some program path.
+*/
+
 .comp MayHappenInBetweenGlobal {
+  // Input relations
   .decl Before(before:Statement)
   .decl Between(between:Statement)
   .decl After(after:Statement)
 
+  // Output relation
   .decl MayHappenInBetween(before:Statement, between:Statement, after:Statement)
 
   .init beforeToBetween = MayHappenBeforeGlobal
