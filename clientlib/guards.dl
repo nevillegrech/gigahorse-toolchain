@@ -1,5 +1,6 @@
 #pragma once
 
+#include "memory_modeling/memory_modeling.dl"
 #include "data_structures.dl"
 #include "flows.dl"
 
