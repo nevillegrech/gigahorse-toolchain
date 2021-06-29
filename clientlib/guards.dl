@@ -1,5 +1,6 @@
 #pragma once
 
+#include "memory_modeling/memory_modeling.dl"
 #include "data_structures.dl"
 #include "flows.dl"
 
@@ -95,3 +96,69 @@ UnguardedGlobalBlockEdge(block, next) :-
    !StaticallyGuardedBlock(block, _),
    !StaticallyGuardedBlock(next, _).
 
+/**
+  Reentrancy Guard Logic
+  This is made to model the OZ-style ReentrancyGuard.
+
+  A top-level storage variable is inferred to be a ReentrancyGuard if:
+    * Constant values are always stored to it
+    * Each store is followed by another one
+    * Every use of it (two stores), always stores the same two values in the same order
+
+  Right now in practise its good enough.
+  TODO: Also have the first store be controlled by the appropriate require() guard.
+**/
+
+.decl StoreValueToGlobalVariable(stmt: Statement, globalVar: Value, storedVal: Value)
+
+StoreValueToGlobalVariable(stmt, globalVar, storedVal):-
+  StoreGlobalVariable(stmt, globalVar, var),
+  Variable_Value(var, storedVal).
+
+// HACK to cover cases where the "0" value stored is not stored in a val
+// Need to make it cleaner at some later point
+StoreValueToGlobalVariable(stmt, globalVar, "0x0"):-
+  StoreGlobalVariable(stmt, globalVar, "0xNoVar").
+
+/*
+  Instantiation of MayHappenBeforeGlobalWithArg to detect consecutive stores of constant values to global variables.
+*/
+.init storeAfterStore = MayHappenBeforeGlobalWithArg
+storeAfterStore.Before(before, globalVar):- StoreValueToGlobalVariable(before, globalVar, _).
+storeAfterStore.After(after, globalVar):- StoreValueToGlobalVariable(after, globalVar, _).
+
+.decl ReentrancyGuard(globalVar:Value)
+
+.decl NotReentrancyGuard(globalVar: Value)
+
+
+ReentrancyGuard(globalVar):-
+  GlobalVariable(globalVar),
+  !NotReentrancyGuard(globalVar).
+
+NotReentrancyGuard(globalVar):-
+  GlobalVariable(globalVar),
+  !StoreGlobalVariable(_, globalVar, _).
+
+NotReentrancyGuard(globalVar):-
+  StoreGlobalVariable(stmt, globalVar, _),
+  !StoreValueToGlobalVariable(stmt, globalVar, _).
+
+NotReentrancyGuard(globalVar):-
+  StoreValueToGlobalVariable(stmt, globalVar, _),
+  !storeAfterStore.MayHappenBefore(stmt, _, globalVar),
+  !storeAfterStore.MayHappenBefore(_, stmt, globalVar).
+
+NotReentrancyGuard(globalVar):-
+  storeAfterStore.MayHappenBefore(stmt, _, globalVar),
+  storeAfterStore.MayHappenBefore(stmt2, _, globalVar),
+  StoreValueToGlobalVariable(stmt, globalVar, storedVal),
+  StoreValueToGlobalVariable(stmt2, globalVar, storedVal2),
+  storedVal != storedVal2.
+
+NotReentrancyGuard(globalVar):-
+  storeAfterStore.MayHappenBefore(_, stmt, globalVar),
+  storeAfterStore.MayHappenBefore(_, stmt2, globalVar),
+  StoreValueToGlobalVariable(stmt, globalVar, storedVal),
+  StoreValueToGlobalVariable(stmt2, globalVar, storedVal2),
+  storedVal != storedVal2.
