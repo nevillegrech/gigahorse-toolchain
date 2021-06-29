@@ -78,7 +78,6 @@ A block visualized in `contract.tac` looks like:
 
 Keep in mind that the pretty-printed variable identifiers do not correspond to their identifiers in the underlying datalog facts.
 
-```
 ## Running Gigahorse Manually (for development purposes)
 To use this framework for development purposes (e.g., writing security analyses), an understanding of the analysis pipeline will be helpful. This section describes one common use case --- that of visualizing the CFG of the lifted IR. The pipeline will consist of the manual execution of following three steps:
 
@@ -124,7 +123,7 @@ In addition, other research tools have been developed on top of Gigahorse, inclu
 
 -  Grech, N., Kong, M., Jurisevic, A., Brent, L., Scholz, B., Smaragdakis, Y. (2018), MadMax: Surviving Out-of-Gas Conditions in Ethereum Smart Contracts. *Proceedings of the ACM on Programming Languages (OOPSLA).*
 
--  Brent, L., Grech, N., Scholz, B., Smaragdakis, Y. (2020), Ethainter: A Smart Contract Security Analyzer for Composite Vulnerabilities.
+-  Brent, L., Grech, N., Lagouvardos, S., Scholz, B., Smaragdakis, Y. (2020), Ethainter: A Smart Contract Security Analyzer for Composite Vulnerabilities.
 *In 41st ACM SIGPLAN Conference on Programming Language Design and Implementation.*
 
 -  Lagouvardos, S., Grech, N., Tsatiris, I., and Smaragdakis, Y. (2020) Precise Static Modelling of Ethereum "Memory". *Proceedings of the ACM in Programming Languages (OOPSLA).*
