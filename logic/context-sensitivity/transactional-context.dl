@@ -5,6 +5,8 @@
 // find number of jumps to estimate best context depth
 .decl MaxContextDepth(sigHash: symbol, d: number)
 
+#define MAX_REPETITIONS_FOR_CONTEXT_ELEMENT 2
+
 .decl InputMaxContextDepth(d: number)
 .input InputMaxContextDepth(filename="MaxContextDepth.csv")
 
@@ -14,7 +16,7 @@ MaxContextDepth(sigHash, d) :-
    InputMaxContextDepth(d).
 
 #ifndef MAX_CONTEXT_DEPTH
-MaxContextDepth(sigHash, 66) :-
+MaxContextDepth(sigHash, 51) :-
   (postTrans.PublicFunction(_, sigHash);
    sigHash = "0x0"),
   !InputMaxContextDepth(_).
@@ -43,13 +45,37 @@ DropLast(ctx, newCtx) :-
   newCtx = [ block, newRest ].
   .plan 1:(2,1,3), 2:(3,1,2)
 
-.decl PrivateContextContainsElement(ctx: PrivateContext, element: Block)
-PrivateContextContainsElement(ctx, element) :-
-  DecomposePrivateContext(ctx, element, _).
-PrivateContextContainsElement(ctx, element) :-
-  PrivateContextContainsElement(rest, element),
+.decl PrivateContextContainsElementNTimes(ctx: PrivateContext, block: Block, n: number)
+PrivateContextContainsElementNTimes(nil, block, 0) :-
+  PrivateFunctionCallOrReturn(block).
+PrivateContextContainsElementNTimes(ctx, block, n) :-
+  PrivateContextContainsElementNTimes(rest, block, n),
+  DecomposePrivateContext(ctx, head, rest),
+  head != block.
+ .plan 1:(2,1)
+PrivateContextContainsElementNTimes(ctx, block, n+1) :-
+  PrivateContextContainsElementNTimes(rest, block, n),
+  DecomposePrivateContext(ctx, block, rest),
+  n < MAX_REPETITIONS_FOR_CONTEXT_ELEMENT.
+ .plan 1:(2,1)
+
+.decl NotPrivateContextContainsElement(ctx: PrivateContext, block: Block)
+NotPrivateContextContainsElement(nil, block) :-
+  PrivateFunctionCallOrReturn(block).
+NotPrivateContextContainsElement(ctx, block) :-
+  NotPrivateContextContainsElement(rest, block),
+  DecomposePrivateContext(ctx, head, rest),
+  head != block.
+ .plan 1:(2,1)
+
+.decl PrivateContextContainsElement(ctx: PrivateContext, block: Block)
+PrivateContextContainsElement(ctx, head) :-
+  DecomposePrivateContext(ctx, head, _).
+PrivateContextContainsElement(ctx, block) :-
+  PrivateContextContainsElement(rest, block),
   DecomposePrivateContext(ctx, _, rest).
-  
+ .plan 1:(2,1)
+
 .decl PrivateContextDepth(ctx : PrivateContext, depth : number)
 PrivateContextDepth(init, 0) :-
   InitialPrivateContext(init).
@@ -101,7 +127,6 @@ PrivateFunctionCallOrReturn(caller) :-
   postTrans.JUMP(stmt),
   !postTrans.ImmediateBlockJumpTarget(caller, _).
 
-
 Context_PublicFunction(ctx, pubFun):-
   ReachableContext(ctx, _),
   ctx = [pubFun, callCtx],
@@ -120,6 +145,7 @@ StaticBlockJumpTarget(caller, target) :-
 
 DecomposeContext(ctx, publicFun, private):-
   ReachableContext(ctx, _), ctx = [publicFun, private].
+
 
 // Trivial control flow case for when there is no function call
 // OR max conext depth is zero
@@ -142,6 +168,7 @@ MergeContext(ctx, caller, ctx) :-
 
 // Complex control flow case
 
+/// Don't distinguish whether the context contains the block
 DecomposePrivateContext(newPrivateContext, caller, cutDownPri),
 MergeContext(ctx, caller, [pub, newPrivateContext]) :-
   ReachableContext(ctx, caller),
@@ -153,6 +180,35 @@ MergeContext(ctx, caller, [pub, newPrivateContext]) :-
 #endif
   newPrivateContext = [caller, cutDownPri].
 .plan 1:(3,1,2,4), 2:(4,3,1,2)
+
+
+/*
+/// distinguish whether the context contains the block
+//// If it doesn't:
+DecomposePrivateContext(newPrivateContext, caller, cutDownPri),
+MergeContext(ctx, caller, [pub, newPrivateContext]) :-
+  ReachableContext(ctx, caller),
+  DecomposeContext(ctx, pub, pri),
+  TruncateContext(pub, pri, cutDownPri),
+  NotPrivateContextContainsElement(cutDownPri, caller),
+#ifndef NO_PUBLIC_CONTEXT
+  !postTrans.PublicFunction(caller, _),
+#endif
+  newPrivateContext = [caller, cutDownPri].
+.plan 1:(2,1,3,4), 2:(3,2,1,4), 3:(4,1,2,3)
+
+//// If it does:
+MergeContext(ctx, caller, ctx) :-
+  ReachableContext(ctx, caller),
+  DecomposeContext(ctx, pub, pri),
+  TruncateContext(pub, pri, cutDownPri),
+  PrivateContextContainsElement(cutDownPri, caller),
+#ifndef NO_PUBLIC_CONTEXT
+  !postTrans.PublicFunction(caller, _).
+#endif
+.plan 1:(2,1,3,4), 2:(3,2,1,4), 3:(4,1,2,3)
+*/
+
 
 #ifndef NO_PUBLIC_CONTEXT
 MergeContext(ctx, caller, newContext) :-
