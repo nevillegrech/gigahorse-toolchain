@@ -85,7 +85,7 @@ To use this framework for development purposes (e.g., writing security analyses)
 2. Run main.dl using Souffle
 3. Visualize results
 
-In order to proceed, make sure that LD_LIBRARY_PATH and LIBRARY_PATH are set:
+In order to proceed, make sure that `LD_LIBRARY_PATH` and `LIBRARY_PATH` are set:
 
     $ cd souffle-addon
     $ export LD_LIBRARY_PATH=`pwd`  # or wherever you want to put the resulting libfunctors.so
