@@ -91,7 +91,7 @@ In order to proceed, make sure that `LD_LIBRARY_PATH` and `LIBRARY_PATH` are set
     $ export LD_LIBRARY_PATH=`pwd`  # or wherever you want to put the resulting libfunctors.so
     $ export LIBRARY_PATH=`pwd`  # or wherever you want to put the resulting libfunctors.so
 
-We suggest adding LD_LIBRARY_PATH and LIBRARY_PATH to your `.bashrc` file
+We suggest adding `LD_LIBRARY_PATH` and `LIBRARY_PATH` to your `.bashrc` file
 
 
 Now let's manually execute the pipeline above:
