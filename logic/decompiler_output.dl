@@ -1,6 +1,8 @@
 // VERY IMPORTANT: IF YOU CHANGE ANY OUTPUT RELATION IN THIS FILE,
 // PLEASE ALSO CHANGE clientlib/decompiler_imports.dl
 
+#include "../clientlib/util.dl"
+
 .type TACVariable <: symbol
 
 
@@ -29,15 +31,43 @@ PolymorphicStackIndex(block, stackIndex) :-
   FunctionalBlockInputContents(block, stackIndex, var2),
   var1 != var2.
 
+.decl BlockAssignsToUseIndex(block: IRBlock, stackIndex: StackIndex)
+
+BlockAssignsToUseIndex(defBlock, stackIndex) :-
+    FunctionalBlock_Uses_Local(useBlock, stackIndex),
+    FunctionalBlockInputContents(useBlock, stackIndex, var),
+    FunctionalStatement_Defines(stmt, var, _),
+    IRStatement_Block(stmt, defBlock).
+
 .decl PHILocation(block: IRBlock, stackIndex: StackIndex, newVarSymbol: IRStatement)
 
 // Find all polymorphic stackIndexes
 // These need phi instructions introduced at the dominance frontier
 .output PHILocation
 PHILocation(block, stackIndex, cat(cat(block, "_"), stackIndexHex)) :-
-   PolymorphicStackIndex(block, stackIndex),
-   stackIndexHex = @number_to_hex(stackIndex).
+    PolymorphicStackIndex(block, stackIndex),
+    stackIndexHex = @number_to_hex(stackIndex).
 
+.init df = DominanceFrontier<IRBlock>
+
+df.Entry(block) :- IRFunctionEntry(block).
+df.Node(block) :- IRStatement_Block(_, block).
+df.Edge(from, to) :- LocalBlockEdge(from, to).
+
+.decl DFPlus(dom: IRBlock, dfBlock: IRBlock, stackIndex: StackIndex)
+DFPlus(dom, block, stackIndex) :-
+    BlockAssignsToUseIndex(dom, stackIndex),
+    df.DominanceFrontier(dom, block).
+
+DFPlus(dom, block, stackIndex) :-
+    DFPlus(dom, dfBlock, stackIndex),
+    df.DominanceFrontier(dfBlock, block).
+
+.decl BlockRequiresPhiForIndex(block: IRBlock, stackIndex: StackIndex)
+.output BlockRequiresPhiForIndex
+BlockRequiresPhiForIndex(block, stackIndex) :- DFPlus(_, block, stackIndex).
+
+.decl MostRecentDefinitionForIndex(
 
 // Final decompiler outputs
 .decl TAC_Op(stmt:IRStatement, op:Opcode)
