@@ -139,6 +139,13 @@ dependencyAnalysis.TransferBoundary(block) :- IsBlock(block).
 
 #define DependsOn dependencyAnalysis.Flows
 
+.init localFlowAnalysis = LocalFlowAnalysis
+
+localFlowAnalysis.TransferOpcode(op) :- FlowOp(op).
+localFlowAnalysis.TransferBoundary(block) :- IsBlock(block).
+
+#define LocalFlows localFlowAnalysis.Flows
+
 // x controls whether y is executed.
 .decl Controls(x:Statement, y:Block)
 
