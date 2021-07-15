@@ -51,7 +51,7 @@ Analytics_CallWithSig(call):-
 
 Analytics_MemConsStmtUsesFromDistinctPaths(memConsStmt):-
   StatementUsesMemory_LengthVar(memConsStmt, _, lenVar),
-  DataFlows(phiVar, lenVar),
+  LocalFlows(phiVar, lenVar),
   PHI(_, _, phiVar).
 
 Analytics_NonModeledMSTORE(mstore):-

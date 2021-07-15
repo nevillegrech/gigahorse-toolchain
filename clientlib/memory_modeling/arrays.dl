@@ -222,26 +222,26 @@ DEBUG_OUTPUT(ArrayStore)
 
 ArrayLoad(mload, arrId, to):-
   MLOAD(mload, indexVar, to),
-  standardflowanalysis.Flows(arrayDataStart, indexVar),
+  LocalFlows(arrayDataStart, indexVar),
   ArrayDataStartVar(array, arrayDataStart),
   VarIsArray(array, arrId),
   !ArrayLoadAtIndex(mload, _, _, _).
 
 ArrayStore(mstore, arrId, from):-
   MSTORE(mstore, indexVar, from),
-  standardflowanalysis.Flows(arrayDataStart, indexVar),
+  LocalFlows(arrayDataStart, indexVar),
   ArrayDataStartVar(array, arrayDataStart),
   VarIsArray(array, arrId),
   !ArrayStoreAtIndex(mstore, _, _, _).
 
 ArrayLoad(mload, arrId, to):-
   MLOAD(mload, indexVar, to),
-  standardflowanalysis.Flows(rawDataArray, indexVar),
+  LocalFlows(rawDataArray, indexVar),
   RawDataArrayVar_ClassRep(rawDataArray, arrId).
   
 ArrayStore(mstore, arrId, from):-
   MSTORE(mstore, indexVar, from),
-  standardflowanalysis.Flows(rawDataArray, indexVar),
+  LocalFlows(rawDataArray, indexVar),
   RawDataArrayVar_ClassRep(rawDataArray, arrId).
 
 ArrayLengthVar(arrId, lenVar):-
@@ -266,7 +266,7 @@ ArrayDataVar(array, arrayData):-
 
 ArrayLoad(mload, arrId, to):-
   MLOAD(mload, indexVar, to),
-  standardflowanalysis.Flows(arrayData, indexVar),
+  LocalFlows(arrayData, indexVar),
   ArrayDataVar(array, arrayData),
   VarIsArray(array, arrId),
   !ArrayLoadAtIndex(mload, _, _, _).
