@@ -589,6 +589,7 @@ inliner.In_CallGraphEdge(block, function):- CallGraphEdge(block, function).
 inliner.In_FunctionCallReturn(block, function, return):- FunctionCallReturn(block, function, return).
 inliner.In_IsFunction(func):- IsFunction(func).
 inliner.In_Block_Gas(block, gas):- Block_Gas(block, gas).
+inliner.In_Block_CodeChunkAccessed(block, chunk):- Block_CodeChunkAccessed(block, chunk).
 inliner.In_OriginalStatement_Block(stmt, block):- OriginalStatement_Block(stmt, block).
 inliner.In_FormalArgs(fn, a, pos):- FormalArgs(fn, a, pos).
 inliner.In_Statement_Uses(stmt, var, i):- Statement_Uses(stmt, var, i).
@@ -613,6 +614,7 @@ inliner.In_ActualReturnArgs(caller, arg, pos):- ActualReturnArgs(caller, arg, po
 .output inliner.Out_FunctionCallReturn(IO="file", filename="IRFunctionCallReturn.csv", delimiter="\t")
 .output inliner.Out_IsFunction(IO="file", filename="Function.csv", delimiter="\t")
 .output inliner.Out_Block_Gas(IO="file", filename="TAC_Block_Gas.csv", delimiter="\t")
+.output inliner.Out_Block_CodeChunkAccessed(IO="file", filename="TAC_Block_CodeChunkAccessed.csv", delimiter="\t")
 .output inliner.Out_OriginalStatement_Block(IO="file", filename="TAC_OriginalStatement_Block.csv", delimiter="\t")
 .output inliner.Out_FormalArgs(IO="file", filename="FormalArgs.csv", delimiter="\t")
 .output inliner.Out_Statement_Uses(IO="file", filename="TAC_Use.csv", delimiter="\t")
