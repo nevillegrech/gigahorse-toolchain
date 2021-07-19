@@ -173,6 +173,15 @@ parser.add_argument("-cd",
                     metavar="NUM",
                     help="Override the maximum context depth for decompilation (default is 8).")
 
+parser.add_argument("--enable_limitsize",
+                    action="store_true",
+                    default=False,
+                    help= ("Adds a limitsize (see souffle documentation) that limits the outputs"
+                        "of certain key decompiler relations to improve scalability."
+                        "Can make decompilation output more incomplete and imprecise."
+                        )
+                    )
+
 parser.add_argument("--disable_inline",
                     action="store_true",
                     default=False,
@@ -239,6 +248,9 @@ def compile_datalog(spec, executable):
     pathlib.Path(args.cache_dir).mkdir(exist_ok=True)
 
     souffle_macros = f'GIGAHORSE_DIR={GIGAHORSE_DIR} BULK_ANALYSIS= {args.souffle_macros}'.strip()
+
+    if args.enable_limitsize:
+        souffle_macros+=' ENABLE_LIMITSIZE='
 
     cpp_macros = []
     for macro_def in souffle_macros.split(' '):

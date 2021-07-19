@@ -22,6 +22,18 @@ Analytics_Jumps(block) :-
 Analytics_ReachableBlocks(blk):-
   ReachableContext(_, blk).
 
+.decl Analytics_Contexts(ctx: Context)
+.output Analytics_Contexts
+
+Analytics_Contexts(ctx):-
+  ReachableContext(ctx, _).
+
+.decl Analytics_ReachableUnderContext(ctx: Context, block: Block)
+.output Analytics_ReachableUnderContext
+
+Analytics_ReachableUnderContext(ctx, block):-
+  ReachableContext(ctx, block).
+
 .decl Analytics_ReachableBlocksInTAC(block: Block)
 .output Analytics_ReachableBlocksInTAC
 
@@ -32,10 +44,10 @@ Analytics_ReachableBlocksInTAC(blk):-
 
 // Incompleteness metric: this can happen due to our precision-favoring heuristics
 // or incompleteness due to the use of limitsize for scalability
-.decl Analytics_BlocksReachableInGlobalButNotInTAC(block: Block)
-.output Analytics_BlocksReachableInGlobalButNotInTAC
+.decl Analytics_BlockHasNoTACBlock(block: Block)
+.output Analytics_BlockHasNoTACBlock
 
-Analytics_BlocksReachableInGlobalButNotInTAC(blk):-
+Analytics_BlockHasNoTACBlock(blk):-
   Analytics_ReachableBlocks(blk),
   !Analytics_ReachableBlocksInTAC(blk).
 
@@ -157,8 +169,6 @@ Analytics_InexactFunctionCallArguments(call):-
   IsStackIndexLessThan(n_arg, n_args),
   !TAC_Use(call, _, n_arg).
 
-
-
 .decl Analytics_BlockInMultipleFunctions(block: IRBlock)
 .output Analytics_BlockInMultipleFunctions
 
@@ -167,13 +177,6 @@ Analytics_BlockInMultipleFunctions(block) :-
    IRInFunction(block, func2),
    func != func2.
 
-.decl Analytics_BlockHasNoIRBlock(block: Block)
-.output Analytics_BlockHasNoIRBlock
-
-Analytics_BlockHasNoIRBlock(block) :-
-   (BlockEdge(_, block, _, _);
-    BlockEdge(_, _, _, block)),
-   !Block_IRBlock(block, _, _).
 
 .decl Analytics_BlockInNoFunctions(block: IRBlock)
 .output Analytics_BlockInNoFunctions
@@ -312,3 +315,9 @@ Analytics_JumpToManyWithoutGlobalImprecision(reportBlock):-
 Analytics_InitiallyMissedCycleEntry(block) :-
    PotentialCycleEntry(block),
    !PossibleFunctionalBlockPopAndStackDelta(_, block, _, _, _).
+
+.decl Analytics_LocalBlockEdge(from: IRBlock, to: IRBlock)
+.output Analytics_LocalBlockEdge
+
+Analytics_LocalBlockEdge(from, to):-
+  LocalBlockEdge(from, to).

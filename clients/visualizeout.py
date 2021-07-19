@@ -1,147 +1,76 @@
 #!/usr/bin/env python3
+from typing import Mapping, Set, TextIO
 
-import pydot
-from collections import defaultdict
+import os
+import sys
+
+# IT: Ugly hack; this can be avoided if we pull the script at the top level
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+from clientlib.facts_to_cfg import Statement, Block, Function, construct_cfg, load_csv_map # type: ignore
 
 
-BLOCK_SIZE_LIMIT = 10
-def parseCsv(name):
-    f = open(name+'.csv')
-    return [line.strip('\n \t\r').split('\t') for line in f]
+def emit(s: str, out: TextIO, indent: int=0):
+    # 4 spaces
+    INDENT_BASE = '    '
 
-def load_tac_blocks():
-    out = defaultdict(list)
-    for s, b in parseCsv('TAC_Block'):
-        out[b].append(s)
-    def sortkey(a):
-        try:
-            return int(a, 16)
-        except Exception:
-            return 0
-    return {k:sorted(ss, key = sortkey) for k, ss in out.items()}
+    print(f'{indent*INDENT_BASE}{s}', file=out)
 
-def load_tac_sorted(prop):
-    out = defaultdict(list)
-    for s, v, n in parseCsv(prop):
-        n = int(n)
-        while n > len(out[s]) - 1:
-            out[s].append('')
-        if n<0:
-            out[s].append(v)
+
+def emit_stmt(stmt: Statement, out: TextIO):
+    def render_var(var: str):
+        if var in tac_variable_value:
+            return f"v{var.replace('0x', '')}({tac_variable_value[var]})"
         else:
-            out[s][n] = v
-    return out
+            return f"v{var.replace('0x', '')}"
 
-tac_blocks = defaultdict(list,load_tac_blocks())
-tac_use = load_tac_sorted('TAC_Use')
-tac_def = load_tac_sorted('TAC_Def')
-function_arguments = load_tac_sorted('FormalArgs')
-high_level_function_name = dict(parseCsv('HighLevelFunctionName'))
-tac_op = dict(parseCsv('TAC_Op'))
-variable_value = dict(parseCsv('TAC_Variable_Value'))
+    defs = [render_var(v) for v in stmt.defs]
+    uses = [render_var(v) for v in stmt.operands]
 
-
-special_block_colors = (
-    ('Function',0,"yellow"),
-    ('IRFunction_Return',1,"orange"),
-#    PublicFunctionEntryOut="yellow",
-#    ReturnTargetOriginatesIn="purple",
-    #FunctionCallOut="grey",
-)
-
-
-function_calls = defaultdict(set)
-for k,v in parseCsv('IRFunctionCall'):
-    function_calls[k].add(v)
-
-
-function_call_return = {a[0] : (a[1], a[2]) for a in parseCsv('IRFunctionCallReturn')}
-
-functions = {a[0]  for a in parseCsv('Function')}
-function_entries = {a[0]  for a in parseCsv('IRFunctionEntry')}
-in_function = dict(parseCsv('InFunction'))
-
-block_colors = defaultdict(lambda : "green")
-
-block_property = {}
-
-for k, index, v in special_block_colors:
-    special_blocks = [s[index] for s in parseCsv(k)]
-    block_property[k] = special_blocks
-    for s in special_blocks:
-        block_colors[s] = v
-    
-edges = parseCsv('LocalBlockEdge')
-def prev_block(block):
-    return {k for k,v in edges if v == block}
-def next_block(block):
-    return {v for k,v in edges if k == block}
-
-def format_var(v):
-    if v in variable_value:
-        value = '('+variable_value[v]+')'
+    if defs:
+        emit(f"{stmt.ident}: {', '.join(defs)} = {stmt.op} {', '.join(uses)}", out, 1)
     else:
-        value = ''
-    return 'v' + v.replace('0x', '')+value
+        emit(f"{stmt.ident}: {stmt.op} {', '.join(uses)}", out, 1)
 
-rendered_statements = {}
-def renderBlock(k, stmts):
-    sorted_stmts = []
-    if k in function_entries:
-        function_name = high_level_function_name[in_function[k]]
-        sorted_stmts.append("function %s(%s)"%(function_name, ', '.join(map(format_var, function_arguments[k]))))
-    sorted_stmts.append("Block %s"%k)                        
-    for s in sorted(stmts, key = lambda a: int(a.split('0x')[1].split('_')[0], base=16)):
-        op = tac_op[s]
-        if s in tac_def:
-            ret = ', '.join(format_var(v) for v in tac_def[s]) + ' = '
-        else:
-            ret = ''
-        use = ' '.join(format_var(v) for v in tac_use[s])
-        stmt_render = s+': '+ret+op+' '+use
-        if len(stmt_render) > 460:
-            stmt_render = stmt_render[:229] + '...' + stmt_render[-229:]
-        sorted_stmts.append(stmt_render)
-    if len(sorted_stmts) > BLOCK_SIZE_LIMIT:
-        half_limit = int(BLOCK_SIZE_LIMIT/2)
-        truncated_stmts = sorted_stmts[:half_limit] + ['...'] + sorted_stmts[-half_limit:]
-    else: truncated_stmts = sorted_stmts
-    rendered_statements[k] = sorted_stmts
-    return '\\l'.join(truncated_stmts) + '\\l'
-graph = pydot.Dot(graph_type='graph')
 
-for fro, to in edges:
-    # insert default placeholder items
-    tac_blocks[fro] ; tac_blocks[to]
+def pretty_print_block(block: Block, visited: Set[str], out: TextIO):
+    emit(f"Begin block {block.ident}", out, 1)
 
-nodeDict = { k : pydot.Node(k, label=renderBlock(k, body), shape="rect", style="filled", fillcolor=block_colors[k]) for k, body in tac_blocks.items() }
+    prev = [p.ident for p in block.predecessors]
+    succ = [s.ident for s in block.successors]
 
-for _, v in nodeDict.items():
-    graph.add_node(v)
+    emit(f"prev=[{', '.join(prev)}], succ=[{', '.join(succ)}]", out, 1)
+    emit(f"=================================", out, 1)
 
-for fro, to in edges:
-    if fro in function_calls and to in function_calls[fro]:
-        # call edge
-        graph.add_edge(pydot.Edge(nodeDict[fro], "(%s) call %s"%(fro,to), dir = 'forward', arrowHead = 'normal'))
-        if fro not in function_call_return:
-            continue
-        ret = function_call_return[fro][1]
-        # return edge
-        graph.add_edge(pydot.Edge("(%s) call %s"%(fro,to), nodeDict[ret], dir = 'forward', arrowHead = 'normal'))
-        continue
-    if fro in block_property["IRFunction_Return"]:
-        continue
-    graph.add_edge(pydot.Edge(nodeDict[fro], nodeDict[to], dir = 'forward', arrowHead = 'normal'))
+    for stmt in block.statements:
+        emit_stmt(stmt, out)
 
-out_file = open("contract.tac", "w")
-for key in sorted(rendered_statements, key = lambda a: int(a.split('0x')[1], 16)):
-    out_file.write('\n')
-    out_file.write('Begin block %s\n'%key)
-    out_file.write('prev = %s, next = %s\n'%(prev_block(key) if len(prev_block(key)) != 0 else "{}", next_block(key) if len(next_block(key)) != 0 else "{}"))
-    out_file.write('----------------------------------\n')
-    out_file.write('\n'.join(rendered_statements[key]))
-    out_file.write('\n----------------------------------\n')
-out_file.close()
+    emit('', out)
 
-graph.write_png('graph.png')
+    for block in block.successors:
+        if block.ident not in visited:
+            visited.add(block.ident)
+            pretty_print_block(block, visited, out)
 
+
+def pretty_print_tac(functions: Mapping[str, Function], out: TextIO):
+    for function in sorted(functions.values(), key=lambda x: x.ident):
+        visibility = 'public' if function.is_public else 'private'
+        emit(f"function {function.name}({', '.join(function.formals)}) {visibility} {{", out)
+        pretty_print_block(function.head_block, set(), out)
+
+        emit("}", out)
+        emit("", out)
+
+
+def main():
+    global tac_variable_value
+    tac_variable_value = load_csv_map('TAC_Variable_Value.csv')
+
+    _, functions,  = construct_cfg()
+
+    with open('contract.tac', 'w') as f:
+        pretty_print_tac(functions, f)
+
+
+if __name__ == "__main__":
+    main()

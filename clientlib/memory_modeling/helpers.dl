@@ -21,27 +21,6 @@ DEBUG_OUTPUT(Variable_NumericValue)
 Variable_NumericValue(var, @hex_to_number(val)):-
   Variable_Value(var, val).
 
-/**
-  
-**/
-
-.decl LocalBlockPath(from:Block, to:Block)
-
-LocalBlockPath(src, target):-
-  LocalBlockEdge(src, target).
-
-LocalBlockPath(src, target):-
-  LocalBlockPath(src, mid),
-  LocalBlockEdge(mid, target).
-
-.decl LocalStatementPathInBlock(stmt1:Statement, stmt2:Statement)
-
-LocalStatementPathInBlock(stmt1, stmt2):-
-  Helper_NextStatementInSameBlock(stmt1, stmt2).
-
-LocalStatementPathInBlock(stmt1, stmt3):-
-  LocalStatementPathInBlock(stmt1, stmt2),
-  Helper_NextStatementInSameBlock(stmt2, stmt3).
 
 .decl MSTORE8(stmt:Statement, index:Variable, from:Variable)
 MSTORE8(stmt, index, from):-

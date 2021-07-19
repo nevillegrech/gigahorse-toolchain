@@ -67,24 +67,17 @@ For example the output for `./gigahorse.py -C clients/visualizeout.py examples/l
 
 A block visualized in `contract.tac` looks like:
 ```
-Begin block 0x3e
-prev = {'0xb'}, next = {'0x10ee', '0x49'}
-----------------------------------
-Block 0x3e
-0x3f: v3f(0xf42fdfb) = CONST 
-0x44: v44 = EQ v3f(0xf42fdfb) v32
-0x10c7: v10c7(0x10ee) = CONST 
-0x10c8: JUMPI v10c7(0x10ee) v44
-----------------------------------
+    Begin block 0x3e
+    prev=[0xb], succ=[0x10ee, 0x49]
+    =================================
+    0x3f: v3f(0xf42fdfb) = CONST 
+    0x44: v44 = EQ v3f(0xf42fdfb), v32
+    0x10c7: v10c7(0x10ee) = CONST 
+    0x10c8: JUMPI v10c7(0x10ee), v44
 ```
 
 Keep in mind that the pretty-printed variable identifiers do not correspond to their identifiers in the underlying datalog facts.
 
-Visualization also requires PyDot and Graphviz:
-```
- pip install pydot                     # installs PyDot to your python enviroment
- sudo apt install graphviz             # installs Graphviz in debian
-```
 ## Running Gigahorse Manually (for development purposes)
 To use this framework for development purposes (e.g., writing security analyses), an understanding of the analysis pipeline will be helpful. This section describes one common use case --- that of visualizing the CFG of the lifted IR. The pipeline will consist of the manual execution of following three steps:
 
@@ -92,13 +85,13 @@ To use this framework for development purposes (e.g., writing security analyses)
 2. Run main.dl using Souffle
 3. Visualize results
 
-In order to proceed, make sure that LD_LIBRARY_PATH and LIBRARY_PATH are set:
+In order to proceed, make sure that `LD_LIBRARY_PATH` and `LIBRARY_PATH` are set:
 
     $ cd souffle-addon
     $ export LD_LIBRARY_PATH=`pwd`  # or wherever you want to put the resulting libfunctors.so
     $ export LIBRARY_PATH=`pwd`  # or wherever you want to put the resulting libfunctors.so
 
-We suggest adding LD_LIBRARY_PATH and LIBRARY_PATH to your `.bashrc` file
+We suggest adding `LD_LIBRARY_PATH` and `LIBRARY_PATH` to your `.bashrc` file
 
 
 Now let's manually execute the pipeline above:
@@ -130,7 +123,7 @@ In addition, other research tools have been developed on top of Gigahorse, inclu
 
 -  Grech, N., Kong, M., Jurisevic, A., Brent, L., Scholz, B., Smaragdakis, Y. (2018), MadMax: Surviving Out-of-Gas Conditions in Ethereum Smart Contracts. *Proceedings of the ACM on Programming Languages (OOPSLA).*
 
--  Brent, L., Grech, N., Scholz, B., Smaragdakis, Y. (2020), Ethainter: A Smart Contract Security Analyzer for Composite Vulnerabilities.
+-  Brent, L., Grech, N., Lagouvardos, S., Scholz, B., Smaragdakis, Y. (2020), Ethainter: A Smart Contract Security Analyzer for Composite Vulnerabilities.
 *In 41st ACM SIGPLAN Conference on Programming Language Design and Implementation.*
 
 -  Lagouvardos, S., Grech, N., Tsatiris, I., and Smaragdakis, Y. (2020) Precise Static Modelling of Ethereum "Memory". *Proceedings of the ACM in Programming Languages (OOPSLA).*

@@ -78,3 +78,176 @@ HappensAfter(nextnext, stmt) :-
   HappensAfter(next, stmt),
   HappensAfterBase(nextnext, next).
 
+
+/**
+  Helper control-flow-related predicates
+**/
+
+.decl LocalBlockPath(from:Block, to:Block)
+
+LocalBlockPath(src, target):-
+  LocalBlockEdge(src, target).
+
+LocalBlockPath(src, target):-
+  LocalBlockPath(src, mid),
+  LocalBlockEdge(mid, target).
+
+.decl LocalStatementPathInBlock(stmt1:Statement, stmt2:Statement)
+
+LocalStatementPathInBlock(stmt1, stmt2):-
+  Helper_NextStatementInSameBlock(stmt1, stmt2).
+
+LocalStatementPathInBlock(stmt1, stmt3):-
+  LocalStatementPathInBlock(stmt1, stmt2),
+  Helper_NextStatementInSameBlock(stmt2, stmt3).
+
+/**
+  Component used to get a cheap statement-level global may happen before relation if we can describe the sets of statements
+  relevant to our query at compile time.
+  This can be used to answer questions like: "Can we have two SSTORE statements to the same address, one followed by the other?"
+
+  This is useful because computing such relations (all-pairs) at the statement-level is prohibitively expensive
+  but computing them top-down (on demand) like this makes it very cheap even inter-procedurally.
+
+  The Before(before:Statement, arg:symbol) and After(after:Statement, arg:symbol) input relations
+  are populated at every instantiation of the component to describe the relevant sets of statements for our query.
+
+  Output relation MayHappenBefore(before:Statement, after:Statement, arg:symbol) will contain a subset of statements `before`,`after` such that
+  statement `before` can be executed before statement `after` for some program path. Both statements are associated with the same `arg`.
+
+  Only external (outside of the component) library relations used are LocalStatementPathInBlock and LocalBlockPath.
+
+  The example described above would be:
+    .init storesSameAddress = MayHappenBeforeGlobalWithArg
+    storesSameAddress.Before(before, val):- SSTORE(before, var, _), Variable_Value(var, val).
+    storesSameAddress.After(after, val):- SSTORE(after, var, _), Variable_Value(var, val).
+*/
+.comp MayHappenBeforeGlobalWithArg {
+  // Input relations
+  .decl Before(before:Statement, arg:symbol)
+  .decl After(after:Statement, arg:symbol)
+
+  // Output relation 'before' can happen before 'after'
+  .decl MayHappenBefore(before:Statement, after:Statement, arg:symbol)
+
+  // Intermediate relations. These start before the original `before` and `after` statements populating the input relations
+  // and transitively go back through function calls to work inter-procedurally
+  // originalBefore/After are kept because to report the original statements, before/after is what changes when going through private calls
+  // before/afterBlock, before/afterFunction are relative to before/after and not the original ones and are in the relation to enable more efficient joins.
+  .decl BeforeInfo(originalBefore:Statement, before:Statement, beforeBlock:Block, beforeFunction:Function, arg:symbol)
+  .decl AfterInfo(originalAfter:Statement, after:Statement, afterBlock:Block, afterFunction:Function, arg:symbol)
+
+  // base case, starting from Before
+  BeforeInfo(before, before, beforeBlock, beforeFunction, arg):-
+    Before(before, arg),
+    Statement_Block(before, beforeBlock),
+    InFunction(beforeBlock, beforeFunction).
+
+  // base case, starting before After
+  AfterInfo(after, after, afterBlock, afterFunction, arg):-
+    After(after, arg),
+    Statement_Block(after, afterBlock),
+    InFunction(afterBlock, afterFunction).
+
+  // transitive case: moving backwards through function calls
+  BeforeInfo(originalBefore, callStmt, calleeBlock, calleeFunction, arg):-
+    BeforeInfo(originalBefore, _, _, beforeFunction, arg),
+    CallGraphEdge(calleeBlock, beforeFunction),
+    InFunction(calleeBlock, calleeFunction),
+    Statement_Block(callStmt, calleeBlock),
+    Statement_Opcode(callStmt, "CALLPRIVATE").
+
+  // transitive case: moving backwards through function calls
+  AfterInfo(originalAfter, callStmt, calleeBlock, calleeFunction, arg):-
+    AfterInfo(originalAfter, _, _, afterFunction, arg),
+    CallGraphEdge(calleeBlock, afterFunction),
+    InFunction(calleeBlock, calleeFunction),
+    Statement_Block(callStmt, calleeBlock),
+    Statement_Opcode(callStmt, "CALLPRIVATE").
+
+  MayHappenBefore(originalBefore, originalAfter, arg):-
+    BeforeInfo(originalBefore, before, block, fun, arg),
+    AfterInfo(originalAfter, after, block, fun, arg),
+    LocalStatementPathInBlock(before, after).
+
+  MayHappenBefore(originalBefore, originalAfter, arg):-
+    BeforeInfo(originalBefore, _, beforeBlock, fun, arg),
+    AfterInfo(originalAfter, _, afterBlock, fun, arg), // REVIEW: maybe inverted order is faster.
+    LocalBlockPath(beforeBlock, afterBlock).
+}
+
+/**
+  Component used to get a cheap statement-level global may happen before relation if we can describe the sets of statements
+  relevant to our query at compile time.
+  This can be used to answer questions like: "Can we have an SSTORE statement after external call?"
+
+  This is useful because computing such relations (all-pairs) at the statement-level is prohibitively expensive
+  but computing them top-down (on demand) like this makes it very cheap even inter-procedurally.
+
+  Internally it uses MayHappenBeforeGlobalWithArg.
+
+  The Before(before:Statement) and After(after:Statement) input relations are populated
+  at every instantiation of the component to describe the relevant sets of statements for our query.
+
+  Output relation MayHappenBefore(before:Statement, after:Statement) will contain a subset of statements `before`,`after` such that
+  statement `before` can be executed before statement `after` for some program path.
+
+  The example described above would be:
+    .init storeAfterCall = MayHappenBeforeGlobal
+    storeAfterCall.Before(before):- CallStmt(before).
+    storeAfterCall.After(after):- SSTORE(after, _, _).
+*/
+
+.comp MayHappenBeforeGlobal {
+  // Input relations
+  .decl Before(before:Statement)
+  .decl After(after:Statement)
+
+  // Output relation 'before' can happen before 'after'
+  .decl MayHappenBefore(before:Statement, after:Statement)
+
+  .init mayHappenBeforeInternal = MayHappenBeforeGlobalWithArg
+
+  mayHappenBeforeInternal.Before(before, "NULL"):- Before(before).
+  mayHappenBeforeInternal.After(after, "NULL"):- After(after).
+
+  MayHappenBefore(before, after):- mayHappenBeforeInternal.MayHappenBefore(before, after, "NULL").
+}
+
+/**
+  Component used to get a cheap statement-level global may happen before relation if we can describe the sets of statements
+  relevant to our query at compile time.
+
+  This is useful because computing such relations (all-pairs) at the statement-level is prohibitively expensive
+  but computing them top-down (on demand) like this makes it very cheap even inter-procedurally.
+
+  Internally it uses two instantiations of MayHappenBeforeGlobal.
+
+  The Before(before:Statement), Between(between:Statement), and After(after:Statement) input relations
+  are populated at every instantiation of the component to describe the relevant sets of statements for our query.
+
+  Output relation MayHappenInBetween(before:Statement, between:Statement, after:Statement) will contain a subset of statements `before`, `between`, `after`
+  such that statement `between` can be executed after statement `before` and before statement `after`, for some program path.
+*/
+
+.comp MayHappenInBetweenGlobal {
+  // Input relations
+  .decl Before(before:Statement)
+  .decl Between(between:Statement)
+  .decl After(after:Statement)
+
+  // Output relation
+  .decl MayHappenInBetween(before:Statement, between:Statement, after:Statement)
+
+  .init beforeToBetween = MayHappenBeforeGlobal
+  beforeToBetween.Before(before):- Before(before).
+  beforeToBetween.After(after):- Between(after).
+
+  .init betweenToAfter = MayHappenBeforeGlobal
+  betweenToAfter.Before(before):- Between(before).
+  betweenToAfter.After(after):- After(after).
+
+  MayHappenInBetween(before, between, after):-
+    beforeToBetween.MayHappenBefore(before, between),
+    betweenToAfter.MayHappenBefore(between, after).
+}
