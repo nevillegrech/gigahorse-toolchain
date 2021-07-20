@@ -41,43 +41,11 @@ Fail(a) :- Fail(a). // suppress warning
 
 /***
 * Functors
-***/                                          
-.functor hex_to_number(symbol):number
-.functor number_to_hex(number):symbol
+***/
 
-.functor cast_to_number(number):number
-.functor cast_to_symbol(symbol):symbol
-
-.functor max2(number, number):number
-.functor min2(number, number):number
-
-.functor in_set(symbol,symbol):number
-.functor add_set(symbol,symbol):symbol
+#include "../souffle-addon/functor_includes.dl"
 
 
-.functor add_256(symbol,symbol):symbol
-.functor sub_256(symbol,symbol):symbol
-.functor mul_256(symbol,symbol):symbol
-.functor div_256(symbol,symbol):symbol
-.functor mod_256(symbol,symbol):symbol
-.functor and_256(symbol,symbol):symbol
-.functor or_256(symbol,symbol):symbol
-.functor xor_256(symbol,symbol):symbol
-.functor gt_256(symbol,symbol):symbol
-.functor eq_256(symbol,symbol):symbol
-.functor lt_256(symbol,symbol):symbol
-.functor exp_256(symbol,symbol):symbol
-.functor smod_256(symbol,symbol):symbol
-.functor sdiv_256(symbol,symbol):symbol
-.functor sgt_256(symbol,symbol):symbol
-.functor slt_256(symbol,symbol):symbol
-.functor shl_256(symbol,symbol):symbol
-.functor shr_256(symbol,symbol):symbol
-.functor sar_256(symbol,symbol):symbol
-.functor not_256(symbol):symbol
-
-.functor keccak_256(symbol):symbol
-.functor hex_to_str(symbol):symbol
 /***
 * Utility relations
 ***/
