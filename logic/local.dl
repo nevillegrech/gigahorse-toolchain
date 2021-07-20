@@ -225,16 +225,7 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
   
   ValidStatement(stmt) :- Statement_Block(stmt, _).
   
-  .decl Block_PartialGas(block: Block, stmt: Statement, gas: number)
-  Block_PartialGas(block, stmt, gas) :-
-    Statement_Block(stmt, block),
-    Statement_Gas(stmt, gas).
-  
-  .decl Block_Gas(block: Block, gas: number)
-     
-  Block_Gas(block, totalgas) :-
-     Statement_Block(_, block),
-     totalgas = sum gas : Block_PartialGas(block, _, gas).
+
 
   // A summary of all the effects of the basic block up to a statement. The
   // summary cannot contain only variables, it will also refer symbolically to
@@ -753,19 +744,27 @@ postTrans.PublicFunction(b, h) :- preTrans.PublicFunction(b, h).
 #define CHUNK_SIZE 31
 .type Chunk <: number
 
-.decl Block_CodeChunkAcessed(b: Block, c: Chunk)
+.decl Statement_CodeChunkAccessed(s: Statement, c: Chunk)
 
-Block_CodeChunkAcessed(block, @hex_to_number(stmt) / CHUNK_SIZE) :-
-  preTrans.Statement_Block(stmt, block).
+// Normal statement
+Statement_CodeChunkAccessed(stmt, @hex_to_number(stmt) / CHUNK_SIZE) :-
+  preTrans.Statement_Block(stmt, _).
 
-Block_CodeChunkAcessed(block, n / CHUNK_SIZE) :-
-  preTrans.Statement_Block(stmt, block),          
+// Multi-byte instruction that crosses chunk borders
+Statement_CodeChunkAccessed(stmt, @hex_to_number(next_stmt) / CHUNK_SIZE) :-
+  preTrans.Statement_Block(stmt, _),
+  preTrans.Statement_Next(stmt, next_stmt),
+  (@hex_to_number(next_stmt) - 1) / CHUNK_SIZE != @hex_to_number(stmt) / CHUNK_SIZE.
+
+// Codecopy
+Statement_CodeChunkAccessed(stmt, n / CHUNK_SIZE) :-
   preTrans.CODECOPYStatement(stmt, codeOffsetNumHex, lenHex),
   codeOffset = @hex_to_number(codeOffsetNumHex),
   len = @hex_to_number(lenHex),
   n = range(codeOffset, codeOffset + len, 1).
 
-Block_CodeChunkAcessed(block, @hex_to_number(targetValue) / CHUNK_SIZE) :-
+// Jumps to invalid addresses
+Statement_CodeChunkAccessed(stmt, @hex_to_number(targetValue) / CHUNK_SIZE) :-
   preTrans.Statement_Block(stmt, block),
   preTrans.ThrowJump(stmt), preTrans.JUMP(stmt),
   preTrans.ImmediateBlockJumpTarget(block, variable),
