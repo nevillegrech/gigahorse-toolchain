@@ -247,7 +247,7 @@ IsFunctionCallReturn(ctx, caller, func, retCtx, retBlock, retTarget) :-
 
 .decl IsFunctionEntry(entry:Block)
 IsFunctionEntry(block) :- postTrans.PublicFunction(block, _).
-IsFunctionEntry(FUNCTION_SELECTOR).
+IsFunctionEntry("0x0").
 IsFunctionEntry(func) :- IsFunctionCallReturn(_, _, func, _, _, _).
 
 .decl IsFunctionCall(block:Block, func:Block)
@@ -272,7 +272,7 @@ IsPrivateFunctionCall(ctx, block, func) :-
 .decl MaybeInFunctionUnderContext(ctx: Context, block:Block, func:Block)
 
 MaybeInFunctionUnderContext(ctx, func, func) :-
-  (IsPublicFunctionCall(_, func) ; func = FUNCTION_SELECTOR),
+  (IsPublicFunctionCall(_, func) ; func = "0x0"),
   ReachableContext(ctx, func).
 
 MaybeInFunctionUnderContext(ctx, func, func) :-
@@ -845,11 +845,11 @@ PossibleNumberOfFunctionArguments(func, 0),
 PossibleNumberOfFunctionReturnArguments(func, 0) :-
   IRFunctionEntry(func).
 
-NumberOfFunctionArguments(FUNCTION_SELECTOR, 0).
+NumberOfFunctionArguments("0x0", 0).
 
 NumberOfFunctionArguments(func, n) :-
   IRFunctionEntry(func),
-  func != FUNCTION_SELECTOR,
+  func != "0x0",
   n = max m : PossibleNumberOfFunctionArguments(func, m).
 
 NumberOfFunctionReturnArguments(func, n) :-
@@ -1057,7 +1057,7 @@ HighLevelFunctionName(func, name) :-
 
 HighLevelFunctionName(func, func) :-
    IRFunctionEntry(func),
-   func != FUNCTION_SELECTOR,
+   func != "0x0",
    !IRPublicFunction(func, _).
 
 HighLevelFunctionName(FUNCTION_SELECTOR, "__function_selector__").
