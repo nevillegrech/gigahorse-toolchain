@@ -13,6 +13,7 @@
 .type Opcode <: symbol
 .type Value <: symbol
 .type Chunk <: number
+.type OriginalStatement <: symbol
 
 
 
@@ -122,7 +123,7 @@ IsPublicFunction(func) :- PublicFunctionSelector(func, _).
 .input Block_Gas(IO="file", filename="TAC_Block_Gas.csv", delimiter="\t")
 
 // Relation that links blocks to statements in the original bytecode
-.decl OriginalStatement_Block(stmt:symbol, block:Block)
+.decl OriginalStatement_Block(stmt:OriginalStatement, block:Block)
 .input OriginalStatement_Block(IO="file", filename="TAC_OriginalStatement_Block.csv", delimiter="\t")
 
 // Code chunks accessed
@@ -292,7 +293,7 @@ GlobalEntryBlock("0x0").
 
 .decl FallbackFunction(func: Function)
 
-FallbackFunction(func) :- PublicFunctionSelector(func, "0x0").
+FallbackFunction(func) :- PublicFunctionSelector(func, "0x").
 
 
 
