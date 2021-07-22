@@ -5,7 +5,6 @@
 #define RETURN_ADDRESS_RANK_THRESHOLD 25
 #define LIMITSIZE_CAN_REACH_UNDER_CONTEXT 25000000
 
-
 /*****
  * Function discovery logic
  *****/
@@ -454,7 +453,7 @@ IRFunctionCall(fromir, irfunc) :-
 .decl PubFun(entry:symbol, hex:symbol)
 .decl Context_PublicFunction(ctx:Context, pubFun:symbol)
 
-PubFun("0x0", "0x0"):- Context_PublicFunction(_, _).
+PubFun("0x0", FALLBACK_FUNCTION_SIGHASH):- Context_PublicFunction(_, _).
 PubFun(entry, sigHash):- Context_PublicFunction(_, sigHash), postTrans.PublicFunction(entry, sigHash).
 
 // Intra-function edges (i.e., real CFG edges)
@@ -1024,8 +1023,6 @@ FunctionalStatement_Uses(stmt, var, n) :-
 
 .decl PublicFunctionSignature(hex_signature: symbol, text_signature: symbol)
 .input PublicFunctionSignature
-
-PublicFunctionSignature("0x00000000", "fallback()").
 
 .decl HighLevelFunctionName(func: IRFunction, name: symbol)
 
