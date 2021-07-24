@@ -566,8 +566,8 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
 
 
   // Fallback functions
-  PublicFunctionJump(block, "0x0"),
-  PublicFunction(@cast_to_symbol(fallthrough), "0x0") :-
+  PublicFunctionJump(block, FALLBACK_FUNCTION_SIGHASH),
+  PublicFunction(@cast_to_symbol(fallthrough), FALLBACK_FUNCTION_SIGHASH) :-
     PushValue(stmt, "0x4"),
     Statement_Next(stmt, stmt2),
     CALLDATASIZE(stmt2),
