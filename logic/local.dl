@@ -286,7 +286,7 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
      Variable_Value(variable, targetValue),
      !JUMPDEST(@cast_to_symbol(targetValue)),
      BasicBlock_Tail(block, jmp).
-  
+
   /*
    ***********
    * Define semantics of instructions
@@ -667,18 +667,29 @@ insertor.insertOps(jmp,
   preTrans.JUMP(jmp).
 
 // This one removes conditional "throw jumps"
-insertor.removeOp(jmp),
-insertor.insertOps(jmp,
+// The old "target" was the invalid and the fallthrough
+// was the valid "next" block. So we create 2 labels
+// and add the "invalid" block after the old jumpi
+// and the JUMPDEST for the old valid "next" block right after it
+// We need to add this last JUMPDEST is because it was originally
+// a fallthrough block so it didn't need to start with a JUMPDEST
+// All this also requires adding ISZERO to reverse the condition.
+// Even if it did we don't break anything by adding an extra one.
+insertor.removeOp(jumpi),
+insertor.insertOps(jumpi,
   LIST(
     STMT(POP, ""),
-    STMT(PUSH4, MAKE_LABEL_REFERENCE(jmp)),
+    STMT(ISZERO, ""),
+    STMT(PUSH4, MAKE_LABEL_REFERENCE(fallthrough)),
     STMT(JUMPI, ""),
-    STMT(JUMPDEST, MAKE_LABEL_REFERENCE(jmp)),
-    STMT(INVALID, "")
+    STMT(JUMPDEST, MAKE_LABEL_REFERENCE(jumpi)),
+    STMT(INVALID, ""),
+    STMT(JUMPDEST, MAKE_LABEL_REFERENCE(fallthrough))
   )
 ) :-
-  preTrans.ThrowJump(jmp),
-  preTrans.JUMPI(jmp).
+  preTrans.ThrowJump(jumpi),
+  preTrans.JUMPI(jumpi),
+  preTrans.FallthroughStmt(jumpi, fallthrough).
 
 // This one removes conditional jumps that "always" jump
 insertor.removeOp(jmpi),
