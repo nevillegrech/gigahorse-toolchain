@@ -564,10 +564,11 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     PushValue(push, targetValue),
     JUMPDEST(@cast_to_symbol(targetValue)).
 
+  .decl BlockComparesCallDataSizeToFour(block: Block, jumpi: Statement, target: Block)
+  .decl BlockJumpsOnCallDataSize(block: Block, jumpi: Statement, target: Block)
+  .decl BlockHasReceiveAsFallThrough(block: Block, jumpi: Statement, fallthrough:Statement, target: Block)
 
-  // Fallback functions
-  PublicFunctionJump(block, FALLBACK_FUNCTION_SIGHASH),
-  PublicFunction(@cast_to_symbol(fallthrough), FALLBACK_FUNCTION_SIGHASH) :-
+  BlockComparesCallDataSizeToFour(block, stmt5, @cast_to_symbol(fallthrough)):-
     PushValue(stmt, "0x4"),
     Statement_Next(stmt, stmt2),
     CALLDATASIZE(stmt2),
@@ -578,6 +579,25 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     Statement_Next(stmt4, stmt5),
     JUMPI(stmt5),
     Statement_Block(stmt5, block).
+
+  BlockJumpsOnCallDataSize(block, jumpi, @cast_to_symbol(fallthrough)):-
+    CALLDATASIZE(cds),
+    Statement_Next(cds, push),
+    PushValue(push, fallthrough),
+    Statement_Next(push, jumpi),
+    JUMPI(jumpi),
+    Statement_Block(jumpi, block).
+
+  // Fallback functions
+  PublicFunctionJump(block, FALLBACK_FUNCTION_SIGHASH),
+  PublicFunction(fallbackStart, FALLBACK_FUNCTION_SIGHASH):-
+    BlockComparesCallDataSizeToFour(block, _, fallbackStart),
+    !BlockJumpsOnCallDataSize(fallbackStart, _, _).
+
+  BlockHasReceiveAsFallThrough(block, jumpi, fallthrough, target):-
+    BlockComparesCallDataSizeToFour(_, _, block),
+    BlockJumpsOnCallDataSize(block, jumpi, target),
+    FallthroughStmt(jumpi, fallthrough).
 
 }
 
@@ -654,6 +674,15 @@ insertor.insertOps(functionStartStmt,
    preTrans.BasicBlock_Tail(block, tail),
    preTrans.Statement_Next(tail, functionStartStmt).
 
+// Receive transformation
+insertor.insertOps(functionStartStmt,
+  LIST(
+    STMT(PUSH4, MAKE_LABEL_REFERENCE("0x00000000")),
+    STMT(JUMP, cat("PublicFunctionJump:", "0x00000000")),
+    STMT(JUMPDEST, MAKE_LABEL_REFERENCE("0x00000000"))
+  )
+) :-
+  preTrans.BlockHasReceiveAsFallThrough(_, _, functionStartStmt, _).
 
 // This one removes "throw jumps"
 insertor.removeOp(jmp),
@@ -736,6 +765,14 @@ postTrans.PublicFunction(block, hash) :-
    preTrans.BlockComparesSigVyper(_, hash),
    ISLABEL(meta), hash = GET_LABEL_REFERENCE(meta).
 
+// For receive functions
+postTrans.PublicFunction(block, hash) :-
+   preTrans.BlockHasReceiveAsFallThrough(_, _, _, _),
+   hash = "0x00000000",
+   hash = GET_LABEL_REFERENCE(meta), ISLABEL(meta),
+   insertor.MetaData(stmt, meta),
+   postTrans.JUMPDEST(stmt),
+   postTrans.Statement_Block(stmt, block).
 
 postTrans.PublicFunction(b, h) :- preTrans.PublicFunction(b, h).
 
