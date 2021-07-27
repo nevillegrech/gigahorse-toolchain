@@ -293,7 +293,7 @@ GlobalEntryBlock("0x0").
 
 .decl FallbackFunction(func: Function)
 
-FallbackFunction(func) :- PublicFunctionSelector(func, "0x").
+FallbackFunction(func) :- PublicFunctionSelector(func, "0x00000000").
 
 
 
