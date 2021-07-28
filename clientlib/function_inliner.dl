@@ -26,6 +26,7 @@
   .decl In_FunctionCallReturn(block: Block, function: Function, return: Block)
   .decl In_IsFunction(func: Function)
   .decl In_Block_Gas(block:Block, gas:number)
+  .decl In_Block_CodeChunkAccessed(block:Block, chunk:Chunk)  
   .decl In_OriginalStatement_Block(stmt:symbol, block:Block)
   .decl In_FormalArgs(fn: Function, a: Variable, pos: number)
   .decl In_Statement_Uses(stmt: Statement, var: Variable, i: number)
@@ -46,6 +47,7 @@
   .decl Out_FunctionCallReturn(block: Block, function: Function, return: Block)   //CHECK
   .decl Out_IsFunction(func: Function)  //CHECK
   .decl Out_Block_Gas(block:Block, gas:number)  //CHECK
+  .decl Out_Block_CodeChunkAccessed(block:Block, chunk:Chunk)  //CHECK
   .decl Out_OriginalStatement_Block(stmt:symbol, block:Block)
   .decl Out_FormalArgs(fn: Function, a: Variable, pos: number) //CHECK
   .decl Out_Statement_Uses(stmt: Statement, var: Variable, i: number)  //CHECK
@@ -115,13 +117,28 @@
     In_Statement_Opcode(retStmt, "RETURNPRIVATE"),
     !In_Statement_Uses(retStmt, _, i + 1).
 
+
+  /*
+    Restriction ensures that the inlined functions have either a single return
+    or no actual returned variables. Otherwise we'd need to add PHIs.
+  */
+  .decl FunctionReturnRestriction(fun:Function)
   
+  FunctionReturnRestriction(fun):-
+    In_IsFunction(fun),
+    1 = count: Function_Exit(fun, _).
+
+  FunctionReturnRestriction(fun):-
+    In_IsFunction(fun),
+    1 < count: Function_Exit(fun, _),
+    !In_FormalReturnArgs(fun, _, 0).
+
   /* We can safely inline functions with only one return
      and matching args and returns at every call-site(as described above) */
   SafelyInlinableFunction(fun):-
     In_IsFunction(fun),
     !IsPublicFunction(fun),
-    1 = count: Function_Exit(fun, _),
+    FunctionReturnRestriction(fun),
     !FunHasArgMismatch(fun),
     !FunHasRetMismatch(fun).
 
@@ -247,6 +264,11 @@
   Out_Block_Gas(outBlock, gas):-
     In_Block_Gas(inBlock, gas),
     InBlock_OutBlock(inBlock, _, outBlock).
+
+  Out_Block_CodeChunkAccessed(outBlock, chunk):-
+    In_Block_CodeChunkAccessed(inBlock, chunk),
+    InBlock_OutBlock(inBlock, _, outBlock).
+
 
   Out_OriginalStatement_Block(stmt, outBlock):-
     In_OriginalStatement_Block(stmt, inBlock),
@@ -495,7 +517,7 @@
     In_CallGraphEdge(_, fun),
     numOfStatements = count : In_Statement_Function(_, fun),
     numOfStatements = 1,
-    !In_FormalReturnArgs(fun, _, 1).
+    !In_FormalReturnArgs(fun, _, 0).
 
   // Less than 3 blocks
   InlineCandidate(fun):-
@@ -567,6 +589,7 @@ inliner.In_CallGraphEdge(block, function):- CallGraphEdge(block, function).
 inliner.In_FunctionCallReturn(block, function, return):- FunctionCallReturn(block, function, return).
 inliner.In_IsFunction(func):- IsFunction(func).
 inliner.In_Block_Gas(block, gas):- Block_Gas(block, gas).
+inliner.In_Block_CodeChunkAccessed(block, chunk):- Block_CodeChunkAccessed(block, chunk).
 inliner.In_OriginalStatement_Block(stmt, block):- OriginalStatement_Block(stmt, block).
 inliner.In_FormalArgs(fn, a, pos):- FormalArgs(fn, a, pos).
 inliner.In_Statement_Uses(stmt, var, i):- Statement_Uses(stmt, var, i).
@@ -590,7 +613,8 @@ inliner.In_ActualReturnArgs(caller, arg, pos):- ActualReturnArgs(caller, arg, po
 .output inliner.Out_CallGraphEdge(IO="file", filename="IRFunctionCall.csv", delimiter="\t")
 .output inliner.Out_FunctionCallReturn(IO="file", filename="IRFunctionCallReturn.csv", delimiter="\t")
 .output inliner.Out_IsFunction(IO="file", filename="Function.csv", delimiter="\t")
-.output inliner.Out_Block_Gas(IO="file", filename="IRBlock_Gas.csv", delimiter="\t")
+.output inliner.Out_Block_Gas(IO="file", filename="TAC_Block_Gas.csv", delimiter="\t")
+.output inliner.Out_Block_CodeChunkAccessed(IO="file", filename="TAC_Block_CodeChunkAccessed.csv", delimiter="\t")
 .output inliner.Out_OriginalStatement_Block(IO="file", filename="TAC_OriginalStatement_Block.csv", delimiter="\t")
 .output inliner.Out_FormalArgs(IO="file", filename="FormalArgs.csv", delimiter="\t")
 .output inliner.Out_Statement_Uses(IO="file", filename="TAC_Use.csv", delimiter="\t")

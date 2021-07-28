@@ -10,18 +10,18 @@
 
 MaxContextDepth(sigHash, d) :-
   (postTrans.PublicFunction(_, sigHash);
-   sigHash = "0x0"),
+   sigHash = FALLBACK_FUNCTION_SIGHASH),
    InputMaxContextDepth(d).
 
 #ifndef MAX_CONTEXT_DEPTH
 MaxContextDepth(sigHash, 8) :-
   (postTrans.PublicFunction(_, sigHash);
-   sigHash = "0x0"),
+   sigHash = FALLBACK_FUNCTION_SIGHASH),
   !InputMaxContextDepth(_).
 #else
 MaxContextDepth(sigHash, MAX_CONTEXT_DEPTH) :-
   (postTrans.PublicFunction(_, sigHash);
-   sigHash = "0x0"),
+   sigHash = FALLBACK_FUNCTION_SIGHASH),
   !InputMaxContextDepth(_).
 #endif
 
@@ -67,7 +67,8 @@ TruncateContext(pub, ctx, ctx) :-
 
 .decl InitialContext(ctx : Context)
 
-InitialContext(["0x0", initialPrivateContext]) :- InitialPrivateContext(initialPrivateContext).
+InitialContext([FALLBACK_FUNCTION_SIGHASH, initialPrivateContext]) :-
+  InitialPrivateContext(initialPrivateContext).
 
 
 // inverse-escape analysis

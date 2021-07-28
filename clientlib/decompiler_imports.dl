@@ -12,6 +12,10 @@
 .type Function <: symbol
 .type Opcode <: symbol
 .type Value <: symbol
+.type Chunk <: number
+.type OriginalStatement <: symbol
+
+
 
 #include "tac_instructions.dl"
 #include "util.dl"
@@ -116,12 +120,15 @@ IsPublicFunction(func) :- PublicFunctionSelector(func, _).
 
 // Gas used per block
 .decl Block_Gas(block:Block, gas:number)
-.input Block_Gas(IO="file", filename="IRBlock_Gas.csv", delimiter="\t")
+.input Block_Gas(IO="file", filename="TAC_Block_Gas.csv", delimiter="\t")
 
 // Relation that links blocks to statements in the original bytecode
-.decl OriginalStatement_Block(stmt:symbol, block:Block)
+.decl OriginalStatement_Block(stmt:OriginalStatement, block:Block)
 .input OriginalStatement_Block(IO="file", filename="TAC_OriginalStatement_Block.csv", delimiter="\t")
- 
+
+// Code chunks accessed
+.decl Block_CodeChunkAccessed(block: Block, chunk_id: Chunk)
+.input Block_CodeChunkAccessed(IO="file", filename="TAC_Block_CodeChunkAccessed.csv", delimiter="\t")
 
 // Export max context depth of decompilation, possibly useful for client analysis tuning
 .decl MaxContextDepth(n:number)
@@ -286,7 +293,7 @@ GlobalEntryBlock("0x0").
 
 .decl FallbackFunction(func: Function)
 
-FallbackFunction(func) :- PublicFunctionSelector(func, "0x0").
+FallbackFunction(func) :- PublicFunctionSelector(func, "0x00000000").
 
 
 
