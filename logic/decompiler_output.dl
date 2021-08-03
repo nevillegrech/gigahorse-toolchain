@@ -11,7 +11,6 @@
 .output IRBlockEdge
 .output IRPublicFunction(IO="file", filename = "PublicFunction.csv", delimiter = "\t")
 .output Statement_IRStatement
-.output IRBlock_Gas
 .output CycleEntry
 
 .decl FunctionalBlock_Uses_Local(block: IRBlock, stackIndex: StackIndex)
@@ -289,15 +288,41 @@ TAC_OriginalStatement_Block(stmt, irblock) :-
   Block_IRBlock(block, _, irblock).
 
 
-// imperfect solution, e.g., assumes
-// that there was exactly one original block
-// linking the "generated" basic block in postTrans
+// tracks statements that have been placed into generated blocks
 TAC_OriginalStatement_Block(stmt, irblock) :-
-  postTrans.Statement_Block(_, block),
+  postTrans.Statement_Block(stmt, block),
   !preTrans.Statement_Block(_, block),
-  BlockEdge(_, caller, _, block),
-  preTrans.Statement_Block(stmt, caller),                  
+  preTrans.Statement_Block(stmt, _),
   Block_IRBlock(block, _, irblock).
+
+// tracks deleted statements where their old block was also changed
+TAC_OriginalStatement_Block(stmt, irblock) :-
+  preTrans.Statement_Block(stmt, block),
+  !postTrans.Statement_Block(stmt, _),
+  !postTrans.Statement_Block(_, block),
+  preTrans.Statement_Block(otherStmt, block),
+  postTrans.Statement_Block(otherStmt, genBlock),
+  Block_IRBlock(genBlock, _, irblock).
+
+.decl TAC_Block_CodeChunkAccessed(irblock: IRBlock, chunk_id: Chunk)
+.output TAC_Block_CodeChunkAccessed
+
+TAC_Block_CodeChunkAccessed(irblock, chunk_id) :-
+  Statement_CodeChunkAccessed(stmt, chunk_id),
+  TAC_OriginalStatement_Block(stmt, irblock).                   
+
+.decl IRBlock_PartialGas(block: IRBlock, stmt: Statement, gas: number)
+IRBlock_PartialGas(irblock, stmt, gas) :-
+  TAC_OriginalStatement_Block(stmt, irblock),
+  preTrans.Statement_Gas(stmt, gas).
+  
+.decl TAC_Block_Gas(block: IRBlock, gas: number)
+.output TAC_Block_Gas
+
+TAC_Block_Gas(block, totalgas) :-
+   IRStatement_Block(_, block),
+   totalgas = sum gas : IRBlock_PartialGas(block, _, gas).
+
 
 .decl UnmappedStatements(stmt: Statement)
 .output UnmappedStatements

@@ -5,7 +5,6 @@
 #define RETURN_ADDRESS_RANK_THRESHOLD 25
 #define LIMITSIZE_CAN_REACH_UNDER_CONTEXT 25000000
 
-
 /*****
  * Function discovery logic
  *****/
@@ -248,7 +247,7 @@ IsFunctionCallReturn(ctx, caller, func, retCtx, retBlock, retTarget) :-
 
 .decl IsFunctionEntry(entry:Block)
 IsFunctionEntry(block) :- postTrans.PublicFunction(block, _).
-IsFunctionEntry(FUNCTION_SELECTOR).
+IsFunctionEntry("0x0").
 IsFunctionEntry(func) :- IsFunctionCallReturn(_, _, func, _, _, _).
 
 .decl IsFunctionCall(block:Block, func:Block)
@@ -273,7 +272,7 @@ IsPrivateFunctionCall(ctx, block, func) :-
 .decl MaybeInFunctionUnderContext(ctx: Context, block:Block, func:Block)
 
 MaybeInFunctionUnderContext(ctx, func, func) :-
-  (IsPublicFunctionCall(_, func) ; func = FUNCTION_SELECTOR),
+  (IsPublicFunctionCall(_, func) ; func = "0x0"),
   ReachableContext(ctx, func).
 
 MaybeInFunctionUnderContext(ctx, func, func) :-
@@ -454,7 +453,7 @@ IRFunctionCall(fromir, irfunc) :-
 .decl PubFun(entry:symbol, hex:symbol)
 .decl Context_PublicFunction(ctx:Context, pubFun:symbol)
 
-PubFun("0x0", "0x0"):- Context_PublicFunction(_, _).
+PubFun("0x0", FALLBACK_FUNCTION_SIGHASH):- Context_PublicFunction(_, _).
 PubFun(entry, sigHash):- Context_PublicFunction(_, sigHash), postTrans.PublicFunction(entry, sigHash).
 
 // Intra-function edges (i.e., real CFG edges)
@@ -662,11 +661,6 @@ IRLocalStackContents(irstmt, n, varOrStackIndex) :-
   postTrans.LocalStackContents(stmt, n, varOrStackIndex),
   Statement_IRStatement(stmt, _, irstmt).
 
-.decl IRBlock_Gas(irblock: IRBlock, gas: number)
-IRBlock_Gas(irblock, gas) :-
-  Block_IRBlock(block, _, irblock),
-  postTrans.Block_Gas(block, gas).
-
 
 /***********
  * Discovery of arguments accepted by a function   
@@ -851,11 +845,11 @@ PossibleNumberOfFunctionArguments(func, 0),
 PossibleNumberOfFunctionReturnArguments(func, 0) :-
   IRFunctionEntry(func).
 
-NumberOfFunctionArguments(FUNCTION_SELECTOR, 0).
+NumberOfFunctionArguments("0x0", 0).
 
 NumberOfFunctionArguments(func, n) :-
   IRFunctionEntry(func),
-  func != FUNCTION_SELECTOR,
+  func != "0x0",
   n = max m : PossibleNumberOfFunctionArguments(func, m).
 
 NumberOfFunctionReturnArguments(func, n) :-
@@ -1030,8 +1024,6 @@ FunctionalStatement_Uses(stmt, var, n) :-
 .decl PublicFunctionSignature(hex_signature: symbol, text_signature: symbol)
 .input PublicFunctionSignature
 
-PublicFunctionSignature("0x00000000", "fallback()").
-
 .decl HighLevelFunctionName(func: IRFunction, name: symbol)
 
 // Standardize public function signature length
@@ -1065,7 +1057,7 @@ HighLevelFunctionName(func, name) :-
 
 HighLevelFunctionName(func, func) :-
    IRFunctionEntry(func),
-   func != FUNCTION_SELECTOR,
+   func != "0x0",
    !IRPublicFunction(func, _).
 
 HighLevelFunctionName(FUNCTION_SELECTOR, "__function_selector__").
