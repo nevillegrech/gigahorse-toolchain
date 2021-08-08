@@ -94,7 +94,7 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
      PreInsertedOpNewStatementNum(_, _, newStmt),
      n = count : { TempPreInsertedOpNewAndMissingStatementNum(_, newStmt) }.
 
-  InsertedOpNewStatement(stmt, order, @number_to_hex(newStmt - n + maxStmt + 1)) :-
+  InsertedOpNewStatement(stmt, order, as(@number_to_hex(newStmt - n + maxStmt + 1),Statement)) :-
     PreInsertedOpNewStatementNum(stmt, order, newStmt),
     MaxStmt(maxStmt),
     WastedSlots(newStmt, n).
@@ -130,7 +130,7 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
     !ISLABEL(value),
     OpcodeIsPush(op).
 
-  Out_PushValue(newStmt, @cast_to_symbol(actualLabel)) :-
+  Out_PushValue(newStmt, as(actualLabel, Value)) :-
     insertOp(stmt, op, label, order),
     OpcodeIsPush(op),
     ISLABEL(label),

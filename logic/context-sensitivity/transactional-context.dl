@@ -87,7 +87,7 @@ PrivateFunctionCallOrReturn(caller) :-
   postTrans.Statement_Block(stmt, caller),
   postTrans.Statement_Defines(stmt, var),
   postTrans.Variable_Value(var, val),
-  postTrans.JUMPDEST(@cast_to_symbol(val)),
+  postTrans.JUMPDEST(as(val,symbol)),
   !Block_Uses_Local(caller, var).
 
 PrivateFunctionCallOrReturn(caller) :-
@@ -106,7 +106,7 @@ Context_PublicFunction(ctx, pubFun):-
 StaticBlockJumpTarget(caller, target) :-
   postTrans.ImmediateBlockJumpTarget(caller, targetVar),
   postTrans.Variable_Value(targetVar, target),
-  postTrans.JUMPDEST(@cast_to_symbol(target)).
+  postTrans.JUMPDEST(as(target,symbol)).
 
 .decl MergeContext(ctx: Context, caller: Block, newContext: Context)
 
