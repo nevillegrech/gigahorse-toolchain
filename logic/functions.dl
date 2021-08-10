@@ -360,9 +360,9 @@ StackBalancingBlockJumpImprecision(block, func):-
  ***********/
 #define FRESH_IRBLOCK(b, f) cat((b), (f))
 #define FRESH_IRSTATEMENT(s, f) cat((s), (f))
-#define BLOCK_TO_IRBLOCK(b) as(b,IRBlock)
-#define STATEMENT_TO_IRSTATEMENT(s) as(s,IRStatement)
-#define FUNCTION_TO_IRFUNCTION(f) as(f,IRBlock)
+#define BLOCK_TO_IRBLOCK(b) as(b, IRBlock)
+#define STATEMENT_TO_IRSTATEMENT(s) as(s, IRStatement)
+#define FUNCTION_TO_IRFUNCTION(f) as(f, IRBlock)
  
 .type IRBlock <: symbol
 // exploit type checking in new IR
@@ -773,7 +773,7 @@ NotCycleEntryLocalBlockEdge(from, to) :-
 
 PossibleFunctionalBlockPopAndStackDelta(func, to, newPath, newPopDelta, newStackDelta) :-
   PossibleFunctionalBlockPopAndStackDelta(func, from, prevPath, prevPopDelta, prevStackDelta),
-  ((PotentialCycleEntryLocalBlockEdge(from, to), newPath = as(@add_set(prevPath, to),Path), newPath != prevPath) ;
+  ((PotentialCycleEntryLocalBlockEdge(from, to), newPath = as(@add_set(prevPath, to), Path), newPath != prevPath) ;
     (NotCycleEntryLocalBlockEdge(from, to), newPath = prevPath)),
   FunctionalBlockPopAndStackDelta(from, popDelta, stackDelta),
   newStackDelta = stackDelta + prevStackDelta,
@@ -963,7 +963,7 @@ BeforeFunctionCallFunctionalBlockOutputContents(callee, index+delta, variable) :
   IRBlockStackDelta(callee, delta).
 
 // Handle the proper variables pushed by this basic block
-BeforeFunctionCallFunctionalBlockOutputContents(block, index, as(var,Variable)) :-
+BeforeFunctionCallFunctionalBlockOutputContents(block, index, as(var, Variable)) :-
   IRInFunction(block, _),
   IRBasicBlock_Tail(block, stmt),
   IRLocalStackContents(stmt, index, var),

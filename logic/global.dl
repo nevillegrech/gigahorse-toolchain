@@ -58,7 +58,7 @@
 .decl VariableContainsJumpTarget(var: Variable)
 VariableContainsJumpTarget(var) :-
   postTrans.Variable_Value(var, value),
-  postTrans.JUMPDEST(as(value,symbol)).
+  postTrans.JUMPDEST(as(value, symbol)).
 
 .decl AuxBlockOutputContentsJumpTarget(context:Context, block:Block, index:StackIndex, var:Variable)
 AuxBlockOutputContentsJumpTarget(context, block, index, var) :-
@@ -79,14 +79,14 @@ BlockOutputContents(calleeCtx, callee, index+delta, variable) :-
   index+delta <= MAX_STACK_HEIGHT.
 
 // Handle the proper variables pushed by this basic block
-BlockOutputContents(ctx, block, index, as(var,Variable)) :-
+BlockOutputContents(ctx, block, index, as(var, Variable)) :-
   ReachableContext(ctx, block),
   postTrans.BasicBlock_Tail(block, stmt),
   postTrans.LocalStackContents(stmt, index, var),
   CheckIsVariable(var).
 
 // Handle the stackIndexes pushed by this basic block
-BlockOutputContents(ctx, block, index, as(realVariable,Variable)) :-
+BlockOutputContents(ctx, block, index, as(realVariable, Variable)) :-
   BlockInputContents(ctx, block, stackIndex, realVariable),
   CheckIsStackIndex(stackIndex),
   postTrans.BasicBlock_Tail(block, stmt),
@@ -110,10 +110,10 @@ BlockJumpTarget(ctx, block, realVariable) :-
 // is equal to the label of "target" block.
 .decl BlockJumpValidTarget(ctx:Context, block:Block, variable: Variable, target:Block)
 
-BlockJumpValidTarget(ctx, block, targetVar, as(targetValue,Block)) :-
+BlockJumpValidTarget(ctx, block, targetVar, as(targetValue, Block)) :-
   BlockJumpTarget(ctx, block, targetVar),
   postTrans.Variable_Value(targetVar, targetValue),
-  postTrans.JUMPDEST(as(targetValue,symbol)).
+  postTrans.JUMPDEST(as(targetValue, symbol)).
 
 
 /*
@@ -131,7 +131,7 @@ ReachableContext(initCtx, FUNCTION_SELECTOR) :-
 .decl FallthroughEdge(caller: Block, fallthroughBlock: Block)
 
 FallthroughEdge(caller, as(fallthrough, Block)),
-BlockEdge(callerCtx, caller, calleeCtx, as(fallthrough,Block)) :-
+BlockEdge(callerCtx, caller, calleeCtx, as(fallthrough, Block)) :-
   MergeContext(callerCtx, caller, calleeCtx),  // implies reachable
   postTrans.Statement_Block(stmt, caller),
   postTrans.FallthroughStmt(stmt, fallthrough),

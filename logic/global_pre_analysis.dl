@@ -13,7 +13,7 @@ InitialContext("0x0").
 
 .decl MergeContext(ctx: Context, caller: Block, newContext: Context)
 
-MergeContext(ctx, caller, as(sigHash,symbol)) :-
+MergeContext(ctx, caller, as(sigHash, symbol)) :-
   ReachableContext(ctx, caller),
   postTrans.PublicFunction(caller, sigHash).
 

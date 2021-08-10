@@ -21,7 +21,7 @@
   // Not the most efficient because the string matching of the operator
   // will happen last, but rule should fire rarely?
   #define BINOP_SEMANTICS(_OP, _functor) \
-  ConstantFoldResult2(#_OP, arg1, arg2, as(result,Value)) :- \
+  ConstantFoldResult2(#_OP, arg1, arg2, as(result, Value)) :- \
     ValidConstantFoldOperation(#_OP, arg1, arg2), \
     result = _functor(arg1, arg2)
 

@@ -770,13 +770,13 @@ ABIEncodedArrayVarsInSameClass(arrVar1, arrVar2):-
   MLOADSFreePtrUnchangedNoMemReuse(mload1, mload2),
   Variable_SymbolicValue(arrVar2, val2).
 
-ABIEncodedArrayVar_ClassRep(arrVar, as(arrVarRep,ArrayVariable)):-
+ABIEncodedArrayVar_ClassRep(arrVar, as(arrVarRep, ArrayVariable)):-
   IsABIEncodedArrayVar(arrVar),
   maxordy = max ord(arrVar2) : ABIEncodedArrayVarsInSameClass(arrVar, arrVar2),
   ABIEncodedArrayVarsInSameClass(arrVar, arrVarRep),
   maxordy = ord(arrVarRep).
 
-RegularArrayVar_ClassRep(arrVar, as(arrVarRep,ArrayVariable)):-
+RegularArrayVar_ClassRep(arrVar, as(arrVarRep, ArrayVariable)):-
   arrayClassRep.Var_ClassRep(arrVar, arrVarRep).
 
 
@@ -793,7 +793,7 @@ arrayClassRep.InSameClass(arrVar1, arrVar2):- RegularArrayVarsInSameClass(arrVar
 .init rawDataArrayClassRep = DominatorInClass
 rawDataArrayClassRep.InSameClass(arrVar1, arrVar2):- RawDataArrayVarsInSameClass(arrVar1, arrVar2).
 
-RawDataArrayVar_ClassRep(arrVar, as(classRep,ArrayVariable)):-
+RawDataArrayVar_ClassRep(arrVar, as(classRep, ArrayVariable)):-
   rawDataArrayClassRep.Var_ClassRep(arrVar, classRep).
 
 

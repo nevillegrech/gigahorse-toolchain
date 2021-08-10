@@ -94,7 +94,7 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
      PreInsertedOpNewStatementNum(_, _, newStmt),
      n = count : { TempPreInsertedOpNewAndMissingStatementNum(_, newStmt) }.
 
-  InsertedOpNewStatement(stmt, order, as(@number_to_hex(newStmt - n + maxStmt + 1),Statement)) :-
+  InsertedOpNewStatement(stmt, order, as(@number_to_hex(newStmt - n + maxStmt + 1), Statement)) :-
     PreInsertedOpNewStatementNum(stmt, order, newStmt),
     MaxStmt(maxStmt),
     WastedSlots(newStmt, n).

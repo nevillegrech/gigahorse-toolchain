@@ -96,7 +96,7 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
   .plan 1:(3,2,1)
 
   .decl UnopStatementOpAndArgs(stmt: Statement, op: Opcode, a: Variable)
-  UnopStatementOpAndArgs(stmt, op, as(a,Variable)) :-
+  UnopStatementOpAndArgs(stmt, op, as(a, Variable)) :-
     Statement_Opcode(stmt, op),
     Statement_Uses_Local(stmt, a, 0),
     !Statement_Uses_Local(stmt, _, 1),
@@ -147,7 +147,7 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     Statement_Opcode(stmt, opcode),
     OpcodePushWords(opcode, m), m > 0,
     !TACNOP(stmt),
-    var = as(n,Variable).
+    var = as(n, Variable).
   
    
   .decl IsValue(v:Value)
@@ -200,7 +200,7 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
   .decl Statement_BlockHead(statement:Statement, head:Statement)
   
   Statement_BlockHead(stmt, stmt),
-  Statement_Block(stmt, as(stmt,Block)) :-
+  Statement_Block(stmt, as(stmt, Block)) :-
     IsBasicBlockHead(stmt).
   
   Statement_BlockHead(stmt, as(block, Statement)),
@@ -254,7 +254,7 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
   .decl StatementPopDelta(statement: Statement, delta: number)
   .decl StatementStackDelta(statement: Statement, delta: number)
   
-  ImmediateBlockJumpTarget(block, as(var,Variable)) :-
+  ImmediateBlockJumpTarget(block, as(var, Variable)) :-
     BasicBlock_Tail(block, stmt),
     IsJump(stmt),
     BeforeLocalStackContents(stmt, 0, var),
@@ -284,7 +284,7 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
   ThrowJump(jmp) :-
      ImmediateBlockJumpTarget(block, variable),
      Variable_Value(variable, targetValue),
-     !JUMPDEST(as(targetValue,Statement)),
+     !JUMPDEST(as(targetValue, Statement)),
      BasicBlock_Tail(block, jmp).
 
   /*
@@ -312,7 +312,7 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     Statement_Defines(stmt, var).
   
   // Get current program counter
-  Variable_Value(var, as(stmt,Value)) :-
+  Variable_Value(var, as(stmt, Value)) :-
     PC(stmt),
     Statement_Defines(stmt, var).
 
@@ -436,7 +436,7 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
   IsValue(v) :-
      PushValue(_, v).
   
-  IsValue(as(v,Value)) :-
+  IsValue(as(v, Value)) :-
     PC(v).
   
   .decl DynamicStatement(stmt:Statement)
@@ -562,7 +562,7 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     ImmediateBlockJumpTarget(block, var),
     Statement_Defines(push, var),
     PushValue(push, targetValue),
-    JUMPDEST(as(targetValue,symbol)).
+    JUMPDEST(as(targetValue, symbol)).
 
   .decl BlockComparesCallDataSizeToFour(block: Block, jumpi: Statement, target: Block)
   .decl BlockJumpsOnCallDataSize(block: Block, jumpi: Statement, target: Block)
@@ -648,7 +648,7 @@ insertor.insertOps(pushStmt,
 insertor.insertOps(jumpDestStmt,
   LIST(
     STMT(JUMPDEST, MAKE_LABEL_REFERENCE(jumpDestStmt)),
-    STMT(PUSH4, as(jumpDestStmt,symbol)),
+    STMT(PUSH4, as(jumpDestStmt, symbol)),
     STMT(JUMP, cat("PublicFunctionJump:", hash))
   )
 ) :-
@@ -656,7 +656,7 @@ insertor.insertOps(jumpDestStmt,
    preTrans.PublicFunction(start, hash),
    preTrans.Statement_Block(jumpDestStmt, start),
    preTrans.JUMPDEST(jumpDestStmt),
-   preTrans.PushValue(pushStmt, as(jumpDestStmt,symbol)),
+   preTrans.PushValue(pushStmt, as(jumpDestStmt, symbol)),
    preTrans.Statement_Block(pushStmt, block),
    preTrans.Statement_Defines(pushStmt, pushedVar),
    preTrans.Statement_Uses_Local(jumpStmt, pushedVar, 0),
