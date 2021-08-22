@@ -463,7 +463,7 @@ AnyLoadStoreStorVarBytes(stmt, storVar, 0, 31):-
 FailedMergedStorageModeling(storVar):-
   AnyLoadStoreStorVarBytes(_, storVar, low, high),
   AnyLoadStoreStorVarBytes(_, storVar, otherLow, otherHigh),  otherLow = otherLow, otherHigh = otherHigh, // NOWARN
-  !ArrayIdToStorageIndex(@cast_to_symbol(storVar), _),
+  !ArrayIdToStorageIndex(as(storVar, Value), _),
   (low != otherLow ; high != otherHigh),
   ( (low < otherLow , otherLow < high) ; (low < otherHigh, otherHigh < high) ).
 
@@ -479,13 +479,13 @@ FailedMergedStorageModeling(storVar):-
   !AnyLoadStoreStorVarBytes(stmt, storVar, _, _),
   !VarWrittenToBytesOfStorVar(_, _, stmt, storVar, _, _),
   !ConstWrittenToBytesOfStorVar(_, _, _, stmt, storVar, _, _),
-  !ArrayIdToStorageIndex(@cast_to_symbol(storVar), _).
+  !ArrayIdToStorageIndex(as(storVar, Value), _).
 
 
 SuccessfulMergedStorageModeling(storVar):-
   AnyLoadStoreStorVarBytes(_, storVar, _, _),
   !FailedMergedStorageModeling(storVar),
-  !ArrayIdToStorageIndex(@cast_to_symbol(storVar), _).
+  !ArrayIdToStorageIndex(as(storVar, Value), _).
 
 .decl VarWrittenToBytesOfStorVar(var:Variable, store:Statement, load:Statement, storVar:symbol, byteLow:number, byteHigh:number)
 .output VarWrittenToBytesOfStorVar
@@ -593,7 +593,7 @@ LoadGlobalVariable(stmt, storVar, var):-
   SLOADOfConst(stmt, storVar, var),
   FailedMergedStorageModeling(storVar).
 
-LoadGlobalVariable(stmt, @cast_to_symbol(storVar), var):-
+LoadGlobalVariable(stmt, as(storVar, Value), var):-
   SuccessfulMergedStorageModeling(storVar),
   VarHoldsBytesOfStorVarFinal(var, _, storVar, 0, 31),
   Statement_Defines(stmt, var, 0).

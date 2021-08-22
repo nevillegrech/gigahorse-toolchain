@@ -81,7 +81,7 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
 
   // Auxiliary relations for constant folding
   .decl BinopStatementOpAndArgs(stmt: Statement, op: Opcode, a: Variable, b: Variable)
-  BinopStatementOpAndArgs(stmt, op, @cast_to_number(a), @cast_to_number(b)) :-
+  BinopStatementOpAndArgs(stmt, op, as(a, Variable), as(b, Variable)) :-
     Statement_Opcode(stmt, op),
     Statement_Uses_Local(stmt, a, 0),
     Statement_Uses_Local(stmt, b, 1),
@@ -96,7 +96,7 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
   .plan 1:(3,2,1)
 
   .decl UnopStatementOpAndArgs(stmt: Statement, op: Opcode, a: Variable)
-  UnopStatementOpAndArgs(stmt, op, @cast_to_number(a)) :-
+  UnopStatementOpAndArgs(stmt, op, as(a, Variable)) :-
     Statement_Opcode(stmt, op),
     Statement_Uses_Local(stmt, a, 0),
     !Statement_Uses_Local(stmt, _, 1),
@@ -147,7 +147,7 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     Statement_Opcode(stmt, opcode),
     OpcodePushWords(opcode, m), m > 0,
     !TACNOP(stmt),
-    var = @cast_to_number(n).
+    var = as(n, Variable).
   
    
   .decl IsValue(v:Value)
@@ -200,10 +200,10 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
   .decl Statement_BlockHead(statement:Statement, head:Statement)
   
   Statement_BlockHead(stmt, stmt),
-  Statement_Block(stmt, @cast_to_symbol(stmt)) :-
+  Statement_Block(stmt, as(stmt, Block)) :-
     IsBasicBlockHead(stmt).
   
-  Statement_BlockHead(stmt, @cast_to_symbol(block)),
+  Statement_BlockHead(stmt, as(block, Statement)),
   Statement_Block(stmt, block) :-
     Statement_Block(prevstmt, block),
     Statement_Next(prevstmt, stmt),
@@ -254,7 +254,7 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
   .decl StatementPopDelta(statement: Statement, delta: number)
   .decl StatementStackDelta(statement: Statement, delta: number)
   
-  ImmediateBlockJumpTarget(block, @cast_to_number(var)) :-
+  ImmediateBlockJumpTarget(block, as(var, Variable)) :-
     BasicBlock_Tail(block, stmt),
     IsJump(stmt),
     BeforeLocalStackContents(stmt, 0, var),
@@ -284,7 +284,7 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
   ThrowJump(jmp) :-
      ImmediateBlockJumpTarget(block, variable),
      Variable_Value(variable, targetValue),
-     !JUMPDEST(@cast_to_symbol(targetValue)),
+     !JUMPDEST(as(targetValue, Statement)),
      BasicBlock_Tail(block, jmp).
 
   /*
@@ -312,7 +312,7 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     Statement_Defines(stmt, var).
   
   // Get current program counter
-  Variable_Value(var, @cast_to_symbol(stmt)) :-
+  Variable_Value(var, as(stmt, Value)) :-
     PC(stmt),
     Statement_Defines(stmt, var).
 
@@ -400,7 +400,7 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     OpcodePopWords(opcode, delta).
   
   
-  StatementPopDelta(stmt, @max2(prevPopDelta, popDelta - prevStackDelta)) :-
+  StatementPopDelta(stmt, max(prevPopDelta, popDelta - prevStackDelta)) :-
     StatementPopDelta(prevstmt, prevPopDelta),
     !BasicBlock_Tail(_, prevstmt),
     StatementStackDelta(prevstmt, prevStackDelta),
@@ -436,7 +436,7 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
   IsValue(v) :-
      PushValue(_, v).
   
-  IsValue(@cast_to_symbol(v)) :-
+  IsValue(as(v, Value)) :-
     PC(v).
   
   .decl DynamicStatement(stmt:Statement)
@@ -557,18 +557,18 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
 
   PublicFunctionJump(block, sigHash) :-   BlockComparesSig(block, sigHash).
 
-  PublicFunction(@cast_to_symbol(targetValue), sigHash) :-
+  PublicFunction(as(targetValue, Block), sigHash) :-
     BlockComparesSig(block, sigHash),
     ImmediateBlockJumpTarget(block, var),
     Statement_Defines(push, var),
     PushValue(push, targetValue),
-    JUMPDEST(@cast_to_symbol(targetValue)).
+    JUMPDEST(as(targetValue, symbol)).
 
   .decl BlockComparesCallDataSizeToFour(block: Block, jumpi: Statement, target: Block)
   .decl BlockJumpsOnCallDataSize(block: Block, jumpi: Statement, target: Block)
   .decl BlockHasReceiveAsFallThrough(block: Block, jumpi: Statement, fallthrough:Statement, target: Block)
 
-  BlockComparesCallDataSizeToFour(block, stmt5, @cast_to_symbol(fallthrough)):-
+  BlockComparesCallDataSizeToFour(block, stmt5, as(fallthrough, Block)):-
     PushValue(stmt, "0x4"),
     Statement_Next(stmt, stmt2),
     CALLDATASIZE(stmt2),
@@ -580,7 +580,7 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     JUMPI(stmt5),
     Statement_Block(stmt5, block).
 
-  BlockJumpsOnCallDataSize(block, jumpi, @cast_to_symbol(fallthrough)):-
+  BlockJumpsOnCallDataSize(block, jumpi, as(fallthrough, Block)):-
     CALLDATASIZE(cds),
     Statement_Next(cds, push),
     PushValue(push, fallthrough),
@@ -648,7 +648,7 @@ insertor.insertOps(pushStmt,
 insertor.insertOps(jumpDestStmt,
   LIST(
     STMT(JUMPDEST, MAKE_LABEL_REFERENCE(jumpDestStmt)),
-    STMT(PUSH4, @cast_to_symbol(jumpDestStmt)),
+    STMT(PUSH4, as(jumpDestStmt, symbol)),
     STMT(JUMP, cat("PublicFunctionJump:", hash))
   )
 ) :-
@@ -656,7 +656,7 @@ insertor.insertOps(jumpDestStmt,
    preTrans.PublicFunction(start, hash),
    preTrans.Statement_Block(jumpDestStmt, start),
    preTrans.JUMPDEST(jumpDestStmt),
-   preTrans.PushValue(pushStmt, @cast_to_symbol(jumpDestStmt)),
+   preTrans.PushValue(pushStmt, as(jumpDestStmt, symbol)),
    preTrans.Statement_Block(pushStmt, block),
    preTrans.Statement_Defines(pushStmt, pushedVar),
    preTrans.Statement_Uses_Local(jumpStmt, pushedVar, 0),

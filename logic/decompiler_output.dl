@@ -15,7 +15,7 @@
 
 .decl FunctionalBlock_Uses_Local(block: IRBlock, stackIndex: StackIndex)
 
-FunctionalBlock_Uses_Local(block, @cast_to_number(stackIndex)) :-
+FunctionalBlock_Uses_Local(block, as(stackIndex, StackIndex)) :-
   IRStatement_Block(stmt, block),
   FunctionalStatement_Uses_Local(stmt, stackIndex, _),
   CheckIsStackIndex(stackIndex).
@@ -75,11 +75,11 @@ SHA3Decompositions(a, b, c, d) :- SHA3Decompositions(a, b, c, d).
 /// Heuristically change the values of all constants that match cloned
 /// basic block labels! Don't up
 
-TAC_Variable_BlockValue(@cast_to_symbol(tacvar), irvalue) :-
+TAC_Variable_BlockValue(as(tacvar,TACVariable), irvalue) :-
   FunctionalStatement_Defines(stmt, var, _),
   Variable_Stmt_String(var, stmt, tacvar),
   postTrans.Variable_Value(var, value),
-  StatementAndBlockInSameFunction(stmt, @cast_to_symbol(value), irvalue),
+  StatementAndBlockInSameFunction(stmt, as(value, symbol), irvalue),
    // value matches address of block
    STARTSWITH(value, "0x").
 
@@ -90,7 +90,7 @@ StatementAndBlockInSameFunction(stmt, block, irblock) :-
 
 
 // Normal variable
-TAC_Variable_Value(@cast_to_symbol(tacvar), value) :-
+TAC_Variable_Value(as(tacvar, TACVariable), value) :-
    FunctionalStatement_Defines(stmt, var, _),
    Variable_Stmt_String(var, stmt, tacvar),
    postTrans.Variable_Value(var, value),
@@ -131,17 +131,17 @@ TAC_Def(stmt, var, 0),
 TAC_Stmt(stmt),
 TAC_Op(stmt, "PHI") :-
    PHILocation(_, _, stmt),
-   var = @cast_to_symbol(stmt).
+   var = as(stmt, TACVariable).
 
 // Non-phi, non-call variable id same as stmt it is defined in
 TAC_Var(tac_var),
 TAC_Def(stmt, tac_var, n) :-
    FunctionalStatement_Defines(stmt, var, n),
    Variable_Stmt_String(var, stmt, var_rep),
-   tac_var = @cast_to_symbol(var_rep).
+   tac_var = as(var_rep, TACVariable).
 
 // Case 1: Uses locally defined variable
-TAC_Use(stmt, @cast_to_symbol(var_rep), n) :-
+TAC_Use(stmt, as(var_rep, TACVariable), n) :-
   FunctionalStatement_Uses_Local(stmt, var, n),
   CheckIsVariable(var),
   Variable_Stmt_String(var, stmt, var_rep).
@@ -150,7 +150,7 @@ TAC_Use(stmt, @cast_to_symbol(var_rep), n) :-
 // Using the block in which the var is defined,
 // Fixes cases where a stmt in a cloned block is using
 // a variable defined in a non cloned block
-TAC_Use(stmt, @cast_to_symbol(var_rep), n) :-
+TAC_Use(stmt, as(var_rep, TACVariable), n) :-
   FunctionalStatement_Uses_Local(stmt, stackIndex, n),
   CheckIsStackIndex(stackIndex),
   IRStatement_Block(stmt, block),
@@ -163,7 +163,7 @@ TAC_Use(stmt, @cast_to_symbol(var_rep), n) :-
   Variable_Block_String(var, defBlock, var_rep).
 
 //Case 2.1: Uses arg(like the above case, but not defined)
-TAC_Use(stmt, @cast_to_symbol(var_rep), n) :-
+TAC_Use(stmt, as(var_rep, TACVariable), n) :-
   FunctionalStatement_Uses_Local(stmt, stackIndex, n),
   CheckIsStackIndex(stackIndex),
   IRStatement_Block(stmt, block),
@@ -174,7 +174,7 @@ TAC_Use(stmt, @cast_to_symbol(var_rep), n) :-
 
 
 // Case 3: Is a PHI statement
-TAC_Use(phiStmt, @cast_to_symbol(var_rep), -1) :-
+TAC_Use(phiStmt, as(var_rep, TACVariable), -1) :-
   PHILocation(block, stackIndex, phiStmt),
   FunctionalBlockInputContents(block, stackIndex, var),
   IRInFunction(block, fun),
@@ -184,7 +184,7 @@ TAC_Use(phiStmt, @cast_to_symbol(var_rep), -1) :-
   Variable_Block_String(var, defBlock, var_rep).
 
 // Case 3.1: Phis using args
-TAC_Use(phiStmt, @cast_to_symbol(var_rep), -1) :-
+TAC_Use(phiStmt, as(var_rep, TACVariable), -1) :-
   PHILocation(block, stackIndex, phiStmt),
   FunctionalBlockInputContents(block, stackIndex, var),
   FunctionArgument(_, _, var),
@@ -192,7 +192,7 @@ TAC_Use(phiStmt, @cast_to_symbol(var_rep), -1) :-
 
 
 // Case 4: Uses polymorphic variable
-TAC_Use(stmt, @cast_to_symbol(phiStmt), n) :-
+TAC_Use(stmt, as(phiStmt, TACVariable), n) :-
   FunctionalStatement_Uses_Local(stmt, stackIndex, n),
   CheckIsStackIndex(stackIndex),
   IRStatement_Block(stmt, block),
@@ -225,7 +225,7 @@ TAC_Block(phiStmt, block) :-
 .decl FormalArgs(func:IRFunction, var:TACVariable, n:number)
 .output FormalArgs
 
-FormalArgs(func, @cast_to_symbol(var_rep), n) :-
+FormalArgs(func, as(var_rep, TACVariable), n) :-
    FunctionArgument(func, n, var),
    Variable_String(var, var_rep).
 

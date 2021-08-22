@@ -360,9 +360,9 @@ StackBalancingBlockJumpImprecision(block, func):-
  ***********/
 #define FRESH_IRBLOCK(b, f) cat((b), (f))
 #define FRESH_IRSTATEMENT(s, f) cat((s), (f))
-#define BLOCK_TO_IRBLOCK @cast_to_symbol
-#define STATEMENT_TO_IRSTATEMENT @cast_to_symbol
-#define FUNCTION_TO_IRFUNCTION @cast_to_symbol
+#define BLOCK_TO_IRBLOCK(b) as(b, IRBlock)
+#define STATEMENT_TO_IRSTATEMENT(s) as(s, IRStatement)
+#define FUNCTION_TO_IRFUNCTION(f) as(f, IRBlock)
  
 .type IRBlock <: symbol
 // exploit type checking in new IR
@@ -706,7 +706,7 @@ FunctionalBlockPopDelta(from, newPopDelta) :-
   IRFunctionCall(from, func),
   PossibleImpreciseNumberOfFunctionArguments(func, n_args),
   IRBlockStackDelta(from, stackDelta),
-  newPopDelta = @max2(n_args - stackDelta, popDelta),
+  newPopDelta = max(n_args - stackDelta, popDelta),
   CheckIsPopDelta(newPopDelta).
 
 
@@ -746,7 +746,7 @@ FunctionalBlockPopAndStackDelta(from, popDelta, stackDelta) :-
 
 PossibleFunctionalBlockPopAndStackDelta(from, from, initPath, 0, 0) :-
    IRFunctionEntry(from),
-   initPath = @cast_to_symbol(from).
+   initPath = as(from, Path).
 
 .decl PotentialCycleEntry(block: IRBlock)
 
@@ -773,11 +773,11 @@ NotCycleEntryLocalBlockEdge(from, to) :-
 
 PossibleFunctionalBlockPopAndStackDelta(func, to, newPath, newPopDelta, newStackDelta) :-
   PossibleFunctionalBlockPopAndStackDelta(func, from, prevPath, prevPopDelta, prevStackDelta),
-  ((PotentialCycleEntryLocalBlockEdge(from, to), newPath = @add_set(prevPath, to), newPath != prevPath) ;
+  ((PotentialCycleEntryLocalBlockEdge(from, to), newPath = as(@add_set(prevPath, to), Path), newPath != prevPath) ;
     (NotCycleEntryLocalBlockEdge(from, to), newPath = prevPath)),
   FunctionalBlockPopAndStackDelta(from, popDelta, stackDelta),
   newStackDelta = stackDelta + prevStackDelta,
-  newPopDelta = @max2(popDelta - prevStackDelta, prevPopDelta),
+  newPopDelta = max(popDelta - prevStackDelta, prevPopDelta),
   CheckIsPopDelta(newPopDelta), CheckIsStackDelta(newStackDelta).
   .plan 1:(3,2,1)
 
@@ -802,10 +802,10 @@ CycleEntry(func, block) :-
 // then add the delta again. Tedious.
 .decl PossibleCombinedNumberOfFunctionReturnsAndArguments(func: IRFunction, terminal: IRBlock, numArg: StackIndex, numRet: StackIndex)
 
-PossibleCombinedNumberOfFunctionReturnsAndArguments(func, terminal, numArg, numRet) :-
+PossibleCombinedNumberOfFunctionReturnsAndArguments(func, terminal, as(numArg, StackIndex), numRet) :-
   PossibleFunctionalBlockPopAndStackDelta(func, terminal, _, prevPopDelta, prevStackDelta),
   FunctionalBlockPopAndStackDelta(terminal, popDelta, stackDelta),
-  numArg = @max2(popDelta - prevStackDelta, prevPopDelta),
+  numArg = max(popDelta - prevStackDelta, prevPopDelta),
   CheckIsPopDelta(numArg),
   numRet = prevStackDelta + stackDelta + numArg,
   CheckIsStackIndex(numRet).
@@ -881,7 +881,6 @@ Variable_Block_String(var, block, res) :-
 .decl FunctionalStatement_Uses(stmt:IRStatement, var:Variable, n:StackIndex)
 .decl FunctionalStatement_Defines(callStmt:IRStatement, newVar:Variable, n: number)
 
-
 Variable_String(var, var_rep) :-
    postTrans.Statement_Defines(var_rep, var).
 
@@ -890,7 +889,7 @@ FunctionArgument(func, n, var) :-
 //// REVIEW
 //  PossibleNumberOfFunctionArguments(func, n_args),
   FunctionArgumentIndices(func, n),
-  FRESH_VARIABLE(var, BLOCK_TO_IRBLOCK(func), n). // TODO: use entry?
+  FRESH_VARIABLE(var, as(func, IRStatement), n). // TODO: use entry?
 
 .decl FunctionArgumentIndices(func: IRFunction, n: StackIndex)
 
@@ -964,7 +963,7 @@ BeforeFunctionCallFunctionalBlockOutputContents(callee, index+delta, variable) :
   IRBlockStackDelta(callee, delta).
 
 // Handle the proper variables pushed by this basic block
-BeforeFunctionCallFunctionalBlockOutputContents(block, index, @cast_to_number(var)) :-
+BeforeFunctionCallFunctionalBlockOutputContents(block, index, as(var, Variable)) :-
   IRInFunction(block, _),
   IRBasicBlock_Tail(block, stmt),
   IRLocalStackContents(stmt, index, var),
@@ -1005,7 +1004,7 @@ FunctionalStatement_Uses_Local(irstmt, varOrStackIndex, n) :-
    postTrans.Statement_Uses_Local(stmt, varOrStackIndex, n),
    Statement_IRStatement(stmt, _, irstmt).
 
-FunctionalStatement_Uses(irstmt, @cast_to_number(var), n) :-
+FunctionalStatement_Uses(irstmt, as(var, Variable), n) :-
    postTrans.Statement_Uses_Local(stmt, var, n),
    CheckIsVariable(var),
    Statement_IRStatement(stmt, _, irstmt).
