@@ -13,9 +13,9 @@ Fail(a) :- Fail(a). // suppress warning
 
 
 #ifdef BULK_ANALYSIS
-#define DEBUG_OUTPUT(x)
+#define DEBUG_OUTPUT(...)
 #else
-#define DEBUG_OUTPUT(x) .output x
+#define DEBUG_OUTPUT(...) .output __VA_ARGS__
 .output Fail
 #endif
 
