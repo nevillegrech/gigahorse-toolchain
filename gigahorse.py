@@ -503,10 +503,10 @@ def get_gigahorse_analytics(out_dir, analytics):
             else:
                 analytics[stat_name] = ''
 
-def set_memory_limit():
-    resource.setrlimit(resource.RLIMIT_AS, (DEFAULT_MEMORY_LIMIT, DEFAULT_MEMORY_LIMIT))
+def set_memory_limit(memory_limit):
+    resource.setrlimit(resource.RLIMIT_AS, (memory_limit, memory_limit))
 
-def run_process(args, timeout: int, stdout=devnull, stderr=devnull, cwd: str='.') -> float:
+def run_process(args, timeout: int, stdout=devnull, stderr=devnull, cwd: str='.', memory_limit=DEFAULT_MEMORY_LIMIT) -> float:
     ''' Runs process described by args, for a specific time period
     as specified by the timeout.
 
@@ -519,7 +519,7 @@ def run_process(args, timeout: int, stdout=devnull, stderr=devnull, cwd: str='.'
     start_time = time.time()
 
     try:
-        subprocess.run(args, timeout=timeout, stdout=stdout, stderr=stderr, cwd=cwd, env=souffle_env, preexec_fn=set_memory_limit)
+        subprocess.run(args, timeout=timeout, stdout=stdout, stderr=stderr, cwd=cwd, env=souffle_env, preexec_fn=lambda: set_memory_limit(memory_limit))
     except subprocess.TimeoutExpired:
         return -1
 
