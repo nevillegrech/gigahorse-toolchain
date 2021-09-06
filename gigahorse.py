@@ -7,7 +7,6 @@ import itertools
 import json
 import logging
 import signal
-import resource
 import shutil
 import re
 import subprocess
@@ -67,9 +66,6 @@ DEFAULT_NUM_JOBS = max(int(cpu_count() * 0.9), 1)
 """Bugfix for one core systems."""
 
 """The number of subprocesses to run at once."""
-
-DEFAULT_MEMORY_LIMIT = 48 * 1_000_000_000
-"""Default memory limit for analyses processes (48 GB)"""
 
 # Command Line Arguments
 
@@ -503,9 +499,6 @@ def get_gigahorse_analytics(out_dir, analytics):
             else:
                 analytics[stat_name] = ''
 
-def set_memory_limit():
-    resource.setrlimit(resource.RLIMIT_AS, (DEFAULT_MEMORY_LIMIT, DEFAULT_MEMORY_LIMIT))
-
 def run_process(args, timeout: int, stdout=devnull, stderr=devnull, cwd: str='.') -> float:
     ''' Runs process described by args, for a specific time period
     as specified by the timeout.
@@ -519,7 +512,7 @@ def run_process(args, timeout: int, stdout=devnull, stderr=devnull, cwd: str='.'
     start_time = time.time()
 
     try:
-        subprocess.run(args, timeout=timeout, stdout=stdout, stderr=stderr, cwd=cwd, env=souffle_env, preexec_fn=set_memory_limit)
+        subprocess.run(args, timeout=timeout, stdout=stdout, stderr=stderr, cwd=cwd, env=souffle_env)
     except subprocess.TimeoutExpired:
         return -1
 
