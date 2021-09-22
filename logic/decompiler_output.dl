@@ -203,6 +203,7 @@ TAC_Block(stmt, block) :-
   !DeadBlock(block),
   !IRTACNOP(stmt).
 
+
 TAC_Block(phiStmt, block) :-
   PHILocation(block, _, phiStmt),
   !DeadBlock(block).
