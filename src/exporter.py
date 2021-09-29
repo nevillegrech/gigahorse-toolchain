@@ -122,6 +122,13 @@ class InstructionTsvExporter(Exporter):
             with open(output_dir + "/bytecode.hex", "w") as f:
                 assert '\n' not in bytecode_hex
                 f.write(bytecode_hex)
+            # "64736f6c6343" is 0x64 + "solc" + 0x43 which is followed by the solc version
+            # only exists in solidity bytecode when it is not explicitly removed
+            if "64736f6c6343" in bytecode_hex:
+                solidity_version_bytes = bytecode_hex[bytecode_hex.rindex("64736f6c6343") + 12 : bytecode_hex.rindex("64736f6c6343") + 18]
+                solidity_version = f"{int(solidity_version_bytes[0:2], 16)}.{int(solidity_version_bytes[2:4], 16)}.{int(solidity_version_bytes[4:6], 16)}"
+                with open(output_dir + "/solidity_version.csv", "w") as f:
+                    f.write(solidity_version)
 
         signatures_filename_in = public_function_signature_filename
         signatures_filename_out = os.path.join(output_dir, 'PublicFunctionSignature.facts')
