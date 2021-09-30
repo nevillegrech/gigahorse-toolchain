@@ -7,6 +7,7 @@ import itertools
 import json
 import logging
 import signal
+import resource
 import shutil
 import re
 import subprocess
@@ -66,6 +67,9 @@ DEFAULT_NUM_JOBS = max(int(cpu_count() * 0.9), 1)
 """Bugfix for one core systems."""
 
 """The number of subprocesses to run at once."""
+
+DEFAULT_MEMORY_LIMIT = 48 * 1_000_000_000
+"""Default memory limit for analyses processes (48 GB)"""
 
 # Command Line Arguments
 
@@ -499,7 +503,10 @@ def get_gigahorse_analytics(out_dir, analytics):
             else:
                 analytics[stat_name] = ''
 
-def run_process(args, timeout: int, stdout = devnull, stderr = devnull, cwd = '.') -> float:
+def set_memory_limit(memory_limit):
+    resource.setrlimit(resource.RLIMIT_AS, (memory_limit, memory_limit))
+
+def run_process(args, timeout: int, stdout=devnull, stderr=devnull, cwd: str='.', memory_limit=DEFAULT_MEMORY_LIMIT) -> float:
     ''' Runs process described by args, for a specific time period
     as specified by the timeout.
 
@@ -508,17 +515,15 @@ def run_process(args, timeout: int, stdout = devnull, stderr = devnull, cwd = '.
     '''
     if timeout < 0:
         return -1
+
     start_time = time.time()
-    p = subprocess.Popen(args, stdout = stdout, stderr = stderr, cwd = cwd, env = souffle_env)
-    while True:
-        elapsed_time = time.time() - start_time
-        if p.poll() is not None:
-            break
-        if elapsed_time >= timeout:
-            os.kill(p.pid, signal.SIGTERM)
-            return -1
-        time.sleep(0.01)
-    return elapsed_time
+
+    try:
+        subprocess.run(args, timeout=timeout, stdout=stdout, stderr=stderr, cwd=cwd, env=souffle_env, preexec_fn=lambda: set_memory_limit(memory_limit))
+    except subprocess.TimeoutExpired:
+        return -1
+
+    return time.time() - start_time
 
 def flush_queue(run_sig, result_queue, result_list):
     """
