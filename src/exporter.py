@@ -123,6 +123,20 @@ class InstructionTsvExporter(Exporter):
                 assert '\n' not in bytecode_hex
                 f.write(bytecode_hex)
 
+            solidity_version = "unknown"
+            # "64736f6c6343" is 0x64 + "solc" + 0x43 which is followed by the solc version
+            # only exists in solidity bytecode compiled using solc >= 0.5.9 when it is not explicitly removed
+            if "64736f6c6343" in bytecode_hex:
+                solidity_version_bytes = bytecode_hex[bytecode_hex.rindex("64736f6c6343") + 12 : bytecode_hex.rindex("64736f6c6343") + 18]
+                solidity_version = f"{int(solidity_version_bytes[0:2], 16)}.{int(solidity_version_bytes[2:4], 16)}.{int(solidity_version_bytes[4:6], 16)}"
+            # "a165627a7a7230" is 0xa165 + "bzzr0" which is followed by the swarn hash of the metadata file (useless to us)
+            # Was introduced in solc 0.4.7 and changed in 0.5.9
+            elif "a165627a7a7230" in bytecode_hex:
+                solidity_version = "0.4.7<=v<0.5.9"
+
+            with open(output_dir + "/solidity_version.csv", "w") as f:
+                f.write(solidity_version)
+
         signatures_filename_in = public_function_signature_filename
         signatures_filename_out = os.path.join(output_dir, 'PublicFunctionSignature.facts')
         if os.path.isfile(signatures_filename_in):

@@ -138,6 +138,7 @@
   SafelyInlinableFunction(fun):-
     In_IsFunction(fun),
     !IsPublicFunction(fun),
+    fun != "0x0", // SL: Hack because the function selector is not part of IsPublicFunction
     FunctionReturnRestriction(fun),
     !FunHasArgMismatch(fun),
     !FunHasRetMismatch(fun).

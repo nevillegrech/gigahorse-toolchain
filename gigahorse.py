@@ -316,6 +316,10 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
 
             os.symlink(join(work_dir, 'bytecode.hex'), join(out_dir, 'bytecode.hex'))
             
+            if os.path.exists(join(work_dir, 'solidity_version.csv')):
+                # Create a symlink with a name starting with 'Verbatim_' to be added to results json
+                os.symlink(join(work_dir, 'solidity_version.csv'), join(out_dir, 'Verbatim_solidity_version.csv'))
+
             # Run pre-clients
             for souffle_client in souffle_pre_clients:
                 if not args.interpreted:
