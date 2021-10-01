@@ -19,9 +19,6 @@ from collections import defaultdict
 from multiprocessing import Process, SimpleQueue, Manager, Event, cpu_count
 from os.path import abspath, dirname, join, getsize
 import os
-from src.common import all_checkedTransferCall_filename, all_checkedTransferFromCall_filename, \
-  all_readFromTrustedStorageId_filename, all_unguardedDelegateCallToSig_filename, \
-  all_unguardedExternalCallToSig_filename, all_writeToUntrustedStorageId_filename
 
 # Local project imports
 import src.exporter as exporter
@@ -38,17 +35,13 @@ DEFAULT_SOUFFLE_BIN = 'souffle'
 DEFAULT_RESULTS_FILE = 'results.json'
 """File to write results to by default."""
 
+SOUFFLE_COMPILED_SUFFIX = '_compiled'
+
 DEFAULT_DECOMPILER_DL = join(GIGAHORSE_DIR, 'logic/main.dl')
 """Decompiler specification file."""
 
-DEFAULT_SOUFFLE_EXECUTABLE = 'decompiler_compiled'
-"""Compiled vulnerability specification file."""
-
 DEFAULT_INLINER_DL = join(GIGAHORSE_DIR, 'clientlib/function_inliner.dl')
 """IR helping inliner specification file."""
-
-DEFAULT_INLINER_EXECUTABLE = 'inliner_compiled'
-"""Compiled inliner file."""
 
 DEFAULT_INLINER_ROUNDS = 4
 
@@ -68,8 +61,8 @@ DEFAULT_NUM_JOBS = max(int(cpu_count() * 0.9), 1)
 
 """The number of subprocesses to run at once."""
 
-DEFAULT_MEMORY_LIMIT = 48 * 1_000_000_000
-"""Default memory limit for analyses processes (48 GB)"""
+DEFAULT_MEMORY_LIMIT = 30 * 1_000_000_000
+"""Hard capped memory limit for analyses processes (30 GB)"""
 
 # Command Line Arguments
 
@@ -280,9 +273,10 @@ def compile_datalog(spec, executable):
         assert not(process.returncode), "Compilation failed. Stopping."
 
     shutil.copy2(cache_path, executable)
+
+
     
-    
-def analyze_contract(job_index: int, index: int, contract_filename: str, result_queue, timeout) -> None:
+def analyze_contract(job_index: int, index: int, contract_filename: str, result_queue, timeout) -> None:   
     """
     Perform dataflow analysis on a contract, storing the result in the queue.
     This is a worker function to be passed to a subprocess.
@@ -293,16 +287,49 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
         contract_filename: the absolute path of the contract bytecode file to process
         result_queue: a multiprocessing queue in which to store the analysis results
     """
+    disassemble_start = time.time()
+    def calc_timeout():
+        return timeout-time.time()+disassemble_start
+    
+    def run_clients(souffle_clients, other_clients, in_dir, out_dir):
+        errors = []
+        for souffle_client in souffle_clients:
+            if not args.interpreted:
+                analysis_args = [
+                    join(os.getcwd(), souffle_client+SOUFFLE_COMPILED_SUFFIX),
+                    f"--facts={in_dir}", f"--output={out_dir}"
+                ]
+            else:
+                analysis_args = [
+                    DEFAULT_SOUFFLE_BIN,
+                    join(os.getcwd(), souffle_client),
+                    f"--fact-dir={in_dir}", f"--output-dir={our_dir}"
+                ]
+            run_process(analysis_args, calc_timeout())
 
+        for other_client in other_clients:
+            other_client_split = [o for o in other_client.split(' ') if o]
+            other_client_split[0] = join(os.getcwd(), other_client_split[0])
+            other_client_name = other_client_split[0].split('/')[-1]
+            err_filename = join(out_dir, other_client_name+'.err')
+            
+            run_process(
+                other_client_split,
+                calc_timeout(),
+                devnull,
+                open(err_filename, 'w'),
+                cwd=in_dir
+            )
+            if len(open(err_filename).read()) > 0:
+                errors.append(other_client_name)
+        return errors
+    
     try:
         # prepare working directory
         exists, work_dir, out_dir = prepare_working_dir(contract_filename)
         assert not(args.restart and exists)
         analytics = {}
         contract_name = os.path.split(contract_filename)[1]
-        disassemble_start = time.time()
-        def calc_timeout():
-            return timeout-time.time()+disassemble_start
         if exists:
             decomp_start = time.time()
             inline_start = time.time()
@@ -319,43 +346,8 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
             if os.path.exists(join(work_dir, 'solidity_version.csv')):
                 # Create a symlink with a name starting with 'Verbatim_' to be added to results json
                 os.symlink(join(work_dir, 'solidity_version.csv'), join(out_dir, 'Verbatim_solidity_version.csv'))
+            run_clients(souffle_pre_clients, other_pre_clients, work_dir, work_dir)
 
-            # Run pre-clients
-            for souffle_client in souffle_pre_clients:
-                if not args.interpreted:
-                    analysis_args = [join(os.getcwd(), souffle_client+'_compiled'),
-                                 "--facts={}".format(work_dir),
-                                 "--output={}".format(work_dir)
-                    ]
-                else:
-                    analysis_args = [DEFAULT_SOUFFLE_BIN,
-                                 join(os.getcwd(), souffle_client),
-                                 "--fact-dir={}".format(work_dir),
-                                 "--output-dir={}".format(work_dir)
-                    ]
-                runtime = run_process(analysis_args, calc_timeout())
-                if runtime < 0:
-                    result_queue.put((contract_name, [], ["TIMEOUT"], {}))
-                    log("{} timed out.".format(contract_name))
-                    return
-
-            for other_client in other_pre_clients:
-                other_client_split = [o for o in other_client.split(' ') if o]
-                other_client_split[0] = join(os.getcwd(), other_client_split[0])
-                other_client_name = other_client_split[0].split('/')[-1]
-                out_filename = join(work_dir, other_client_name+'.out')
-                err_filename = join(work_dir, other_client_name+'.err')
-                runtime = run_process(
-                    other_client_split,
-                    calc_timeout(),
-                    open(out_filename, 'w'),
-                    open(err_filename, 'w'),
-                    cwd=work_dir
-                )
-                if runtime < 0:
-                    result_queue.put((contract_name, [], ["TIMEOUT"], {}))
-                    log("{} timed out.".format(contract_name))
-                    return
 
             if args.context_depth:
                 context_depth_filename = os.path.join(work_dir, 'MaxContextDepth.csv')
@@ -366,95 +358,17 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
             # Run souffle on those relations
             decomp_start = time.time()
 
-            if not args.interpreted:
-                analysis_args = [join(os.getcwd(), DEFAULT_SOUFFLE_EXECUTABLE),
-                             "--facts={}".format(work_dir),
-                             "--output={}".format(out_dir)
-                ]
-            else:
-                analysis_args = [DEFAULT_SOUFFLE_BIN,
-                             DEFAULT_DECOMPILER_DL,
-                             "--fact-dir={}".format(work_dir),
-                             "--output-dir={}".format(out_dir)
-                ]
+            run_clients([DEFAULT_DECOMPILER_DL], [], work_dir, out_dir)
 
-            runtime = run_process(analysis_args, calc_timeout())
-            if runtime < 0:
-                result_queue.put((contract_filename, [], ["TIMEOUT"], {}))
-                log("{} timed out.".format(contract_filename))
-                return
-            
-            for filename in [all_checkedTransferCall_filename, all_checkedTransferFromCall_filename,
-                  all_readFromTrustedStorageId_filename, all_unguardedDelegateCallToSig_filename,
-                  all_unguardedExternalCallToSig_filename, all_writeToUntrustedStorageId_filename]:
-                basename = os.path.basename(filename)
-                filename_out = os.path.join(out_dir, basename)
-                if os.path.isfile(filename):
-                    try:
-                        os.symlink(filename, filename_out)
-                    except FileExistsError:
-                        pass
-                else:
-                    open(filename_out, 'w').close()
-            
             inline_start = time.time()
             if not args.disable_inline:
-                if not args.interpreted:
-                    inliner_args = [join(os.getcwd(), DEFAULT_INLINER_EXECUTABLE),
-                                "--facts={}".format(out_dir),
-                                "--output={}".format(out_dir)
-                    ]
-                else:
-                    inliner_args = [DEFAULT_SOUFFLE_BIN,
-                                DEFAULT_INLINER_DL,
-                                "--fact-dir={}".format(out_dir),
-                                "--output-dir={}".format(out_dir)
-                    ]
-                for i in range(DEFAULT_INLINER_ROUNDS):
-                   runtime = run_process(inliner_args, calc_timeout())
-                   needs_more_file = join(out_dir, 'NeedsMoreInlining.csv')
-                   if os.path.exists(needs_more_file):
-                       if os.path.getsize(needs_more_file) == 0:
-                           break
+                run_clients([DEFAULT_INLINER_DL]*4, [], out_dir, out_dir)
                     
             # end decompilation
         if exists and not args.rerun_clients:
             return
         client_start = time.time()
-        for souffle_client in souffle_clients:
-            if not args.interpreted:
-                analysis_args = [join(os.getcwd(), souffle_client+'_compiled'),
-                             "--facts={}".format(out_dir),
-                             "--output={}".format(out_dir)
-                ]
-            else:
-                analysis_args = [DEFAULT_SOUFFLE_BIN,
-                             join(os.getcwd(), souffle_client),
-                             "--fact-dir={}".format(out_dir),
-                             "--output-dir={}".format(out_dir)
-                ]
-            runtime = run_process(analysis_args, calc_timeout())
-            if runtime < 0:
-                result_queue.put((contract_name, [], ["TIMEOUT"], {}))
-                log("{} timed out.".format(contract_name))
-                return
-        for other_client in other_clients:
-            other_client_split = [o for o in other_client.split(' ') if o]
-            other_client_split[0] = join(os.getcwd(), other_client_split[0])
-            other_client_name = other_client_split[0].split('/')[-1]
-            out_filename = join(out_dir, other_client_name+'.out')
-            err_filename = join(out_dir, other_client_name+'.err')
-            runtime = run_process(
-                other_client_split,
-                calc_timeout(),
-                open(out_filename, 'w'),
-                open(err_filename, 'w'),
-                cwd = out_dir
-            )
-            if runtime < 0:
-                result_queue.put((contract_name, [], ["TIMEOUT"], {}))
-                log("{} timed out.".format(contract_name))
-                return
+        errors = run_clients(souffle_clients, other_clients, out_dir, out_dir)
             
         # Collect the results and put them in the result queue
         files = []
@@ -468,15 +382,20 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
         analytics['decomp_time'] = inline_start - decomp_start
         analytics['inline_time'] = client_start - inline_start
         analytics['client_time'] = time.time() - client_start
+        analytics['errors'] = len(errors)
         log("{}: {:.36} completed in {:.2f} + {:.2f} + {:.2f} + {:.2f} secs".format(
             index, contract_name, analytics['disassemble_time'],
             analytics['decomp_time'], analytics['inline_time'], analytics['client_time']
         ))
+        if errors:
+            log(f"Errors in: {', '.join(errors)}")
 
         get_gigahorse_analytics(out_dir, analytics)
 
         result_queue.put((contract_name, files, meta, analytics))
-
+    except TimeoutError as e:
+        result_queue.put((contract_name, [], ["TIMEOUT"], {}))
+        log("{} timed out.".format(contract_name))
     except Exception as e:
         log("Error: {}".format(e))
         result_queue.put((contract_name, [], ["error"], {}))
@@ -510,6 +429,9 @@ def get_gigahorse_analytics(out_dir, analytics):
 def set_memory_limit(memory_limit):
     resource.setrlimit(resource.RLIMIT_AS, (memory_limit, memory_limit))
 
+class TimeoutException(Exception):
+    pass
+
 def run_process(args, timeout: int, stdout=devnull, stderr=devnull, cwd: str='.', memory_limit=DEFAULT_MEMORY_LIMIT) -> float:
     ''' Runs process described by args, for a specific time period
     as specified by the timeout.
@@ -525,7 +447,7 @@ def run_process(args, timeout: int, stdout=devnull, stderr=devnull, cwd: str='.'
     try:
         subprocess.run(args, timeout=timeout, stdout=stdout, stderr=stderr, cwd=cwd, env=souffle_env, preexec_fn=lambda: set_memory_limit(memory_limit))
     except subprocess.TimeoutExpired:
-        return -1
+        raise TimeoutException()
 
     return time.time() - start_time
 
@@ -554,10 +476,10 @@ logging.basicConfig(format='%(message)s', level=log_level)
 
 # Here we compile the decompiler and any of its clients in parallel :)
 compile_processes_args = []
-compile_processes_args.append((DEFAULT_DECOMPILER_DL, DEFAULT_SOUFFLE_EXECUTABLE))
+compile_processes_args.append((DEFAULT_DECOMPILER_DL, DEFAULT_DECOMPILER_DL+SOUFFLE_COMPILED_SUFFIX))
 
 if not args.disable_inline:
-    compile_processes_args.append((DEFAULT_INLINER_DL, DEFAULT_INLINER_EXECUTABLE))
+    compile_processes_args.append((DEFAULT_INLINER_DL, DEFAULT_INLINER_DL+SOUFFLE_COMPILED_SUFFIX))
 
 clients_split = [a.strip() for a in args.client.split(',')]
 souffle_clients = [a for a in clients_split if a.endswith('.dl')]
@@ -569,10 +491,10 @@ other_pre_clients = [a for a in pre_clients_split if not (a.endswith('.dl') or a
 
 if not args.interpreted:
     for c in souffle_pre_clients:
-        compile_processes_args.append((c, c+'_compiled'))
+        compile_processes_args.append((c, c+SOUFFLE_COMPILED_SUFFIX))
 
     for c in souffle_clients:
-        compile_processes_args.append((c, c+'_compiled'))
+        compile_processes_args.append((c, c+SOUFFLE_COMPILED_SUFFIX))
 
     running_processes = []
     for compile_args in compile_processes_args:
