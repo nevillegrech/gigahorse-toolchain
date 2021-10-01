@@ -468,6 +468,7 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
         analytics['decomp_time'] = inline_start - decomp_start
         analytics['inline_time'] = client_start - inline_start
         analytics['client_time'] = time.time() - client_start
+        analytics['bytecode_size'] = (len(bytecode) - 2)//2
         log("{}: {:.36} completed in {:.2f} + {:.2f} + {:.2f} + {:.2f} secs".format(
             index, contract_name, analytics['disassemble_time'],
             analytics['decomp_time'], analytics['inline_time'], analytics['client_time']
