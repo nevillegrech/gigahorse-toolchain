@@ -53,6 +53,9 @@ TEMP_WORKING_DIR = ".temp"
 DEFAULT_TIMEOUT = 120
 """Default time before killing analysis of a contract."""
 
+DEFAULT_MINIMUM_CLIENT_TIME = 0
+"""Default minimum time to allow each client to work."""
+
 DEFAULT_PATTERN = ".*.hex"
 """Default filename pattern for contract files."""
 
@@ -157,6 +160,14 @@ parser.add_argument("-T",
                     metavar="SECONDS",
                     help="Forcibly halt analysing any single contact after "
                          "the specified number of seconds.")
+
+parser.add_argument("--minimum_client_time",
+                    type=int,
+                    nargs="?",
+                    default=DEFAULT_MINIMUM_CLIENT_TIME,
+                    const=DEFAULT_MINIMUM_CLIENT_TIME,
+                    metavar="SECONDS",
+                    help="Minimum time to allow each client to run.")
 
 parser.add_argument("-M",
                     "--souffle_macros",
@@ -288,11 +299,15 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
         result_queue: a multiprocessing queue in which to store the analysis results
     """
     disassemble_start = time.time()
+    
     def calc_timeout():
-        return timeout-time.time()+disassemble_start
+        timeout_left = timeout-time.time()+disassemble_start
+        return max(timeout_left, args.minimum_client_time)
+
     
     def run_clients(souffle_clients, other_clients, in_dir, out_dir):
         errors = []
+        timeouts = []
         for souffle_client in souffle_clients:
             if not args.interpreted:
                 analysis_args = [
@@ -305,7 +320,8 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
                     join(os.getcwd(), souffle_client),
                     f"--fact-dir={in_dir}", f"--output-dir={our_dir}"
                 ]
-            run_process(analysis_args, calc_timeout())
+            if run_process(analysis_args, calc_timeout()) < 0:
+                timeouts.append(souffle_client)
 
         for other_client in other_clients:
             other_client_split = [o for o in other_client.split(' ') if o]
@@ -313,7 +329,7 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
             other_client_name = other_client_split[0].split('/')[-1]
             err_filename = join(out_dir, other_client_name+'.err')
             
-            run_process(
+            runtime = run_process(
                 other_client_split,
                 calc_timeout(),
                 devnull,
@@ -322,7 +338,9 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
             )
             if len(open(err_filename).read()) > 0:
                 errors.append(other_client_name)
-        return errors
+            if runtime < 0:
+                timeouts.append(other_client)
+        return timeouts, errors
     
     try:
         # prepare working directory
@@ -357,7 +375,6 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
             
             # Run souffle on those relations
             decomp_start = time.time()
-
             run_clients([DEFAULT_DECOMPILER_DL], [], work_dir, out_dir)
 
             inline_start = time.time()
@@ -368,8 +385,8 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
         if exists and not args.rerun_clients:
             return
         client_start = time.time()
-        errors = run_clients(souffle_clients, other_clients, out_dir, out_dir)
-            
+        timeouts, errors = run_clients(souffle_clients, other_clients, out_dir, out_dir)
+        
         # Collect the results and put them in the result queue
         files = []
         for fname in os.listdir(out_dir):
@@ -390,15 +407,17 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
         ))
         if errors:
             log(f"Errors in: {', '.join(errors)}")
+        if timeouts:
+            log(f"Timeouts in: {', '.join(timeouts)}")
 
         get_gigahorse_analytics(out_dir, analytics)
 
         result_queue.put((contract_name, files, meta, analytics))
-    except TimeoutError as e:
+    except TimeoutException as e:
         result_queue.put((contract_name, [], ["TIMEOUT"], {}))
         log("{} timed out.".format(contract_name))
     except Exception as e:
-        log("Error: {}".format(e))
+        log(f"Error: {e}")
         result_queue.put((contract_name, [], ["error"], {}))
 
 
@@ -433,7 +452,7 @@ def set_memory_limit(memory_limit):
 class TimeoutException(Exception):
     pass
 
-def run_process(args, timeout: int, stdout=devnull, stderr=devnull, cwd: str='.', memory_limit=DEFAULT_MEMORY_LIMIT) -> float:
+def run_process(process_args, timeout: int, stdout=devnull, stderr=devnull, cwd: str='.', memory_limit=DEFAULT_MEMORY_LIMIT) -> float:
     ''' Runs process described by args, for a specific time period
     as specified by the timeout.
 
@@ -441,14 +460,18 @@ def run_process(args, timeout: int, stdout=devnull, stderr=devnull, cwd: str='.'
     times out
     '''
     if timeout < 0:
-        return -1
+        # This can theoretically happen
+        raise TimeoutException()
 
     start_time = time.time()
 
     try:
-        subprocess.run(args, timeout=timeout, stdout=stdout, stderr=stderr, cwd=cwd, env=souffle_env, preexec_fn=lambda: set_memory_limit(memory_limit))
+        subprocess.run(process_args, timeout=timeout, stdout=stdout, stderr=stderr, cwd=cwd, env=souffle_env, preexec_fn=lambda: set_memory_limit(memory_limit))
     except subprocess.TimeoutExpired:
-        raise TimeoutException()
+        if args.minimum_client_time == 0:
+            raise TimeoutException()
+        else:
+            return -1
 
     return time.time() - start_time
 
@@ -596,13 +619,7 @@ try:
                 name = workers[i]["name"]
                 job_index = workers[i]["job_index"]
 
-                if time.time() - start_time > (args.timeout_secs + 1):
-                    res_queue.put((name, [], ["TIMEOUT"], {}))
-                    proc.terminate()
-                    log("{} timed out.".format(name))
-                    to_remove.append(i)
-                    avail_jobs.append(job_index)
-                elif not proc.is_alive():
+                if not proc.is_alive():
                     to_remove.append(i)
                     proc.join()
                     avail_jobs.append(job_index)
