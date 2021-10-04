@@ -224,8 +224,11 @@ parser.add_argument("-i",
 
 souffle_env = os.environ.copy()
 functor_path = join(GIGAHORSE_DIR, 'souffle-addon')
-souffle_env["LD_LIBRARY_PATH"] = functor_path
-souffle_env["LIBRARY_PATH"] = functor_path
+for e in ["LD_LIBRARY_PATH", "LIBRARY_PATH"]:
+    if e in souffle_env:
+        souffle_env[e] = functor_path + os.pathsep + souffle_env[e]
+    else:
+        souffle_env[e] = functor_path
 
 if not os.path.isfile(join(functor_path, 'libfunctors.so')):
     raise Exception(
