@@ -407,8 +407,8 @@
     !ClonedCallArgs(_, _, _, _, formalRet).
 
   InVar_OutVar(actualRet , "", actualArgg):-
-    ClonedCallRets(_, _, _, _, actualRet, formalRet),
-    ClonedCallArgs(_, _, _, actualArg, formalRet), //Formal ret is formal arg
+    ClonedCallRets(caller, _, _, _, actualRet, formalRet),
+    ClonedCallArgs(caller, _, _, actualArg, formalRet), //Formal ret is formal arg
     InVar_OutVar(actualArg, "", actualArgg).
 
   Out_Statement_Uses(outStmt, outVar, i):-
