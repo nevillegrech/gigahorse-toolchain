@@ -672,7 +672,8 @@ insertor.insertOps(functionStartStmt,
 ) :-
    preTrans.BlockComparesSigVyper(block, hash),
    preTrans.BasicBlock_Tail(block, tail),
-   preTrans.Statement_Next(tail, functionStartStmt).
+   preTrans.Statement_Next(tail, functionStartStmt),
+   !preTrans.BlockComparesSig(_, _).
 
 // Receive transformation
 insertor.insertOps(functionStartStmt,
@@ -774,6 +775,7 @@ postTrans.PublicFunction(block, hash) :-
    postTrans.JUMPDEST(stmt),
    postTrans.Statement_Block(stmt, block),
    preTrans.BlockComparesSigVyper(_, hash),
+   !preTrans.BlockComparesSig(_, _),
    ISLABEL(meta), hash = GET_LABEL_REFERENCE(meta).
 
 // For receive functions
