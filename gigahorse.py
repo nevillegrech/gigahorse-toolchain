@@ -351,13 +351,13 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
         assert not(args.restart and exists)
         analytics = {}
         contract_name = os.path.split(contract_filename)[1]
+        with open(contract_filename) as file:
+            bytecode = file.read().strip()
+
         if exists:
             decomp_start = time.time()
             inline_start = time.time()
         else:
-            with open(contract_filename) as file:
-                bytecode = file.read().strip()
-
             # Disassemble contract
             blocks = blockparse.EVMBytecodeParser(bytecode).parse()
             exporter.InstructionTsvExporter(blocks).export(output_dir=work_dir, bytecode_hex=bytecode)
