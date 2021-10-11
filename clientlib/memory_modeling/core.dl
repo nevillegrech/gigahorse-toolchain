@@ -269,6 +269,7 @@ InitialMemWriteToMemConsStmtWithNonComputableLength(mstore, memConsStmt):-
   can be affected by this write
 **/
 .decl StatementWritesMemoryOfConstantLengthAtMemAlias(memWriteStmt:Statement, valRep:symbol, relativeLength:number)
+DEBUG_OUTPUT(StatementWritesMemoryOfConstantLengthAtMemAlias)
 
 StatementWritesMemoryOfConstantLengthAtMemAlias(memWriteStmt, valRep, length - numDiff):-
   StatementWritesMemoryOfLength(memWriteStmt, startVar, length),
@@ -287,13 +288,14 @@ StatementWritesMemoryOfConstantLengthAtMemAlias(memWriteStmt, valRep, length):-
 
 
 .decl StatementReadsMemoryOfConstantLengthAtMemAlias(memReadStmt:Statement, valRep:symbol, relativeLength:number)
+DEBUG_OUTPUT(StatementReadsMemoryOfConstantLengthAtMemAlias)
 
 StatementReadsMemoryOfConstantLengthAtMemAlias(memConsStmt, valRep, length - numDiff):-
   ( StatementReadsMemoryOfConstantLength(memConsStmt, startVar, length);
     StatementUsesMemoryOfNonComputableLength_LengthApprox(memConsStmt, startVar, length)),
   MemoryAddressVarsNumDiff(indexVar, startVar, numDiff),
   0 <= numDiff, numDiff < length,
-  StatementWritesMemoryOfLength(_, indexVar, _),
+  (StatementWritesMemoryOfLength(_, indexVar, _); startVar = indexVar),
   ((Variable_SymbolicValue(indexVar, indexVal),
   FreePointerBasedValue_AliasRep(indexVal, valRep));
   Variable_Value(indexVar, valRep)).
