@@ -370,7 +370,7 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
             run_clients(souffle_pre_clients, other_pre_clients, work_dir, work_dir)
 
 
-            if args.context_depth:
+            if args.context_depth is not None:
                 context_depth_filename = os.path.join(work_dir, 'MaxContextDepth.csv')
                 context_depth_file = open(context_depth_filename, "w")
                 context_depth_file.write(f"{args.context_depth}\n")
