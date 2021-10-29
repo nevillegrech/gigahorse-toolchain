@@ -126,9 +126,14 @@ In addition, other research tools have been developed on top of Gigahorse, inclu
 -  Brent, L., Grech, N., Lagouvardos, S., Scholz, B., Smaragdakis, Y. (2020), Ethainter: A Smart Contract Security Analyzer for Composite Vulnerabilities.
 *In 41st ACM SIGPLAN Conference on Programming Language Design and Implementation.*
 
--  Lagouvardos, S., Grech, N., Tsatiris, I., and Smaragdakis, Y. (2020) Precise Static Modelling of Ethereum "Memory". *Proceedings of the ACM in Programming Languages (OOPSLA).*
+-  Lagouvardos, S., Grech, N., Tsatiris, I., Smaragdakis, Y. (2020) Precise Static Modelling of Ethereum "Memory". *Proceedings of the ACM in Programming Languages (OOPSLA).*
 
 -  Grech, N., Kong, M., Jurisevic, A., Brent, L., Scholz, B., Smaragdakis, Y. (2020),  Analyzing the Out-of-Gas World of Smart Contracts. *Communications of the ACM.*
+
+- Smaragdakis, Y., Grech, N., Lagouvardos, S., Triantafyllou, K., Tsatiris, I. (2021), Symbolic Value-Flow Static Analysis: Deep, Precise, Complete Modeling of Ethereum Smart Contracts. *Proceedings of the ACM in Programming Languages (OOPSLA).*
+
+  
+
 
 
 The Gigahorse framework also underpins the realtime decompiler and analysis tool at [contract-library.com](https://contract-library.com).
