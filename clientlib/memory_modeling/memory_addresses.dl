@@ -254,7 +254,7 @@ FreePointerBasedValue(val, mload, newDepth, res):-
  to get a constant
  **/
 //TODO: use diff relation, after all other fixes
-Variable_Value(to, @number_to_hex(res)):-
+Variable_Value(to, as(@number_to_hex(res), Value)):-
   SUB(_, var1, var2, to),
   Variable_SymbolicValue(var1, freePtrBasedVal1),
   FreePointerBasedValue(freePtrBasedVal1, _, _, numVal1),

@@ -1,3 +1,5 @@
+#define FALLBACK_FUNCTION_SIGHASH "0x00000000"
+
 #include "global.dl"
 #include "functions.dl"
 #include "decompiler_output.dl"

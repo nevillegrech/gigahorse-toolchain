@@ -21,12 +21,12 @@
   // Not the most efficient because the string matching of the operator
   // will happen last, but rule should fire rarely?
   #define BINOP_SEMANTICS(_OP, _functor) \
-  ConstantFoldResult2(#_OP, arg1, arg2, result) :- \
+  ConstantFoldResult2(#_OP, arg1, arg2, as(result, Value)) :- \
     ValidConstantFoldOperation(#_OP, arg1, arg2), \
     result = _functor(arg1, arg2)
 
   #define UNOP_SEMANTICS(_OP, _functor) \
-  ConstantFoldResult1(#_OP, arg, result) :- \
+  ConstantFoldResult1(#_OP, arg, as(result, Value)) :- \
     RequestConstantFold1(#_OP, arg), \
     result = _functor(arg)
 
@@ -53,7 +53,7 @@
   UNOP_SEMANTICS(NOT, @not_256).
 
   // constant-fold ISZERO as a special case of EQ
-  ConstantFoldResult1("ISZERO", arg, result) :-
+  ConstantFoldResult1("ISZERO", arg, as(result, Value)) :-
     RequestConstantFold1("ISZERO", arg),
     result = @eq_256(arg, "0x0").
 }

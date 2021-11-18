@@ -27,6 +27,8 @@ Fail(a) :- Fail(a). // suppress warning
 #define LIST_OF_3(a,...)    [a, LIST_OF_2(__VA_ARGS__)]
 #define LIST_OF_4(a,...)    [a, LIST_OF_3(__VA_ARGS__)]
 #define LIST_OF_5(a,...)    [a, LIST_OF_4(__VA_ARGS__)]
+#define LIST_OF_6(a,...)    [a, LIST_OF_5(__VA_ARGS__)]
+#define LIST_OF_7(a,...)    [a, LIST_OF_6(__VA_ARGS__)]
 
 // NUM_ARGS(...) evaluates to the literal number of the passed-in arguments.
 #define _NUM_ARGS2(X,X64,X63,X62,X61,X60,X59,X58,X57,X56,X55,X54,X53,X52,X51,X50,X49,X48,X47,X46,X45,X44,X43,X42,X41,X40,X39,X38,X37,X36,X35,X34,X33,X32,X31,X30,X29,X28,X27,X26,X25,X24,X23,X22,X21,X20,X19,X18,X17,X16,X15,X14,X13,X12,X11,X10,X9,X8,X7,X6,X5,X4,X3,X2,X1,N,...) N
@@ -41,43 +43,11 @@ Fail(a) :- Fail(a). // suppress warning
 
 /***
 * Functors
-***/                                          
-.functor hex_to_number(symbol):number
-.functor number_to_hex(number):symbol
+***/
 
-.functor cast_to_number(number):number
-.functor cast_to_symbol(symbol):symbol
-
-.functor max2(number, number):number
-.functor min2(number, number):number
-
-.functor in_set(symbol,symbol):number
-.functor add_set(symbol,symbol):symbol
+#include "../souffle-addon/functor_includes.dl"
 
 
-.functor add_256(symbol,symbol):symbol
-.functor sub_256(symbol,symbol):symbol
-.functor mul_256(symbol,symbol):symbol
-.functor div_256(symbol,symbol):symbol
-.functor mod_256(symbol,symbol):symbol
-.functor and_256(symbol,symbol):symbol
-.functor or_256(symbol,symbol):symbol
-.functor xor_256(symbol,symbol):symbol
-.functor gt_256(symbol,symbol):symbol
-.functor eq_256(symbol,symbol):symbol
-.functor lt_256(symbol,symbol):symbol
-.functor exp_256(symbol,symbol):symbol
-.functor smod_256(symbol,symbol):symbol
-.functor sdiv_256(symbol,symbol):symbol
-.functor sgt_256(symbol,symbol):symbol
-.functor slt_256(symbol,symbol):symbol
-.functor shl_256(symbol,symbol):symbol
-.functor shr_256(symbol,symbol):symbol
-.functor sar_256(symbol,symbol):symbol
-.functor not_256(symbol):symbol
-
-.functor keccak_256(symbol):symbol
-.functor hex_to_str(symbol):symbol
 /***
 * Utility relations
 ***/

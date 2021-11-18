@@ -209,6 +209,7 @@ TIMESTAMP  = OpCode("TIMESTAMP",  0x42, 0, 1, 2)
 NUMBER     = OpCode("NUMBER",     0x43, 0, 1, 2)
 DIFFICULTY = OpCode("DIFFICULTY", 0x44, 0, 1, 2)
 GASLIMIT   = OpCode("GASLIMIT",   0x45, 0, 1, 2)
+BASEFEE    = OpCode("BASEFEE",  0x48, 0, 1, 2)
 
 # Stack, Memory, Storage, Flow
 POP      = OpCode("POP",      0x50, 1, 0, 2)

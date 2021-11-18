@@ -138,6 +138,9 @@ DIFFICULTY(stmt) :- Statement_Opcode(stmt, "DIFFICULTY").
 .decl GASLIMIT(stmt: Statement)
 GASLIMIT(stmt) :- Statement_Opcode(stmt, "GASLIMIT").
 
+.decl BASEFEE(stmt: Statement)
+BASEFEE(stmt) :- Statement_Opcode(stmt, "BASEFEE").
+
 .decl POP(stmt: Statement)
 POP(stmt) :- Statement_Opcode(stmt, "POP").
 

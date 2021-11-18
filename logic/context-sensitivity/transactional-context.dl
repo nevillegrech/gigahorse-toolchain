@@ -10,18 +10,18 @@
 
 MaxContextDepth(sigHash, d) :-
   (postTrans.PublicFunction(_, sigHash);
-   sigHash = "0x0"),
+   sigHash = FALLBACK_FUNCTION_SIGHASH),
    InputMaxContextDepth(d).
 
 #ifndef MAX_CONTEXT_DEPTH
 MaxContextDepth(sigHash, 8) :-
   (postTrans.PublicFunction(_, sigHash);
-   sigHash = "0x0"),
+   sigHash = FALLBACK_FUNCTION_SIGHASH),
   !InputMaxContextDepth(_).
 #else
 MaxContextDepth(sigHash, MAX_CONTEXT_DEPTH) :-
   (postTrans.PublicFunction(_, sigHash);
-   sigHash = "0x0"),
+   sigHash = FALLBACK_FUNCTION_SIGHASH),
   !InputMaxContextDepth(_).
 #endif
 
@@ -67,7 +67,8 @@ TruncateContext(pub, ctx, ctx) :-
 
 .decl InitialContext(ctx : Context)
 
-InitialContext(["0x0", initialPrivateContext]) :- InitialPrivateContext(initialPrivateContext).
+InitialContext([FALLBACK_FUNCTION_SIGHASH, initialPrivateContext]) :-
+  InitialPrivateContext(initialPrivateContext).
 
 
 // inverse-escape analysis
@@ -86,7 +87,7 @@ PrivateFunctionCallOrReturn(caller) :-
   postTrans.Statement_Block(stmt, caller),
   postTrans.Statement_Defines(stmt, var),
   postTrans.Variable_Value(var, val),
-  postTrans.JUMPDEST(@cast_to_symbol(val)),
+  postTrans.JUMPDEST(as(val, symbol)),
   !Block_Uses_Local(caller, var).
 
 PrivateFunctionCallOrReturn(caller) :-
@@ -105,7 +106,7 @@ Context_PublicFunction(ctx, pubFun):-
 StaticBlockJumpTarget(caller, target) :-
   postTrans.ImmediateBlockJumpTarget(caller, targetVar),
   postTrans.Variable_Value(targetVar, target),
-  postTrans.JUMPDEST(@cast_to_symbol(target)).
+  postTrans.JUMPDEST(as(target, symbol)).
 
 .decl MergeContext(ctx: Context, caller: Block, newContext: Context)
 
