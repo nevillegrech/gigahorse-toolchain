@@ -49,7 +49,7 @@ RUN apt-get update && apt-get install -y \
 
 
 # install souffle
-RUN wget https://github.com/souffle-lang/souffle/releases/download/2.0.1/souffle_2.0.1-1_amd64.deb -O /tmp/souffle.deb
+RUN wget https://github.com/souffle-lang/souffle/releases/download/2.0.2/souffle_2.0.2-1_amd64.deb -O /tmp/souffle.deb
 RUN dpkg -i /tmp/souffle.deb
 RUN apt-get install -f -y
 
