@@ -69,6 +69,7 @@
   .decl SafelyInlinableFunction(fun:Function)
   .decl FunHasArgMismatch(fun:Function)
   .decl FunHasRetMismatch(fun:Function)
+  .decl FunCalledWithImpreciseControlFlow(fun:Function)
   .decl CGEToInlineCandidate(caller:Function, callee:Function)
   .decl Function_Exit(fun:Function, block: Block)
   .decl FunctionToInline_RetStmt(fun:Function, retStmt:Statement)
@@ -117,6 +118,12 @@
     In_Statement_Opcode(retStmt, "RETURNPRIVATE"),
     !In_Statement_Uses(retStmt, _, i + 1).
 
+  /* Case based on an example: when such imprecision exists don't inline */
+  FunCalledWithImpreciseControlFlow(fun):-
+    In_CallGraphEdge(callerBlock, fun),
+    In_LocalBlockEdge(callerBlock, next1),
+    In_LocalBlockEdge(callerBlock, next2),
+    next1 != next2.
 
   /*
     Restriction ensures that the inlined functions have either a single return
@@ -141,7 +148,8 @@
     fun != "0x0", // SL: Hack because the function selector is not part of IsPublicFunction
     FunctionReturnRestriction(fun),
     !FunHasArgMismatch(fun),
-    !FunHasRetMismatch(fun).
+    !FunHasRetMismatch(fun),
+    !FunCalledWithImpreciseControlFlow(fun).
 
   ThrowBlock(block):-
     (In_Statement_Opcode(throw, "THROW"); In_Statement_Opcode(throw, "REVERT")),
