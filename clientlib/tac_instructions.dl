@@ -316,22 +316,11 @@ CALLPRIVATE(stmt, f) :-
    Statement_Opcode(stmt, "CALLPRIVATE"),
    Statement_Uses(stmt, f, 0).
 
-.decl CALLPRIVATEI(s: Statement, f: Variable, cond: Variable)
-CALLPRIVATEI(stmt, f, cond) :-
-   Statement_Opcode(stmt, "CALLPRIVATEI"),
-   Statement_Uses(stmt, f, 0),
-   Statement_Uses(stmt, cond, 1).
 
 .decl RETURNPRIVATE(s: Statement, b: Variable)
 RETURNPRIVATE(stmt, b) :-
    Statement_Opcode(stmt, "RETURNPRIVATE"),
    Statement_Uses(stmt, b, 0).
-
-.decl RETURNPRIVATEI(s: Statement, b: Variable, cond: Variable)
-RETURNPRIVATEI(stmt, b, cond) :-
-   Statement_Opcode(stmt, "RETURNPRIVATEI"),
-   Statement_Uses(stmt, b, 0),
-   Statement_Uses(stmt, cond, 1).
 
 .decl PrecompiledCall(stmt: Statement)
 
