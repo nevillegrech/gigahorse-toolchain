@@ -145,12 +145,6 @@ ActualArgs(caller, a, pos - 1) :-
    pos >= 1,
    Statement_Block(s, caller).
 
-ActualArgs(caller, a, pos - 2) :-
-   Statement_Uses(s, a, pos),
-   CALLPRIVATEI(s, _, _),
-   pos >= 2,
-   Statement_Block(s, caller).
-
 // Actual returns are on the function call side
 .decl ActualReturnArgs(caller: Block, a: Variable, pos: number)
 .input ActualReturnArgs(IO="file", filename="ActualReturnArgs.csv", delimiter="\t")
@@ -163,14 +157,6 @@ FormalReturnArgs(fn, a, pos - 1) :-
    pos >= 1,
    Statement_Block(s, b),
    InFunction(b, fn).
-
-FormalReturnArgs(fn, a, pos - 2) :-
-   Statement_Uses(s, a, pos),
-   RETURNPRIVATEI(s, _, _),
-   pos >= 2,
-   Statement_Block(s, b),
-   InFunction(b, fn).
-
 
 .decl FormalArgs(fn: Function, a: Variable, pos: number)
 .input FormalArgs(IO="file", filename="FormalArgs.csv", delimiter="\t")
@@ -233,7 +219,7 @@ GlobalBlockEdge(returnBlock, next) :-
    FunctionCallReturn(_, function, next),
    InFunction(returnBlock, function),
    Statement_Block(s, returnBlock),
-   (RETURNPRIVATE(s, _) ; RETURNPRIVATEI(s, _, _)).
+   RETURNPRIVATE(s, _).
 
 .decl LocalReachableFrom(from: Block, next: Block)
 LocalReachableFrom(from, next) :-
