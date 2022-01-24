@@ -311,6 +311,12 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
     BlockPushedToStack(pushStmt, _, pushedBlock),
     localAnalysis.Statement_Block(pushStmt, block).
 
+  /*
+    Cloning candidates. Add more cases with heuristics.
+    At some point we may want to add an option to clone based on the imprecision
+    reported by a previous execution. 
+  */
+
   BlockCloningCandidate(candidate):-
     localAnalysis.StackBalanceBlock(candidate).
 
@@ -318,20 +324,17 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
   BlockCloningCandidate(candidate):-
     BlockPushesBlockToStack(from, candidate),
     !DirectBlockEdge(from, candidate).
-  //BlockCloningCandidate("0x3939").
 
-  // Lets start by cloning all non immediate blocks.
+  // Clone all candidate blocks  for all the blocks that push them
+  // Make sure they can be cloned safely 
   BlockToClone(from, to):-
     BlockPushesBlockToStack(from, to),
-    //DirectBlockEdge(otherFrom, to),
-    // REVIEW: Used to be that they had 2 distinct direct jumps to them
-    // Now one is enough, as long as another block also pushes it to its stack
     BlockPushesBlockToStack(otherFrom, to),
     BlockCloningCandidate(to),
     from != otherFrom,
     // Make sure we don't break any CODECOPY stmts
     !localAnalysis.CODECOPYStatement(_, as(to,Value), _).
-    //!localAnalysis.ImmediateBlockJumpTarget(to, _).
+
   .output localAnalysis.StackBalanceBlock, BlockCloningCandidate
 
   BlockToCloneOpID(pushBlock, blockToClone, cat(pushBlock, blockToClone)):-
