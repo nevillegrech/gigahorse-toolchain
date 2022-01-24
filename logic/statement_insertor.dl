@@ -233,7 +233,8 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
 */
 .comp BlockCloner : CodeTransformer {
 
-  .init localAnalysis = LocalAnalysis
+  .init localAnalysis = PreTransLocalAnalysis
+  //.init localAnalysis = LocalAnalysis
 
   localAnalysis.PushValue(push, val):- PushValue(push, val).
   localAnalysis.Statement_Opcode(stmt, op):- Statement_Opcode(stmt, op).
@@ -254,6 +255,8 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
 
   .decl BlockPushedToStack(pushStmt:Statement, pushedVar:Variable, pushedBlock:Block)
   .decl BlockPushesBlockToStack(from: Block, pushedBlock: Block)
+
+  .decl BlockCloningCandidate(candidate:Block)
   // To make this more flexible we'll be performing the cloning at the use level:
   //   pick the interesting blocks
   //   find their uses (pushes to the stack) that we want to clone
@@ -308,6 +311,15 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
     BlockPushedToStack(pushStmt, _, pushedBlock),
     localAnalysis.Statement_Block(pushStmt, block).
 
+  BlockCloningCandidate(candidate):-
+    localAnalysis.StackBalanceBlock(candidate).
+
+  // caller-side return blocks that are shared between call-sites
+  BlockCloningCandidate(candidate):-
+    BlockPushesBlockToStack(from, candidate),
+    !DirectBlockEdge(from, candidate).
+  //BlockCloningCandidate("0x3939").
+
   // Lets start by cloning all non immediate blocks.
   BlockToClone(from, to):-
     BlockPushesBlockToStack(from, to),
@@ -315,9 +327,12 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
     // REVIEW: Used to be that they had 2 distinct direct jumps to them
     // Now one is enough, as long as another block also pushes it to its stack
     BlockPushesBlockToStack(otherFrom, to),
-    localAnalysis.StackBalanceBlock(to),
+    BlockCloningCandidate(to),
     from != otherFrom,
-    !localAnalysis.ImmediateBlockJumpTarget(to, _).
+    // Make sure we don't break any CODECOPY stmts
+    !localAnalysis.CODECOPYStatement(_, as(to,Value), _).
+    //!localAnalysis.ImmediateBlockJumpTarget(to, _).
+  .output localAnalysis.StackBalanceBlock, BlockCloningCandidate
 
   BlockToCloneOpID(pushBlock, blockToClone, cat(pushBlock, blockToClone)):-
     BlockToClone(pushBlock, blockToClone).
