@@ -25,14 +25,14 @@
 .type FunctionSignature <: symbol
 
 
-                                         
+
 
 /*
  ***********
  * Key dataflow definitions
  ***********
  */
- 
+
 
 // Stack contents at input and output of a block, given its calling context.
 .decl BlockOutputContents(context:Context, block:Block, index:StackIndex, var:Variable)
@@ -177,3 +177,164 @@ PreMask_Length("ff", 1).
 PreMask_Length(cat("ff", mask), bytes+1) :-
   PreMask_Length(mask, bytes),
   bytes < 32.
+
+
+.comp GlobalAnalysis : PreTransLocalAnalysis {
+  /*
+  ***********
+  * Key dataflow definitions
+  ***********
+  */
+
+  #include "context-sensitivity/abstract-context.dl"
+
+  .init sens = TransactionalContext<PreTransLocalAnalysis>
+
+  sens.local.PushValue(push, val):- PushValue(push, val).
+  sens.local.Statement_Opcode(stmt, op):- Statement_Opcode(stmt, op).
+  sens.local.Statement_Next(stmt, stmtNext):- Statement_Next(stmt, stmtNext).
+
+  .decl ReachableContext(ctx:sens.Context, block:Block)
+  // Stack contents at input and output of a block, given its calling context.
+  .decl BlockOutputContents(context:sens.Context, block:Block, index:StackIndex, var:Variable)
+  #ifdef ENABLE_LIMITSIZE
+  .limitsize BlockOutputContents(n=LIMITSIZE_BLOCK_OUTPUT_CONTENTS)
+  #endif
+
+  .decl BlockInputContents(context:sens.Context, block:Block, index:StackIndex, var:Variable)
+
+  // Var holding the (target block) address a block jumps to, under context.
+  .decl BlockJumpTarget(context:sens.Context, block:Block, var:Variable)
+
+  // Under ctx, the block's tail will jump to the value of "variable", which
+  // is equal to the label of "target" block.
+  .decl BlockJumpValidTarget(ctx:sens.Context, block:Block, variable: Variable, target:Block)
+
+  .decl BlockEdge(callerCtx:sens.Context, caller:Block, calleeCtx:sens.Context, callee:Block)
+  
+
+
+  /*
+  ***********
+  * Define block's behavior based on constituents
+  ***********
+  */
+
+  .decl VariableContainsJumpTarget(var: Variable)
+  VariableContainsJumpTarget(var) :-
+    Variable_Value(var, value),
+    JUMPDEST(as(value, symbol)).
+
+  /*
+  // Removing this optimization in order to model the whole stack 
+  .decl AuxBlockOutputContentsJumpTarget(context:Context, block:Block, index:StackIndex, var:Variable)
+  AuxBlockOutputContentsJumpTarget(context, block, index, var) :-
+    BlockOutputContents(context, block, index, var),
+    VariableContainsJumpTarget(var).*/
+
+  BlockInputContents(calleeCtx, callee, index, variable) :-
+    //AuxBlockOutputContentsJumpTarget(callerCtx, caller, index, variable),
+    BlockOutputContents(callerCtx, caller, index, variable),
+    BlockEdge(callerCtx, caller, calleeCtx, callee).
+    .plan 1:(2,1)
+    
+  // Copy the stack variables untouched by the callee basic block
+  BlockOutputContents(calleeCtx, callee, index+delta, variable) :-
+    BlockInputContents(calleeCtx, callee, index, variable),
+    BlockPopDelta(callee, calleePopLen),
+    BlockStackDelta(callee, delta),
+    index >= calleePopLen,
+    index+delta <= MAX_STACK_HEIGHT.
+
+  // Handle the proper variables pushed by this basic block
+  BlockOutputContents(ctx, block, index, as(var, Variable)) :-
+    ReachableContext(ctx, block),
+    BasicBlock_Tail(block, stmt),
+    LocalStackContents(stmt, index, var),
+    CheckIsVariable(var).
+
+  // Handle the stackIndexes pushed by this basic block
+  BlockOutputContents(ctx, block, index, as(realVariable, Variable)) :-
+    BlockInputContents(ctx, block, stackIndex, realVariable),
+    CheckIsStackIndex(stackIndex),
+    BasicBlock_Tail(block, stmt),
+    LocalStackContents(stmt, index, stackIndex).
+
+
+
+  BlockJumpTarget(ctx, block, var) :-
+    ReachableContext(ctx, block),
+    ImmediateBlockJumpTarget(block, var).
+
+  BlockJumpTarget(ctx, block, realVariable) :-
+    BlockInputContents(ctx, block, stackIndex, realVariable),
+    CheckIsStackIndex(stackIndex),
+    BasicBlock_Tail(block, stmt),
+    IsJump(stmt),
+    BeforeLocalStackContents(stmt, 0, stackIndex).
+
+  BlockJumpValidTarget(ctx, block, targetVar, as(targetValue, Block)) :-
+    BlockJumpTarget(ctx, block, targetVar),
+    Variable_Value(targetVar, targetValue),
+    JUMPDEST(as(targetValue, symbol)).
+
+
+  /*
+  ***********
+  * CFG edges and reachable contexts
+  ***********
+  */
+
+  ReachableContext(calleeCtx, callee) :-
+    BlockEdge(_, _, calleeCtx, callee).
+    
+  ReachableContext(initCtx, FUNCTION_SELECTOR) :-
+    sens.InitialContext(initCtx).
+
+  .decl FallthroughEdge(caller: Block, fallthroughBlock: Block)
+
+  FallthroughEdge(caller, as(fallthrough, Block)),
+  BlockEdge(callerCtx, caller, calleeCtx, as(fallthrough, Block)) :-
+    sens.MergeContext(callerCtx, caller, calleeCtx),  // implies reachable
+    Statement_Block(stmt, caller),
+    FallthroughStmt(stmt, fallthrough),
+    IsBasicBlockHead(fallthrough).
+
+  BlockEdge(callerCtx, caller, calleeCtx, callee) :-
+    BlockJumpValidTarget(callerCtx, caller, _, callee),
+    sens.MergeContext(callerCtx, caller, calleeCtx).
+    .plan 1:(2,1)
+
+
+  .decl Statement_Uses(stmt:Statement, var:Variable, n:StackIndex)
+
+  // Case: variable originates locally
+  Statement_Uses(stmt, as(var, Variable), n) :-
+    Statement_Uses_Local(stmt, var, n),
+    CheckIsVariable(var).
+
+  // Case: variable originates elsewhere
+  Statement_Uses(stmt, var, n) :-
+    Statement_Uses_Local(stmt, stackIndex, n),
+    CheckIsStackIndex(stackIndex),
+    Statement_Block(stmt, block),
+    BlockInputContents(_, block, stackIndex, var).
+
+  .decl VariableUsedInOperation(var:Variable)
+
+  VariableUsedInOperation(var):-
+    Statement_Uses(stmt, var, _),
+    Statement_Opcode(stmt, op),
+    op != "JUMP",
+    op != "JUMPI".
+
+  VariableUsedInOperation(var):-
+    Statement_Uses(stmt, var, 1),
+    Statement_Opcode(stmt, "JUMPI").
+
+  .decl VariableAlwaysUsedAsJumpTarget(var:Variable)
+
+  VariableAlwaysUsedAsJumpTarget(var):-
+    VariableContainsJumpTarget(var),
+    !VariableUsedInOperation(var).
+}

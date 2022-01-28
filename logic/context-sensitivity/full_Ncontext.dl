@@ -5,13 +5,14 @@
 .decl NumberOfJumps(n: number)
 
 NumberOfJumps(n1 + n2) :-
-   n1 = count : postTrans.JUMP(_),
-   n2 = count : postTrans.JUMPI(_).
+   n1 = count : preTrans.JUMP(_),
+   n2 = count : preTrans.JUMPI(_).
 
 #define ESTIMATE_DEPTH(n) (500000 / (n) / (n))
 
 .decl MaxContextDepth(d: number)
 
+#define MAX_CONTEXT_DEPTH 15
 #ifndef MAX_CONTEXT_DEPTH
   MaxContextDepth(m) :-
      NumberOfJumps(n),

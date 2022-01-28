@@ -233,12 +233,12 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
 */
 .comp BlockCloner : CodeTransformer {
 
-  .init localAnalysis = PreTransLocalAnalysis
-  //.init localAnalysis = LocalAnalysis
+  .init analysis = GlobalAnalysis
+  //.init analysis = PreTransLocalAnalysis
 
-  localAnalysis.PushValue(push, val):- PushValue(push, val).
-  localAnalysis.Statement_Opcode(stmt, op):- Statement_Opcode(stmt, op).
-  localAnalysis.Statement_Next(stmt, stmtNext):- Statement_Next(stmt, stmtNext).
+  analysis.PushValue(push, val):- PushValue(push, val).
+  analysis.Statement_Opcode(stmt, op):- Statement_Opcode(stmt, op).
+  analysis.Statement_Next(stmt, stmtNext):- Statement_Next(stmt, stmtNext).
 
   .output Out_Statement_Opcode, Out_Statement_Next, Out_PushValue
   .output Statement_Opcode, Statement_Next, PushValue
@@ -281,35 +281,51 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
     maxStmt = @number_to_hex(maxStmtNumber).
 
   BlockSize(block, @hex_to_number(tail) - @hex_to_number(block)):-
-    localAnalysis.BasicBlock_Tail(block, tail).
+    analysis.BasicBlock_Tail(block, tail).
 
   Statement_BlockOffset(stmt, block, @hex_to_number(stmt) - @hex_to_number(block)):-
-    localAnalysis.Statement_Block(stmt, block).
+    analysis.Statement_Block(stmt, block).
 
   DirectBlockEdge(from, @cast_to_symbol(to)):-
-    localAnalysis.ImmediateBlockJumpTarget(from, pushedVar),
-    localAnalysis.Variable_Value(pushedVar, to).
+    analysis.ImmediateBlockJumpTarget(from, pushedVar),
+    analysis.Variable_Value(pushedVar, to).
 
   // Disable this for now. Try different way to inline.
   // DirectBlockJumpToAddrPushedBy(from, pushStmt):-
-  //   localAnalysis.ImmediateBlockJumpTarget(from, pushedVar),
-  //   localAnalysis.Statement_Defines(pushStmt, pushedVar).
+  //   analysis.ImmediateBlockJumpTarget(from, pushedVar),
+  //   analysis.Statement_Defines(pushStmt, pushedVar).
   
   //Maybe change it to only consider direct block edges again?
   ClonedBlockAddressPushedBy(pushBlock, pushStmt, blockToClone):-
     BlockToClone(pushBlock, blockToClone),
     BlockPushesBlockToStack(pushBlock, blockToClone),
     BlockPushedToStack(pushStmt, _, blockToClone),
-    localAnalysis.Statement_Block(pushStmt, pushBlock).
+    analysis.Statement_Block(pushStmt, pushBlock).
 
   BlockPushedToStack(pushStmt, pushedVar, @cast_to_symbol(pushedBlock)):-
-    localAnalysis.Variable_Value(pushedVar, pushedBlock),
-    localAnalysis.JUMPDEST(@cast_to_symbol(pushedBlock)),
-    localAnalysis.Statement_Defines(pushStmt, pushedVar).
+    analysis.Variable_Value(pushedVar, pushedBlock),
+    analysis.VariableAlwaysUsedAsJumpTarget(pushedVar),
+    analysis.JUMPDEST(@cast_to_symbol(pushedBlock)),
+    analysis.Statement_Defines(pushStmt, pushedVar).
 
   BlockPushesBlockToStack(block, pushedBlock):-
-    BlockPushedToStack(pushStmt, _, pushedBlock),
-    localAnalysis.Statement_Block(pushStmt, block).
+    BlockPushedToStack(pushStmt, blockVar, pushedBlock),
+    analysis.Statement_Block(pushStmt, block),
+    // REVIEW: Silly way to try to ensure that this block value is not used for something else
+    // Ideally when this is deployed we'd have to use some whole-contract logic
+    !analysis.Statement_Uses_Local(_, blockVar, _).
+
+  .decl PossibleCallerWithReturn(caller:Block, return:Block)
+
+  PossibleCallerWithReturn(caller, as(val, Block)):-
+    analysis.ImmediateBlockJumpTarget(caller, targetVar),
+    analysis.Variable_Value(targetVar, target),
+    analysis.JUMPDEST(as(target, symbol)),
+    analysis.Statement_Block(stmt, caller),
+    analysis.Statement_Defines(stmt, var),
+    analysis.Variable_Value(var, val),
+    analysis.JUMPDEST(as(val, symbol)),
+    !analysis.Statement_Uses_Local(_, var, _).
 
   /*
     Cloning candidates. Add more cases with heuristics.
@@ -317,13 +333,26 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
     reported by a previous execution. 
   */
 
+.decl BlockPushesCloningCandidate(pushBlk:Block, candidate:Block)
+
+  BlockPushesCloningCandidate(pushBlk, candidate):-
+    BlockPushesBlockToStack(pushBlk, candidate),
+    BlockCloningCandidate(candidate).
+
   BlockCloningCandidate(candidate):-
-    localAnalysis.StackBalanceBlock(candidate).
+    analysis.StackBalanceBlock(candidate).
 
   // caller-side return blocks that are shared between call-sites
   BlockCloningCandidate(candidate):-
-    BlockPushesBlockToStack(from, candidate),
-    !DirectBlockEdge(from, candidate).
+    PossibleCallerWithReturn(from, candidate),
+    PossibleCallerWithReturn(from2, candidate),
+    from != from2.
+    // BlockPushesBlockToStack(from, candidate),
+    // BlockPushesBlockToStack(from2, candidate),
+    // from != from2,
+    // 1 != 1,
+    // !DirectBlockEdge(from, candidate),
+    // !DirectBlockEdge(from2, candidate).
 
   // Clone all candidate blocks  for all the blocks that push them
   // Make sure they can be cloned safely 
@@ -332,10 +361,11 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
     BlockPushesBlockToStack(otherFrom, to),
     BlockCloningCandidate(to),
     from != otherFrom,
+    !BlockPushesCloningCandidate(to, _),
     // Make sure we don't break any CODECOPY stmts
-    !localAnalysis.CODECOPYStatement(_, as(to,Value), _).
+    !analysis.CODECOPYStatement(_, as(to,Value), _).
 
-  .output localAnalysis.StackBalanceBlock, BlockCloningCandidate
+  .output analysis.StackBalanceBlock, BlockCloningCandidate
 
   BlockToCloneOpID(pushBlock, blockToClone, cat(pushBlock, blockToClone)):-
     BlockToClone(pushBlock, blockToClone).
@@ -358,7 +388,7 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
 
   StatementToClonedStatement(pushBlock, blockToClone, stmt, generatedStatement):-
     BlockToCloneNewInstance(pushBlock, blockToClone, generatedBlock),
-    localAnalysis.Statement_Block(stmt, blockToClone),
+    analysis.Statement_Block(stmt, blockToClone),
     generatedStatement = @add_256(generatedBlock, @sub_256(stmt, blockToClone)).
 
 
@@ -370,7 +400,7 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
     MaxOriginalStatement(lastOriginalStmt),
     BlockToCloneOpID(pushBlock, blockToClone, opID),
     !cloneOpSorter.Input_Next(_, opID),
-    localAnalysis.BasicBlock_Head(blockToClone, oldHead),
+    analysis.BasicBlock_Head(blockToClone, oldHead),
     StatementToClonedStatement(pushBlock, blockToClone, oldHead, clonedHead).
 
   Out_Statement_Next(genStmt, nextGenStmt):-
@@ -382,8 +412,8 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
     cloneOpSorter.Input_Next(prevOpID, nextOpID),
     BlockToCloneOpID(prevPushBlock, prevBlockToClone, prevOpID),
     BlockToCloneOpID(nextPushBlock, nextBlockToClone, nextOpID),
-    localAnalysis.BasicBlock_Tail(prevBlockToClone, oldTail),
-    localAnalysis.BasicBlock_Head(nextBlockToClone, oldHead),
+    analysis.BasicBlock_Tail(prevBlockToClone, oldTail),
+    analysis.BasicBlock_Head(nextBlockToClone, oldHead),
     StatementToClonedStatement(prevPushBlock, prevBlockToClone, oldTail, prevClonedTail),
     StatementToClonedStatement(nextPushBlock, nextBlockToClone, oldHead, nextClonedHead).
 
@@ -409,7 +439,7 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
     StatementToClonedStatement(_, _, oldStmt, clonedStmt).
 
   Block_OriginalBlock(block, block):-
-    localAnalysis.Statement_Block(_, block).
+    analysis.Statement_Block(_, block).
   
   Block_OriginalBlock(block, originalBlock):-
     BlockToCloneNewInstance(_, originalBlock, block).
