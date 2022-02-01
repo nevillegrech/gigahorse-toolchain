@@ -117,12 +117,21 @@ Analytics_PolymorphicTargetSameCtx(block) :-
   BlockJumpValidTarget(ctx, block, _, target2),
   target1 != target2.
 
-.decl Analytics_MissingJumpTarget(block: Block)
-.output Analytics_MissingJumpTarget      
+.decl Analytics_MissingJumpTargetAnyCtx(block: Block)
+.output Analytics_MissingJumpTargetAnyCtx
 
-Analytics_MissingJumpTarget(block) :-
+Analytics_MissingJumpTargetAnyCtx(block):-
   Analytics_Jumps(block),
   !BlockJumpValidTarget(_, block, _, _),
+  postTrans.JUMPDEST(_). // if there are not valid jumpdests then don't flag
+
+.decl Analytics_MissingJumpTargetSomeCtx(block: Block)
+.output Analytics_MissingJumpTargetSomeCtx
+
+Analytics_MissingJumpTargetSomeCtx(block):-
+  Analytics_Jumps(block),
+  ReachableContext(ctx, block),
+  !BlockJumpValidTarget(ctx, block, _, _),
   postTrans.JUMPDEST(_). // if there are not valid jumpdests then don't flag
 
 // Missing operands for IR statements.
