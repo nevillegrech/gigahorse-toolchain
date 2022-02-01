@@ -309,14 +309,14 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
     analysis.Statement_Defines(pushStmt, pushedVar).
 
   BlockPushesBlockToStack(block, pushedBlock):-
-    BlockPushedToStack(pushStmt, blockVar, pushedBlock),
-    analysis.Statement_Block(pushStmt, block),
+    BlockPushedToStack(pushStmt, _, pushedBlock),
+    analysis.Statement_Block(pushStmt, block).
     // REVIEW: Silly way to try to ensure that this block value is not used for something else
     // Ideally when this is deployed we'd have to use some whole-contract logic
-    !analysis.Statement_Uses_Local(_, blockVar, _).
+    //!analysis.Statement_Uses_Local(_, blockVar, _).
 
   .decl PossibleCallerWithReturn(caller:Block, return:Block)
-
+  .output PossibleCallerWithReturn, BlockPushesCloningCandidate
   PossibleCallerWithReturn(caller, as(val, Block)):-
     analysis.ImmediateBlockJumpTarget(caller, targetVar),
     analysis.Variable_Value(targetVar, target),
@@ -326,6 +326,12 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
     analysis.Variable_Value(var, val),
     analysis.JUMPDEST(as(val, symbol)),
     !analysis.Statement_Uses_Local(_, var, _).
+
+
+  .decl FallthroughBlock(block: Block)
+  FallthroughBlock(block):-
+    analysis.Statement_Block(fallthrough, block),
+    analysis.FallthroughStmt(fallthrough, _).
 
   /*
     Cloning candidates. Add more cases with heuristics.
@@ -362,6 +368,7 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
     BlockCloningCandidate(to),
     from != otherFrom,
     !BlockPushesCloningCandidate(to, _),
+    !FallthroughBlock(to),
     // Make sure we don't break any CODECOPY stmts
     !analysis.CODECOPYStatement(_, as(to,Value), _).
 
