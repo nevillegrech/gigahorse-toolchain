@@ -1,11 +1,11 @@
-// .type Block <: symbol
-// #define FALLBACK_FUNCTION_SIGHASH "0x00000000"
-// .comp LocalAnalysis {
 
-// }
-
+/*
+  Base, Abstract context sensitivity component
+  Is configured using an instantiation of LocalAnalysis
+*/
 .comp AbstractContextSensitivity <LocalAnalysis> {
-  
+  // The Context type is defined by the context implementation components
+  // A little hacky to use without defining but its the cleanest approach I found 
   .decl MergeContext(ctx: Context, caller: Block, newContext: Context)
 
   .decl IsContext(ctx: Context)
@@ -43,8 +43,8 @@
   .decl PrivateContextDepth(ctx: PrivateContext, depth: number)
   .decl DecomposePrivateContext(priCtx: PrivateContext, block: Block, rest: PrivateContext)
   .decl DropLast(ctx: PrivateContext, newCtx: PrivateContext)
-
-  .decl TruncateContext(publicFun:symbol, ctx: PrivateContext, newCtx: PrivateContext)
+  .output DropLast
+  .decl TruncateContextIfNeeded(publicFun:symbol, ctx: PrivateContext, newCtx: PrivateContext)
   .decl Context_PublicFunction(ctx:Context, pubFun:symbol)
   .decl DecomposeContext(ctx: Context, publicFun: symbol, private: PrivateContext)
 
@@ -54,8 +54,8 @@
     DecomposePrivateContext(ctx, _, nil).
 
   DecomposePrivateContext(newCtx, block, newRest),
-    PrivateContextDepth(newCtx, depth - 1),
-    DropLast(ctx, newCtx):-
+  PrivateContextDepth(newCtx, depth - 1),
+  DropLast(ctx, newCtx):-
     DecomposePrivateContext(ctx, block, rest),
     PrivateContextDepth(ctx, depth),
     DropLast(rest, newRest),
@@ -70,13 +70,13 @@
     PrivateContextDepth(rest, depth).
     .plan 1:(2,1)
 
-  TruncateContext(pub, ctx, newCtx):-
+  TruncateContextIfNeeded(pub, ctx, newCtx):-
     PrivateContextDepth(ctx, maxDepth),
     MaxContextDepth(pub, maxDepth),
     DropLast(ctx, newCtx).
     .plan 1:(3,1,2)
 
-  TruncateContext(pub, ctx, ctx):-
+  TruncateContextIfNeeded(pub, ctx, ctx):-
     PrivateContextDepth(ctx, depth),
     MaxContextDepth(pub, maxDepth),
     depth < maxDepth.
@@ -149,7 +149,7 @@
     ReachableContext(ctx, caller),
     PrivateFunctionCallOrReturn(caller),
     DecomposeContext(ctx, pub, pri),
-    TruncateContext(pub, pri, cutDownPri),
+    TruncateContextIfNeeded(pub, pri, cutDownPri),
     #ifndef NO_PUBLIC_CONTEXT
     !local.PublicFunction(caller, _),
     #endif
