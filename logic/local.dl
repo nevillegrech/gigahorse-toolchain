@@ -482,7 +482,7 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     JUMPI(jumpiStmt),
     Statement_Uses_Local(jumpiStmt, pred, 1).
 
-  .decl SWAPDUPPOPJUMPJUMPDESTOP(op:Opcode)
+  .decl SWAPDUPPOPJUMPJUMPDESTOP(op: Opcode)
   SWAPDUPPOPJUMPJUMPDESTOP(opcode):-
     DUPN(opcode, _);
     SWAPN(opcode, _);
@@ -490,7 +490,7 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     opcode = "JUMPDEST";
     opcode = "POP".
 
-  .decl StackBalanceBlock(block:Block)
+  .decl StackBalanceBlock(block: Block)
   StackBalanceBlock(block):-
     Statement_Block(jump, block),
     Statement_Opcode(jump, "JUMP"),
@@ -501,6 +501,14 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     },
     allCount = count: Statement_Block(_, block),
     stackAltCount = allCount.
+
+  .decl StackBalanceBlockTargetEscapes(block: Block)
+  .output StackBalanceBlockTargetEscapes
+  StackBalanceBlockTargetEscapes(block):-
+    StackBalanceBlock(block),
+    BasicBlock_Tail(block, jump),
+    BeforeLocalStackContents(jump, 0, var),
+    LocalStackContents(jump, _, var).
 }
 
 .comp PreTransLocalAnalysis : LocalAnalysis {
@@ -584,7 +592,8 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     PushValue(stmt4, fallthrough),
     Statement_Next(stmt4, stmt5),
     JUMPI(stmt5),
-    Statement_Block(stmt5, block).
+    Statement_Block(stmt5, block),
+    JUMPDEST(as(fallthrough, Statement)).
 
   BlockJumpsOnCallDataSize(block, jumpi, as(fallthrough, Block)):-
     CALLDATASIZE(cds),
@@ -592,7 +601,8 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     PushValue(push, fallthrough),
     Statement_Next(push, jumpi),
     JUMPI(jumpi),
-    Statement_Block(jumpi, block).
+    Statement_Block(jumpi, block),
+    JUMPDEST(as(fallthrough, Statement)).
 
   // Fallback functions
   PublicFunctionJump(block, FALLBACK_FUNCTION_SIGHASH),
