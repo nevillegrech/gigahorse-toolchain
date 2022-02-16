@@ -15,6 +15,10 @@
 
   IsContext(ctx):-
     InitialContext(ctx).
+
+  IsContext(ctx):-
+    MergeContext(ctx, _, _);
+    MergeContext(_, _, ctx).
 }
 
 .comp VariableDepthContextSensitivity <LocalAnalysis> : AbstractContextSensitivity <LocalAnalysis> {
@@ -40,6 +44,7 @@
   .type Context = [publicFun:symbol, pri: PrivateContext]
 
   .decl InitialPrivateContext(ctx: PrivateContext)
+  // PrivateContextDepth replaces/enhances IsPrivateContext 
   .decl PrivateContextDepth(ctx: PrivateContext, depth: number)
   .decl DecomposePrivateContext(priCtx: PrivateContext, block: Block, rest: PrivateContext)
   .decl DropLast(ctx: PrivateContext, newCtx: PrivateContext)
@@ -50,10 +55,20 @@
 
   InitialPrivateContext(nil).
 
+  InitialContext([FALLBACK_FUNCTION_SIGHASH, initialPrivateContext]) :-
+    InitialPrivateContext(initialPrivateContext).
+
+  DecomposeContext(ctx, publicFun, private):-
+    ReachableContext(ctx, _), ctx = [publicFun, private].
+
+  DecomposePrivateContext(private, block, rest):-
+    DecomposeContext(_, _, private),
+    private = [block, rest].
+
   DropLast(ctx, nil):-
     DecomposePrivateContext(ctx, _, nil).
 
-  DecomposePrivateContext(newCtx, block, newRest),
+  //DecomposePrivateContext(newCtx, block, newRest),
   PrivateContextDepth(newCtx, depth - 1),
   DropLast(ctx, newCtx):-
     DecomposePrivateContext(ctx, block, rest),
@@ -81,16 +96,11 @@
     MaxContextDepth(pub, maxDepth),
     depth < maxDepth.
 
-  InitialContext([FALLBACK_FUNCTION_SIGHASH, initialPrivateContext]) :-
-    InitialPrivateContext(initialPrivateContext).
-
   Context_PublicFunction(ctx, pubFun):-
     ReachableContext(ctx, _),
     ctx = [pubFun, callCtx],
     callCtx = callCtx.
 
-  DecomposeContext(ctx, publicFun, private):-
-    ReachableContext(ctx, _), ctx = [publicFun, private].
 }
 
 .comp TransactionalContext <LocalAnalysis> : PublicComponentContextSensitivity <LocalAnalysis> {
@@ -144,7 +154,7 @@
 
     // Complex control flow case
 
-  DecomposePrivateContext(newPrivateContext, caller, cutDownPri),
+  //DecomposePrivateContext(newPrivateContext, caller, cutDownPri),
   MergeContext(ctx, caller, [pub, newPrivateContext]):-
     ReachableContext(ctx, caller),
     PrivateFunctionCallOrReturn(caller),
@@ -165,4 +175,8 @@
     newContext = [sigHash, pri].
     .plan 1:(3,1,2)
 #endif
+}
+
+.comp CallSiteContextPlus <LocalAnalysis> : PublicComponentContextSensitivity <LocalAnalysis> {
+
 }
