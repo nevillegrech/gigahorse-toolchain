@@ -16,6 +16,7 @@
   IsContext(ctx):-
     InitialContext(ctx).
 
+  // Just making sure everything is captured
   IsContext(ctx):-
     MergeContext(ctx, _, _);
     MergeContext(_, _, ctx).
@@ -63,6 +64,10 @@
 
   DecomposePrivateContext(private, block, rest):-
     DecomposeContext(_, _, private),
+    private = [block, rest].
+
+  DecomposePrivateContext(private, block, rest):-
+    PrivateContextDepth(private, _),
     private = [block, rest].
 
   DropLast(ctx, nil):-
@@ -177,6 +182,26 @@
 #endif
 }
 
+/**
+  CallSite context sensitivity with a public function context component
+  Does not implement/care for the NO_PUBLIC_CONTEXT flag.
+*/
 .comp CallSiteContextPlus <LocalAnalysis> : PublicComponentContextSensitivity <LocalAnalysis> {
+
+  MergeContext(ctx, caller, [pub, newPrivateContext]):-
+    ReachableContext(ctx, caller),
+    DecomposeContext(ctx, pub, pri),
+    TruncateContextIfNeeded(pub, pri, cutDownPri),
+    !local.PublicFunction(caller, _),
+    newPrivateContext = [caller, cutDownPri].
+    .plan 1:(2,1,3), 2:(3,2,1)
+
+  MergeContext(ctx, caller, newContext) :-
+    ReachableContext(ctx, caller),
+    local.PublicFunction(caller, sigHash),
+    !MaxContextDepth(sigHash, -1),
+    DecomposeContext(ctx, _, pri),
+    newContext = [sigHash, pri].
+    .plan 1:(3,1,2)
 
 }
