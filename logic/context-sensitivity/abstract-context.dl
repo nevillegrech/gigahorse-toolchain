@@ -62,9 +62,9 @@
   DecomposeContext(ctx, publicFun, private):-
     ReachableContext(ctx, _), ctx = [publicFun, private].
 
-  DecomposePrivateContext(private, block, rest):-
-    DecomposeContext(_, _, private),
-    private = [block, rest].
+  // DecomposePrivateContext(private, block, rest):-
+  //   DecomposeContext(_, _, private),
+  //   private = [block, rest].
 
   DecomposePrivateContext(private, block, rest):-
     PrivateContextDepth(private, _),
