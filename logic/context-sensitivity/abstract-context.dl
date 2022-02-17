@@ -40,6 +40,10 @@
     !InputMaxContextDepth(_).
 }
 
+/**
+  Subclasses only need to provide additional MergeContext rules.
+*/
+
 .comp PublicComponentContextSensitivity <LocalAnalysis> : VariableDepthContextSensitivity <LocalAnalysis> {
   .type PrivateContext = [block: Block, rest: PrivateContext]
   .type Context = [publicFun:symbol, pri: PrivateContext]
@@ -62,9 +66,11 @@
   DecomposeContext(ctx, publicFun, private):-
     ReachableContext(ctx, _), ctx = [publicFun, private].
 
-  // DecomposePrivateContext(private, block, rest):-
-  //   DecomposeContext(_, _, private),
-  //   private = [block, rest].
+  // Both rules below are needed, DecomposePrivateContext contains a superset of private contexts
+  // some of which may not end up being reachable but it needs to because its used in many places
+  DecomposePrivateContext(private, block, rest):-
+    DecomposeContext(_, _, private),
+    private = [block, rest].
 
   DecomposePrivateContext(private, block, rest):-
     PrivateContextDepth(private, _),
@@ -73,7 +79,6 @@
   DropLast(ctx, nil):-
     DecomposePrivateContext(ctx, _, nil).
 
-  //DecomposePrivateContext(newCtx, block, newRest),
   PrivateContextDepth(newCtx, depth - 1),
   DropLast(ctx, newCtx):-
     DecomposePrivateContext(ctx, block, rest),
@@ -157,9 +162,7 @@
     MaxContextDepth(pub, 0).
     .plan 1:(2,3,1)
 
-    // Complex control flow case
-
-  //DecomposePrivateContext(newPrivateContext, caller, cutDownPri),
+  // Complex control flow case
   MergeContext(ctx, caller, [pub, newPrivateContext]):-
     ReachableContext(ctx, caller),
     PrivateFunctionCallOrReturn(caller),
