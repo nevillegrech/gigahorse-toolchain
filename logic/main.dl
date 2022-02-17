@@ -17,7 +17,7 @@
 // dynamically include context sensitivity based on Souffle params
 #define STRINGIFY(x) #x
 #define GET_CONTEXT_SENSITIVITY_FILENAME(ctx) STRINGIFY(context-sensitivity/ctx.dl)
-#include GET_CONTEXT_SENSITIVITY_FILENAME(CONTEXT_SENSITIVITY)
+//#include GET_CONTEXT_SENSITIVITY_FILENAME(CONTEXT_SENSITIVITY)
 
 #ifndef NO_ANALYTICS
 #include "decompiler_analytics.dl"

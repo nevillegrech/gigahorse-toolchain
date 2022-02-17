@@ -11,6 +11,9 @@
   .decl IsContext(ctx: Context)
   .decl InitialContext(ctx: Context)
 
+  // REVIEW: Moved it here as it is used irregardless of the ctx sens.
+  .decl Context_PublicFunction(ctx:Context, pubFun:symbol)
+
   .init local = LocalAnalysis
 
   IsContext(ctx):-
@@ -55,7 +58,6 @@
   .decl DropLast(ctx: PrivateContext, newCtx: PrivateContext)
   .output DropLast
   .decl TruncateContextIfNeeded(publicFun:symbol, ctx: PrivateContext, newCtx: PrivateContext)
-  .decl Context_PublicFunction(ctx:Context, pubFun:symbol)
   .decl DecomposeContext(ctx: Context, publicFun: symbol, private: PrivateContext)
 
   InitialPrivateContext(nil).

@@ -462,7 +462,6 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
 //   !blockCloner.BlockToClone(_, blk).
 
 .decl Analytics_JumpToManyWouldHaveBeenCloned(blk:IRBlock)
-.output Analytics_JumpToManyWouldHaveBeenCloned, PrivateFunctionCallOrReturn
 
 Analytics_JumpToManyWouldHaveBeenCloned(irblk):-
   Analytics_JumpToMany(irblk),
