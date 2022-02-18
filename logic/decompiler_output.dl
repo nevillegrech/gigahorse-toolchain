@@ -4,7 +4,11 @@
 .type TACVariable <: symbol
 
 
+#define OUTPUT_RELATION(_relname, _filename)\
+.output _relname(IO="file", filename=_filename, delimiter="\t")
+
 .output ByteCodeHex(IO="file", filename="bytecode.hex")
+OUTPUT_RELATION(ByteCodeHex, "ByteCodeHex.csv")
 
 // useful intermediate outputs
 .output OpcodePossiblyHalts
@@ -41,20 +45,34 @@ PHILocation(block, stackIndex, cat(cat(block, "_"), stackIndexHex)) :-
 // Final decompiler outputs
 .decl TAC_Op(stmt:IRStatement, op:Opcode)
 .output TAC_Op
+OUTPUT_RELATION(TAC_Op, "Statement_Opcode.csv")
+
 .decl TAC_Stmt(stmt:IRStatement)
 .output TAC_Stmt
+
 .decl TAC_Use(stmt: IRStatement, var: TACVariable, i: number)
 .output TAC_Use
+OUTPUT_RELATION(TAC_Use, "Statement_Uses.csv")
+
 .decl TAC_Def(stmt: IRStatement, var: TACVariable, n: number)
 .output TAC_Def
+OUTPUT_RELATION(TAC_Def, "Statement_Defines.csv")
+
 .decl TAC_Var(var: TACVariable)
 .output TAC_Var
+
 .decl TAC_Block(stmt: IRStatement, block: IRBlock)
 .output TAC_Block
+OUTPUT_RELATION(TAC_Block, "Statement_Block.csv")
+
 .decl TAC_Block_Head(block: IRBlock, stmt: IRStatement)
 .output TAC_Block_Head
+
 .decl TAC_Variable_Value(var: TACVariable, value: symbol)
 .output TAC_Variable_Value
+OUTPUT_RELATION(TAC_Variable_Value, "Variable_Value.csv")
+OUTPUT_RELATION(TAC_Variable_Value, "BasicVariable_Value.csv")
+
 .decl TAC_Variable_BlockValue(var: TACVariable, value: symbol)
 .output TAC_Variable_BlockValue
 
@@ -219,9 +237,15 @@ TAC_Block(phiStmt, block) :-
  ***********/
 
 .output IRFunctionCall
+OUTPUT_RELATION(IRFunctionCall, "CallGraphEdge.csv")
+
 .output IRFunctionCallReturn
+OUTPUT_RELATION(IRFunctionCallReturn, "FunctionCallReturn.csv")
+
+
 .output IRFunction_Return
-.output IsFunctionEntry(IO="file", filename="Function.csv", delimiter="\t")
+
+OUTPUT_RELATION(IsFunctionEntry, "Function.csv")
 
 .decl FormalArgs(func:IRFunction, var:TACVariable, n:number)
 .output FormalArgs
@@ -240,10 +264,12 @@ ActualReturnArgs(caller, var_rep, n) :-
 .output LocalBlockEdge
 .output HighLevelFunctionName
 .output IRFallthroughEdge
+OUTPUT_RELATION(IRFallthroughEdge, "FallthroughEdge.csv")
 
 .output Mask_Length
 .output IRInFunction(IO="file", filename="InFunction.csv", delimiter="\t")
 .output IRFunctionEntry
+OUTPUT_RELATION(IRFunctionEntry, "FunctionEntry.csv")
 
 /*****
  *  Statement Ordering
@@ -262,6 +288,8 @@ PRE_TAC_Statement_Next(stmt, nextnext) :-
 /// WARNING: This only works intra-procedurally after the Functional IR conversion.
 .decl TAC_Statement_Next(stmt: IRStatement, next: IRStatement)
 .output TAC_Statement_Next
+OUTPUT_RELATION(TAC_Statement_Next, "Statement_Next.csv")
+
 
 TAC_Statement_Next(irstmt, irnext) :-
    PRE_TAC_Statement_Next(stmt, next),
