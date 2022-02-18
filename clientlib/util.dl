@@ -45,9 +45,7 @@ Fail(a) :- Fail(a). // suppress warning
 * Functors
 ***/
 
-#ifndef MULTI_CONTRACT
 #include "../souffle-addon/functor_includes.dl"
-#endif
 
 
 /***
