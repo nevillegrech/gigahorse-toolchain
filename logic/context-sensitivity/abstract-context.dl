@@ -210,3 +210,42 @@
     .plan 1:(3,1,2)
 
 }
+
+/**
+  Selective context sensitivity with a public function context component
+  Does not implement/care for the NO_PUBLIC_CONTEXT flag.
+*/
+.comp SelectiveContextPlus <LocalAnalysis> : PublicComponentContextSensitivity <LocalAnalysis> {
+
+  .decl BlockHasTrivialControl(block: Block)
+
+  BlockHasTrivialControl(block):-
+    local.BasicBlock_Tail(block, stmt),
+    !local.JUMP(stmt),
+    !local.JUMPI(stmt).
+  
+  BlockHasTrivialControl(block):-
+    local.ImmediateBlockJumpTarget(block, _).
+
+  MergeContext(ctx, caller, ctx):-
+    ReachableContext(ctx, caller),
+    BlockHasTrivialControl(caller),
+    !local.PublicFunction(caller, _).
+
+  MergeContext(ctx, caller, newContext) :-
+    ReachableContext(ctx, caller),
+    local.PublicFunction(caller, sigHash),
+    !MaxContextDepth(sigHash, -1),
+    DecomposeContext(ctx, _, callCtx),
+    newContext = [sigHash, callCtx].
+
+  MergeContext(ctx, caller, [pub, newPrivateContext]):-
+    ReachableContext(ctx, caller),
+    DecomposeContext(ctx, pub, pri),
+    TruncateContextIfNeeded(pub, pri, cutDownPri),
+    !local.PublicFunction(caller, _),
+    !BlockHasTrivialControl(caller),
+    newPrivateContext = [caller, cutDownPri].
+    .plan 1:(2,1,3), 2:(3,2,1)
+
+}
