@@ -238,6 +238,13 @@ IsFunctionCallReturn(ctx, caller, func, retCtx, retBlock, retTarget) :-
   !NotValidReturnEdge(retBlock, retTarget).
 
 
+// SL: Basic filtering to remove some trash introduced in rare cases by the basic logic in local.dl
+.decl PublicFunctionFiltered(block: Block, sigHash: Value)
+
+PublicFunctionFiltered(func, sigHash):-
+   postTrans.PublicFunctionJump(prev, sigHash),
+   postTrans.PublicFunction(func, sigHash),
+   BlockEdge(_, prev, _, func).
 
 // NOTE the philosophy!  MaybeFunctionCallReturn intends to be
 // complete, IsFunctionCallReturn intends to be precise.  Be careful when
@@ -246,7 +253,7 @@ IsFunctionCallReturn(ctx, caller, func, retCtx, retBlock, retTarget) :-
 /// Let's try something dead simple for assigning blocks to functions.
 
 .decl IsFunctionEntry(entry:Block)
-IsFunctionEntry(block) :- postTrans.PublicFunction(block, _).
+IsFunctionEntry(block) :- PublicFunctionFiltered(block, _).
 IsFunctionEntry("0x0").
 IsFunctionEntry(func) :- IsFunctionCallReturn(_, _, func, _, _, _).
 
@@ -258,7 +265,8 @@ IsFunctionEntry(func) :- IsFunctionCallReturn(_, _, func, _, _, _).
 IsFunctionCall(prev, func),
 IsPublicFunctionCall(prev, func) :-
    postTrans.PublicFunctionJump(prev, sigHash),
-   postTrans.PublicFunction(func, sigHash).
+   PublicFunctionFiltered(func, sigHash),
+   BlockEdge(_, prev, _, func).
 
 
 IsFunctionCall(block, func) :-
@@ -454,7 +462,7 @@ IRFunctionCall(fromir, irfunc) :-
 .decl Context_PublicFunction(ctx:Context, pubFun:symbol)
 
 PubFun("0x0", FALLBACK_FUNCTION_SIGHASH):- Context_PublicFunction(_, _).
-PubFun(entry, sigHash):- Context_PublicFunction(_, sigHash), postTrans.PublicFunction(entry, sigHash).
+PubFun(entry, sigHash):- Context_PublicFunction(_, sigHash), PublicFunctionFiltered(entry, sigHash).
 
 // Intra-function edges (i.e., real CFG edges)
 
@@ -1037,7 +1045,7 @@ SighashIntermediate(sig, sig) :-
 
 .decl IRPublicFunction(irfunc: IRFunction, sigHash: Value)
 IRPublicFunction(irfunc, sigHash) :-
-  postTrans.PublicFunction(func, sigHash),
+  PublicFunctionFiltered(func, sigHash),
   Function_IRFunction(func, irfunc).
   
 .decl PublicFunction_HighLevel(func: IRFunction, sigHashOut: symbol)
