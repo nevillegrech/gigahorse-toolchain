@@ -639,8 +639,6 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
 
 .init factReader = StatementFactReader
 
-.init blockCloner = BlockCloner
-COPY_CODE(blockCloner, factReader)
 /*
  ***********
  * Transformation-aided decompilation
@@ -648,8 +646,18 @@ COPY_CODE(blockCloner, factReader)
  */
 
 .init preTrans = PreTransLocalAnalysis
+
+#ifdef BLOCK_CLONING
+// Enable the early cloning of blocks to increase precision (sacrificing performance)
+
+.init blockCloner = BlockCloner
+COPY_CODE(blockCloner, factReader)
 COPY_OUTPUT(preTrans, blockCloner)
-//COPY_CODE(preTrans, factReader)
+
+#else
+// No early cloning
+COPY_CODE(preTrans, factReader)
+#endif
 
 INITIALIZE_STATEMENT_INSERTOR_FROM(insertor, preTrans, postTrans)
 

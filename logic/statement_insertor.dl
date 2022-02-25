@@ -461,9 +461,9 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
 //   JumpToMany_ImprecisionSource(irblk, blk),
 //   !blockCloner.BlockToClone(_, blk).
 
-.decl Analytics_JumpToManyWouldHaveBeenCloned(blk:IRBlock)
+// .decl Analytics_JumpToManyWouldHaveBeenCloned(blk:IRBlock)
 
-Analytics_JumpToManyWouldHaveBeenCloned(irblk):-
-  Analytics_JumpToMany(irblk),
-  JumpToMany_ImprecisionSource(irblk, blk),
-  blockCloner.BlockToClone(_, blk).
+// Analytics_JumpToManyWouldHaveBeenCloned(irblk):-
+//   Analytics_JumpToMany(irblk),
+//   JumpToMany_ImprecisionSource(irblk, blk),
+//   blockCloner.BlockToClone(_, blk).

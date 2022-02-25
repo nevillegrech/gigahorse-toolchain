@@ -195,6 +195,11 @@ parser.add_argument("--disable_inline",
                     default=False,
                     help="Disables the inlining of small functions (performed to produce a more high-level IR).")
 
+parser.add_argument("--early_cloning",
+                    action="store_true",
+                    default=False,
+                    help="Adds a block cloning pre-process step to the decompilation pipeline, sometimes producing a more precise output.")
+
 parser.add_argument("-q",
                     "--quiet",
                     nargs="?",
@@ -262,6 +267,9 @@ def compile_datalog(spec, executable):
 
     if args.enable_limitsize:
         souffle_macros+=' ENABLE_LIMITSIZE='
+
+    if args.early_cloning:
+        souffle_macros+=' BLOCK_CLONING='
 
     cpp_macros = []
     for macro_def in souffle_macros.split(' '):
