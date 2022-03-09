@@ -43,8 +43,18 @@
     !InputMaxContextDepth(_).
 }
 
+
 /**
-  Subclasses only need to provide additional MergeContext rules.
+  Flavors of context sensitivity that do not contain a public function component
+*/
+
+.comp PrivateOnlyContextSensitivity <LocalAnalysis> : VariableDepthContextSensitivity <LocalAnalysis> {
+  .type Context = [block: Block, rest: Context]
+}
+
+
+/**
+  Subclasses only need to provide additional MergeContext rules to cover the private context cases.
 */
 
 .comp PublicComponentContextSensitivity <LocalAnalysis> : VariableDepthContextSensitivity <LocalAnalysis> {
