@@ -1,4 +1,4 @@
-Note: you need to clone this repo using the `--recursive` flag since this repo has submodules, e.g., `git clone git@github.com:nevillegrech/gigahorse-toolchain.git --recursive`
+*NOTE*: you need to clone this repo using the `--recursive` flag since this repo has submodules, e.g., `git clone git@github.com:nevillegrech/gigahorse-toolchain.git --recursive`
 
 # The Gigahorse binary lifter and toolchain [![Tweet](https://img.shields.io/twitter/url/http/shields.io.svg?style=social)](https://twitter.com/intent/tweet?text=Gigahorse%20-%20Decompilation%20and%20Analysis%20for%20Ethereum%20Smart%20Contracts&url=https://www.github.com/nevillegrech/gigahorse-toolchain)
 A binary lifter (and related framework) from low-level EVM code to a higher-level function-based three-address representation, similar to LLVM IR or Jimple. 
@@ -36,6 +36,8 @@ Example (individual contract):
 ```
 ./gigahorse.py examples/long_running.hex
 ```
+
+(For some Souffle versions, you will get an error message regarding the libsoufflenum.so dynamic library, during the first compilation. You can ignore this and gigahorse.py should work upon a re-run.)
 
 Contracts that take too long to analyse will be skipped after a configurable timeout.
 
