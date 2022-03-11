@@ -50,8 +50,80 @@
 
 .comp PrivateOnlyContextSensitivity <LocalAnalysis> : VariableDepthContextSensitivity <LocalAnalysis> {
   .type Context = [block: Block, rest: Context]
+
+  .decl ContextDepth(ctx: Context, depth: number)
+  .decl DecomposeContext(ctx: Context, block: Block, rest: Context)
+
+  .decl DropLast(ctx: Context, newCtx: Context)
+  .decl TruncateContextIfNeeded(ctx: Context, newCtx: Context)
+
+  InitialContext(nil).
+
+  ContextDepth(init, 0) :-
+    InitialContext(init).
+
+  DecomposeContext(ctx, block, rest):-
+    IsContext(ctx),
+    ctx = [block, rest].
+
+  DecomposeContext(ctx, block, rest):-
+    ContextDepth(ctx, _),
+    ctx = [block, rest].
+
+  DropLast(ctx, nil):-
+    DecomposeContext(ctx, _, nil).
+
+  ContextDepth(newCtx, depth - 1),
+  DropLast(ctx, newCtx):-
+    DecomposeContext(ctx, block, rest),
+    ContextDepth(ctx, depth),
+    DropLast(rest, newRest),
+    newCtx = [ block, newRest ].
+    .plan 1:(2,1,3), 2:(3,1,2)
+
+  ContextDepth(ctx, depth + 1):-
+    DecomposeContext(ctx, _, rest),
+    ContextDepth(rest, depth).
+    .plan 1:(2,1)
+
+  TruncateContextIfNeeded(ctx, newCtx):-
+    ContextDepth(ctx, maxDepth),
+    MaxContextDepth(_, maxDepth),
+    DropLast(ctx, newCtx).
+    .plan 1:(3,1,2)
+
+  TruncateContextIfNeeded(ctx, ctx):-
+    ContextDepth(ctx, depth),
+    MaxContextDepth(_, maxDepth),
+    depth < maxDepth.
+
+
+  MergeContext(ctx, caller, ctx) :-
+    MaxContextDepth(_, 0),
+    ReachableContext(ctx, caller).
 }
 
+.comp CallSiteContext <LocalAnalysis> : PrivateOnlyContextSensitivity <LocalAnalysis> {
+
+  MergeContext(ctx, caller, newCtx):-
+    ReachableContext(ctx, caller),
+    TruncateContextIfNeeded(ctx, maybeCutDownCtx),
+    newCtx = [caller, maybeCutDownCtx].
+}
+
+.comp SelectiveContext <LocalAnalysis> : PrivateOnlyContextSensitivity <LocalAnalysis> {
+
+  MergeContext(ctx, caller, ctx):-
+    ReachableContext(ctx, caller),
+    local.BlockHasTrivialControl(caller).
+
+  MergeContext(ctx, caller, newCtx):-
+    ReachableContext(ctx, caller),
+    TruncateContextIfNeeded(ctx, maybeCutDownCtx),
+    !local.BlockHasTrivialControl(caller),
+    newCtx = [caller, maybeCutDownCtx].
+    .plan 1:(2,1)
+}
 
 /**
   Subclasses only need to provide additional MergeContext rules to cover the private context cases.
@@ -229,20 +301,19 @@
 */
 .comp SelectiveContextPlus <LocalAnalysis> : PublicComponentContextSensitivity <LocalAnalysis> {
 
-  .decl BlockHasTrivialControl(block: Block)
-
-  BlockHasTrivialControl(block):-
-    local.BasicBlock_Tail(block, stmt),
-    !local.JUMP(stmt),
-    !local.JUMPI(stmt).
-  
-  BlockHasTrivialControl(block):-
-    local.ImmediateBlockJumpTarget(block, _).
-
   MergeContext(ctx, caller, ctx):-
     ReachableContext(ctx, caller),
-    BlockHasTrivialControl(caller),
+    local.BlockHasTrivialControl(caller),
     !local.PublicFunction(caller, _).
+
+  MergeContext(ctx, caller, [pub, newPrivateContext]):-
+    ReachableContext(ctx, caller),
+    DecomposeContext(ctx, pub, pri),
+    TruncateContextIfNeeded(pub, pri, cutDownPri),
+    !local.PublicFunction(caller, _),
+    !local.BlockHasTrivialControl(caller),
+    newPrivateContext = [caller, cutDownPri].
+    .plan 1:(2,1,3), 2:(3,2,1)
 
   MergeContext(ctx, caller, newContext) :-
     ReachableContext(ctx, caller),

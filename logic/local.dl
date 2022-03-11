@@ -509,6 +509,17 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     BasicBlock_Tail(block, jump),
     BeforeLocalStackContents(jump, 0, var),
     LocalStackContents(jump, _, var).
+
+  // Helper for some ctx sensitivity algorithms
+  .decl BlockHasTrivialControl(block: Block)
+
+  BlockHasTrivialControl(block):-
+    BasicBlock_Tail(block, stmt),
+    !JUMP(stmt),
+    !JUMPI(stmt).
+
+  BlockHasTrivialControl(block):-
+    ImmediateBlockJumpTarget(block, _).
 }
 
 .comp PreTransLocalAnalysis : LocalAnalysis {
