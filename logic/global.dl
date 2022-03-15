@@ -56,8 +56,6 @@ PreMask_Length(cat("ff", mask), bytes+1) :-
   ***********
   */
 
-  #include "context-sensitivity/abstract-context.dl"
-
   .init sens = TransactionalContext<PreTransLocalAnalysis>
 
   sens.local.PushValue(push, val):- PushValue(push, val).
