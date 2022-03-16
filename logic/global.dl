@@ -24,7 +24,7 @@
 .type Statement <: symbol
 .type FunctionSignature <: symbol
 
-.init global = GlobalAnalysis
+.init global = OptimizedGlobalAnalysis
 
 COPY_CODE(global, postTrans)
 
@@ -69,7 +69,8 @@ PreMask_Length(cat("ff", mask), bytes+1) :-
   .limitsize BlockOutputContents(n=LIMITSIZE_BLOCK_OUTPUT_CONTENTS)
   #endif
 
-  .decl BlockInputContents(context: sens.Context, block: Block, index: StackIndex, var: Variable)
+  // Added overridable flag to override it in the optimized variant of the component
+  .decl BlockInputContents(context: sens.Context, block: Block, index: StackIndex, var: Variable) overridable
 
   // Var holding the (target block) address a block jumps to, under context.
   .decl BlockJumpTarget(context: sens.Context, block: Block, var: Variable)
@@ -88,20 +89,7 @@ PreMask_Length(cat("ff", mask), bytes+1) :-
   ***********
   */
 
-  .decl VariableContainsJumpTarget(var: Variable)
-  VariableContainsJumpTarget(var) :-
-    Variable_Value(var, value),
-    JUMPDEST(as(value, symbol)).
-
-  /*
-  // Removing this optimization in order to model the whole stack 
-  .decl AuxBlockOutputContentsJumpTarget(context:Context, block:Block, index:StackIndex, var:Variable)
-  AuxBlockOutputContentsJumpTarget(context, block, index, var) :-
-    BlockOutputContents(context, block, index, var),
-    VariableContainsJumpTarget(var).*/
-
   BlockInputContents(calleeCtx, callee, index, variable) :-
-    //AuxBlockOutputContentsJumpTarget(callerCtx, caller, index, variable),
     BlockOutputContents(callerCtx, caller, index, variable),
     BlockEdge(callerCtx, caller, calleeCtx, callee).
     .plan 1:(2,1)
@@ -188,6 +176,11 @@ PreMask_Length(cat("ff", mask), bytes+1) :-
     Statement_Block(stmt, block),
     BlockInputContents(_, block, stackIndex, var).
 
+  .decl VariableContainsJumpTarget(var: Variable)
+  VariableContainsJumpTarget(var) :-
+    Variable_Value(var, value),
+    JUMPDEST(as(value, symbol)).
+
   .decl VariableUsedInOperation(var: Variable)
 
   VariableUsedInOperation(var):-
@@ -205,4 +198,22 @@ PreMask_Length(cat("ff", mask), bytes+1) :-
   VariableAlwaysUsedAsJumpTarget(var):-
     VariableContainsJumpTarget(var),
     !VariableUsedInOperation(var).
+}
+
+/**
+  A global analysis component optimized by only modeling the stack locations containing jump targets
+*/
+.comp OptimizedGlobalAnalysis : GlobalAnalysis {
+
+  .override BlockInputContents
+
+  .decl AuxBlockOutputContentsJumpTarget(context:sens.Context, block:Block, index:StackIndex, var:Variable)
+  AuxBlockOutputContentsJumpTarget(context, block, index, var) :-
+    BlockOutputContents(context, block, index, var),
+    VariableContainsJumpTarget(var).
+
+  BlockInputContents(calleeCtx, callee, index, variable) :-
+    AuxBlockOutputContentsJumpTarget(callerCtx, caller, index, variable),
+    BlockEdge(callerCtx, caller, calleeCtx, callee).
+    .plan 1:(2,1)
 }
