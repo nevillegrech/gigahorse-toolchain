@@ -136,7 +136,6 @@ Analytics_Variables(a) :-
 
 
 
-#ifdef CALL_TO_SIGNATURE
 #include "../clientlib/memory_modeling/memory_modeling.dl"
 
 .decl Analytics_CallToSignature(sigHashVal: Value)
@@ -154,5 +153,3 @@ Analytics_EventSignature(sigHashVal) :-
   LOGStatement(log, _),
   Statement_Uses(log, actual, 2),
   Variable_Value(actual, sigHashVal).
-
-#endif

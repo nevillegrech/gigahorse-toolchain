@@ -210,6 +210,11 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     !IsBasicBlockHead(stmt),
     !PossiblyIsBasicBlockTail(prevstmt).
   
+  .decl BasicBlock_Head(block:Block, head:Statement)
+  BasicBlock_Head(block, head):-
+    Statement_BlockHead(stmt, head),
+    Statement_Block(stmt, block).
+  
   .decl BasicBlock_Tail(block:Block, tail:Statement)
   
   BasicBlock_Tail(block, tail) :-
@@ -477,7 +482,7 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     JUMPI(jumpiStmt),
     Statement_Uses_Local(jumpiStmt, pred, 1).
 
-  .decl SWAPDUPPOPJUMPJUMPDESTOP(op:Opcode)
+  .decl SWAPDUPPOPJUMPJUMPDESTOP(op: Opcode)
   SWAPDUPPOPJUMPJUMPDESTOP(opcode):-
     DUPN(opcode, _);
     SWAPN(opcode, _);
@@ -485,9 +490,10 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     opcode = "JUMPDEST";
     opcode = "POP".
 
-  .decl StackBalanceBlock(block:Block)
+  .decl StackBalanceBlock(block: Block)
   StackBalanceBlock(block):-
-    Statement_Block(_, block),
+    Statement_Block(jump, block),
+    Statement_Opcode(jump, "JUMP"),
     stackAltCount = count: {
       Statement_Block(stmt, block), 
       Statement_Opcode(stmt, op), 
@@ -495,6 +501,25 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     },
     allCount = count: Statement_Block(_, block),
     stackAltCount = allCount.
+
+  .decl StackBalanceBlockTargetEscapes(block: Block)
+  .output StackBalanceBlockTargetEscapes
+  StackBalanceBlockTargetEscapes(block):-
+    StackBalanceBlock(block),
+    BasicBlock_Tail(block, jump),
+    BeforeLocalStackContents(jump, 0, var),
+    LocalStackContents(jump, _, var).
+
+  // Helper for some ctx sensitivity algorithms
+  .decl BlockHasTrivialControl(block: Block)
+
+  BlockHasTrivialControl(block):-
+    BasicBlock_Tail(block, stmt),
+    !JUMP(stmt),
+    !JUMPI(stmt).
+
+  BlockHasTrivialControl(block):-
+    ImmediateBlockJumpTarget(block, _).
 }
 
 .comp PreTransLocalAnalysis : LocalAnalysis {
@@ -578,7 +603,8 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     PushValue(stmt4, fallthrough),
     Statement_Next(stmt4, stmt5),
     JUMPI(stmt5),
-    Statement_Block(stmt5, block).
+    Statement_Block(stmt5, block),
+    JUMPDEST(as(fallthrough, Statement)).
 
   BlockJumpsOnCallDataSize(block, jumpi, as(fallthrough, Block)):-
     CALLDATASIZE(cds),
@@ -586,7 +612,8 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     PushValue(push, fallthrough),
     Statement_Next(push, jumpi),
     JUMPI(jumpi),
-    Statement_Block(jumpi, block).
+    Statement_Block(jumpi, block),
+    JUMPDEST(as(fallthrough, Statement)).
 
   // Fallback functions
   PublicFunctionJump(block, FALLBACK_FUNCTION_SIGHASH),
@@ -623,7 +650,6 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
 
 .init factReader = StatementFactReader
 
-
 /*
  ***********
  * Transformation-aided decompilation
@@ -631,7 +657,18 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
  */
 
 .init preTrans = PreTransLocalAnalysis
+
+#ifdef BLOCK_CLONING
+// Enable the early cloning of blocks to increase precision (sacrificing performance)
+
+.init blockCloner = BlockCloner
+COPY_CODE(blockCloner, factReader)
+COPY_OUTPUT(preTrans, blockCloner)
+
+#else
+// No early cloning
 COPY_CODE(preTrans, factReader)
+#endif
 
 INITIALIZE_STATEMENT_INSERTOR_FROM(insertor, preTrans, postTrans)
 

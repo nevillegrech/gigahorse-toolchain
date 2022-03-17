@@ -20,25 +20,25 @@ Analytics_Jumps(block) :-
 .output Analytics_ReachableBlocks
 
 Analytics_ReachableBlocks(blk):-
-  ReachableContext(_, blk).
+  global.ReachableContext(_, blk).
 
-.decl Analytics_Contexts(ctx: Context)
+.decl Analytics_Contexts(ctx: global.sens.Context)
 .output Analytics_Contexts
 
 Analytics_Contexts(ctx):-
-  ReachableContext(ctx, _).
+  global.ReachableContext(ctx, _).
 
-.decl Analytics_ReachableUnderContext(ctx: Context, block: Block)
+.decl Analytics_ReachableUnderContext(ctx: global.sens.Context, block: Block)
 .output Analytics_ReachableUnderContext
 
 Analytics_ReachableUnderContext(ctx, block):-
-  ReachableContext(ctx, block).
+  global.ReachableContext(ctx, block).
 
 .decl Analytics_ReachableBlocksInTAC(block: Block)
 .output Analytics_ReachableBlocksInTAC
 
 Analytics_ReachableBlocksInTAC(blk):-
-  ReachableContext(_, blk),
+  global.ReachableContext(_, blk),
   Block_IRBlock(blk, _, block),
   TAC_Block(_, block).
 
@@ -103,8 +103,8 @@ Analytics_MissingImplementation(stmt, opcode) :-
 // Excludes function return blocks
 Analytics_PolymorphicTarget(block) :-
   Analytics_Jumps(block),                                                          
-  BlockJumpValidTarget(_, block, _, target1),
-  BlockJumpValidTarget(_, block, _, target2),
+  global.BlockJumpValidTarget(_, block, _, target1),
+  global.BlockJumpValidTarget(_, block, _, target2),
   !IsReturn(_, block, _),
   target1 != target2.
 
@@ -113,16 +113,25 @@ Analytics_PolymorphicTarget(block) :-
 
 Analytics_PolymorphicTargetSameCtx(block) :-
   Analytics_Jumps(block),
-  BlockJumpValidTarget(ctx, block, _, target1),
-  BlockJumpValidTarget(ctx, block, _, target2),
+  global.BlockJumpValidTarget(ctx, block, _, target1),
+  global.BlockJumpValidTarget(ctx, block, _, target2),
   target1 != target2.
 
-.decl Analytics_MissingJumpTarget(block: Block)
-.output Analytics_MissingJumpTarget      
+.decl Analytics_MissingJumpTargetAnyCtx(block: Block)
+.output Analytics_MissingJumpTargetAnyCtx
 
-Analytics_MissingJumpTarget(block) :-
+Analytics_MissingJumpTargetAnyCtx(block):-
   Analytics_Jumps(block),
-  !BlockJumpValidTarget(_, block, _, _),
+  !global.BlockJumpValidTarget(_, block, _, _),
+  postTrans.JUMPDEST(_). // if there are not valid jumpdests then don't flag
+
+.decl Analytics_MissingJumpTargetSomeCtx(block: Block)
+.output Analytics_MissingJumpTargetSomeCtx
+
+Analytics_MissingJumpTargetSomeCtx(block):-
+  Analytics_Jumps(block),
+  global.ReachableContext(ctx, block),
+  !global.BlockJumpValidTarget(ctx, block, _, _),
   postTrans.JUMPDEST(_). // if there are not valid jumpdests then don't flag
 
 // Missing operands for IR statements.
@@ -200,7 +209,7 @@ Analytics_BlocksLocalOrNot(block1, block2) :-
 
 Analytics_UnreachableBlock(block) :-
    postTrans.Statement_Block(_, block),
-   !ReachableContext(_, block).
+   !global.ReachableContext(_, block).
 
 .decl Analytics_FunctionCall(block: IRBlock)
 .output Analytics_FunctionCall

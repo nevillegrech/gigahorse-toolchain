@@ -62,6 +62,9 @@ Example (with client analysis):
 
 Gigahorse can also be used in "bulk analysis" mode, by replacing <contracts> by a directory filled with contracts.
 
+For additional instructions in tuning the Gigahorse framework see [Tuning.md](Tuning.md).
+
+
 ## Textual representation of the lifted IR
 Client analysis `clients/visualizeout.py` can be used to provide a pretty-printed textual representation of the IR produced by Gigahorse.
 The pretty-printed text file is named `contract.tac` and will be placed in the `out/` folder for each analyzed contract.

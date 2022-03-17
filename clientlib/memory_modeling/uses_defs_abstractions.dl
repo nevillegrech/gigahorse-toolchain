@@ -165,6 +165,8 @@ varIndex.To(mload, valRep):-
   Variable_SymbolicValue(indexVar, indexVal),
   FreePointerBasedValue_AliasRep(indexVal, valRep).
 
+/*
+// This rule breaks statements '0x398b0x349b0x16b30x649' and '0x39710x349b0x16b30x649' for 'D1DB92083593ABD001EE99A49341144A'
 MemoryModelingTempStmt(mstore),
 StatementUsesMemory_ActualArg(mload, actual, 0):-
   //varIndex.ReachableBypassingAny(mstore, mload),
@@ -175,7 +177,7 @@ StatementUsesMemory_ActualArg(mload, actual, 0):-
   addr != "0x40",
   // skip loads of an array's length for now
   !VarIsArray(indexVar, _).
-
+*/
 
 /**
   More sound modeling of MLOADs for constant indexes
