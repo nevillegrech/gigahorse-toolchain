@@ -24,7 +24,7 @@
 .type Statement <: symbol
 .type FunctionSignature <: symbol
 
-.init global = OptimizedGlobalAnalysis
+.init global = OptimizedGlobalAnalysis<CONTEXT_SENSITIVITY>
 
 COPY_CODE(global, postTrans)
 
@@ -49,14 +49,14 @@ PreMask_Length(cat("ff", mask), bytes+1) :-
   bytes < 32.
 
 
-.comp GlobalAnalysis : PreTransLocalAnalysis {
+.comp GlobalAnalysis <AbstractContextSensitivity> : PreTransLocalAnalysis {
   /*
   ***********
   * Key dataflow definitions
   ***********
   */
 
-  .init sens = TransactionalContext<PreTransLocalAnalysis>
+  .init sens = AbstractContextSensitivity<PreTransLocalAnalysis>
 
   sens.local.PushValue(push, val):- PushValue(push, val).
   sens.local.Statement_Opcode(stmt, op):- Statement_Opcode(stmt, op).
@@ -203,7 +203,7 @@ PreMask_Length(cat("ff", mask), bytes+1) :-
 /**
   A global analysis component optimized by only modeling the stack locations containing jump targets
 */
-.comp OptimizedGlobalAnalysis : GlobalAnalysis {
+.comp OptimizedGlobalAnalysis <AbstractContextSensitivity> : GlobalAnalysis <AbstractContextSensitivity> {
 
   .override BlockInputContents
 
