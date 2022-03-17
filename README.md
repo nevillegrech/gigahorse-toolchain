@@ -103,6 +103,7 @@ Now let's manually execute the pipeline above:
     $ souffle -F facts logic/main.dl  # runs the main decompilation step (written as a Datalog program)
     $ clients/visualizeout.py               # visualizes the IR and outputs (all outputs of Datalog programs are in a relational format)
 
+For additional instructions in tuning the Gigahorse framework see [Tuning.md](Tuning.md).
 
 ## Writing client analyses
 
