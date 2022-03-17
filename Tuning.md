@@ -6,15 +6,15 @@ The gigahorse framework offers various ways to tune its underlying algorithms.
 
 Gigahorse features different context sensitivity algorithms:
 * `TransactionalContext`: The default context sensitivity of Gigahorse. Composite, including a public entry point component and a variable depth selective context component approximating private function calls and returns.
-* `CallsiteContext`: Call(or block)-site context sensitivity with a variable depth.
-* `CallsiteContextPlus`: The above call-site context including a public function component.
+* `CallSiteContext`: Call(or block)-site context sensitivity with a variable depth.
+* `CallSiteContextPlus`: The above call-site context including a public function component.
 * `SelectiveContext`: Selective call-site context only including with dynamic jumps.
 * `SelectiveContextPlus`: The above selective context including a public function component.
 
 You can run the decompilation pipeline with a different context sensitivity algorithm using the -M flag.
 As an example, the command below will run the example contract using call-site context sensitivity:
 ```
-python3.8 gigahorse.py examples/long_running.hex -M "CONTEXT_SENSITIVITY=CallsiteContext"
+python3.8 gigahorse.py examples/long_running.hex -M "CONTEXT_SENSITIVITY=CallSiteContext"
 ```
 
 In addition the `-cd` flag can be used to provide a different maximum context depth.
