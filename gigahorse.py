@@ -390,7 +390,7 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
 
             inline_start = time.time()
             if not args.disable_inline:
-                run_clients([DEFAULT_INLINER_DL]*4, [], out_dir, out_dir)
+                run_clients([DEFAULT_INLINER_DL]*6, [], out_dir, out_dir)
                     
             # end decompilation
         if exists and not args.rerun_clients:
