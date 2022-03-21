@@ -57,6 +57,21 @@ Analytics_BlockHasNoTACBlock(blk):-
 Analytics_Blocks(block) :-
   IRInFunction(block, _).
 
+.decl Analytics_Block_NumberOfContexts(block: Block, ctxNum: number)
+.output Analytics_Block_NumberOfContexts
+
+Analytics_Block_NumberOfContexts(block, ctxNum):-
+  Analytics_ReachableBlocks(block),
+  ctxNum = count : { global.ReachableContext(_, block) }.
+
+.decl Verbatim_BlocksReachabilityMetric(blocks: number, totalReach: number, avg: float)
+.output Verbatim_BlocksReachabilityMetric
+
+Verbatim_BlocksReachabilityMetric(blocks, totalReach, avg):-
+  blocks = count: Analytics_ReachableBlocks(_),
+  totalReach = sum ctxNum : Analytics_Block_NumberOfContexts(_, ctxNum),
+  avg = as(totalReach, float) / as(blocks, float).
+
 // This is a special metric
 // Dead blocks are "declared dead" because they are most likely
 // artifacts of imprecision but in cases they can also be a sign of incompleteness,
