@@ -209,17 +209,17 @@ parser.add_argument("-q",
 parser.add_argument("--rerun_clients",
                     action="store_true",
                     default=False,
-                    help="Silence output.")
+                    help="Rerun previously executed client analyses.")
 
 parser.add_argument("--restart",
                     action="store_true",
                     default=False,
-                    help="Silence output.")
+                    help="Erase working dir and decompile/analyze from scratch.")
 
 parser.add_argument("--reuse_datalog_bin",
                     action="store_true",
                     default=False,
-                    help="Do not recompile.")
+                    help="Do not recompile the datalog binaries.")
 
 parser.add_argument("-i",
                     "--interpreted",
@@ -245,7 +245,7 @@ if not os.path.isfile(join(functor_path, 'libfunctors.so')):
 def get_working_dir(contract_name):
     return join(os.path.abspath(args.working_dir), os.path.split(contract_name)[1].split('.')[0])
 
-def prepare_working_dir(contract_name) -> (str, str):
+def prepare_working_dir(contract_name) -> (bool, str, str):
     newdir = get_working_dir(contract_name)
     out_dir = join(newdir, 'out')
 
