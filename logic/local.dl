@@ -502,13 +502,14 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     allCount = count: Statement_Block(_, block),
     stackAltCount = allCount.
 
-  .decl StackBalanceBlockTargetEscapes(block: Block)
-  .output StackBalanceBlockTargetEscapes
-  StackBalanceBlockTargetEscapes(block):-
-    StackBalanceBlock(block),
+  .decl NonImmediateBlockJumpTargetEscapes(block: Block)
+  .output NonImmediateBlockJumpTargetEscapes
+  NonImmediateBlockJumpTargetEscapes(block):-
+    IsJump(jump),
     BasicBlock_Tail(block, jump),
     BeforeLocalStackContents(jump, 0, var),
-    LocalStackContents(jump, _, var).
+    LocalStackContents(jump, _, var),
+    !ImmediateBlockJumpTarget(block, _).
 
   // Helper for some ctx sensitivity algorithms
   .decl BlockHasTrivialControl(block: Block)
