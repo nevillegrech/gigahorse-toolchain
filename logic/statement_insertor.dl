@@ -348,6 +348,9 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
   BlockCloningCandidate(candidate):-
     analysis.StackBalanceBlock(candidate).
 
+  BlockCloningCandidate(candidate):-
+    analysis.NonImmediateBlockJumpTargetEscapes(candidate).
+
   // caller-side return blocks that are shared between call-sites
   BlockCloningCandidate(candidate):-
     PossibleCallerWithReturn(from, candidate),
