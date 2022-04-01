@@ -56,3 +56,6 @@ results.json
 
 # testing files
 .tests/**
+
+# sqlite databases
+*.sqlite
