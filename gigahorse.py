@@ -43,7 +43,7 @@ DEFAULT_DECOMPILER_DL = join(GIGAHORSE_DIR, 'logic/main.dl')
 DEFAULT_INLINER_DL = join(GIGAHORSE_DIR, 'clientlib/function_inliner.dl')
 """IR helping inliner specification file."""
 
-DEFAULT_INLINER_ROUNDS = 4
+DEFAULT_INLINER_ROUNDS = 6
 
 DEFAULT_CACHE_DIR = join(GIGAHORSE_DIR, 'cache')
 
@@ -290,7 +290,7 @@ def compile_datalog(spec, executable):
         log(f"Found cached executable for {spec}")
     else:
         log(f"Compiling {spec} to C++ program and executable")
-        compilation_command = [args.souffle_bin, '-c', '-M', souffle_macros, '-o', cache_path, spec]
+        compilation_command = [args.souffle_bin, '-M', souffle_macros, '-o', cache_path, spec, '-L', functor_path]
         process = subprocess.run(compilation_command, universal_newlines=True, env = souffle_env)
         assert not(process.returncode), "Compilation failed. Stopping."
 
@@ -390,7 +390,7 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
 
             inline_start = time.time()
             if not args.disable_inline:
-                run_clients([DEFAULT_INLINER_DL]*6, [], out_dir, out_dir)
+                run_clients([DEFAULT_INLINER_DL]*DEFAULT_INLINER_ROUNDS, [], out_dir, out_dir)
                     
             # end decompilation
         if exists and not args.rerun_clients:
