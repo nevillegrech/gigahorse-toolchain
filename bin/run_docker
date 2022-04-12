@@ -10,7 +10,6 @@ docker run \
     -v ${GIGAHORSE_ROOT}/cache:/opt/gigahorse/gigahorse-toolchain/cache:rw \
     --mount type=bind,source=${GIGAHORSE_ROOT}/EventSignature.facts,target=/opt/gigahorse/gigahorse-toolchain/EventSignature.facts \
     --mount type=bind,source=${GIGAHORSE_ROOT}/PublicFunctionSignature.facts,target=/opt/gigahorse/gigahorse-toolchain/PublicFunctionSignature.facts \
-    --mount type=bind,source=${GIGAHORSE_ROOT}/results.json,target=/opt/gigahorse/gigahorse-toolchain/results.json \
     -u `id -u $USER`:`id -g $USER` \
     -w $(pwd) \
     -it gigahorse $@
