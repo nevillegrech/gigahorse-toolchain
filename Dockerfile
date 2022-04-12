@@ -28,14 +28,6 @@ RUN dpkg-reconfigure --frontend noninteractive tzdata
 # Install Python 3.8
 RUN apt-get update && apt-get install python3.8-dev python3-pip -y
 
-# Install tini (https://github.com/krallin/tini)
-RUN apt-get install -y curl grep sed dpkg && \
-    TINI_VERSION=`curl https://github.com/krallin/tini/releases/latest | grep -o "/v.*\"" | sed 's:^..\(.*\).$:\1:'` && \
-    curl -L "https://github.com/krallin/tini/releases/download/v${TINI_VERSION}/tini_${TINI_VERSION}.deb" > tini.deb && \
-    dpkg -i tini.deb && \
-    rm tini.deb && \
-    apt-get clean
-
 # Install Souffle dependencies and Souffle
 RUN apt-get update && apt-get install -y \
     libmcpp0 \
@@ -64,39 +56,25 @@ RUN rm -rf /tmp/souffle-addon*
 RUN apt-get update && apt-get install -y graphviz
 RUN apt-get update && apt-get install -y libssl-dev
 
-# When container is launched, tini will launch a bash shell
-ENTRYPOINT [ "/usr/bin/tini", "--" ]
-CMD [ "/bin/bash" ]
-
-# Set up a non-root user for the reviewer
-RUN groupadd -r reviewer && useradd -ms /bin/bash -g reviewer reviewer
-
-# Switch to new 'reviewer' user context
-USER reviewer
-WORKDIR /home/reviewer
-
-# Copy our artifacts into reviewer's home dir
-RUN mkdir /home/reviewer/gigahorse-toolchain
-COPY . /home/reviewer/gigahorse-toolchain/
-
-# Install Python packages needed for Jupyter notebook
-USER root
-WORKDIR /tmp
 RUN python3.8 -m pip install --upgrade pip
 RUN python3.8 -m pip install pydot
 
 # Make python3 point to python3.8
 RUN rm /usr/bin/python3 && ln -s /usr/bin/python3.8 /usr/bin/python3
 
-# Make reviewer the owner of everything under their home
-RUN chown -R reviewer:reviewer ~reviewer
+# Set up a non-root 'gigahorse' user
+RUN groupadd -r gigahorse && useradd -ms /bin/bash -g gigahorse gigahorse
 
-USER reviewer
-WORKDIR /home/reviewer
-RUN echo "export HOME=/home/reviewer" >> /home/reviewer/.bashrc
+RUN mkdir -p /opt/gigahorse/gigahorse-toolchain
+RUN chown -R gigahorse:gigahorse /opt/gigahorse
 
+# Switch to new 'gigahorse' user context
+USER gigahorse
 
-# Start reviewer user in logic subdir ready to run Gigahorse
-EXPOSE 8888
-USER reviewer
-WORKDIR /home/reviewer/gigahorse-toolchain/logic
+# Copy gigahorse project root
+COPY . /opt/gigahorse/gigahorse-toolchain/
+
+WORKDIR /opt/gigahorse/gigahorse-toolchain
+
+CMD ["-h"]
+ENTRYPOINT ["/opt/gigahorse/gigahorse-toolchain/gigahorse.py"]

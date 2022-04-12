@@ -1,0 +1,16 @@
+#!/usr/bin/bash
+
+GIGAHORSE_ROOT="$(dirname "$(dirname "$(readlink -fm "$0")")")"
+
+mkdir -p ${GIGAHORSE_ROOT}/.temp
+
+docker run \
+    -v ${HOME}:${HOME} \
+    -v ${GIGAHORSE_ROOT}/.temp:/opt/gigahorse/gigahorse-toolchain/.temp:rw \
+    -v ${GIGAHORSE_ROOT}/cache:/opt/gigahorse/gigahorse-toolchain/cache:rw \
+    --mount type=bind,source=${GIGAHORSE_ROOT}/EventSignature.facts,target=/opt/gigahorse/gigahorse-toolchain/EventSignature.facts \
+    --mount type=bind,source=${GIGAHORSE_ROOT}/PublicFunctionSignature.facts,target=/opt/gigahorse/gigahorse-toolchain/PublicFunctionSignature.facts \
+    --mount type=bind,source=${GIGAHORSE_ROOT}/results.json,target=/opt/gigahorse/gigahorse-toolchain/results.json \
+    -u `id -u $USER`:`id -g $USER` \
+    -w $(pwd) \
+    -it gigahorse $@
