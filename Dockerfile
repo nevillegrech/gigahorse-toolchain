@@ -66,13 +66,15 @@ RUN rm /usr/bin/python3 && ln -s /usr/bin/python3.8 /usr/bin/python3
 RUN groupadd -r gigahorse && useradd -ms /bin/bash -g gigahorse gigahorse
 
 RUN mkdir -p /opt/gigahorse/gigahorse-toolchain
-RUN chown -R gigahorse:gigahorse /opt/gigahorse
-
-# Switch to new 'gigahorse' user context
-USER gigahorse
 
 # Copy gigahorse project root
 COPY . /opt/gigahorse/gigahorse-toolchain/
+
+RUN chown -R gigahorse:gigahorse /opt/gigahorse
+RUN chmod -R o+rwx /opt/gigahorse
+
+# Switch to new 'gigahorse' user context
+USER gigahorse
 
 WORKDIR /opt/gigahorse/gigahorse-toolchain
 
