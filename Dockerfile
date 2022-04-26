@@ -78,10 +78,8 @@ RUN chmod -R o+rwx /opt/gigahorse
 # Switch to new 'gigahorse' user context
 USER gigahorse
 
-WORKDIR /opt/gigahorse/gigahorse-toolchain
-
 # Souffle-addon bare-minimum make
-RUN cd souffle-addon && make libsoufflenum.so
+RUN cd /opt/gigahorse/gigahorse-toolchain/souffle-addon && make libsoufflenum.so
 
 CMD ["-h"]
 ENTRYPOINT ["/opt/gigahorse/gigahorse-toolchain/gigahorse.py"]
