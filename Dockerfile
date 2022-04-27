@@ -1,61 +1,21 @@
-FROM ubuntu:21.10
+FROM ubuntu:21.04
 
-ENV EDITOR vim
-ENV TERM xterm-256color
-ENV DEBIAN_FRONTEND=noninteractive
-
-# For initial config, use root user with files placed in /tmp
 USER root
+
+ENV DEBIAN_FRONTEND=noninteractive
 
 # Install some essentials
 RUN apt-get update && apt-get install -y \
     build-essential \
     libboost-all-dev \
-    wget \
-    curl \
-    vim-nox \
-    tzdata \
-    less \
-    unzip \
-    git
-
-# Use UTC timezone
-RUN ln -fs /usr/share/zoneinfo/Etc/UTC /etc/localtime
-RUN dpkg-reconfigure --frontend noninteractive tzdata
+    curl
 
 # Install python3
 RUN apt-get install python3-dev python3-pip -y
 
-# Install souffle dependencies
-RUN apt-get install -y \
-    bison \
-    clang \
-    cmake \
-    doxygen \
-    flex \
-    g++ \
-    git \
-    libtinfo-dev \
-    libffi-dev \
-    libncurses5-dev \
-    libsqlite3-dev \
-    make \
-    mcpp \
-    python \
-    sqlite \
-    zlib1g-dev \
-    libffi-dev \
-    parallel \
- && rm -rf /var/lib/apt/lists/*
-
-# Clone souffle, checkout to the latest supported version and make
-RUN git clone https://github.com/souffle-lang/souffle.git
-RUN cd souffle && \
-    git checkout 2.0.2 && \
-    ./bootstrap && \
-    ./configure && \
-    make -j8 && \
-    make install
+# Install souffle
+RUN curl -s https://packagecloud.io/install/repositories/souffle-lang/souffle/script.deb.sh | bash
+RUN apt-get update && apt-get install souffle -y
 
 # Dependencies for Gigahorse output viz
 RUN apt-get update && apt-get install -y graphviz
