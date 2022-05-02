@@ -34,7 +34,7 @@ RUN apt-get install -y \
     parallel \
  && rm -rf /var/lib/apt/lists/*
 
-COPY souffle_2.2-1_arm64.deb /tmp/souffle.deb
+COPY ./docker/mac/souffle_2.2-1_arm64.deb /tmp/souffle.deb
 RUN dpkg -i /tmp/souffle.deb
 RUN apt-get install -f -y
 
