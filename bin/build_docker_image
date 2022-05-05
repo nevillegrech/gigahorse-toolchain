@@ -1,0 +1,28 @@
+#!/usr/bin/bash
+
+#set -x
+
+GIGAHORSE_ROOT="$(dirname "$(dirname "$(readlink -fm "$0")")")"
+
+cd $GIGAHORSE_ROOT
+
+echo "Which architecture are you on: "
+
+select os in AMD ARM\(M1\)
+do
+    case $os in
+        AMD)
+	    echo "AMD"
+	    docker build -t gigahorse -f ./docker/linux/Dockerfile . 
+	    break
+	    ;;
+        ARM\(M1\))
+	    echo "ARM"
+	    docker build -t gigahorse -f ./docker/mac/Dockerfile .
+	    break
+	    ;;
+	*)
+	    echo "Invalid option."
+    esac
+done
+
