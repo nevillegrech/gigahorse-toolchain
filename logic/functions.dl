@@ -29,8 +29,8 @@ ContextCanReach(ctx, ctx) :-
   global.ReachableContext(ctx, _).
 
 ContextCanReach(ctxFrom, ctxTo) :-
-  ContextEdge(ctxOther, ctxTo),
-  ContextCanReach(ctxFrom, ctxOther).
+  ContextCanReach(ctxFrom, ctxOther),
+  ContextEdge(ctxOther, ctxTo).
 
 
 
