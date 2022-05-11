@@ -12,8 +12,6 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
 // re-formatted for use by clients), statistics, debugging relations.
 .decl ByteCodeHex(bytecode:symbol)
 
-.input ByteCodeHex(IO="file", filename="bytecode.hex")
-
 .decl _ByteCodeHex(bytecode:symbol)
 .input _ByteCodeHex(IO="file", filename="bytecode.hex")
 
