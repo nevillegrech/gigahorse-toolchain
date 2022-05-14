@@ -2,36 +2,47 @@
 
 .comp TransactionalContext <LocalAnalysis> : PublicComponentContextSensitivity <LocalAnalysis> {
   // inverse-escape analysis
-  .decl Block_Uses_Local(block: Block, var: VariableOrStackIndex)
-  .decl StaticBlockJumpTarget(caller: Block, target: Value)
-  // We're only interested in private functions
-  // No ambiguity for public functions
-  .decl PrivateFunctionCallOrReturn(caller: Block)
-
-  Block_Uses_Local(block, var) :-
+  .decl BlockUsesLocal(block: Block, var: VariableOrStackIndex)
+  BlockUsesLocal(block, var) :-
     local.Statement_Block(stmt, block),
     local.Statement_Uses_Local(stmt, var, _).
 
-  PrivateFunctionCallOrReturn(caller) :-
-    StaticBlockJumpTarget(caller, _),
-    local.Statement_Block(stmt, caller),
-    local.Statement_Defines(stmt, var),
-    local.Variable_Value(var, val),
+  .decl StaticBlockJumpTarget(caller: Block, target: Value)
+  StaticBlockJumpTarget(caller, target) :-
+    local.ImmediateBlockJumpTarget(caller, targetVar),
+    local.Variable_Value(targetVar, target),
+    local.JUMPDEST(as(target, symbol)).
+
+  .decl StaticBlockJumpTargetNonUnique(caller: Block, target: Value)
+  StaticBlockJumpTargetNonUnique(caller, target) :-
+    StaticBlockJumpTarget(caller, target),
+    StaticBlockJumpTarget(caller2, target),
+    caller != caller2.
+
+  // pushes a label for later use. A return addr?
+  .decl BlockPushesLabel(block: Block, val: Value)
+  BlockPushesLabel(block, val) :-
     local.JUMPDEST(as(val, symbol)),
-    !Block_Uses_Local(caller, var).
+    local.Variable_Value(var, val),
+    local.Statement_Defines(stmt, var),
+    local.Statement_Block(stmt, block),
+    !BlockUsesLocal(block, var).
+
+  // We're only interested in private functions
+  // No ambiguity for public functions
+  .decl PrivateFunctionCallOrReturn(caller: Block)
+  PrivateFunctionCallOrReturn(caller) :-
+//    StaticBlockJumpTargetNonUnique(caller, _),  // looks like a call
+    StaticBlockJumpTarget(caller, _),  // looks like a call
+    BlockPushesLabel(caller, _).       // looks like pushing a return
 
   PrivateFunctionCallOrReturn(caller) :-
     local.Statement_Block(stmt, caller),
     local.JUMP(stmt),
     !local.ImmediateBlockJumpTarget(caller, _).
 
-  StaticBlockJumpTarget(caller, target) :-
-    local.ImmediateBlockJumpTarget(caller, targetVar),
-    local.Variable_Value(targetVar, target),
-    local.JUMPDEST(as(target, symbol)).
-
   // Trivial control flow case for when there is no function call
-  // OR max conext depth is zero
+  // OR max context depth is zero
   // Split into two rules to add plan.
   MergeContext(ctx, caller, ctx):-
     ReachableContext(ctx, caller),
@@ -58,6 +69,7 @@
     #ifndef NO_PUBLIC_CONTEXT
     !local.PublicFunction(caller, _),
     #endif
+    NotElementOfPrivateContext(cutDownPri, caller),
     newPrivateContext = [caller, cutDownPri].
-    .plan 1:(3,1,2,4), 2:(4,3,1,2)
+    .plan 1:(3,1,2,4,5), 2:(4,3,1,2,5)
 }

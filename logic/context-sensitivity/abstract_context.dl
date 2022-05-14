@@ -122,6 +122,7 @@
   // PrivateContextDepth replaces/enhances IsPrivateContext 
   .decl PrivateContextDepth(ctx: PrivateContext, depth: number)
   .decl DecomposePrivateContext(priCtx: PrivateContext, block: Block, rest: PrivateContext)
+  .decl NotElementOfPrivateContext(priCtx: PrivateContext, block: Block)
   .decl DropLast(ctx: PrivateContext, newCtx: PrivateContext)
   .output DropLast
   .decl TruncateContextIfNeeded(publicFun:symbol, ctx: PrivateContext, newCtx: PrivateContext)
@@ -141,9 +142,19 @@
     DecomposeContext(_, _, private),
     private = [block, rest].
 
-  DecomposePrivateContext(private, block, rest):-
+  DecomposePrivateContext(private, block, rest) :-
     PrivateContextDepth(private, _),
     private = [block, rest].
+
+  NotElementOfPrivateContext(private, block) :-
+    InitialPrivateContext(private),
+    Statement_Block(_, block).
+    
+  NotElementOfPrivateContext(private, block) :-
+    DecomposePrivateContext(private, head, rest),
+    NotElementOfPrivateContext(rest, block),
+    block != head.
+   .plan 1:(2,1)
 
   DropLast(ctx, nil):-
     DecomposePrivateContext(ctx, _, nil).
