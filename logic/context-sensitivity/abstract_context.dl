@@ -122,7 +122,6 @@
   // PrivateContextDepth replaces/enhances IsPrivateContext 
   .decl PrivateContextDepth(ctx: PrivateContext, depth: number)
   .decl DecomposePrivateContext(priCtx: PrivateContext, block: Block, rest: PrivateContext)
-  .decl NotElementOfPrivateContext(priCtx: PrivateContext, block: Block)
   .decl DropLast(ctx: PrivateContext, newCtx: PrivateContext)
   .output DropLast
   .decl TruncateContextIfNeeded(publicFun:symbol, ctx: PrivateContext, newCtx: PrivateContext)
@@ -146,14 +145,36 @@
     PrivateContextDepth(private, _),
     private = [block, rest].
 
-  NotElementOfPrivateContext(private, block) :-
-    InitialPrivateContext(private),
+  /// Useful as building blocks, for experimentation
+  // .decl PrivateContextContainsElementNTimes(ctx: PrivateContext, block: Block, n: number)
+  // PrivateContextContainsElementNTimes(nil, block, 0) :-
+  //   PrivateFunctionCallOrReturn(block).
+  // PrivateContextContainsElementNTimes(ctx, block, n) :-
+  //   PrivateContextContainsElementNTimes(rest, block, n),
+  //   DecomposePrivateContext(ctx, head, rest),
+  //   head != block.
+  //  .plan 1:(2,1)
+  // PrivateContextContainsElementNTimes(ctx, block, n+1) :-
+  //   PrivateContextContainsElementNTimes(rest, block, n),
+  //   DecomposePrivateContext(ctx, block, rest),
+  //   n < MAX_REPETITIONS_FOR_CONTEXT_ELEMENT.
+  //  .plan 1:(2,1)
+
+  .decl NotPrivateContextContainsElement(ctx: PrivateContext, block: Block)
+  NotPrivateContextContainsElement(nil, block) :-
     Statement_Block(_, block).
-    
-  NotElementOfPrivateContext(private, block) :-
-    DecomposePrivateContext(private, head, rest),
-    NotElementOfPrivateContext(rest, block),
-    block != head.
+  NotPrivateContextContainsElement(ctx, block) :-
+    NotPrivateContextContainsElement(rest, block),
+    DecomposePrivateContext(ctx, head, rest),
+    head != block.
+   .plan 1:(2,1)
+
+  .decl PrivateContextContainsElement(ctx: PrivateContext, block: Block)
+  PrivateContextContainsElement(ctx, head) :-
+    DecomposePrivateContext(ctx, head, _).
+  PrivateContextContainsElement(ctx, block) :-
+    PrivateContextContainsElement(rest, block),
+    DecomposePrivateContext(ctx, _, rest).
    .plan 1:(2,1)
 
   DropLast(ctx, nil):-
