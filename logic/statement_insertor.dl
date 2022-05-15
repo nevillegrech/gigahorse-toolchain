@@ -233,7 +233,7 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
 */
 .comp BlockCloner : CodeTransformer {
 
-  .init analysis = GlobalAnalysis<TransactionalContext>
+  .init analysis = GlobalAnalysis<CONTEXT_SENSITIVITY> 
   //.init analysis = PreTransLocalAnalysis
 
   analysis.PushValue(push, val):- PushValue(push, val).
