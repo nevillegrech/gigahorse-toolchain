@@ -132,18 +132,18 @@
   InitialContext([FALLBACK_FUNCTION_SIGHASH, initialPrivateContext]) :-
     InitialPrivateContext(initialPrivateContext).
 
+  // Include in consideration all new contexts produced (and found reachable) by Merging, in the analysis logic
   DecomposeContext(ctx, publicFun, private):-
     ReachableContext(ctx, _), ctx = [publicFun, private].
 
-  // Both rules below are needed, DecomposePrivateContext contains a superset of private contexts
-  // some of which may not end up being reachable but it needs to because its used in many places
   DecomposePrivateContext(private, block, rest):-
     DecomposeContext(_, _, private),
     private = [block, rest].
 
-  DecomposePrivateContext(private, block, rest) :-
-    PrivateContextDepth(private, _),
-    private = [block, rest].
+  // Also include all the sub-contexts we derive by dropping the last element
+  DecomposePrivateContext(newCtx, block, rest):-
+    DropLast(_, newCtx),
+    newCtx = [block, rest].
 
   /// Useful as building blocks, for experimentation
   // .decl PrivateContextContainsElementNTimes(ctx: PrivateContext, block: Block, n: number)
@@ -180,13 +180,11 @@
   DropLast(ctx, nil):-
     DecomposePrivateContext(ctx, _, nil).
 
-  PrivateContextDepth(newCtx, depth - 1),
   DropLast(ctx, newCtx):-
     DecomposePrivateContext(ctx, block, rest),
-    PrivateContextDepth(ctx, depth),
     DropLast(rest, newRest),
     newCtx = [ block, newRest ].
-    .plan 1:(2,1,3), 2:(3,1,2)
+    .plan 1:(2,1) 
 
   PrivateContextDepth(init, 0):-
     InitialPrivateContext(init).
