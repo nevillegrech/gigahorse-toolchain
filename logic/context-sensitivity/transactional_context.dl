@@ -58,22 +58,8 @@
     MaxContextDepth(pub, 0).
     .plan 1:(2,3,1)
 
-  // // Complex control flow case
-  // //// Default variant
-  // MergeContext(ctx, caller, [pub, newPrivateContext]):-
-  //   ReachableContext(ctx, caller),
-  //   PrivateFunctionCallOrReturn(caller),
-  //   DecomposeContext(ctx, pub, pri),
-  //   TruncateContextIfNeeded(pub, pri, cutDownPri),
-  //   #ifndef NO_PUBLIC_CONTEXT
-  //   !local.PublicFunction(caller, _),
-  //   #endif
-  //   newPrivateContext = [caller, cutDownPri].
-  //   .plan 1:(3,1,2,4), 2:(4,3,1,2)
-
   // Complex control flow case
-  //// Variant that distinguishes whether the context contains the block
-  //// If it doesn't:
+  //// Default variant
   MergeContext(ctx, caller, [pub, newPrivateContext]):-
     ReachableContext(ctx, caller),
     PrivateFunctionCallOrReturn(caller),
@@ -82,19 +68,33 @@
     #ifndef NO_PUBLIC_CONTEXT
     !local.PublicFunction(caller, _),
     #endif
-    NotPrivateContextContainsElement(cutDownPri, caller),
     newPrivateContext = [caller, cutDownPri].
-    .plan 1:(3,1,2,4,5), 2:(4,3,1,2,5)
+    .plan 1:(3,1,2,4), 2:(4,3,1,2)
 
-  //// If it does:
-  MergeContext(ctx, caller, ctx):-
-    ReachableContext(ctx, caller),
-    PrivateFunctionCallOrReturn(caller),
-    DecomposeContext(ctx, pub, pri),
-    TruncateContextIfNeeded(pub, pri, cutDownPri),
-    #ifndef NO_PUBLIC_CONTEXT
-    !local.PublicFunction(caller, _),
-    #endif
-    PrivateContextContainsElement(cutDownPri, caller).
-    .plan 1:(3,1,2,4,5), 2:(4,3,1,2,5)
+  // // Complex control flow case
+  // //// Variant that distinguishes whether the context contains the block
+  // //// If it doesn't:
+  // MergeContext(ctx, caller, [pub, newPrivateContext]):-
+  //   ReachableContext(ctx, caller),
+  //   PrivateFunctionCallOrReturn(caller),
+  //   DecomposeContext(ctx, pub, pri),
+  //   TruncateContextIfNeeded(pub, pri, cutDownPri),
+  //   #ifndef NO_PUBLIC_CONTEXT
+  //   !local.PublicFunction(caller, _),
+  //   #endif
+  //   NotPrivateContextContainsElement(cutDownPri, caller),
+  //   newPrivateContext = [caller, cutDownPri].
+  //   .plan 1:(3,1,2,4,5), 2:(4,3,1,2,5), 3:(5,2,4,3,1)
+
+  // //// If it does:
+  // MergeContext(ctx, caller, ctx):-
+  //   ReachableContext(ctx, caller),
+  //   PrivateFunctionCallOrReturn(caller),
+  //   DecomposeContext(ctx, pub, pri),
+  //   TruncateContextIfNeeded(pub, pri, cutDownPri),
+  //   #ifndef NO_PUBLIC_CONTEXT
+  //   !local.PublicFunction(caller, _),
+  //   #endif
+  //   PrivateContextContainsElement(cutDownPri, caller).
+  //   .plan 1:(3,1,2,4,5), 2:(4,3,1,2,5), 3:(5,2,4,3,1)
 }

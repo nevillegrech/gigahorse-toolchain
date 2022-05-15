@@ -18,7 +18,7 @@
     InputMaxContextDepth(d).
 
   // HERE: much deeper
-  MaxContextDepth(sigHash, 51) :-
+  MaxContextDepth(sigHash, 31) :-
     (local.PublicFunction(_, sigHash);
      sigHash = FALLBACK_FUNCTION_SIGHASH),
     !InputMaxContextDepth(_).
@@ -109,15 +109,17 @@
     .plan 1:(2,1)
 
   //// HERE: This is the key of the finite context: when it reaches the limit, does not go on
-  // TruncateContextIfNeeded(pub, ctx, newCtx):-
+  // TruncateContextIfNeeded(pubFun, ctx, newCtx):-
+  //   DecomposeContext(_, pubFun, ctx),
   //   PrivateContextDepth(ctx, maxDepth),
-  //   MaxContextDepth(pub, maxDepth),
+  //   MaxContextDepth(pubFun, maxDepth),
   //   DropLast(ctx, newCtx).
-  //   .plan 1:(3,1,2)
+  //   .plan 1:(4,1,2,3)
 
-  TruncateContextIfNeeded(pub, ctx, ctx):-
+  TruncateContextIfNeeded(pubFun, ctx, ctx):-
+    DecomposeContext(_, pubFun, ctx),
     PrivateContextDepth(ctx, depth),
-    MaxContextDepth(pub, maxDepth),
+    MaxContextDepth(pubFun, maxDepth),
     depth < maxDepth.
 
   Context_PublicFunction(ctx, pubFun):-
@@ -212,22 +214,8 @@
     MaxContextDepth(pub, 0).
     .plan 1:(2,3,1)
 
-  // // Complex control flow case
-  // //// Default variant
-  // MergeContext(ctx, caller, [pub, newPrivateContext]):-
-  //   ReachableContext(ctx, caller),
-  //   PrivateFunctionCallOrReturn(caller),
-  //   DecomposeContext(ctx, pub, pri),
-  //   TruncateContextIfNeeded(pub, pri, cutDownPri),
-  //   #ifndef NO_PUBLIC_CONTEXT
-  //   !local.PublicFunction(caller, _),
-  //   #endif
-  //   newPrivateContext = [caller, cutDownPri].
-  //   .plan 1:(3,1,2,4), 2:(4,3,1,2)
-
   // Complex control flow case
-  //// Variant that distinguishes whether the context contains the block
-  //// If it doesn't:
+  //// Default variant
   MergeContext(ctx, caller, [pub, newPrivateContext]):-
     ReachableContext(ctx, caller),
     PrivateFunctionCallOrReturn(caller),
@@ -236,20 +224,34 @@
     #ifndef NO_PUBLIC_CONTEXT
     !local.PublicFunction(caller, _),
     #endif
-    NotPrivateContextContainsElement(cutDownPri, caller),
     newPrivateContext = [caller, cutDownPri].
-    .plan 1:(3,1,2,4,5), 2:(4,3,1,2,5)
+    .plan 1:(3,1,2,4), 2:(4,3,1,2)
 
-  //// If it does:
-  MergeContext(ctx, caller, ctx):-
-    ReachableContext(ctx, caller),
-    PrivateFunctionCallOrReturn(caller),
-    DecomposeContext(ctx, pub, pri),
-    TruncateContextIfNeeded(pub, pri, cutDownPri),
-    #ifndef NO_PUBLIC_CONTEXT
-    !local.PublicFunction(caller, _),
-    #endif
-    PrivateContextContainsElement(cutDownPri, caller).
-    .plan 1:(3,1,2,4,5), 2:(4,3,1,2,5)
+  // // Complex control flow case
+  // //// Variant that distinguishes whether the context contains the block
+  // //// If it doesn't:
+  // MergeContext(ctx, caller, [pub, newPrivateContext]):-
+  //   ReachableContext(ctx, caller),
+  //   PrivateFunctionCallOrReturn(caller),
+  //   DecomposeContext(ctx, pub, pri),
+  //   TruncateContextIfNeeded(pub, pri, cutDownPri),
+  //   #ifndef NO_PUBLIC_CONTEXT
+  //   !local.PublicFunction(caller, _),
+  //   #endif
+  //   NotPrivateContextContainsElement(cutDownPri, caller),
+  //   newPrivateContext = [caller, cutDownPri].
+  //   .plan 1:(3,1,2,4,5), 2:(4,3,1,2,5)
+
+  // //// If it does:
+  // MergeContext(ctx, caller, ctx):-
+  //   ReachableContext(ctx, caller),
+  //   PrivateFunctionCallOrReturn(caller),
+  //   DecomposeContext(ctx, pub, pri),
+  //   TruncateContextIfNeeded(pub, pri, cutDownPri),
+  //   #ifndef NO_PUBLIC_CONTEXT
+  //   !local.PublicFunction(caller, _),
+  //   #endif
+  //   PrivateContextContainsElement(cutDownPri, caller).
+  //   .plan 1:(3,1,2,4,5), 2:(4,3,1,2,5)
 
 }

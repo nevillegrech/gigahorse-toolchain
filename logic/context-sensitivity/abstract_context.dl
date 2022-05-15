@@ -164,8 +164,8 @@
   NotPrivateContextContainsElement(nil, block) :-
     Statement_Block(_, block).
   NotPrivateContextContainsElement(ctx, block) :-
-    NotPrivateContextContainsElement(rest, block),
     DecomposePrivateContext(ctx, head, rest),
+    NotPrivateContextContainsElement(rest, block),
     head != block.
    .plan 1:(2,1)
 
@@ -173,8 +173,8 @@
   PrivateContextContainsElement(ctx, head) :-
     DecomposePrivateContext(ctx, head, _).
   PrivateContextContainsElement(ctx, block) :-
-    PrivateContextContainsElement(rest, block),
-    DecomposePrivateContext(ctx, _, rest).
+    DecomposePrivateContext(ctx, _, rest),
+    PrivateContextContainsElement(rest, block).
    .plan 1:(2,1)
 
   DropLast(ctx, nil):-
@@ -196,15 +196,17 @@
     PrivateContextDepth(rest, depth).
     .plan 1:(2,1)
 
-  TruncateContextIfNeeded(pub, ctx, newCtx):-
+  TruncateContextIfNeeded(pubFun, ctx, newCtx):-
+    DecomposeContext(_, pubFun, ctx),
     PrivateContextDepth(ctx, maxDepth),
-    MaxContextDepth(pub, maxDepth),
+    MaxContextDepth(pubFun, maxDepth),
     DropLast(ctx, newCtx).
-    .plan 1:(3,1,2)
+    .plan 1:(4,1,2,3)
 
-  TruncateContextIfNeeded(pub, ctx, ctx):-
+  TruncateContextIfNeeded(pubFun, ctx, ctx):-
+    DecomposeContext(_, pubFun, ctx),
     PrivateContextDepth(ctx, depth),
-    MaxContextDepth(pub, maxDepth),
+    MaxContextDepth(pubFun, maxDepth),
     depth < maxDepth.
 
   Context_PublicFunction(ctx, pubFun):-
