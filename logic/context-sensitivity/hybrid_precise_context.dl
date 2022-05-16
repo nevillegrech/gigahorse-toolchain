@@ -20,7 +20,7 @@
      sigHash = FALLBACK_FUNCTION_SIGHASH),
     InputMaxImpreciseContextDepth(d).
 
-  MaxImpreciseContextDepth(sigHash, 8) :-
+  MaxImpreciseContextDepth(sigHash, 7) :-
     (local.PublicFunction(_, sigHash);
      sigHash = FALLBACK_FUNCTION_SIGHASH),
     !InputMaxImpreciseContextDepth(_).
