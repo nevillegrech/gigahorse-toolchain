@@ -80,10 +80,14 @@ InitialPossibleReturnAddressWithRank(targetSetter, retCtx, retBlock, retTarget, 
   PossibleReturnAddressWithPos(targetSetter, retCtx, retBlock, retTarget, pos),
   rank = count : PossibleReturnAddressWithLowerPos(targetSetter, retBlock, retTarget, pos, _).
 
+.decl OptBlockJumpContext(callCtx:global.sens.Context, targetSetter:Block)
+OptBlockJumpContext(callCtx, targetSetter) :-
+  global.BlockJumpValidTarget(callCtx, targetSetter, _, _). // REVIEW: maybe bad?
+
 .decl PossibleReturnAddressWithRank(callCtx:global.sens.Context, targetSetter:Block, retCtx:global.sens.Context, retBlock:Block, retTarget:Block, rank:number)
 PossibleReturnAddressWithRank(callCtx, targetSetter, retCtx, retBlock, retTarget, rank) :-
   InitialPossibleReturnAddressWithRank(targetSetter, retCtx, retBlock, retTarget, rank),
-  global.BlockJumpValidTarget(callCtx, targetSetter, _, _). // REVIEW: maybe bad?
+  OptBlockJumpContext(callCtx, targetSetter).
 
 .decl MaxRankForPossibleReturnAddressSetter(targetSetter:Block, rank:number)
 MaxRankForPossibleReturnAddressSetter(targetSetter, rank) :-
