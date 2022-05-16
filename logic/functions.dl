@@ -146,24 +146,27 @@ MaybeFunctionCallReturnNewContext(ctx, caller, retTargetCtx, retTarget) :-
 // block the extra pushed return values of the former caller. Stacking return
 // values is a usual pattern in produced code.
 
+.decl OptBlockImmediateJump(callCtx:global.sens.Context, caller:Block)
+OptBlockImmediateJump(newCallCtx, caller) :-
+  global.BlockJumpValidTarget(newCallCtx, caller, targetVar, _),
+  postTrans.ImmediateBlockJumpTarget(caller, targetVar).
+
 // Case where the caller pushes new return targets as well.
 PossibleReturnAddressWithRank(newCallCtx, caller, retCtx, retBlock, retTarget, n + maxrank) :-
   PossibleReturnAddressWithPositiveRank(prevCallCtx, targetSetter, retCtx, retBlock, retTarget, n),
   MaybeFunctionCallReturnNewContext(prevCallCtx, targetSetter, newCallCtx, caller),
-  global.BlockJumpValidTarget(newCallCtx, caller, targetVar, _),
-  postTrans.ImmediateBlockJumpTarget(caller, targetVar),
+  OptBlockImmediateJump(newCallCtx, caller),
   MaxRankForPossibleReturnAddressSetter(caller, maxrank),
   n + maxrank < RETURN_ADDRESS_RANK_THRESHOLD.
- .plan 1:(2,3,1,4,5)
+ .plan 1:(2,3,1,4)
 
 // Case where the caller doesn't push new return targets to the stack
 PossibleReturnAddressWithRank(newCallCtx, caller, retCtx, retBlock, retTarget, n-1) :-
   PossibleReturnAddressWithPositiveRank(prevCallCtx, targetSetter, retCtx, retBlock, retTarget, n),
   MaybeFunctionCallReturnNewContext(prevCallCtx, targetSetter, newCallCtx, caller),
-  global.BlockJumpValidTarget(newCallCtx, caller, targetVar, _),
-  postTrans.ImmediateBlockJumpTarget(caller, targetVar),
+  OptBlockImmediateJump(newCallCtx, caller),
   !PossibleReturnAddressWithPos(caller, _, _, _, _).
- .plan 1:(2,3,1,4)
+ .plan 1:(2,3,1)
 
 // Seems pretty certain we found a return. In fact, at this point,
 // with the above logic, we have detected all original return
