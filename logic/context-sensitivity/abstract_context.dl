@@ -119,31 +119,53 @@
   .type Context = [publicFun:symbol, pri: PrivateContext]
 
   .decl InitialPrivateContext(ctx: PrivateContext)
-  // PrivateContextDepth replaces/enhances IsPrivateContext 
   .decl PrivateContextDepth(ctx: PrivateContext, depth: number)
   .decl DecomposePrivateContext(priCtx: PrivateContext, block: Block, rest: PrivateContext)
   .decl DropLast(ctx: PrivateContext, newCtx: PrivateContext)
-  .output DropLast
   .decl TruncateContextIfNeeded(publicFun:symbol, ctx: PrivateContext, newCtx: PrivateContext)
   .decl DecomposeContext(ctx: Context, publicFun: symbol, private: PrivateContext)
+
+  // Define our universe of contexts (including partial)
+  .decl IsPotentialContext(pubFun: symbol, ctx: PrivateContext)
+
+  IsPotentialContext(FALLBACK_FUNCTION_SIGHASH, ctx) :-
+    InitialPrivateContext(ctx).
+
+  IsPotentialContext(publicFun, private) :-
+    ReachableContext(fullCtx, _), fullCtx = [publicFun, private].
+
+  // All suffixes
+  IsPotentialContext(pubFun, rest) :-
+    IsPotentialContext(pubFun, ctx),
+    ctx = [block, rest], block = block.
+
+  // All prefixes
+  IsPotentialContext(pubFun, prefix) :-
+    IsPotentialContext(pubFun, ctx),
+    DropLast(ctx, prefix).
+   .plan 1:(2,1)
+
+  DropLast(ctx, initial) :-
+    DecomposePrivateContext(ctx, _, initial),
+    InitialPrivateContext(initial).
+
+  DropLast(ctx, [block, newRest])  :-
+    DecomposePrivateContext(ctx, block, rest),
+    DropLast(rest, newRest).
+   .plan 1:(2,1)
+
+  // That's all it's used for!
+  DecomposePrivateContext(ctx, block, rest) :-
+    IsPotentialContext(_, ctx),
+    ctx = [block, rest].
+
+  DecomposeContext([pubFun, privCtx], pubFun, privCtx) :-
+    IsPotentialContext(pubFun, privCtx).
 
   InitialPrivateContext(nil).
 
   InitialContext([FALLBACK_FUNCTION_SIGHASH, initialPrivateContext]) :-
     InitialPrivateContext(initialPrivateContext).
-
-  // Include in consideration all new contexts produced (and found reachable) by Merging, in the analysis logic
-  DecomposeContext(ctx, publicFun, private):-
-    ReachableContext(ctx, _), ctx = [publicFun, private].
-
-  DecomposePrivateContext(private, block, rest):-
-    DecomposeContext(_, _, private),
-    private = [block, rest].
-
-  // Also include all the sub-contexts we derive by dropping the last element
-  DecomposePrivateContext(newCtx, block, rest):-
-    DropLast(_, newCtx),
-    newCtx = [block, rest].
 
   /// Useful as building blocks, for experimentation
   // .decl PrivateContextContainsElementNTimes(ctx: PrivateContext, block: Block, n: number)
@@ -176,15 +198,6 @@
     DecomposePrivateContext(ctx, _, rest),
     PrivateContextContainsElement(rest, block).
    .plan 1:(2,1)
-
-  DropLast(ctx, nil):-
-    DecomposePrivateContext(ctx, _, nil).
-
-  DropLast(ctx, newCtx):-
-    DecomposePrivateContext(ctx, block, rest),
-    DropLast(rest, newRest),
-    newCtx = [ block, newRest ].
-    .plan 1:(2,1) 
 
   PrivateContextDepth(init, 0):-
     InitialPrivateContext(init).
