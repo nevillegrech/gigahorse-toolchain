@@ -166,47 +166,85 @@
     CutToImprecise(otherCtx, impreciseCtx).
    .plan 1:(2,1)
 
-  PrivateContextDepth(init, 0):-
+  PrivateContextDepth(init, 0) :-
     InitialPrivateContext(init).
 
-  PrivateContextDepth(ctx, depth + 1):-
+  PrivateContextDepth(ctx, depth + 1) :-
     DecomposePrivateContext(ctx, _, rest),
     PrivateContextDepth(rest, depth).
     .plan 1:(2,1)  
-  
-  TruncateContextIfNeeded(pubFun, ctx, ctx):-
+
+  // imprecise under max depth is kept
+  TruncateContextIfNeeded(pubFun, ctx, ctx) :-
     OptDecomposeContextWithDepth(pubFun, ctx, depth),
     ImprecisePrivateContext(ctx),
     MaxImpreciseContextDepth(pubFun, maxImpreciseDepth),
     depth < maxImpreciseDepth.
    .plan 1:(2,1,3)
 
-  TruncateContextIfNeeded(pubFun, ctx, newCtx):-
+  // imprecise at max depth is truncated
+  TruncateContextIfNeeded(pubFun, ctx, newCtx) :-
     OptDecomposeContextWithDepth(pubFun, ctx, maxImpreciseDepth),
     ImprecisePrivateContext(ctx),
     MaxImpreciseContextDepth(pubFun, maxImpreciseDepth),
     DropLast(ctx, newCtx).
    .plan 1:(2,1,3,4), 2:(4,2,1,3)
 
-  TruncateContextIfNeeded(pubFun, ctx, ctx):-
+  // precise under max depth is expanded
+  TruncateContextIfNeeded(pubFun, ctx, ctx) :-
     OptDecomposeContextWithDepth(pubFun, ctx, depth),
     PrecisePrivateContext(ctx),
     MaxPreciseContextDepth(pubFun, maxPreciseDepth),
     depth < maxPreciseDepth.
    .plan 1:(2,1,3)
 
-  // This is the clincher: when it reaches the limit, cut down to imprecise
-  TruncateContextIfNeeded(pubFun, ctx, newCtx):-
+  // This is the clincher: when precise reaches the limit, cut down to imprecise
+  TruncateContextIfNeeded(pubFun, ctx, newCtx) :-
     OptDecomposeContextWithDepth(pubFun, ctx, maxPreciseDepth),
     PrecisePrivateContext(ctx),
     MaxPreciseContextDepth(pubFun, maxPreciseDepth),
     CutToImprecise(ctx, newCtx).
    .plan 1:(2,1,3,4), 2:(4,1,2,3)
 
-  Context_PublicFunction(ctx, pubFun):-
+  Context_PublicFunction(ctx, pubFun) :-
     ReachableContext(ctx, _),
     ctx = [pubFun, callCtx],
     callCtx = callCtx.
+
+  ///// Never managed to make this efficient for large contracts
+  // // WARN: Only defined for imprecise contexts! Too costly otherwise.
+  // .decl PrivateContextContainsElement(ctx: PrivateContext, block: Block)
+  // PrivateContextContainsElement(ctx, head) :-
+  //   DecomposePrivateContext(ctx, head, _),
+  //   ImprecisePrivateContext(ctx).
+  //  .plan 1:(2,1)
+  // PrivateContextContainsElement(ctx, block) :-
+  //   DecomposePrivateContext(ctx, _, rest),
+  //   PrivateContextContainsElement(rest, block).
+  //  .plan 1:(2,1)
+
+  // .decl NotPrivateContextContainsElement(ctx: PrivateContext, block: Block)
+  // NotPrivateContextContainsElement(initCtx, block) :-
+  //   PrivateFunctionCallOrReturn(block),
+  //   InitialImprecisePrivateContext(initCtx).
+  // NotPrivateContextContainsElement(ctx, block) :-
+  //   DecomposePrivateContext(ctx, head, rest),
+  //   NotPrivateContextContainsElement(rest, block),
+  //   head != block.
+  //  .plan 1:(2,1)
+
+  // .decl TruncatePreciseContextIfNeeded(publicFun:symbol, ctx: PrivateContext, newCtx: PrivateContext)
+  // TruncatePreciseContextIfNeeded(pubFun, ctx, newCtx) :-
+  //   TruncateContextIfNeeded(pubFun, ctx, newCtx),
+  //   PrecisePrivateContext(ctx).
+  //  .plan 1:(2,1)
+
+  // .decl TruncateImpreciseContextIfNeeded(publicFun:symbol, ctx: PrivateContext, newCtx: PrivateContext)
+  // TruncateImpreciseContextIfNeeded(pubFun, ctx, newCtx) :-
+  //   TruncateContextIfNeeded(pubFun, ctx, newCtx),
+  //   ImprecisePrivateContext(ctx).
+  //  .plan 1:(2,1)
+
 
   /**
     Public function jump case for MergeContext
@@ -220,7 +258,7 @@
     DecomposeContext(ctx, prevSigHash, _),
     prevSigHash != FALLBACK_FUNCTION_SIGHASH.
   .plan 1:(3,1,2)
-  MergeContext(ctx, caller, newContext):-
+  MergeContext(ctx, caller, newContext) :-
     ReachableContext(ctx, caller),
     local.PublicFunction(caller, sigHash),
     !MaxImpreciseContextDepth(sigHash, -1),
@@ -235,7 +273,7 @@
   // Much like TransactionalContext, only does not inherit from the same super-components,
   // instead redefines them as above.
   //
-  
+
   // inverse-escape analysis
   .decl BlockUsesLocal(block: Block, var: VariableOrStackIndex)
   BlockUsesLocal(block, var) :-
@@ -279,14 +317,14 @@
   // Trivial control flow case for when there is no function call
   // OR max context depth is zero
   // Split into two rules to add plan.
-  MergeContext(ctx, caller, ctx):-
+  MergeContext(ctx, caller, ctx) :-
     ReachableContext(ctx, caller),
     #ifndef NO_PUBLIC_CONTEXT
     !local.PublicFunction(caller, _),
     #endif
     !PrivateFunctionCallOrReturn(caller).
 
-  MergeContext(ctx, caller, ctx):-
+  MergeContext(ctx, caller, ctx) :-
     ReachableContext(ctx, caller),
     #ifndef NO_PUBLIC_CONTEXT
     !local.PublicFunction(caller, _),
@@ -297,7 +335,7 @@
 
   // Complex control flow case
   //// Default variant
-  MergeContext(ctx, caller, [pub, newPrivateContext]):-
+  MergeContext(ctx, caller, [pub, newPrivateContext]) :-
     ReachableContext(ctx, caller),
     PrivateFunctionCallOrReturn(caller),
     DecomposeContext(ctx, pub, pri),
@@ -308,31 +346,44 @@
     newPrivateContext = [caller, cutDownPri].
     .plan 1:(3,1,2,4), 2:(4,3,1,2)
 
+  ///// (REVIEW) Never managed to make this efficient for large contracts
   // // Complex control flow case
   // //// Variant that distinguishes whether the context contains the block
-  // //// If it doesn't:
-  // MergeContext(ctx, caller, [pub, newPrivateContext]):-
+  // //// Precise context: do default
+  // MergeContext(ctx, caller, [pub, newPrivateContext]) :-
   //   ReachableContext(ctx, caller),
   //   PrivateFunctionCallOrReturn(caller),
   //   DecomposeContext(ctx, pub, pri),
-  //   TruncateContextIfNeeded(pub, pri, cutDownPri),
+  //   TruncatePreciseContextIfNeeded(pub, pri, cutDownPri),
   //   #ifndef NO_PUBLIC_CONTEXT
   //   !local.PublicFunction(caller, _),
   //   #endif
-  //   NotPrivateContextContainsElement(cutDownPri, caller),
   //   newPrivateContext = [caller, cutDownPri].
-  //   .plan 1:(3,1,2,4,5), 2:(4,3,1,2,5)
+  //   .plan 1:(3,1,2,4), 2:(4,3,1,2)
+
+  // // Complex control flow case, imprecise
+  // //// If the imprecise context doesn't contain the block:
+  // MergeContext(ctx, caller, [pub, newPrivateContext]) :-
+  //   ReachableContext(ctx, caller),
+  //   PrivateFunctionCallOrReturn(caller),
+  //   DecomposeContext(ctx, pub, pri),
+  //   TruncateImpreciseContextIfNeeded(pub, pri, cutDownPri),
+  //   #ifndef NO_PUBLIC_CONTEXT
+  //   !local.PublicFunction(caller, _),
+  //   #endif
+  //   NotPrivateContextContainsElement(pri, caller),
+  //   newPrivateContext = [caller, cutDownPri].
+  //   .plan 1:(3,1,2,4,5), 2:(4,3,1,2,5), 3:(5,3,1,2,4)
 
   // //// If it does:
-  // MergeContext(ctx, caller, ctx):-
+  // MergeContext(ctx, caller, ctx) :-
   //   ReachableContext(ctx, caller),
   //   PrivateFunctionCallOrReturn(caller),
-  //   DecomposeContext(ctx, pub, pri),
-  //   TruncateContextIfNeeded(pub, pri, cutDownPri),
+  //   DecomposeContext(ctx, _, pri),
   //   #ifndef NO_PUBLIC_CONTEXT
   //   !local.PublicFunction(caller, _),
   //   #endif
-  //   PrivateContextContainsElement(cutDownPri, caller).
-  //   .plan 1:(3,1,2,4,5), 2:(4,3,1,2,5)
+  //   PrivateContextContainsElement(pri, caller).
+  //   .plan 1:(3,1,2,4), 2:(4,3,1,2)
 
 }

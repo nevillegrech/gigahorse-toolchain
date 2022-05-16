@@ -8,9 +8,9 @@
 
 #ifndef CONTEXT_SENSITIVITY
   // TransactionalContext is default
-  #define CONTEXT_SENSITIVITY TransactionalContext
+//  #define CONTEXT_SENSITIVITY TransactionalContext
 //  #define CONTEXT_SENSITIVITY FinitePreciseContext
-//  #define CONTEXT_SENSITIVITY HybridPreciseContext
+  #define CONTEXT_SENSITIVITY HybridPreciseContext
 #endif
 
 #include "context-sensitivity/context_sensitivity.dl"
