@@ -69,7 +69,8 @@ PreMask_Length(cat("ff", mask), bytes+1) :-
   .limitsize BlockOutputContents(n=LIMITSIZE_BLOCK_OUTPUT_CONTENTS)
   #endif
 
-  .output BlockOutputContents
+  // .output BlockOutputContents
+  DEBUG_OUTPUT(BlockOutputContents)
   
   // Added overridable flag to override it in the optimized variant of the component
   .decl BlockInputContents(context: sens.Context, block: Block, index: StackIndex, var: Variable) overridable
