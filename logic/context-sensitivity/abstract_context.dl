@@ -167,7 +167,9 @@
   InitialContext([FALLBACK_FUNCTION_SIGHASH, initialPrivateContext]) :-
     InitialPrivateContext(initialPrivateContext).
 
+
   /// Useful as building blocks, for experimentation
+  /// WARN: These can be expensive!
   // .decl PrivateContextContainsElementNTimes(ctx: PrivateContext, block: Block, n: number)
   // PrivateContextContainsElementNTimes(nil, block, 0) :-
   //   PrivateFunctionCallOrReturn(block).
@@ -182,22 +184,22 @@
   //   n < MAX_REPETITIONS_FOR_CONTEXT_ELEMENT.
   //  .plan 1:(2,1)
 
-  .decl NotPrivateContextContainsElement(ctx: PrivateContext, block: Block)
-  NotPrivateContextContainsElement(nil, block) :-
-    Statement_Block(_, block).
-  NotPrivateContextContainsElement(ctx, block) :-
-    DecomposePrivateContext(ctx, head, rest),
-    NotPrivateContextContainsElement(rest, block),
-    head != block.
-   .plan 1:(2,1)
+  // .decl NotPrivateContextContainsElement(ctx: PrivateContext, block: Block)
+  // NotPrivateContextContainsElement(nil, block) :-
+  //   Statement_Block(_, block).
+  // NotPrivateContextContainsElement(ctx, block) :-
+  //   DecomposePrivateContext(ctx, head, rest),
+  //   NotPrivateContextContainsElement(rest, block),
+  //   head != block.
+  //  .plan 1:(2,1)
 
-  .decl PrivateContextContainsElement(ctx: PrivateContext, block: Block)
-  PrivateContextContainsElement(ctx, head) :-
-    DecomposePrivateContext(ctx, head, _).
-  PrivateContextContainsElement(ctx, block) :-
-    DecomposePrivateContext(ctx, _, rest),
-    PrivateContextContainsElement(rest, block).
-   .plan 1:(2,1)
+  // .decl PrivateContextContainsElement(ctx: PrivateContext, block: Block)
+  // PrivateContextContainsElement(ctx, head) :-
+  //   DecomposePrivateContext(ctx, head, _).
+  // PrivateContextContainsElement(ctx, block) :-
+  //   DecomposePrivateContext(ctx, _, rest),
+  //   PrivateContextContainsElement(rest, block).
+  //  .plan 1:(2,1)
 
   PrivateContextDepth(init, 0):-
     InitialPrivateContext(init).
