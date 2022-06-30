@@ -210,9 +210,26 @@ Variable_SymbolicValue(to, val),
 FreePointerBasedValue(val, mload, newDepth, res):-
   ADDFix(_, numVar, freePtrBasedVar, to),
   Variable_NumericValue(numVar, numVal),
+  numVal != 2147483647,
   Variable_SymbolicValue(freePtrBasedVar, freePtrBasedVal),
   FreePointerBasedValue(freePtrBasedVal, mload, depth, numVal2),
   res = numVal + numVal2,
+  (
+  (res != numVal2, newDepth = depth);
+  (res = numVal2, newDepth = depth)
+  ),
+  val = cat(cat(mload, "++"), to_string(res)).
+
+Variable_SymbolicValue(to, val),
+FreePointerBasedValue(val, mload, newDepth, res):-
+  ADDFix(_, numVar, freePtrBasedVar, to),
+  Variable_NumericValue(numVar, numVal),
+  numVal = 2147483647,
+  Variable_Value(numVar, numValL),
+  posNumValL = -@hex_to_number(@add_256("0x1", @not_256(numValL))),
+  Variable_SymbolicValue(freePtrBasedVar, freePtrBasedVal),
+  FreePointerBasedValue(freePtrBasedVal, mload, depth, numVal2),
+  res = posNumValL + numVal2,
   (
   (res != numVal2, newDepth = depth);
   (res = numVal2, newDepth = depth)
