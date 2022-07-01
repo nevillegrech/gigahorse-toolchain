@@ -1,0 +1,15 @@
+#!/usr/bin/bash
+
+GIGAHORSE_ROOT=`realpath ~/.gigahorse`
+BIN_PATH=$GIGAHORSE_ROOT/bin
+
+mkdir -p ${GIGAHORSE_ROOT}/cache ${BIN_PATH} ${GIGAHORSE_ROOT}/temp
+
+curl -L https://raw.githubusercontent.com/nevillegrech/gigahorse-toolchain/master/scripts/docker/bin/docker_runner_arm64 > ${GIGAHORSE_ROOT}/bin/gigahorse && chmod u+x ${GIGAHORSE_ROOT}/bin/gigahorse
+
+if [[ $PATH =~ .*${BIN_PATH}.* ]]; then
+    echo "Executable already in PATH"
+else
+    echo "Modifying PATH..."
+    echo "export PATH=${BIN_PATH}:$PATH" >> ~/.bashrc
+fi
