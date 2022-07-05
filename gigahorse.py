@@ -40,6 +40,9 @@ SOUFFLE_COMPILED_SUFFIX = '_compiled'
 DEFAULT_DECOMPILER_DL = join(GIGAHORSE_DIR, 'logic/main.dl')
 """Decompiler specification file."""
 
+FALLBACK_DECOMPILER_DL = join(GIGAHORSE_DIR, 'logic/alt.dl')
+"""Fallback decompiler specification file."""
+
 DEFAULT_INLINER_DL = join(GIGAHORSE_DIR, 'clientlib/function_inliner.dl')
 """IR helping inliner specification file."""
 
@@ -227,6 +230,12 @@ parser.add_argument("-i",
                     default=False,
                     help="Run souffle in interpreted mode.")
 
+parser.add_argument("-b",
+                    "--best",
+                    action="store_true",
+                    default=False,
+                    help="Run souffle in interpreted mode.")
+
 souffle_env = os.environ.copy()
 functor_path = join(GIGAHORSE_DIR, 'souffle-addon')
 for e in ["LD_LIBRARY_PATH", "LIBRARY_PATH"]:
@@ -257,12 +266,7 @@ def prepare_working_dir(contract_name) -> (bool, str, str):
     os.makedirs(out_dir)
     return False, newdir, out_dir
 
-def compile_datalog(spec, executable):
-    if args.reuse_datalog_bin and os.path.isfile(executable):
-        return
-
-    pathlib.Path(args.cache_dir).mkdir(exist_ok=True)
-
+def get_souffle_macros():
     souffle_macros = f'GIGAHORSE_DIR={GIGAHORSE_DIR} BULK_ANALYSIS= {args.souffle_macros}'.strip()
 
     if args.enable_limitsize:
@@ -270,6 +274,21 @@ def compile_datalog(spec, executable):
 
     if args.early_cloning:
         souffle_macros+=' BLOCK_CLONING='
+
+    return souffle_macros
+
+def write_context_depth_file(filename, max_context_depth):
+    context_depth_file = open(filename, "w")
+    context_depth_file.write(f"{max_context_depth}\n")
+    context_depth_file.close()
+
+def compile_datalog(spec, executable):
+    if args.reuse_datalog_bin and os.path.isfile(executable):
+        return
+
+    pathlib.Path(args.cache_dir).mkdir(exist_ok=True)
+
+    souffle_macros = get_souffle_macros()
 
     cpp_macros = []
     for macro_def in souffle_macros.split(' '):
@@ -311,8 +330,12 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
     """
     disassemble_start = time.time()
     
-    def calc_timeout():
+    def calc_timeout(souffle_client =None):
         timeout_left = timeout-time.time()+disassemble_start
+
+        if args.best and souffle_client == DEFAULT_DECOMPILER_DL:
+            timeout_left = timeout_left/2
+
         return max(timeout_left, args.minimum_client_time)
 
     
@@ -331,7 +354,7 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
                     join(os.getcwd(), souffle_client),
                     f"--fact-dir={in_dir}", f"--output-dir={out_dir}"
                 ]
-            if run_process(analysis_args, calc_timeout()) < 0:
+            if run_process(analysis_args, calc_timeout(souffle_client)) < 0:
                 timeouts.append(souffle_client)
 
         for other_client in other_clients:
@@ -379,14 +402,15 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
 
 
             if args.context_depth is not None:
-                context_depth_filename = os.path.join(work_dir, 'MaxContextDepth.csv')
-                context_depth_file = open(context_depth_filename, "w")
-                context_depth_file.write(f"{args.context_depth}\n")
-                context_depth_file.close()
+                write_context_depth_file(os.path.join(work_dir, 'MaxContextDepth.csv'), args.context_depth)
             
             # Run souffle on those relations
             decomp_start = time.time()
-            run_clients([DEFAULT_DECOMPILER_DL], [], work_dir, out_dir)
+            decomp_timeouts, _ = run_clients([DEFAULT_DECOMPILER_DL], [], work_dir, out_dir)
+
+            if args.best and len(decomp_timeouts) == 1:
+                write_context_depth_file(os.path.join(work_dir, 'MaxContextDepth.csv'), 1)
+                run_clients([FALLBACK_DECOMPILER_DL], [], work_dir, out_dir)
 
             inline_start = time.time()
             if not args.disable_inline:
@@ -512,6 +536,9 @@ logging.basicConfig(format='%(message)s', level=log_level)
 # Here we compile the decompiler and any of its clients in parallel :)
 compile_processes_args = []
 compile_processes_args.append((DEFAULT_DECOMPILER_DL, DEFAULT_DECOMPILER_DL+SOUFFLE_COMPILED_SUFFIX))
+
+if args.best:
+    compile_processes_args.append((FALLBACK_DECOMPILER_DL, FALLBACK_DECOMPILER_DL+SOUFFLE_COMPILED_SUFFIX))
 
 if not args.disable_inline:
     compile_processes_args.append((DEFAULT_INLINER_DL, DEFAULT_INLINER_DL+SOUFFLE_COMPILED_SUFFIX))
