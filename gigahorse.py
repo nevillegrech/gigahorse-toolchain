@@ -376,6 +376,17 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
                 timeouts.append(other_client)
         return timeouts, errors
     
+    def run_decomp(contract_filename, in_dir, out_dir):
+        try:
+            run_clients([DEFAULT_DECOMPILER_DL], [], in_dir, out_dir)
+        except TimeoutException as e:
+            if args.best:
+                log(f"Fallback used for {contract_filename}")
+                write_context_depth_file(os.path.join(in_dir, 'MaxContextDepth.csv'), 1)
+                run_clients([FALLBACK_DECOMPILER_DL], [], in_dir, out_dir)
+            else:
+                raise(e)
+
     try:
         # prepare working directory
         exists, work_dir, out_dir = prepare_working_dir(contract_filename)
@@ -394,7 +405,7 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
             exporter.InstructionTsvExporter(blocks).export(output_dir=work_dir, bytecode_hex=bytecode)
 
             os.symlink(join(work_dir, 'bytecode.hex'), join(out_dir, 'bytecode.hex'))
-            
+
             if os.path.exists(join(work_dir, 'solidity_version.csv')):
                 # Create a symlink with a name starting with 'Verbatim_' to be added to results json
                 os.symlink(join(work_dir, 'solidity_version.csv'), join(out_dir, 'Verbatim_solidity_version.csv'))
@@ -403,25 +414,21 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
 
             if args.context_depth is not None:
                 write_context_depth_file(os.path.join(work_dir, 'MaxContextDepth.csv'), args.context_depth)
-            
-            # Run souffle on those relations
-            decomp_start = time.time()
-            decomp_timeouts, _ = run_clients([DEFAULT_DECOMPILER_DL], [], work_dir, out_dir)
 
-            if args.best and len(decomp_timeouts) == 1:
-                write_context_depth_file(os.path.join(work_dir, 'MaxContextDepth.csv'), 1)
-                run_clients([FALLBACK_DECOMPILER_DL], [], work_dir, out_dir)
+            decomp_start = time.time()
+
+            run_decomp(contract_filename, work_dir, out_dir)
 
             inline_start = time.time()
             if not args.disable_inline:
                 run_clients([DEFAULT_INLINER_DL]*DEFAULT_INLINER_ROUNDS, [], out_dir, out_dir)
-                    
+
             # end decompilation
         if exists and not args.rerun_clients:
             return
         client_start = time.time()
         timeouts, errors = run_clients(souffle_clients, other_clients, out_dir, out_dir)
-        
+
         # Collect the results and put them in the result queue
         files = []
         for fname in os.listdir(out_dir):
