@@ -352,7 +352,8 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
                 analysis_args = [
                     DEFAULT_SOUFFLE_BIN,
                     join(os.getcwd(), souffle_client),
-                    f"--fact-dir={in_dir}", f"--output-dir={out_dir}"
+                    f"--fact-dir={in_dir}", f"--output-dir={out_dir}",
+                    "-M", get_souffle_macros()
                 ]
             if run_process(analysis_args, calc_timeout(souffle_client)) < 0:
                 timeouts.append(souffle_client)
