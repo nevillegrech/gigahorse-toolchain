@@ -230,11 +230,11 @@ parser.add_argument("-i",
                     default=False,
                     help="Run souffle in interpreted mode.")
 
-parser.add_argument("-b",
-                    "--best",
+parser.add_argument("--single_decomp",
                     action="store_true",
                     default=False,
-                    help="Run souffle in interpreted mode.")
+                    help="Perform a single decompilation run, instead of the current default of running a fallback decompilation"
+                    "(using a scalable hybrid-precise context configuration) if the default transactional configuration times out.")
 
 souffle_env = os.environ.copy()
 functor_path = join(GIGAHORSE_DIR, 'souffle-addon')
@@ -333,7 +333,7 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
     def calc_timeout(souffle_client =None):
         timeout_left = timeout-time.time()+disassemble_start
 
-        if args.best and souffle_client == DEFAULT_DECOMPILER_DL:
+        if not args.single_decomp and souffle_client == DEFAULT_DECOMPILER_DL:
             timeout_left = timeout_left/2
 
         return max(timeout_left, args.minimum_client_time)
@@ -380,12 +380,13 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
         try:
             run_clients([DEFAULT_DECOMPILER_DL], [], in_dir, out_dir)
         except TimeoutException as e:
-            if args.best:
-                log(f"Fallback used for {contract_filename}")
+            if args.single_decomp:
+                raise(e)
+            else:
+                # Default using scalable fallback config
+                log(f"Using fallback decompilation configuration for {os.path.split(contract_filename)[1]}")
                 write_context_depth_file(os.path.join(in_dir, 'MaxContextDepth.csv'), 1)
                 run_clients([FALLBACK_DECOMPILER_DL], [], in_dir, out_dir)
-            else:
-                raise(e)
 
     try:
         # prepare working directory
@@ -544,7 +545,7 @@ logging.basicConfig(format='%(message)s', level=log_level)
 compile_processes_args = []
 compile_processes_args.append((DEFAULT_DECOMPILER_DL, DEFAULT_DECOMPILER_DL+SOUFFLE_COMPILED_SUFFIX))
 
-if args.best:
+if not args.single_decomp:
     compile_processes_args.append((FALLBACK_DECOMPILER_DL, FALLBACK_DECOMPILER_DL+SOUFFLE_COMPILED_SUFFIX))
 
 if not args.disable_inline:
