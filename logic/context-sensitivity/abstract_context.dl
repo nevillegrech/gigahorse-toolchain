@@ -119,42 +119,87 @@
   .type Context = [publicFun:symbol, pri: PrivateContext]
 
   .decl InitialPrivateContext(ctx: PrivateContext)
-  // PrivateContextDepth replaces/enhances IsPrivateContext 
   .decl PrivateContextDepth(ctx: PrivateContext, depth: number)
   .decl DecomposePrivateContext(priCtx: PrivateContext, block: Block, rest: PrivateContext)
   .decl DropLast(ctx: PrivateContext, newCtx: PrivateContext)
-  .output DropLast
   .decl TruncateContextIfNeeded(publicFun:symbol, ctx: PrivateContext, newCtx: PrivateContext)
   .decl DecomposeContext(ctx: Context, publicFun: symbol, private: PrivateContext)
+
+  // Define our universe of contexts (including partial)
+  .decl IsPotentialContext(pubFun: symbol, ctx: PrivateContext)
+
+  IsPotentialContext(FALLBACK_FUNCTION_SIGHASH, ctx) :-
+    InitialPrivateContext(ctx).
+
+  IsPotentialContext(publicFun, private) :-
+    ReachableContext(fullCtx, _), fullCtx = [publicFun, private].
+
+  // All suffixes
+  IsPotentialContext(pubFun, rest) :-
+    IsPotentialContext(pubFun, ctx),
+    ctx = [block, rest], block = block.
+
+  // All prefixes
+  IsPotentialContext(pubFun, prefix) :-
+    IsPotentialContext(pubFun, ctx),
+    DropLast(ctx, prefix).
+   .plan 1:(2,1)
+
+  DropLast(ctx, initial) :-
+    DecomposePrivateContext(ctx, _, initial),
+    InitialPrivateContext(initial).
+
+  DropLast(ctx, [block, newRest])  :-
+    DecomposePrivateContext(ctx, block, rest),
+    DropLast(rest, newRest).
+   .plan 1:(2,1)
+
+  // That's all it's used for!
+  DecomposePrivateContext(ctx, block, rest) :-
+    IsPotentialContext(_, ctx),
+    ctx = [block, rest].
+
+  DecomposeContext([pubFun, privCtx], pubFun, privCtx) :-
+    IsPotentialContext(pubFun, privCtx).
 
   InitialPrivateContext(nil).
 
   InitialContext([FALLBACK_FUNCTION_SIGHASH, initialPrivateContext]) :-
     InitialPrivateContext(initialPrivateContext).
 
-  DecomposeContext(ctx, publicFun, private):-
-    ReachableContext(ctx, _), ctx = [publicFun, private].
 
-  // Both rules below are needed, DecomposePrivateContext contains a superset of private contexts
-  // some of which may not end up being reachable but it needs to because its used in many places
-  DecomposePrivateContext(private, block, rest):-
-    DecomposeContext(_, _, private),
-    private = [block, rest].
+  /// Useful as building blocks, for experimentation
+  /// WARN: These can be expensive!
+  // .decl PrivateContextContainsElementNTimes(ctx: PrivateContext, block: Block, n: number)
+  // PrivateContextContainsElementNTimes(nil, block, 0) :-
+  //   PrivateFunctionCallOrReturn(block).
+  // PrivateContextContainsElementNTimes(ctx, block, n) :-
+  //   PrivateContextContainsElementNTimes(rest, block, n),
+  //   DecomposePrivateContext(ctx, head, rest),
+  //   head != block.
+  //  .plan 1:(2,1)
+  // PrivateContextContainsElementNTimes(ctx, block, n+1) :-
+  //   PrivateContextContainsElementNTimes(rest, block, n),
+  //   DecomposePrivateContext(ctx, block, rest),
+  //   n < MAX_REPETITIONS_FOR_CONTEXT_ELEMENT.
+  //  .plan 1:(2,1)
 
-  DecomposePrivateContext(private, block, rest):-
-    PrivateContextDepth(private, _),
-    private = [block, rest].
+  // .decl NotPrivateContextContainsElement(ctx: PrivateContext, block: Block)
+  // NotPrivateContextContainsElement(nil, block) :-
+  //   Statement_Block(_, block).
+  // NotPrivateContextContainsElement(ctx, block) :-
+  //   DecomposePrivateContext(ctx, head, rest),
+  //   NotPrivateContextContainsElement(rest, block),
+  //   head != block.
+  //  .plan 1:(2,1)
 
-  DropLast(ctx, nil):-
-    DecomposePrivateContext(ctx, _, nil).
-
-  PrivateContextDepth(newCtx, depth - 1),
-  DropLast(ctx, newCtx):-
-    DecomposePrivateContext(ctx, block, rest),
-    PrivateContextDepth(ctx, depth),
-    DropLast(rest, newRest),
-    newCtx = [ block, newRest ].
-    .plan 1:(2,1,3), 2:(3,1,2)
+  // .decl PrivateContextContainsElement(ctx: PrivateContext, block: Block)
+  // PrivateContextContainsElement(ctx, head) :-
+  //   DecomposePrivateContext(ctx, head, _).
+  // PrivateContextContainsElement(ctx, block) :-
+  //   DecomposePrivateContext(ctx, _, rest),
+  //   PrivateContextContainsElement(rest, block).
+  //  .plan 1:(2,1)
 
   PrivateContextDepth(init, 0):-
     InitialPrivateContext(init).
@@ -164,15 +209,17 @@
     PrivateContextDepth(rest, depth).
     .plan 1:(2,1)
 
-  TruncateContextIfNeeded(pub, ctx, newCtx):-
+  TruncateContextIfNeeded(pubFun, ctx, newCtx):-
+    DecomposeContext(_, pubFun, ctx),
     PrivateContextDepth(ctx, maxDepth),
-    MaxContextDepth(pub, maxDepth),
+    MaxContextDepth(pubFun, maxDepth),
     DropLast(ctx, newCtx).
-    .plan 1:(3,1,2)
+    .plan 1:(4,1,2,3)
 
-  TruncateContextIfNeeded(pub, ctx, ctx):-
+  TruncateContextIfNeeded(pubFun, ctx, ctx):-
+    DecomposeContext(_, pubFun, ctx),
     PrivateContextDepth(ctx, depth),
-    MaxContextDepth(pub, maxDepth),
+    MaxContextDepth(pubFun, maxDepth),
     depth < maxDepth.
 
   Context_PublicFunction(ctx, pubFun):-
