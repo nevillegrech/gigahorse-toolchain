@@ -137,6 +137,7 @@ Analytics_PolymorphicTargetSameCtx(block) :-
 
 Analytics_MissingJumpTargetAnyCtx(block):-
   Analytics_Jumps(block),
+  global.ReachableContext(_, block),
   !global.BlockJumpValidTarget(_, block, _, _),
   postTrans.JUMPDEST(_). // if there are not valid jumpdests then don't flag
 

@@ -12,9 +12,10 @@ Gigahorse features different context sensitivity algorithms:
 * `SelectiveContextPlus`: The above selective context including a public function component.
 
 You can run the decompilation pipeline with a different context sensitivity algorithm using the -M flag.
+Changing the context-sensitivity algorithm using the default 2-step pipeline is not suggested as it will override the default for both configurations.
 As an example, the command below will run the example contract using call-site context sensitivity:
 ```
-python3.8 gigahorse.py examples/long_running.hex -M "CONTEXT_SENSITIVITY=CallSiteContext"
+python3.8 gigahorse.py examples/long_running.hex --single_decomp -M "CONTEXT_SENSITIVITY=CallSiteContext"
 ```
 
 In addition the `-cd` flag can be used to provide a different maximum context depth.

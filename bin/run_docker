@@ -1,0 +1,13 @@
+#!/usr/bin/bash
+set -x
+GIGAHORSE_ROOT="$(dirname "$(dirname "$(readlink -fm "$0")")")"
+mkdir -p ${GIGAHORSE_ROOT}/.temp ${GIGAHORSE_ROOT}/cache
+
+docker run \
+    -v ${HOME}:${HOME} \
+    --mount type=bind,source=${GIGAHORSE_ROOT}/.temp,target=/opt/gigahorse/gigahorse-toolchain/.temp \
+    --mount type=bind,source=${GIGAHORSE_ROOT}/cache,target=/opt/gigahorse/gigahorse-toolchain/cache \
+    --rm \
+    -u `id -u $USER`:`id -g $USER` \
+    -w $(pwd) \
+    -it gigahorse $@

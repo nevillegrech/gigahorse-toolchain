@@ -27,6 +27,7 @@ You should now be ready to run Gigahorse.
 
 ## Running Gigahorse
 The `gigahorse.py` script can be run on a contract individually or on a collection of contract bytecode files in specified directory, and it will run the binary lifter implemented in `logic/main.dl` on each contract, optionally followed by any additional client analyses specified by the user using the `-C` flag.
+The default pipeline first attempts to decompile a contract using a transactional context-sensitivity configuration. If that times out it performs a second attempt using a hybrid-precise context sensitivity configuration, tuned for scalability. If the legacy (single decompilation) pipeline is preferred you can use the `--single_decomp` flag.
 The Gigahorse pipeline also includes a few rounds of inlining of small functions in order to help the subsequent client libraries get more high-level inferences. The inlining functionality can be disabled with `--disable_inline`.
 
 The expected file format for each contract is in .hex format.
@@ -123,6 +124,10 @@ A common template for client analyses for decompiled bytecode is to create souff
 The Gigahorse toolchain was originally published as:
 
 - Grech, N., Brent, L., Scholz, B., Smaragdakis, Y. (2019), Gigahorse: Thorough, Declarative Decompilation of Smart Contracts. *In 41st ACM/IEEE International Conference on Software Engineering.*
+
+Several novel developments to Gigahorse after the original publication have been published as:
+
+- Grech, N., Lagouvardos, S., Tsatiris, I., Smaragdakis, Y. (2022), Elipmoc: Advanced Decompilation of Ethereum Smart Contracts *Proceedings of the ACM in Programming Languages (OOPSLA).*
 
 In addition, other research tools have been developed on top of Gigahorse, including:
 
