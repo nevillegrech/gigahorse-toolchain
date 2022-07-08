@@ -27,7 +27,9 @@ You should now be ready to run Gigahorse.
 
 ## Running Gigahorse
 The `gigahorse.py` script can be run on a contract individually or on a collection of contract bytecode files in specified directory, and it will run the binary lifter implemented in `logic/main.dl` on each contract, optionally followed by any additional client analyses specified by the user using the `-C` flag.
-The default pipeline first attempts to decompile a contract using a transactional context-sensitivity configuration. If that times out it performs a second attempt using a hybrid-precise context sensitivity configuration, tuned for scalability. If the legacy (single decompilation) pipeline is preferred you can use the `--single_decomp` flag.
+
+The default pipeline first attempts to decompile a contract using a **transactional** context-sensitivity configuration. If that times out it performs a second attempt using a **hybrid-precise** context sensitivity configuration, tuned for scalability. If the legacy (single decompilation) pipeline is preferred you can use the `--single_decomp` flag.
+
 The Gigahorse pipeline also includes a few rounds of inlining of small functions in order to help the subsequent client libraries get more high-level inferences. The inlining functionality can be disabled with `--disable_inline`.
 
 The expected file format for each contract is in .hex format.
