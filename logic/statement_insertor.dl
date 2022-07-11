@@ -460,7 +460,11 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
 }
 
 .comp InputBlockCloner : BlockCloner {
+  .decl InputBlockCloningCandidate(block: Block)
+  .input InputBlockCloningCandidate(IO="file", filename="InputBlockCloningCandidate.csv", delimiter="\t")
   
+  BlockCloningCandidate(block):-
+    InputBlockCloningCandidate(block).
 }
 
 // Adding analytic here to 
