@@ -315,19 +315,6 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
     // Ideally when this is deployed we'd have to use some whole-contract logic
     //!analysis.Statement_Uses_Local(_, blockVar, _).
 
-  .decl PossibleCallerWithReturn(caller:Block, return:Block)
-  .output PossibleCallerWithReturn, BlockPushesCloningCandidate
-  PossibleCallerWithReturn(caller, as(val, Block)):-
-    analysis.ImmediateBlockJumpTarget(caller, targetVar),
-    analysis.Variable_Value(targetVar, target),
-    analysis.JUMPDEST(as(target, symbol)),
-    analysis.Statement_Block(stmt, caller),
-    analysis.Statement_Defines(stmt, var),
-    analysis.Variable_Value(var, val),
-    analysis.JUMPDEST(as(val, symbol)),
-    !analysis.Statement_Uses_Local(_, var, _).
-
-
   .decl FallthroughBlock(block: Block)
   FallthroughBlock(block):-
     analysis.Statement_Block(fallthrough, block),
@@ -344,24 +331,6 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
   BlockPushesCloningCandidate(pushBlk, candidate):-
     BlockPushesBlockToStack(pushBlk, candidate),
     BlockCloningCandidate(candidate).
-
-  BlockCloningCandidate(candidate):-
-    analysis.StackBalanceBlock(candidate).
-
-  BlockCloningCandidate(candidate):-
-    analysis.NonImmediateBlockJumpTargetEscapes(candidate).
-
-  // caller-side return blocks that are shared between call-sites
-  BlockCloningCandidate(candidate):-
-    PossibleCallerWithReturn(from, candidate),
-    PossibleCallerWithReturn(from2, candidate),
-    from != from2.
-    // BlockPushesBlockToStack(from, candidate),
-    // BlockPushesBlockToStack(from2, candidate),
-    // from != from2,
-    // 1 != 1,
-    // !DirectBlockEdge(from, candidate),
-    // !DirectBlockEdge(from2, candidate).
 
   // Clone all candidate blocks  for all the blocks that push them
   // Make sure they can be cloned safely 
@@ -453,6 +422,45 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
   
   Block_OriginalBlock(block, originalBlock):-
     BlockToCloneNewInstance(_, originalBlock, block).
+}
+
+.comp HeuristicBlockCloner : BlockCloner {
+
+  .decl PossibleCallerWithReturn(caller: Block, return: Block)
+  PossibleCallerWithReturn(caller, as(val, Block)):-
+    analysis.ImmediateBlockJumpTarget(caller, targetVar),
+    analysis.Variable_Value(targetVar, target),
+    analysis.JUMPDEST(as(target, symbol)),
+    analysis.Statement_Block(stmt, caller),
+    analysis.Statement_Defines(stmt, var),
+    analysis.Variable_Value(var, val),
+    analysis.JUMPDEST(as(val, symbol)),
+    !analysis.Statement_Uses_Local(_, var, _).
+
+  // SL: Too general, causes slowdown
+  BlockCloningCandidate(candidate):-
+    analysis.StackBalanceBlock(candidate).
+
+  // SL: Doesn't give too much
+  BlockCloningCandidate(candidate):-
+    analysis.NonImmediateBlockJumpTargetEscapes(candidate).
+
+  // caller-side return blocks that are shared between call-sites
+  // SL: Best heuristic so far, targets functions.dl level precision loss
+  BlockCloningCandidate(candidate):-
+    PossibleCallerWithReturn(from, candidate),
+    PossibleCallerWithReturn(from2, candidate),
+    from != from2.
+    // BlockPushesBlockToStack(from, candidate),
+    // BlockPushesBlockToStack(from2, candidate),
+    // from != from2,
+    // 1 != 1,
+    // !DirectBlockEdge(from, candidate),
+    // !DirectBlockEdge(from2, candidate).
+}
+
+.comp InputBlockCloner : BlockCloner {
+  
 }
 
 // Adding analytic here to 
