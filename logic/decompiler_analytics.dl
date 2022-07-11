@@ -16,11 +16,24 @@ Analytics_Jumps(block) :-
   postTrans.IsJump(tail).
 
 
+/**
+  Main reachability metrics
+  The following relations report reachability on original blocks.
+  This is to have consistent reporting across different configs for statement/block insertion and cloning. 
+*/
 .decl Analytics_ReachableBlocks(block: Block)
 .output Analytics_ReachableBlocks
 
 .decl Analytics_UnreachableBlock(block: Block)
 .output Analytics_UnreachableBlock
+
+.decl Analytics_ReachableBlocksInTAC(block: Block)
+.output Analytics_ReachableBlocksInTAC
+
+// Incompleteness metric: this can happen due to our precision-favoring heuristics
+// or incompleteness due to the use of limitsize for scalability
+.decl Analytics_BlockHasNoTACBlock(block: Block)
+.output Analytics_BlockHasNoTACBlock
 
 #ifdef BLOCK_CLONING
 
@@ -48,11 +61,28 @@ Analytics_UnreachableBlock(block):-
 #endif
 
 
+Analytics_ReachableBlocksInTAC(blk):-
+  Analytics_ReachableBlocks(blk),
+  Block_IRBlock(blk, _, block),
+  TAC_Block(_, block).
+
+Analytics_BlockHasNoTACBlock(blk):-
+  Analytics_ReachableBlocks(blk),
+  !Analytics_ReachableBlocksInTAC(blk).
+
+/**
+  Metrics that give more insights on the global CFG analysis
+*/
 .decl Analytics_Contexts(ctx: global.sens.Context)
 .output Analytics_Contexts
 
 Analytics_Contexts(ctx):-
   global.ReachableContext(ctx, _).
+
+.decl GloballyReachableBlocks(ctx: Block)
+
+GloballyReachableBlocks(block):-
+  global.ReachableContext(_, block).
 
 .decl Analytics_ReachableUnderContext(ctx: global.sens.Context, block: Block)
 .output Analytics_ReachableUnderContext
@@ -60,43 +90,27 @@ Analytics_Contexts(ctx):-
 Analytics_ReachableUnderContext(ctx, block):-
   global.ReachableContext(ctx, block).
 
-.decl Analytics_ReachableBlocksInTAC(block: Block)
-.output Analytics_ReachableBlocksInTAC
-
-Analytics_ReachableBlocksInTAC(blk):-
-  global.ReachableContext(_, blk),
-  Block_IRBlock(blk, _, block),
-  TAC_Block(_, block).
-
-// Incompleteness metric: this can happen due to our precision-favoring heuristics
-// or incompleteness due to the use of limitsize for scalability
-.decl Analytics_BlockHasNoTACBlock(block: Block)
-.output Analytics_BlockHasNoTACBlock
-
-Analytics_BlockHasNoTACBlock(blk):-
-  Analytics_ReachableBlocks(blk),
-  !Analytics_ReachableBlocksInTAC(blk).
-
-.decl Analytics_Blocks(block: IRBlock)
-.output Analytics_Blocks
-
-Analytics_Blocks(block) :-
-  IRInFunction(block, _).
-
 .decl Analytics_Block_NumberOfContexts(block: Block, ctxNum: number)
 .output Analytics_Block_NumberOfContexts
 
 Analytics_Block_NumberOfContexts(block, ctxNum):-
-  Analytics_ReachableBlocks(block),
+  GloballyReachableBlocks(block),
   ctxNum = count : { global.ReachableContext(_, block) }.
 
 .decl Verbatim_BlocksReachabilityMetric(blocks: number, totalReach: number, avg: float)
 .output Verbatim_BlocksReachabilityMetric
 
 Verbatim_BlocksReachabilityMetric(blocks, totalReach, avg):-
-  blocks = count: Analytics_ReachableBlocks(_),
+  blocks = count: GloballyReachableBlocks(_),
   totalReach = sum ctxNum : Analytics_Block_NumberOfContexts(_, ctxNum),
   avg = as(totalReach, float) / as(blocks, float).
+
+
+.decl Analytics_Blocks(block: IRBlock)
+.output Analytics_Blocks
+
+Analytics_Blocks(block) :-
+  IRInFunction(block, _).
 
 // This is a special metric
 // Dead blocks are "declared dead" because they are most likely
@@ -110,23 +124,6 @@ Analytics_DeadBlocks(irblk) :-
 
 // Sanity checking and analytics
 
-.decl ReachableStatement(stmt: IRStatement)
-
-ReachableStatement(stmt) :-
-   IRInFunction(block, _),
-   IRStatement_Block(stmt, block).
-
-.decl Analytics_UnknownOperand(stmt: IRStatement)
-.output Analytics_UnknownOperand
-
-//TODO: make this stronger
-Analytics_UnknownOperand(stmt) :-
-   ReachableStatement(stmt),
-   TAC_Op(stmt, opcode),
-   OpcodePopWords(opcode, words),
-   IsStackIndexLessThan(n, words),
-   !FunctionalStatement_Uses_Local(stmt, _, n).
-
 .decl Analytics_MissingImplementation(stmt: Statement, opcode: Opcode)
 .output Analytics_MissingImplementation
 
@@ -139,9 +136,10 @@ Analytics_MissingImplementation(stmt, opcode) :-
 
 // Except return statements
 .decl Analytics_PolymorphicTarget(block: Block)
-.output Analytics_PolymorphicTarget      
+.output Analytics_PolymorphicTarget
 
 // Excludes function return blocks
+// SL: This gives little insight, should probably remove
 Analytics_PolymorphicTarget(block) :-
   Analytics_Jumps(block),                                                          
   global.BlockJumpValidTarget(_, block, _, target1),
@@ -149,6 +147,7 @@ Analytics_PolymorphicTarget(block) :-
   !IsReturn(_, block, _),
   target1 != target2.
 
+// SL: The main imprecision metric of our global analysis
 .decl Analytics_PolymorphicTargetSameCtx(block: Block)
 .output Analytics_PolymorphicTargetSameCtx
 
@@ -176,24 +175,8 @@ Analytics_MissingJumpTargetSomeCtx(block):-
   !global.BlockJumpValidTarget(ctx, block, _, _),
   postTrans.JUMPDEST(_). // if there are not valid jumpdests then don't flag
 
-// Missing operands for IR statements.
-
-.decl Analytics_StmtMissingOperand(stmt:IRStatement)
-.output Analytics_StmtMissingOperand
-
-Analytics_StmtMissingOperand(stmt):-
-  OpcodePopWords(op, 2),
-  TAC_Op(stmt, op),
-  !(TAC_Use(stmt, _, 0), TAC_Use(stmt, _, 1)).
-
-
-Analytics_StmtMissingOperand(stmt):-
-  OpcodePopWords(op, 1),
-  TAC_Op(stmt, op),
-  !TAC_Use(stmt, _, 0).
 
 // Sanity checking for functions
-
 .decl Analytics_InexactFunctionArguments(func: IRFunction)
 .decl Analytics_InexactFunctionReturnArguments(func: IRFunction)
 .decl Analytics_InexactFunctionCallArguments(call: IRStatement)
@@ -220,30 +203,6 @@ Analytics_InexactFunctionCallArguments(call):-
   IsStackIndexLessThan(n_arg, n_args),
   !TAC_Use(call, _, n_arg).
 
-.decl Analytics_BlockInMultipleFunctions(block: IRBlock)
-.output Analytics_BlockInMultipleFunctions
-
-Analytics_BlockInMultipleFunctions(block) :-
-   IRInFunction(block, func),
-   IRInFunction(block, func2),
-   func != func2.
-
-
-.decl Analytics_BlockInNoFunctions(block: IRBlock)
-.output Analytics_BlockInNoFunctions
-
-Analytics_BlockInNoFunctions(block) :-
-   IRStatement_Block(_, block),
-   !IRInFunction(block, _).
-
-.decl Analytics_BlocksLocalOrNot(block1: IRBlock, block2: IRBlock)
-.output Analytics_BlocksLocalOrNot
-
-Analytics_BlocksLocalOrNot(block1, block2) :-
-   LocalBlockEdge(block1, block2),
-   IRInFunction(block1, fun1),
-   IRInFunction(block2, fun2),
-   fun1 != fun2.
 
 .decl Analytics_FunctionCall(block: IRBlock)
 .output Analytics_FunctionCall
@@ -279,6 +238,114 @@ Analytics_PublicFunctionNameResolved(func) :-
    IRPublicFunction(func, sigHash),
    PublicFunctionSignature(sigHash, _).
 
+
+/**
+  JUMP TO MANY
+  Our main imprecision metric for our decompilation output
+  lower is better
+*/
+
+.decl Analytics_JumpToMany(blk:IRBlock)
+.output Analytics_JumpToMany
+
+.decl JumpToMany_ImprecisionSource(reportBlock:IRBlock, sourceBlock:Block)
+.output JumpToMany_ImprecisionSource
+
+.decl Analytics_JumpToManyNonPopBlock(blk:IRBlock)
+.output Analytics_JumpToManyNonPopBlock
+
+.decl Analytics_JumpToManyWithoutGlobalImprecision(blk:IRBlock)
+.output Analytics_JumpToManyWithoutGlobalImprecision
+
+Analytics_JumpToMany(blk):-
+  (TAC_Op(jump, "JUMP") ; TAC_Op(jump, "CALLPRIVATE")),
+  TAC_Block(jump, blk),
+  LocalBlockEdge(blk, one),
+  LocalBlockEdge(blk, two),
+  one != two.
+
+Analytics_JumpToMany(blk):-
+  TAC_Op(jump, "JUMPI"),
+  TAC_Block(jump, blk),
+  LocalBlockEdge(blk, one),
+  LocalBlockEdge(blk, two),
+  LocalBlockEdge(blk, three),
+  one != two,
+  one != three,
+  two != three.
+
+JumpToMany_ImprecisionSource(reportBlock, sourceBlock):-
+  Analytics_JumpToMany(reportBlock),
+  IRFunctionCallReturn(reportBlock, irfunc, _),
+  IRFunction_Return(irfunc, retir),
+  Block_IRBlock(sourceBlock, _, retir).
+
+JumpToMany_ImprecisionSource(reportBlock, sourceBlock):-
+  Analytics_JumpToMany(reportBlock),
+  Block_IRBlock(sourceBlock, _, reportBlock),
+  !IRFunctionCallReturn(reportBlock, _, _).
+
+Analytics_JumpToManyNonPopBlock(reportBlock):-
+  Analytics_JumpToMany(reportBlock),
+  JumpToMany_ImprecisionSource(reportBlock, sourceBlock),
+  !postTrans.StackBalanceBlock(sourceBlock).
+
+Analytics_JumpToManyWithoutGlobalImprecision(reportBlock):-
+  Analytics_JumpToMany(reportBlock),
+  JumpToMany_ImprecisionSource(reportBlock, sourceBlock),
+  !Analytics_PolymorphicTargetSameCtx(sourceBlock).
+
+// TODO: Figure out if Analytics_UnknownOperand works better than Analytics_StmtMissingOperand, should delete otherwise
+.decl Analytics_UnknownOperand(stmt: IRStatement)
+.output Analytics_UnknownOperand
+
+//TODO: make this stronger
+Analytics_UnknownOperand(stmt) :-
+   ReachableStatement(stmt),
+   TAC_Op(stmt, opcode),
+   OpcodePopWords(opcode, words),
+   IsStackIndexLessThan(n, words),
+   !FunctionalStatement_Uses_Local(stmt, _, n).
+
+.decl ReachableStatement(stmt: IRStatement)
+ReachableStatement(stmt) :-
+   IRInFunction(block, _),
+   IRStatement_Block(stmt, block).
+
+// Missing operands for IR statements.
+.decl Analytics_StmtMissingOperand(stmt:IRStatement)
+.output Analytics_StmtMissingOperand
+
+Analytics_StmtMissingOperand(stmt):-
+  OpcodePopWords(op, 2),
+  TAC_Op(stmt, op),
+  !(TAC_Use(stmt, _, 0), TAC_Use(stmt, _, 1)).
+
+Analytics_StmtMissingOperand(stmt):-
+  OpcodePopWords(op, 1),
+  TAC_Op(stmt, op),
+  !TAC_Use(stmt, _, 0).
+
+
+.decl Analytics_LocalBlockEdge(from: IRBlock, to: IRBlock)
+.output Analytics_LocalBlockEdge
+
+Analytics_LocalBlockEdge(from, to):-
+  LocalBlockEdge(from, to).
+
+/**
+  Mostly obscure metrics after this point.
+  Some are things that don't really matter,
+  others have been fixed for years and are no longer relevant
+*/
+
+.decl Analytics_InitiallyMissedCycleEntry(blk: IRBlock)
+.output Analytics_InitiallyMissedCycleEntry
+
+Analytics_InitiallyMissedCycleEntry(block) :-
+   PotentialCycleEntry(block),
+   !PossibleFunctionalBlockPopAndStackDelta(_, block, _, _, _).
+
 // Check if a variable is defined twice; this should always be empty.
 .decl Analytics_DoubleDef(variable: TACVariable)
 .output Analytics_DoubleDef
@@ -300,67 +367,26 @@ Analytics_BlockIsEmpty(block) :-
   (LocalBlockEdge(_, block); LocalBlockEdge(block, _)),
   !BlockIsNotEmpty(block).
 
+.decl Analytics_BlockInMultipleFunctions(block: IRBlock)
+.output Analytics_BlockInMultipleFunctions
 
-.decl Analytics_JumpToMany(blk:IRBlock)
-.output Analytics_JumpToMany
+Analytics_BlockInMultipleFunctions(block) :-
+   IRInFunction(block, func),
+   IRInFunction(block, func2),
+   func != func2.
 
-Analytics_JumpToMany(blk):-
-  (TAC_Op(jump, "JUMP") ; TAC_Op(jump, "CALLPRIVATE")),
-  TAC_Block(jump, blk),
-  LocalBlockEdge(blk, one),
-  LocalBlockEdge(blk, two),
-  one != two.
+.decl Analytics_BlockInNoFunctions(block: IRBlock)
+.output Analytics_BlockInNoFunctions
 
-Analytics_JumpToMany(blk):-
-  TAC_Op(jump, "JUMPI"),
-  TAC_Block(jump, blk),
-  LocalBlockEdge(blk, one),
-  LocalBlockEdge(blk, two),
-  LocalBlockEdge(blk, three),
-  one != two,
-  one != three,
-  two != three.
+Analytics_BlockInNoFunctions(block) :-
+   IRStatement_Block(_, block),
+   !IRInFunction(block, _).
 
+.decl Analytics_BlocksLocalOrNot(block1: IRBlock, block2: IRBlock)
+.output Analytics_BlocksLocalOrNot
 
-.decl JumpToMany_ImprecisionSource(reportBlock:IRBlock, sourceBlock:Block)
-JumpToMany_ImprecisionSource(reportBlock, sourceBlock):-
-  Analytics_JumpToMany(reportBlock),
-  IRFunctionCallReturn(reportBlock, irfunc, _),
-  IRFunction_Return(irfunc, retir),
-  Block_IRBlock(sourceBlock, _, retir).
-
-JumpToMany_ImprecisionSource(reportBlock, sourceBlock):-
-  Analytics_JumpToMany(reportBlock),
-  Block_IRBlock(sourceBlock, _, reportBlock),
-  !IRFunctionCallReturn(reportBlock, _, _).
-
-
-.decl Analytics_JumpToManyNonPopBlock(blk:IRBlock)
-.output Analytics_JumpToManyNonPopBlock
-
-Analytics_JumpToManyNonPopBlock(reportBlock):-
-  Analytics_JumpToMany(reportBlock),
-  JumpToMany_ImprecisionSource(reportBlock, sourceBlock),
-  !postTrans.StackBalanceBlock(sourceBlock).
-
-.decl Analytics_JumpToManyWithoutGlobalImprecision(blk:IRBlock)
-.output Analytics_JumpToManyWithoutGlobalImprecision
-
-Analytics_JumpToManyWithoutGlobalImprecision(reportBlock):-
-  Analytics_JumpToMany(reportBlock),
-  JumpToMany_ImprecisionSource(reportBlock, sourceBlock),
-  !Analytics_PolymorphicTargetSameCtx(sourceBlock).
-
-
-.decl Analytics_InitiallyMissedCycleEntry(blk: IRBlock)
-.output Analytics_InitiallyMissedCycleEntry
-
-Analytics_InitiallyMissedCycleEntry(block) :-
-   PotentialCycleEntry(block),
-   !PossibleFunctionalBlockPopAndStackDelta(_, block, _, _, _).
-
-.decl Analytics_LocalBlockEdge(from: IRBlock, to: IRBlock)
-.output Analytics_LocalBlockEdge
-
-Analytics_LocalBlockEdge(from, to):-
-  LocalBlockEdge(from, to).
+Analytics_BlocksLocalOrNot(block1, block2) :-
+   LocalBlockEdge(block1, block2),
+   IRInFunction(block1, fun1),
+   IRInFunction(block2, fun2),
+   fun1 != fun2.
