@@ -19,8 +19,31 @@ Analytics_Jumps(block) :-
 .decl Analytics_ReachableBlocks(block: Block)
 .output Analytics_ReachableBlocks
 
-Analytics_ReachableBlocks(blk):-
-  global.ReachableContext(_, blk).
+.decl Analytics_UnreachableBlock(block: Block)
+.output Analytics_UnreachableBlock
+
+#ifdef BLOCK_CLONING
+
+Analytics_ReachableBlocks(originalBlock):-
+  postTrans.Statement_Block(_, block),
+  blockCloner.Block_OriginalBlock(block, originalBlock).
+
+Analytics_UnreachableBlock(originalBlock):-
+  postTrans.Statement_Block(_, block),
+  blockCloner.Block_OriginalBlock(block, originalBlock),
+  !Analytics_ReachableBlocks(originalBlock).
+
+#else
+
+Analytics_ReachableBlocks(block):-
+  global.ReachableContext(_, block).
+
+Analytics_UnreachableBlock(block) :-
+  postTrans.Statement_Block(_, block),
+  !global.ReachableContext(_, block).
+
+#endif
+
 
 .decl Analytics_Contexts(ctx: global.sens.Context)
 .output Analytics_Contexts
@@ -218,14 +241,6 @@ Analytics_BlocksLocalOrNot(block1, block2) :-
    IRInFunction(block1, fun1),
    IRInFunction(block2, fun2),
    fun1 != fun2.
-
-
-.decl Analytics_UnreachableBlock(block: Block)
-.output Analytics_UnreachableBlock
-
-Analytics_UnreachableBlock(block) :-
-   postTrans.Statement_Block(_, block),
-   !global.ReachableContext(_, block).
 
 .decl Analytics_FunctionCall(block: IRBlock)
 .output Analytics_FunctionCall
