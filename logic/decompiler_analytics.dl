@@ -25,6 +25,7 @@ Analytics_Jumps(block) :-
 #ifdef BLOCK_CLONING
 
 Analytics_ReachableBlocks(originalBlock):-
+  global.ReachableContext(_, block),
   postTrans.Statement_Block(_, block),
   blockCloner.Block_OriginalBlock(block, originalBlock).
 
@@ -36,9 +37,11 @@ Analytics_UnreachableBlock(originalBlock):-
 #else
 
 Analytics_ReachableBlocks(block):-
+  preTrans.Statement_Block(_, block),
   global.ReachableContext(_, block).
 
-Analytics_UnreachableBlock(block) :-
+Analytics_UnreachableBlock(block):-
+  preTrans.Statement_Block(_, block),
   postTrans.Statement_Block(_, block),
   !global.ReachableContext(_, block).
 
