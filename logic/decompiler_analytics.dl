@@ -49,7 +49,7 @@ Analytics_UnreachableBlock(originalBlock):-
 
 Analytics_ReachableBlocksInTAC(originalBlock):-
   Analytics_ReachableBlocks(originalBlock),
-  blockCloner.Block_OriginalBlock(block, originalBlock)
+  blockCloner.Block_OriginalBlock(block, originalBlock),
   Block_IRBlock(block, _, irblock),
   TAC_Block(_, irblock).
 
