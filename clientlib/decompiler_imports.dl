@@ -126,6 +126,10 @@ IsPublicFunction(func) :- PublicFunctionSelector(func, _).
 .decl OriginalStatement_Block(stmt:OriginalStatement, block:Block)
 .input OriginalStatement_Block(IO="file", filename="TAC_OriginalStatement_Block.csv", delimiter="\t")
 
+// Relation that links statements to ones in the original bytecode
+.decl Statement_OriginalStatement(stmt:Statement, originalStatement:OriginalStatement)
+.input Statement_OriginalStatement(IO="file", filename="TAC_Statement_OriginalStatement.csv", delimiter="\t")
+
 // Code chunks accessed
 .decl Block_CodeChunkAccessed(block: Block, chunk_id: Chunk)
 .input Block_CodeChunkAccessed(IO="file", filename="TAC_Block_CodeChunkAccessed.csv", delimiter="\t")

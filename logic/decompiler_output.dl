@@ -1,8 +1,8 @@
 // VERY IMPORTANT: IF YOU CHANGE ANY OUTPUT RELATION IN THIS FILE,
 // PLEASE ALSO CHANGE clientlib/decompiler_imports.dl
+// Also clientlib/function_inliner.dl
 
 .type TACVariable <: symbol
-
 
 .output ByteCodeHex(IO="file", filename="bytecode.hex")
 
@@ -278,9 +278,25 @@ TAC_Block_Head(block, irstmt) :-
    Statement_IRStatement(stmt, _, irstmt),
    postTrans.IsBasicBlockHead(stmt).
 
+.decl TAC_Statement_OriginalStatement(irstmt: IRStatement, stmt: Statement)
 
-.decl TAC_OriginalStatement_Block(stmt: Statement, irbock: IRBlock)
-.output TAC_OriginalStatement_Block
+// unmodified statements
+TAC_Statement_OriginalStatement(irstmt, stmt) :-
+  Statement_IRStatement(stmt, _, irstmt),
+  preTrans.Statement_Block(stmt, _).
+
+// Inserted statements that didn't exist before
+TAC_Statement_OriginalStatement(irstmt, stmt_nexthead) :-
+  Statement_IRStatement(stmt, _, irstmt),
+  !preTrans.Statement_Block(stmt, _), // didn't exist
+  IRStatement_Block(irstmt, irblock),
+  LocalBlockEdge(irblock, irblock_next),
+  Block_IRBlock(block_next, _, irblock_next),
+  stmt_nexthead = as(block_next, Statement).
+
+.output TAC_Statement_OriginalStatement
+
+.decl TAC_OriginalStatement_Block(original_stmt: Statement, irblock: IRBlock)
 
 // unmodified statements
 TAC_OriginalStatement_Block(stmt, irblock) :-
