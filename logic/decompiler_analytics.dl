@@ -47,6 +47,12 @@ Analytics_UnreachableBlock(originalBlock):-
   blockCloner.Block_OriginalBlock(block, originalBlock),
   !Analytics_ReachableBlocks(originalBlock).
 
+Analytics_ReachableBlocksInTAC(originalBlock):-
+  Analytics_ReachableBlocks(originalBlock),
+  blockCloner.Block_OriginalBlock(block, originalBlock)
+  Block_IRBlock(block, _, irblock),
+  TAC_Block(_, irblock).
+
 #else
 
 Analytics_ReachableBlocks(block):-
@@ -58,17 +64,16 @@ Analytics_UnreachableBlock(block):-
   postTrans.Statement_Block(_, block),
   !global.ReachableContext(_, block).
 
+Analytics_ReachableBlocksInTAC(block):-
+  Analytics_ReachableBlocks(block),
+  Block_IRBlock(block, _, irblock),
+  TAC_Block(_, irblock).
+
 #endif
 
-
-Analytics_ReachableBlocksInTAC(blk):-
-  Analytics_ReachableBlocks(blk),
-  Block_IRBlock(blk, _, block),
-  TAC_Block(_, block).
-
-Analytics_BlockHasNoTACBlock(blk):-
-  Analytics_ReachableBlocks(blk),
-  !Analytics_ReachableBlocksInTAC(blk).
+Analytics_BlockHasNoTACBlock(block):-
+  Analytics_ReachableBlocks(block),
+  !Analytics_ReachableBlocksInTAC(block).
 
 /**
   Metrics that give more insights on the global CFG analysis
