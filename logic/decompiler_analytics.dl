@@ -300,6 +300,13 @@ Analytics_JumpToManyWithoutGlobalImprecision(reportBlock):-
   JumpToMany_ImprecisionSource(reportBlock, sourceBlock),
   !Analytics_PolymorphicTargetSameCtx(sourceBlock).
 
+// To be used by 2-phase decompilation strategies
+.decl Analytics_NextRoundCloningCandidate(block: Block)
+.output Analytics_NextRoundCloningCandidate
+
+Analytics_NextRoundCloningCandidate(block):-
+  JumpToMany_ImprecisionSource(_, block).
+
 // TODO: Figure out if Analytics_UnknownOperand works better than Analytics_StmtMissingOperand, should delete otherwise
 .decl Analytics_UnknownOperand(stmt: IRStatement)
 .output Analytics_UnknownOperand

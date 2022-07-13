@@ -659,8 +659,7 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
 
 #ifdef BLOCK_CLONING
 // Enable the early cloning of blocks to increase precision (sacrificing performance)
-
-.init blockCloner = HeuristicBlockCloner
+.init blockCloner = BLOCK_CLONING
 COPY_CODE(blockCloner, factReader)
 COPY_OUTPUT(preTrans, blockCloner)
 

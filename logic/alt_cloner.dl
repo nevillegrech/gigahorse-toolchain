@@ -1,0 +1,4 @@
+
+#define BLOCK_CLONING InputBlockCloner
+
+#include "main.dl"

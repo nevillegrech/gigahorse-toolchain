@@ -43,6 +43,9 @@ DEFAULT_DECOMPILER_DL = join(GIGAHORSE_DIR, 'logic/main.dl')
 FALLBACK_DECOMPILER_DL = join(GIGAHORSE_DIR, 'logic/alt.dl')
 """Fallback decompiler specification file, optimized for scalability."""
 
+CLONING_DECOMPILER_DL = join(GIGAHORSE_DIR, 'logic/alt_cloner.dl')
+"""Alternative decompiler version that uses cues from previous round's decompilation to be more precise."""
+
 DEFAULT_INLINER_DL = join(GIGAHORSE_DIR, 'clientlib/function_inliner.dl')
 """IR helping inliner specification file."""
 
@@ -203,6 +206,11 @@ parser.add_argument("--early_cloning",
                     default=False,
                     help="Adds a block cloning pre-process step to the decompilation pipeline, sometimes producing a more precise output.")
 
+parser.add_argument("--recursive_cloning",
+                    action="store_true",
+                    default=False,
+                    help="If decompilation is imprecise it adds a second one with a block cloning pre-process step, targetting the first round's imprecision.")
+
 parser.add_argument("-q",
                     "--quiet",
                     nargs="?",
@@ -273,7 +281,7 @@ def get_souffle_macros():
         souffle_macros+=' ENABLE_LIMITSIZE='
 
     if args.early_cloning:
-        souffle_macros+=' BLOCK_CLONING='
+        souffle_macros+=' BLOCK_CLONING=HeuristicBlockCloner'
 
     return souffle_macros
 
@@ -380,6 +388,12 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
     def run_decomp(contract_filename, in_dir, out_dir):
         try:
             run_clients([DEFAULT_DECOMPILER_DL], [], in_dir, out_dir)
+            if args.recursive_cloning:
+                imprecision_metric = len(open(join(out_dir, 'Analytics_NextRoundCloningCandidate.csv'), 'r').readlines())
+                if imprecision_metric > 0:
+                    log("Decompiled with imprecision, attempting to remove it in 2nd round.")
+                    os.symlink(join(out_dir, 'Analytics_NextRoundCloningCandidate.csv'), join(work_dir, 'InputBlockCloningCandidate.csv'))
+                    run_clients([CLONING_DECOMPILER_DL], [], in_dir, out_dir)
         except TimeoutException as e:
             if args.single_decomp:
                 raise(e)
@@ -551,6 +565,9 @@ if not args.single_decomp:
 
 if not args.disable_inline:
     compile_processes_args.append((DEFAULT_INLINER_DL, DEFAULT_INLINER_DL+SOUFFLE_COMPILED_SUFFIX))
+
+if args.recursive_cloning:
+    compile_processes_args.append((CLONING_DECOMPILER_DL, CLONING_DECOMPILER_DL+SOUFFLE_COMPILED_SUFFIX))
 
 clients_split = [a.strip() for a in args.client.split(',')]
 souffle_clients = [a for a in clients_split if a.endswith('.dl')]
