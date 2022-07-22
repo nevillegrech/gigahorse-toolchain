@@ -297,6 +297,7 @@ TAC_Statement_OriginalStatement(irstmt, stmt_nexthead) :-
 .output TAC_Statement_OriginalStatement
 
 .decl TAC_OriginalStatement_Block(original_stmt: Statement, irblock: IRBlock)
+.output TAC_OriginalStatement_Block
 
 // unmodified statements
 TAC_OriginalStatement_Block(stmt, irblock) :-
