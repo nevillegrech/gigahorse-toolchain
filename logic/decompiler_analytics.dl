@@ -102,6 +102,24 @@ Analytics_Block_NumberOfContexts(block, ctxNum):-
   GloballyReachableBlocks(block),
   ctxNum = count : { global.ReachableContext(_, block) }.
 
+.decl Analytics_Block_NumberOfContextsJump(block: Block, ctxNum: number, prev: Block, prevNum: number)
+.output Analytics_Block_NumberOfContextsJump
+
+Analytics_Block_NumberOfContextsJump(block, ctxNum, prev, maxPrev):-
+  Analytics_Block_NumberOfContexts(block, ctxNum),
+  maxPrev = max prevCtxNum : { global.BlockEdge(_, prevB, _, block), Analytics_Block_NumberOfContexts(prevB, prevCtxNum)},
+  global.BlockEdge(_, prev, _, block),
+  Analytics_Block_NumberOfContexts(prev, maxPrev),
+  ctxNum > maxPrev * 2.
+
+.decl Analytics_Block_TimesInContexts(block: Block, ctxNum: number)
+.output Analytics_Block_TimesInContexts
+
+Analytics_Block_TimesInContexts(block, timesInContext):-
+  GloballyReachableBlocks(block),
+  timesInContext = count : { global.sens.ContextContainsBlock(_, block, _) }.
+
+
 .decl Verbatim_BlocksReachabilityMetric(blocks: number, totalReach: number, avg: float)
 .output Verbatim_BlocksReachabilityMetric
 
