@@ -480,15 +480,17 @@ def get_gigahorse_analytics(out_dir, analytics):
         stat_name = fname.split(".")[0]
         analytics[stat_name] = open(join(out_dir, fname)).read()
 
-    for desc_fname in os.listdir(out_dir):
-        if desc_fname.startswith('VulnerabilityDescription_'):
-            fname = desc_fname[25:]
-            stat_name = fname.split(".")[0]
-            fpath = join(out_dir, fname)
-            if os.path.exists(fpath):
-                analytics[stat_name] = open(fpath).read()
-            else:
-                analytics[stat_name] = ''
+    vul_types = defaultdict(int)
+    try:
+        f = open(join(out_dir, 'vulnerability.csv'))
+    except FileNotFoundError:
+        return
+    for raw_line in f:
+        line_split = raw_line.split('\t')
+        if line_split:
+            vulnerability_type, confidence, *_ = line_split
+            key = f'{confidence}: {vulnerability_type}'
+            analytics[key] = analytics.get(key, 0) + 1
 
 def set_memory_limit(memory_limit):
     resource.setrlimit(resource.RLIMIT_AS, (memory_limit, memory_limit))
@@ -694,11 +696,10 @@ try:
         for m in meta:
             meta_counts[m] += 1
         for k, a in analytics.items():
+            if ':' in k: # tell-tale sign for vulnerability key
+                vulnerability_counts[k] += 1
             if isinstance(a, int):
                 analytics_sums[k] += a
-            if isinstance(a, str) and not k.startswith('Verbatim_'):
-                # whether it's flagged or not
-                vulnerability_counts[k] += int(len(a) > 0)
             if k in all_files:
                 all_files.remove(k)
 
