@@ -1,5 +1,5 @@
 
-.output BlockEdge, FallthroughEdge, BlockJumpValidTarget, BlockJumpTarget, MaybeInFunctionUnderContext
+.output global.BlockEdge, global.FallthroughEdge, global.BlockJumpValidTarget, global.BlockJumpTarget, MaybeInFunctionUnderContext
 .output NotValidReturnBlock, NotValidReturnEdge
 .output MaybeFunctionCallReturn // DEBUG
 .output PotentialCall // DEBUG
@@ -20,45 +20,45 @@
 // The following relations print a number instead of a context in record form to help debugging
 // Without them looking (via grep) for a block using its id will return many contexts as well.
 
-.decl ContextOrd(ctx:Context, ctxOrd:number)
+.decl ContextOrd(ctx:global.sens.Context, ctxOrd:number)
 .output ContextOrd
 ContextOrd(ctx, ord(ctx)):-
-  ReachableContext(ctx, _).
+  global.ReachableContext(ctx, _).
 
 .decl BlockEdgeOrd(callerCtx:number, from:Block, calleeCtx:number, to:Block)
 .output BlockEdgeOrd
 BlockEdgeOrd(ord(callerCtx), from, ord(calleeCtx), to):-
-  BlockEdge(callerCtx, from, calleeCtx, to).
+  global.BlockEdge(callerCtx, from, calleeCtx, to).
 
 .decl BlockOutputContentsOrd(context:number, block:Block, index:StackIndex, var:Variable)
 .output BlockOutputContentsOrd
 BlockOutputContentsOrd(ord(context), block, index, var):-
-  BlockOutputContents(context, block, index, var).
+  global.BlockOutputContents(context, block, index, var).
 
 .decl BlockInputContentsOrd(context:number, block:Block, index:StackIndex, var:Variable)
 .output BlockInputContentsOrd
 BlockInputContentsOrd(ord(context), block, index, var):-
-  BlockInputContents(context, block, index, var).
+  global.BlockInputContents(context, block, index, var).
 
 .decl BlockJumpTargetOrd(context:number, block:Block, var:Variable)
 .output BlockJumpTargetOrd
 BlockJumpTargetOrd(ord(context), block, var):-
-  BlockJumpTarget(context, block, var).
+  global.BlockJumpTarget(context, block, var).
 
 .decl BlockJumpValidTargetOrd(context:number, block:Block, var:Variable, target:Block)
 .output BlockJumpValidTargetOrd
 BlockJumpValidTargetOrd(ord(context), block, var, target):-
-  BlockJumpValidTarget(context, block, var, target).
+  global.BlockJumpValidTarget(context, block, var, target).
 
 .decl MergeContextOrd(ctx: number, caller: Block, newContext: number)
 .output MergeContextOrd
 MergeContextOrd(ord(ctx), caller, ord(newContext)):-
-  MergeContext(ctx, caller, newContext).
+  global.sens.MergeContext(ctx, caller, newContext).
 
 .decl ReachableContextOrd(ctx: number, block: Block)
 .output ReachableContextOrd
 ReachableContextOrd(ord(ctx), block):-
-  ReachableContext(ctx, block).
+  global.ReachableContext(ctx, block).
 
 .decl IsFunctionCallReturnOrd(ctx:number, caller:Block, func:Block, retCtx:number, retBlock:Block, retTarget:Block)
 .output IsFunctionCallReturnOrd
@@ -79,3 +79,5 @@ PossibleReturnAddressWithRankOrd(ord(callCtx), targetSetter, ord(retCtx), retBlo
 .output MaybeInFunctionUnderContextOrd
 MaybeInFunctionUnderContextOrd(ord(ctx), block, func):-
   MaybeInFunctionUnderContext(ctx, block, func).
+
+// TODO: Add reverse analysis to track imprecision to its source.
