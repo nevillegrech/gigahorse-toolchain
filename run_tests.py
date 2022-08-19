@@ -91,12 +91,10 @@ class LogicTestCase(unittest.TestCase):
 
         analytics = {}
         for x, y in temp_analytics.items():
-            if isinstance(y, str):
-                analytics[x] = len(y.splitlines()) if y else 0
-            else:
-                analytics[x] = y
+            analytics[x] = y
 
-        self.assertTrue(all(within_margin(analytics[metric], expected, margin) for metric, expected, margin in self.expected_results))
+        for metric, expected, margin in self.expected_results:
+            self.assertTrue(within_margin(analytics[metric], expected, margin), f"Value for {metric} ({analytics[metric]}) not within margin of expected value ({expected}).")
 
 
 def discover_logic_tests(current_config: MutableMapping[str, Any], directory: str) -> Iterator[Tuple[Mapping[str, Any], str]]:
@@ -130,11 +128,11 @@ def run_tests(test_dirs: List[str]):
         test_suite = unittest.TestSuite()
         for config, hex_path in discover_logic_tests({}, test_dir):
             test_id = hex_path[len(test_dir) + 1:-4].replace('/', '.')
-
+            print(config, hex_path)
             if config:
                 test_suite.addTest(LogicTestCase(test_id, test_dir, hex_path, config))
 
-        unittest.TextTestRunner().run(test_suite)
+        unittest.TextTestRunner(verbosity=2).run(test_suite)
 
 
 def main():
