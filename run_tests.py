@@ -84,7 +84,7 @@ class LogicTestCase(unittest.TestCase):
         with open(join(self.working_dir, 'stderr'), 'wb') as f:
             f.write(result.stderr)
 
-        self.assertTrue(result.returncode == 0)
+        self.assertTrue(result.returncode == 0, f"Gigahorse exited with an error code: {result.returncode}")
 
         with open(self.results_file) as f:
             (_, _, _, temp_analytics), = json.load(f)
@@ -128,7 +128,6 @@ def run_tests(test_dirs: List[str]):
         test_suite = unittest.TestSuite()
         for config, hex_path in discover_logic_tests({}, test_dir):
             test_id = hex_path[len(test_dir) + 1:-4].replace('/', '.')
-            print(config, hex_path)
             if config:
                 test_suite.addTest(LogicTestCase(test_id, test_dir, hex_path, config))
 
