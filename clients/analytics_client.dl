@@ -166,3 +166,21 @@ Analytics_SenderGuard(globalVar):-
 
 Analytics_ReentrancyGuard(glovalVar):-
   ReentrancyGuard(glovalVar).
+
+.decl Analytics_GlobalVariable(globalVar: symbol)
+.output Analytics_GlobalVariable
+
+Analytics_GlobalVariable(globalVar):-
+  GlobalVariable(globalVar).
+
+.decl Analytics_Map(globalVar: symbol)
+.output Analytics_Map
+
+Analytics_Map(globalVar):-
+  MapElementStmt(_, globalVar, _).
+
+.decl Analytics_StorageArray(globalVar: symbol)
+.output Analytics_StorageArray
+
+Analytics_StorageArray(globalVar):-
+  ArrayElementStmt(_, globalVar, _).
