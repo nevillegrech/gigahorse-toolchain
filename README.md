@@ -63,6 +63,8 @@ Example (with client analysis):
 ./gigahorse.py  -j <number of jobs> -C clients/visualizeout.py <contracts>
 ```
 
+(The clients following the `-C` flag can be a comma-separated list, with no spaces, of path-reachable or fully-qualified filenames.)
+
 Gigahorse can also be used in "bulk analysis" mode, by replacing <contracts> by a directory filled with contracts.
 
 For additional instructions in tuning the Gigahorse framework see [Tuning.md](Tuning.md).
