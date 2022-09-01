@@ -21,7 +21,7 @@ DEBUG_OUTPUT(InductionVariableDecreasesByConst)
 DEBUG_OUTPUT(InductionVariableStartsAtConst)
 DEBUG_OUTPUT(InductionVariableLowerBoundVar)
 DEBUG_OUTPUT(InductionVariableUpperBoundVar)
-DEBUG_OUTPUT(WellFromedLoopInductionVariable)
+DEBUG_OUTPUT(WellFormedLoopInductionVariable)
 DEBUG_OUTPUT(MemoryCopyLoop)
 DEBUG_OUTPUT(MemoryCopyLoopConstLength)
 
@@ -34,9 +34,9 @@ DEBUG_OUTPUT(MemoryCopyLoopConstLength)
 .decl InductionVariableUpperBoundVar(loop:Block, indVar:SimpleInductionVariable, bound:Variable)
 .decl MemoryCopyLoop(loop:Block, memAddrFrom:Variable, memAddrTo:Variable)
 .decl MemoryCopyLoopConstLength(loop:Block, memAddrFrom:Variable, memAddrTo:Variable, length:number)
-.decl WellFromedLoopInductionVariable(loop:Block, inductionPhiVar:Variable, simpleIndVar:SimpleInductionVariable)
+.decl WellFormedLoopInductionVariable(loop:Block, inductionPhiVar:Variable, simpleIndVar:SimpleInductionVariable)
 
-WellFromedLoopInductionVariable(loop, phiVar, [beforeLoopVar, inLoopVar]):-
+WellFormedLoopInductionVariable(loop, phiVar, [beforeLoopVar, inLoopVar]):-
   InductionVariable(phiVar, loop),
   PHIStmtTwoUses(_, beforeLoopVar, inLoopVar, phiVar),
   Statement_Defines(beforeStmt, beforeLoopVar, _),
@@ -46,32 +46,32 @@ WellFromedLoopInductionVariable(loop, phiVar, [beforeLoopVar, inLoopVar]):-
   StatementInStructuredLoop(inLoopStmt, loop).
 
 InductionVariableIncreasesByConst(loop, [beforeLoopVar, inLoopVar], @hex_to_number(const)):-
-  WellFromedLoopInductionVariable(loop, phiVar, [beforeLoopVar, inLoopVar]),
+  WellFormedLoopInductionVariable(loop, phiVar, [beforeLoopVar, inLoopVar]),
   VarPlusConst(phiVar, inLoopVar, const).
 
 InductionVariableDecreasesByConst(loop, [beforeLoopVar, inLoopVar], @hex_to_number(const)):-
-  WellFromedLoopInductionVariable(loop, phiVar, [beforeLoopVar, inLoopVar]),
+  WellFormedLoopInductionVariable(loop, phiVar, [beforeLoopVar, inLoopVar]),
   VarMinusConst(phiVar, inLoopVar, const).
 
 InductionVariableStartsAtConst(loop, [beforeLoopVar, inLoopVar], const):-
-  WellFromedLoopInductionVariable(loop, _, [beforeLoopVar, inLoopVar]),
+  WellFormedLoopInductionVariable(loop, _, [beforeLoopVar, inLoopVar]),
   BasicVariable_Value(beforeLoopVar, const).
 
 InductionVariableLowerBoundVar(loop, [beforeLoopVar, inLoopVar], boundVar):-
   LoopExitCond(condVar, loop),
-  WellFromedLoopInductionVariable(loop, _, [beforeLoopVar, inLoopVar]),
+  WellFormedLoopInductionVariable(loop, _, [beforeLoopVar, inLoopVar]),
   PHIStmtTwoUses(_, beforeLoopVar, inLoopVar, phiVar),
   LT(_, phiVar, boundVar, condVar).
 
 InductionVariableUpperBoundVar(loop, [beforeLoopVar, inLoopVar], boundVar):-
   LoopExitCond(condVar, loop),
-  WellFromedLoopInductionVariable(loop, _, [beforeLoopVar, inLoopVar]),
+  WellFormedLoopInductionVariable(loop, _, [beforeLoopVar, inLoopVar]),
   PHIStmtTwoUses(_, beforeLoopVar, inLoopVar, phiVar),
   GT(_, phiVar, boundVar, condVar).
 
 InductionVariableUpperBoundVar(loop, [beforeLoopVar, inLoopVar], boundVar):-
   LoopExitCond(condVar, loop),
-  WellFromedLoopInductionVariable(loop, _, [beforeLoopVar, inLoopVar]),
+  WellFormedLoopInductionVariable(loop, _, [beforeLoopVar, inLoopVar]),
   PHIStmtTwoUses(_, beforeLoopVar, inLoopVar, phiVar),
   LT(_, phiVar, boundVar, ltVar),
   ISZERO(_, ltVar, condVar).
