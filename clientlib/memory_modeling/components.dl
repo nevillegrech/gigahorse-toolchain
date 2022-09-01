@@ -27,6 +27,7 @@
 	.decl FromStmtToStmtDiffBlockHavePathUninterrupted(stmt1:Statement, stmt3:Statement)
 
 	.decl ReachableBypassingAny(stmt1:Statement, stmt2:Statement)
+	.decl ReachableBypassingAnyStrict(stmt1:Statement, stmt2:Statement)
 
 
 	BlockHasFromStmt(block, stmt):-
@@ -93,6 +94,15 @@
 	ReachableBypassingAny(stmt1, stmt3):-
 	  FromStmtToStmtSameBlockUninterrupted(stmt1, stmt3);
 	  FromStmtToStmtDiffBlockHavePathUninterrupted(stmt1, stmt3).
+
+	ReachableBypassingAnyStrict(stmt1, stmt3):-
+	  FromStmtToStmtSameBlockUninterrupted(stmt1, stmt3);
+	  (
+	    FromStmtToStmtDiffBlockHavePathUninterrupted(stmt1, stmt3),
+		Statement_Block(stmt1, block1),
+		Statement_Block(stmt2, block2),
+		Dominates(block1, block2)
+	  ).
 }
 
 /*
@@ -120,6 +130,7 @@
 	.decl FromStmtToStmtDiffBlockHavePathUninterrupted(stmt1:Statement, stmt3:Statement, arg:symbol)
 
 	.decl ReachableBypassingAny(stmt1:Statement, stmt2:Statement, arg:symbol)
+	.decl ReachableBypassingAnyStrict(stmt1:Statement, stmt2:Statement, arg:symbol)
 
 
 	BlockHasFromStmt(block, stmt, arg):-
@@ -186,6 +197,15 @@
 	ReachableBypassingAny(stmt1, stmt3, arg):-
 	  FromStmtToStmtSameBlockUninterrupted(stmt1, stmt3, arg);
 	  FromStmtToStmtDiffBlockHavePathUninterrupted(stmt1, stmt3, arg).
+
+	ReachableBypassingAnyStrict(stmt1, stmt3, arg):-
+	  FromStmtToStmtSameBlockUninterrupted(stmt1, stmt3, arg);
+	  (
+	    FromStmtToStmtDiffBlockHavePathUninterrupted(stmt1, stmt3, arg),
+		Statement_Block(stmt1, block1),
+		Statement_Block(stmt2, block2),
+		Dominates(block1, block2)
+	  ).
 }
 
 /*
@@ -210,7 +230,7 @@
 	.decl FromStmtToStmtDiffBlockHavePathUninterrupted(stmt1:Statement, stmt3:Statement, arg:symbol)
 
 	.decl ReachableBypassingAny(stmt1:Statement, stmt2:Statement, arg:symbol)
-
+    .decl ReachableBypassingAnyStrict(stmt1:Statement, stmt2:Statement, arg:symbol)
 
 	BlockHasFromStmt(block, stmt, arg, len):-
 	  From(stmt, arg, len),
@@ -287,6 +307,15 @@
 	ReachableBypassingAny(stmt1, stmt3, arg):-
 	  FromStmtToStmtSameBlockUninterrupted(stmt1, stmt3, arg);
 	  FromStmtToStmtDiffBlockHavePathUninterrupted(stmt1, stmt3, arg).
+
+	ReachableBypassingAnyStrict(stmt1, stmt3, arg):-
+	  FromStmtToStmtSameBlockUninterrupted(stmt1, stmt3, arg);
+	  (
+	    FromStmtToStmtDiffBlockHavePathUninterrupted(stmt1, stmt3, arg),
+		Statement_Block(stmt1, block1),
+		Statement_Block(stmt2, block2),
+		Dominates(block1, block2)
+	  ).
 }
 
 /**
