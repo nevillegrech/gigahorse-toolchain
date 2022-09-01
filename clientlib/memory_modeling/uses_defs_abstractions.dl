@@ -148,19 +148,20 @@ MemoryModelingTempStmt(mstore):-
   allowing it to be more general (mloads can be affected by multiple memory writting ops)
 ***/
 
-/*
+
 // This rule breaks statements '0x398b0x349b0x16b30x649' and '0x39710x349b0x16b30x649' for 'D1DB92083593ABD001EE99A49341144A'
 // REVIEW
 MemoryModelingTempStmt(mstore),
+MemoryModelingTempStmt(mload),
 StatementUsesMemory_ActualArg(mload, actual, 0):-
-  memWriteToMemConsStmtImpr.ReachableBypassingAny(mstore, mload, addr),
+  memWriteToMemConsStmtImpr.ReachableBypassingAnyStrict(mstore, mload, addr),
   MLOAD(mload, indexVar, _),
   MSTORE(mstore, _, actual),
   // We handle the loads and stores of the free memory pointer differently
   addr != "0x40",
   // skip loads of an array's length for now
   !VarIsArray(indexVar, _).
-*/
+
 
 
 /**
