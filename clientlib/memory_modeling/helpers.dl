@@ -80,9 +80,15 @@ VarPlusConst(var, varPlus, const):-
   ADDFix(_, var, constVar, varPlus),
   BasicVariable_Value(constVar, const).
 
+VarPlusConst(var, var, "0x0"):-
+  Statement_Defines(_, var, _).
+
 VarMinusConst(var, varMinus, const):-
   SUB(_, var, constVar, varMinus),
   BasicVariable_Value(constVar, const).
+
+VarMinusConst(var, var, "0x0"):-
+  Statement_Defines(_, var, _).
 
 VarPlusThrirtyOneAndNotThirtyOne(var, result):-
   Variable_Value(notThrirtyOne, "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0"),
@@ -106,9 +112,15 @@ VarTimesConstant(var, constVal, result):-
   (MUL(_, var, constVar, result); MUL(_, constVar, var, result)),
   Variable_Value(constVar, constVal).
 
+VarTimesConstant(var, "0x1", var):-
+  Statement_Defines(_, var, _).
+
 VarDivByConstant(var, constVal, result):-
   DIV(_, var, constVar, result),
   Variable_Value(constVar, constVal).  
+
+VarDivByConstant(var, "0x1", var):-
+  Statement_Defines(_, var, _).
 
 .decl CALLDATALOADOfConstant(cdl:Statement, constHex:symbol, constNum:number)
 
