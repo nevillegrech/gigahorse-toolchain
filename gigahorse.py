@@ -348,6 +348,8 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
         errors = []
         timeouts = []
         for souffle_client in souffle_clients:
+            client_name = souffle_client.split('/')[-1]
+            err_filename = join(out_dir, client_name+'.err')
             if not args.interpreted:
                 analysis_args = [
                     join(os.getcwd(), souffle_client+SOUFFLE_COMPILED_SUFFIX),
@@ -360,8 +362,10 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
                     f"--fact-dir={in_dir}", f"--output-dir={out_dir}",
                     "-M", get_souffle_macros()
                 ]
-            if run_process(analysis_args, calc_timeout(souffle_client)) < 0:
+            if run_process(analysis_args, calc_timeout(souffle_client), stderr=open(err_filename, 'w')) < 0:
                 timeouts.append(souffle_client)
+            if len(open(err_filename).read()) > 0:
+                errors.append(client_name)
 
         for other_client in other_clients:
             other_client_split = [o for o in other_client.split(' ') if o]
