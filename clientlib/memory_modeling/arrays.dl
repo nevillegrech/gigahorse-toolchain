@@ -166,7 +166,7 @@ MemoryStatement_ActualArg(stmt, actual, index):-
 ArrayIndexAccess(array, indexVar, index):-
   Array_ElementLength(array, elementSize),
   ADDFix(_, var, array, indexVar),
-  VarPlusConst(other, var, _),
+  VarPlusConst(other, _, var),
   VarTimesConstant(index, elementSize, other).
 
 /*
@@ -180,7 +180,7 @@ ArrayIndexAccess(array, indexVar, index):-
 
 ArrayIndexAccess(array, indexVar, index):-
   ArrayIndexAccess(array, otherIndexVar, index),
-  VarPlusConst(otherIndexVar, indexVar, _).
+  VarPlusConst(otherIndexVar, _, indexVar).
 
 ArrayIndexAccess(array, indexVar, index):-
   Array_ElementLength(array, elementSize),
@@ -453,7 +453,7 @@ ArrayAllocationInternal("DUMMY", array, elementSize, arrayLengthVar):-
   MSTORE(_, array, arrayLengthVar), 
   ADD(_, inductionVar, array, result),
   InductionVariable(inductionVar, _),
-  VarPlusConst(inductionVar, _, elementSizeInBytes),
+  VarPlusConst(inductionVar, elementSizeInBytes, _),
   elementSizeInBytes != "0x0",
   elementSize = @div_256(elementSizeInBytes, "0x20"),
   standardflowanalysis.Flows(result, mstoreAddr),
