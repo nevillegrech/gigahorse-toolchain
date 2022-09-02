@@ -47,11 +47,11 @@ WellFormedLoopInductionVariable(loop, phiVar, [beforeLoopVar, inLoopVar]):-
 
 InductionVariableIncreasesByConst(loop, [beforeLoopVar, inLoopVar], @hex_to_number(const)):-
   WellFormedLoopInductionVariable(loop, phiVar, [beforeLoopVar, inLoopVar]),
-  VarPlusConst(phiVar, inLoopVar, const).
+  VarPlusConst(phiVar, const, inLoopVar).
 
 InductionVariableDecreasesByConst(loop, [beforeLoopVar, inLoopVar], @hex_to_number(const)):-
   WellFormedLoopInductionVariable(loop, phiVar, [beforeLoopVar, inLoopVar]),
-  VarMinusConst(phiVar, inLoopVar, const).
+  VarMinusConst(phiVar, const, inLoopVar).
 
 InductionVariableStartsAtConst(loop, [beforeLoopVar, inLoopVar], const):-
   WellFormedLoopInductionVariable(loop, _, [beforeLoopVar, inLoopVar]),
