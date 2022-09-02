@@ -56,6 +56,7 @@ DEBUG_OUTPUT(StatementUsesMemory_UsesArray)
 
 .decl MLOADReadsArrayLength(stmt:Statement)
 
+// YS:! No need to check aliasing, has to be the same var?
 IsCallDataArrayVar(plusFourVar, argHex),
 CallDataLoadReadsLength(cdl, cdl2, plusFourVar, lenVar, argHex):-
   CALLDATALOAD(cdl, argIdVar, toVar),
@@ -161,11 +162,25 @@ MemoryStatement_ActualArg(stmt, arrVarRep, 0):-
 MemoryStatement_ActualArg(stmt, actual, index):-
   StatementUsesMemory_ActualArg(stmt, actual, index).
 
+// Fuzzier
+ArrayIndexAccess(array, indexVar, index):-
+  Array_ElementLength(array, elementSize),
+  ADDFix(_, var, array, indexVar),
+  VarPlusConst(other, var, _),
+  VarTimesConstant(index, elementSize, other).
+
+/*
+// More precise
 ArrayIndexAccess(array, indexVar, index):-
   Array_ElementLength(array, elementSize),
   ADDFix(_, var, array, indexVar),
   VarPlusThirtyTwo(other, var),
   VarTimesConstant(index, elementSize, other).
+*/
+
+ArrayIndexAccess(array, indexVar, index):-
+  ArrayIndexAccess(array, otherIndexVar, index),
+  VarPlusConst(otherIndexVar, indexVar, _).
 
 ArrayIndexAccess(array, indexVar, index):-
   Array_ElementLength(array, elementSize),
@@ -427,6 +442,23 @@ ArrayAllocationInternal(mstore, array, elementSize, arrayLengthVar):-
   ADDFix(_, arraySizeBytes, arrayStart, updatedFMP),
   Statement_Uses(mstore, updatedFMP, 1),
   MSTOREFreePtr(mstore).
+
+// Note HACK: allocation mstore not retrieved. Currently ArrayAllocationInternal
+// is not using its first variable meaningfully anyway.
+IsRegularArrayVar(array),
+Array_ElementLength(array, elementSize),
+//ArrayIndexAccess(array, indexVar, inductionVar),
+ArrayAllocationInternal("DUMMY", array, elementSize, arrayLengthVar):-
+  PossibleArray(array),
+  MSTORE(_, array, arrayLengthVar), 
+  ADD(_, inductionVar, array, result),
+  InductionVariable(inductionVar, _),
+  VarPlusConst(inductionVar, _, elementSizeInBytes),
+  elementSizeInBytes != "0x0",
+  elementSize = @div_256(elementSizeInBytes, "0x20"),
+  standardflowanalysis.Flows(result, mstoreAddr),
+  MSTORE(_, mstoreAddr, _),
+  VarPlusThirtyTwo(array, _ /*indexVar*/).
 
 
 /**

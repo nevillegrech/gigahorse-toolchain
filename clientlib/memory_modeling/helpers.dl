@@ -40,11 +40,15 @@ ADDFix(stmt, a, b, aPlusB):-
   ADD(stmt, a, b, aPlusB);
   ADD(stmt, b, a, aPlusB).
 
+ADDFix(stmt, other, b, aPlusB):-
+  ADDFix(_, a, b, aPlusB),
+  PHI(stmt, a, other).
 
 ADDFixx(stmt, a, b, aPlusB):-
   ADDFix(stmt, a, b, aPlusB);
   SUB(stmt, aPlusB, a, b);
   SUB(stmt, aPlusB, b, a).
+
 
 
 
