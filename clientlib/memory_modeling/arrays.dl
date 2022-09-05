@@ -347,6 +347,9 @@ PossibleArrayLoose(array):-
   VarPlusThirtyTwo(array, arrayDataStart),
   RETURNDATACOPY(_, arrayDataStart, _, _).
 
+PossibleArrayLoose(array):-
+  MSTORE(_, array, var),
+  ArrayVarLengthVar(_, var).
 
 .decl ArrayHasConstantLength(arrayVar:Variable, length:number)
 
