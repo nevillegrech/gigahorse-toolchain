@@ -21,18 +21,6 @@ DEBUG_OUTPUT(Variable_NumericValue)
 Variable_NumericValue(var, @hex_to_number(val)):-
   Variable_Value(var, val).
 
-
-.decl MSTORE8(stmt:Statement, index:Variable, from:Variable)
-MSTORE8(stmt, index, from):-
-  Statement_Opcode(stmt, "MSTORE8"),
-  Statement_Uses(stmt, index, 0),
-  Statement_Uses(stmt, from, 1).
-
-.decl MSIZE(stmt:Statement, to:Variable)
-MSIZE(stmt, to):-
-  Statement_Opcode(stmt, "MSIZE"),
-  Statement_Defines(stmt, to, 0).
-
 .decl ADDFix(stmt:Statement, a:Variable, b:Variable, to:Variable)
 .decl ADDFixx(stmt:Statement, a:Variable, b:Variable, to:Variable)
 
