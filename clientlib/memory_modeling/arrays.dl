@@ -56,6 +56,9 @@ DEBUG_OUTPUT(StatementUsesMemory_UsesArray)
 
 .decl MLOADReadsArrayLength(stmt:Statement)
 
+.decl InArrayDataVar(array:Variable, possibleIndex:Variable, inArrayData:Variable)
+DEBUG_OUTPUT(InArrayDataVar)
+
 IsCallDataArrayVar(plusFourVar, argHex),
 CallDataLoadReadsLength(cdl, cdl2, plusFourVar, lenVar, argHex):-
   CALLDATALOAD(cdl, argIdVar, toVar),
@@ -251,6 +254,33 @@ ArrayLengthVar(arrId, lenVar):-
 MLOADReadsArrayLength(mload):-
   IsRegularArrayVar(array),
   MLOAD(mload, array, _).
+
+/**
+  This relation detects the following pattern:
+  tmp = ADD index, baseVar // baseVar is equal to array - 0x20
+  vd4aa6(0x40) = CONST
+  mstoreIndex = ADD vd4aa6(0x40), tmp
+  MSTORE mstoreIndex, storedVar
+
+  This can be imprecise
+*/
+InArrayDataVar(array, possibleIndexVar, inArrayDataVar):-
+  ADDFix(_, baseVar, possibleIndexVar, tmp),
+  VarPlusConst(tmp, const, inArrayDataVar),
+  Variable_SymbolicValue(baseVar, baseVal),
+  FreePointerBasedValuesNumDiffNoMemReuse(arrayVal, baseVal, @hex_to_number(const) - 32),
+  Variable_SymbolicValue(array, arrayVal),
+  IsRegularArrayVar(array).
+
+ArrayLoadAtIndex(mload, arrId, possibleIndexVar, to):-
+  MLOAD(mload, inArrayDataVar, to),
+  InArrayDataVar(array, possibleIndexVar, inArrayDataVar),
+  VarIsArray(array, arrId).
+
+ArrayStoreAtIndex(mstore, arrId, possibleIndexVar, from):-
+  MSTORE(mstore, inArrayDataVar, from),
+  InArrayDataVar(array, possibleIndexVar, inArrayDataVar),
+  VarIsArray(array, arrId).
 
 /**
   Points somewhere in an array's data 
