@@ -119,7 +119,7 @@ ArrayDataStartVar(array, arrayStart):-
 ArrayDataStartVar(array, arrayStart):-
   IsRegularArrayVar(array),
   Variable_SymbolicValue(array, arrayVal),
-  FreePointerBasedValuesNumDiff(dataStartVal, arrayVal, 32),
+  FreePointerBasedValuesNumDiffNoMemReuse(dataStartVal, arrayVal, 32),
   Variable_SymbolicValue(arrayStart, dataStartVal),
   Statement_Defines(stmt2, arrayStart, _),
   Statement_Block(stmt2, block2),
@@ -181,12 +181,6 @@ ArrayIndexAccess(array, indexVar, index):-
   VarPlusThirtyTwo(array, arrayStart),
   ADDFix(_, indexTimesSize, arrayStart, indexVar),
   VarTimesConstant(index, elementSize, indexTimesSize).
-
-ArrayIndexAccess(array, indexVar, index):-
-  Array_ElementLength(array, elementSize),
-  VarTimesConstant(index, elementSize, other),
-  ADDFix(_, other, array, temp),
-  VarPlusThirtyTwo(temp, indexVar).
 
 ArrayIndexAccess(array, indexVar, index):-
   Array_ElementLength(array, elementSize),
