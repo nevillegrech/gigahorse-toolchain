@@ -404,8 +404,14 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
         assert not(args.restart and exists)
         analytics = {}
         contract_name = os.path.split(contract_filename)[1]
+        hex_md5: str
         with open(contract_filename) as file:
             bytecode = file.read().strip()
+            hex_md5 = hashlib.md5(bytes.fromhex(bytecode)).hexdigest()
+
+        # write md5 to output directory
+        with open(os.path.join(out_dir, "md5.csv"), 'w') as file:
+            file.write(hex_md5)
 
         if exists:
             decomp_start = time.time()
