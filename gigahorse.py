@@ -598,7 +598,7 @@ if args.restart:
 if not args.interpreted:
     for p in running_processes:
         p.join()
-        assert not(p.exitcode), "Compilation failed. Stopping."
+#        assert not(p.exitcode), "Compilation failed. Stopping."
 
     # check all programs have been compiled
     for _, v in compile_processes_args:
