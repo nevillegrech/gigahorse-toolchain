@@ -311,7 +311,7 @@ def compile_datalog(spec, executable):
         log(f"Compiling {spec} to C++ program and executable")
         compilation_command = [args.souffle_bin, '-M', souffle_macros, '-o', cache_path, spec, '-L', functor_path]
         process = subprocess.run(compilation_command, universal_newlines=True, env = souffle_env)
-        assert not(process.returncode), "Compilation failed. Stopping."
+#        assert not(process.returncode), "Compilation failed. Stopping."
 
     shutil.copy2(cache_path, executable)
 
