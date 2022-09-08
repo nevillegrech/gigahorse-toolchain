@@ -40,7 +40,11 @@ Analytics_ReachableUnderContext(ctx, block):-
 Analytics_ReachableBlocksInTAC(blk):-
   global.ReachableContext(_, blk),
   Block_IRBlock(blk, _, block),
-  TAC_Block(_, block).
+  (
+    LocalBlockEdge(block, _);
+    LocalBlockEdge(_, block);
+    TAC_Block(_, block)
+  ).
 
 // Incompleteness metric: this can happen due to our precision-favoring heuristics
 // or incompleteness due to the use of limitsize for scalability

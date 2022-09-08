@@ -1,0 +1,5 @@
+{
+    "client_path": "clients/analytics_client.dl",
+    "gigahorse_args": ["-i", "--single_decomp"],
+    "expected_results": [["Analytics_CallToSignature", 4, 0]]
+}

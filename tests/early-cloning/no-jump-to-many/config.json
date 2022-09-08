@@ -1,0 +1,5 @@
+{
+    "client_path": null,
+    "gigahorse_args": ["-i", "--disable_inline", "--single_decomp", "--early_cloning"],
+    "expected_results": [["Analytics_JumpToMany", 0, 0]]
+}
