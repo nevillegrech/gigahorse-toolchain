@@ -307,17 +307,11 @@ def compile_datalog(spec, executable):
 
     if os.path.exists(cache_path):
         log(f"Found cached executable for {spec}")
-        shutil.copy2(cache_path, executable)
     else:
         log(f"Compiling {spec} to C++ program and executable")
         compilation_command = [args.souffle_bin, '-M', souffle_macros, '-o', cache_path, spec, '-L', functor_path]
         process = subprocess.run(compilation_command, universal_newlines=True, env = souffle_env)
         assert not(process.returncode), "Compilation failed. Stopping."
-#        if not process.returncode:
-#            shutil.copy2(cache_path, executable)
-#            exit(0)
-#        else:
-#            exit(process.returncode)
 
     shutil.copy2(cache_path, executable)
 
@@ -349,8 +343,6 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
         errors = []
         timeouts = []
         for souffle_client in souffle_clients:
-            client_name = souffle_client.split('/')[-1]
-            err_filename = join(out_dir, client_name+'.err')
             if not args.interpreted:
                 analysis_args = [
                     join(os.getcwd(), souffle_client+SOUFFLE_COMPILED_SUFFIX),
@@ -363,10 +355,8 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
                     f"--fact-dir={in_dir}", f"--output-dir={out_dir}",
                     "-M", get_souffle_macros()
                 ]
-            if run_process(analysis_args, calc_timeout(souffle_client), stderr=open(err_filename, 'w')) < 0:
+            if run_process(analysis_args, calc_timeout(souffle_client)) < 0:
                 timeouts.append(souffle_client)
-            if len(open(err_filename).read()) > 0:
-                errors.append(client_name)
 
         for other_client in other_clients:
             other_client_split = [o for o in other_client.split(' ') if o]
@@ -405,14 +395,8 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
         assert not(args.restart and exists)
         analytics = {}
         contract_name = os.path.split(contract_filename)[1]
-        hex_md5: str
         with open(contract_filename) as file:
             bytecode = file.read().strip()
-            hex_md5 = hashlib.md5(bytes.fromhex(bytecode)).hexdigest()
-
-        # write md5 to output directory
-        with open(os.path.join(out_dir, "md5.csv"), 'w') as file:
-            file.write(hex_md5)
 
         if exists:
             decomp_start = time.time()
@@ -598,7 +582,6 @@ if args.restart:
 if not args.interpreted:
     for p in running_processes:
         p.join()
-#        assert not(p.exitcode), "Compilation failed. Stopping."
 
     # check all programs have been compiled
     for _, v in compile_processes_args:
