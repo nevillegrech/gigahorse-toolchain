@@ -1,0 +1,5 @@
+{
+    "client_path": "clients/analytics_client.dl",
+    "gigahorse_args": ["-i", "--single_decomp"],
+    "expected_results": [["Analytics_EventSignature", 1, 0], ["Analytics_NonModeledMLOAD", 0, 0], ["Analytics_NonModeledMSTORE", 0, 0]]
+}

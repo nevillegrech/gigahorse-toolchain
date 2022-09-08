@@ -147,6 +147,19 @@ MSTORE(stmt, index, var) :-
   Statement_Uses(stmt, index, 0),
   Statement_Uses(stmt, var, 1).
 
+.decl MSTORE8(stmt: Statement, index: Variable, from: Variable)
+
+MSTORE8(stmt, index, from):-
+  Statement_Opcode(stmt, "MSTORE8"),
+  Statement_Uses(stmt, index, 0),
+  Statement_Uses(stmt, from, 1).
+
+.decl MSIZE(stmt: Statement, to: Variable)
+
+MSIZE(stmt, to):-
+  Statement_Opcode(stmt, "MSIZE"),
+  Statement_Defines(stmt, to, 0).
+
 .decl SSTORE(stmt: Statement, index: Variable, var: Variable)
 
 SSTORE(stmt, index, var) :-

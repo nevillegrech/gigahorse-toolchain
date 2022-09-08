@@ -1,0 +1,5 @@
+{
+    "client_path": "clients/analytics_client.dl",
+    "gigahorse_args": ["-i", "--disable_inline", "--single_decomp"],
+    "expected_results": [["Analytics_ReentrancyGuard", 1, 0]]
+}

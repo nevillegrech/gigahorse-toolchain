@@ -148,61 +148,20 @@ MemoryModelingTempStmt(mstore):-
   allowing it to be more general (mloads can be affected by multiple memory writting ops)
 ***/
 
-.init varIndex = ReachableBypassingWArg
 
-varIndex.From(mstore, valRep):-
-  MSTORE(mstore, indexVar, _),
-  Variable_SymbolicValue(indexVar, indexVal),
-  FreePointerBasedValue_AliasRep(indexVal, valRep).
-
-varIndex.Bypassing(mstore, valRep):-
-  MSTORE(mstore, indexVar, _),
-  Variable_SymbolicValue(indexVar, indexVal),
-  FreePointerBasedValue_AliasRep(indexVal, valRep).
-
-varIndex.To(mload, valRep):-
-  MLOAD(mload, indexVar, _),
-  Variable_SymbolicValue(indexVar, indexVal),
-  FreePointerBasedValue_AliasRep(indexVal, valRep).
-
-/*
 // This rule breaks statements '0x398b0x349b0x16b30x649' and '0x39710x349b0x16b30x649' for 'D1DB92083593ABD001EE99A49341144A'
+// REVIEW: Doesn't correctly report analytics for modeled/non modeled mloads/mstores now. To fix.
 MemoryModelingTempStmt(mstore),
+MemoryModelingTempStmt(mload),
 StatementUsesMemory_ActualArg(mload, actual, 0):-
-  //varIndex.ReachableBypassingAny(mstore, mload),
-  memWriteToMemConsStmtImpr.ReachableBypassingAny(mstore, mload, addr),
+  memWriteToMemConsStmtImpr.ReachableBypassingAnyStrict(mstore, mload, addr),
   MLOAD(mload, indexVar, _),
   MSTORE(mstore, _, actual),
   // We handle the loads and stores of the free memory pointer differently
   addr != "0x40",
   // skip loads of an array's length for now
   !VarIsArray(indexVar, _).
-*/
 
-/**
-  More sound modeling of MLOADs for constant indexes
-  Usefull to improve the coverage of our modeling for Vyper contracts
-**/
-/*
-.init constantIndex =  ReachableByPassingWArg
-
-constantIndex.From(store, indexVal):-
-  MSTORE(store, index, _),
-  BasicVariable_Value(index, indexVal).
-
-constantIndex.Bypassing(store, indexVal):-
-  MSTORE(store, index, _),
-  BasicVariable_Value(index, indexVal).
-
-constantIndex.To(load, indexVal):-
-  MLOAD(load, index, _),
-  BasicVariable_Value(index, indexVal).
-
-MemoryModelingTempStmt(mstore),
-StatementUsesMemory_ActualArg(mload, actual, 0):-
-  constantIndex.ReachableBypassingAny(mstore, mload),
-  MSTORE(mstore, _, actual).
-*/
 
 
 /**
