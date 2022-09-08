@@ -100,8 +100,8 @@
 	  (
 	    FromStmtToStmtDiffBlockHavePathUninterrupted(stmt1, stmt3),
 		Statement_Block(stmt1, block1),
-		Statement_Block(stmt2, block2),
-		Dominates(block1, block2)
+		Statement_Block(stmt3, block3),
+		Dominates(block1, block3)
 	  ).
 }
 
@@ -203,8 +203,8 @@
 	  (
 	    FromStmtToStmtDiffBlockHavePathUninterrupted(stmt1, stmt3, arg),
 		Statement_Block(stmt1, block1),
-		Statement_Block(stmt2, block2),
-		Dominates(block1, block2)
+		Statement_Block(stmt3, block3),
+		Dominates(block1, block3)
 	  ).
 }
 
@@ -313,8 +313,8 @@
 	  (
 	    FromStmtToStmtDiffBlockHavePathUninterrupted(stmt1, stmt3, arg),
 		Statement_Block(stmt1, block1),
-		Statement_Block(stmt2, block2),
-		Dominates(block1, block2)
+		Statement_Block(stmt3, block3),
+		Dominates(block1, block3)
 	  ).
 }
 
