@@ -1,0 +1,389 @@
+// Sadly, this cannot just inherit TransactionalContext, or PublicComponentContextSensitivity,
+// or even VariableDepthContextSensitivity, because it needs to subtly change important
+// aspects of each one! So it just replicates code. 
+
+// This context sensitivity has two kinds of contexts: precise (longer) and imprecise
+// (shorter). Precise contexts do not merge information. Once a context degenerates from
+// precise to imprecise, it cannot go back.
+.comp HybridPreciseContext <LocalAnalysis> : AbstractContextSensitivity <LocalAnalysis> {
+
+  //
+  // A bit like VariableDepthContextSensitivity but need different depths
+  // 
+  .decl MaxImpreciseContextDepth(sigHash: symbol, d: number)
+
+  .decl InputMaxImpreciseContextDepth(d: number)
+  .input InputMaxImpreciseContextDepth(filename="MaxContextDepth.csv")
+
+  MaxImpreciseContextDepth(sigHash, d) :-
+    (local.PublicFunction(_, sigHash);
+     sigHash = FALLBACK_FUNCTION_SIGHASH),
+    InputMaxImpreciseContextDepth(d).
+
+  MaxImpreciseContextDepth(sigHash, 7) :-
+    (local.PublicFunction(_, sigHash);
+     sigHash = FALLBACK_FUNCTION_SIGHASH),
+    !InputMaxImpreciseContextDepth(_).
+
+  // Not yet configurable via input file
+  .decl MaxPreciseContextDepth(sigHash: symbol, d: number)
+  MaxPreciseContextDepth(sigHash, 27) :-
+    (local.PublicFunction(_, sigHash);
+     sigHash = FALLBACK_FUNCTION_SIGHASH).
+
+  //
+  // Much like PublicComponentContextSensitivity but need to change truncation logic
+  //
+  .type PrivateContext = [block: Block, rest: PrivateContext]
+  .type Context = [publicFun:symbol, pri: PrivateContext]
+
+  .decl InitialPrivateContext(ctx: PrivateContext)
+  .decl InitialPrecisePrivateContext(ctx: PrivateContext)
+  .decl InitialImprecisePrivateContext(ctx: PrivateContext)
+  .decl PrecisePrivateContext(ctx: PrivateContext)
+  .decl ImprecisePrivateContext(ctx: PrivateContext)
+  .decl PreciseToImprecise(ctx: PrivateContext, impCtx: PrivateContext)
+  .decl PrivateContextDepth(ctx: PrivateContext, depth: number)
+  .decl DecomposePrivateContext(priCtx: PrivateContext, block: Block, rest: PrivateContext)
+  .decl CutToImprecise(ctx: PrivateContext, newCtx: PrivateContext)
+  .decl CutTowardsImprecise(ctx: PrivateContext, newCtx: PrivateContext)
+  .decl DropLast(ctx: PrivateContext, newCtx: PrivateContext)
+  .decl TruncateContextIfNeeded(publicFun:symbol, ctx: PrivateContext, newCtx: PrivateContext)
+  .decl DecomposeContext(ctx: Context, publicFun: symbol, private: PrivateContext)
+
+  // Define our universe of contexts (including partial)
+  .decl IsPotentialContext(pubFun: symbol, ctx: PrivateContext)
+
+  IsPotentialContext(FALLBACK_FUNCTION_SIGHASH, ctx) :-
+    InitialPrivateContext(ctx).
+
+  IsPotentialContext(publicFun, private) :-
+    ReachableContext(fullCtx, _), fullCtx = [publicFun, private].
+
+  // All suffixes
+  IsPotentialContext(pubFun, rest) :-
+    IsPotentialContext(pubFun, ctx),
+    ctx = [block, rest], block = block.
+
+  // All prefixes
+  IsPotentialContext(pubFun, prefix) :-
+    IsPotentialContext(pubFun, ctx),
+    DropLast(ctx, prefix).
+   .plan 1:(2,1)
+
+  DropLast(ctx, initial) :-
+    DecomposePrivateContext(ctx, _, initial),
+    InitialPrivateContext(initial).
+
+  DropLast(ctx, [block, newRest])  :-
+    DecomposePrivateContext(ctx, block, rest),
+    DropLast(rest, newRest).
+   .plan 1:(2,1)
+
+  IsPotentialContext(pubFun, imprecise) :-
+    IsPotentialContext(pubFun, precise),
+    PreciseToImprecise(precise, imprecise).
+   .plan 1:(2,1)
+
+  IsPotentialContext(pubFun, precise) :-
+    IsPotentialContext(pubFun, imprecise),
+    PreciseToImprecise(precise, imprecise).
+   .plan 1:(2,1)
+
+  // That's all it's used for!
+  DecomposePrivateContext(ctx, block, rest) :-
+    IsPotentialContext(_, ctx),
+    ctx = [block, rest].
+
+  DecomposeContext([pubFun, privCtx], pubFun, privCtx) :-
+    IsPotentialContext(pubFun, privCtx).
+
+  InitialPrecisePrivateContext(["precise", nil]).
+  InitialImprecisePrivateContext(["imprecise", nil]).
+
+  InitialPrivateContext(initialPrivateContext) :-
+    InitialPrecisePrivateContext(initialPrivateContext);
+    InitialImprecisePrivateContext(initialPrivateContext).
+
+  InitialContext([FALLBACK_FUNCTION_SIGHASH, initialPrivateContext]) :-
+    InitialPrecisePrivateContext(initialPrivateContext).  // ONLY PRECISE!!!
+
+  PrecisePrivateContext(ctx) :-
+    InitialPrecisePrivateContext(ctx).
+
+  PrecisePrivateContext(ctx) :-
+    DecomposePrivateContext(ctx, _, rest),
+    PrecisePrivateContext(rest).
+   .plan 1:(2,1)
+
+  ImprecisePrivateContext(ctx) :-
+    InitialImprecisePrivateContext(ctx).
+
+  ImprecisePrivateContext(ctx) :-
+    DecomposePrivateContext(ctx, _, rest),
+    ImprecisePrivateContext(rest).
+   .plan 1:(2,1)
+
+  PreciseToImprecise(ctx, impCtx) :-
+    InitialPrecisePrivateContext(ctx),
+    InitialImprecisePrivateContext(impCtx).
+
+  // We don't check for length, create many extraneous, should be ok?
+  PreciseToImprecise(ctx, [ block, restImp ]) :-
+    DecomposePrivateContext(ctx, block, rest),
+    PreciseToImprecise(rest, restImp).
+   .plan 1:(2,1)
+
+  PreciseToImprecise([ block, rest ], impCtx) :-
+    DecomposePrivateContext(impCtx, block, restImp),
+    PreciseToImprecise(rest, restImp).
+   .plan 1:(2,1)
+
+
+  .decl OptDecomposeContextWithDepth(publicFun: symbol, private: PrivateContext, depth: number)
+  OptDecomposeContextWithDepth(pubFun, ctx, depth) :-
+    DecomposeContext(_, pubFun, ctx),
+    PrivateContextDepth(ctx, depth).
+   .plan 1:(2,1)
+
+
+  CutTowardsImprecise(ctx, newCtx) :-
+    OptDecomposeContextWithDepth(pubFun, ctx, depth),
+    MaxImpreciseContextDepth(pubFun, maxImpreciseDepth),
+    depth >= maxImpreciseDepth,  // need to drop to depth-1, to add one more at merge
+    DropLast(ctx, newCtx).
+   .plan 1:(3,1,2)
+
+  CutToImprecise(ctx, newImpreciseCtx) :-
+    CutTowardsImprecise(ctx, newCtx),
+    OptDecomposeContextWithDepth(pubFun, newCtx, maxImpreciseDepth - 1),
+    MaxImpreciseContextDepth(pubFun, maxImpreciseDepth),
+    PreciseToImprecise(newCtx, newImpreciseCtx).
+   .plan 1:(2,1,3,4), 2:(4,1,2,3)
+
+  CutToImprecise(ctx, impreciseCtx) :-
+    CutTowardsImprecise(ctx, otherCtx),
+    CutToImprecise(otherCtx, impreciseCtx).
+   .plan 1:(2,1)
+
+  PrivateContextDepth(init, 0) :-
+    InitialPrivateContext(init).
+
+  PrivateContextDepth(ctx, depth + 1) :-
+    DecomposePrivateContext(ctx, _, rest),
+    PrivateContextDepth(rest, depth).
+    .plan 1:(2,1)  
+
+  // imprecise under max depth is kept
+  TruncateContextIfNeeded(pubFun, ctx, ctx) :-
+    OptDecomposeContextWithDepth(pubFun, ctx, depth),
+    ImprecisePrivateContext(ctx),
+    MaxImpreciseContextDepth(pubFun, maxImpreciseDepth),
+    depth < maxImpreciseDepth.
+   .plan 1:(2,1,3)
+
+  // imprecise at max depth is truncated
+  TruncateContextIfNeeded(pubFun, ctx, newCtx) :-
+    OptDecomposeContextWithDepth(pubFun, ctx, maxImpreciseDepth),
+    ImprecisePrivateContext(ctx),
+    MaxImpreciseContextDepth(pubFun, maxImpreciseDepth),
+    DropLast(ctx, newCtx).
+   .plan 1:(2,1,3,4), 2:(4,2,1,3)
+
+  // precise under max depth is expanded
+  TruncateContextIfNeeded(pubFun, ctx, ctx) :-
+    OptDecomposeContextWithDepth(pubFun, ctx, depth),
+    PrecisePrivateContext(ctx),
+    MaxPreciseContextDepth(pubFun, maxPreciseDepth),
+    depth < maxPreciseDepth.
+   .plan 1:(2,1,3)
+
+  // This is the clincher: when precise reaches the limit, cut down to imprecise
+  TruncateContextIfNeeded(pubFun, ctx, newCtx) :-
+    OptDecomposeContextWithDepth(pubFun, ctx, maxPreciseDepth),
+    PrecisePrivateContext(ctx),
+    MaxPreciseContextDepth(pubFun, maxPreciseDepth),
+    CutToImprecise(ctx, newCtx).
+   .plan 1:(2,1,3,4), 2:(4,1,2,3)
+
+  Context_PublicFunction(ctx, pubFun) :-
+    ReachableContext(ctx, _),
+    ctx = [pubFun, callCtx],
+    callCtx = callCtx.
+
+  ///// Never managed to make this efficient for large contracts
+  // // WARN: Only defined for imprecise contexts! Too costly otherwise.
+  // .decl PrivateContextContainsElement(ctx: PrivateContext, block: Block)
+  // PrivateContextContainsElement(ctx, head) :-
+  //   DecomposePrivateContext(ctx, head, _),
+  //   ImprecisePrivateContext(ctx).
+  //  .plan 1:(2,1)
+  // PrivateContextContainsElement(ctx, block) :-
+  //   DecomposePrivateContext(ctx, _, rest),
+  //   PrivateContextContainsElement(rest, block).
+  //  .plan 1:(2,1)
+
+  // .decl NotPrivateContextContainsElement(ctx: PrivateContext, block: Block)
+  // NotPrivateContextContainsElement(initCtx, block) :-
+  //   PrivateFunctionCallOrReturn(block),
+  //   InitialImprecisePrivateContext(initCtx).
+  // NotPrivateContextContainsElement(ctx, block) :-
+  //   DecomposePrivateContext(ctx, head, rest),
+  //   NotPrivateContextContainsElement(rest, block),
+  //   head != block.
+  //  .plan 1:(2,1)
+
+  // .decl TruncatePreciseContextIfNeeded(publicFun:symbol, ctx: PrivateContext, newCtx: PrivateContext)
+  // TruncatePreciseContextIfNeeded(pubFun, ctx, newCtx) :-
+  //   TruncateContextIfNeeded(pubFun, ctx, newCtx),
+  //   PrecisePrivateContext(ctx).
+  //  .plan 1:(2,1)
+
+  // .decl TruncateImpreciseContextIfNeeded(publicFun:symbol, ctx: PrivateContext, newCtx: PrivateContext)
+  // TruncateImpreciseContextIfNeeded(pubFun, ctx, newCtx) :-
+  //   TruncateContextIfNeeded(pubFun, ctx, newCtx),
+  //   ImprecisePrivateContext(ctx).
+  //  .plan 1:(2,1)
+
+
+  /**
+    Public function jump case for MergeContext
+  */
+
+  #ifndef NO_PUBLIC_CONTEXT
+  MergeContext(ctx, caller, ctx) :-
+    ReachableContext(ctx, caller),
+    local.PublicFunction(caller, sigHash),
+    !MaxImpreciseContextDepth(sigHash, -1),
+    DecomposeContext(ctx, prevSigHash, _),
+    prevSigHash != FALLBACK_FUNCTION_SIGHASH.
+  .plan 1:(3,1,2)
+  MergeContext(ctx, caller, newContext) :-
+    ReachableContext(ctx, caller),
+    local.PublicFunction(caller, sigHash),
+    !MaxImpreciseContextDepth(sigHash, -1),
+    DecomposeContext(ctx, prevSigHash, pri),
+    prevSigHash = FALLBACK_FUNCTION_SIGHASH,
+    newContext = [sigHash, pri].
+  .plan 1:(3,1,2)
+  #endif
+
+
+  //
+  // Much like TransactionalContext, only does not inherit from the same super-components,
+  // instead redefines them as above.
+  //
+
+  // inverse-escape analysis
+  .decl BlockUsesLocal(block: Block, var: VariableOrStackIndex)
+  BlockUsesLocal(block, var) :-
+    local.Statement_Block(stmt, block),
+    local.Statement_Uses_Local(stmt, var, _).
+
+  .decl StaticBlockJumpTarget(caller: Block, target: Value)
+  StaticBlockJumpTarget(caller, target) :-
+    local.ImmediateBlockJumpTarget(caller, targetVar),
+    local.Variable_Value(targetVar, target),
+    local.JUMPDEST(as(target, symbol)).
+
+  .decl StaticBlockJumpTargetNonUnique(caller: Block, target: Value)
+  StaticBlockJumpTargetNonUnique(caller, target) :-
+    StaticBlockJumpTarget(caller, target),
+    StaticBlockJumpTarget(caller2, target),
+    caller != caller2.
+
+  // pushes a label for later use. A return addr?
+  .decl BlockPushesLabel(block: Block, val: Value)
+  BlockPushesLabel(block, val) :-
+    local.JUMPDEST(as(val, symbol)),
+    local.Variable_Value(var, val),
+    local.Statement_Defines(stmt, var),
+    local.Statement_Block(stmt, block),
+    !BlockUsesLocal(block, var).
+
+  // We're only interested in private functions
+  // No ambiguity for public functions
+  .decl PrivateFunctionCallOrReturn(caller: Block)
+  PrivateFunctionCallOrReturn(caller) :-
+//    StaticBlockJumpTargetNonUnique(caller, _),  // looks like a call
+    StaticBlockJumpTarget(caller, _),  // looks like a call
+    BlockPushesLabel(caller, _).       // looks like pushing a return
+
+  PrivateFunctionCallOrReturn(caller) :-
+    local.Statement_Block(stmt, caller),
+    local.JUMP(stmt),
+    !local.ImmediateBlockJumpTarget(caller, _).
+
+  // Trivial control flow case for when there is no function call
+  // OR max context depth is zero
+  // Split into two rules to add plan.
+  MergeContext(ctx, caller, ctx) :-
+    ReachableContext(ctx, caller),
+    #ifndef NO_PUBLIC_CONTEXT
+    !local.PublicFunction(caller, _),
+    #endif
+    !PrivateFunctionCallOrReturn(caller).
+
+  MergeContext(ctx, caller, ctx) :-
+    ReachableContext(ctx, caller),
+    #ifndef NO_PUBLIC_CONTEXT
+    !local.PublicFunction(caller, _),
+    #endif
+    DecomposeContext(ctx, pub, _),
+    MaxImpreciseContextDepth(pub, 0).
+    .plan 1:(2,3,1)
+
+  // Complex control flow case
+  //// Default variant
+  MergeContext(ctx, caller, [pub, newPrivateContext]) :-
+    ReachableContext(ctx, caller),
+    PrivateFunctionCallOrReturn(caller),
+    DecomposeContext(ctx, pub, pri),
+    TruncateContextIfNeeded(pub, pri, cutDownPri),
+    #ifndef NO_PUBLIC_CONTEXT
+    !local.PublicFunction(caller, _),
+    #endif
+    newPrivateContext = [caller, cutDownPri].
+    .plan 1:(3,1,2,4), 2:(4,3,1,2)
+
+  ///// (REVIEW) Never managed to make this efficient for large contracts
+  // // Complex control flow case
+  // //// Variant that distinguishes whether the context contains the block
+  // //// Precise context: do default
+  // MergeContext(ctx, caller, [pub, newPrivateContext]) :-
+  //   ReachableContext(ctx, caller),
+  //   PrivateFunctionCallOrReturn(caller),
+  //   DecomposeContext(ctx, pub, pri),
+  //   TruncatePreciseContextIfNeeded(pub, pri, cutDownPri),
+  //   #ifndef NO_PUBLIC_CONTEXT
+  //   !local.PublicFunction(caller, _),
+  //   #endif
+  //   newPrivateContext = [caller, cutDownPri].
+  //   .plan 1:(3,1,2,4), 2:(4,3,1,2)
+
+  // // Complex control flow case, imprecise
+  // //// If the imprecise context doesn't contain the block:
+  // MergeContext(ctx, caller, [pub, newPrivateContext]) :-
+  //   ReachableContext(ctx, caller),
+  //   PrivateFunctionCallOrReturn(caller),
+  //   DecomposeContext(ctx, pub, pri),
+  //   TruncateImpreciseContextIfNeeded(pub, pri, cutDownPri),
+  //   #ifndef NO_PUBLIC_CONTEXT
+  //   !local.PublicFunction(caller, _),
+  //   #endif
+  //   NotPrivateContextContainsElement(pri, caller),
+  //   newPrivateContext = [caller, cutDownPri].
+  //   .plan 1:(3,1,2,4,5), 2:(4,3,1,2,5), 3:(5,3,1,2,4)
+
+  // //// If it does:
+  // MergeContext(ctx, caller, ctx) :-
+  //   ReachableContext(ctx, caller),
+  //   PrivateFunctionCallOrReturn(caller),
+  //   DecomposeContext(ctx, _, pri),
+  //   #ifndef NO_PUBLIC_CONTEXT
+  //   !local.PublicFunction(caller, _),
+  //   #endif
+  //   PrivateContextContainsElement(pri, caller).
+  //   .plan 1:(3,1,2,4), 2:(4,3,1,2)
+
+}

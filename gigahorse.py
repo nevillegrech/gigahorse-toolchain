@@ -7,6 +7,7 @@ import itertools
 import json
 import logging
 import signal
+import resource
 import shutil
 import re
 import subprocess
@@ -18,9 +19,6 @@ from collections import defaultdict
 from multiprocessing import Process, SimpleQueue, Manager, Event, cpu_count
 from os.path import abspath, dirname, join, getsize
 import os
-from src.common import all_checkedTransferCall_filename, all_checkedTransferFromCall_filename, \
-  all_readFromTrustedStorageId_filename, all_unguardedDelegateCallToSig_filename, \
-  all_unguardedExternalCallToSig_filename, all_writeToUntrustedStorageId_filename
 
 # Local project imports
 import src.exporter as exporter
@@ -37,19 +35,18 @@ DEFAULT_SOUFFLE_BIN = 'souffle'
 DEFAULT_RESULTS_FILE = 'results.json'
 """File to write results to by default."""
 
+SOUFFLE_COMPILED_SUFFIX = '_compiled'
+
 DEFAULT_DECOMPILER_DL = join(GIGAHORSE_DIR, 'logic/main.dl')
 """Decompiler specification file."""
 
-DEFAULT_SOUFFLE_EXECUTABLE = 'decompiler_compiled'
-"""Compiled vulnerability specification file."""
+FALLBACK_DECOMPILER_DL = join(GIGAHORSE_DIR, 'logic/alt.dl')
+"""Fallback decompiler specification file, optimized for scalability."""
 
 DEFAULT_INLINER_DL = join(GIGAHORSE_DIR, 'clientlib/function_inliner.dl')
 """IR helping inliner specification file."""
 
-DEFAULT_INLINER_EXECUTABLE = 'inliner_compiled'
-"""Compiled inliner file."""
-
-DEFAULT_INLINER_ROUNDS = 4
+DEFAULT_INLINER_ROUNDS = 6
 
 DEFAULT_CACHE_DIR = join(GIGAHORSE_DIR, 'cache')
 
@@ -59,6 +56,9 @@ TEMP_WORKING_DIR = ".temp"
 DEFAULT_TIMEOUT = 120
 """Default time before killing analysis of a contract."""
 
+DEFAULT_MINIMUM_CLIENT_TIME = 0
+"""Default minimum time to allow each client to work."""
+
 DEFAULT_PATTERN = ".*.hex"
 """Default filename pattern for contract files."""
 
@@ -66,6 +66,9 @@ DEFAULT_NUM_JOBS = max(int(cpu_count() * 0.9), 1)
 """Bugfix for one core systems."""
 
 """The number of subprocesses to run at once."""
+
+DEFAULT_MEMORY_LIMIT = 30 * 1_000_000_000
+"""Hard capped memory limit for analyses processes (30 GB)"""
 
 # Command Line Arguments
 
@@ -161,6 +164,14 @@ parser.add_argument("-T",
                     help="Forcibly halt analysing any single contact after "
                          "the specified number of seconds.")
 
+parser.add_argument("--minimum_client_time",
+                    type=int,
+                    nargs="?",
+                    default=DEFAULT_MINIMUM_CLIENT_TIME,
+                    const=DEFAULT_MINIMUM_CLIENT_TIME,
+                    metavar="SECONDS",
+                    help="Minimum time to allow each client to run.")
+
 parser.add_argument("-M",
                     "--souffle_macros",
                     default = "",
@@ -187,6 +198,11 @@ parser.add_argument("--disable_inline",
                     default=False,
                     help="Disables the inlining of small functions (performed to produce a more high-level IR).")
 
+parser.add_argument("--early_cloning",
+                    action="store_true",
+                    default=False,
+                    help="Adds a block cloning pre-process step to the decompilation pipeline, sometimes producing a more precise output.")
+
 parser.add_argument("-q",
                     "--quiet",
                     nargs="?",
@@ -196,17 +212,17 @@ parser.add_argument("-q",
 parser.add_argument("--rerun_clients",
                     action="store_true",
                     default=False,
-                    help="Silence output.")
+                    help="Rerun previously executed client analyses.")
 
 parser.add_argument("--restart",
                     action="store_true",
                     default=False,
-                    help="Silence output.")
+                    help="Erase working dir and decompile/analyze from scratch.")
 
 parser.add_argument("--reuse_datalog_bin",
                     action="store_true",
                     default=False,
-                    help="Do not recompile.")
+                    help="Do not recompile the datalog binaries.")
 
 parser.add_argument("-i",
                     "--interpreted",
@@ -214,10 +230,19 @@ parser.add_argument("-i",
                     default=False,
                     help="Run souffle in interpreted mode.")
 
+parser.add_argument("--single_decomp",
+                    action="store_true",
+                    default=False,
+                    help="Perform a single decompilation run, instead of the current default of running a fallback decompilation"
+                    "(using a scalable hybrid-precise context configuration) if the default transactional configuration times out.")
+
 souffle_env = os.environ.copy()
 functor_path = join(GIGAHORSE_DIR, 'souffle-addon')
-souffle_env["LD_LIBRARY_PATH"] = functor_path
-souffle_env["LIBRARY_PATH"] = functor_path
+for e in ["LD_LIBRARY_PATH", "LIBRARY_PATH"]:
+    if e in souffle_env:
+        souffle_env[e] = functor_path + os.pathsep + souffle_env[e]
+    else:
+        souffle_env[e] = functor_path
 
 if not os.path.isfile(join(functor_path, 'libfunctors.so')):
     raise Exception(
@@ -229,7 +254,7 @@ if not os.path.isfile(join(functor_path, 'libfunctors.so')):
 def get_working_dir(contract_name):
     return join(os.path.abspath(args.working_dir), os.path.split(contract_name)[1].split('.')[0])
 
-def prepare_working_dir(contract_name) -> (str, str):
+def prepare_working_dir(contract_name) -> (bool, str, str):
     newdir = get_working_dir(contract_name)
     out_dir = join(newdir, 'out')
 
@@ -241,16 +266,29 @@ def prepare_working_dir(contract_name) -> (str, str):
     os.makedirs(out_dir)
     return False, newdir, out_dir
 
+def get_souffle_macros():
+    souffle_macros = f'GIGAHORSE_DIR={GIGAHORSE_DIR} BULK_ANALYSIS= {args.souffle_macros}'.strip()
+
+    if args.enable_limitsize:
+        souffle_macros+=' ENABLE_LIMITSIZE='
+
+    if args.early_cloning:
+        souffle_macros+=' BLOCK_CLONING='
+
+    return souffle_macros
+
+def write_context_depth_file(filename, max_context_depth):
+    context_depth_file = open(filename, "w")
+    context_depth_file.write(f"{max_context_depth}\n")
+    context_depth_file.close()
+
 def compile_datalog(spec, executable):
     if args.reuse_datalog_bin and os.path.isfile(executable):
         return
 
     pathlib.Path(args.cache_dir).mkdir(exist_ok=True)
 
-    souffle_macros = f'GIGAHORSE_DIR={GIGAHORSE_DIR} BULK_ANALYSIS= {args.souffle_macros}'.strip()
-
-    if args.enable_limitsize:
-        souffle_macros+=' ENABLE_LIMITSIZE='
+    souffle_macros = get_souffle_macros()
 
     cpp_macros = []
     for macro_def in souffle_macros.split(' '):
@@ -271,14 +309,15 @@ def compile_datalog(spec, executable):
         log(f"Found cached executable for {spec}")
     else:
         log(f"Compiling {spec} to C++ program and executable")
-        compilation_command = [args.souffle_bin, '-c', '-M', souffle_macros, '-o', cache_path, spec]
+        compilation_command = [args.souffle_bin, '-M', souffle_macros, '-o', cache_path, spec, '-L', functor_path]
         process = subprocess.run(compilation_command, universal_newlines=True, env = souffle_env)
         assert not(process.returncode), "Compilation failed. Stopping."
 
     shutil.copy2(cache_path, executable)
+
+
     
-    
-def analyze_contract(job_index: int, index: int, contract_filename: str, result_queue, timeout) -> None:
+def analyze_contract(job_index: int, index: int, contract_filename: str, result_queue, timeout) -> None:   
     """
     Perform dataflow analysis on a contract, storing the result in the queue.
     This is a worker function to be passed to a subprocess.
@@ -289,6 +328,66 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
         contract_filename: the absolute path of the contract bytecode file to process
         result_queue: a multiprocessing queue in which to store the analysis results
     """
+    disassemble_start = time.time()
+    
+    def calc_timeout(souffle_client =None):
+        timeout_left = timeout-time.time()+disassemble_start
+
+        if not args.single_decomp and souffle_client == DEFAULT_DECOMPILER_DL:
+            timeout_left = timeout_left/2
+
+        return max(timeout_left, args.minimum_client_time)
+
+    
+    def run_clients(souffle_clients, other_clients, in_dir, out_dir):
+        errors = []
+        timeouts = []
+        for souffle_client in souffle_clients:
+            if not args.interpreted:
+                analysis_args = [
+                    join(os.getcwd(), souffle_client+SOUFFLE_COMPILED_SUFFIX),
+                    f"--facts={in_dir}", f"--output={out_dir}"
+                ]
+            else:
+                analysis_args = [
+                    DEFAULT_SOUFFLE_BIN,
+                    join(os.getcwd(), souffle_client),
+                    f"--fact-dir={in_dir}", f"--output-dir={out_dir}",
+                    "-M", get_souffle_macros()
+                ]
+            if run_process(analysis_args, calc_timeout(souffle_client)) < 0:
+                timeouts.append(souffle_client)
+
+        for other_client in other_clients:
+            other_client_split = [o for o in other_client.split(' ') if o]
+            other_client_split[0] = join(os.getcwd(), other_client_split[0])
+            other_client_name = other_client_split[0].split('/')[-1]
+            err_filename = join(out_dir, other_client_name+'.err')
+            
+            runtime = run_process(
+                other_client_split,
+                calc_timeout(),
+                devnull,
+                open(err_filename, 'w'),
+                cwd=in_dir
+            )
+            if len(open(err_filename).read()) > 0:
+                errors.append(other_client_name)
+            if runtime < 0:
+                timeouts.append(other_client)
+        return timeouts, errors
+    
+    def run_decomp(contract_filename, in_dir, out_dir):
+        try:
+            run_clients([DEFAULT_DECOMPILER_DL], [], in_dir, out_dir)
+        except TimeoutException as e:
+            if args.single_decomp:
+                raise(e)
+            else:
+                # Default using scalable fallback config
+                log(f"Using fallback decompilation configuration for {os.path.split(contract_filename)[1]}")
+                write_context_depth_file(os.path.join(in_dir, 'MaxContextDepth.csv'), 1)
+                run_clients([FALLBACK_DECOMPILER_DL], [], in_dir, out_dir)
 
     try:
         # prepare working directory
@@ -296,158 +395,42 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
         assert not(args.restart and exists)
         analytics = {}
         contract_name = os.path.split(contract_filename)[1]
-        disassemble_start = time.time()
-        def calc_timeout():
-            return timeout-time.time()+disassemble_start
+        with open(contract_filename) as file:
+            bytecode = file.read().strip()
+
         if exists:
             decomp_start = time.time()
             inline_start = time.time()
         else:
-            with open(contract_filename) as file:
-                bytecode = file.read().strip()
-
             # Disassemble contract
             blocks = blockparse.EVMBytecodeParser(bytecode).parse()
             exporter.InstructionTsvExporter(blocks).export(output_dir=work_dir, bytecode_hex=bytecode)
 
             os.symlink(join(work_dir, 'bytecode.hex'), join(out_dir, 'bytecode.hex'))
-            
-            # Run pre-clients
-            for souffle_client in souffle_pre_clients:
-                if not args.interpreted:
-                    analysis_args = [join(os.getcwd(), souffle_client+'_compiled'),
-                                 "--facts={}".format(work_dir),
-                                 "--output={}".format(work_dir)
-                    ]
-                else:
-                    analysis_args = [DEFAULT_SOUFFLE_BIN,
-                                 join(os.getcwd(), souffle_client),
-                                 "--fact-dir={}".format(work_dir),
-                                 "--output-dir={}".format(work_dir)
-                    ]
-                runtime = run_process(analysis_args, calc_timeout())
-                if runtime < 0:
-                    result_queue.put((contract_name, [], ["TIMEOUT"], {}))
-                    log("{} timed out.".format(contract_name))
-                    return
 
-            for other_client in other_pre_clients:
-                other_client_split = [o for o in other_client.split(' ') if o]
-                other_client_split[0] = join(os.getcwd(), other_client_split[0])
-                other_client_name = other_client_split[0].split('/')[-1]
-                out_filename = join(work_dir, other_client_name+'.out')
-                err_filename = join(work_dir, other_client_name+'.err')
-                runtime = run_process(
-                    other_client_split,
-                    calc_timeout(),
-                    open(out_filename, 'w'),
-                    open(err_filename, 'w'),
-                    cwd=work_dir
-                )
-                if runtime < 0:
-                    result_queue.put((contract_name, [], ["TIMEOUT"], {}))
-                    log("{} timed out.".format(contract_name))
-                    return
+            if os.path.exists(join(work_dir, 'solidity_version.csv')):
+                # Create a symlink with a name starting with 'Verbatim_' to be added to results json
+                os.symlink(join(work_dir, 'solidity_version.csv'), join(out_dir, 'Verbatim_solidity_version.csv'))
+            run_clients(souffle_pre_clients, other_pre_clients, work_dir, work_dir)
 
-            if args.context_depth:
-                context_depth_filename = os.path.join(work_dir, 'MaxContextDepth.csv')
-                context_depth_file = open(context_depth_filename, "w")
-                context_depth_file.write(f"{args.context_depth}\n")
-                context_depth_file.close()
-            
-            # Run souffle on those relations
+
+            if args.context_depth is not None:
+                write_context_depth_file(os.path.join(work_dir, 'MaxContextDepth.csv'), args.context_depth)
+
             decomp_start = time.time()
 
-            if not args.interpreted:
-                analysis_args = [join(os.getcwd(), DEFAULT_SOUFFLE_EXECUTABLE),
-                             "--facts={}".format(work_dir),
-                             "--output={}".format(out_dir)
-                ]
-            else:
-                analysis_args = [DEFAULT_SOUFFLE_BIN,
-                             DEFAULT_DECOMPILER_DL,
-                             "--fact-dir={}".format(work_dir),
-                             "--output-dir={}".format(out_dir)
-                ]
+            run_decomp(contract_filename, work_dir, out_dir)
 
-            runtime = run_process(analysis_args, calc_timeout())
-            if runtime < 0:
-                result_queue.put((contract_filename, [], ["TIMEOUT"], {}))
-                log("{} timed out.".format(contract_filename))
-                return
-            
-            for filename in [all_checkedTransferCall_filename, all_checkedTransferFromCall_filename,
-                  all_readFromTrustedStorageId_filename, all_unguardedDelegateCallToSig_filename,
-                  all_unguardedExternalCallToSig_filename, all_writeToUntrustedStorageId_filename]:
-                basename = os.path.basename(filename)
-                filename_out = os.path.join(out_dir, basename)
-                if os.path.isfile(filename):
-                    try:
-                        os.symlink(filename, filename_out)
-                    except FileExistsError:
-                        pass
-                else:
-                    open(filename_out, 'w').close()
-            
             inline_start = time.time()
             if not args.disable_inline:
-                if not args.interpreted:
-                    inliner_args = [join(os.getcwd(), DEFAULT_INLINER_EXECUTABLE),
-                                "--facts={}".format(out_dir),
-                                "--output={}".format(out_dir)
-                    ]
-                else:
-                    inliner_args = [DEFAULT_SOUFFLE_BIN,
-                                DEFAULT_INLINER_DL,
-                                "--fact-dir={}".format(out_dir),
-                                "--output-dir={}".format(out_dir)
-                    ]
-                for i in range(DEFAULT_INLINER_ROUNDS):
-                   runtime = run_process(inliner_args, calc_timeout())
-                   needs_more_file = join(out_dir, 'NeedsMoreInlining.csv')
-                   if os.path.exists(needs_more_file):
-                       if os.path.getsize(needs_more_file) == 0:
-                           break
-                    
+                run_clients([DEFAULT_INLINER_DL]*DEFAULT_INLINER_ROUNDS, [], out_dir, out_dir)
+
             # end decompilation
         if exists and not args.rerun_clients:
             return
         client_start = time.time()
-        for souffle_client in souffle_clients:
-            if not args.interpreted:
-                analysis_args = [join(os.getcwd(), souffle_client+'_compiled'),
-                             "--facts={}".format(out_dir),
-                             "--output={}".format(out_dir)
-                ]
-            else:
-                analysis_args = [DEFAULT_SOUFFLE_BIN,
-                             join(os.getcwd(), souffle_client),
-                             "--fact-dir={}".format(out_dir),
-                             "--output-dir={}".format(out_dir)
-                ]
-            runtime = run_process(analysis_args, calc_timeout())
-            if runtime < 0:
-                result_queue.put((contract_name, [], ["TIMEOUT"], {}))
-                log("{} timed out.".format(contract_name))
-                return
-        for other_client in other_clients:
-            other_client_split = [o for o in other_client.split(' ') if o]
-            other_client_split[0] = join(os.getcwd(), other_client_split[0])
-            other_client_name = other_client_split[0].split('/')[-1]
-            out_filename = join(out_dir, other_client_name+'.out')
-            err_filename = join(out_dir, other_client_name+'.err')
-            runtime = run_process(
-                other_client_split,
-                calc_timeout(),
-                open(out_filename, 'w'),
-                open(err_filename, 'w'),
-                cwd = out_dir
-            )
-            if runtime < 0:
-                result_queue.put((contract_name, [], ["TIMEOUT"], {}))
-                log("{} timed out.".format(contract_name))
-                return
-            
+        timeouts, errors = run_clients(souffle_clients, other_clients, out_dir, out_dir)
+
         # Collect the results and put them in the result queue
         files = []
         for fname in os.listdir(out_dir):
@@ -460,17 +443,25 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
         analytics['decomp_time'] = inline_start - decomp_start
         analytics['inline_time'] = client_start - inline_start
         analytics['client_time'] = time.time() - client_start
+        analytics['errors'] = len(errors)
+        analytics['bytecode_size'] = (len(bytecode) - 2)//2
         log("{}: {:.36} completed in {:.2f} + {:.2f} + {:.2f} + {:.2f} secs".format(
             index, contract_name, analytics['disassemble_time'],
             analytics['decomp_time'], analytics['inline_time'], analytics['client_time']
         ))
+        if errors:
+            log(f"Errors in: {', '.join(errors)}")
+        if timeouts:
+            log(f"Timeouts in: {', '.join(timeouts)}")
 
         get_gigahorse_analytics(out_dir, analytics)
 
         result_queue.put((contract_name, files, meta, analytics))
-
+    except TimeoutException as e:
+        result_queue.put((contract_name, [], ["TIMEOUT"], {}))
+        log("{} timed out.".format(contract_name))
     except Exception as e:
-        log("Error: {}".format(e))
+        log(f"Error: {e}")
         result_queue.put((contract_name, [], ["error"], {}))
 
 
@@ -489,17 +480,25 @@ def get_gigahorse_analytics(out_dir, analytics):
         stat_name = fname.split(".")[0]
         analytics[stat_name] = open(join(out_dir, fname)).read()
 
-    for desc_fname in os.listdir(out_dir):
-        if desc_fname.startswith('VulnerabilityDescription_'):
-            fname = desc_fname[25:]
-            stat_name = fname.split(".")[0]
-            fpath = join(out_dir, fname)
-            if os.path.exists(fpath):
-                analytics[stat_name] = open(fpath).read()
-            else:
-                analytics[stat_name] = ''
+    vul_types = defaultdict(int)
+    try:
+        f = open(join(out_dir, 'vulnerability.csv'))
+    except FileNotFoundError:
+        return
+    for raw_line in f:
+        line_split = raw_line.split('\t')
+        if line_split:
+            vulnerability_type, confidence, *_ = line_split
+            key = f'{confidence}: {vulnerability_type}'
+            analytics[key] = analytics.get(key, 0) + 1
 
-def run_process(args, timeout: int, stdout = devnull, stderr = devnull, cwd = '.') -> float:
+def set_memory_limit(memory_limit):
+    resource.setrlimit(resource.RLIMIT_AS, (memory_limit, memory_limit))
+
+class TimeoutException(Exception):
+    pass
+
+def run_process(process_args, timeout: int, stdout=devnull, stderr=devnull, cwd: str='.', memory_limit=DEFAULT_MEMORY_LIMIT) -> float:
     ''' Runs process described by args, for a specific time period
     as specified by the timeout.
 
@@ -507,18 +506,20 @@ def run_process(args, timeout: int, stdout = devnull, stderr = devnull, cwd = '.
     times out
     '''
     if timeout < 0:
-        return -1
+        # This can theoretically happen
+        raise TimeoutException()
+
     start_time = time.time()
-    p = subprocess.Popen(args, stdout = stdout, stderr = stderr, cwd = cwd, env = souffle_env)
-    while True:
-        elapsed_time = time.time() - start_time
-        if p.poll() is not None:
-            break
-        if elapsed_time >= timeout:
-            os.kill(p.pid, signal.SIGTERM)
+
+    try:
+        subprocess.run(process_args, timeout=timeout, stdout=stdout, stderr=stderr, cwd=cwd, env=souffle_env, preexec_fn=lambda: set_memory_limit(memory_limit))
+    except subprocess.TimeoutExpired:
+        if args.minimum_client_time == 0:
+            raise TimeoutException()
+        else:
             return -1
-        time.sleep(0.01)
-    return elapsed_time
+
+    return time.time() - start_time
 
 def flush_queue(run_sig, result_queue, result_list):
     """
@@ -545,10 +546,13 @@ logging.basicConfig(format='%(message)s', level=log_level)
 
 # Here we compile the decompiler and any of its clients in parallel :)
 compile_processes_args = []
-compile_processes_args.append((DEFAULT_DECOMPILER_DL, DEFAULT_SOUFFLE_EXECUTABLE))
+compile_processes_args.append((DEFAULT_DECOMPILER_DL, DEFAULT_DECOMPILER_DL+SOUFFLE_COMPILED_SUFFIX))
+
+if not args.single_decomp:
+    compile_processes_args.append((FALLBACK_DECOMPILER_DL, FALLBACK_DECOMPILER_DL+SOUFFLE_COMPILED_SUFFIX))
 
 if not args.disable_inline:
-    compile_processes_args.append((DEFAULT_INLINER_DL, DEFAULT_INLINER_EXECUTABLE))
+    compile_processes_args.append((DEFAULT_INLINER_DL, DEFAULT_INLINER_DL+SOUFFLE_COMPILED_SUFFIX))
 
 clients_split = [a.strip() for a in args.client.split(',')]
 souffle_clients = [a for a in clients_split if a.endswith('.dl')]
@@ -560,10 +564,10 @@ other_pre_clients = [a for a in pre_clients_split if not (a.endswith('.dl') or a
 
 if not args.interpreted:
     for c in souffle_pre_clients:
-        compile_processes_args.append((c, c+'_compiled'))
+        compile_processes_args.append((c, c+SOUFFLE_COMPILED_SUFFIX))
 
     for c in souffle_clients:
-        compile_processes_args.append((c, c+'_compiled'))
+        compile_processes_args.append((c, c+SOUFFLE_COMPILED_SUFFIX))
 
     running_processes = []
     for compile_args in compile_processes_args:
@@ -664,13 +668,7 @@ try:
                 name = workers[i]["name"]
                 job_index = workers[i]["job_index"]
 
-                if time.time() - start_time > (args.timeout_secs + 1):
-                    res_queue.put((name, [], ["TIMEOUT"], {}))
-                    proc.terminate()
-                    log("{} timed out.".format(name))
-                    to_remove.append(i)
-                    avail_jobs.append(job_index)
-                elif not proc.is_alive():
+                if not proc.is_alive():
                     to_remove.append(i)
                     proc.join()
                     avail_jobs.append(job_index)
@@ -698,11 +696,10 @@ try:
         for m in meta:
             meta_counts[m] += 1
         for k, a in analytics.items():
+            if ':' in k: # tell-tale sign for vulnerability key
+                vulnerability_counts[k] += 1
             if isinstance(a, int):
                 analytics_sums[k] += a
-            if isinstance(a, str) and not k.startswith('Verbatim_'):
-                # whether it's flagged or not
-                vulnerability_counts[k] += int(len(a) > 0)
             if k in all_files:
                 all_files.remove(k)
 

@@ -1,0 +1,251 @@
+
+/*
+  Base, Abstract context sensitivity component
+  Is configured using an instantiation of LocalAnalysis
+*/
+.comp AbstractContextSensitivity <LocalAnalysis> {
+  // The Context type is defined by the context implementation components
+  // A little hacky to use without defining but its the cleanest approach I found 
+  .decl MergeContext(ctx: Context, caller: Block, newContext: Context)
+
+  .decl IsContext(ctx: Context)
+  .decl InitialContext(ctx: Context)
+
+  // REVIEW: Moved it here as it is used irregardless of the ctx sens.
+  .decl Context_PublicFunction(ctx:Context, pubFun:symbol)
+
+  .init local = LocalAnalysis
+
+  IsContext(ctx):-
+    InitialContext(ctx).
+
+  // Just making sure everything is captured
+  IsContext(ctx):-
+    MergeContext(ctx, _, _);
+    MergeContext(_, _, ctx).
+}
+
+/**
+  Reused in all our context types to support context sensitivity of a variable depth
+  Currently max depth is by public function but never used that way.
+  Will need to refactor it out soon probably as this is functionality that was never really used.
+*/
+
+.comp VariableDepthContextSensitivity <LocalAnalysis> : AbstractContextSensitivity <LocalAnalysis> {
+  .decl MaxContextDepth(sigHash: symbol, d: number)
+
+  .decl InputMaxContextDepth(d: number)
+  .input InputMaxContextDepth(filename="MaxContextDepth.csv")
+
+  MaxContextDepth(sigHash, d) :-
+    (local.PublicFunction(_, sigHash);
+     sigHash = FALLBACK_FUNCTION_SIGHASH),
+    InputMaxContextDepth(d).
+
+
+  MaxContextDepth(sigHash, 8) :-
+    (local.PublicFunction(_, sigHash);
+     sigHash = FALLBACK_FUNCTION_SIGHASH),
+    !InputMaxContextDepth(_).
+}
+
+
+/**
+  Flavors of context sensitivity that do not contain a public function component
+*/
+
+.comp PrivateOnlyContextSensitivity <LocalAnalysis> : VariableDepthContextSensitivity <LocalAnalysis> {
+  .type Context = [block: Block, rest: Context]
+
+  .decl ContextDepth(ctx: Context, depth: number)
+  .decl DecomposeContext(ctx: Context, block: Block, rest: Context)
+
+  .decl DropLast(ctx: Context, newCtx: Context)
+  .decl TruncateContextIfNeeded(ctx: Context, newCtx: Context)
+
+  InitialContext(nil).
+
+  ContextDepth(init, 0) :-
+    InitialContext(init).
+
+  DecomposeContext(ctx, block, rest):-
+    IsContext(ctx),
+    ctx = [block, rest].
+
+  DecomposeContext(ctx, block, rest):-
+    ContextDepth(ctx, _),
+    ctx = [block, rest].
+
+  DropLast(ctx, nil):-
+    DecomposeContext(ctx, _, nil).
+
+  ContextDepth(newCtx, depth - 1),
+  DropLast(ctx, newCtx):-
+    DecomposeContext(ctx, block, rest),
+    ContextDepth(ctx, depth),
+    DropLast(rest, newRest),
+    newCtx = [ block, newRest ].
+    .plan 1:(2,1,3), 2:(3,1,2)
+
+  ContextDepth(ctx, depth + 1):-
+    DecomposeContext(ctx, _, rest),
+    ContextDepth(rest, depth).
+    .plan 1:(2,1)
+
+  TruncateContextIfNeeded(ctx, newCtx):-
+    ContextDepth(ctx, maxDepth),
+    MaxContextDepth(_, maxDepth),
+    DropLast(ctx, newCtx).
+    .plan 1:(3,1,2)
+
+  TruncateContextIfNeeded(ctx, ctx):-
+    ContextDepth(ctx, depth),
+    MaxContextDepth(_, maxDepth),
+    depth < maxDepth.
+
+
+  MergeContext(ctx, caller, ctx) :-
+    MaxContextDepth(_, 0),
+    ReachableContext(ctx, caller).
+}
+
+
+/**
+  Subclasses only need to provide additional MergeContext rules to cover the private context cases.
+*/
+
+.comp PublicComponentContextSensitivity <LocalAnalysis> : VariableDepthContextSensitivity <LocalAnalysis> {
+  .type PrivateContext = [block: Block, rest: PrivateContext]
+  .type Context = [publicFun:symbol, pri: PrivateContext]
+
+  .decl InitialPrivateContext(ctx: PrivateContext)
+  .decl PrivateContextDepth(ctx: PrivateContext, depth: number)
+  .decl DecomposePrivateContext(priCtx: PrivateContext, block: Block, rest: PrivateContext)
+  .decl DropLast(ctx: PrivateContext, newCtx: PrivateContext)
+  .decl TruncateContextIfNeeded(publicFun:symbol, ctx: PrivateContext, newCtx: PrivateContext)
+  .decl DecomposeContext(ctx: Context, publicFun: symbol, private: PrivateContext)
+
+  // Define our universe of contexts (including partial)
+  .decl IsPotentialContext(pubFun: symbol, ctx: PrivateContext)
+
+  IsPotentialContext(FALLBACK_FUNCTION_SIGHASH, ctx) :-
+    InitialPrivateContext(ctx).
+
+  IsPotentialContext(publicFun, private) :-
+    ReachableContext(fullCtx, _), fullCtx = [publicFun, private].
+
+  // All suffixes
+  IsPotentialContext(pubFun, rest) :-
+    IsPotentialContext(pubFun, ctx),
+    ctx = [block, rest], block = block.
+
+  // All prefixes
+  IsPotentialContext(pubFun, prefix) :-
+    IsPotentialContext(pubFun, ctx),
+    DropLast(ctx, prefix).
+   .plan 1:(2,1)
+
+  DropLast(ctx, initial) :-
+    DecomposePrivateContext(ctx, _, initial),
+    InitialPrivateContext(initial).
+
+  DropLast(ctx, [block, newRest])  :-
+    DecomposePrivateContext(ctx, block, rest),
+    DropLast(rest, newRest).
+   .plan 1:(2,1)
+
+  // That's all it's used for!
+  DecomposePrivateContext(ctx, block, rest) :-
+    IsPotentialContext(_, ctx),
+    ctx = [block, rest].
+
+  DecomposeContext([pubFun, privCtx], pubFun, privCtx) :-
+    IsPotentialContext(pubFun, privCtx).
+
+  InitialPrivateContext(nil).
+
+  InitialContext([FALLBACK_FUNCTION_SIGHASH, initialPrivateContext]) :-
+    InitialPrivateContext(initialPrivateContext).
+
+
+  /// Useful as building blocks, for experimentation
+  /// WARN: These can be expensive!
+  // .decl PrivateContextContainsElementNTimes(ctx: PrivateContext, block: Block, n: number)
+  // PrivateContextContainsElementNTimes(nil, block, 0) :-
+  //   PrivateFunctionCallOrReturn(block).
+  // PrivateContextContainsElementNTimes(ctx, block, n) :-
+  //   PrivateContextContainsElementNTimes(rest, block, n),
+  //   DecomposePrivateContext(ctx, head, rest),
+  //   head != block.
+  //  .plan 1:(2,1)
+  // PrivateContextContainsElementNTimes(ctx, block, n+1) :-
+  //   PrivateContextContainsElementNTimes(rest, block, n),
+  //   DecomposePrivateContext(ctx, block, rest),
+  //   n < MAX_REPETITIONS_FOR_CONTEXT_ELEMENT.
+  //  .plan 1:(2,1)
+
+  // .decl NotPrivateContextContainsElement(ctx: PrivateContext, block: Block)
+  // NotPrivateContextContainsElement(nil, block) :-
+  //   Statement_Block(_, block).
+  // NotPrivateContextContainsElement(ctx, block) :-
+  //   DecomposePrivateContext(ctx, head, rest),
+  //   NotPrivateContextContainsElement(rest, block),
+  //   head != block.
+  //  .plan 1:(2,1)
+
+  // .decl PrivateContextContainsElement(ctx: PrivateContext, block: Block)
+  // PrivateContextContainsElement(ctx, head) :-
+  //   DecomposePrivateContext(ctx, head, _).
+  // PrivateContextContainsElement(ctx, block) :-
+  //   DecomposePrivateContext(ctx, _, rest),
+  //   PrivateContextContainsElement(rest, block).
+  //  .plan 1:(2,1)
+
+  PrivateContextDepth(init, 0):-
+    InitialPrivateContext(init).
+
+  PrivateContextDepth(ctx, depth + 1):-
+    DecomposePrivateContext(ctx, _, rest),
+    PrivateContextDepth(rest, depth).
+    .plan 1:(2,1)
+
+  TruncateContextIfNeeded(pubFun, ctx, newCtx):-
+    DecomposeContext(_, pubFun, ctx),
+    PrivateContextDepth(ctx, maxDepth),
+    MaxContextDepth(pubFun, maxDepth),
+    DropLast(ctx, newCtx).
+    .plan 1:(4,1,2,3)
+
+  TruncateContextIfNeeded(pubFun, ctx, ctx):-
+    DecomposeContext(_, pubFun, ctx),
+    PrivateContextDepth(ctx, depth),
+    MaxContextDepth(pubFun, maxDepth),
+    depth < maxDepth.
+
+  Context_PublicFunction(ctx, pubFun):-
+    ReachableContext(ctx, _),
+    ctx = [pubFun, callCtx],
+    callCtx = callCtx.
+
+  /**
+    Public function jump case for MergeContext
+  */
+
+  #ifndef NO_PUBLIC_CONTEXT
+  MergeContext(ctx, caller, ctx) :-
+    ReachableContext(ctx, caller),
+    local.PublicFunction(caller, sigHash),
+    !MaxContextDepth(sigHash, -1),
+    DecomposeContext(ctx, prevSigHash, _),
+    prevSigHash != FALLBACK_FUNCTION_SIGHASH.
+  .plan 1:(3,1,2)
+  MergeContext(ctx, caller, newContext):-
+    ReachableContext(ctx, caller),
+    local.PublicFunction(caller, sigHash),
+    !MaxContextDepth(sigHash, -1),
+    DecomposeContext(ctx, prevSigHash, pri),
+    prevSigHash = FALLBACK_FUNCTION_SIGHASH,
+    newContext = [sigHash, pri].
+  .plan 1:(3,1,2)
+#endif
+}

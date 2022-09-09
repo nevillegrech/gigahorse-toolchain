@@ -6,6 +6,10 @@ to.Statement_Next(stmt, next) :- from.Statement_Next(stmt, next).\
 to.Statement_Opcode(stmt, op) :- from.Statement_Opcode(stmt, op).\
 to.PushValue(stmt, value) :- from.PushValue(stmt, value).
 
+#define COPY_OUTPUT(to, from)\
+to.Statement_Next(stmt, next) :- from.Out_Statement_Next(stmt, next).\
+to.Statement_Opcode(stmt, op) :- from.Out_Statement_Opcode(stmt, op).\
+to.PushValue(stmt, value) :- from.Out_PushValue(stmt, value).
 
 #define INITIALIZE_STATEMENT_INSERTOR(_insertor, to)\
 .init _insertor = StatementInsertor \
@@ -94,7 +98,7 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
      PreInsertedOpNewStatementNum(_, _, newStmt),
      n = count : { TempPreInsertedOpNewAndMissingStatementNum(_, newStmt) }.
 
-  InsertedOpNewStatement(stmt, order, @number_to_hex(newStmt - n + maxStmt + 1)) :-
+  InsertedOpNewStatement(stmt, order, as(@number_to_hex(newStmt - n + maxStmt + 1), Statement)) :-
     PreInsertedOpNewStatementNum(stmt, order, newStmt),
     MaxStmt(maxStmt),
     WastedSlots(newStmt, n).
@@ -130,7 +134,7 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
     !ISLABEL(value),
     OpcodeIsPush(op).
 
-  Out_PushValue(newStmt, @cast_to_symbol(actualLabel)) :-
+  Out_PushValue(newStmt, as(actualLabel, Value)) :-
     insertOp(stmt, op, label, order),
     OpcodeIsPush(op),
     ISLABEL(label),
@@ -184,3 +188,282 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
   FAILIF(cat("Missing Push Value ", stmt), Out_Statement_Opcode(stmt, op), OpcodeIsPush(op), !Out_PushValue(stmt, _)).
   
 }
+
+/**
+  Component to perform an anscenting sort of an input set.
+*/
+.comp AbstractAscentingSorter {
+  .decl Input(id:symbol)
+
+  .decl InputToNumber(id:symbol, idNum:number) overridable
+
+  .decl IsLessThan(id1:symbol, id2:symbol)
+  .decl IsLessThanNotNext(id1:symbol, id2:symbol)
+
+  .decl Input_Next(prev:symbol, next:symbol)
+
+  IsLessThan(id1, id2):-
+    InputToNumber(id1, num1),
+    InputToNumber(id2, num2),
+    num1 < num2.
+
+  IsLessThanNotNext(id1, id2):-
+    IsLessThan(id1, id2),
+    IsLessThan(id1, other),
+    IsLessThan(other, id2).
+
+  Input_Next(prev, next):-
+    IsLessThan(prev, next),
+    !IsLessThanNotNext(prev, next).
+}
+
+/**
+  Sort using souffle's internal ordinal number.
+  Useful when we just want to get any order.
+*/
+.comp OrdAscentingSorter : AbstractAscentingSorter {
+
+  .override InputToNumber
+  InputToNumber(id, ord(id)):-
+    Input(id).
+}
+
+/**
+  
+*/
+.comp BlockCloner : CodeTransformer {
+
+  .init analysis = GlobalAnalysis<TransactionalContext>
+  //.init analysis = PreTransLocalAnalysis
+
+  analysis.PushValue(push, val):- PushValue(push, val).
+  analysis.Statement_Opcode(stmt, op):- Statement_Opcode(stmt, op).
+  analysis.Statement_Next(stmt, stmtNext):- Statement_Next(stmt, stmtNext).
+
+  .output Out_Statement_Opcode, Out_Statement_Next, Out_PushValue
+  .output Statement_Opcode, Statement_Next, PushValue
+  // find the last statement in the original bytecode, start adding from there.
+  .decl MaxOriginalStatement(stmt:Statement)
+  // compute the block size to use on the cloned blocks
+  .decl BlockSize(block:Block, size:number)
+  // find the offset (numeric diff from block head) of every statement, helps with cloning
+  .decl Statement_BlockOffset(statement:Statement, block:Block, offset:number)
+
+  .decl DirectBlockEdge(from:Block, to:Block)
+
+  .decl ClonedBlockAddressPushedBy(pushBlock:Block, pushStmt:Statement, blockToClone:Block)
+
+  .decl BlockPushedToStack(pushStmt:Statement, pushedVar:Variable, pushedBlock:Block)
+  .decl BlockPushesBlockToStack(from: Block, pushedBlock: Block)
+
+  .decl BlockCloningCandidate(candidate:Block)
+  // To make this more flexible we'll be performing the cloning at the use level:
+  //   pick the interesting blocks
+  //   find their uses (pushes to the stack) that we want to clone
+  // Basic way to compute this would be to only inline blocks for direct jumps
+  .decl BlockToClone(pushBlock:Block, blockToClone:Block)
+  // For each fact of BlockToClone we create an identifier and sort them based on it
+  .decl BlockToCloneOpID(pushBlock:Block, blockToClone:Block, opID:symbol)
+
+  // After we compute the order of the inserted clone blocks, we assign each cloned instance to a starting bytecode offset.
+  .decl BlockToCloneNewInstance(pushBlock:Block, blockToClone:Block, generatedBlock:Block)
+
+  .decl StatementToClonedStatement(pushBlock:Block, blockToClone:Block, stmt:Statement, generatedStatement:Statement)
+  .output StatementToClonedStatement
+  .init cloneOpSorter = OrdAscentingSorter
+
+  .decl Block_OriginalBlock(block:Block, originalBlock:Block)
+  .output Block_OriginalBlock
+  .output BlockToClone, DirectBlockEdge, BlockPushedToStack, BlockPushesBlockToStack, BlockToCloneNewInstance, ClonedBlockAddressPushedBy
+
+  MaxOriginalStatement(maxStmt):-
+    maxStmtNumber = max stmtNumber : { Statement_Opcode(stmt, _), stmtNumber = @hex_to_number(stmt)},
+    maxStmt = @number_to_hex(maxStmtNumber).
+
+  BlockSize(block, @hex_to_number(tail) - @hex_to_number(block)):-
+    analysis.BasicBlock_Tail(block, tail).
+
+  Statement_BlockOffset(stmt, block, @hex_to_number(stmt) - @hex_to_number(block)):-
+    analysis.Statement_Block(stmt, block).
+
+  DirectBlockEdge(from, @cast_to_symbol(to)):-
+    analysis.ImmediateBlockJumpTarget(from, pushedVar),
+    analysis.Variable_Value(pushedVar, to).
+
+  // Disable this for now. Try different way to inline.
+  // DirectBlockJumpToAddrPushedBy(from, pushStmt):-
+  //   analysis.ImmediateBlockJumpTarget(from, pushedVar),
+  //   analysis.Statement_Defines(pushStmt, pushedVar).
+  
+  //Maybe change it to only consider direct block edges again?
+  ClonedBlockAddressPushedBy(pushBlock, pushStmt, blockToClone):-
+    BlockToClone(pushBlock, blockToClone),
+    BlockPushesBlockToStack(pushBlock, blockToClone),
+    BlockPushedToStack(pushStmt, _, blockToClone),
+    analysis.Statement_Block(pushStmt, pushBlock).
+
+  BlockPushedToStack(pushStmt, pushedVar, @cast_to_symbol(pushedBlock)):-
+    analysis.Variable_Value(pushedVar, pushedBlock),
+    analysis.VariableAlwaysUsedAsJumpTarget(pushedVar),
+    analysis.JUMPDEST(@cast_to_symbol(pushedBlock)),
+    analysis.Statement_Defines(pushStmt, pushedVar).
+
+  BlockPushesBlockToStack(block, pushedBlock):-
+    BlockPushedToStack(pushStmt, _, pushedBlock),
+    analysis.Statement_Block(pushStmt, block).
+    // REVIEW: Silly way to try to ensure that this block value is not used for something else
+    // Ideally when this is deployed we'd have to use some whole-contract logic
+    //!analysis.Statement_Uses_Local(_, blockVar, _).
+
+  .decl PossibleCallerWithReturn(caller:Block, return:Block)
+  .output PossibleCallerWithReturn, BlockPushesCloningCandidate
+  PossibleCallerWithReturn(caller, as(val, Block)):-
+    analysis.ImmediateBlockJumpTarget(caller, targetVar),
+    analysis.Variable_Value(targetVar, target),
+    analysis.JUMPDEST(as(target, symbol)),
+    analysis.Statement_Block(stmt, caller),
+    analysis.Statement_Defines(stmt, var),
+    analysis.Variable_Value(var, val),
+    analysis.JUMPDEST(as(val, symbol)),
+    !analysis.Statement_Uses_Local(_, var, _).
+
+
+  .decl FallthroughBlock(block: Block)
+  FallthroughBlock(block):-
+    analysis.Statement_Block(fallthrough, block),
+    analysis.FallthroughStmt(fallthrough, _).
+
+  /*
+    Cloning candidates. Add more cases with heuristics.
+    At some point we may want to add an option to clone based on the imprecision
+    reported by a previous execution. 
+  */
+
+.decl BlockPushesCloningCandidate(pushBlk:Block, candidate:Block)
+
+  BlockPushesCloningCandidate(pushBlk, candidate):-
+    BlockPushesBlockToStack(pushBlk, candidate),
+    BlockCloningCandidate(candidate).
+
+  BlockCloningCandidate(candidate):-
+    analysis.StackBalanceBlock(candidate).
+
+  // caller-side return blocks that are shared between call-sites
+  BlockCloningCandidate(candidate):-
+    PossibleCallerWithReturn(from, candidate),
+    PossibleCallerWithReturn(from2, candidate),
+    from != from2.
+    // BlockPushesBlockToStack(from, candidate),
+    // BlockPushesBlockToStack(from2, candidate),
+    // from != from2,
+    // 1 != 1,
+    // !DirectBlockEdge(from, candidate),
+    // !DirectBlockEdge(from2, candidate).
+
+  // Clone all candidate blocks  for all the blocks that push them
+  // Make sure they can be cloned safely 
+  BlockToClone(from, to):-
+    BlockPushesBlockToStack(from, to),
+    BlockPushesBlockToStack(otherFrom, to),
+    BlockCloningCandidate(to),
+    from != otherFrom,
+    !BlockPushesCloningCandidate(to, _),
+    !FallthroughBlock(to),
+    // Make sure we don't break any CODECOPY stmts
+    !analysis.CODECOPYStatement(_, as(to,Value), _).
+
+  .output analysis.StackBalanceBlock, BlockCloningCandidate
+
+  BlockToCloneOpID(pushBlock, blockToClone, cat(pushBlock, blockToClone)):-
+    BlockToClone(pushBlock, blockToClone).
+
+  cloneOpSorter.Input(opID):- BlockToCloneOpID(_, _, opID).
+
+  BlockToCloneNewInstance(pushBlock, blockToClone, generatedBlock):-
+    BlockToCloneOpID(pushBlock, blockToClone, opID),
+    !cloneOpSorter.Input_Next(_, opID),
+    MaxOriginalStatement(maxStmt),
+    generatedBlock = @add_256(maxStmt, "0x20").
+
+  BlockToCloneNewInstance(pushBlock, blockToClone, generatedBlock):-
+    BlockToCloneOpID(prevPushBlock, prevBlockToClone, prevOpID),
+    cloneOpSorter.Input_Next(prevOpID, opID),
+    BlockToCloneNewInstance(prevPushBlock, prevBlockToClone, prevCloneInstance),
+    BlockToCloneOpID(pushBlock, blockToClone, opID),
+    BlockSize(prevBlockToClone, prevCloneBlockSize),
+    generatedBlock = @add_256(prevCloneInstance, @number_to_hex(prevCloneBlockSize + 32)).
+
+  StatementToClonedStatement(pushBlock, blockToClone, stmt, generatedStatement):-
+    BlockToCloneNewInstance(pushBlock, blockToClone, generatedBlock),
+    analysis.Statement_Block(stmt, blockToClone),
+    generatedStatement = @add_256(generatedBlock, @sub_256(stmt, blockToClone)).
+
+
+  // Keep order for all original statements.
+  Out_Statement_Next(stmt, nextStmt):-
+    Statement_Next(stmt, nextStmt).
+
+  Out_Statement_Next(lastOriginalStmt, clonedHead):-
+    MaxOriginalStatement(lastOriginalStmt),
+    BlockToCloneOpID(pushBlock, blockToClone, opID),
+    !cloneOpSorter.Input_Next(_, opID),
+    analysis.BasicBlock_Head(blockToClone, oldHead),
+    StatementToClonedStatement(pushBlock, blockToClone, oldHead, clonedHead).
+
+  Out_Statement_Next(genStmt, nextGenStmt):-
+    StatementToClonedStatement(pushBlock, blockToClone, stmt, genStmt),
+    Statement_Next(stmt, nextStmt),
+    StatementToClonedStatement(pushBlock, blockToClone, nextStmt, nextGenStmt).
+
+  Out_Statement_Next(prevClonedTail, nextClonedHead):-
+    cloneOpSorter.Input_Next(prevOpID, nextOpID),
+    BlockToCloneOpID(prevPushBlock, prevBlockToClone, prevOpID),
+    BlockToCloneOpID(nextPushBlock, nextBlockToClone, nextOpID),
+    analysis.BasicBlock_Tail(prevBlockToClone, oldTail),
+    analysis.BasicBlock_Head(nextBlockToClone, oldHead),
+    StatementToClonedStatement(prevPushBlock, prevBlockToClone, oldTail, prevClonedTail),
+    StatementToClonedStatement(nextPushBlock, nextBlockToClone, oldHead, nextClonedHead).
+
+  Out_Statement_Opcode(oldStmt, op):-
+    Statement_Opcode(oldStmt, op).
+
+  Out_Statement_Opcode(clonedStmt, op):-
+    Statement_Opcode(oldStmt, op),
+    StatementToClonedStatement(_, _, oldStmt, clonedStmt).
+
+  Out_PushValue(oldStmt, oldVal):-
+    PushValue(oldStmt, oldVal),
+    !ClonedBlockAddressPushedBy(_, oldStmt, _).
+
+  Out_PushValue(oldStmt, @cast_to_symbol(newVal)):-
+    PushValue(oldStmt, _),
+    ClonedBlockAddressPushedBy(pushBlock, oldStmt, blockToClone),
+    BlockToCloneNewInstance(pushBlock, blockToClone, newVal).
+
+  // Note: For now the cloned blocks should have no pushes
+  Out_PushValue(clonedStmt, val):-
+    PushValue(oldStmt, val),
+    StatementToClonedStatement(_, _, oldStmt, clonedStmt).
+
+  Block_OriginalBlock(block, block):-
+    analysis.Statement_Block(_, block).
+  
+  Block_OriginalBlock(block, originalBlock):-
+    BlockToCloneNewInstance(_, originalBlock, block).
+}
+
+// Adding analytic here to 
+// .decl Analytics_JumpToManyWouldNotHaveBeenCloned(blk:IRBlock)
+// .output Analytics_JumpToManyWouldNotHaveBeenCloned
+
+// Analytics_JumpToManyWouldNotHaveBeenCloned(irblk):-
+//   Analytics_JumpToMany(irblk),
+//   JumpToMany_ImprecisionSource(irblk, blk),
+//   !blockCloner.BlockToClone(_, blk).
+
+// .decl Analytics_JumpToManyWouldHaveBeenCloned(blk:IRBlock)
+
+// Analytics_JumpToManyWouldHaveBeenCloned(irblk):-
+//   Analytics_JumpToMany(irblk),
+//   JumpToMany_ImprecisionSource(irblk, blk),
+//   blockCloner.BlockToClone(_, blk).

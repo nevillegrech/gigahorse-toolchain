@@ -1,0 +1,100 @@
+.comp TransactionalContext <LocalAnalysis> : PublicComponentContextSensitivity <LocalAnalysis> {
+  // inverse-escape analysis
+  .decl BlockUsesLocal(block: Block, var: VariableOrStackIndex)
+  BlockUsesLocal(block, var) :-
+    local.Statement_Block(stmt, block),
+    local.Statement_Uses_Local(stmt, var, _).
+
+  .decl StaticBlockJumpTarget(caller: Block, target: Value)
+  StaticBlockJumpTarget(caller, target) :-
+    local.ImmediateBlockJumpTarget(caller, targetVar),
+    local.Variable_Value(targetVar, target),
+    local.JUMPDEST(as(target, symbol)).
+
+  .decl StaticBlockJumpTargetNonUnique(caller: Block, target: Value)
+  StaticBlockJumpTargetNonUnique(caller, target) :-
+    StaticBlockJumpTarget(caller, target),
+    StaticBlockJumpTarget(caller2, target),
+    caller != caller2.
+
+  // pushes a label for later use. A return addr?
+  .decl BlockPushesLabel(block: Block, val: Value)
+  BlockPushesLabel(block, val) :-
+    local.JUMPDEST(as(val, symbol)),
+    local.Variable_Value(var, val),
+    local.Statement_Defines(stmt, var),
+    local.Statement_Block(stmt, block),
+    !BlockUsesLocal(block, var).
+
+  // We're only interested in private functions
+  // No ambiguity for public functions
+  .decl PrivateFunctionCallOrReturn(caller: Block)
+  PrivateFunctionCallOrReturn(caller) :-
+//    StaticBlockJumpTargetNonUnique(caller, _),  // looks like a call
+    StaticBlockJumpTarget(caller, _),  // looks like a call
+    BlockPushesLabel(caller, _).       // looks like pushing a return
+
+  PrivateFunctionCallOrReturn(caller) :-
+    local.Statement_Block(stmt, caller),
+    local.JUMP(stmt),
+    !local.ImmediateBlockJumpTarget(caller, _).
+
+  // Trivial control flow case for when there is no function call
+  // OR max context depth is zero
+  // Split into two rules to add plan.
+  MergeContext(ctx, caller, ctx):-
+    ReachableContext(ctx, caller),
+    #ifndef NO_PUBLIC_CONTEXT
+    !local.PublicFunction(caller, _),
+    #endif
+    !PrivateFunctionCallOrReturn(caller).
+
+  MergeContext(ctx, caller, ctx):-
+    ReachableContext(ctx, caller),
+    #ifndef NO_PUBLIC_CONTEXT
+    !local.PublicFunction(caller, _),
+    #endif
+    DecomposeContext(ctx, pub, _),
+    MaxContextDepth(pub, 0).
+    .plan 1:(2,3,1)
+
+  // Complex control flow case
+  //// Default variant
+  MergeContext(ctx, caller, [pub, newPrivateContext]):-
+    ReachableContext(ctx, caller),
+    PrivateFunctionCallOrReturn(caller),
+    DecomposeContext(ctx, pub, pri),
+    TruncateContextIfNeeded(pub, pri, cutDownPri),
+    #ifndef NO_PUBLIC_CONTEXT
+    !local.PublicFunction(caller, _),
+    #endif
+    newPrivateContext = [caller, cutDownPri].
+    .plan 1:(3,1,2,4), 2:(4,3,1,2)
+
+  // // Complex control flow case
+  // //// Variant that distinguishes whether the context contains the block
+  // //// If it doesn't:
+  // MergeContext(ctx, caller, [pub, newPrivateContext]):-
+  //   ReachableContext(ctx, caller),
+  //   PrivateFunctionCallOrReturn(caller),
+  //   DecomposeContext(ctx, pub, pri),
+  //   TruncateContextIfNeeded(pub, pri, cutDownPri),
+  //   #ifndef NO_PUBLIC_CONTEXT
+  //   !local.PublicFunction(caller, _),
+  //   #endif
+  //   NotPrivateContextContainsElement(cutDownPri, caller),
+  //   newPrivateContext = [caller, cutDownPri].
+  //   .plan 1:(3,1,2,4,5), 2:(4,3,1,2,5), 3:(5,2,4,3,1)
+
+  // //// If it does:
+  // MergeContext(ctx, caller, ctx):-
+  //   ReachableContext(ctx, caller),
+  //   PrivateFunctionCallOrReturn(caller),
+  //   DecomposeContext(ctx, pub, pri),
+  //   TruncateContextIfNeeded(pub, pri, cutDownPri),
+  //   #ifndef NO_PUBLIC_CONTEXT
+  //   !local.PublicFunction(caller, _),
+  //   #endif
+  //   PrivateContextContainsElement(cutDownPri, caller).
+  //   .plan 1:(3,1,2,4,5), 2:(4,3,1,2,5), 3:(5,2,4,3,1)
+}

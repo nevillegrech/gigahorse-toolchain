@@ -1,4 +1,4 @@
-Note: you need to clone this repo using the `--recursive` flag since this repo has submodules, e.g., `git clone git@github.com:nevillegrech/gigahorse-toolchain.git --recursive`
+*NOTE*: you need to clone this repo using the `--recursive` flag since this repo has submodules, e.g., `git clone git@github.com:nevillegrech/gigahorse-toolchain.git --recursive`
 
 # The Gigahorse binary lifter and toolchain [![Tweet](https://img.shields.io/twitter/url/http/shields.io.svg?style=social)](https://twitter.com/intent/tweet?text=Gigahorse%20-%20Decompilation%20and%20Analysis%20for%20Ethereum%20Smart%20Contracts&url=https://www.github.com/nevillegrech/gigahorse-toolchain)
 A binary lifter (and related framework) from low-level EVM code to a higher-level function-based three-address representation, similar to LLVM IR or Jimple. 
@@ -27,6 +27,9 @@ You should now be ready to run Gigahorse.
 
 ## Running Gigahorse
 The `gigahorse.py` script can be run on a contract individually or on a collection of contract bytecode files in specified directory, and it will run the binary lifter implemented in `logic/main.dl` on each contract, optionally followed by any additional client analyses specified by the user using the `-C` flag.
+
+The default pipeline first attempts to decompile a contract using a **transactional** context-sensitivity configuration. If that times out it performs a second attempt using a **hybrid-precise** context sensitivity configuration, tuned for scalability. If the legacy (single decompilation) pipeline is preferred you can use the `--single_decomp` flag.
+
 The Gigahorse pipeline also includes a few rounds of inlining of small functions in order to help the subsequent client libraries get more high-level inferences. The inlining functionality can be disabled with `--disable_inline`.
 
 The expected file format for each contract is in .hex format.
@@ -36,6 +39,8 @@ Example (individual contract):
 ```
 ./gigahorse.py examples/long_running.hex
 ```
+
+(For some Souffle versions, you will get an error message regarding the libsoufflenum.so dynamic library, during the first compilation. You can ignore this and gigahorse.py should work upon a re-run.)
 
 Contracts that take too long to analyse will be skipped after a configurable timeout.
 
@@ -58,7 +63,12 @@ Example (with client analysis):
 ./gigahorse.py  -j <number of jobs> -C clients/visualizeout.py <contracts>
 ```
 
+(The clients following the `-C` flag can be a comma-separated list, with no spaces, of path-reachable or fully-qualified filenames.)
+
 Gigahorse can also be used in "bulk analysis" mode, by replacing <contracts> by a directory filled with contracts.
+
+For additional instructions in tuning the Gigahorse framework see [Tuning.md](Tuning.md).
+
 
 ## Textual representation of the lifted IR
 Client analysis `clients/visualizeout.py` can be used to provide a pretty-printed textual representation of the IR produced by Gigahorse.
@@ -119,6 +129,10 @@ The Gigahorse toolchain was originally published as:
 
 - Grech, N., Brent, L., Scholz, B., Smaragdakis, Y. (2019), Gigahorse: Thorough, Declarative Decompilation of Smart Contracts. *In 41st ACM/IEEE International Conference on Software Engineering.*
 
+Several novel developments to Gigahorse after the original publication have been published as:
+
+- Grech, N., Lagouvardos, S., Tsatiris, I., Smaragdakis, Y. (2022), Elipmoc: Advanced Decompilation of Ethereum Smart Contracts *Proceedings of the ACM in Programming Languages (OOPSLA).*
+
 In addition, other research tools have been developed on top of Gigahorse, including:
 
 -  Grech, N., Kong, M., Jurisevic, A., Brent, L., Scholz, B., Smaragdakis, Y. (2018), MadMax: Surviving Out-of-Gas Conditions in Ethereum Smart Contracts. *Proceedings of the ACM on Programming Languages (OOPSLA).*
@@ -126,9 +140,14 @@ In addition, other research tools have been developed on top of Gigahorse, inclu
 -  Brent, L., Grech, N., Lagouvardos, S., Scholz, B., Smaragdakis, Y. (2020), Ethainter: A Smart Contract Security Analyzer for Composite Vulnerabilities.
 *In 41st ACM SIGPLAN Conference on Programming Language Design and Implementation.*
 
--  Lagouvardos, S., Grech, N., Tsatiris, I., and Smaragdakis, Y. (2020) Precise Static Modelling of Ethereum "Memory". *Proceedings of the ACM in Programming Languages (OOPSLA).*
+-  Lagouvardos, S., Grech, N., Tsatiris, I., Smaragdakis, Y. (2020) Precise Static Modelling of Ethereum "Memory". *Proceedings of the ACM in Programming Languages (OOPSLA).*
 
 -  Grech, N., Kong, M., Jurisevic, A., Brent, L., Scholz, B., Smaragdakis, Y. (2020),  Analyzing the Out-of-Gas World of Smart Contracts. *Communications of the ACM.*
+
+- Smaragdakis, Y., Grech, N., Lagouvardos, S., Triantafyllou, K., Tsatiris, I. (2021), Symbolic Value-Flow Static Analysis: Deep, Precise, Complete Modeling of Ethereum Smart Contracts. *Proceedings of the ACM in Programming Languages (OOPSLA).*
+
+  
+
 
 
 The Gigahorse framework also underpins the realtime decompiler and analysis tool at [contract-library.com](https://contract-library.com).

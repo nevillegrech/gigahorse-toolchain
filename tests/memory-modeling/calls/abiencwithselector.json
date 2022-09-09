@@ -1,0 +1,5 @@
+{
+    "client_path": "clients/analytics_client.dl",
+    "gigahorse_args": ["-i", "--disable_inline", "--single_decomp"],
+    "expected_results": [["Analytics_ERC20ApproveCall", 1, 0], ["Analytics_ERC20TransferFromCall", 1, 0], ["Analytics_ERC20TransferCall", 1, 0]]
+}

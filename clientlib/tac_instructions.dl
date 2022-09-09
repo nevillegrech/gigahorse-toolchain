@@ -147,6 +147,19 @@ MSTORE(stmt, index, var) :-
   Statement_Uses(stmt, index, 0),
   Statement_Uses(stmt, var, 1).
 
+.decl MSTORE8(stmt: Statement, index: Variable, from: Variable)
+
+MSTORE8(stmt, index, from):-
+  Statement_Opcode(stmt, "MSTORE8"),
+  Statement_Uses(stmt, index, 0),
+  Statement_Uses(stmt, from, 1).
+
+.decl MSIZE(stmt: Statement, to: Variable)
+
+MSIZE(stmt, to):-
+  Statement_Opcode(stmt, "MSIZE"),
+  Statement_Defines(stmt, to, 0).
+
 .decl SSTORE(stmt: Statement, index: Variable, var: Variable)
 
 SSTORE(stmt, index, var) :-
@@ -284,18 +297,61 @@ FlowOp(op) :- UnaryArith(op).
 FlowOp(op) :- TernArith(op).
 FlowOp("PHI").
 
-// var is the result of a CALL operation, stmt
-.decl CallStmt(stmt:Statement)
-CallStmt(stmt) :- Statement_Opcode(stmt, "CALL").
-CallStmt(stmt) :- Statement_Opcode(stmt, "CALLCODE").
-CallStmt(stmt) :- Statement_Opcode(stmt, "DELEGATECALL").
-CallStmt(stmt) :- Statement_Opcode(stmt, "STATICCALL").
+/**
+  Event logs
+  They need to be handled specially because they have 2 kinds of arguements
+  indexed, that are "normal" args and non indexed that are stored in memory
+  In solidity events, the 0th indexed argument is the topic (the hash of the signature)
+**/
+
+.decl LOGStatement(logStmt:Statement, nIndexedArgs:number)
+
+LOGStatement(stmt, 0):-
+  Statement_Opcode(stmt, "LOG0").
+
+LOGStatement(stmt, 1):-
+  Statement_Opcode(stmt, "LOG1").
+
+LOGStatement(stmt, 2):-
+  Statement_Opcode(stmt, "LOG2").
+
+LOGStatement(stmt, 3):-
+  Statement_Opcode(stmt, "LOG3").
+
+LOGStatement(stmt, 4):-
+  Statement_Opcode(stmt, "LOG4").
+
+
+/**
+  Indexed event arguments.
+  Keep in mind that the 0th indexed argument is usually the topic (the hash of the event signature)
+**/
+.decl LOGIndexedArg(logStmt: Statement, indexedArg: Variable, index: number)
+
+LOGIndexedArg(logStmt, indexedArg, index - 2):-
+  LOGStatement(logStmt, _),
+  Statement_Uses(logStmt, indexedArg, index),
+  index > 1.
+
+.decl CALLStatement(call:Statement, nOtherArgs:number)
+
+CALLStatement(call, 3):-
+  CALL(call, _, _, _, _, _, _, _, _).
+
+CALLStatement(call, 2):-
+  STATICCALL(call, _, _, _, _, _, _, _).
+
+CALLStatement(call, 2):-
+  DELEGATECALL(call, _, _, _, _, _, _, _).
+
+CALLStatement(call, 2):-
+  CALLCODE(call, _, _, _, _, _, _, _).
 
 
 // var is the result of a CALL operation, stmt
 .decl CallResult(var:Variable, stmt:Statement)
 
-CallResult(var, stmt) :- CallStmt(stmt), Statement_Defines(stmt, var, _).
+CallResult(var, stmt) :- CALLStatement(stmt, _), Statement_Defines(stmt, var, _).
 
 .decl IsJump(s:Statement)
 IsJump(s) :- Statement_Opcode(s, "JUMP").
@@ -316,22 +372,11 @@ CALLPRIVATE(stmt, f) :-
    Statement_Opcode(stmt, "CALLPRIVATE"),
    Statement_Uses(stmt, f, 0).
 
-.decl CALLPRIVATEI(s: Statement, f: Variable, cond: Variable)
-CALLPRIVATEI(stmt, f, cond) :-
-   Statement_Opcode(stmt, "CALLPRIVATEI"),
-   Statement_Uses(stmt, f, 0),
-   Statement_Uses(stmt, cond, 1).
 
 .decl RETURNPRIVATE(s: Statement, b: Variable)
 RETURNPRIVATE(stmt, b) :-
    Statement_Opcode(stmt, "RETURNPRIVATE"),
    Statement_Uses(stmt, b, 0).
-
-.decl RETURNPRIVATEI(s: Statement, b: Variable, cond: Variable)
-RETURNPRIVATEI(stmt, b, cond) :-
-   Statement_Opcode(stmt, "RETURNPRIVATEI"),
-   Statement_Uses(stmt, b, 0),
-   Statement_Uses(stmt, cond, 1).
 
 .decl PrecompiledCall(stmt: Statement)
 
@@ -342,3 +387,8 @@ PrecompiledCall(stmt) :-
     Variable_Value(addr, "0x3") ; Variable_Value(addr, "0x4") ; Variable_Value(addr, "0x5") ;
     Variable_Value(addr, "0x6") ; Variable_Value(addr, "0x7")).
 
+
+.decl CONST(stmt: Statement, var: Variable)
+
+CONST(stmt, var) :-
+   Statement_Opcode(stmt, "CONST"), Statement_Defines(stmt, var, _).

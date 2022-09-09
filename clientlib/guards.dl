@@ -162,3 +162,12 @@ NotReentrancyGuard(globalVar):-
   StoreValueToGlobalVariable(stmt, globalVar, storedVal),
   StoreValueToGlobalVariable(stmt2, globalVar, storedVal2),
   storedVal != storedVal2.
+
+
+/*
+  Instantiation of MayHappenInBetweenGlobal used to recognize external calls that are protected by reentrancy guards.
+*/
+.init callBetweenReentrancyGuardStores = MayHappenInBetweenGlobal
+callBetweenReentrancyGuardStores.Before(before):- ReentrancyGuard(globalVar), storeAfterStore.MayHappenBefore(before, _, globalVar).
+callBetweenReentrancyGuardStores.Between(between):- CALL(between, _, _, _, _, _, _, _, _).
+callBetweenReentrancyGuardStores.After(after):- ReentrancyGuard(globalVar), storeAfterStore.MayHappenBefore(_, after, globalVar).

@@ -26,11 +26,11 @@ Flows(actual, actualReturn) :-
    ActualReturnArgs(block, actualReturn, m).
 
 // Case: Flows from local variable to formal return
-Flows(variable, actualReturn) :-
-   FunctionFlowSummary(fn, variable, m),
-   FunctionCallReturn(block, fn, _),
-   !FormalArgs(fn, variable, _),
-   ActualReturnArgs(block, actualReturn, m).
+// Flows(variable, actualReturn) :-
+//    FunctionFlowSummary(fn, variable, m),
+//    FunctionCallReturn(block, fn, _),
+//    !FormalArgs(fn, variable, _),
+//    ActualReturnArgs(block, actualReturn, m).
 
 // Recursive Case
 Flows(x, z) :- Flows(x, y), Flows(y, z).
@@ -76,12 +76,6 @@ Analytics_PolymorphicVariable(v) :-
    GlobalFlows(b, v),
    a != b.
 
-// not guaranteed to be a function of its first arg?
-.decl Variable_Function(var:Variable, function:Function)
-
-Variable_Function(var, function) :-
-  Statement_Defines(stmt, var, _),
-  Statement_Function(stmt, function).
 
 .decl Analytics_DataFlowsToSamePublicFunction(a: Variable, b: Variable)
 
@@ -109,7 +103,9 @@ Analytics_MissingDataFlowsToSamePublicFunction(a, b) :-
 Analytics_DataFlowsToDifferentPublicFunction(a, b) :-
    GlobalFlows(a, b),
    Variable_Function(a, fa), fa != "0x0",
+   IsPublicFunction(fa),
    Variable_Function(b, fb), fb != "0x0",
+   IsPublicFunction(fb),
    fa != fb.
 
 
@@ -140,8 +136,8 @@ Analytics_Variables(a) :-
 
 
 
-#ifdef CALL_TO_SIGNATURE
-#include "../clientlib/memory_modeling.dl"
+// Has many dependencies, incl memory modeling and data structures
+#include "../clientlib/guards.dl"
 
 .decl Analytics_CallToSignature(sigHashVal: Value)
 .output Analytics_CallToSignature
@@ -151,10 +147,6 @@ Analytics_CallToSignature(substr(sigHashVal, 0, 10)) :-
   StatementUsesMemory_ActualMemoryArg(call, _, 0, actual),
   Variable_Value(actual, sigHashVal).
 
-Analytics_CallToSignature("") :-
-  CALLStatement(call, _),
-  !StatementUsesMemory_ActualMemoryArg(call, _, 0, _).
-
 .decl Analytics_EventSignature(sigHashVal: Value)
 .output Analytics_EventSignature
 
@@ -163,4 +155,32 @@ Analytics_EventSignature(sigHashVal) :-
   Statement_Uses(log, actual, 2),
   Variable_Value(actual, sigHashVal).
 
-#endif
+.decl Analytics_SenderGuard(glovalVar: Value)
+.output Analytics_SenderGuard
+
+.decl Analytics_ReentrancyGuard(glovalVar: Value)
+.output Analytics_ReentrancyGuard
+
+Analytics_SenderGuard(globalVar):-
+  SenderGuard(globalVar, _).
+
+Analytics_ReentrancyGuard(glovalVar):-
+  ReentrancyGuard(glovalVar).
+
+.decl Analytics_GlobalVariable(globalVar: symbol)
+.output Analytics_GlobalVariable
+
+Analytics_GlobalVariable(globalVar):-
+  GlobalVariable(globalVar).
+
+.decl Analytics_Map(globalVar: symbol)
+.output Analytics_Map
+
+Analytics_Map(globalVar):-
+  MapElementStmt(_, globalVar, _).
+
+.decl Analytics_StorageArray(globalVar: symbol)
+.output Analytics_StorageArray
+
+Analytics_StorageArray(globalVar):-
+  ArrayElementStmt(_, globalVar, _).

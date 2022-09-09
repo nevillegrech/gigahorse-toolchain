@@ -1,0 +1,26 @@
+/**
+  Simple CallSite context sensitivity
+*/
+
+.comp CallSiteContext <LocalAnalysis> : PrivateOnlyContextSensitivity <LocalAnalysis> {
+
+  MergeContext(ctx, caller, newCtx):-
+    ReachableContext(ctx, caller),
+    TruncateContextIfNeeded(ctx, maybeCutDownCtx),
+    newCtx = [caller, maybeCutDownCtx].
+}
+
+/**
+  CallSite context sensitivity with a public function context component
+  Does not implement/care for the NO_PUBLIC_CONTEXT flag.
+*/
+.comp CallSiteContextPlus <LocalAnalysis> : PublicComponentContextSensitivity <LocalAnalysis> {
+
+  MergeContext(ctx, caller, [pub, newPrivateContext]):-
+    ReachableContext(ctx, caller),
+    DecomposeContext(ctx, pub, pri),
+    TruncateContextIfNeeded(pub, pri, cutDownPri),
+    !local.PublicFunction(caller, _),
+    newPrivateContext = [caller, cutDownPri].
+    .plan 1:(2,1,3), 2:(3,2,1)
+}

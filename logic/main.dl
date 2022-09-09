@@ -1,8 +1,5 @@
 #define FALLBACK_FUNCTION_SIGHASH "0x00000000"
 
-#include "global.dl"
-#include "functions.dl"
-#include "decompiler_output.dl"
 
 
 /*
@@ -10,14 +7,18 @@
  */
 
 #ifndef CONTEXT_SENSITIVITY
-  // transactional-context is default
-  #define CONTEXT_SENSITIVITY transactional-context
+  // TransactionalContext is default
+  #define CONTEXT_SENSITIVITY TransactionalContext
+//  #define CONTEXT_SENSITIVITY FinitePreciseContext
+//  #define CONTEXT_SENSITIVITY HybridPreciseContext
 #endif
 
-// dynamically include context sensitivity based on Souffle params
-#define STRINGIFY(x) #x
-#define GET_CONTEXT_SENSITIVITY_FILENAME(ctx) STRINGIFY(context-sensitivity/ctx.dl)
-#include GET_CONTEXT_SENSITIVITY_FILENAME(CONTEXT_SENSITIVITY)
+#include "context-sensitivity/context_sensitivity.dl"
+
+#include "global.dl"
+#include "functions.dl"
+#include "decompiler_output.dl"
+
 
 #ifndef NO_ANALYTICS
 #include "decompiler_analytics.dl"

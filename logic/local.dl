@@ -12,8 +12,6 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
 // re-formatted for use by clients), statistics, debugging relations.
 .decl ByteCodeHex(bytecode:symbol)
 
-.input ByteCodeHex(IO="file", filename="bytecode.hex")
-
 .decl _ByteCodeHex(bytecode:symbol)
 .input _ByteCodeHex(IO="file", filename="bytecode.hex")
 
@@ -81,7 +79,7 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
 
   // Auxiliary relations for constant folding
   .decl BinopStatementOpAndArgs(stmt: Statement, op: Opcode, a: Variable, b: Variable)
-  BinopStatementOpAndArgs(stmt, op, @cast_to_number(a), @cast_to_number(b)) :-
+  BinopStatementOpAndArgs(stmt, op, as(a, Variable), as(b, Variable)) :-
     Statement_Opcode(stmt, op),
     Statement_Uses_Local(stmt, a, 0),
     Statement_Uses_Local(stmt, b, 1),
@@ -96,7 +94,7 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
   .plan 1:(3,2,1)
 
   .decl UnopStatementOpAndArgs(stmt: Statement, op: Opcode, a: Variable)
-  UnopStatementOpAndArgs(stmt, op, @cast_to_number(a)) :-
+  UnopStatementOpAndArgs(stmt, op, as(a, Variable)) :-
     Statement_Opcode(stmt, op),
     Statement_Uses_Local(stmt, a, 0),
     !Statement_Uses_Local(stmt, _, 1),
@@ -147,7 +145,7 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     Statement_Opcode(stmt, opcode),
     OpcodePushWords(opcode, m), m > 0,
     !TACNOP(stmt),
-    var = @cast_to_number(n).
+    var = as(n, Variable).
   
    
   .decl IsValue(v:Value)
@@ -200,15 +198,20 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
   .decl Statement_BlockHead(statement:Statement, head:Statement)
   
   Statement_BlockHead(stmt, stmt),
-  Statement_Block(stmt, @cast_to_symbol(stmt)) :-
+  Statement_Block(stmt, as(stmt, Block)) :-
     IsBasicBlockHead(stmt).
   
-  Statement_BlockHead(stmt, @cast_to_symbol(block)),
+  Statement_BlockHead(stmt, as(block, Statement)),
   Statement_Block(stmt, block) :-
     Statement_Block(prevstmt, block),
     Statement_Next(prevstmt, stmt),
     !IsBasicBlockHead(stmt),
     !PossiblyIsBasicBlockTail(prevstmt).
+  
+  .decl BasicBlock_Head(block:Block, head:Statement)
+  BasicBlock_Head(block, head):-
+    Statement_BlockHead(stmt, head),
+    Statement_Block(stmt, block).
   
   .decl BasicBlock_Tail(block:Block, tail:Statement)
   
@@ -254,7 +257,7 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
   .decl StatementPopDelta(statement: Statement, delta: number)
   .decl StatementStackDelta(statement: Statement, delta: number)
   
-  ImmediateBlockJumpTarget(block, @cast_to_number(var)) :-
+  ImmediateBlockJumpTarget(block, as(var, Variable)) :-
     BasicBlock_Tail(block, stmt),
     IsJump(stmt),
     BeforeLocalStackContents(stmt, 0, var),
@@ -284,7 +287,7 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
   ThrowJump(jmp) :-
      ImmediateBlockJumpTarget(block, variable),
      Variable_Value(variable, targetValue),
-     !JUMPDEST(@cast_to_symbol(targetValue)),
+     !JUMPDEST(as(targetValue, Statement)),
      BasicBlock_Tail(block, jmp).
 
   /*
@@ -312,7 +315,7 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     Statement_Defines(stmt, var).
   
   // Get current program counter
-  Variable_Value(var, @cast_to_symbol(stmt)) :-
+  Variable_Value(var, as(stmt, Value)) :-
     PC(stmt),
     Statement_Defines(stmt, var).
 
@@ -400,7 +403,7 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     OpcodePopWords(opcode, delta).
   
   
-  StatementPopDelta(stmt, @max2(prevPopDelta, popDelta - prevStackDelta)) :-
+  StatementPopDelta(stmt, max(prevPopDelta, popDelta - prevStackDelta)) :-
     StatementPopDelta(prevstmt, prevPopDelta),
     !BasicBlock_Tail(_, prevstmt),
     StatementStackDelta(prevstmt, prevStackDelta),
@@ -436,7 +439,7 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
   IsValue(v) :-
      PushValue(_, v).
   
-  IsValue(@cast_to_symbol(v)) :-
+  IsValue(as(v, Value)) :-
     PC(v).
   
   .decl DynamicStatement(stmt:Statement)
@@ -477,7 +480,7 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     JUMPI(jumpiStmt),
     Statement_Uses_Local(jumpiStmt, pred, 1).
 
-  .decl SWAPDUPPOPJUMPJUMPDESTOP(op:Opcode)
+  .decl SWAPDUPPOPJUMPJUMPDESTOP(op: Opcode)
   SWAPDUPPOPJUMPJUMPDESTOP(opcode):-
     DUPN(opcode, _);
     SWAPN(opcode, _);
@@ -485,9 +488,10 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     opcode = "JUMPDEST";
     opcode = "POP".
 
-  .decl StackBalanceBlock(block:Block)
+  .decl StackBalanceBlock(block: Block)
   StackBalanceBlock(block):-
-    Statement_Block(_, block),
+    Statement_Block(jump, block),
+    Statement_Opcode(jump, "JUMP"),
     stackAltCount = count: {
       Statement_Block(stmt, block), 
       Statement_Opcode(stmt, op), 
@@ -495,6 +499,25 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     },
     allCount = count: Statement_Block(_, block),
     stackAltCount = allCount.
+
+  .decl StackBalanceBlockTargetEscapes(block: Block)
+  .output StackBalanceBlockTargetEscapes
+  StackBalanceBlockTargetEscapes(block):-
+    StackBalanceBlock(block),
+    BasicBlock_Tail(block, jump),
+    BeforeLocalStackContents(jump, 0, var),
+    LocalStackContents(jump, _, var).
+
+  // Helper for some ctx sensitivity algorithms
+  .decl BlockHasTrivialControl(block: Block)
+
+  BlockHasTrivialControl(block):-
+    BasicBlock_Tail(block, stmt),
+    !JUMP(stmt),
+    !JUMPI(stmt).
+
+  BlockHasTrivialControl(block):-
+    ImmediateBlockJumpTarget(block, _).
 }
 
 .comp PreTransLocalAnalysis : LocalAnalysis {
@@ -557,18 +580,18 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
 
   PublicFunctionJump(block, sigHash) :-   BlockComparesSig(block, sigHash).
 
-  PublicFunction(@cast_to_symbol(targetValue), sigHash) :-
+  PublicFunction(as(targetValue, Block), sigHash) :-
     BlockComparesSig(block, sigHash),
     ImmediateBlockJumpTarget(block, var),
     Statement_Defines(push, var),
     PushValue(push, targetValue),
-    JUMPDEST(@cast_to_symbol(targetValue)).
+    JUMPDEST(as(targetValue, symbol)).
 
   .decl BlockComparesCallDataSizeToFour(block: Block, jumpi: Statement, target: Block)
   .decl BlockJumpsOnCallDataSize(block: Block, jumpi: Statement, target: Block)
   .decl BlockHasReceiveAsFallThrough(block: Block, jumpi: Statement, fallthrough:Statement, target: Block)
 
-  BlockComparesCallDataSizeToFour(block, stmt5, @cast_to_symbol(fallthrough)):-
+  BlockComparesCallDataSizeToFour(block, stmt5, as(fallthrough, Block)):-
     PushValue(stmt, "0x4"),
     Statement_Next(stmt, stmt2),
     CALLDATASIZE(stmt2),
@@ -578,15 +601,17 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     PushValue(stmt4, fallthrough),
     Statement_Next(stmt4, stmt5),
     JUMPI(stmt5),
-    Statement_Block(stmt5, block).
+    Statement_Block(stmt5, block),
+    JUMPDEST(as(fallthrough, Statement)).
 
-  BlockJumpsOnCallDataSize(block, jumpi, @cast_to_symbol(fallthrough)):-
+  BlockJumpsOnCallDataSize(block, jumpi, as(fallthrough, Block)):-
     CALLDATASIZE(cds),
     Statement_Next(cds, push),
     PushValue(push, fallthrough),
     Statement_Next(push, jumpi),
     JUMPI(jumpi),
-    Statement_Block(jumpi, block).
+    Statement_Block(jumpi, block),
+    JUMPDEST(as(fallthrough, Statement)).
 
   // Fallback functions
   PublicFunctionJump(block, FALLBACK_FUNCTION_SIGHASH),
@@ -623,7 +648,6 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
 
 .init factReader = StatementFactReader
 
-
 /*
  ***********
  * Transformation-aided decompilation
@@ -631,7 +655,18 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
  */
 
 .init preTrans = PreTransLocalAnalysis
+
+#ifdef BLOCK_CLONING
+// Enable the early cloning of blocks to increase precision (sacrificing performance)
+
+.init blockCloner = BlockCloner
+COPY_CODE(blockCloner, factReader)
+COPY_OUTPUT(preTrans, blockCloner)
+
+#else
+// No early cloning
 COPY_CODE(preTrans, factReader)
+#endif
 
 INITIALIZE_STATEMENT_INSERTOR_FROM(insertor, preTrans, postTrans)
 
@@ -648,7 +683,7 @@ insertor.insertOps(pushStmt,
 insertor.insertOps(jumpDestStmt,
   LIST(
     STMT(JUMPDEST, MAKE_LABEL_REFERENCE(jumpDestStmt)),
-    STMT(PUSH4, @cast_to_symbol(jumpDestStmt)),
+    STMT(PUSH4, as(jumpDestStmt, symbol)),
     STMT(JUMP, cat("PublicFunctionJump:", hash))
   )
 ) :-
@@ -656,7 +691,7 @@ insertor.insertOps(jumpDestStmt,
    preTrans.PublicFunction(start, hash),
    preTrans.Statement_Block(jumpDestStmt, start),
    preTrans.JUMPDEST(jumpDestStmt),
-   preTrans.PushValue(pushStmt, @cast_to_symbol(jumpDestStmt)),
+   preTrans.PushValue(pushStmt, as(jumpDestStmt, symbol)),
    preTrans.Statement_Block(pushStmt, block),
    preTrans.Statement_Defines(pushStmt, pushedVar),
    preTrans.Statement_Uses_Local(jumpStmt, pushedVar, 0),
@@ -672,7 +707,8 @@ insertor.insertOps(functionStartStmt,
 ) :-
    preTrans.BlockComparesSigVyper(block, hash),
    preTrans.BasicBlock_Tail(block, tail),
-   preTrans.Statement_Next(tail, functionStartStmt).
+   preTrans.Statement_Next(tail, functionStartStmt),
+   !preTrans.BlockComparesSig(_, _).
 
 // Receive transformation
 insertor.insertOps(functionStartStmt,
@@ -774,6 +810,7 @@ postTrans.PublicFunction(block, hash) :-
    postTrans.JUMPDEST(stmt),
    postTrans.Statement_Block(stmt, block),
    preTrans.BlockComparesSigVyper(_, hash),
+   !preTrans.BlockComparesSig(_, _),
    ISLABEL(meta), hash = GET_LABEL_REFERENCE(meta).
 
 // For receive functions
