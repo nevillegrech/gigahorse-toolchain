@@ -15,6 +15,7 @@
 #include "memory_addresses.dl"
 #include "core.dl"
 #include "arrays.dl"
+#include "structs.dl"
 #include "loops.dl"
 #include "uses_defs_abstractions.dl"
 #include "misc.dl"
