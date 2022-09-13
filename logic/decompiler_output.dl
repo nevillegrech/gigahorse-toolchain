@@ -383,12 +383,12 @@ Helper_Zeros(cat("0",old), i +1):-
   Helper_Zeros(old, i),
   i < 10.
 
-.decl ConstantPossibleSigHash(constSigHash:symbol, name:symbol)
+.decl ConstantPossibleSigHash(constSigHash:symbol, canonicalSigHash:symbol, name:symbol)
 .output ConstantPossibleSigHash
 
 
 // Covers both small and big numbers
-ConstantPossibleSigHash(sigHash, name):-
+ConstantPossibleSigHash(sigHash, sigHashForm, name):-
   TAC_Variable_Value(_, sigHash),
   len = strlen(sigHash),
   temp = min(10, len),
@@ -400,7 +400,7 @@ ConstantPossibleSigHash(sigHash, name):-
 // first two digits of the constant and prepend "0x"? If the two digits
 // were not relevant, they were "0x" to begin with. Anyway, I'm leaving
 // as-is to be safe, and adding more cases below.
-ConstantPossibleSigHash(sigHash, name):-
+ConstantPossibleSigHash(sigHash, sigHashForm, name):-
   TAC_Variable_Value(_, sigHash),
   len = strlen(sigHash),
   ((len >= 9, sigHashForm = cat("0x0", substr(sigHash, 2, 7)));

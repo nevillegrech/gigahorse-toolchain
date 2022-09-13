@@ -115,7 +115,7 @@ IsPublicFunction(func) :- PublicFunctionSelector(func, _).
 .input EventSignatureInContract(IO="file", filename="EventSignatureInContract.csv", delimiter="\t")
 
 //Matching constants to public function signature hashes to resolve external calls.
-.decl ConstantPossibleSigHash(constValSigHash:Value, sigText:symbol)
+.decl ConstantPossibleSigHash(constValSigHash:Value, normalizedSigHash:Value, sigText:symbol)
 .input ConstantPossibleSigHash(IO="file", filename="ConstantPossibleSigHash.csv", delimiter="\t")
 
 // Gas used per block
