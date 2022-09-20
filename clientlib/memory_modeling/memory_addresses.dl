@@ -99,7 +99,7 @@ MSTOREFreePtr_IncByAmount(mstore, amount):-
 
 /**
   We find loads of the free memory pointer (0x40) that do not have an update of the 
-  free memory pointer adress between them. These are used for aliasing between pointers 
+  free memory pointer address between them. These are used for aliasing between pointers.
   There are two ways to do this:
     1) Consider aliasing adresses between memory consuming statements, this has the potential
        of being more sound by covering possible writes to memory being used by multiple memory consuming
@@ -205,6 +205,12 @@ FreePointerBasedValue(val, mload, 0, 0):-
   MLOADFreePtr_To(mload, to),
   val = cat(cat(mload, "++"), "0").
 
+// SL: HACK here. casting arg to statement.
+Variable_SymbolicValue(formal, val),
+FreePointerBasedValue(val, as(formal, Statement), 0, 0):-
+  PossibleStructArg(_, _,formal),
+  val = cat(cat(formal, "++"), "0").
+
 /**
  The depth is not used to limit the new values being created but to count how
  many times a constant has been added to the value for arg inference.
@@ -272,6 +278,12 @@ FreePointerBasedValuesWithFreePointerAliases(val1, val2):-
   FreePointerBasedValue(val2, mload2, _, _).
  .plan 1:(3,2,1)
 
+// Seemingly redundant case to cover struct argument hack.
+FreePointerBasedValuesWithFreePointerAliases(val1, val2):-
+  FreePointerBasedValue(val1, mload, _, _),
+  FreePointerBasedValue(val2, mload, _, _).
+ .plan 1:(2,1)
+
 FreePointerBasedValuesWithFreePointerAliases(val1, val2):-
   FreePointerBasedValue(val1, msize, _, _),
   MSIZE(msize, _),
@@ -302,6 +314,12 @@ FreePointerBasedValuesNumDiffNoMemReuse(val1, val2, numDiff):-
   FreePointerBasedValue(val1, mload1, _, _),
   FreePointerBasedValue(val2, mload2, _, _),
   MLOADSFreePtrUnchangedNoMemReuse(mload1, mload2).
+
+// Seemingly redundant case to cover struct argument hack.
+FreePointerBasedValuesNumDiffNoMemReuse(val1, val2, numDiff):-
+  FreePointerBasedValuesNumDiff(val1, val2, numDiff),
+  FreePointerBasedValue(val1, mload, _, _),
+  FreePointerBasedValue(val2, mload, _, _).
 
 //TODO: Make sure we can remove it
 FreePointerBasedValuesEqual(val1, val2):-
