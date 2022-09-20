@@ -18,8 +18,12 @@ StatementDominates(stmt1, stmt2):-
 .decl PossibleStructAllocation(mload: Statement, mstore: Statement, structBase: Variable, wordWidth: number)
 DEBUG_OUTPUT(PossibleStructAllocation)
 
-.decl StructAllocationInternal(mstore: Statement, structBase: Variable, wordWidth: number)
-DEBUG_OUTPUT(StructAllocationInternal)
+// TODO: Reintroduce Internal variant if needed
+// .decl StructAllocationInternal(mstore: Statement, structBase: Variable, wordWidth: number)
+// DEBUG_OUTPUT(StructAllocationInternal)
+
+.decl Struct_WordWidth(structBase: Variable, wordWidth: number)
+DEBUG_OUTPUT(Struct_WordWidth)
 
 /**
   Initial stores are the ones that happen during the struct's allocation 
@@ -30,20 +34,9 @@ DEBUG_OUTPUT(InitialStoreToPossibleStruct)
 .decl StructIndex(structBase: Variable, indexVar: Variable, wordOffset: number)
 DEBUG_OUTPUT(StructIndex)
 
-.decl Struct_WordWidth(structBase: Variable, wordWidth: number)
-DEBUG_OUTPUT(Struct_WordWidth)
-
 .decl StructContainsArray(structBase: Variable, wordOffset: number, elementSize: number)
 DEBUG_OUTPUT(StructContainsArray)
 
-.decl StructLoad(mload: Statement, structBase: Variable, wordOffset: number, loadedVar: Variable)
-DEBUG_OUTPUT(StructLoad)
-
-.decl StructStore(mstore: Statement, structBase: Variable, wordOffset: number, loadedVar: Variable)
-DEBUG_OUTPUT(StructStore)
-
-.decl StructStatementOffset(stmt: Statement, wordOffset: number)
-.output StructStatementOffset
 
 // REVIEW: Make sure this doesn't cause any imprecision with other patterns or array allocations with constant length
 // REVIEW: This is rather conservative right now as I imagine these patterns produced by the compiler are.
@@ -71,14 +64,14 @@ InitialStoreToPossibleStruct(mstore, structBaseVar, storedVar, memOffset / 32):-
 // it may possibly not be the case in optimized code
 // REVIEW: only infers the structs in cases where it escapes the current method
 // MSTORE/MLOAD modeling is considered suficient in other cases
-StructAllocationInternal(freePtrUpdStore, structBaseVar, wordWidth):-
+StructAllocation(freePtrUpdStore, structBaseVar, wordWidth):-
   PossibleStructAllocation(_, freePtrUpdStore, structBaseVar, wordWidth),
   wordWidth >= count : InitialStoreToPossibleStruct(_, structBaseVar, _, _),
   DataFlows(structBaseVar, argOrRet),
   (ActualArgs(_, argOrRet, _) ; ActualReturnArgs(_, argOrRet, _)).
 
 Struct_WordWidth(structBase, wordWidth):-
-  StructAllocationInternal(_, structBase, wordWidth).
+  StructAllocation(_, structBase, wordWidth).
 
 StructIndex(structBaseVar, indexVar, memOffset / 32):-
   Struct_WordWidth(structBaseVar, wordWidth),
@@ -109,21 +102,13 @@ StructStore(mstore, structBase, wordOffset, storedVar):-
   StructIndex(structBase, indexVar, wordOffset),
   MSTORE(mstore, indexVar, storedVar).
 
-StructStatementOffset(stmt, wordOffset):-
-  StructStore(stmt, _, wordOffset, _);
-  StructLoad(stmt, _, wordOffset, _);
-  (
-    StructAllocationInternal(freePtrUpdStore, _, wordOffset),
-    PossibleStructAllocation(stmt, freePtrUpdStore, _, wordOffset)
-  ).
-
 StructContainsArray(structBase, wordOffset, @hex_to_number(elementSize)):-
   StructStore(_, structBase, wordOffset, storedVar),
   IsRegularArrayVar(storedVar),
   Array_ElementLength(storedVar, elementSize).
 
 MemoryModelingTempStmt(mstore):-
-  StructAllocationInternal(mstore, _, _).
+  StructAllocation(mstore, _, _).
 
 /**
   PossibleStructArg is used to add new symbolic values for memory addresses to the formal variables
