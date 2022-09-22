@@ -51,6 +51,9 @@ DEBUG_OUTPUT(StructLoad)
 DEBUG_OUTPUT(StructStore)
 
 /**
+  NOTE:The StatementUsesMemory_ActualMemoryArg relation can be used
+  to get only the arguments passed through memory.
+
   Actual arguments or uses for statements using memory,
   this can combine memory and
   non memory args (in LOGs and CALLs)
@@ -80,9 +83,7 @@ DEBUG_OUTPUT(StructStore)
     MLOADS:
       0th actual arg can be a var that will definitely be read from it
       (that has been stored previously using MSTORE)
-**/
-// TODO: add comment about StatementUsesMemory_ActualMemoryArg
-
+*/
 
 .decl MemoryStatement_ActualArg(stmt:Statement, actual:Variable, index:number)
 
