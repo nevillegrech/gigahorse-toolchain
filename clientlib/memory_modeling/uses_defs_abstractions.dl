@@ -241,6 +241,7 @@ ABIEncodedArrayIncludesArray(abiArr, memConsStmt, abiAddrPlusIndex, arrayPointer
   ADDFixx(_, arrayLocationIndex, abiArrVar, abiAddrPlusIndex),
   PossibleArrayLoose(abiAddrPlusIndex).
 
+// TODO: Fix this
 ABIEncodedArrayIncludesArray(abiArr, memConsStmt, abiAddrPlusIndex, arrayPointerIndex):-
   ABIEncodedArrayVar_ClassRep(abiArrVar, abiArr),
   ABIEncodedArrayWFunctionSelector(abiArr),
@@ -249,7 +250,11 @@ ABIEncodedArrayIncludesArray(abiArr, memConsStmt, abiAddrPlusIndex, arrayPointer
   ADDFix(_, abiArrVar, fourVar, abiPlusFour),
   Variable_NumericValue(fourVar, 4),
   ADDFixx(_, arrayLocationIndex, abiPlusFour, abiAddrPlusIndex),
-  PossibleArrayLoose(abiAddrPlusIndex).
+  PossibleArrayLoose(abiAddrPlusIndex),
+  // Negation added to fix case where both ABIEncodedArrayIncludesArray and AtConcreteIndex
+  // An example would be the renounceOwnership() method of Ownable
+  // May need to change at some point
+  !Variable_NumericValue(arrayLocationIndex, arrayPointerIndex).
 
 ABIEncodedArrayIncludesArray(abiArr, memConsStmt, arrayVar, arrayPointerIndex):-
   ABIEncodedArrayIncludesArrayAtConcreteIndex(abiArr, memConsStmt, arrayVar, arrayPointerIndex, _).
