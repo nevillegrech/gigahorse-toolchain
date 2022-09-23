@@ -1,0 +1,7 @@
+{
+    "client_path": null,
+    "gigahorse_args": ["-i", "--single_decomp"],
+    "expected_results": [["Analytics_JumpToMany", 0, 0], ["Analytics_UnreachableBlock", 0, 0],
+    ["Analytics_BlockHasNoTACBlock", 0, 0], ["Analytics_StmtMissingOperand", 0, 0],
+    ["Analytics_NonModeledMLOAD", 0, 0],["Analytics_NonModeledMSTORE", 0, 0]]
+}
