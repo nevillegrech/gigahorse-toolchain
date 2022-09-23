@@ -21,6 +21,53 @@ contract SimpleStruct {
         return true;
     }
 
+
+    function altTransfer(address _to, uint256 _amt, bool _flag) external returns (bool) {
+        TransferArgs memory args = TransferArgs(msg.sender, _to, _amt);
+
+        if(_flag)
+            args._amt = 2*args._amt;
+        else
+            args._amt = 3*args._amt;
+
+        _transfer(args);
+        return true;
+    }
+
+    function _transfer(TransferArgs memory args) internal {
+        emit Transfer(args._from, args._to, args._amt);
+    }
+}
+
+contract StoredStruct {
+    struct TransferArgs {
+        address _from;
+        address _to;
+        uint256 _amt;
+    }
+
+    mapping (address => TransferArgs) public storedTransfer;
+
+    event Transfer(address,address,uint256);
+
+    function storeTransfer(address _to, uint256 _amt) external returns (bool) {
+        TransferArgs memory args = TransferArgs(msg.sender, _to, _amt);
+        storedTransfer[msg.sender] = args;
+        return true;
+    }
+
+    function transfer() external returns (bool) {
+        TransferArgs memory args = storedTransfer[msg.sender];
+        _transfer(args);
+        return true;
+    }
+
+    function transferFrom(address from) external returns (bool) {
+        TransferArgs memory args = storedTransfer[from];
+        _transfer(args);
+        return true;
+    }
+
     function _transfer(TransferArgs memory args) internal {
         emit Transfer(args._from, args._to, args._amt);
     }
