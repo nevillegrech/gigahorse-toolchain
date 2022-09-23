@@ -106,7 +106,8 @@ DEBUG_OUTPUT(NonModeledMSTORE)
 
 ArgWriteAny(mstore):-
   ABIWriteMSTORE(mstore);
-  StatementUsesMemoryWriteAtRelativeIndex(_, _, mstore, _).
+  StatementUsesMemoryWriteAtRelativeIndex(_, _, mstore, _);
+  MSTOREToMLOAD(mstore, _, _).
 
 // We do not always consider this write to be the allocation
 AllocationAny(mstore):-
@@ -133,8 +134,7 @@ ModeledMSTORE(mstore):-
   AllocationAny(mstore);
   // _StructAllocation(mstore);   // Already part of MSTOREFreePtr
   _StructStore(mstore);
-  ABIWriteMSTORE(mstore);
-  StatementUsesMemoryWriteAtRelativeIndex(_, _, mstore, _).
+  ArgWriteAny(mstore).
 
 
 Verbatim_AllVsModeledMSTOREs(all, freeptr, storei, store, allocate, arg, structstore):-
@@ -206,6 +206,7 @@ ModeledMLOAD(mload):-
   MLOADReadsReturnOfCALL(mload, _, _);
   MLOADFreePtr(mload);
   _StructLoad(mload);
+  MSTOREToMLOAD(_, mload, _);
   MLOADReadsArrayLength(mload);
   ArrayLoad(mload, _, _);
   ArrayLoadAtIndex(mload, _, _, _).
@@ -222,6 +223,7 @@ Verbatim_AllVsModeledMLOADs(all, freeptr, retRead, arrLen, arrloadi, arrload, st
   all = count: MLOAD(_, _, _),
   freeptr = count: MLOADFreePtr(_),
   retRead = count: MLOADReadsReturnOfCALL(_, _, _),
+  // Missing MSTOREToMLOAD for now
   arrLen = count: MLOADReadsArrayLength(_),
   arrloadi = count: ArrayLoadI(_),
   arrload = count: ArrayLoadSimple(_),
