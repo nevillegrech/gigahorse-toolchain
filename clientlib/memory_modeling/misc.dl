@@ -95,14 +95,14 @@ ValueIsPossibleSigHash(sigHashVal, sigHash):-
 CALLWithPossibleSigHash(call, possibleSigHash):-
   CALLStatement(call, _),
   StatementUsesMemory_ActualMemoryArg(call, _, 0, actual),
-  DataFlows(sigVar, actual),
+  LocalFlows(sigVar, actual),
   Variable_Value(sigVar, sigHashVal),
   ValueIsPossibleSigHash(sigHashVal, possibleSigHash).
 
 CALLWithPossibleSigHashFromSHA3(call, sha3):-
   CALLStatement(call, _),
   StatementUsesMemory_ActualMemoryArg(call, _, 0, actual),
-  DataFlows(sigVar, actual),
+  LocalFlows(sigVar, actual),
   SHA3(sha3, _, _, sigVar).
 
 CALLToPrecompiledFunction(call, num):-

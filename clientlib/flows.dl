@@ -114,6 +114,24 @@ standardflowanalysis.TransferBoundary(b) :- IsBlock(b).
     Statement_Defines(stmt, y, _),
     Statement_Uses(stmt, x, _).
 
+  // Case: Flows from formal to formal return
+  NonTransitiveFlows(actual, actualReturn),
+  Flows(actual, actualReturn) :-
+    FunctionFlowSummary(fn, formal, m),
+    FunctionCallReturn(block, fn, _),
+    FormalArgs(fn, formal, n),
+    ActualArgs(block, actual, n),
+    ActualReturnArgs(block, actualReturn, m),
+    TransferBoundary(block).
+
+    // Flows from variable to return argument
+   .decl FunctionFlowSummary(fn: Function, from:Variable, n:number)
+
+   // Flow from local or formal to formal return
+   FunctionFlowSummary(fn, from, n) :-
+      Flows(from, to),
+      FormalReturnArgs(fn, to, n).
+
   Flows(x, z) :-
     Flows(x, y),
     Flows(y, z).
@@ -138,6 +156,13 @@ dependencyAnalysis.TransferOpcode(op) :- Statement_Opcode(_, op).
 dependencyAnalysis.TransferBoundary(block) :- IsBlock(block).
 
 #define DependsOn dependencyAnalysis.Flows
+
+.init localFlowAnalysis = LocalFlowAnalysis
+
+localFlowAnalysis.TransferOpcode(op) :- FlowOp(op).
+localFlowAnalysis.TransferBoundary(block) :- IsBlock(block).
+
+#define LocalFlows localFlowAnalysis.Flows
 
 // x controls whether y is executed.
 .decl Controls(x:Statement, y:Block)

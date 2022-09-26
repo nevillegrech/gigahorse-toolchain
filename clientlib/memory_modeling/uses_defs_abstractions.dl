@@ -148,12 +148,15 @@ MemoryModelingTempStmt(mstore):-
   allowing it to be more general (mloads can be affected by multiple memory writting ops)
 ***/
 
+.decl MSTOREToMLOAD(mstore: Statement, mload: Statement, memArg: Variable)
+DEBUG_OUTPUT(MSTOREToMLOAD)
 
-// This rule breaks statements '0x398b0x349b0x16b30x649' and '0x39710x349b0x16b30x649' for 'D1DB92083593ABD001EE99A49341144A'
-// REVIEW: Doesn't correctly report analytics for modeled/non modeled mloads/mstores now. To fix.
 MemoryModelingTempStmt(mstore),
 MemoryModelingTempStmt(mload),
 StatementUsesMemory_ActualArg(mload, actual, 0):-
+  MSTOREToMLOAD(mstore, mload, actual).
+
+MSTOREToMLOAD(mstore, mload, actual):-
   memWriteToMemConsStmtImpr.ReachableBypassingAnyStrict(mstore, mload, addr),
   MLOAD(mload, indexVar, _),
   MSTORE(mstore, _, actual),
@@ -241,6 +244,7 @@ ABIEncodedArrayIncludesArray(abiArr, memConsStmt, abiAddrPlusIndex, arrayPointer
   ADDFixx(_, arrayLocationIndex, abiArrVar, abiAddrPlusIndex),
   PossibleArrayLoose(abiAddrPlusIndex).
 
+// TODO: Fix this
 ABIEncodedArrayIncludesArray(abiArr, memConsStmt, abiAddrPlusIndex, arrayPointerIndex):-
   ABIEncodedArrayVar_ClassRep(abiArrVar, abiArr),
   ABIEncodedArrayWFunctionSelector(abiArr),
@@ -249,7 +253,11 @@ ABIEncodedArrayIncludesArray(abiArr, memConsStmt, abiAddrPlusIndex, arrayPointer
   ADDFix(_, abiArrVar, fourVar, abiPlusFour),
   Variable_NumericValue(fourVar, 4),
   ADDFixx(_, arrayLocationIndex, abiPlusFour, abiAddrPlusIndex),
-  PossibleArrayLoose(abiAddrPlusIndex).
+  PossibleArrayLoose(abiAddrPlusIndex),
+  // Negation added to fix case where both ABIEncodedArrayIncludesArray and AtConcreteIndex
+  // An example would be the renounceOwnership() method of Ownable
+  // May need to change at some point
+  !Variable_NumericValue(arrayLocationIndex, arrayPointerIndex).
 
 ABIEncodedArrayIncludesArray(abiArr, memConsStmt, arrayVar, arrayPointerIndex):-
   ABIEncodedArrayIncludesArrayAtConcreteIndex(abiArr, memConsStmt, arrayVar, arrayPointerIndex, _).

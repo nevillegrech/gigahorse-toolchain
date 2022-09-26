@@ -1,0 +1,147 @@
+
+.decl StatementDominates(stmt1: Statement, stmt2: Statement) inline
+
+StatementDominates(stmt1, stmt2):-
+  Statement_Block(stmt1, block1),
+  Statement_Block(stmt2, block2),
+  (Dominates(block1, block2) ; LocalStatementPathInBlock(stmt1, stmt2)).
+
+
+/**
+  Base case for struct allocations
+
+  @param  mload       MLOAD statement loading the free memory pointer address
+  @param  mstore      MSTORE statement updating the free memory pointer
+  @param  structBase  Variable pointing to the 0th word of the struct. Identifies the struct instance.
+  @param  wordWidth   Width of the struct in words
+*/
+.decl PossibleStructAllocation(mload: Statement, mstore: Statement, structBase: Variable, wordWidth: number)
+DEBUG_OUTPUT(PossibleStructAllocation)
+
+// TODO: Reintroduce Internal variant if needed
+// .decl StructAllocationInternal(mstore: Statement, structBase: Variable, wordWidth: number)
+// DEBUG_OUTPUT(StructAllocationInternal)
+
+.decl Struct_WordWidth(structBase: Variable, wordWidth: number)
+DEBUG_OUTPUT(Struct_WordWidth)
+
+/**
+  Initial stores are the ones that happen during the struct's allocation 
+*/
+.decl InitialStoreToPossibleStruct(mstore: Statement, structBase: Variable, storedVar: Variable, wordOffset: number)
+DEBUG_OUTPUT(InitialStoreToPossibleStruct)
+
+.decl StructIndex(structBase: Variable, indexVar: Variable, wordOffset: number)
+DEBUG_OUTPUT(StructIndex)
+
+.decl StructContainsArray(structBase: Variable, wordOffset: number, elementSize: number)
+DEBUG_OUTPUT(StructContainsArray)
+
+
+// REVIEW: Make sure this doesn't cause any imprecision with other patterns or array allocations with constant length
+// REVIEW: This is rather conservative right now as I imagine these patterns produced by the compiler are.
+// May need to make them more general with regard to aliasing.
+
+PossibleStructAllocation(mload, freePtrUpdStore, structBase, memDiff / 32):-
+  MLOADFreePtr_To(mload, structBase),
+  FreePointerBasedValue(updateVal, mload, _, memDiff),
+  memDiff % 32 = 0,
+  Variable_SymbolicValue(updatedFMP, updateVal),
+  MSTORE(freePtrUpdStore, _, updatedFMP),
+  MSTOREFreePtr(freePtrUpdStore).
+
+InitialStoreToPossibleStruct(mstore, structBaseVar, storedVar, memOffset / 32):-
+  PossibleStructAllocation(mload, freePtrUpdStore, structBaseVar, wordWidth),
+  FreePointerBasedValue(storeIndexVal, mload, _, memOffset),
+  memOffset % 32 = 0,
+  memOffset / 32 < wordWidth,
+  Variable_SymbolicValue(memIndex, storeIndexVal),
+  MSTORE(mstore, memIndex, storedVar),
+  StatementDominates(mload, mstore),
+  StatementDominates(mstore, freePtrUpdStore).
+
+// REVIEW: it requires at least as many InitialStoreToPossibleStruct as the struct's words
+// it may possibly not be the case in optimized code
+// REVIEW: only infers the structs in cases where it escapes the current method
+// MSTORE/MLOAD modeling is considered suficient in other cases
+StructAllocation(freePtrUpdStore, structBaseVar, wordWidth):-
+  PossibleStructAllocation(_, freePtrUpdStore, structBaseVar, wordWidth),
+  wordWidth >= count : InitialStoreToPossibleStruct(_, structBaseVar, _, _),
+  DataFlows(structBaseVar, argOrRet),
+  (ActualArgs(_, argOrRet, _) ; ActualReturnArgs(_, argOrRet, _)).
+
+Struct_WordWidth(structBase, wordWidth):-
+  StructAllocation(_, structBase, wordWidth).
+
+StructIndex(structBaseVar, indexVar, memOffset / 32):-
+  Struct_WordWidth(structBaseVar, wordWidth),
+  Statement_Defines(mload, structBaseVar, _),
+  Variable_SymbolicValue(structBaseVar, structBaseVal),
+  FreePointerBasedValuesNumDiffNoMemReuse(indexValue, structBaseVal, memOffset),
+  memOffset % 32 = 0,
+  memOffset / 32 < wordWidth,
+  Variable_SymbolicValue(indexVar, indexValue),
+  Statement_Defines(indexDefStmt, indexVar, _),
+  StatementDominates(mload, indexDefStmt).
+
+// Special case for formal args
+StructIndex(structBaseVar, indexVar, memOffset / 32):-
+  Struct_WordWidth(structBaseVar, wordWidth),
+  !Statement_Defines(_, structBaseVar, _),
+  Variable_SymbolicValue(structBaseVar, structBaseVal),
+  FreePointerBasedValuesNumDiffNoMemReuse(indexValue, structBaseVal, memOffset),
+  memOffset % 32 = 0,
+  memOffset / 32 < wordWidth,
+  Variable_SymbolicValue(indexVar, indexValue).
+
+StructLoad(mload, structBase, wordOffset, loadedVar):-
+  StructIndex(structBase, indexVar, wordOffset),
+  MLOAD(mload, indexVar, loadedVar).
+
+StructStore(mstore, structBase, wordOffset, storedVar):-
+  StructIndex(structBase, indexVar, wordOffset),
+  MSTORE(mstore, indexVar, storedVar).
+
+StructContainsArray(structBase, wordOffset, @hex_to_number(elementSize)):-
+  StructStore(_, structBase, wordOffset, storedVar),
+  IsRegularArrayVar(storedVar),
+  Array_ElementLength(storedVar, elementSize).
+
+MemoryModelingTempStmt(mstore):-
+  StructAllocation(mstore, _, _).
+
+/**
+  PossibleStructArg is used to add new symbolic values for memory addresses to the formal variables
+  TODO: Add the same for returns
+*/
+.decl PossibleStructArg(function: Function, actual: Variable, formal: Variable)
+DEBUG_OUTPUT(PossibleStructArg)
+
+PossibleStructArg(function, actual, formal):-
+  ActualArgs(caller, actual, pos),
+  PossibleStructAllocation(_, _, actual, _),
+  CallGraphEdge(caller, function),
+  FormalArgs(function, formal, pos).
+
+.decl StructArg(caller: Block, function: Function, pos: number, actual: Variable, formal: Variable)
+DEBUG_OUTPUT(StructArg)
+
+StructArg(caller, function, pos, actual, formal):-
+  ActualArgs(caller, actual, pos),
+  Struct_WordWidth(actual, _),
+  CallGraphEdge(caller, function),
+  FormalArgs(function, formal, pos).
+
+Struct_WordWidth(formal, wordWidth):-
+  StructArg(_, _, _, actual, formal),
+  Struct_WordWidth(actual, wordWidth).
+
+StructContainsArray(formal, wordOffset, elementSize):-
+  StructArg(_, _, _, actual, formal),
+  StructContainsArray(actual, wordOffset, elementSize).
+
+IsRegularArrayVar(loadedVar),
+Array_ElementLength(loadedVar, @number_to_hex(elementSize)):-
+  StructContainsArray(formal, wordOffset, elementSize),
+  StructArg(_, _, _, _, formal),
+  StructLoad(_, formal, wordOffset, loadedVar).

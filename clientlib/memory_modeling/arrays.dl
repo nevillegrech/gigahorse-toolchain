@@ -244,26 +244,26 @@ DEBUG_OUTPUT(ArrayStore)
 
 ArrayLoad(mload, arrId, to):-
   MLOAD(mload, indexVar, to),
-  standardflowanalysis.Flows(arrayDataStart, indexVar),
+  LocalFlows(arrayDataStart, indexVar),
   ArrayDataStartVar(array, arrayDataStart),
   VarIsArray(array, arrId),
   !ArrayLoadAtIndex(mload, _, _, _).
 
 ArrayStore(mstore, arrId, from):-
   MSTORE(mstore, indexVar, from),
-  standardflowanalysis.Flows(arrayDataStart, indexVar),
+  LocalFlows(arrayDataStart, indexVar),
   ArrayDataStartVar(array, arrayDataStart),
   VarIsArray(array, arrId),
   !ArrayStoreAtIndex(mstore, _, _, _).
 
 ArrayLoad(mload, arrId, to):-
   MLOAD(mload, indexVar, to),
-  standardflowanalysis.Flows(rawDataArray, indexVar),
+  LocalFlows(rawDataArray, indexVar),
   RawDataArrayVar_ClassRep(rawDataArray, arrId).
   
 ArrayStore(mstore, arrId, from):-
   MSTORE(mstore, indexVar, from),
-  standardflowanalysis.Flows(rawDataArray, indexVar),
+  LocalFlows(rawDataArray, indexVar),
   RawDataArrayVar_ClassRep(rawDataArray, arrId).
 
 ArrayLengthVar(arrId, lenVar):-
@@ -289,7 +289,7 @@ ArrayDataVar(array, arrayData):-
 
 ArrayLoad(mload, arrId, to):-
   MLOAD(mload, indexVar, to),
-  standardflowanalysis.Flows(arrayData, indexVar),
+  LocalFlows(arrayData, indexVar),
   ArrayDataVar(array, arrayData),
   VarIsArray(array, arrId),
   !ArrayLoadAtIndex(mload, _, _, _).
@@ -631,6 +631,18 @@ IsRegularArrayVar(actual):-
   ArrayFormalRet(fun, index, "Regular"),
   CallGraphEdge(caller, fun),
   ActualReturnArgs(caller, actual, index).
+
+Array_ElementLength(formal, elementSize):-
+  ArrayActualArg(caller, function, pos, "Regular"),
+  ActualArgs(caller, actual, pos),
+  Array_ElementLength(actual, elementSize),
+  FormalArgs(function, formal, pos).
+
+Array_ElementLength(actual, elementSize):-
+  ArrayFormalRet(fun, index, "Regular"),
+  FormalReturnArgs(fun, formalRet, index),
+  Array_ElementLength(formalRet, elementSize),
+  ActualReturnArgs(_, actual, index).
 
 /**
   Constant arrays and their contents.

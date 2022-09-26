@@ -78,7 +78,7 @@ CallToSignature(call, sigText):-
   ConstantPossibleSigHash(sigHashVal, _, sigText),
   Variable_Value(sigVar, sigHashVal),
   sigHashVal != "0xffffffff", // hack for now
-  standardflowanalysis.Flows(sigVar, actual),
+  LocalFlows(sigVar, actual),
   StatementUsesMemory_ActualMemoryArg(call, _, 0, actual),
   CALLStatement(call, _).
 

@@ -505,17 +505,17 @@
   InlineCandidate(fun):-
     (In_Statement_Opcode(callerOp, "CALLER"); In_Statement_Opcode(callerOp, "ORIGIN")),
     In_Statement_Defines(callerOp, sender, 0),
-    DataFlows(sender, formalRet),
+    LocalFlows(sender, formalRet),
     In_FormalReturnArgs(fun, formalRet, _).
 
   /* To detect some storage constructs breaking through functions */
   InlineCandidate(fun):-
     (SHA3(_, _, _, var) ; Variable_Value(var, _)),
-    DataFlows(var, actualArg),
+    LocalFlows(var, actualArg),
     In_ActualArgs(caller, actualArg, pos),
     In_CallGraphEdge(caller, fun),
     In_FormalArgs(fun, formalArg, pos),
-    DataFlows(formalArg, storeIndex),
+    LocalFlows(formalArg, storeIndex),
     (SLOAD(_, storeIndex, _) ; SSTORE(_, storeIndex, _)).
 
   InlineCandidate(fun):-
@@ -523,7 +523,7 @@
     //In_ActualArgs(caller, actualArg, pos),
     //In_CallGraphEdge(caller, fun),
     In_FormalArgs(fun, formalArg, _),
-    DataFlows(formalArg, calldataIndex),
+    LocalFlows(formalArg, calldataIndex),
     CALLDATALOAD(_, calldataIndex, _).
 
   // Functions that only have a return jump and no actual returns
@@ -551,10 +551,10 @@
 
   InlineCandidate(fun):-
     In_FormalArgs(fun, formalArg, _),
-    DataFlows(formalArg, loadAddr),
+    LocalFlows(formalArg, loadAddr),
     MLOAD(_, loadAddr, loaded),
-    ( DataFlows(loaded, formalRet);
-      DataFlows(formalArg, formalRet)),
+    ( LocalFlows(loaded, formalRet);
+      LocalFlows(formalArg, formalRet)),
     In_FormalReturnArgs(fun, formalRet, _),
     !VarIsArray(formalArg, _).
 
@@ -565,7 +565,7 @@
 
   InlineCandidate(fun):-
     In_FormalArgs(fun, formalArg, _),
-    DataFlows(formalArg, storeAddr),
+    LocalFlows(formalArg, storeAddr),
     MSTORE(_, storeAddr, _),
     !VarIsArray(formalArg, _).
 
