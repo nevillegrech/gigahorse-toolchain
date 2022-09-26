@@ -75,7 +75,7 @@ ExternalCall_NumOfArgs(call, numOfArgs):-
 .output CallToSignature, CallToSignatureFromSHA3
 
 CallToSignature(call, sigText):-
-  ConstantPossibleSigHash(sigHashVal, sigText),
+  ConstantPossibleSigHash(sigHashVal, _, sigText),
   Variable_Value(sigVar, sigHashVal),
   sigHashVal != "0xffffffff", // hack for now
   LocalFlows(sigVar, actual),
