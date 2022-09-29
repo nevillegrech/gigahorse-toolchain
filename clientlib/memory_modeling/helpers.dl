@@ -21,18 +21,6 @@ DEBUG_OUTPUT(Variable_NumericValue)
 Variable_NumericValue(var, @hex_to_number(val)):-
   Variable_Value(var, val).
 
-
-.decl MSTORE8(stmt:Statement, index:Variable, from:Variable)
-MSTORE8(stmt, index, from):-
-  Statement_Opcode(stmt, "MSTORE8"),
-  Statement_Uses(stmt, index, 0),
-  Statement_Uses(stmt, from, 1).
-
-.decl MSIZE(stmt:Statement, to:Variable)
-MSIZE(stmt, to):-
-  Statement_Opcode(stmt, "MSIZE"),
-  Statement_Defines(stmt, to, 0).
-
 .decl ADDFix(stmt:Statement, a:Variable, b:Variable, to:Variable)
 .decl ADDFixx(stmt:Statement, a:Variable, b:Variable, to:Variable)
 
@@ -51,10 +39,10 @@ ADDFixx(stmt, a, b, aPlusB):-
 .decl VarPlusThirtyTwo(var:Variable, varPlus:Variable)
 DEBUG_OUTPUT(VarPlusThirtyTwo)
 
-.decl VarPlusConst(var:Variable, varPlus:Variable, const:Value)
+.decl VarPlusConst(var:Variable, const:Value, varPlus:Variable)
 DEBUG_OUTPUT(VarPlusConst)
 
-.decl VarMinusConst(var:Variable, varMinus:Variable, const:Value)
+.decl VarMinusConst(var:Variable, const:Value, varMinus:Variable)
 DEBUG_OUTPUT(VarMinusConst)
 
 .decl VarPlusThrirtyOneAndNotThirtyOne(var:Variable, varPlus:Variable)
@@ -76,13 +64,19 @@ VarPlusThirtyTwo(var, varPlus):-
   ADDFix(_, var, thirtyTwo, varPlus),
   BasicVariable_Value(thirtyTwo, "0x20").
 
-VarPlusConst(var, varPlus, const):-
+VarPlusConst(var, const, varPlus):-
   ADDFix(_, var, constVar, varPlus),
   BasicVariable_Value(constVar, const).
 
-VarMinusConst(var, varMinus, const):-
+VarPlusConst(var, "0x0", var):-
+  Statement_Defines(_, var, _).
+
+VarMinusConst(var, const, varMinus):-
   SUB(_, var, constVar, varMinus),
   BasicVariable_Value(constVar, const).
+
+VarMinusConst(var, "0x0", var):-
+  Statement_Defines(_, var, _).
 
 VarPlusThrirtyOneAndNotThirtyOne(var, result):-
   Variable_Value(notThrirtyOne, "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0"),
@@ -106,9 +100,15 @@ VarTimesConstant(var, constVal, result):-
   (MUL(_, var, constVar, result); MUL(_, constVar, var, result)),
   Variable_Value(constVar, constVal).
 
+VarTimesConstant(var, "0x1", var):-
+  Statement_Defines(_, var, _).
+
 VarDivByConstant(var, constVal, result):-
   DIV(_, var, constVar, result),
   Variable_Value(constVar, constVal).  
+
+VarDivByConstant(var, "0x1", var):-
+  Statement_Defines(_, var, _).
 
 .decl CALLDATALOADOfConstant(cdl:Statement, constHex:symbol, constNum:number)
 

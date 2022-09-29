@@ -15,14 +15,18 @@ InductionVariable(inductionVar, loop) :-
    (ADD(addStmt, v, _, x) ; ADD(addStmt, _, v, x)),
    StatementInStructuredLoop(addStmt, loop),
    inductionVariableFlow.Flows(x, v),
-   inductionVariableFlow.Flows(x, inductionVar).
+   inductionVariableFlow.Flows(x, inductionVar),
+   Statement_Defines(indVarSet, inductionVar, _),
+   StatementInStructuredLoop(indVarSet, loop).
    //!VariabledDefinedByNonAddInLoop(v, loop).
 
 InductionVariable(inductionVar, loop) :-
    SUB(subStmt, v, _, x),
    StatementInStructuredLoop(subStmt, loop),
    inductionVariableFlow.Flows(x, v),
-   inductionVariableFlow.Flows(x, inductionVar).
+   inductionVariableFlow.Flows(x, inductionVar),
+   Statement_Defines(indVarSet, inductionVar, _),
+   StatementInStructuredLoop(indVarSet, loop).
    //!VariabledDefinedByNonAddInLoop(v, loop).
 
 .decl VariabledDefinedByNonAddInLoop(v:Variable, loop:Block)

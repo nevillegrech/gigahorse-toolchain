@@ -136,7 +136,8 @@ Analytics_Variables(a) :-
 
 
 
-#include "../clientlib/memory_modeling/memory_modeling.dl"
+// Has many dependencies, incl memory modeling and data structures
+#include "../clientlib/guards.dl"
 
 .decl Analytics_CallToSignature(sigHashVal: Value)
 .output Analytics_CallToSignature
@@ -153,3 +154,33 @@ Analytics_EventSignature(sigHashVal) :-
   LOGStatement(log, _),
   Statement_Uses(log, actual, 2),
   Variable_Value(actual, sigHashVal).
+
+.decl Analytics_SenderGuard(glovalVar: Value)
+.output Analytics_SenderGuard
+
+.decl Analytics_ReentrancyGuard(glovalVar: Value)
+.output Analytics_ReentrancyGuard
+
+Analytics_SenderGuard(globalVar):-
+  SenderGuard(globalVar, _).
+
+Analytics_ReentrancyGuard(glovalVar):-
+  ReentrancyGuard(glovalVar).
+
+.decl Analytics_GlobalVariable(globalVar: symbol)
+.output Analytics_GlobalVariable
+
+Analytics_GlobalVariable(globalVar):-
+  GlobalVariable(globalVar).
+
+.decl Analytics_Map(globalVar: symbol)
+.output Analytics_Map
+
+Analytics_Map(globalVar):-
+  MapElementStmt(_, globalVar, _).
+
+.decl Analytics_StorageArray(globalVar: symbol)
+.output Analytics_StorageArray
+
+Analytics_StorageArray(globalVar):-
+  ArrayElementStmt(_, globalVar, _).

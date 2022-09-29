@@ -51,7 +51,11 @@ Analytics_ReachableBlocksInTAC(originalBlock):-
   Analytics_ReachableBlocks(originalBlock),
   blockCloner.Block_OriginalBlock(block, originalBlock),
   Block_IRBlock(block, _, irblock),
-  TAC_Block(_, irblock).
+  (
+    LocalBlockEdge(irblock, _);
+    LocalBlockEdge(_, irblock);
+    TAC_Block(_, irblock)
+  ).
 
 #else
 
@@ -67,9 +71,22 @@ Analytics_UnreachableBlock(block):-
 Analytics_ReachableBlocksInTAC(block):-
   Analytics_ReachableBlocks(block),
   Block_IRBlock(block, _, irblock),
-  TAC_Block(_, irblock).
+  (
+    LocalBlockEdge(irblock, _);
+    LocalBlockEdge(_, irblock);
+    TAC_Block(_, irblock)
+  ).
 
 #endif
+
+Analytics_ReachableBlocksInTAC(blk):-
+  global.ReachableContext(_, blk),
+  Block_IRBlock(blk, _, block),
+  (
+    LocalBlockEdge(block, _);
+    LocalBlockEdge(_, block);
+    TAC_Block(_, block)
+  ).
 
 Analytics_BlockHasNoTACBlock(block):-
   Analytics_ReachableBlocks(block),

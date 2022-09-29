@@ -51,7 +51,7 @@ Analytics_CallWithSig(call):-
 
 Analytics_MemConsStmtUsesFromDistinctPaths(memConsStmt):-
   StatementUsesMemory_LengthVar(memConsStmt, _, lenVar),
-  DataFlows(phiVar, lenVar),
+  LocalFlows(phiVar, lenVar),
   PHI(_, _, phiVar).
 
 Analytics_NonModeledMSTORE(mstore):-
@@ -74,6 +74,10 @@ Analytics_PublicFunctionArrayArg(arrayArg):-
 .decl ArrayStoreSimple(stmt:Statement)
 .decl ArrayStoreI(stmt:Statement)
 
+.decl _StructAllocation(stmt: Statement)
+.decl _StructLoad(stmt: Statement)
+.decl _StructStore(stmt: Statement)
+
 .decl ArrayLoadSimple(stmt:Statement)
 .decl ArrayLoadI(stmt:Statement)
 
@@ -84,10 +88,10 @@ Analytics_PublicFunctionArrayArg(arrayArg):-
 .decl NonModeledMSTORE(stmt:Statement)
 DEBUG_OUTPUT(NonModeledMSTORE)
 
-.decl Verbatim_AllVsModeledMSTOREs(numOfMemStmts:number, freeptr:number, storei:number, store:number, allocate:number, arg:number)
+.decl Verbatim_AllVsModeledMSTOREs(numOfMemStmts:number, freeptr:number, storei:number, store:number, allocate:number, arg:number, structstore: number)
 .output Verbatim_AllVsModeledMSTOREs
 
-.decl Verbatim_AllVsModeledMLOADs(mloads:number, freeptr:number, retRead:number, arrLen:number, arrloadi:number, arrload:number)
+.decl Verbatim_AllVsModeledMLOADs(mloads:number, freeptr:number, retRead:number, arrLen:number, arrloadi:number, arrload:number, structload: number)
 .output Verbatim_AllVsModeledMLOADs
 
 .decl Verbatim_MemConsStmtsLengths(numOfMemConsStmts:number, haveLengthInit:number, haveLength:number)
@@ -102,7 +106,8 @@ DEBUG_OUTPUT(NonModeledMSTORE)
 
 ArgWriteAny(mstore):-
   ABIWriteMSTORE(mstore);
-  StatementUsesMemoryWriteAtRelativeIndex(_, _, mstore, _).
+  StatementUsesMemoryWriteAtRelativeIndex(_, _, mstore, _);
+  MSTOREToMLOAD(mstore, _, _).
 
 // We do not always consider this write to be the allocation
 AllocationAny(mstore):-
@@ -119,23 +124,27 @@ ABIWriteMSTORE(mstore):-
 ArrayStoreSimple(stmt):- ArrayStore(stmt, _, _), !ArgWriteAny(stmt).
 ArrayStoreI(stmt):- ArrayStoreAtIndex(stmt, _, _, _).
 
+_StructAllocation(stmt):- StructAllocation(stmt, _, _).
+_StructStore(stmt):- StructStore(stmt, _, _, _).
 
 ModeledMSTORE(mstore):-
   MSTOREFreePtr(mstore);
   ArrayStoreAtIndex(mstore, _, _, _);
   ArrayStore(mstore, _, _);
   AllocationAny(mstore);
-  ABIWriteMSTORE(mstore);
-  StatementUsesMemoryWriteAtRelativeIndex(_, _, mstore, _).
+  // _StructAllocation(mstore);   // Already part of MSTOREFreePtr
+  _StructStore(mstore);
+  ArgWriteAny(mstore).
 
 
-Verbatim_AllVsModeledMSTOREs(all, freeptr, storei, store, allocate, arg):-
+Verbatim_AllVsModeledMSTOREs(all, freeptr, storei, store, allocate, arg, structstore):-
   all = count :MSTORE(_, _, _),
   freeptr = count :MSTOREFreePtr(_),
   storei = count :ArrayStoreI(_),
   store = count :ArrayStoreSimple(_),
   allocate = count :AllocationAny(_),
-  arg = count : ArgWriteAny(_).
+  arg = count : ArgWriteAny(_),
+  structstore = count : _StructStore(_).
 
 Verbatim_MemConsStmtsLengths(all, initLength,  haveLength):-
   all = count: StatementUsesMemory_LengthVar(_, _, _),
@@ -186,6 +195,8 @@ StatementConsumesMemoryNoArgs(stmt):-
   !Variable_Value(lenvar, "0x0"),
   !StatementUsesMemory_ActualMemoryArg(stmt, _, _, _).
 
+_StructLoad(stmt):- StructLoad(stmt, _, _, _).
+
 .decl ModeledMLOAD(stmt:Statement)
 
 .decl NonModeledMLOAD(stmt:Statement)
@@ -194,6 +205,8 @@ DEBUG_OUTPUT(NonModeledMLOAD)
 ModeledMLOAD(mload):-
   MLOADReadsReturnOfCALL(mload, _, _);
   MLOADFreePtr(mload);
+  _StructLoad(mload);
+  MSTOREToMLOAD(_, mload, _);
   MLOADReadsArrayLength(mload);
   ArrayLoad(mload, _, _);
   ArrayLoadAtIndex(mload, _, _, _).
@@ -206,13 +219,15 @@ NonModeledMLOAD(mload):-
   MLOAD(mload, _, _),
   !ModeledMLOAD(mload).
 
-Verbatim_AllVsModeledMLOADs(all, freeptr, retRead, arrLen, arrloadi, arrload):-
+Verbatim_AllVsModeledMLOADs(all, freeptr, retRead, arrLen, arrloadi, arrload, structload):-
   all = count: MLOAD(_, _, _),
   freeptr = count: MLOADFreePtr(_),
   retRead = count: MLOADReadsReturnOfCALL(_, _, _),
+  // Missing MSTOREToMLOAD for now
   arrLen = count: MLOADReadsArrayLength(_),
   arrloadi = count: ArrayLoadI(_),
-  arrload = count: ArrayLoadSimple(_).
+  arrload = count: ArrayLoadSimple(_),
+  structload = count: _StructLoad(_).
 
 .decl CALLDATALOADOfStaticAddr(stmt:Statement)
 .decl CALLDATALOADArrayRelated(stmt:Statement)

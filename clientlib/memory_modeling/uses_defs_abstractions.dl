@@ -148,97 +148,24 @@ MemoryModelingTempStmt(mstore):-
   allowing it to be more general (mloads can be affected by multiple memory writting ops)
 ***/
 
-.init varIndex = ReachableBypassingWArg
+.decl MSTOREToMLOAD(mstore: Statement, mload: Statement, memArg: Variable)
+DEBUG_OUTPUT(MSTOREToMLOAD)
 
-varIndex.From(mstore, valRep):-
-  MSTORE(mstore, indexVar, _),
-  Variable_SymbolicValue(indexVar, indexVal),
-  FreePointerBasedValue_AliasRep(indexVal, valRep).
-
-varIndex.Bypassing(mstore, valRep):-
-  MSTORE(mstore, indexVar, _),
-  Variable_SymbolicValue(indexVar, indexVal),
-  FreePointerBasedValue_AliasRep(indexVal, valRep).
-
-varIndex.To(mload, valRep):-
-  MLOAD(mload, indexVar, _),
-  Variable_SymbolicValue(indexVar, indexVal),
-  FreePointerBasedValue_AliasRep(indexVal, valRep).
-
-/*
-// This rule breaks statements '0x398b0x349b0x16b30x649' and '0x39710x349b0x16b30x649' for 'D1DB92083593ABD001EE99A49341144A'
 MemoryModelingTempStmt(mstore),
+MemoryModelingTempStmt(mload),
 StatementUsesMemory_ActualArg(mload, actual, 0):-
-  //varIndex.ReachableBypassingAny(mstore, mload),
-  memWriteToMemConsStmtImpr.ReachableBypassingAny(mstore, mload, addr),
+  MSTOREToMLOAD(mstore, mload, actual).
+
+MSTOREToMLOAD(mstore, mload, actual):-
+  memWriteToMemConsStmtImpr.ReachableBypassingAnyStrict(mstore, mload, addr),
   MLOAD(mload, indexVar, _),
   MSTORE(mstore, _, actual),
   // We handle the loads and stores of the free memory pointer differently
   addr != "0x40",
   // skip loads of an array's length for now
   !VarIsArray(indexVar, _).
-*/
-
-/**
-  More sound modeling of MLOADs for constant indexes
-  Usefull to improve the coverage of our modeling for Vyper contracts
-**/
-/*
-.init constantIndex =  ReachableByPassingWArg
-
-constantIndex.From(store, indexVal):-
-  MSTORE(store, index, _),
-  BasicVariable_Value(index, indexVal).
-
-constantIndex.Bypassing(store, indexVal):-
-  MSTORE(store, index, _),
-  BasicVariable_Value(index, indexVal).
-
-constantIndex.To(load, indexVal):-
-  MLOAD(load, index, _),
-  BasicVariable_Value(index, indexVal).
-
-MemoryModelingTempStmt(mstore),
-StatementUsesMemory_ActualArg(mload, actual, 0):-
-  constantIndex.ReachableBypassingAny(mstore, mload),
-  MSTORE(mstore, _, actual).
-*/
-
-/**
-  Event logs
-  They need to be handled specially because they have 2 kinds of arguements
-  indexed, that are "normal" args and non indexed that are stored in memory
-  In solidity events, the 0th indexed argument is the topic (the hash of the signature)
-**/
-
-.decl LOGStatement(logStmt:Statement, nIndexedArgs:number)
-
-LOGStatement(stmt, 0):-
-  Statement_Opcode(stmt, "LOG0").
-
-LOGStatement(stmt, 1):-
-  Statement_Opcode(stmt, "LOG1").
-
-LOGStatement(stmt, 2):-
-  Statement_Opcode(stmt, "LOG2").  
-
-LOGStatement(stmt, 3):-
-  Statement_Opcode(stmt, "LOG3").
-
-LOGStatement(stmt, 4):-
-  Statement_Opcode(stmt, "LOG4").
 
 
-.decl CALLStatement(call:Statement, nOtherArgs:number)
-
-CALLStatement(call, 3):-
-  CALL(call, _, _, _, _, _, _, _, _).
-
-CALLStatement(call, 2):-
-  STATICCALL(call, _, _, _, _, _, _, _).
-
-CALLStatement(call, 2):-
-  DELEGATECALL(call, _, _, _, _, _, _, _).
 
 /**
   ABI Encoded Arrays
@@ -317,6 +244,7 @@ ABIEncodedArrayIncludesArray(abiArr, memConsStmt, abiAddrPlusIndex, arrayPointer
   ADDFixx(_, arrayLocationIndex, abiArrVar, abiAddrPlusIndex),
   PossibleArrayLoose(abiAddrPlusIndex).
 
+// TODO: Fix this
 ABIEncodedArrayIncludesArray(abiArr, memConsStmt, abiAddrPlusIndex, arrayPointerIndex):-
   ABIEncodedArrayVar_ClassRep(abiArrVar, abiArr),
   ABIEncodedArrayWFunctionSelector(abiArr),
@@ -325,7 +253,11 @@ ABIEncodedArrayIncludesArray(abiArr, memConsStmt, abiAddrPlusIndex, arrayPointer
   ADDFix(_, abiArrVar, fourVar, abiPlusFour),
   Variable_NumericValue(fourVar, 4),
   ADDFixx(_, arrayLocationIndex, abiPlusFour, abiAddrPlusIndex),
-  PossibleArrayLoose(abiAddrPlusIndex).
+  PossibleArrayLoose(abiAddrPlusIndex),
+  // Negation added to fix case where both ABIEncodedArrayIncludesArray and AtConcreteIndex
+  // An example would be the renounceOwnership() method of Ownable
+  // May need to change at some point
+  !Variable_NumericValue(arrayLocationIndex, arrayPointerIndex).
 
 ABIEncodedArrayIncludesArray(abiArr, memConsStmt, arrayVar, arrayPointerIndex):-
   ABIEncodedArrayIncludesArrayAtConcreteIndex(abiArr, memConsStmt, arrayVar, arrayPointerIndex, _).
@@ -444,10 +376,8 @@ StatementUsesMemory_ActualArg(stmt, actual, index + numOfNonDataArgs):-
   LOGStatement(stmt, numOfNonDataArgs),
   StatementUsesMemory_ActualMemoryArg(stmt, _, index, actual).
 
-StatementUsesMemory_ActualArg(stmt, actual, index - 2):-
-  LOGStatement(stmt, _),
-  Statement_Uses(stmt, actual, index),
-  index > 1.
+StatementUsesMemory_ActualArg(stmt, actual, index):-
+  LOGIndexedArg(stmt, actual, index).
 
 StatementUsesMemory_ActualArg(stmt, actual, index):-
   CALLStatement(stmt, nOtherArgs),

@@ -35,6 +35,25 @@
 .decl ArrayLengthVar(arrId:ArrayVariable, lenVar:Variable)
 
 /**
+  Struct allocations
+
+  @param  mstore      MSTORE statement updating the free memory pointer
+  @param  structBase  Variable pointing to the 0th word of the struct. Identifies the struct instance.
+  @param  wordWidth   Width of the struct in words
+*/
+.decl StructAllocation(mstore: Statement, structBase: Variable, wordWidth: number)
+DEBUG_OUTPUT(StructAllocation)
+
+.decl StructLoad(mload: Statement, structBase: Variable, wordOffset: number, loadedVar: Variable)
+DEBUG_OUTPUT(StructLoad)
+
+.decl StructStore(mstore: Statement, structBase: Variable, wordOffset: number, loadedVar: Variable)
+DEBUG_OUTPUT(StructStore)
+
+/**
+  NOTE:The StatementUsesMemory_ActualMemoryArg relation can be used
+  to get only the arguments passed through memory.
+
   Actual arguments or uses for statements using memory,
   this can combine memory and
   non memory args (in LOGs and CALLs)
@@ -62,9 +81,10 @@
       The 0th actual arg is the array written to
 
     MLOADS:
-      0th actual arg can be a var that will definately be red from it
+      0th actual arg can be a var that will definitely be read from it
       (that has been stored previously using MSTORE)
-**/
+*/
+
 .decl MemoryStatement_ActualArg(stmt:Statement, actual:Variable, index:number)
 
 .decl MemoryStatement_ActualArgNew(stmt:Statement, actual:MemoryArgument, index:number)

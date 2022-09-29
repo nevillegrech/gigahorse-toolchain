@@ -56,6 +56,7 @@ DEBUG_OUTPUT(StatementUsesMemory_UsesArray)
 
 .decl MLOADReadsArrayLength(stmt:Statement)
 
+
 IsCallDataArrayVar(plusFourVar, argHex),
 CallDataLoadReadsLength(cdl, cdl2, plusFourVar, lenVar, argHex):-
   CALLDATALOAD(cdl, argIdVar, toVar),
@@ -116,8 +117,9 @@ ArrayDataStartVar(array, arrayStart):-
 ArrayDataStartVar(array, arrayStart):-
   IsRegularArrayVar(array),
   Variable_SymbolicValue(array, arrayVal),
-  FreePointerBasedValuesNumDiff(dataStartVal, arrayVal, 32),
+  FreePointerBasedValuesNumDiffNoMemReuse(dataStartVal, arrayVal, 32),
   Variable_SymbolicValue(arrayStart, dataStartVal),
+  // Boilerplate but efficient code to ensure statement-level domination
   Statement_Defines(stmt2, arrayStart, _),
   Statement_Block(stmt2, block2),
   Statement_Defines(stmt1, array, _),
@@ -181,15 +183,35 @@ ArrayIndexAccess(array, indexVar, index):-
 
 ArrayIndexAccess(array, indexVar, index):-
   Array_ElementLength(array, elementSize),
-  VarTimesConstant(index, elementSize, other),
-  ADDFix(_, other, array, temp),
-  VarPlusThirtyTwo(temp, indexVar).
-
-ArrayIndexAccess(array, indexVar, index):-
-  Array_ElementLength(array, elementSize),
   ArrayDataStartVar(array, dataStartVar),
   ADDFix(_, dataStartVar, indexTimesCons, indexVar),
   VarTimesConstant(index, elementSize, indexTimesCons).
+
+/**
+  This rule detects the following pattern:
+  tmp = ADD index, baseVar // baseVar is equal to array - 0x20
+  vd4aa6(0x40) = CONST
+  mstoreIndex = ADD vd4aa6(0x40), tmp
+  MSTORE mstoreIndex, storedVar
+
+  This can end up being imprecise because:
+    1. it doesn't take the elementSize into account
+    2. it may produce results in cases where memory can be reused
+  Will need to REVIEW at some point.
+*/
+ArrayIndexAccess(array, indexVar, actualIndexVar):-
+  ADDFix(_, baseVar, actualIndexVar, tmp),
+  VarPlusConst(tmp, const, indexVar),
+  Variable_SymbolicValue(baseVar, baseVal),
+  FreePointerBasedValuesNumDiffNoMemReuse(arrayVal, baseVal, @hex_to_number(const) - 32),
+  Variable_SymbolicValue(array, arrayVal),
+  IsRegularArrayVar(array),
+  // Boilerplate but efficient code to ensure statement-level domination
+  Statement_Defines(stmt2, indexVar, _),
+  Statement_Block(stmt2, block2),
+  Statement_Defines(stmt1, array, _),
+  Statement_Block(stmt1, block1),
+  (Dominates(block1, block2) ; LocalStatementPathInBlock(stmt1, stmt2)).
 
 MemArrayPut(mstore, array, index, from):-
   ArrayIndexAccess(array, indexVar, index),
@@ -222,26 +244,26 @@ DEBUG_OUTPUT(ArrayStore)
 
 ArrayLoad(mload, arrId, to):-
   MLOAD(mload, indexVar, to),
-  standardflowanalysis.Flows(arrayDataStart, indexVar),
+  LocalFlows(arrayDataStart, indexVar),
   ArrayDataStartVar(array, arrayDataStart),
   VarIsArray(array, arrId),
   !ArrayLoadAtIndex(mload, _, _, _).
 
 ArrayStore(mstore, arrId, from):-
   MSTORE(mstore, indexVar, from),
-  standardflowanalysis.Flows(arrayDataStart, indexVar),
+  LocalFlows(arrayDataStart, indexVar),
   ArrayDataStartVar(array, arrayDataStart),
   VarIsArray(array, arrId),
   !ArrayStoreAtIndex(mstore, _, _, _).
 
 ArrayLoad(mload, arrId, to):-
   MLOAD(mload, indexVar, to),
-  standardflowanalysis.Flows(rawDataArray, indexVar),
+  LocalFlows(rawDataArray, indexVar),
   RawDataArrayVar_ClassRep(rawDataArray, arrId).
   
 ArrayStore(mstore, arrId, from):-
   MSTORE(mstore, indexVar, from),
-  standardflowanalysis.Flows(rawDataArray, indexVar),
+  LocalFlows(rawDataArray, indexVar),
   RawDataArrayVar_ClassRep(rawDataArray, arrId).
 
 ArrayLengthVar(arrId, lenVar):-
@@ -251,6 +273,7 @@ ArrayLengthVar(arrId, lenVar):-
 MLOADReadsArrayLength(mload):-
   IsRegularArrayVar(array),
   MLOAD(mload, array, _).
+
 
 /**
   Points somewhere in an array's data 
@@ -266,7 +289,7 @@ ArrayDataVar(array, arrayData):-
 
 ArrayLoad(mload, arrId, to):-
   MLOAD(mload, indexVar, to),
-  standardflowanalysis.Flows(arrayData, indexVar),
+  LocalFlows(arrayData, indexVar),
   ArrayDataVar(array, arrayData),
   VarIsArray(array, arrId),
   !ArrayLoadAtIndex(mload, _, _, _).
@@ -347,6 +370,9 @@ PossibleArrayLoose(array):-
   VarPlusThirtyTwo(array, arrayDataStart),
   RETURNDATACOPY(_, arrayDataStart, _, _).
 
+PossibleArrayLoose(array):-
+  MSTORE(_, array, var),
+  ArrayVarLengthVar(_, var).
 
 .decl ArrayHasConstantLength(arrayVar:Variable, length:number)
 
@@ -605,6 +631,18 @@ IsRegularArrayVar(actual):-
   ArrayFormalRet(fun, index, "Regular"),
   CallGraphEdge(caller, fun),
   ActualReturnArgs(caller, actual, index).
+
+Array_ElementLength(formal, elementSize):-
+  ArrayActualArg(caller, function, pos, "Regular"),
+  ActualArgs(caller, actual, pos),
+  Array_ElementLength(actual, elementSize),
+  FormalArgs(function, formal, pos).
+
+Array_ElementLength(actual, elementSize):-
+  ArrayFormalRet(fun, index, "Regular"),
+  FormalReturnArgs(fun, formalRet, index),
+  Array_ElementLength(formalRet, elementSize),
+  ActualReturnArgs(_, actual, index).
 
 /**
   Constant arrays and their contents.
