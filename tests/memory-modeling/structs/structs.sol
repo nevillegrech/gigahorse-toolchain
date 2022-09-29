@@ -98,3 +98,22 @@ contract ComplexStruct {
         emit Message(args._from, args._to, args._data);
     }
 }
+
+contract EmptyArrayConflict {
+
+    event Message(address,address,bytes);
+
+    function sendEmpty(address to) external {
+        // SL: The empty array is currently mistakenly inferred as a single word struct.
+        // Causes issues to the type inference of the 2nd argument of _msg(). Need to address.
+        _msg(to, "");
+    }
+
+    function send(address to, bytes memory str) external {
+        _msg(to, str);
+    }
+
+    function _msg(address to, bytes memory str) internal {
+        emit Message(msg.sender, to, str);
+    }
+}
