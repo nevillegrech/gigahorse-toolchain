@@ -206,10 +206,10 @@ parser.add_argument("--early_cloning",
                     default=False,
                     help="Adds a block cloning pre-process step to the decompilation pipeline, sometimes producing a more precise output.")
 
-parser.add_argument("--recursive_cloning",
+parser.add_argument("--precise_fallback",
                     action="store_true",
                     default=False,
-                    help="If decompilation is imprecise it adds a second one with a block cloning pre-process step, targetting the first round's imprecision.")
+                    help="If decompilation is imprecise it adds a second one with a block cloning pre-process step.")
 
 parser.add_argument("-q",
                     "--quiet",
@@ -393,11 +393,10 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
     def run_decomp(contract_filename, in_dir, out_dir):
         try:
             run_clients([DEFAULT_DECOMPILER_DL], [], in_dir, out_dir)
-            if args.recursive_cloning:
-                imprecision_metric = len(open(join(out_dir, 'Analytics_NextRoundCloningCandidate.csv'), 'r').readlines())
+            if args.precise_fallback:
+                imprecision_metric = len(open(join(out_dir, 'Analytics_JumpToMany.csv'), 'r').readlines())
                 if imprecision_metric > 0:
                     log("Decompiled with imprecision, attempting to remove it in 2nd round.")
-                    os.symlink(join(out_dir, 'Analytics_NextRoundCloningCandidate.csv'), join(work_dir, 'InputBlockCloningCandidate.csv'))
                     run_clients([CLONING_DECOMPILER_DL], [], in_dir, out_dir)
         except TimeoutException as e:
             if args.single_decomp:
@@ -573,7 +572,7 @@ if not args.single_decomp:
 if not args.disable_inline:
     compile_processes_args.append((DEFAULT_INLINER_DL, DEFAULT_INLINER_DL+SOUFFLE_COMPILED_SUFFIX))
 
-if args.recursive_cloning:
+if args.precise_fallback:
     compile_processes_args.append((CLONING_DECOMPILER_DL, CLONING_DECOMPILER_DL+SOUFFLE_COMPILED_SUFFIX))
 
 clients_split = [a.strip() for a in args.client.split(',')]

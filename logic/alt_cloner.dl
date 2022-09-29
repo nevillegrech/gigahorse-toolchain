@@ -1,4 +1,4 @@
 
-#define BLOCK_CLONING InputBlockCloner
+#define BLOCK_CLONING HeuristicBlockCloner
 
 #include "main.dl"
