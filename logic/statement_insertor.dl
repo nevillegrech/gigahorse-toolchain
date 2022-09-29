@@ -276,7 +276,7 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
   .output Block_OriginalBlock
   .output BlockToClone, DirectBlockEdge, BlockPushedToStack, BlockPushesBlockToStack, BlockToCloneNewInstance, ClonedBlockAddressPushedBy
 
-  MaxOriginalStatement(maxStmt):-
+  MaxOriginalStatement(as(maxStmt, Statement)):-
     maxStmtNumber = max stmtNumber : { Statement_Opcode(stmt, _), stmtNumber = @hex_to_number(stmt)},
     maxStmt = @number_to_hex(maxStmtNumber).
 
@@ -286,7 +286,7 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
   Statement_BlockOffset(stmt, block, @hex_to_number(stmt) - @hex_to_number(block)):-
     analysis.Statement_Block(stmt, block).
 
-  DirectBlockEdge(from, @cast_to_symbol(to)):-
+  DirectBlockEdge(from, as(to, Block)):-
     analysis.ImmediateBlockJumpTarget(from, pushedVar),
     analysis.Variable_Value(pushedVar, to).
 
@@ -302,10 +302,10 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
     BlockPushedToStack(pushStmt, _, blockToClone),
     analysis.Statement_Block(pushStmt, pushBlock).
 
-  BlockPushedToStack(pushStmt, pushedVar, @cast_to_symbol(pushedBlock)):-
+  BlockPushedToStack(pushStmt, pushedVar, as(pushedBlock, Block)):-
     analysis.Variable_Value(pushedVar, pushedBlock),
     analysis.VariableAlwaysUsedAsJumpTarget(pushedVar),
-    analysis.JUMPDEST(@cast_to_symbol(pushedBlock)),
+    analysis.JUMPDEST(as(pushedBlock, Statement)),
     analysis.Statement_Defines(pushStmt, pushedVar).
 
   BlockPushesBlockToStack(block, pushedBlock):-
@@ -379,13 +379,13 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
 
   cloneOpSorter.Input(opID):- BlockToCloneOpID(_, _, opID).
 
-  BlockToCloneNewInstance(pushBlock, blockToClone, generatedBlock):-
+  BlockToCloneNewInstance(pushBlock, blockToClone, as(generatedBlock, Block)):-
     BlockToCloneOpID(pushBlock, blockToClone, opID),
     !cloneOpSorter.Input_Next(_, opID),
     MaxOriginalStatement(maxStmt),
     generatedBlock = @add_256(maxStmt, "0x20").
 
-  BlockToCloneNewInstance(pushBlock, blockToClone, generatedBlock):-
+  BlockToCloneNewInstance(pushBlock, blockToClone, as(generatedBlock, Block)):-
     BlockToCloneOpID(prevPushBlock, prevBlockToClone, prevOpID),
     cloneOpSorter.Input_Next(prevOpID, opID),
     BlockToCloneNewInstance(prevPushBlock, prevBlockToClone, prevCloneInstance),
@@ -393,7 +393,7 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
     BlockSize(prevBlockToClone, prevCloneBlockSize),
     generatedBlock = @add_256(prevCloneInstance, @number_to_hex(prevCloneBlockSize + 32)).
 
-  StatementToClonedStatement(pushBlock, blockToClone, stmt, generatedStatement):-
+  StatementToClonedStatement(pushBlock, blockToClone, stmt, as(generatedStatement, Statement)):-
     BlockToCloneNewInstance(pushBlock, blockToClone, generatedBlock),
     analysis.Statement_Block(stmt, blockToClone),
     generatedStatement = @add_256(generatedBlock, @sub_256(stmt, blockToClone)).
@@ -435,7 +435,7 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
     PushValue(oldStmt, oldVal),
     !ClonedBlockAddressPushedBy(_, oldStmt, _).
 
-  Out_PushValue(oldStmt, @cast_to_symbol(newVal)):-
+  Out_PushValue(oldStmt, as(newVal, Value)):-
     PushValue(oldStmt, _),
     ClonedBlockAddressPushedBy(pushBlock, oldStmt, blockToClone),
     BlockToCloneNewInstance(pushBlock, blockToClone, newVal).
