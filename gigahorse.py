@@ -268,7 +268,7 @@ def prepare_working_dir(contract_name) -> (bool, str, str, str):
     fallback_out_dir = join(newdir, 'fallbackout')
 
     if os.path.isdir(newdir):
-        return True, newdir, out_dir
+        return True, newdir, out_dir, fallback_out_dir
 
     # recreate dir
     os.makedirs(newdir)
@@ -404,6 +404,7 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
                         shutil.rmtree(out_dir)
                         os.rename(fallback_out_dir, out_dir)
                     except TimeoutException as e:
+                        # Timeout in fallback means we have successful default so we just return
                         return
         except TimeoutException as e:
             if args.single_decomp:
