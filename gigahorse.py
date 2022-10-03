@@ -262,9 +262,10 @@ if not os.path.isfile(join(functor_path, 'libfunctors.so')):
 def get_working_dir(contract_name):
     return join(os.path.abspath(args.working_dir), os.path.split(contract_name)[1].split('.')[0])
 
-def prepare_working_dir(contract_name) -> (bool, str, str):
+def prepare_working_dir(contract_name) -> (bool, str, str, str):
     newdir = get_working_dir(contract_name)
     out_dir = join(newdir, 'out')
+    fallback_out_dir = join(newdir, 'fallbackout')
 
     if os.path.isdir(newdir):
         return True, newdir, out_dir
@@ -272,7 +273,8 @@ def prepare_working_dir(contract_name) -> (bool, str, str):
     # recreate dir
     os.makedirs(newdir)
     os.makedirs(out_dir)
-    return False, newdir, out_dir
+    os.makedirs(fallback_out_dir)
+    return False, newdir, out_dir, fallback_out_dir
 
 def get_souffle_macros():
     souffle_macros = f'GIGAHORSE_DIR={GIGAHORSE_DIR} BULK_ANALYSIS= {args.souffle_macros}'.strip()
@@ -390,14 +392,19 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
                 timeouts.append(other_client)
         return timeouts, errors
     
-    def run_decomp(contract_filename, in_dir, out_dir):
+    def run_decomp(contract_filename, in_dir, out_dir, fallback_out_dir):
         try:
             run_clients([DEFAULT_DECOMPILER_DL], [], in_dir, out_dir)
             if args.precise_fallback:
                 imprecision_metric = len(open(join(out_dir, 'Analytics_JumpToMany.csv'), 'r').readlines())
                 if imprecision_metric > 0:
                     log("Decompiled with imprecision, attempting to remove it in 2nd round.")
-                    run_clients([CLONING_DECOMPILER_DL], [], in_dir, out_dir)
+                    try:
+                        run_clients([CLONING_DECOMPILER_DL], [], in_dir, fallback_out_dir)
+                        shutil.rmtree(out_dir)
+                        os.rename(fallback_out_dir, out_dir)
+                    except TimeoutException as e:
+                        return
         except TimeoutException as e:
             if args.single_decomp:
                 raise(e)
@@ -405,11 +412,11 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
                 # Default using scalable fallback config
                 log(f"Using fallback decompilation configuration for {os.path.split(contract_filename)[1]}")
                 write_context_depth_file(os.path.join(in_dir, 'MaxContextDepth.csv'), 1)
-                run_clients([FALLBACK_DECOMPILER_DL], [], in_dir, out_dir)
+                run_clients([FALLBACK_DECOMPILER_DL], [], in_dir, fallback_out_dir)
 
     try:
         # prepare working directory
-        exists, work_dir, out_dir = prepare_working_dir(contract_filename)
+        exists, work_dir, out_dir, fallback_out_dir = prepare_working_dir(contract_filename)
         assert not(args.restart and exists)
         analytics = {}
         contract_name = os.path.split(contract_filename)[1]
@@ -429,6 +436,7 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
             if os.path.exists(join(work_dir, 'solidity_version.csv')):
                 # Create a symlink with a name starting with 'Verbatim_' to be added to results json
                 os.symlink(join(work_dir, 'solidity_version.csv'), join(out_dir, 'Verbatim_solidity_version.csv'))
+                os.symlink(join(work_dir, 'solidity_version.csv'), join(fallback_out_dir, 'Verbatim_solidity_version.csv'))
             run_clients(souffle_pre_clients, other_pre_clients, work_dir, work_dir)
 
 
@@ -437,7 +445,7 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
 
             decomp_start = time.time()
 
-            run_decomp(contract_filename, work_dir, out_dir)
+            run_decomp(contract_filename, work_dir, out_dir, fallback_out_dir)
 
             inline_start = time.time()
             if not args.disable_inline:
