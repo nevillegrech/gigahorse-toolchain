@@ -23,8 +23,15 @@ VariableLengthMemoryCopyStatement(stmt, memAddrVar, lenVar):-
   Statement_Uses(stmt, memAddrVar, 1),
   Statement_Uses(stmt, lenVar, 3).
 
+/**
+  MSTORE that is guranteed to only write less than a whole word
+  with the rest being just previously read from memory.
+  Patterns are syntactic and can break with newer compiler versions.
+  Produced by the abiencodeWithSelector primitive.
+*/
+
 .decl PartialMSTORE(mstore:Statement, mload:Statement, storedVar:Variable, updateBytes:number)
-.output PartialMSTORE
+DEBUG_OUTPUT(PartialMSTORE)
 
 PartialMSTORE(mstore, mload, realFrom, 32 - maskBytes):-
   MLOAD(mload, indexVar, loaded),
@@ -35,6 +42,15 @@ PartialMSTORE(mstore, mload, realFrom, 32 - maskBytes):-
   Statement_Defines(shiftStmt, shifted, 0),
   LShiftBytes(shiftStmt, realFrom, maskBytes).
 
+PartialMSTORE(mstore, mload, realFrom, 32 - maskBytes):-
+  MLOAD(mload, indexVar, loaded),
+  MSTORE(mstore, indexVar, from),
+  LocalStatementPathInBlock(mload , mstore),
+  LowBytesMaskOp(loaded, loadedMasked, maskBytes),
+  (OR(_, loadedMasked, shiftedAndMasked, from) ; OR(_, shiftedAndMasked, loadedMasked, from)),
+  AntiMaskOp(shifted, shiftedAndMasked, 0, maskBytes - 1),
+  Statement_Defines(shiftStmt, shifted, 0),
+  LShiftBytes(shiftStmt, realFrom, maskBytes).
 
 
 /**
