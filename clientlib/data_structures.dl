@@ -209,7 +209,6 @@ PossibleArraySizeVariable(resVar, const) :-
 
 .decl PHITrans(from:Variable, to:Variable)
 
-.output PossibleStorageIndex, IsStorageIndex, IsStorageConstruct, CompositeStorageIndex_Info, Variable_StorageIndex, StorageAccessStmt
 
 PossibleStorageIndex(val, "GLOBALSCOPE"),
 Variable_StorageIndex(var, val):-
@@ -286,7 +285,6 @@ IsStorageConstruct([kind, parIndex]):-
 
 .decl NewModelKnownLoad(stmt: Statement, cons:StorageIndex)
 .decl NewModelKnownStore(stmt: Statement, cons:StorageIndex)
-.output NewModelKnownStore, NewModelKnownLoad
 
 NewModelKnownLoad(store, cons):-
   SLOAD(store, index, _),
@@ -325,14 +323,14 @@ Verbatim_NewModelKnownAndAllLoads(known, all):-
   all = count: SLOAD(_, _, _).
 
 .decl NewModelIsUnknownLoad(load:Statement)
-.output NewModelIsUnknownLoad
+DEBUG_OUTPUT(NewModelIsUnknownLoad)
 
 NewModelIsUnknownLoad(load):-
   SLOAD(load, _, _),
   !NewModelKnownLoad(load, _).
 
 .decl NewModelIsUnknownStore(store:Statement)
-.output NewModelIsUnknownStore
+DEBUG_OUTPUT(NewModelIsUnknownStore)
 
 NewModelIsUnknownStore(store):-
   SSTORE(store, _, _),
@@ -340,16 +338,12 @@ NewModelIsUnknownStore(store):-
 
 
 .decl NewModelAllStoresKnown()
-.output NewModelAllStoresKnown
 
 .decl NewModelAllLoadsKnown()
-.output NewModelAllLoadsKnown
 
 .decl NewModelAllStorageOpsKnown()
-.output NewModelAllStorageOpsKnown
 
 .decl NewModelHasStorageOpsUnknown()
-.output NewModelHasStorageOpsUnknown
 
 NewModelAllStoresKnown():-
   Verbatim_NewModelKnownAndAllStores(all, all).
@@ -367,7 +361,6 @@ NewModelHasStorageOpsUnknown():-
 #endif
 
 .decl BytesOrStringLength(storVar:symbol, lenVar:Variable)
-//.output BytesOrStringLength
 
 BytesOrStringLength(storVar, lenVar):-
   VarHoldsBytesOfStorVar(storLoad, _, storVar, 0, 31),
@@ -413,7 +406,6 @@ SSTOREToConst(sstore, const, var):-
 .decl VarHoldsBytesOfStorVar(var:Variable, srcLoad:Statement, storVar:symbol, byteLow:number, byteHigh:number)
 
 .decl VarHoldsBytesOfStorVarFinal(var:Variable, srcLoad:Statement, storVar:symbol, byteLow:number, byteHigh:number)
-.output VarHoldsBytesOfStorVarFinal
 
 VarHoldsBytesOfStorVar(to, load, storVar, 0, 31):-
   SLOADOfConst(load, storVar, to).
@@ -471,8 +463,6 @@ LoadOrStoreToStoreVar(stmt, storVar):-
   SLOADOfConst(stmt, storVar, _);
   SSTOREToConst(stmt, storVar, _).
 
-//.output LoadOrStoreToStoreVar, AnyLoadStoreStorVarBytes, CastedAndShiftedVar
-
 FailedMergedStorageModeling(storVar):-
   AnyLoadStoreStorVarBytes(_, storVar, _, _),
   LoadOrStoreToStoreVar(stmt, storVar),
@@ -488,16 +478,12 @@ SuccessfulMergedStorageModeling(storVar):-
   !ArrayIdToStorageIndex(as(storVar, Value), _).
 
 .decl VarWrittenToBytesOfStorVar(var:Variable, store:Statement, load:Statement, storVar:symbol, byteLow:number, byteHigh:number)
-.output VarWrittenToBytesOfStorVar
 
 .decl VarWrittenToBytesOfStorVarIsMergedVar(var:Variable, modeledVar:Variable, store:Statement, load:Statement, storVar:symbol, byteLow:number, byteHigh:number)
-.output VarWrittenToBytesOfStorVarIsMergedVar
 
 .decl VarWrittenToBytesOfStorVarFinal(var:Variable, store:Statement, load:Statement, storVar:symbol, byteLow:number, byteHigh:number)
-.output VarWrittenToBytesOfStorVarFinal
 
 .decl ConstWrittenToBytesOfStorVar(constVar:Variable, const:Value, store:Statement, load:Statement, storVar:symbol, byteLow:number, byteHigh:number)
-.output ConstWrittenToBytesOfStorVar
 
 VarWrittenToBytesOfStorVar(writtenVar, store, load, storVar, byteLow, byteHigh):-
   VarHoldsBytesOfStorVar(originVar, load, storVar, 0, 31),
@@ -650,7 +636,6 @@ StorageVariableInfo(storVar, storVar, 0, 31):-
 **/
 
 .decl StorageVariableType(storVar:symbol, type:symbol)
-.output StorageVariableType
 
 .decl SpecialStorageVariableType(storVar:symbol, type:symbol)
 
@@ -719,10 +704,8 @@ DataStructuresTempStmt(load):-
 **/
 
 .decl IsKnownLoad(stmt:Statement)
-.output IsKnownLoad
 
 .decl IsKnownStore(stmt:Statement)
-.output IsKnownStore
 
 IsKnownStore(stmt):-
   KnownStore(stmt, _, _).
@@ -746,16 +729,12 @@ Verbatim_KnownAndAllLoads(known, all):-
   all = count: SLOAD(_, _, _).
 
 .decl AllStoresKnown()
-.output AllStoresKnown
 
 .decl AllLoadsKnown()
-.output AllLoadsKnown
 
 .decl AllStorageOpsKnown()
-.output AllStorageOpsKnown
 
 .decl HasStorageOpsUnknown()
-.output HasStorageOpsUnknown
 
 AllStoresKnown():-
   Verbatim_KnownAndAllStores(all, all).

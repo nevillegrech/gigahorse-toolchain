@@ -259,7 +259,6 @@
   .decl PrivateContextContainsBlock(ctx: PrivateContext, blk: Block, index: number)
   .decl ContextContainsBlock(ctx: Context, blk: Block, index: number)
   .decl ContextContainsBlockTimes(ctx: Context, blk: Block, times: number)
-  .output ContextContainsBlockTimes
 
   PrivateContextContainsBlock(priCtx, blk, 0):-
     DecomposePrivateContext(priCtx, blk, _).

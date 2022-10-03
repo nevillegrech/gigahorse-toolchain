@@ -62,11 +62,9 @@
   /* Will be overriden to specify which functions the specific inliner will want to inline 
      FunctionToInline will contain a subset of this */
   .decl InlineCandidate(fun:Function) overridable
-  //.output InlineCandidate
   
   /* Functions that will be inlined in this instatiation of the component */
   .decl FunctionToInline(fun:Function)
-  .output FunctionToInline
 
   .decl SafelyInlinableFunction(fun:Function)
   .decl FunHasArgMismatch(fun:Function)
@@ -76,25 +74,21 @@
   .decl Function_Exit(fun:Function, block: Block)
   .decl FunctionToInline_RetStmt(fun:Function, retStmt:Statement)
   .decl ThrowBlock(block:Block)
-  .output SafelyInlinableFunction, FunHasArgMismatch, FunHasRetMismatch, Function_Exit
 
   /* Helper predicates associating In -> Out{Blocks,Stmts,Vars} */
   /* For cloned ones the call-site(block) is used as context and for non cloned ones the empty string */
   .decl InBlock_OutBlock(inBlock:Block, callBlock:Block, outBlock:Block)
   .decl InStatement_OutStatement(inStmt:Statement, callBlock:Block, outStmt:Statement)
   .decl InVar_OutVar(inVar:Variable, callBlock:Block, outVar:Variable)
-  
-  .output InVar_OutVar
+
 
   .decl CallToClonedFunction(cloneBlock:Block, callStmt:Statement, fun:Function)
   .decl ClonedCallArgs(cloneBlock:Block, callStmt:Statement, fun:Function, actualArg:Variable, formalArg:Variable)
   .decl ClonedCallRets(cloneBlock:Block, callStmt:Statement, fun:Function, retStmt:Statement, actualRet:Variable, formalRet:Variable)
-  .output ClonedCallArgs, ClonedCallRets, FunctionToInline_RetStmt, CallToClonedFunction
 
   .decl BlockToClone(block:Block, fromFun:Function, callerBlock:Block, callerFun:Function, newBlock:Block)
   .decl StatementToClone(stmt:Statement, fromFun:Function, callerBlock:Block, callerFun:Function, newStmt:Statement)
   .decl VariableToClone(var:Variable, fromFun:Function, callerBlock:Block, callerFun:Function, newVar:Variable)
-  .output BlockToClone, StatementToClone, VariableToClone
   
   /* By default tries to inline all private functions */
   InlineCandidate(fun):-
@@ -499,7 +493,7 @@
 .comp AnalysisHelpInliner : FunctionInliner {
 
   .override InlineCandidate
-  .output InlineCandidate
+  //.output InlineCandidate
 
   /* Inline guards to help our analysis */
   InlineCandidate(fun):-

@@ -8,7 +8,7 @@
 
 
 .decl StaticallyGuardedBlock(guardedBlock: Block, globalVal: Value)
-.output StaticallyGuardedBlock, Dominates
+
 StaticallyGuardedBlock(guardedBlock, globalVal) :-
   ControlsWith(_, guardedBlock, predicate),
   SenderGuard(globalVal, predicate).
@@ -41,7 +41,7 @@ SenderGuard(dataId, predicate) :-
   DataFlows(msgsenderFrom, msgsender),
   LoadFromDataStructure(_, dataId, msgsender, inop_result),
   DataFlows(inop_result, predicate).
-.output StaticallyGuardedBlock, ControlsWith, LoadFromDataStructure, SenderGuard
+
 SenderGuard(dataId, predicate) :-
   (CALLER(_, msgsenderFrom) ; ORIGIN(_, msgsenderFrom)),
   DataFlows(msgsenderFrom, msgsender),

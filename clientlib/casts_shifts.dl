@@ -48,7 +48,6 @@ AntiByteMask(val, low, high):-
 .decl CastedAndShiftedVar(originVar:Variable, toVar:Variable, shiftedBy:number, castedTo:number)
 
 .decl LowBytesMaskOp(fromVar:Variable, toVar:Variable, maskLen:number)
-.output LowBytesMaskOp, AntiMaskOp
 
 .decl AntiMaskOp(fromVar:Variable, toVar:Variable, byteLow:number, byteHigh:number) 
 
@@ -74,8 +73,6 @@ AntiMaskOp(originVar, to, byteLow, byteHigh):-
   (AND(_, antiMaskVar, mid, to) ; AND(_, mid, antiMaskVar, to)),
   BasicVariable_Value(antiMaskVar, antiMask),
   AntiByteMask(antiMask, byteLow, byteHigh).
-
-//.output RShiftBytes, LShiftBytes, VarHoldsBytesOfStorVar, CastedAndShiftedVar
 
 ShiftConst("0x1", 0).
 
