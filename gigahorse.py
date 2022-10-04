@@ -343,7 +343,7 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
     def calc_timeout(souffle_client =None):
         timeout_left = timeout-time.time()+disassemble_start
 
-        if not args.single_decomp and (souffle_client == DEFAULT_DECOMPILER_DL or souffle_client == FALLBACK_PRECISE_DECOMPILER_DL):
+        if not args.single_decomp and souffle_client == DEFAULT_DECOMPILER_DL:
             timeout_left = timeout_left/2
 
         return max(timeout_left, args.minimum_client_time)
