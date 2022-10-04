@@ -277,7 +277,6 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
   DEBUG_OUTPUT(Block_OriginalBlock)
   DEBUG_OUTPUT(BlockToClone)
 
-
   MaxOriginalStatement(as(maxStmt, Statement)):-
     maxStmtNumber = max stmtNumber : { Statement_Opcode(stmt, _), stmtNumber = @hex_to_number(stmt)},
     maxStmt = @number_to_hex(maxStmtNumber).
