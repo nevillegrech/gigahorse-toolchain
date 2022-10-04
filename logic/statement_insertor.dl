@@ -229,7 +229,8 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
 }
 
 /**
-  
+  Abstract block cloner
+  Subcomponents just need to override and provide facts for BlockCloningCandidate
 */
 .comp BlockCloner : CodeTransformer {
 
@@ -254,7 +255,7 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
   .decl BlockPushedToStack(pushStmt:Statement, pushedVar:Variable, pushedBlock:Block)
   .decl BlockPushesBlockToStack(from: Block, pushedBlock: Block)
 
-  .decl BlockCloningCandidate(candidate:Block)
+  .decl BlockCloningCandidate(candidate:Block) overridable
   DEBUG_OUTPUT(BlockCloningCandidate)
 
   // To make this more flexible we'll be performing the cloning at the use level:
@@ -424,7 +425,12 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
     BlockToCloneNewInstance(_, originalBlock, block).
 }
 
+/**
+  Heuristic based cloner implementation, gives good results, non-negligible slowdown
+*/
 .comp HeuristicBlockCloner : BlockCloner {
+
+  .override BlockCloningCandidate
 
   .decl PossibleCallerWithReturn(caller: Block, return: Block)
   PossibleCallerWithReturn(caller, as(val, Block)):-
@@ -459,7 +465,14 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
     // !DirectBlockEdge(from2, candidate).
 }
 
+/**
+  Guided block cloning, taking advantage of imprecision results of a previous decompilation run
+  Not used right now as its results were worse than using HeuristicBlockCloner
+*/
 .comp InputBlockCloner : BlockCloner {
+
+  .override BlockCloningCandidate
+
   .decl InputBlockCloningCandidate(block: Block)
   .input InputBlockCloningCandidate(IO="file", filename="InputBlockCloningCandidate.csv", delimiter="\t")
   
