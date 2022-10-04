@@ -393,7 +393,7 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
             if args.precise_fallback:
                 imprecision_metric = len(open(join(out_dir, 'Analytics_JumpToMany.csv'), 'r').readlines())
                 if imprecision_metric > 0:
-                    log("Decompiled with imprecision, attempting to remove it in 2nd round.")
+                    log(f"Using precise fallback decompilation configuration for {os.path.split(contract_filename)[1]}.")
                     try:
                         run_clients([FALLBACK_PRECISE_DECOMPILER_DL], [], in_dir, fallback_out_dir)
                         shutil.rmtree(out_dir)
@@ -406,9 +406,9 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
                 raise(e)
             else:
                 # Default using scalable fallback config
-                log(f"Using fallback decompilation configuration for {os.path.split(contract_filename)[1]}")
+                log(f"Using scalable fallback decompilation configuration for {os.path.split(contract_filename)[1]}")
                 write_context_depth_file(os.path.join(in_dir, 'MaxContextDepth.csv'), 1)
-                run_clients([FALLBACK_SCALABLE_DECOMPILER_DL], [], in_dir, fallback_out_dir)
+                run_clients([FALLBACK_SCALABLE_DECOMPILER_DL], [], in_dir, out_dir)
 
     try:
         # prepare working directory
