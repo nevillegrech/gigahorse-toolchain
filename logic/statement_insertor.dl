@@ -240,8 +240,6 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
   analysis.Statement_Opcode(stmt, op):- Statement_Opcode(stmt, op).
   analysis.Statement_Next(stmt, stmtNext):- Statement_Next(stmt, stmtNext).
 
-  .output Out_Statement_Opcode, Out_Statement_Next, Out_PushValue
-  .output Statement_Opcode, Statement_Next, PushValue
   // find the last statement in the original bytecode, start adding from there.
   .decl MaxOriginalStatement(stmt:Statement)
   // compute the block size to use on the cloned blocks
@@ -257,6 +255,8 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
   .decl BlockPushesBlockToStack(from: Block, pushedBlock: Block)
 
   .decl BlockCloningCandidate(candidate:Block)
+  DEBUG_OUTPUT(BlockCloningCandidate)
+
   // To make this more flexible we'll be performing the cloning at the use level:
   //   pick the interesting blocks
   //   find their uses (pushes to the stack) that we want to clone
@@ -269,12 +269,14 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
   .decl BlockToCloneNewInstance(pushBlock:Block, blockToClone:Block, generatedBlock:Block)
 
   .decl StatementToClonedStatement(pushBlock:Block, blockToClone:Block, stmt:Statement, generatedStatement:Statement)
-  .output StatementToClonedStatement
+  DEBUG_OUTPUT(StatementToClonedStatement)
+
   .init cloneOpSorter = OrdAscentingSorter
 
   .decl Block_OriginalBlock(block:Block, originalBlock:Block)
-  .output Block_OriginalBlock
-  .output BlockToClone, DirectBlockEdge, BlockPushedToStack, BlockPushesBlockToStack, BlockToCloneNewInstance, ClonedBlockAddressPushedBy
+  DEBUG_OUTPUT(Block_OriginalBlock)
+  DEBUG_OUTPUT(BlockToClone)
+
 
   MaxOriginalStatement(as(maxStmt, Statement)):-
     maxStmtNumber = max stmtNumber : { Statement_Opcode(stmt, _), stmtNumber = @hex_to_number(stmt)},
@@ -344,7 +346,6 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
     // Make sure we don't break any CODECOPY stmts
     !analysis.CODECOPYStatement(_, as(to,Value), _).
 
-  .output analysis.StackBalanceBlock, BlockCloningCandidate
 
   BlockToCloneOpID(pushBlock, blockToClone, cat(pushBlock, blockToClone)):-
     BlockToClone(pushBlock, blockToClone).

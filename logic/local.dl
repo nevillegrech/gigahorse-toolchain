@@ -501,7 +501,8 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     stackAltCount = allCount.
 
   .decl NonImmediateBlockJumpTargetEscapes(block: Block)
-  .output NonImmediateBlockJumpTargetEscapes
+  DEBUG_OUTPUT(NonImmediateBlockJumpTargetEscapes)
+
   NonImmediateBlockJumpTargetEscapes(block):-
     IsJump(jump),
     BasicBlock_Tail(block, jump),
@@ -524,7 +525,6 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
 .comp PreTransLocalAnalysis : LocalAnalysis {
 
   .decl CODECOPYSmallConst(codeCopy:Statement, const:symbol)
-  //.output CODECOPYSmallConst, CODECOPYSmallConstNoLoad, CODECOPYSmallConstWLoad
   
   .decl CODECOPYSmallConstWLoad(codeCopy:Statement, const:symbol, load:Statement)
 
@@ -566,7 +566,6 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
               
               
   .decl BlockComparesSigVyper(block: Block, sigHash: Value)
-  .output BlockComparesSigVyper
   
   BlockComparesSigVyper(block, sigHash) :-
     Statement_Block(pushStmt, block),
