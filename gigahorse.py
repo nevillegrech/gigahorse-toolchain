@@ -40,10 +40,10 @@ SOUFFLE_COMPILED_SUFFIX = '_compiled'
 DEFAULT_DECOMPILER_DL = join(GIGAHORSE_DIR, 'logic/main.dl')
 """Decompiler specification file."""
 
-FALLBACK_DECOMPILER_DL = join(GIGAHORSE_DIR, 'logic/alt.dl')
+FALLBACK_SCALABLE_DECOMPILER_DL = join(GIGAHORSE_DIR, 'logic/fallback_scalable.dl')
 """Fallback decompiler specification file, optimized for scalability."""
 
-CLONING_DECOMPILER_DL = join(GIGAHORSE_DIR, 'logic/alt_cloner.dl')
+FALLBACK_PRECISE_DECOMPILER_DL = join(GIGAHORSE_DIR, 'logic/fallback_precise.dl')
 """Alternative decompiler version that uses cues from previous round's decompilation to be more precise."""
 
 DEFAULT_INLINER_DL = join(GIGAHORSE_DIR, 'clientlib/function_inliner.dl')
@@ -209,7 +209,7 @@ parser.add_argument("--early_cloning",
 parser.add_argument("--precise_fallback",
                     action="store_true",
                     default=False,
-                    help="If decompilation is imprecise it adds a second one with a block cloning pre-process step.")
+                    help="If decompilation with the default config is imprecise it attempts a second one with a block cloning pre-process step.")
 
 parser.add_argument("-q",
                     "--quiet",
@@ -395,7 +395,7 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
                 if imprecision_metric > 0:
                     log("Decompiled with imprecision, attempting to remove it in 2nd round.")
                     try:
-                        run_clients([CLONING_DECOMPILER_DL], [], in_dir, fallback_out_dir)
+                        run_clients([FALLBACK_PRECISE_DECOMPILER_DL], [], in_dir, fallback_out_dir)
                         shutil.rmtree(out_dir)
                         os.rename(fallback_out_dir, out_dir)
                     except TimeoutException as e:
@@ -408,7 +408,7 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
                 # Default using scalable fallback config
                 log(f"Using fallback decompilation configuration for {os.path.split(contract_filename)[1]}")
                 write_context_depth_file(os.path.join(in_dir, 'MaxContextDepth.csv'), 1)
-                run_clients([FALLBACK_DECOMPILER_DL], [], in_dir, fallback_out_dir)
+                run_clients([FALLBACK_SCALABLE_DECOMPILER_DL], [], in_dir, fallback_out_dir)
 
     try:
         # prepare working directory
@@ -571,13 +571,13 @@ compile_processes_args = []
 compile_processes_args.append((DEFAULT_DECOMPILER_DL, DEFAULT_DECOMPILER_DL+SOUFFLE_COMPILED_SUFFIX))
 
 if not args.single_decomp:
-    compile_processes_args.append((FALLBACK_DECOMPILER_DL, FALLBACK_DECOMPILER_DL+SOUFFLE_COMPILED_SUFFIX))
+    compile_processes_args.append((FALLBACK_SCALABLE_DECOMPILER_DL, FALLBACK_SCALABLE_DECOMPILER_DL+SOUFFLE_COMPILED_SUFFIX))
 
 if not args.disable_inline:
     compile_processes_args.append((DEFAULT_INLINER_DL, DEFAULT_INLINER_DL+SOUFFLE_COMPILED_SUFFIX))
 
 if args.precise_fallback:
-    compile_processes_args.append((CLONING_DECOMPILER_DL, CLONING_DECOMPILER_DL+SOUFFLE_COMPILED_SUFFIX))
+    compile_processes_args.append((FALLBACK_PRECISE_DECOMPILER_DL, FALLBACK_PRECISE_DECOMPILER_DL+SOUFFLE_COMPILED_SUFFIX))
 
 clients_split = [a.strip() for a in args.client.split(',')]
 souffle_clients = [a for a in clients_split if a.endswith('.dl')]
