@@ -392,7 +392,8 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
         def_timeouts, _ = run_clients([DEFAULT_DECOMPILER_DL], [], in_dir, out_dir)
 
         if not def_timeouts:
-            if args.precise_fallback:
+            # try the precise configuration only if the default didn't take more than half the total timeout
+            if args.precise_fallback and calc_timeout(FALLBACK_PRECISE_DECOMPILER_DL) > 0.5 * timeout:
                 imprecision_metric = len(open(join(out_dir, 'Analytics_JumpToMany.csv'), 'r').readlines())
                 if imprecision_metric > 0:
                     log(f"Using precise fallback decompilation configuration for {os.path.split(contract_filename)[1]}.")
