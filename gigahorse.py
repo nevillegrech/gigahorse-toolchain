@@ -388,27 +388,40 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
         return timeouts, errors
     
     def run_decomp(contract_filename, in_dir, out_dir, fallback_out_dir):
-        try:
-            run_clients([DEFAULT_DECOMPILER_DL], [], in_dir, out_dir)
+
+        def_timeouts, _ = run_clients([DEFAULT_DECOMPILER_DL], [], in_dir, out_dir)
+
+        if not def_timeouts:
             if args.precise_fallback:
                 imprecision_metric = len(open(join(out_dir, 'Analytics_JumpToMany.csv'), 'r').readlines())
                 if imprecision_metric > 0:
                     log(f"Using precise fallback decompilation configuration for {os.path.split(contract_filename)[1]}.")
-                    try:
-                        run_clients([FALLBACK_PRECISE_DECOMPILER_DL], [], in_dir, fallback_out_dir)
+
+                    pre_timeouts, _ = run_clients([FALLBACK_PRECISE_DECOMPILER_DL], [], in_dir, fallback_out_dir)
+
+                    if not pre_timeouts:
                         shutil.rmtree(out_dir)
                         os.rename(fallback_out_dir, out_dir)
-                    except TimeoutException as e:
-                        # Timeout in fallback means we have successful default so we just return
-                        return
-        except TimeoutException as e:
+                        return "precise"
+                    else:
+                        return "default"
+                else:
+                    return "default"
+            else:
+                return "default"
+
+        elif def_timeouts:
             if args.single_decomp:
-                raise(e)
+                raise TimeoutException()
             else:
                 # Default using scalable fallback config
                 log(f"Using scalable fallback decompilation configuration for {os.path.split(contract_filename)[1]}")
                 write_context_depth_file(os.path.join(in_dir, 'MaxContextDepth.csv'), 1)
-                run_clients([FALLBACK_SCALABLE_DECOMPILER_DL], [], in_dir, out_dir)
+                sca_timeouts, _ = run_clients([FALLBACK_SCALABLE_DECOMPILER_DL], [], in_dir, out_dir)
+                if sca_timeouts:
+                    raise TimeoutException()
+                else:
+                    return "scalable"
 
     try:
         # prepare working directory
@@ -433,18 +446,22 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
                 # Create a symlink with a name starting with 'Verbatim_' to be added to results json
                 os.symlink(join(work_dir, 'solidity_version.csv'), join(out_dir, 'Verbatim_solidity_version.csv'))
                 os.symlink(join(work_dir, 'solidity_version.csv'), join(fallback_out_dir, 'Verbatim_solidity_version.csv'))
-            run_clients(souffle_pre_clients, other_pre_clients, work_dir, work_dir)
 
+            timeouts, _ = run_clients(souffle_pre_clients, other_pre_clients, work_dir, work_dir)
+            if timeouts:
+                # pre clients should be very light, should never happen
+                raise TimeoutException()
 
             if args.context_depth is not None:
                 write_context_depth_file(os.path.join(work_dir, 'MaxContextDepth.csv'), args.context_depth)
 
             decomp_start = time.time()
 
-            run_decomp(contract_filename, work_dir, out_dir, fallback_out_dir)
+            decompiler_config = run_decomp(contract_filename, work_dir, out_dir, fallback_out_dir)
 
             inline_start = time.time()
             if not args.disable_inline:
+                # ignore timeouts and errors here
                 run_clients([DEFAULT_INLINER_DL]*DEFAULT_INLINER_ROUNDS, [], out_dir, out_dir)
 
             # end decompilation
@@ -467,6 +484,7 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
         analytics['client_time'] = time.time() - client_start
         analytics['errors'] = len(errors)
         analytics['bytecode_size'] = (len(bytecode) - 2)//2
+        analytics['decompiler_config'] = decompiler_config
         log("{}: {:.36} completed in {:.2f} + {:.2f} + {:.2f} + {:.2f} secs".format(
             index, contract_name, analytics['disassemble_time'],
             analytics['decomp_time'], analytics['inline_time'], analytics['client_time']
@@ -529,17 +547,14 @@ def run_process(process_args, timeout: int, stdout=devnull, stderr=devnull, cwd:
     '''
     if timeout < 0:
         # This can theoretically happen
-        raise TimeoutException()
+        return -1
 
     start_time = time.time()
 
     try:
         subprocess.run(process_args, timeout=timeout, stdout=stdout, stderr=stderr, cwd=cwd, env=souffle_env, preexec_fn=lambda: set_memory_limit(memory_limit))
     except subprocess.TimeoutExpired:
-        if args.minimum_client_time == 0:
-            raise TimeoutException()
-        else:
-            return -1
+        return -1
 
     return time.time() - start_time
 
