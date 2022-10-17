@@ -42,7 +42,7 @@ def construct_cfg() -> Tuple[Mapping[str, Block], Mapping[str, Function]]:
     # Load facts
     tac_function_blocks = load_csv_multimap('InFunction.csv', reverse=True)
 
-    tac_func_id_to_public = load_csv_map('PublicFunction.csv')
+
     tac_high_level_func_name = load_csv_map('HighLevelFunctionName.csv')
 
     tac_formal_args: Mapping[str, List[Tuple[str, int]]] = defaultdict(list)
@@ -103,9 +103,9 @@ def construct_cfg() -> Tuple[Mapping[str, Block], Mapping[str, Function]]:
     for block_id, in load_csv('IRFunctionEntry.csv'):
         func_id = tac_block_function[block_id]
 
-        high_level_name = 'fallback()' if tac_func_id_to_public.get(func_id, '_') == '0x0' else tac_high_level_func_name[func_id]
+        high_level_name = tac_high_level_func_name[func_id]
         formals = [var for var, _ in sorted(tac_formal_args[func_id], key=lambda x: x[1])]
 
-        functions[func_id] = Function(func_id, high_level_name, blocks[block_id], func_id in tac_func_id_to_public or func_id == '0x0', formals)
+        functions[func_id] = Function(func_id, high_level_name, blocks[block_id], not high_level_name.startswith('0x') or func_id == '0x0', formals)
 
     return blocks, functions
