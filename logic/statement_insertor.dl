@@ -234,8 +234,10 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
 */
 .comp BlockCloner : CodeTransformer {
 
-  .init analysis = GlobalAnalysis<TransactionalContext>
+  .init analysis = OptimizedGlobalAnalysis<TransactionalContext>
   //.init analysis = PreTransLocalAnalysis
+
+  //.limitsize analysis.BlockOutputContents(n=500000)
 
   analysis.PushValue(push, val):- PushValue(push, val).
   analysis.Statement_Opcode(stmt, op):- Statement_Opcode(stmt, op).
