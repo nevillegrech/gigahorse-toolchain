@@ -86,6 +86,21 @@ CallToSignature(call, sigText):-
   CallToSignatureFromSHA3(call, sigText).
 
 /**
+  Information about REVERT error signatures
+*/
+
+.decl RevertToSignature(revert: Statement, sigText: symbol)
+.output RevertToSignature
+
+RevertToSignature(revert, sigText):-
+  ConstantPossibleSigHash(sigHashVal, _, sigText),
+  Variable_Value(sigVar, sigHashVal),
+  sigHashVal != "0xffffffff", // hack for now
+  LocalFlows(sigVar, actual),
+  StatementUsesMemory_ActualMemoryArg(revert, _, 0, actual),
+  Statement_Opcode(revert, "REVERT").
+
+/**
   ERC-20 transfer methods
 
 **/

@@ -383,6 +383,15 @@ Helper_Zeros(cat("0",old), i +1):-
   Helper_Zeros(old, i),
   i < 10.
 
+.decl ErrorSignature(hex_signature: symbol, text_signature: symbol)
+.input ErrorSignature
+
+.decl PublicFunctionLikeSignature(hex_signature: symbol, text_signature: symbol)
+
+PublicFunctionLikeSignature(sigHash, sig):-
+  PublicFunctionSignature(sigHash, sig);
+  ErrorSignature(sigHash, sig).
+
 .decl ConstantPossibleSigHash(constSigHash:symbol, canonicalSigHash:symbol, name:symbol)
 .output ConstantPossibleSigHash
 
@@ -394,7 +403,7 @@ ConstantPossibleSigHash(sigHash, sigHashForm, name):-
   temp = min(10, len),
   Helper_Zeros(zeroz, 10 - temp),
   sigHashForm = cat("0x",cat(zeroz, substr(sigHash, 2, temp - 2))),
-  PublicFunctionSignature(sigHashForm, name).
+  PublicFunctionLikeSignature(sigHashForm, name).
 
 // REVIEW (YS): I don't fully understand the above. Why truncate the
 // first two digits of the constant and prepend "0x"? If the two digits
@@ -405,4 +414,4 @@ ConstantPossibleSigHash(sigHash, sigHashForm, name):-
   len = strlen(sigHash),
   ((len >= 9, sigHashForm = cat("0x0", substr(sigHash, 2, 7)));
    (len >= 8, sigHashForm = cat("0x00", substr(sigHash, 2, 6)))),
-  PublicFunctionSignature(sigHashForm, name).
+  PublicFunctionLikeSignature(sigHashForm, name).

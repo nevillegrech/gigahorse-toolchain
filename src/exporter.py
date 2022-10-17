@@ -6,7 +6,7 @@ import logging
 import os
 from collections import defaultdict
 import src.opcodes as opcodes
-from src.common import public_function_signature_filename, event_signature_filename
+from src.common import public_function_signature_filename, event_signature_filename, error_signature_filename
 
 
 opcode_output = {'alters_flow':bool, 'halts':bool, 'is_arithmetic':bool,
@@ -155,7 +155,17 @@ class InstructionTsvExporter(Exporter):
             except FileExistsError:
                 pass
         else:
-            open(events_filename_out, 'w').close()    
+            open(events_filename_out, 'w').close()
+
+        errors_filename_in = error_signature_filename
+        errors_filename_out = os.path.join(output_dir, 'ErrorSignature.facts')
+        if os.path.isfile(errors_filename_in):
+            try:
+                os.symlink(errors_filename_in, errors_filename_out)
+            except FileExistsError:
+                pass
+        else:
+            open(errors_filename_out, 'w').close()
 
         def join(filename):
             return os.path.join(output_dir, filename)
