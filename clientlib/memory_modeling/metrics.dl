@@ -16,6 +16,9 @@
 .decl Analytics_CallWithSig(call:Statement)
 .output Analytics_CallWithSig
 
+.decl Analytics_RevertWithSig(revert: Statement)
+.output Analytics_RevertWithSig
+
 /**
   Approximation to 'reused' memory reading statements.
   An example would be two require statements in source being
@@ -48,6 +51,9 @@ Analytics_ERC20ApproveCall(call):-
 
 Analytics_CallWithSig(call):-
   CallToSignature(call, _).
+
+Analytics_RevertWithSig(revert):-
+  RevertToSignature(revert, _).
 
 Analytics_MemConsStmtUsesFromDistinctPaths(memConsStmt):-
   StatementUsesMemory_LengthVar(memConsStmt, _, lenVar),
