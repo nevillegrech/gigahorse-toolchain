@@ -199,17 +199,25 @@ parser.add_argument("--enable_limitsize",
 parser.add_argument("--disable_inline",
                     action="store_true",
                     default=False,
-                    help="Disables the inlining of small functions (performed to produce a more high-level IR).")
+                    help="Disables the inlining of small functions performed after TAC code is generated"
+                    " (to increase the amount of high level inferences produced by the memory and storage modeling components).")
 
 parser.add_argument("--early_cloning",
                     action="store_true",
                     default=False,
-                    help="Adds a block cloning pre-process step to the decompilation pipeline, sometimes producing a more precise output.")
+                    help="Adds a cloning pre-process step (targetting blocks that can cause imprecision) to the decompilation pipeline.")
 
-parser.add_argument("--precise_fallback",
+parser.add_argument("--disable_precise_fallback",
                     action="store_true",
                     default=False,
-                    help="If decompilation with the default config is imprecise it attempts a second one with a block cloning pre-process step.")
+                    help="Disables the precise fallback configuration (same as the --early_cloning flag) that kicks off if decompilation"
+                    " with the default (transactional) config is successful but produces imprecise results.")
+
+parser.add_argument("--disable_scalable_fallback",
+                    action="store_true",
+                    default=False,
+                    help="Disables the scalable fallback configuration (using a hybrid-precise context configuration) that kicks off"
+                    " if decompilation with the default (transactional) config takes up more than half of the total timeout.")
 
 parser.add_argument("-q",
                     "--quiet",
@@ -238,11 +246,6 @@ parser.add_argument("-i",
                     default=False,
                     help="Run souffle in interpreted mode.")
 
-parser.add_argument("--single_decomp",
-                    action="store_true",
-                    default=False,
-                    help="Perform a single decompilation run, instead of the current default of running a fallback decompilation"
-                    "(using a scalable hybrid-precise context configuration) if the default transactional configuration times out.")
 
 souffle_env = os.environ.copy()
 functor_path = join(GIGAHORSE_DIR, 'souffle-addon')
@@ -343,7 +346,7 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
     def calc_timeout(souffle_client =None):
         timeout_left = timeout-time.time()+disassemble_start
 
-        if not args.single_decomp and souffle_client == DEFAULT_DECOMPILER_DL:
+        if not args.disable_scalable_fallback and souffle_client == DEFAULT_DECOMPILER_DL:
             timeout_left = timeout_left/2
 
         return max(timeout_left, args.minimum_client_time)
@@ -393,7 +396,7 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
 
         if not def_timeouts:
             # try the precise configuration only if the default didn't take more than half the total timeout
-            if args.precise_fallback and calc_timeout(FALLBACK_PRECISE_DECOMPILER_DL) > 0.5 * timeout:
+            if not args.disable_precise_fallback and calc_timeout(FALLBACK_PRECISE_DECOMPILER_DL) > 0.5 * timeout:
                 imprecision_metric = len(open(join(out_dir, 'Analytics_JumpToMany.csv'), 'r').readlines())
                 if imprecision_metric > 0:
                     log(f"Using precise fallback decompilation configuration for {os.path.split(contract_filename)[1]}.")
@@ -412,7 +415,7 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
                 return "default"
 
         elif def_timeouts:
-            if args.single_decomp:
+            if args.disable_scalable_fallback:
                 raise TimeoutException()
             else:
                 # Default using scalable fallback config
@@ -586,13 +589,13 @@ logging.basicConfig(format='%(message)s', level=log_level)
 compile_processes_args = []
 compile_processes_args.append((DEFAULT_DECOMPILER_DL, DEFAULT_DECOMPILER_DL+SOUFFLE_COMPILED_SUFFIX))
 
-if not args.single_decomp:
+if not args.disable_scalable_fallback:
     compile_processes_args.append((FALLBACK_SCALABLE_DECOMPILER_DL, FALLBACK_SCALABLE_DECOMPILER_DL+SOUFFLE_COMPILED_SUFFIX))
 
 if not args.disable_inline:
     compile_processes_args.append((DEFAULT_INLINER_DL, DEFAULT_INLINER_DL+SOUFFLE_COMPILED_SUFFIX))
 
-if args.precise_fallback:
+if not args.disable_precise_fallback:
     compile_processes_args.append((FALLBACK_PRECISE_DECOMPILER_DL, FALLBACK_PRECISE_DECOMPILER_DL+SOUFFLE_COMPILED_SUFFIX))
 
 clients_split = [a.strip() for a in args.client.split(',')]
