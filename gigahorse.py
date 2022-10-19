@@ -70,7 +70,7 @@ DEFAULT_NUM_JOBS = max(int(cpu_count() * 0.9), 1)
 
 """The number of subprocesses to run at once."""
 
-DEFAULT_MEMORY_LIMIT = 30 * 1_000_000_000
+DEFAULT_MEMORY_LIMIT = 45 * 1_000_000_000
 """Hard capped memory limit for analyses processes (30 GB)"""
 
 # Command Line Arguments
