@@ -392,40 +392,45 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
     
     def run_decomp(contract_filename, in_dir, out_dir, fallback_out_dir):
 
+        config = "default"
         def_timeouts, _ = run_clients([DEFAULT_DECOMPILER_DL], [], in_dir, out_dir)
 
-        if not def_timeouts:
-            # try the precise configuration only if the default didn't take more than half the total timeout
-            if not args.disable_precise_fallback and calc_timeout(FALLBACK_PRECISE_DECOMPILER_DL) > 0.5 * timeout:
-                imprecision_metric = len(open(join(out_dir, 'Analytics_JumpToMany.csv'), 'r').readlines())
-                if imprecision_metric > 0:
-                    log(f"Using precise fallback decompilation configuration for {os.path.split(contract_filename)[1]}.")
+        if not args.disable_precise_fallback and not def_timeouts and decomp_out_produced(out_dir):
+            # try the precise configuration only if the default didn't take more 0.3 of the total timeout
+            # this was chosen because on average the precise decompiler takes about 2x the time of the default one
+            if imprecise_decomp_out(out_dir) and calc_timeout(FALLBACK_PRECISE_DECOMPILER_DL) > 0.3 * timeout:
+                log(f"Using precise fallback decompilation configuration for {os.path.split(contract_filename)[1]}")
 
-                    pre_timeouts, _ = run_clients([FALLBACK_PRECISE_DECOMPILER_DL], [], in_dir, fallback_out_dir)
+                pre_timeouts, _ = run_clients([FALLBACK_PRECISE_DECOMPILER_DL], [], in_dir, fallback_out_dir)
+                if not pre_timeouts and decomp_out_produced(fallback_out_dir):
+                    shutil.rmtree(out_dir)
+                    os.rename(fallback_out_dir, out_dir)
+                    config = "precise"
 
-                    if not pre_timeouts:
-                        shutil.rmtree(out_dir)
-                        os.rename(fallback_out_dir, out_dir)
-                        return "precise"
-                    else:
-                        return "default"
-                else:
-                    return "default"
-            else:
-                return "default"
-
-        elif def_timeouts:
+        elif def_timeouts or not decomp_out_produced(out_dir):
             if args.disable_scalable_fallback:
                 raise TimeoutException()
             else:
                 # Default using scalable fallback config
                 log(f"Using scalable fallback decompilation configuration for {os.path.split(contract_filename)[1]}")
                 write_context_depth_file(os.path.join(in_dir, 'MaxContextDepth.csv'), 1)
+
                 sca_timeouts, _ = run_clients([FALLBACK_SCALABLE_DECOMPILER_DL], [], in_dir, out_dir)
-                if sca_timeouts:
-                    raise TimeoutException()
+                if not sca_timeouts and decomp_out_produced(out_dir):
+                    config = "scalable"
                 else:
-                    return "scalable"
+                    raise TimeoutException()
+
+        return config
+
+    def imprecise_decomp_out(out_dir):
+        """Used to check if decompilation output is imprecise, currently only checks Analytics_JumpToMany"""
+        imprecision_metric = len(open(join(out_dir, 'Analytics_JumpToMany.csv'), 'r').readlines())
+        return imprecision_metric > 0
+
+    def decomp_out_produced(out_dir):
+        """Hacky. Needed to ensure process was not killed due to exceeding the memory limit."""
+        return os.path.exists(join(out_dir, 'Analytics_JumpToMany.csv')) and os.path.exists(join(out_dir, 'TAC_Def.csv'))
 
     try:
         # prepare working directory
