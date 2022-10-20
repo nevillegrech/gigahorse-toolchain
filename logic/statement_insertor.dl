@@ -229,19 +229,20 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
 }
 
 /**
-  
+  Abstract block cloner
+  Subcomponents just need to override and provide facts for BlockCloningCandidate
 */
 .comp BlockCloner : CodeTransformer {
 
-  .init analysis = GlobalAnalysis<TransactionalContext>
+  .init analysis = OptimizedGlobalAnalysis<TransactionalContext>
   //.init analysis = PreTransLocalAnalysis
+
+  //.limitsize analysis.BlockOutputContents(n=500000)
 
   analysis.PushValue(push, val):- PushValue(push, val).
   analysis.Statement_Opcode(stmt, op):- Statement_Opcode(stmt, op).
   analysis.Statement_Next(stmt, stmtNext):- Statement_Next(stmt, stmtNext).
 
-  .output Out_Statement_Opcode, Out_Statement_Next, Out_PushValue
-  .output Statement_Opcode, Statement_Next, PushValue
   // find the last statement in the original bytecode, start adding from there.
   .decl MaxOriginalStatement(stmt:Statement)
   // compute the block size to use on the cloned blocks
@@ -256,7 +257,9 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
   .decl BlockPushedToStack(pushStmt:Statement, pushedVar:Variable, pushedBlock:Block)
   .decl BlockPushesBlockToStack(from: Block, pushedBlock: Block)
 
-  .decl BlockCloningCandidate(candidate:Block)
+  .decl BlockCloningCandidate(candidate:Block) overridable
+  DEBUG_OUTPUT(BlockCloningCandidate)
+
   // To make this more flexible we'll be performing the cloning at the use level:
   //   pick the interesting blocks
   //   find their uses (pushes to the stack) that we want to clone
@@ -269,12 +272,13 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
   .decl BlockToCloneNewInstance(pushBlock:Block, blockToClone:Block, generatedBlock:Block)
 
   .decl StatementToClonedStatement(pushBlock:Block, blockToClone:Block, stmt:Statement, generatedStatement:Statement)
-  .output StatementToClonedStatement
+  DEBUG_OUTPUT(StatementToClonedStatement)
+
   .init cloneOpSorter = OrdAscentingSorter
 
   .decl Block_OriginalBlock(block:Block, originalBlock:Block)
-  .output Block_OriginalBlock
-  .output BlockToClone, DirectBlockEdge, BlockPushedToStack, BlockPushesBlockToStack, BlockToCloneNewInstance, ClonedBlockAddressPushedBy
+  DEBUG_OUTPUT(Block_OriginalBlock)
+  DEBUG_OUTPUT(BlockToClone)
 
   MaxOriginalStatement(as(maxStmt, Statement)):-
     maxStmtNumber = max stmtNumber : { Statement_Opcode(stmt, _), stmtNumber = @hex_to_number(stmt)},
@@ -315,19 +319,6 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
     // Ideally when this is deployed we'd have to use some whole-contract logic
     //!analysis.Statement_Uses_Local(_, blockVar, _).
 
-  .decl PossibleCallerWithReturn(caller:Block, return:Block)
-  .output PossibleCallerWithReturn, BlockPushesCloningCandidate
-  PossibleCallerWithReturn(caller, as(val, Block)):-
-    analysis.ImmediateBlockJumpTarget(caller, targetVar),
-    analysis.Variable_Value(targetVar, target),
-    analysis.JUMPDEST(as(target, symbol)),
-    analysis.Statement_Block(stmt, caller),
-    analysis.Statement_Defines(stmt, var),
-    analysis.Variable_Value(var, val),
-    analysis.JUMPDEST(as(val, symbol)),
-    !analysis.Statement_Uses_Local(_, var, _).
-
-
   .decl FallthroughBlock(block: Block)
   FallthroughBlock(block):-
     analysis.Statement_Block(fallthrough, block),
@@ -345,21 +336,6 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
     BlockPushesBlockToStack(pushBlk, candidate),
     BlockCloningCandidate(candidate).
 
-  BlockCloningCandidate(candidate):-
-    analysis.StackBalanceBlock(candidate).
-
-  // caller-side return blocks that are shared between call-sites
-  BlockCloningCandidate(candidate):-
-    PossibleCallerWithReturn(from, candidate),
-    PossibleCallerWithReturn(from2, candidate),
-    from != from2.
-    // BlockPushesBlockToStack(from, candidate),
-    // BlockPushesBlockToStack(from2, candidate),
-    // from != from2,
-    // 1 != 1,
-    // !DirectBlockEdge(from, candidate),
-    // !DirectBlockEdge(from2, candidate).
-
   // Clone all candidate blocks  for all the blocks that push them
   // Make sure they can be cloned safely 
   BlockToClone(from, to):-
@@ -372,7 +348,6 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
     // Make sure we don't break any CODECOPY stmts
     !analysis.CODECOPYStatement(_, as(to,Value), _).
 
-  .output analysis.StackBalanceBlock, BlockCloningCandidate
 
   BlockToCloneOpID(pushBlock, blockToClone, cat(pushBlock, blockToClone)):-
     BlockToClone(pushBlock, blockToClone).
@@ -450,6 +425,61 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
   
   Block_OriginalBlock(block, originalBlock):-
     BlockToCloneNewInstance(_, originalBlock, block).
+}
+
+/**
+  Heuristic based cloner implementation, gives good results, non-negligible slowdown
+*/
+.comp HeuristicBlockCloner : BlockCloner {
+
+  .override BlockCloningCandidate
+
+  .decl PossibleCallerWithReturn(caller: Block, return: Block)
+  PossibleCallerWithReturn(caller, as(val, Block)):-
+    analysis.ImmediateBlockJumpTarget(caller, targetVar),
+    analysis.Variable_Value(targetVar, target),
+    analysis.JUMPDEST(as(target, symbol)),
+    analysis.Statement_Block(stmt, caller),
+    analysis.Statement_Defines(stmt, var),
+    analysis.Variable_Value(var, val),
+    analysis.JUMPDEST(as(val, symbol)),
+    !analysis.Statement_Uses_Local(_, var, _).
+
+  // SL: Too general, causes slowdown
+  BlockCloningCandidate(candidate):-
+    analysis.StackBalanceBlock(candidate).
+
+  // SL: Doesn't give too much
+  BlockCloningCandidate(candidate):-
+    analysis.NonImmediateBlockJumpTargetEscapes(candidate).
+
+  // caller-side return blocks that are shared between call-sites
+  // SL: Best heuristic so far, targets functions.dl level precision loss
+  BlockCloningCandidate(candidate):-
+    PossibleCallerWithReturn(from, candidate),
+    PossibleCallerWithReturn(from2, candidate),
+    from != from2.
+    // BlockPushesBlockToStack(from, candidate),
+    // BlockPushesBlockToStack(from2, candidate),
+    // from != from2,
+    // 1 != 1,
+    // !DirectBlockEdge(from, candidate),
+    // !DirectBlockEdge(from2, candidate).
+}
+
+/**
+  Guided block cloning, taking advantage of imprecision results of a previous decompilation run
+  Not used right now as its results were worse than using HeuristicBlockCloner
+*/
+.comp InputBlockCloner : BlockCloner {
+
+  .override BlockCloningCandidate
+
+  .decl InputBlockCloningCandidate(block: Block)
+  .input InputBlockCloningCandidate(IO="file", filename="InputBlockCloningCandidate.csv", delimiter="\t")
+  
+  BlockCloningCandidate(block):-
+    InputBlockCloningCandidate(block).
 }
 
 // Adding analytic here to 

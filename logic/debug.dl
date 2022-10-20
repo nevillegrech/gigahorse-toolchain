@@ -1,5 +1,5 @@
 
-.output BlockEdge, FallthroughEdge, BlockJumpValidTarget, BlockJumpTarget, MaybeInFunctionUnderContext
+.output global.BlockEdge, global.FallthroughEdge, global.BlockJumpValidTarget, global.BlockJumpTarget, MaybeInFunctionUnderContext
 .output NotValidReturnBlock, NotValidReturnEdge
 .output MaybeFunctionCallReturn // DEBUG
 .output PotentialCall // DEBUG
@@ -20,45 +20,45 @@
 // The following relations print a number instead of a context in record form to help debugging
 // Without them looking (via grep) for a block using its id will return many contexts as well.
 
-.decl ContextOrd(ctx:Context, ctxOrd:number)
+.decl ContextOrd(ctx:global.sens.Context, ctxOrd:number)
 .output ContextOrd
 ContextOrd(ctx, ord(ctx)):-
-  ReachableContext(ctx, _).
+  global.ReachableContext(ctx, _).
 
 .decl BlockEdgeOrd(callerCtx:number, from:Block, calleeCtx:number, to:Block)
 .output BlockEdgeOrd
 BlockEdgeOrd(ord(callerCtx), from, ord(calleeCtx), to):-
-  BlockEdge(callerCtx, from, calleeCtx, to).
+  global.BlockEdge(callerCtx, from, calleeCtx, to).
 
 .decl BlockOutputContentsOrd(context:number, block:Block, index:StackIndex, var:Variable)
 .output BlockOutputContentsOrd
 BlockOutputContentsOrd(ord(context), block, index, var):-
-  BlockOutputContents(context, block, index, var).
+  global.BlockOutputContents(context, block, index, var).
 
 .decl BlockInputContentsOrd(context:number, block:Block, index:StackIndex, var:Variable)
 .output BlockInputContentsOrd
 BlockInputContentsOrd(ord(context), block, index, var):-
-  BlockInputContents(context, block, index, var).
+  global.BlockInputContents(context, block, index, var).
 
 .decl BlockJumpTargetOrd(context:number, block:Block, var:Variable)
 .output BlockJumpTargetOrd
 BlockJumpTargetOrd(ord(context), block, var):-
-  BlockJumpTarget(context, block, var).
+  global.BlockJumpTarget(context, block, var).
 
 .decl BlockJumpValidTargetOrd(context:number, block:Block, var:Variable, target:Block)
 .output BlockJumpValidTargetOrd
 BlockJumpValidTargetOrd(ord(context), block, var, target):-
-  BlockJumpValidTarget(context, block, var, target).
+  global.BlockJumpValidTarget(context, block, var, target).
 
 .decl MergeContextOrd(ctx: number, caller: Block, newContext: number)
 .output MergeContextOrd
 MergeContextOrd(ord(ctx), caller, ord(newContext)):-
-  MergeContext(ctx, caller, newContext).
+  global.sens.MergeContext(ctx, caller, newContext).
 
 .decl ReachableContextOrd(ctx: number, block: Block)
 .output ReachableContextOrd
 ReachableContextOrd(ord(ctx), block):-
-  ReachableContext(ctx, block).
+  global.ReachableContext(ctx, block).
 
 .decl IsFunctionCallReturnOrd(ctx:number, caller:Block, func:Block, retCtx:number, retBlock:Block, retTarget:Block)
 .output IsFunctionCallReturnOrd
@@ -79,3 +79,57 @@ PossibleReturnAddressWithRankOrd(ord(callCtx), targetSetter, ord(retCtx), retBlo
 .output MaybeInFunctionUnderContextOrd
 MaybeInFunctionUnderContextOrd(ord(ctx), block, func):-
   MaybeInFunctionUnderContext(ctx, block, func).
+
+
+.decl CFGImprecisionPersists(srcCtx: global.sens.Context, srcBlk: Block, currCtx: global.sens.Context, currBlk: Block, targetVar1: Variable, targetVar2: Variable, pathLen: number)
+.output CFGImprecisionPersists
+
+.decl CFGImprecisionInstance(ctx: global.sens.Context, blk: Block, targetVar1: Variable, targetVar2: Variable)
+
+CFGImprecisionPersists(ctx, block, ctx, block, targetVar1, targetVar2, 0),
+CFGImprecisionInstance(ctx, block, targetVar1, targetVar2):-
+  global.BlockJumpValidTarget(ctx, block, targetVar1, _),
+  global.BlockJumpValidTarget(ctx, block, targetVar2, _),
+  targetVar1 < targetVar2.
+
+CFGImprecisionPersists(srcCtx, srcBlock, prevCtx, prevBlock, targetVar1, targetVar2, pathLen + 1):-
+  CFGImprecisionPersists(srcCtx, srcBlock, ctx, block, targetVar1, targetVar2, pathLen),
+  global.BlockEdge(prevCtx, prevBlock, ctx, block),
+  global.BlockInputContents(prevCtx, prevBlock, someIndex, targetVar1),
+  global.BlockInputContents(prevCtx, prevBlock, someIndex, targetVar2),
+  pathLen < 30.
+
+.decl CFGImprecisionPersistsOrd(srcCtx: number, srcBlk: Block, currCtx: number, currBlk: Block, targetVar1: Variable, targetVar2: Variable, pathLen: number)
+.output CFGImprecisionPersistsOrd
+
+CFGImprecisionPersistsOrd(ord(srcCtx), srcBlock, ord(ctx), block, targetVar1, targetVar2, pathLen):-
+  CFGImprecisionPersists(srcCtx, srcBlock, ctx, block, targetVar1, targetVar2, pathLen).
+
+.decl CFGImprecisionIntroducedOrd(srcCtx: number, srcBlk: Block, prevCtx: number, prevBlock: Block, currCtx: number, currBlk: Block, targetVar1: Variable, targetVar2: Variable, pathLen: number)
+.output CFGImprecisionIntroducedOrd
+
+CFGImprecisionIntroducedOrd(ord(srcCtx), srcBlock, ord(prevCtx), prevBlock, ord(ctx), block, targetVar1, targetVar2, pathLen):-
+  CFGImprecisionPersists(srcCtx, srcBlock, ctx, block, targetVar1, targetVar2, pathLen),
+  global.BlockEdge(prevCtx, prevBlock, ctx, block),
+  pathLen != 30,
+  !CFGImprecisionPersists(srcCtx, srcBlock, prevCtx, prevBlock, targetVar1, targetVar2, _).
+
+.decl CFGImprecisionIntroducedForwardOrd(ctx: number, block: Block, targetVar1: Variable, targetVar2: Variable)
+.output CFGImprecisionIntroducedForwardOrd
+
+.decl CFGImprecisionExists(ctx: global.sens.Context, block: Block, targetVar1: Variable, targetVar2: Variable)
+
+CFGImprecisionExists(ctx, block, targetVar1, targetVar2):-
+  CFGImprecisionInstance(_, _, targetVar1, targetVar2),
+  global.BlockInputContents(ctx, block, someIndex, targetVar1),
+  global.BlockInputContents(ctx, block, someIndex, targetVar2).
+
+.decl CFGImprecisionExistsInPrev(ctx: global.sens.Context, block: Block, prevCtx: global.sens.Context, prevBlock: Block, targetVar1: Variable, targetVar2: Variable)
+
+CFGImprecisionExistsInPrev(ctx, block, prevCtx, prevBlock, targetVar1, targetVar2):-
+  CFGImprecisionExists(prevCtx, prevBlock, targetVar1, targetVar2),
+  global.BlockEdge(prevCtx, prevBlock, ctx, block).
+
+CFGImprecisionIntroducedForwardOrd(ord(ctx), block, targetVar1, targetVar2):-
+  CFGImprecisionExists(ctx, block, targetVar1, targetVar2),
+  !CFGImprecisionExistsInPrev(ctx, block, _, _, targetVar1, targetVar2).

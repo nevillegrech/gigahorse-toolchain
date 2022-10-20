@@ -40,8 +40,11 @@ SOUFFLE_COMPILED_SUFFIX = '_compiled'
 DEFAULT_DECOMPILER_DL = join(GIGAHORSE_DIR, 'logic/main.dl')
 """Decompiler specification file."""
 
-FALLBACK_DECOMPILER_DL = join(GIGAHORSE_DIR, 'logic/alt.dl')
+FALLBACK_SCALABLE_DECOMPILER_DL = join(GIGAHORSE_DIR, 'logic/fallback_scalable.dl')
 """Fallback decompiler specification file, optimized for scalability."""
+
+FALLBACK_PRECISE_DECOMPILER_DL = join(GIGAHORSE_DIR, 'logic/fallback_precise.dl')
+"""Alternative decompiler version that uses cues from previous round's decompilation to be more precise."""
 
 DEFAULT_INLINER_DL = join(GIGAHORSE_DIR, 'clientlib/function_inliner.dl')
 """IR helping inliner specification file."""
@@ -56,7 +59,7 @@ TEMP_WORKING_DIR = ".temp"
 DEFAULT_TIMEOUT = 120
 """Default time before killing analysis of a contract."""
 
-DEFAULT_MINIMUM_CLIENT_TIME = 0
+DEFAULT_MINIMUM_CLIENT_TIME = 10
 """Default minimum time to allow each client to work."""
 
 DEFAULT_PATTERN = ".*.hex"
@@ -67,7 +70,7 @@ DEFAULT_NUM_JOBS = max(int(cpu_count() * 0.9), 1)
 
 """The number of subprocesses to run at once."""
 
-DEFAULT_MEMORY_LIMIT = 30 * 1_000_000_000
+DEFAULT_MEMORY_LIMIT = 45 * 1_000_000_000
 """Hard capped memory limit for analyses processes (30 GB)"""
 
 # Command Line Arguments
@@ -196,12 +199,25 @@ parser.add_argument("--enable_limitsize",
 parser.add_argument("--disable_inline",
                     action="store_true",
                     default=False,
-                    help="Disables the inlining of small functions (performed to produce a more high-level IR).")
+                    help="Disables the inlining of small functions performed after TAC code is generated"
+                    " (to increase the amount of high level inferences produced by the memory and storage modeling components).")
 
 parser.add_argument("--early_cloning",
                     action="store_true",
                     default=False,
-                    help="Adds a block cloning pre-process step to the decompilation pipeline, sometimes producing a more precise output.")
+                    help="Adds a cloning pre-process step (targetting blocks that can cause imprecision) to the decompilation pipeline.")
+
+parser.add_argument("--disable_precise_fallback",
+                    action="store_true",
+                    default=False,
+                    help="Disables the precise fallback configuration (same as the --early_cloning flag) that kicks off if decompilation"
+                    " with the default (transactional) config is successful but produces imprecise results.")
+
+parser.add_argument("--disable_scalable_fallback",
+                    action="store_true",
+                    default=False,
+                    help="Disables the scalable fallback configuration (using a hybrid-precise context configuration) that kicks off"
+                    " if decompilation with the default (transactional) config takes up more than half of the total timeout.")
 
 parser.add_argument("-q",
                     "--quiet",
@@ -230,11 +246,6 @@ parser.add_argument("-i",
                     default=False,
                     help="Run souffle in interpreted mode.")
 
-parser.add_argument("--single_decomp",
-                    action="store_true",
-                    default=False,
-                    help="Perform a single decompilation run, instead of the current default of running a fallback decompilation"
-                    "(using a scalable hybrid-precise context configuration) if the default transactional configuration times out.")
 
 souffle_env = os.environ.copy()
 functor_path = join(GIGAHORSE_DIR, 'souffle-addon')
@@ -254,17 +265,19 @@ if not os.path.isfile(join(functor_path, 'libfunctors.so')):
 def get_working_dir(contract_name):
     return join(os.path.abspath(args.working_dir), os.path.split(contract_name)[1].split('.')[0])
 
-def prepare_working_dir(contract_name) -> (bool, str, str):
+def prepare_working_dir(contract_name) -> (bool, str, str, str):
     newdir = get_working_dir(contract_name)
     out_dir = join(newdir, 'out')
+    fallback_out_dir = join(newdir, 'fallbackout')
 
     if os.path.isdir(newdir):
-        return True, newdir, out_dir
+        return True, newdir, out_dir, fallback_out_dir
 
     # recreate dir
     os.makedirs(newdir)
     os.makedirs(out_dir)
-    return False, newdir, out_dir
+    os.makedirs(fallback_out_dir)
+    return False, newdir, out_dir, fallback_out_dir
 
 def get_souffle_macros():
     souffle_macros = f'GIGAHORSE_DIR={GIGAHORSE_DIR} BULK_ANALYSIS= {args.souffle_macros}'.strip()
@@ -273,7 +286,7 @@ def get_souffle_macros():
         souffle_macros+=' ENABLE_LIMITSIZE='
 
     if args.early_cloning:
-        souffle_macros+=' BLOCK_CLONING='
+        souffle_macros+=' BLOCK_CLONING=HeuristicBlockCloner'
 
     return souffle_macros
 
@@ -333,7 +346,7 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
     def calc_timeout(souffle_client =None):
         timeout_left = timeout-time.time()+disassemble_start
 
-        if not args.single_decomp and souffle_client == DEFAULT_DECOMPILER_DL:
+        if not args.disable_scalable_fallback and souffle_client == DEFAULT_DECOMPILER_DL:
             timeout_left = timeout_left/2
 
         return max(timeout_left, args.minimum_client_time)
@@ -377,21 +390,51 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
                 timeouts.append(other_client)
         return timeouts, errors
     
-    def run_decomp(contract_filename, in_dir, out_dir):
-        try:
-            run_clients([DEFAULT_DECOMPILER_DL], [], in_dir, out_dir)
-        except TimeoutException as e:
-            if args.single_decomp:
-                raise(e)
+    def run_decomp(contract_filename, in_dir, out_dir, fallback_out_dir):
+
+        config = "default"
+        def_timeouts, _ = run_clients([DEFAULT_DECOMPILER_DL], [], in_dir, out_dir)
+
+        if not args.disable_precise_fallback and not def_timeouts and decomp_out_produced(out_dir):
+            # try the precise configuration only if the default didn't take more 0.3 of the total timeout
+            # this was chosen because on average the precise decompiler takes about 2x the time of the default one
+            if imprecise_decomp_out(out_dir) and calc_timeout(FALLBACK_PRECISE_DECOMPILER_DL) > 0.3 * timeout:
+                log(f"Using precise fallback decompilation configuration for {os.path.split(contract_filename)[1]}")
+
+                pre_timeouts, _ = run_clients([FALLBACK_PRECISE_DECOMPILER_DL], [], in_dir, fallback_out_dir)
+                if not pre_timeouts and decomp_out_produced(fallback_out_dir):
+                    shutil.rmtree(out_dir)
+                    os.rename(fallback_out_dir, out_dir)
+                    config = "precise"
+
+        elif def_timeouts or not decomp_out_produced(out_dir):
+            if args.disable_scalable_fallback:
+                raise TimeoutException()
             else:
                 # Default using scalable fallback config
-                log(f"Using fallback decompilation configuration for {os.path.split(contract_filename)[1]}")
+                log(f"Using scalable fallback decompilation configuration for {os.path.split(contract_filename)[1]}")
                 write_context_depth_file(os.path.join(in_dir, 'MaxContextDepth.csv'), 1)
-                run_clients([FALLBACK_DECOMPILER_DL], [], in_dir, out_dir)
+
+                sca_timeouts, _ = run_clients([FALLBACK_SCALABLE_DECOMPILER_DL], [], in_dir, out_dir)
+                if not sca_timeouts and decomp_out_produced(out_dir):
+                    config = "scalable"
+                else:
+                    raise TimeoutException()
+
+        return config
+
+    def imprecise_decomp_out(out_dir):
+        """Used to check if decompilation output is imprecise, currently only checks Analytics_JumpToMany"""
+        imprecision_metric = len(open(join(out_dir, 'Analytics_JumpToMany.csv'), 'r').readlines())
+        return imprecision_metric > 0
+
+    def decomp_out_produced(out_dir):
+        """Hacky. Needed to ensure process was not killed due to exceeding the memory limit."""
+        return os.path.exists(join(out_dir, 'Analytics_JumpToMany.csv')) and os.path.exists(join(out_dir, 'TAC_Def.csv'))
 
     try:
         # prepare working directory
-        exists, work_dir, out_dir = prepare_working_dir(contract_filename)
+        exists, work_dir, out_dir, fallback_out_dir = prepare_working_dir(contract_filename)
         assert not(args.restart and exists)
         analytics = {}
         contract_name = os.path.split(contract_filename)[1]
@@ -411,18 +454,23 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
             if os.path.exists(join(work_dir, 'solidity_version.csv')):
                 # Create a symlink with a name starting with 'Verbatim_' to be added to results json
                 os.symlink(join(work_dir, 'solidity_version.csv'), join(out_dir, 'Verbatim_solidity_version.csv'))
-            run_clients(souffle_pre_clients, other_pre_clients, work_dir, work_dir)
+                os.symlink(join(work_dir, 'solidity_version.csv'), join(fallback_out_dir, 'Verbatim_solidity_version.csv'))
 
+            timeouts, _ = run_clients(souffle_pre_clients, other_pre_clients, work_dir, work_dir)
+            if timeouts:
+                # pre clients should be very light, should never happen
+                raise TimeoutException()
 
             if args.context_depth is not None:
                 write_context_depth_file(os.path.join(work_dir, 'MaxContextDepth.csv'), args.context_depth)
 
             decomp_start = time.time()
 
-            run_decomp(contract_filename, work_dir, out_dir)
+            decompiler_config = run_decomp(contract_filename, work_dir, out_dir, fallback_out_dir)
 
             inline_start = time.time()
             if not args.disable_inline:
+                # ignore timeouts and errors here
                 run_clients([DEFAULT_INLINER_DL]*DEFAULT_INLINER_ROUNDS, [], out_dir, out_dir)
 
             # end decompilation
@@ -444,15 +492,21 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
         analytics['inline_time'] = client_start - inline_start
         analytics['client_time'] = time.time() - client_start
         analytics['errors'] = len(errors)
+        analytics['client_timeouts'] = len(timeouts)
         analytics['bytecode_size'] = (len(bytecode) - 2)//2
-        log("{}: {:.36} completed in {:.2f} + {:.2f} + {:.2f} + {:.2f} secs".format(
+        analytics['decompiler_config'] = decompiler_config
+        contract_msg = "{}: {:.36} completed in {:.2f} + {:.2f} + {:.2f} + {:.2f} secs.".format(
             index, contract_name, analytics['disassemble_time'],
             analytics['decomp_time'], analytics['inline_time'], analytics['client_time']
-        ))
+        )
         if errors:
-            log(f"Errors in: {', '.join(errors)}")
+            meta.append("CLIENT ERROR")
+            contract_msg += f" Errors in: {', '.join(errors)}."
         if timeouts:
-            log(f"Timeouts in: {', '.join(timeouts)}")
+            meta.append("CLIENT TIMEOUT")
+            contract_msg += f" Timeouts in: {', '.join(timeouts)}."
+
+        log(contract_msg)
 
         get_gigahorse_analytics(out_dir, analytics)
 
@@ -462,7 +516,7 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
         log("{} timed out.".format(contract_name))
     except Exception as e:
         log(f"Error: {e}")
-        result_queue.put((contract_name, [], ["error"], {}))
+        result_queue.put((contract_name, [], ["ERROR"], {}))
 
 
 def get_gigahorse_analytics(out_dir, analytics):
@@ -507,17 +561,14 @@ def run_process(process_args, timeout: int, stdout=devnull, stderr=devnull, cwd:
     '''
     if timeout < 0:
         # This can theoretically happen
-        raise TimeoutException()
+        return -1
 
     start_time = time.time()
 
     try:
         subprocess.run(process_args, timeout=timeout, stdout=stdout, stderr=stderr, cwd=cwd, env=souffle_env, preexec_fn=lambda: set_memory_limit(memory_limit))
     except subprocess.TimeoutExpired:
-        if args.minimum_client_time == 0:
-            raise TimeoutException()
-        else:
-            return -1
+        return -1
 
     return time.time() - start_time
 
@@ -548,11 +599,14 @@ logging.basicConfig(format='%(message)s', level=log_level)
 compile_processes_args = []
 compile_processes_args.append((DEFAULT_DECOMPILER_DL, DEFAULT_DECOMPILER_DL+SOUFFLE_COMPILED_SUFFIX))
 
-if not args.single_decomp:
-    compile_processes_args.append((FALLBACK_DECOMPILER_DL, FALLBACK_DECOMPILER_DL+SOUFFLE_COMPILED_SUFFIX))
+if not args.disable_scalable_fallback:
+    compile_processes_args.append((FALLBACK_SCALABLE_DECOMPILER_DL, FALLBACK_SCALABLE_DECOMPILER_DL+SOUFFLE_COMPILED_SUFFIX))
 
 if not args.disable_inline:
     compile_processes_args.append((DEFAULT_INLINER_DL, DEFAULT_INLINER_DL+SOUFFLE_COMPILED_SUFFIX))
+
+if not args.disable_precise_fallback:
+    compile_processes_args.append((FALLBACK_PRECISE_DECOMPILER_DL, FALLBACK_PRECISE_DECOMPILER_DL+SOUFFLE_COMPILED_SUFFIX))
 
 clients_split = [a.strip() for a in args.client.split(',')]
 souffle_clients = [a for a in clients_split if a.endswith('.dl')]

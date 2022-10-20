@@ -44,13 +44,15 @@ AntiByteMask(val, low, high):-
 
 .decl ShiftConst(val:Value, shiftBytes:number)
 .decl RShiftBytes(stmt:Statement, shiftedVar:Variable, bytes:number)
+DEBUG_OUTPUT(RShiftBytes)
 .decl LShiftBytes(stmt:Statement, shiftedVar:Variable, bytes:number)
+DEBUG_OUTPUT(LShiftBytes)
 .decl CastedAndShiftedVar(originVar:Variable, toVar:Variable, shiftedBy:number, castedTo:number)
-
+DEBUG_OUTPUT(CastedAndShiftedVar)
 .decl LowBytesMaskOp(fromVar:Variable, toVar:Variable, maskLen:number)
-.output LowBytesMaskOp, AntiMaskOp
-
+DEBUG_OUTPUT(LowBytesMaskOp)
 .decl AntiMaskOp(fromVar:Variable, toVar:Variable, byteLow:number, byteHigh:number) 
+DEBUG_OUTPUT(AntiMaskOp)
 
 /* Not actually a byte mask but a boolean cast */
 LowBytesMaskOp(from, to, 1):-
@@ -74,8 +76,6 @@ AntiMaskOp(originVar, to, byteLow, byteHigh):-
   (AND(_, antiMaskVar, mid, to) ; AND(_, mid, antiMaskVar, to)),
   BasicVariable_Value(antiMaskVar, antiMask),
   AntiByteMask(antiMask, byteLow, byteHigh).
-
-//.output RShiftBytes, LShiftBytes, VarHoldsBytesOfStorVar, CastedAndShiftedVar
 
 ShiftConst("0x1", 0).
 

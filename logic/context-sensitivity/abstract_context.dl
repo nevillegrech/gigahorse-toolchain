@@ -227,6 +227,26 @@
     ctx = [pubFun, callCtx],
     callCtx = callCtx.
 
+  // Helpers
+  .decl PrivateContextContainsBlock(ctx: PrivateContext, blk: Block, index: number)
+  .decl ContextContainsBlock(ctx: Context, blk: Block, index: number)
+  .decl ContextContainsBlockTimes(ctx: Context, blk: Block, times: number)
+
+  PrivateContextContainsBlock(priCtx, blk, 0):-
+    DecomposePrivateContext(priCtx, blk, _).
+
+  PrivateContextContainsBlock(priCtx, blk, i + 1):-
+    DecomposePrivateContext(priCtx, _, rest),
+    PrivateContextContainsBlock(rest, blk, i).
+
+  ContextContainsBlock(ctx, blk, i):-
+    DecomposeContext(ctx, _, priCtx),
+    PrivateContextContainsBlock(priCtx, blk, i).
+
+  ContextContainsBlockTimes(ctx, blk, times):-
+    ContextContainsBlock(ctx, blk, _),
+    times = count : ContextContainsBlock(ctx, blk, _).
+
   /**
     Public function jump case for MergeContext
   */

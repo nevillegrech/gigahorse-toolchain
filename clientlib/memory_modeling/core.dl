@@ -23,8 +23,15 @@ VariableLengthMemoryCopyStatement(stmt, memAddrVar, lenVar):-
   Statement_Uses(stmt, memAddrVar, 1),
   Statement_Uses(stmt, lenVar, 3).
 
+/**
+  MSTORE that is guranteed to only write less than a whole word
+  with the rest being just previously read from memory.
+  Patterns are syntactic and can break with newer compiler versions.
+  Produced by the abiencodeWithSelector primitive.
+*/
+
 .decl PartialMSTORE(mstore:Statement, mload:Statement, storedVar:Variable, updateBytes:number)
-.output PartialMSTORE, LShiftBytes
+DEBUG_OUTPUT(PartialMSTORE)
 
 PartialMSTORE(mstore, mload, realFrom, 32 - maskBytes):-
   MLOAD(mload, indexVar, loaded),
@@ -35,6 +42,15 @@ PartialMSTORE(mstore, mload, realFrom, 32 - maskBytes):-
   Statement_Defines(shiftStmt, shifted, 0),
   LShiftBytes(shiftStmt, realFrom, maskBytes).
 
+PartialMSTORE(mstore, mload, realFrom, 32 - maskBytes):-
+  MLOAD(mload, indexVar, loaded),
+  MSTORE(mstore, indexVar, from),
+  LocalStatementPathInBlock(mload , mstore),
+  LowBytesMaskOp(loaded, loadedMasked, maskBytes),
+  (OR(_, loadedMasked, shiftedAndMasked, from) ; OR(_, shiftedAndMasked, loadedMasked, from)),
+  AntiMaskOp(shifted, shiftedAndMasked, 0, maskBytes - 1),
+  Statement_Defines(shiftStmt, shifted, 0),
+  LShiftBytes(shiftStmt, realFrom, maskBytes).
 
 
 /**
@@ -305,7 +321,6 @@ StatementReadsMemoryOfConstantLengthAtMemAlias(memConsStmt, valRep, length - num
   Variable_Value(indexVar, valRep)).
 
 .decl StatementUsesMemoryOfNonComputableLength_LengthApprox(memConsStmt:Statement, startVar:Variable, approx:number)
-.output StatementUsesMemoryOfNonComputableLength_LengthApprox
 
 StatementUsesMemoryOfNonComputableLength_LengthApprox(memConsStmt, startVar, approx):-
   StatementUsesMemoryOfNonComputableLength(memConsStmt, kind, _),
@@ -366,7 +381,6 @@ MemWriteToMemConsStmtWithNonComputableLength(memWriteStmt, memConsStmt):-
 .decl MemWriteToMemConsStmtInvalid(memWriteStmt:Statement, memConsStmt:Statement, memAddr:symbol, relIndex:number, length:number)
 .decl MemWriteToMemConsStmtInfo(memWriteStmt:Statement, memConsStmt:Statement, memAddr:symbol, relIndex:number, length:number)
 
-.output MemWriteToMemConsStmtInfoInit, MemWriteToMemConsStmtInfo, MemWriteToMemConsStmtInvalid, StatementWritesMemoryOfConstantLengthAtMemAlias
 
 MemWriteToMemConsStmtInfoInit(memWriteStmt, memConsStmt, writeAddr, relIndex, writeLen):-
   MemWriteToMemConsStmt(memWriteStmt, memConsStmt),
@@ -376,8 +390,6 @@ MemWriteToMemConsStmtInfoInit(memWriteStmt, memConsStmt, writeAddr, relIndex, wr
   (Variable_Value(writeStartVar, writeAddr) ; Variable_SymbolicValue(writeStartVar, writeAddr)),
   MemoryAddressVarsNumDiff(writeStartVar, readStartVar, relIndex).
 
-
-.output MemWriteToMemConsStmtUpperLimit, MemWriteToMemConsStmtLowerLimit
 
 MemWriteToMemConsStmtInvalid(memWriteStmt, memConsStmt, writeAddr, relIndex, writeLen):-
   MemWriteToMemConsStmtInfoInit(memWriteStmt, memConsStmt, writeAddr, relIndex, writeLen),
@@ -446,7 +458,7 @@ MemWriteToMemConsStmtLowerLimit(memWriteStmt, memConsStmt, writeAddr, lowLimit):
   MemWriteToMemConsStmtConflLowerLimit(memWriteStmt, memConsStmt, writeAddr, lowLimit).
 
 .decl MemWriteToMemConsStmtPartOfPrev(memWriteStmt:Statement, memConsStmt:Statement, relativeIndex:number)
-.output MemWriteToMemConsStmtPartOfPrev
+
 MemWriteToMemConsStmtPartOfPrev(memWriteStmt, memConsStmt, relativeIndex):-
   MemWriteToMemConsStmtInfo(memWriteStmt, memConsStmt, writeAddr, relativeIndex, _),
   MemWriteToMemConsStmtLowerLimit(memWriteStmt, memConsStmt, writeAddr, lowB1),
@@ -460,7 +472,7 @@ MemWriteToMemConsStmtPartOfPrev(memWriteStmt, memConsStmt, relativeIndex):-
 
 
 .decl MemWriteToMemConsStmtResolved(memWriteStmt:Statement, memConsStmt:Statement, relativeIndex:number, lowB:number, highB:number)
-.output MemWriteToMemConsStmtResolved
+DEBUG_OUTPUT(MemWriteToMemConsStmtResolved)
 
 MemWriteToMemConsStmtResolved(memWriteStmt, memConsStmt, relativeIndex, lowB, highB):-
   MemWriteToMemConsStmtInfo(memWriteStmt, memConsStmt, writeAddr, relativeIndex, _),
@@ -477,10 +489,9 @@ MemWriteToMemConsStmtResolved(memWriteStmt, memConsStmt, relativeIndex, lowB, hi
 **/
 
 .decl MSTOREToMemConsStmtWritesShiftedVar(mstore:Statement, memConsStmt:Statement, relativeIndex:number, var:Variable)
-.output MSTOREToMemConsStmtWritesShiftedVar
 
 .decl MSTOREToMemConsStmt_WrittenVar(mstore:Statement, memConsStmt:Statement, relativeIndex:number, var:Variable)
-.output MSTOREToMemConsStmt_WrittenVar
+DEBUG_OUTPUT(MSTOREToMemConsStmt_WrittenVar)
 
 MSTOREToMemConsStmtWritesShiftedVar(mstore, memConsStmt, relativeIndex, realStoredVar):-
   MemWriteToMemConsStmtResolved(mstore, memConsStmt, relativeIndex, 0, highLimit),

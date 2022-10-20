@@ -500,13 +500,15 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     allCount = count: Statement_Block(_, block),
     stackAltCount = allCount.
 
-  .decl StackBalanceBlockTargetEscapes(block: Block)
-  .output StackBalanceBlockTargetEscapes
-  StackBalanceBlockTargetEscapes(block):-
-    StackBalanceBlock(block),
+  .decl NonImmediateBlockJumpTargetEscapes(block: Block)
+  DEBUG_OUTPUT(NonImmediateBlockJumpTargetEscapes)
+
+  NonImmediateBlockJumpTargetEscapes(block):-
+    IsJump(jump),
     BasicBlock_Tail(block, jump),
     BeforeLocalStackContents(jump, 0, var),
-    LocalStackContents(jump, _, var).
+    LocalStackContents(jump, _, var),
+    !ImmediateBlockJumpTarget(block, _).
 
   // Helper for some ctx sensitivity algorithms
   .decl BlockHasTrivialControl(block: Block)
@@ -523,7 +525,6 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
 .comp PreTransLocalAnalysis : LocalAnalysis {
 
   .decl CODECOPYSmallConst(codeCopy:Statement, const:symbol)
-  //.output CODECOPYSmallConst, CODECOPYSmallConstNoLoad, CODECOPYSmallConstWLoad
   
   .decl CODECOPYSmallConstWLoad(codeCopy:Statement, const:symbol, load:Statement)
 
@@ -565,7 +566,6 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
               
               
   .decl BlockComparesSigVyper(block: Block, sigHash: Value)
-  .output BlockComparesSigVyper
   
   BlockComparesSigVyper(block, sigHash) :-
     Statement_Block(pushStmt, block),
@@ -658,8 +658,7 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
 
 #ifdef BLOCK_CLONING
 // Enable the early cloning of blocks to increase precision (sacrificing performance)
-
-.init blockCloner = BlockCloner
+.init blockCloner = BLOCK_CLONING
 COPY_CODE(blockCloner, factReader)
 COPY_OUTPUT(preTrans, blockCloner)
 
