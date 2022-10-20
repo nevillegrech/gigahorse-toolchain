@@ -492,16 +492,21 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
         analytics['inline_time'] = client_start - inline_start
         analytics['client_time'] = time.time() - client_start
         analytics['errors'] = len(errors)
+        analytics['client_timeouts'] = len(timeouts)
         analytics['bytecode_size'] = (len(bytecode) - 2)//2
         analytics['decompiler_config'] = decompiler_config
-        log("{}: {:.36} completed in {:.2f} + {:.2f} + {:.2f} + {:.2f} secs".format(
+        contract_msg = "{}: {:.36} completed in {:.2f} + {:.2f} + {:.2f} + {:.2f} secs.".format(
             index, contract_name, analytics['disassemble_time'],
             analytics['decomp_time'], analytics['inline_time'], analytics['client_time']
-        ))
+        )
         if errors:
-            log(f"Errors in: {', '.join(errors)}")
+            meta.append("CLIENT ERROR")
+            contract_msg += f" Errors in: {', '.join(errors)}."
         if timeouts:
-            log(f"Timeouts in: {', '.join(timeouts)}")
+            meta.append("CLIENT TIMEOUT")
+            contract_msg += f" Timeouts in: {', '.join(timeouts)}."
+
+        log(contract_msg)
 
         get_gigahorse_analytics(out_dir, analytics)
 
@@ -511,7 +516,7 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
         log("{} timed out.".format(contract_name))
     except Exception as e:
         log(f"Error: {e}")
-        result_queue.put((contract_name, [], ["error"], {}))
+        result_queue.put((contract_name, [], ["ERROR"], {}))
 
 
 def get_gigahorse_analytics(out_dir, analytics):
