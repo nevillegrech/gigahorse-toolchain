@@ -59,7 +59,7 @@ TEMP_WORKING_DIR = ".temp"
 DEFAULT_TIMEOUT = 120
 """Default time before killing analysis of a contract."""
 
-DEFAULT_MINIMUM_CLIENT_TIME = 0
+DEFAULT_MINIMUM_CLIENT_TIME = 10
 """Default minimum time to allow each client to work."""
 
 DEFAULT_PATTERN = ".*.hex"
