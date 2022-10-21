@@ -259,6 +259,11 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
   .decl BlockPushedToStack(pushStmt: Statement, pushedVar: Variable, pushedBlock: Block)
   .decl BlockPushesBlockToStack(from: Block, pushedBlock: Block)
 
+  /**
+    Candidate blocks to be cloned.
+    Subcomponents need to override this and add facts to that.
+    Not all will be cloned, filtering and sanity checking is needed.
+  */
   .decl BlockCloningCandidate(candidate: Block) overridable
   DEBUG_OUTPUT(BlockCloningCandidate)
 
@@ -269,20 +274,25 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
     Basic way to compute this would be to only inline blocks for direct jumps
   */
 
-  // Clone the `blockToClone` for the `pushBlock`
+  // Create a new instance of `blockToClone` for its definition in `pushBlock`
   .decl BlockToClone(pushBlock: Block, blockToClone: Block)
 
-  // For each fact of BlockToClone we create an identifier and sort them based on it
+  // For each fact of `BlockToClone` we create an identifier (`opID`) and order them based on it
   .decl BlockToCloneOpID(pushBlock: Block, blockToClone: Block, opID: symbol)
 
-  // After we compute the order of the inserted clone blocks, we assign each cloned instance to a starting bytecode offset.
+  /**
+    After we compute the order of the inserted clone blocks,
+    we assign each cloned instance to a starting bytecode offset (`generatedBlock`).
+  */
   .decl BlockToCloneNewInstance(pushBlock: Block, blockToClone: Block, generatedBlock: Block)
 
+  // `generatedStatement` will be the `stmt` of `blockToClone` when cloned in `pushBlock`
   .decl StatementToClonedStatement(pushBlock: Block, blockToClone: Block, stmt: Statement, generatedStatement: Statement)
   DEBUG_OUTPUT(StatementToClonedStatement)
 
   .init cloneOpSorter = OrdAscentingSorter
 
+  // mapping output blocks (cloned and non-cloned) to the blocks in the original bytecode
   .decl Block_OriginalBlock(block: Block, originalBlock: Block)
   DEBUG_OUTPUT(Block_OriginalBlock)
   DEBUG_OUTPUT(BlockToClone)
@@ -331,13 +341,8 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
     analysis.Statement_Block(fallthrough, block),
     analysis.FallthroughStmt(fallthrough, _).
 
-  /*
-    Cloning candidates. Add more cases with heuristics.
-    At some point we may want to add an option to clone based on the imprecision
-    reported by a previous execution. 
-  */
 
-.decl BlockPushesCloningCandidate(pushBlk:Block, candidate:Block)
+.decl BlockPushesCloningCandidate(pushBlk: Block, candidate: Block)
 
   BlockPushesCloningCandidate(pushBlk, candidate):-
     BlockPushesBlockToStack(pushBlk, candidate),
