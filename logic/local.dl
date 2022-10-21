@@ -28,29 +28,39 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
 // Local means within the same basic block
 .comp LocalAnalysis {
 
+  /*
+    Component Inputs
+  */
 
-  // inputs to the component
-  .decl PushValue(stmt:Statement, v:Value)
+  // `statement` pushes `value` to the stack
+  .decl PushValue(statement: Statement, value: Value)
+
   .decl Statement_Opcode(statement: Statement, opcode: Opcode)
+
+  /**
+    A total order of the program's statements.
+    Originating from the order of the statements in the bytecode.
+  */
   .decl Statement_Next(statement: Statement, statementNext: Statement)
 
 
   #include "decompiler_input_statements.dl"
 
-      
-  // Any input opcode that should not be present in the output
-  // (three-address) code. These are mostly stack machine instructions,
-  // which disappear. Other instructions (e.g., logical or arithmetic
-  // operators) are maintained in the output but arguments are inferred.
-  // Similarly, instructions can disappear from the output (e.g., a JUMP
-  // may become a PRIVATECALL) but this is a property of an instance, not
-  // the entire JUMP opcode.
+  /**
+    Any input opcode that should not be present in the output
+    (three-address) code. These are mostly stack machine instructions,
+    which disappear. Other instructions (e.g., logical or arithmetic
+    operators) are maintained in the output but arguments are inferred.
+    Similarly, instructions can disappear from the output (e.g., a JUMP
+    may become a PRIVATECALL) but this is a property of an instance, not
+    the entire JUMP opcode.
+  */
   .decl TACNOP(statement: Statement)
   
   TACNOP(stmt) :-
     Statement_Opcode(stmt, opcode),
     (OpcodeIsDup(opcode) ; OpcodeIsSwap(opcode)).
-  
+
   TACNOP(stmt) :- POP(stmt) ; JUMPDEST(stmt).
   
   .decl MissingStatement(stmt: Statement)
@@ -66,7 +76,7 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     OpcodeOrd("DUP1", dup1).
   
   .decl SWAPN(opcode:Opcode, n:number)
-  
+
   SWAPN(opcode, swapn - swap1 + 1) :-
     OpcodeOrd(opcode, swapn),
     OpcodeIsSwap(opcode),
@@ -146,23 +156,23 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     OpcodePushWords(opcode, m), m > 0,
     !TACNOP(stmt),
     var = as(n, Variable).
-  
-   
-  .decl IsValue(v:Value)
-                 
+
+
   /*
    ***********
    * Define basic blocks
    ***********
    */
-   
-  // Textbook material.
-  // A basic block starts:
-  //   - at a label
-  //   - after a jump.
-  // A basic block ends:
-  //   - at a jump
-  //   - before a label.
+
+  /**
+    Textbook material.
+    A basic block starts:
+      - at a label
+      - after a jump.
+    A basic block ends:
+      - at a jump
+      - before a label.
+  */
   .decl IsBasicBlockHead(statement:Statement)
   IsBasicBlockHead(statement) :-
     JUMPDEST(statement).
@@ -229,32 +239,38 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
   ValidStatement(stmt) :- Statement_Block(stmt, _).
   
 
+  /**
+    A summary of all the effects of the basic block up to a statement. The
+    summary cannot contain only variables, it will also refer symbolically to
+    other locations (stackIndexes) on the stack at the beginning of the basic block.
+  */
+  .decl LocalStackContents(stmt: Statement, index: StackIndex, variable: VariableOrStackIndex)
 
-  // A summary of all the effects of the basic block up to a statement. The
-  // summary cannot contain only variables, it will also refer symbolically to
-  // other locations (stackIndexes) on the stack at the beginning of the basic block.
-  .decl LocalStackContents(stmt:Statement, index:StackIndex, variable:VariableOrStackIndex)
-  
-  .decl BeforeLocalStackContents(stmt:Statement, n:StackIndex, variable:VariableOrStackIndex)
-  
-  // The target of a jump at the end of the block is a variable defined in
-  // the block itself. "Immediate" is misnomer, can't think of better name.
-  // This is a context-independent predicate.
-  .decl ImmediateBlockJumpTarget(block:Block, var:Variable)
-  
-  // How many items the basic block will pop from the stack that existed at
-  // the beginning of its execution. I.e., how many items it will consume
-  // from its caller. This is a high-watermark kind of measure: the consumed
-  // data items may be replenished during execution, but we care about how high
-  // the total will go.
-  .decl BlockPopDelta(block:Block, delta:number)
-  
-  // What is the difference in stack height effected by the basic block
-  .decl BlockStackDelta(block:Block, delta:number)
-  
-  // Same for the effects up to a statement, since the beginning of the
-  // containing basic block.
+  .decl BeforeLocalStackContents(stmt: Statement, n: StackIndex, variable: VariableOrStackIndex)
+
+  /**  
+    The target of a jump at the end of the `block` is a `variable` defined in
+    the `block` itself. "Immediate" is misnomer, can't think of better name.
+    This is a context-independent predicate.
+  */
+  .decl ImmediateBlockJumpTarget(block: Block, variable: Variable)
+
+  /**
+    How many items the basic `block` will pop from the stack that existed at
+    the beginning of its execution. I.e., how many items it will consume
+    from its caller. This is a high-watermark kind of measure: the consumed
+    data items may be replenished during execution, but we care about how high
+    the total will go.
+  */
+  .decl BlockPopDelta(block: Block, delta: number)
+
+  // What is the difference in stack height effected by the basic `block`
+  .decl BlockStackDelta(block: Block, delta: number)
+
+  // How many items a `statement` will pop from the stack
   .decl StatementPopDelta(statement: Statement, delta: number)
+
+  // What is the difference in stack height after the execution of this `statement`
   .decl StatementStackDelta(statement: Statement, delta: number)
   
   ImmediateBlockJumpTarget(block, as(var, Variable)) :-
@@ -272,7 +288,8 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     value != "0x0".
 
 
-  .decl FallthroughStmt(stmt:Statement, next: Statement)
+  // Covers JUMPIs and other fallthrough cases
+  .decl FallthroughStmt(stmt: Statement, next: Statement)
 
   FallthroughStmt(stmt, next) :-
     BasicBlock_Tail(_, stmt),
@@ -282,7 +299,7 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     Statement_Next(stmt, next).
 
 
-  .decl ThrowJump(stmt:Statement)
+  .decl ThrowJump(stmt: Statement)
   
   ThrowJump(jmp) :-
      ImmediateBlockJumpTarget(block, variable),
@@ -330,9 +347,11 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     Statement_Opcode(stmt, opcode),
     DUPN(opcode, n),
     IsStackIndexLessThan(m, n).
-  
-  // Optimization: before local stack contents for swaps
-  // It's quite useful to optimize this case.
+
+  /**
+    Optimization: before local stack contents for swaps
+    It's quite useful to optimize this case.
+  */
   .decl BeforeSwapLocalStackContents(stmt: Statement, n: number, m: StackIndex, variable: VariableOrStackIndex)
   
   BeforeSwapLocalStackContents(stmt, n, m, varOrStackIndex) :-
@@ -432,32 +451,14 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
 
 
   .decl IsJump(stmt:Statement)
-  
+
   IsJump(stmt) :-
     (JUMP(stmt); JUMPI(stmt)).
-  
-  IsValue(v) :-
-     PushValue(_, v).
-  
-  IsValue(as(v, Value)) :-
-    PC(v).
-  
-  .decl DynamicStatement(stmt:Statement)
-  DynamicStatement(stmt) :-
-    ADDRESS(stmt); BALANCE(stmt); BLOCKHASH(stmt); CALL(stmt); CALLCODE(stmt); STATICCALL(stmt);
-    CALLDATALOAD(stmt);  CALLDATASIZE(stmt); CALLER(stmt); CALLVALUE(stmt); CODESIZE(stmt);
-    COINBASE(stmt); CREATE(stmt); DELEGATECALL(stmt); DIFFICULTY(stmt);
-    EXTCODESIZE(stmt); GAS(stmt); GASLIMIT(stmt); GASPRICE(stmt); NUMBER(stmt);
-    ORIGIN(stmt); RETURNDATASIZE(stmt); TIMESTAMP(stmt); SHA3(stmt).
-  // CALLDATACOPY and CODECOPY don't leave anything on the stack.
-  // GAS is not an environmental instruction, but it's still dynamic.
-  // RETURNDATASIZE is a new instruction, not in the Yellow Paper.
-  // Represents stack contents at previous location in the same block
 
 
   // Gas-related
   .decl Statement_Gas(stmt: Statement, gas: number)
-  
+
   Statement_Gas(stmt, gas) :-
      Statement_Opcode(stmt, opcode),
      OpcodeGas(opcode, gas).
@@ -488,6 +489,10 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     opcode = "JUMPDEST";
     opcode = "POP".
 
+  /**
+    Often reused low-level blocks that only
+    alter the stack and/or consume statements
+  */
   .decl StackBalanceBlock(block: Block)
   StackBalanceBlock(block):-
     Statement_Block(jump, block),
@@ -500,6 +505,10 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     allCount = count: Statement_Block(_, block),
     stackAltCount = allCount.
 
+  /**
+    Blocks that can lead to recursion, because their target
+    is pushed to the stack after they are executed
+  */
   .decl NonImmediateBlockJumpTargetEscapes(block: Block)
   DEBUG_OUTPUT(NonImmediateBlockJumpTargetEscapes)
 
@@ -510,7 +519,10 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     LocalStackContents(jump, _, var),
     !ImmediateBlockJumpTarget(block, _).
 
-  // Helper for some ctx sensitivity algorithms
+  /**
+    Block's "next" is always the same.
+    Helper for some ctx sensitivity algorithms
+  */
   .decl BlockHasTrivialControl(block: Block)
 
   BlockHasTrivialControl(block):-
@@ -525,7 +537,7 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
 .comp PreTransLocalAnalysis : LocalAnalysis {
 
   .decl CODECOPYSmallConst(codeCopy:Statement, const:symbol)
-  
+
   .decl CODECOPYSmallConstWLoad(codeCopy:Statement, const:symbol, load:Statement)
 
   .decl CODECOPYSmallConstNoLoad(codeCopy:Statement, const:symbol)
@@ -563,10 +575,10 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     CheckIsVariable(codeOffsetVar),
     Statement_Defines(pushCodeOffset, codeOffsetVar),
     PushValue(pushCodeOffset, codeOffsetNumHex).
-              
-              
+
+
   .decl BlockComparesSigVyper(block: Block, sigHash: Value)
-  
+
   BlockComparesSigVyper(block, sigHash) :-
     Statement_Block(pushStmt, block),
     (PUSH4(pushStmt, sigHash) ; PUSH3(pushStmt, sigHash)),
@@ -631,12 +643,11 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
 }
 
 
-/*
- * Preprocessing of decompiler input, to yield convenient relations
+/**
+   Preprocessing of decompiler input, to yield convenient relations
  */
-
 .comp StatementFactReader {                                         
-  .decl PushValue(stmt:Statement, v:Value)
+  .decl PushValue(stmt: Statement, v: Value)
   .decl Statement_Opcode(statement: Statement, opcode: Opcode)
   .decl Statement_Next(statement: Statement, statementNext: Statement)
 

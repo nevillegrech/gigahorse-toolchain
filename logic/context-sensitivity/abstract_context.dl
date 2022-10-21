@@ -1,18 +1,26 @@
 
-/*
-  Base, Abstract context sensitivity component
-  Is configured using an instantiation of LocalAnalysis
+/**
+  Base, Abstract context sensitivity component.
+  Is configured using an instantiation of LocalAnalysis.
+
+  The Context type is defined by the context implementation components.
+  A little hacky to refference it without defining it first but its the cleanest approach I found .
 */
 .comp AbstractContextSensitivity <LocalAnalysis> {
-  // The Context type is defined by the context implementation components
-  // A little hacky to use without defining but its the cleanest approach I found 
+  /**
+    Blocks directly following `caller` under `ctx` will be reachable under `newContext`
+  */
   .decl MergeContext(ctx: Context, caller: Block, newContext: Context)
 
   .decl IsContext(ctx: Context)
   .decl InitialContext(ctx: Context)
 
-  // REVIEW: Moved it here as it is used irregardless of the ctx sens.
-  .decl Context_PublicFunction(ctx:Context, pubFun:symbol)
+  /**
+    Context is reachable under PublicFunction identified by its sighash.
+    Only useful for contexts with a public function component
+    REVIEW: Moved it here as it is used irregardless of the ctx sensivity flavor
+  */
+  .decl Context_PublicFunction(ctx: Context, pubFun: symbol)
 
   .init local = LocalAnalysis
 
@@ -32,6 +40,9 @@
 */
 
 .comp VariableDepthContextSensitivity <LocalAnalysis> : AbstractContextSensitivity <LocalAnalysis> {
+  /**
+    Maximum context depth, currently ignores the `sigHash` parameter
+  */
   .decl MaxContextDepth(sigHash: symbol, d: number)
 
   .decl InputMaxContextDepth(d: number)

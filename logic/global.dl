@@ -62,8 +62,10 @@ PreMask_Length(cat("ff", mask), bytes+1) :-
   sens.local.Statement_Opcode(stmt, op):- Statement_Opcode(stmt, op).
   sens.local.Statement_Next(stmt, stmtNext):- Statement_Next(stmt, stmtNext).
 
-  .decl ReachableContext(ctx: sens.Context, block: Block)
-  // Stack contents at input and output of a block, given its calling context.
+  // `block` is reachable under `context`
+  .decl ReachableContext(context: sens.Context, block: Block)
+
+  // Stack contents at end of a `block`, given its calling `context`.
   .decl BlockOutputContents(context: sens.Context, block: Block, index: StackIndex, var: Variable)
   #ifdef ENABLE_LIMITSIZE
   .limitsize BlockOutputContents(n=LIMITSIZE_BLOCK_OUTPUT_CONTENTS)
@@ -71,16 +73,25 @@ PreMask_Length(cat("ff", mask), bytes+1) :-
 
   DEBUG_OUTPUT(BlockOutputContents)
   
-  // Added overridable flag to override it in the optimized variant of the component
+  /**
+    Stack contents at start of a `block`, given its calling `context`.
+    Added overridable flag to override it in the optimized variant of the component
+  */
   .decl BlockInputContents(context: sens.Context, block: Block, index: StackIndex, var: Variable) overridable
 
-  // Var holding the (target block) address a block jumps to, under context.
+  // `var` holds the (target block) address a `block` jumps to, under `context`.
   .decl BlockJumpTarget(context: sens.Context, block: Block, var: Variable)
 
-  // Under ctx, the block's tail will jump to the value of "variable", which
-  // is equal to the label of "target" block.
-  .decl BlockJumpValidTarget(ctx: sens.Context, block: Block, variable: Variable, target: Block)
+  /**
+    Under `ctx`, the `block` will jump to the value of `var`, which
+    is equal to the label of the `target` block.
+  */
+  .decl BlockJumpValidTarget(ctx: sens.Context, block: Block, var: Variable, target: Block)
 
+  /**
+    When `block` is analyzed under `callerCtx`, there will be a CFG edge
+    from `block` to `callee`, causing it to be reachable under `calleeCtx`
+  */
   .decl BlockEdge(callerCtx: sens.Context, caller: Block, calleeCtx: sens.Context, callee: Block)
   
 
@@ -210,6 +221,10 @@ PreMask_Length(cat("ff", mask), bytes+1) :-
 
   .override BlockInputContents
 
+  /**
+    Cut down `BlockOutputContents`, only containing jump targets.
+    Stack contents at end of a `block`, given its calling `context`.
+  */
   .decl AuxBlockOutputContentsJumpTarget(context:sens.Context, block:Block, index:StackIndex, var:Variable)
   AuxBlockOutputContentsJumpTarget(context, block, index, var) :-
     BlockOutputContents(context, block, index, var),

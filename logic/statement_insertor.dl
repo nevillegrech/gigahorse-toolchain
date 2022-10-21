@@ -229,8 +229,8 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
 }
 
 /**
-  Abstract block cloner
-  Subcomponents just need to override and provide facts for BlockCloningCandidate
+  Abstract block cloner.
+  Subcomponents just need to override and provide facts for BlockCloningCandidate.
 */
 .comp BlockCloner : CodeTransformer {
 
@@ -243,40 +243,47 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
   analysis.Statement_Opcode(stmt, op):- Statement_Opcode(stmt, op).
   analysis.Statement_Next(stmt, stmtNext):- Statement_Next(stmt, stmtNext).
 
-  // find the last statement in the original bytecode, start adding from there.
-  .decl MaxOriginalStatement(stmt:Statement)
+  // The last `statement` in the original bytecode, start adding cloned code after it.
+  .decl MaxOriginalStatement(statement: Statement)
+
   // compute the block size to use on the cloned blocks
-  .decl BlockSize(block:Block, size:number)
-  // find the offset (numeric diff from block head) of every statement, helps with cloning
-  .decl Statement_BlockOffset(statement:Statement, block:Block, offset:number)
+  .decl BlockSize(block: Block, size: number)
 
-  .decl DirectBlockEdge(from:Block, to:Block)
+  // The `offset` (numeric diff from `block` head) of every `statement`, helps with cloning
+  .decl Statement_BlockOffset(statement: Statement, block: Block, offset: number)
 
-  .decl ClonedBlockAddressPushedBy(pushBlock:Block, pushStmt:Statement, blockToClone:Block)
+  .decl DirectBlockEdge(from: Block, to: Block)
 
-  .decl BlockPushedToStack(pushStmt:Statement, pushedVar:Variable, pushedBlock:Block)
+  .decl ClonedBlockAddressPushedBy(pushBlock: Block, pushStmt: Statement, blockToClone: Block)
+
+  .decl BlockPushedToStack(pushStmt: Statement, pushedVar: Variable, pushedBlock: Block)
   .decl BlockPushesBlockToStack(from: Block, pushedBlock: Block)
 
-  .decl BlockCloningCandidate(candidate:Block) overridable
+  .decl BlockCloningCandidate(candidate: Block) overridable
   DEBUG_OUTPUT(BlockCloningCandidate)
 
-  // To make this more flexible we'll be performing the cloning at the use level:
-  //   pick the interesting blocks
-  //   find their uses (pushes to the stack) that we want to clone
-  // Basic way to compute this would be to only inline blocks for direct jumps
-  .decl BlockToClone(pushBlock:Block, blockToClone:Block)
+  /**
+    To make this more flexible we'll be performing the cloning at the def level:
+      pick the interesting blocks
+      find their def (pushes to the stack) that we want to clone
+    Basic way to compute this would be to only inline blocks for direct jumps
+  */
+
+  // Clone the `blockToClone` for the `pushBlock`
+  .decl BlockToClone(pushBlock: Block, blockToClone: Block)
+
   // For each fact of BlockToClone we create an identifier and sort them based on it
-  .decl BlockToCloneOpID(pushBlock:Block, blockToClone:Block, opID:symbol)
+  .decl BlockToCloneOpID(pushBlock: Block, blockToClone: Block, opID: symbol)
 
   // After we compute the order of the inserted clone blocks, we assign each cloned instance to a starting bytecode offset.
-  .decl BlockToCloneNewInstance(pushBlock:Block, blockToClone:Block, generatedBlock:Block)
+  .decl BlockToCloneNewInstance(pushBlock: Block, blockToClone: Block, generatedBlock: Block)
 
-  .decl StatementToClonedStatement(pushBlock:Block, blockToClone:Block, stmt:Statement, generatedStatement:Statement)
+  .decl StatementToClonedStatement(pushBlock: Block, blockToClone: Block, stmt: Statement, generatedStatement: Statement)
   DEBUG_OUTPUT(StatementToClonedStatement)
 
   .init cloneOpSorter = OrdAscentingSorter
 
-  .decl Block_OriginalBlock(block:Block, originalBlock:Block)
+  .decl Block_OriginalBlock(block: Block, originalBlock: Block)
   DEBUG_OUTPUT(Block_OriginalBlock)
   DEBUG_OUTPUT(BlockToClone)
 

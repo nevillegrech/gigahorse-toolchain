@@ -38,10 +38,11 @@ ContextCanReach(ctxFrom, ctxTo) :-
          Heuristics for detecting call-return patterns
 ******/
 
-// A high-level call can only be translated into an immediate jump.
-// More complex jumps (e.g., through basic blocks that just keep
-// whatever was on the stack and jump to it) are technicalities for
-// inlining.
+/**
+  A high-level call can only be translated into an immediate jump.
+  More complex jumps (e.g., through basic blocks that just keep
+  whatever was on the stack and jump to it) are technicalities for inlining.
+*/
 .decl PotentialCall(caller:Block)
 PotentialCall(block) :-
   postTrans.ImmediateBlockJumpTarget(block, _).
@@ -53,13 +54,15 @@ OptNotImmediateBlockJumpTarget(retCtx, retBlock, targetVariable, retTarget) :-
 
 
 
-// Call-return pattern:
-// a) basic block jumps to a valid "non-locally-derived" address
-// b) address originates at a target-setter.
-// Since there may be multiple return addresses pushed together (one for the first
-// call, one for another call after that, etc.) we want to rank them and match
-// them in order.
-// keeps the context of the return jump
+/**
+  Call-return pattern:
+  a) basic block jumps to a valid "non-locally-derived" address
+  b) address originates at a target-setter.
+  Since there may be multiple return addresses pushed together (one for the first
+  call, one for another call after that, etc.) we want to rank them and match
+  them in order.
+  Keeps the context of the return jump
+*/
 .decl PossibleReturnAddressWithPos(targetSetter:Block, retCtx:global.sens.Context, retBlock:Block, retTarget:Block, pos:number)
 PossibleReturnAddressWithPos(targetSetter, retCtx, retBlock, retTarget, pos) :-
   OptNotImmediateBlockJumpTarget(retCtx, retBlock, targetVariable, retTarget),
@@ -102,15 +105,17 @@ MaxRankForPossibleReturnAddressSetter(targetSetter, rank) :-
   
 
 
-// Also match a subset of those with return addresses and full info. The
-// function may not be the one containing the return, in case of complex
-// call patterns (e.g., call-call, or call-return).
-// ctx is the context of the function call jump
-// retCtx is the context of the return jump
-// The basic reason for this is that something can be a call or return jump
-// under some context and not under others
-// Retaining ctx information at this level makes MaybeInFunctionUnderContext very precise
-// This in turn allows us to go from BlockEdges to IRBlockEdges with increased precision
+/**
+  Also match a subset of those with return addresses and full info. The
+  function may not be the one containing the return, in case of complex
+  call patterns (e.g., call-call, or call-return).
+  ctx is the context of the function call jump
+  retCtx is the context of the return jump
+  The basic reason for this is that something can be a call or return jump
+  under some context and not under others
+  Retaining ctx information at this level makes MaybeInFunctionUnderContext very precise
+  This in turn allows us to go from BlockEdges to IRBlockEdges with increased precision
+*/
 .decl MaybeFunctionCallReturn(ctx:global.sens.Context, caller:Block, func:Block, retCtx:global.sens.Context, retBlock:Block, retTarget:Block)
 MaybeFunctionCallReturn(ctx, caller, func, retCtx, retBlock, retTarget) :-
   PossibleReturnAddressWithRank(ctx, caller, retCtx, retBlock, retTarget, 0),
@@ -121,8 +126,10 @@ MaybeFunctionCallReturn(ctx, caller, func, retCtx, retBlock, retTarget) :-
   ContextCanReach(ctx, retCtx),
   global.BlockJumpValidTarget(retCtx, retBlock, _, retTarget).
 
-// Introduced to use in many rules that don't use the context of the context-sensitive version
-// Should be used when possible because the latter can get very heavy
+/**
+  Introduced to use in many rules that don't use the context of the context-sensitive version
+  Should be used when possible because the latter can get very heavy
+*/
 .decl MaybeFunctionCallReturn_Ins(caller:Block, func:Block, retBlock:Block, retTarget:Block)
 MaybeFunctionCallReturn_Ins(caller, func, retBlock, retTarget):-
   MaybeFunctionCallReturn(_, caller, func, _, retBlock, retTarget).
@@ -142,10 +149,11 @@ MaybeFunctionCallReturnNewContext(ctx, caller, retTargetCtx, retTarget) :-
   MaybeFunctionCallReturn(ctx, caller, _, retCtx, ret, retTarget),
   global.BlockEdge(retCtx, ret, retTargetCtx, retTarget).
 
-// If we have found a likely call-return pattern, we propagate to the return
-// block the extra pushed return values of the former caller. Stacking return
-// values is a usual pattern in produced code.
-
+/**
+  If we have found a likely call-return pattern, we propagate to the return
+  block the extra pushed return values of the former caller. Stacking return
+  values is a usual pattern in produced code.
+*/
 .decl OptBlockImmediateJump(callCtx:global.sens.Context, caller:Block)
 OptBlockImmediateJump(newCallCtx, caller) :-
   global.BlockJumpValidTarget(newCallCtx, caller, targetVar, _),
@@ -168,29 +176,33 @@ PossibleReturnAddressWithRank(newCallCtx, caller, retCtx, retBlock, retTarget, n
   !PossibleReturnAddressWithPos(caller, _, _, _, _).
  .plan 1:(2,3,1)
 
-// Seems pretty certain we found a return. In fact, at this point,
-// with the above logic, we have detected all original return
-// instructions in the code. There will be artificial returns added
-// later, for calls that end up being tail calls.
-// It's important to note that a statement may be a return with respect
-// to one edge, but not with respect to others. There are many conditional
-// returns.
+/**
+  Seems pretty certain we found a return. In fact, at this point,
+  with the above logic, we have detected all original return
+  instructions in the code. There will be artificial returns added
+  later, for calls that end up being tail calls.
+  It's important to note that a statement may be a return with respect
+  to one edge, but not with respect to others. There are many conditional returns.
+*/
 .decl IsReturn(retCtx:global.sens.Context, ret:Block, target:Block)
 IsReturn(retCtx, retBlock, retTarget) :-
   IsFunctionCallReturn(_, _, _, retCtx, retBlock, retTarget).
 
-// In this case the complete vs. precise version doesn't seem to be
-// making much of a difference. 
+/**
+  In this case the complete vs. precise version doesn't seem to be
+  making much of a difference.
+*/
 .decl MaybeReturn(ret:Block, target:Block)
 MaybeReturn(retBlock, retTarget) :-
   PossibleReturnAddressWithPos(_, _, retBlock, retTarget, _).
 // PossibleReturnAddress(_, retBlock, retTarget).
 
-// Filtering for sanitization. The logic following can be arbitrarily
-// restrictive. We have all potential calls and all returns, now we
-// want to match them to each other and form cohesive functions (both
-// for the caller and for the callee) only with very high certainty.
-
+/**
+  Filtering for sanitization. The logic following can be arbitrarily
+  restrictive. We have all potential calls and all returns, now we
+  want to match them to each other and form cohesive functions (both
+  for the caller and for the callee) only with very high certainty.
+*/
 .decl FunctionCalledMultipleTimes(func: Block)
 FunctionCalledMultipleTimes(func) :-
   MaybeFunctionCallReturn_Ins(caller, func, retBlock, _),
@@ -208,19 +220,11 @@ FunctionReturnIsStackBalanceBlock(func) :-
   MaybeFunctionCallReturn_Ins(_, func, retBlock, _),
   postTrans.StackBalanceBlock(retBlock).
 
-
-// Return block can only pertain to one function!
-.decl NotValidReturnBlock(func: Block, retBlock: Block) 
-NotValidReturnBlock(func, retBlock) :-
-  MaybeFunctionCallReturn_Ins(_, func, retBlock, _),
-  MaybeFunctionCallReturn_Ins(_, func2, retBlock, _),
-  ord(func) < ord(func2).
-
 /**
   If a block is a possible return of more than one functions, clone it in both
   Previous code had an invariant where a "return block can only pertain to one function!"
   which was problematic in many cases and could end up cloning blocks but not mark them as return blocks
-**/
+*/
 BlockToClone(retBlock, func):-
   MaybeFunctionCallReturn_Ins(_, func, retBlock, _),
   MaybeFunctionCallReturn_Ins(_, func2, retBlock, _),
@@ -241,7 +245,6 @@ IsFunctionCallReturn(ctx, caller, func, retCtx, retBlock, retTarget) :-
   MaybeFunctionCallReturn(ctx, caller, func, retCtx, retBlock, retTarget),
   //FunctionCalledMultipleTimes(func),
   (FunctionCalledMultipleTimes(func) ; FunctionSharesReturnBlock(func) ; FunctionReturnIsStackBalanceBlock(func)),
-  //!NotValidReturnBlock(func, retBlock),
   !NotValidReturnEdge(retBlock, retTarget).
 
 
@@ -459,7 +462,7 @@ IRFunctionCall(fromir, irfunc) :-
 //   IRBasicBlock_Tail(retBlock, irstmt),
 //   Function_IRFunction(func, irFunc).
 
-/*
+/**
   Taking advantage of the public function context(for contexts that include it)
   in order to get more precise IRBlockEdges for public functions
   When no public function context exists or the IRBlockEdge is not part of a public function 
@@ -472,11 +475,13 @@ PubFun(entry, sigHash):- global.sens.Context_PublicFunction(_, sigHash), PublicF
 
 // Intra-function edges (i.e., real CFG edges)
 
-//// WARNING: Be careful when using! This is an unintuitive
-//// concept. It's only mapping the intra-procedural subset of
-//// BlockEdges to the functional IR, not all BlockEdges. It's also
-//// not the same as the "local" block edges of the functional IR,
-//// because these also continue the function code after a call.
+/**
+  WARNING: Be careful when using! This is an unintuitive
+  concept. It's only mapping the intra-procedural subset of
+  BlockEdges to the functional IR, not all BlockEdges. It's also
+  not the same as the "local" block edges of the functional IR,
+  because these also continue the function code after a call.
+*/
 .decl IRBlockEdge(from: IRBlock, to: IRBlock)
 
 IRBlockEdge(irfrom, irto) :-
@@ -809,11 +814,12 @@ CycleEntry(func, block) :-
    IRInFunction(block, func),
    !PossibleFunctionalBlockPopAndStackDelta(func, block, _, _, _).
 
-
-// Combine both relative to a single terminal point, for precision.
-// We need to go one edge back to make sure it's a terminal point
-// (return, call-with-no-return, or throw, possibly conditionally),
-// then add the delta again. Tedious.
+/**
+  Combine both relative to a single terminal point, for precision.
+  We need to go one edge back to make sure it's a terminal point
+  (return, call-with-no-return, or throw, possibly conditionally),
+  then add the delta again. Tedious.
+*/
 .decl PossibleCombinedNumberOfFunctionReturnsAndArguments(func: IRFunction, terminal: IRBlock, numArg: StackIndex, numRet: StackIndex)
 
 PossibleCombinedNumberOfFunctionReturnsAndArguments(func, terminal, as(numArg, StackIndex), numRet) :-
@@ -828,9 +834,11 @@ PossibleCombinedNumberOfFunctionReturnsAndArguments(func, terminal, as(numArg, S
  .plan 1:(2,1)
 
 
-// Simple, imprecise over-estimate computation that doesn't incur
-// cycle-through-aggregation problem, so it can be used in edge
-// inferences.
+/**
+  Simple, imprecise over-estimate computation that doesn't incur
+  cycle-through-aggregation problem, so it can be used in edge
+  inferences.
+*/
 .decl PossibleImpreciseNumberOfFunctionArguments(func: IRFunction, num: StackIndex)
 PossibleImpreciseNumberOfFunctionArguments(func, numArg) :-
   PossibleCombinedNumberOfFunctionReturnsAndArguments(func, _, numArg, _).
