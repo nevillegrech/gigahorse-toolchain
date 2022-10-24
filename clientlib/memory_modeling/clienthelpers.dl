@@ -75,9 +75,9 @@ ExternalCall_NumOfArgs(call, numOfArgs):-
 .output CallToSignature, CallToSignatureFromSHA3
 
 CallToSignature(call, sigText):-
-  ConstantPossibleSigHash(sigHashVal, _, sigText),
+  ConstantPossibleSigHash(sigHashVal, normSigHashVal, sigText),
   Variable_Value(sigVar, sigHashVal),
-  sigHashVal != "0xffffffff", // hack for now
+  normSigHashVal != "0xffffffff", // hack for now
   LocalFlows(sigVar, actual),
   StatementUsesMemory_ActualMemoryArg(call, _, 0, actual),
   CALLStatement(call, _).
@@ -93,9 +93,9 @@ CallToSignature(call, sigText):-
 .output RevertToSignature
 
 RevertToSignature(revert, sigText):-
-  ConstantPossibleSigHash(sigHashVal, _, sigText),
+  ConstantPossibleSigHash(sigHashVal, normSigHashVal, sigText),
   Variable_Value(sigVar, sigHashVal),
-  sigHashVal != "0xffffffff", // hack for now
+  normSigHashVal != "0xffffffff", // hack for now
   LocalFlows(sigVar, actual),
   StatementUsesMemory_ActualMemoryArg(revert, _, 0, actual),
   Statement_Opcode(revert, "REVERT").
