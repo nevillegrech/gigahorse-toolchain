@@ -22,7 +22,7 @@
 #include "constants.dl"
  
 /* Whole bytecode as a hex string */
-.decl ByteCodeHex(bytecode:symbol)
+.decl ByteCodeHex(bytecode: symbol)
 .input ByteCodeHex(IO="file", filename="bytecode.hex")
 
  
@@ -31,44 +31,51 @@
 
 // Final decompiler outputs, code
 
-// 1 to 1 relation from statements to Opcodes.
-// Some of the opcodes are identical to the opcodes produced by EVM.
-.decl Statement_Opcode(stmt:Statement, op:Opcode)
+/**
+  1 to 1 relation from statements to Opcodes.
+  Most of the opcodes are identical to the opcodes produced by EVM.  
+  The exceptions are the ones related to internal functions (`CALLPRIVATE`, `RETURNPRIVATE`).
+*/
+.decl Statement_Opcode(stmt: Statement, op: Opcode)
 .input Statement_Opcode(IO="file", filename="TAC_Op.csv", delimiter="\t")
 
-// All the Statements.
-// Most statement ids correspond to actual program locations in the original code.
-.decl IsStatement(stmt:Statement)
+/**
+  All the Statements.
+  Statement ids do not have to correspond to actual program locations in the original code.  
+  See relation `Statement_OriginalStatement`for that.
+*/
+.decl IsStatement(stmt: Statement)
 .input IsStatement(IO="file", filename="TAC_Stmt.csv", delimiter="\t")
 
-///// Removed, with anger! Doesn't include formals, confuses everyone.
-// // All the Variables
-// // Some variable ids correspond to statement ids where the variable
-// // is originally defined, but some don't e.g. formal arguments.
-// .decl IsVariable(var: Variable)
-// .input IsVariable(IO="file", filename="TAC_Var.csv", delimiter="\t")
-
-// Maps statements to their basic block. Note that:
-// a) A statement can (and has to) pertain to *one* basic block.
-// b) A basic block may be empty.
-// c) As the type system suggests, basic blocks ids *do not*
-//    correspond to statement ids.
+/**
+  Maps statements to their basic block.
+  Note that:  
+  - A statement can (and has to) pertain to *one* basic block.
+  - A basic block may be empty.
+  - As the type system suggests, basic blocks ids *do not* correspond to statement ids.
+*/
 .decl Statement_Block(stmt: Statement, block: Block)
 .input Statement_Block(IO="file", filename="TAC_Block.csv", delimiter="\t")
 
-// Value which a variable may have. Concrete values only.
-// Will be constant-folded and new values will be added during memory modeling
+/**
+  Value which a variable may have. Concrete values only.
+  Will be constant-folded and new values will be added during memory modeling.
+*/
 .decl Variable_Value(var: Variable, value: Value)
 .input Variable_Value(IO="file", filename="TAC_Variable_Value.csv", delimiter="\t")
 
-// Used by some components that do not need the new values created during memory modeling
-// Will be constant folded
+/**
+  Used by some components that do not need the new values created during memory modeling
+  Will be constant folded
+*/
 .decl BasicVariable_Value(var: Variable, value: Value)
 .input BasicVariable_Value(IO="file", filename="TAC_Variable_Value.csv", delimiter="\t")
 
-// Like the 2 above but in instances of inlining jump target variables point to the 'value'
-// that corresponds to our representation of that block and not in the actual hexadecimal value
-// of that block in the original bytecode. Used by the source decompiler.
+/**
+  Like the 2 above but in instances of inlining jump target variables point to the 'value'
+  that corresponds to our representation of that block and not in the actual hexadecimal value
+  of that block in the original bytecode. Used by the source decompiler.
+*/
 .decl Variable_BlockValue(var: Variable, value: Value)
 .input Variable_BlockValue(IO="file", filename="TAC_Variable_BlockValue.csv", delimiter="\t")
 
@@ -78,15 +85,17 @@
 .decl LocalBlockEdge(block: Block, nextBlock: Block)
 .input LocalBlockEdge(IO="file", filename="LocalBlockEdge.csv", delimiter="\t")
 
-// A subset of LocalBlockEdge, corresponds to fallthrough edges of conditional jumps.
+// A subset of `LocalBlockEdge`, corresponds to fallthrough edges (conditional jumps and other cases)
 .decl FallthroughEdge(block: Block, nextBlock: Block)
 .input FallthroughEdge(IO="file", filename="IRFallthroughEdge.csv", delimiter="\t")
 
 .decl CallGraphEdge(block: Block, function: Function)
 .input CallGraphEdge(IO="file", filename="IRFunctionCall.csv", delimiter="\t")
 
-// Represents part of the callgraph for functions that are called and which return
-// control flow back to the caller.
+/**
+  Represents part of the callgraph for functions that are called and which return
+  control flow back to the caller.
+*/
 .decl FunctionCallReturn(block: Block, function: Function, return: Block)
 .input FunctionCallReturn(IO="file", filename="IRFunctionCallReturn.csv", delimiter="\t")
 
@@ -98,24 +107,26 @@
 .decl PublicFunctionSelector(func: Function, selector: symbol)
 .input PublicFunctionSelector(IO="file", filename="PublicFunction.csv", delimiter="\t")
 
-// A subset of IsFunction, represents public functions. All the rest of the functions
-// are private functions.
+/**
+  A subset of IsFunction, represents public functions. All the rest of the functions
+  are private functions.
+*/
 .decl IsPublicFunction(func: Function)
 IsPublicFunction(func) :- PublicFunctionSelector(func, _).
 
-// Name given to each function. May contain public signature too.
-// Useful for presentation purposes.
+/**
+  Name given to each function. May contain public signature too.
+  Useful for presentation purposes.
+*/
 .decl HighLevelFunctionName(func: Function, name: symbol)
 .input HighLevelFunctionName(IO="file", filename="HighLevelFunctionName.csv", delimiter="\t")
 
-// Selector given to each public function. 
-
-
-.decl EventSignatureInContract(sigHash:symbol, sigText:symbol)
+// Constant `sigHash` value in the bytecode matches know event signature in `sigText`
+.decl EventSignatureInContract(sigHash: Value, sigText: symbol)
 .input EventSignatureInContract(IO="file", filename="EventSignatureInContract.csv", delimiter="\t")
 
-//Matching constants to public function signature hashes to resolve external calls.
-.decl ConstantPossibleSigHash(constValSigHash:Value, normalizedSigHash:Value, sigText:symbol)
+// Matching constants to public function signature hashes to recover sigs of external calls and errors
+.decl ConstantPossibleSigHash(constValSigHash: Value, normalizedSigHash: Value, sigText: symbol)
 .input ConstantPossibleSigHash(IO="file", filename="ConstantPossibleSigHash.csv", delimiter="\t")
 
 // Gas used per block
@@ -123,11 +134,14 @@ IsPublicFunction(func) :- PublicFunctionSelector(func, _).
 .input Block_Gas(IO="file", filename="TAC_Block_Gas.csv", delimiter="\t")
 
 // Relation that links blocks to statements in the original bytecode
-.decl OriginalStatement_Block(stmt:OriginalStatement, block:Block)
+.decl OriginalStatement_Block(stmt: OriginalStatement, block: Block)
 .input OriginalStatement_Block(IO="file", filename="TAC_OriginalStatement_Block.csv", delimiter="\t")
 
-// Relation that links statements to ones in the original bytecode
-.decl Statement_OriginalStatement(stmt:Statement, originalStatement:OriginalStatement)
+/**
+  Relation that links statements to ones in the original bytecode.
+  Is a best effort that should cover most statements.
+*/
+.decl Statement_OriginalStatement(stmt: Statement, originalStatement: OriginalStatement)
 .input Statement_OriginalStatement(IO="file", filename="TAC_Statement_OriginalStatement.csv", delimiter="\t")
 
 // Code chunks accessed
@@ -135,7 +149,7 @@ IsPublicFunction(func) :- PublicFunctionSelector(func, _).
 .input Block_CodeChunkAccessed(IO="file", filename="TAC_Block_CodeChunkAccessed.csv", delimiter="\t")
 
 // Export max context depth of decompilation, possibly useful for client analysis tuning
-.decl MaxContextDepth(n:number)
+.decl MaxContextDepth(n: number)
 .input MaxContextDepth(IO="file", filename="MaxContextDepth.csv", delimiter="\t")
 
 // Special instructions & data flow
@@ -153,7 +167,7 @@ ActualArgs(caller, a, pos - 1) :-
 .decl ActualReturnArgs(caller: Block, a: Variable, pos: number)
 .input ActualReturnArgs(IO="file", filename="ActualReturnArgs.csv", delimiter="\t")
 
-// formal return args are on the function definition side
+// Formal return args are on the function definition side
 .decl FormalReturnArgs(fn: Function, a: Variable, pos: number)
 FormalReturnArgs(fn, a, pos - 1) :-
    Statement_Uses(s, a, pos),
@@ -168,6 +182,7 @@ FormalReturnArgs(fn, a, pos - 1) :-
 
 .decl Statement_Uses(stmt: Statement, var: Variable, i: number)
 .input Statement_Uses(IO="file", filename="TAC_Use.csv", delimiter="\t")
+
 .decl Statement_Defines(stmt: Statement, var: Variable, n: number)
 .input Statement_Defines(IO="file", filename="TAC_Def.csv", delimiter="\t")
 
@@ -184,8 +199,10 @@ Variable_Function(v, f) :-
 Variable_Function(v, f) :-
    FormalArgs(f, v, _).
 
-// A total order which models all instructions except PHI instructions.
-// PHI instrucions do not appear in this relation.
+/**
+  A total order which models all instructions except `PHI` instructions.
+  `PHI` instrucions do not appear in this relation.
+*/
 .decl Statement_Next(stmt: Statement, next: Statement)
 .input Statement_Next(IO="file", filename="TAC_Statement_Next.csv", delimiter="\t")
 
@@ -204,7 +221,6 @@ FunctionExit(block) :-
 CastBlockToFunction(block) :- FunctionEntry(block).
 
 // Whether a block is in a function
-// Currently, blocks may in some cases be part of multiple functions
 .decl InFunction(block: Block, function: Function)
 .input InFunction(IO="file", filename="InFunction.csv", delimiter="\t")
 
@@ -241,6 +257,7 @@ Helper_NextStatementInSameBlock(stmt1, stmt2) :-
   Statement_Block(stmt2, block).
 
 
+// First statement in a basic block
 .decl Block_Head(block: Block, stmt: Statement)
 
 // Last statement in a basic block

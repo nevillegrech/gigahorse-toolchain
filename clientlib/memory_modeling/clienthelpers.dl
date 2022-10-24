@@ -60,10 +60,10 @@ CallToSignatureFromSHA3(call, sigText):-
   sigText = @hex_to_str(hexContent).
 
 /**
-  ExternalCall_NumOfArgs excluding the first arg which is the function selector
+  The number of "memory" args excluding the first arg which is the function selector
 **/
 
-.decl ExternalCall_NumOfArgs(call:Statement, numOfArgs:number)
+.decl ExternalCall_NumOfArgs(call: Statement, numOfArgs: number)
 
 ExternalCall_NumOfArgs(call, numOfArgs):-
   StatementUsesMemory(call, kind),
@@ -71,6 +71,9 @@ ExternalCall_NumOfArgs(call, numOfArgs):-
   allArgs = count: StatementUsesMemory_ActualMemoryArg(call, _, _, _),
   numOfArgs = allArgs - 1.
 
+/**
+  External call `callStmt` calls a high-level function with a signature of `sigText`.
+*/
 .decl CallToSignature(call:Statement, sigText:symbol)
 .output CallToSignature, CallToSignatureFromSHA3
 
@@ -101,17 +104,16 @@ RevertToSignature(revert, sigText):-
   Statement_Opcode(revert, "REVERT").
 
 /**
-  ERC-20 transfer methods
+  ERC-20 methods
+*/
 
-**/
-
-.decl ERC20TransferCall(call:Statement, to:Variable, value:Variable)
+.decl ERC20TransferCall(call: Statement, to: Variable, value: Variable)
 DEBUG_OUTPUT(ERC20TransferCall)
 
-.decl ERC20TransferFromCall(call:Statement, from:Variable, to:Variable, value:Variable)
+.decl ERC20TransferFromCall(call: Statement, from: Variable, to: Variable, value: Variable)
 DEBUG_OUTPUT(ERC20TransferFromCall)
 
-.decl ERC20ApproveCall(call:Statement, spender:Variable, value:Variable)
+.decl ERC20ApproveCall(call: Statement, spender: Variable, value: Variable)
 DEBUG_OUTPUT(ERC20ApproveCall)
 
 ERC20TransferCall(call, toAddr, value) :-

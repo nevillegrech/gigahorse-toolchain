@@ -1,11 +1,12 @@
-/*
-  Arrays can have many aliasing vars referencing them
-  this maps a unique id for each "class" of aliasing arrays 
-*/
 
 .type ArrayVariable <: Variable
 
-.decl VarIsArray(var:Variable, arrId: ArrayVariable)
+/**
+  Arrays can have many aliasing vars referencing them.
+  This relation maps a unique id for each "class" of aliasing arrays. 
+*/
+
+.decl VarIsArray(var: Variable, arrId: ArrayVariable)
 
 //.decl RegularArray(arrId:symbol)
 
@@ -15,8 +16,8 @@
 
 /**
   elemSize is the width of the array's elements, can also be "??"
-**/
-.decl ArrayAllocation(arrId:ArrayVariable, elemSize:Value, arrayLength:Variable)
+*/
+.decl ArrayAllocation(arrId: ArrayVariable, elemSize: Value, arrayLength: Variable)
 
 /**
   ArrayStore and ArrayLoad and the respective 'AtIndex relations do not overlap
@@ -32,14 +33,15 @@
 
 .decl ArrayLoadAtIndex(stmt:Statement, arrId:ArrayVariable, index:Variable, to:Variable)
 
-.decl ArrayLengthVar(arrId:ArrayVariable, lenVar:Variable)
+// Variable `lenVar` loads the length of array `arrId`.
+.decl ArrayLengthVar(arrId: ArrayVariable, lenVar: Variable)
 
 /**
-  Struct allocations
+  Struct allocations.
 
-  @param  mstore      MSTORE statement updating the free memory pointer
-  @param  structBase  Variable pointing to the 0th word of the struct. Identifies the struct instance.
-  @param  wordWidth   Width of the struct in words
+    @param  mstore      MSTORE statement updating the free memory pointer
+    @param  structBase  Variable pointing to the 0th word of the struct. Identifies the struct instance.
+    @param  wordWidth   Width of the struct in words
 */
 .decl StructAllocation(mstore: Statement, structBase: Variable, wordWidth: number)
 DEBUG_OUTPUT(StructAllocation)
@@ -51,12 +53,11 @@ DEBUG_OUTPUT(StructLoad)
 DEBUG_OUTPUT(StructStore)
 
 /**
-  NOTE:The StatementUsesMemory_ActualMemoryArg relation can be used
+  NOTE:The `StatementUsesMemory_ActualMemoryArg` relation can be used
   to get only the arguments passed through memory.
 
   Actual arguments or uses for statements using memory,
-  this can combine memory and
-  non memory args (in LOGs and CALLs)
+  this can combine memory and  non memory args (in LOGs and CALLs).
   Producing results for:
 
     LOGx statements,
@@ -85,12 +86,21 @@ DEBUG_OUTPUT(StructStore)
       (that has been stored previously using MSTORE)
 */
 
-.decl MemoryStatement_ActualArg(stmt:Statement, actual:Variable, index:number)
+.decl MemoryStatement_ActualArg(stmt: Statement, actual: Variable, index: number)
 
-.decl MemoryStatement_ActualArgNew(stmt:Statement, actual:MemoryArgument, index:number)
+.decl MemoryStatement_ActualArgNew(stmt: Statement, actual: MemoryArgument, index: number)
 
-.decl ExternalCall_ActualReturn(call:Statement, actual:Variable, index:number)
+/**
+  `actual` is the `index`'th actual return of external `call` 
+*/
+.decl ExternalCall_ActualReturn(call: Statement, actual: Variable, index: number)
 
-.decl ArbitraryCall(call:Statement)
+/**
+  External call `callStmt` has its entire call-data provided by a caller.
+*/
+.decl ArbitraryCall(call: Statement)
 
-.decl PublicFunctionArg(pubFun:Function, arg:Variable, index:number)
+/**
+  `arg` is the `index`'th formal argument of public function `pubFun`
+*/
+.decl PublicFunctionArg(pubFun: Function, arg: Variable, index: number)
