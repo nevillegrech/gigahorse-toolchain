@@ -48,8 +48,8 @@
 .input IsStatement(IO="file", filename="TAC_Stmt.csv", delimiter="\t")
 
 /**
-  Maps statements to their basic block.
-  Note that:  
+  Maps statements to their basic block.  
+  __Note__ that:  
   - A statement can (and has to) pertain to *one* basic block.
   - A basic block may be empty.
   - As the type system suggests, basic blocks ids *do not* correspond to statement ids.
@@ -99,11 +99,16 @@
 .decl FunctionCallReturn(block: Block, function: Function, return: Block)
 .input FunctionCallReturn(IO="file", filename="IRFunctionCallReturn.csv", delimiter="\t")
 
-// All the functions, function ids do *not* correspond to the entry point block
-// of said function
+/**
+  All the functions, function ids do *not* correspond to the entry point block
+  of said function
+*/
 .decl IsFunction(func: Function)
 .input IsFunction(IO="file", filename="Function.csv", delimiter="\t")
 
+/**
+  For public functions, maps our representation of a function with the 4-byte function selector.
+*/
 .decl PublicFunctionSelector(func: Function, selector: symbol)
 .input PublicFunctionSelector(IO="file", filename="PublicFunction.csv", delimiter="\t")
 
@@ -154,7 +159,10 @@ IsPublicFunction(func) :- PublicFunctionSelector(func, _).
 
 // Special instructions & data flow
 
-// Actuals are on the function call side, the args supplied to a function call
+/**
+  Actual args are on the function call side.  
+  __Note:__ Only for internal calls
+*/
 .decl ActualArgs(caller: Block, a: Variable, pos: number)
 
 ActualArgs(caller, a, pos - 1) :-
@@ -163,11 +171,17 @@ ActualArgs(caller, a, pos - 1) :-
    pos >= 1,
    Statement_Block(s, caller).
 
-// Actual returns are on the function call side
+/**
+  Actual returns are on the function call side.  
+  __Note:__ Only for internal calls
+*/
 .decl ActualReturnArgs(caller: Block, a: Variable, pos: number)
 .input ActualReturnArgs(IO="file", filename="ActualReturnArgs.csv", delimiter="\t")
 
-// Formal return args are on the function definition side
+/**
+  Formal return args are on the function definition side.  
+  __Note:__ Only for internal calls
+*/
 .decl FormalReturnArgs(fn: Function, a: Variable, pos: number)
 FormalReturnArgs(fn, a, pos - 1) :-
    Statement_Uses(s, a, pos),
@@ -176,6 +190,10 @@ FormalReturnArgs(fn, a, pos - 1) :-
    Statement_Block(s, b),
    InFunction(b, fn).
 
+/**
+  Formal args are on the function definition side.  
+  __Note:__ Only for internal calls
+*/
 .decl FormalArgs(fn: Function, a: Variable, pos: number)
 .input FormalArgs(IO="file", filename="FormalArgs.csv", delimiter="\t")
 
@@ -217,13 +235,14 @@ FunctionExit(block) :-
    LocalBlockEdge(_, block),
    !LocalBlockEdge(block, _).
 
-.decl CastBlockToFunction(block: symbol)
-CastBlockToFunction(block) :- FunctionEntry(block).
-
-// Whether a block is in a function
+// Mapping `block`s to `function`s
 .decl InFunction(block: Block, function: Function)
 .input InFunction(IO="file", filename="InFunction.csv", delimiter="\t")
 
+/**
+  Inter-procedural CFG edges.
+  Don't know how often that is useful.
+*/
 .decl GlobalBlockEdge(block: Block, next: Block)
 
 GlobalBlockEdge(block, next) :-
@@ -241,14 +260,6 @@ GlobalBlockEdge(returnBlock, next) :-
    Statement_Block(s, returnBlock),
    RETURNPRIVATE(s, _).
 
-.decl LocalReachableFrom(from: Block, next: Block)
-LocalReachableFrom(from, next) :-
-  LocalBlockEdge(from, next).
-
-LocalReachableFrom(from, to) :-
-  LocalReachableFrom(next, to),
-  LocalBlockEdge(from, next).
-
 .decl Helper_NextStatementInSameBlock(stmt: Statement, stmtNext: Statement)
 
 Helper_NextStatementInSameBlock(stmt1, stmt2) :-
@@ -257,11 +268,11 @@ Helper_NextStatementInSameBlock(stmt1, stmt2) :-
   Statement_Block(stmt2, block).
 
 
-// First statement in a basic block
-.decl Block_Head(block: Block, stmt: Statement)
+// First `statement` in a basic `block`
+.decl Block_Head(block: Block, statement: Statement)
 
-// Last statement in a basic block
-.decl Block_Tail(b: Block, t: Statement)
+// Last `statement` in a basic `block`
+.decl Block_Tail(block: Block, statement: Statement)
 
 Block_Head(block, stmt) :-
   Statement_Block(stmt, block),
@@ -274,7 +285,7 @@ Block_Tail(block, stmt) :-
   !Helper_NextStatementInSameBlock(stmt, _).
 
 
-.decl IsBlock(b: Block)
+.decl IsBlock(block: Block)
 
 IsBlock(b) :-
   Statement_Block(_, b); LocalBlockEdge(b, _); LocalBlockEdge(_, b).
