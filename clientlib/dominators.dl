@@ -1,8 +1,10 @@
 #pragma once
 
-// Both arguments are basic block heads
-// There is a path from the entry to s that does not go through candidate
-.decl DoesNotDominate(candidate:Block, b:Block)
+/**
+  Intra-procedural, block-level.  
+  There is a path from the entry to `block` that does not go through `candidate`.
+*/
+.decl DoesNotDominate(candidate: Block, block: Block)
 DoesNotDominate(candidate,s) :-
   FunctionEntry(s),
   InFunction(s, f), 
@@ -13,37 +15,54 @@ DoesNotDominate(notdom, s) :-
   DoesNotDominate(notdom, other),
   LocalBlockEdge(other, s), s != notdom.
 
-// Both arguments are basic block heads
-// There is a path from s to the exit that does not go through candidate
-.decl DoesNotPostDominate(candidate:Block, exitNode:Block)
-DoesNotPostDominate(candidate,exitNode) :-
+/**
+  Intra-procedural, block-level.  
+  There is a path from `block` to the exit that does not go through `candidate`
+*/
+.decl DoesNotPostDominate(candidate: Block, block: Block)
+DoesNotPostDominate(candidate, exitNode) :-
   FunctionExit(exitNode),
   InFunction(exitNode, f),
   InFunction(candidate, f),
   exitNode != candidate.
 
-DoesNotPostDominate(candidate,s) :-
-  DoesNotPostDominate(candidate,other),
+DoesNotPostDominate(candidate, s) :-
+  DoesNotPostDominate(candidate, other),
   LocalBlockEdge(s, other),
   s != candidate.
 
-// The Dominates/PostDominates relation is defined on basic blocks,
-// represented by their first instruction (Bhead). Defining
-// a dense quadratic relation, like Dominates, on individual
-// instructions would be expensive.
-.decl Dominates(dominator:Block, s:Block)
+/**
+  The Dominates/PostDominates relation is defined on basic blocks,
+  represented by their first instruction (Bhead). Defining
+  a dense quadratic relation, like Dominates, on individual
+  instructions would be expensive.
+*/
+
+/**
+  Intra-procedural, block-level.  
+  Every path from the entry to `block` goes through `dominator`.
+*/
+.decl Dominates(dominator: Block, block: Block)
 Dominates(dominator,s) :-
   InFunction(dominator, f),
   InFunction(s, f),
   !DoesNotDominate(dominator,s).
 
-.decl PostDominates(postdominator:Block, s:Block)
+/**
+  Intra-procedural, block-level.  
+  Every path from `block` to the exit goes through `postdominator`.
+*/
+.decl PostDominates(postdominator: Block, s: Block)
 PostDominates(postdominator,s) :-
   InFunction(postdominator, f),
   InFunction(s, f),
   !DoesNotPostDominate(postdominator,s).
 
-.decl PostDominatesInBlock(stmt:Statement, stmt2: Statement)
+/**
+  Intra-block, statement-level.  
+  For every execution `statement` is followed by `postdominator`.
+*/
+.decl PostDominatesInBlock(postdominator: Statement, statement: Statement)
         
 PostDominatesInBlock(stmt2, stmt) :-
   Statement_Next(stmt, stmt2),
@@ -57,7 +76,11 @@ PostDominatesInBlock(stmt3, stmt1) :-
   Statement_Block(stmt3, block).
 
 
-// Trivial but useful, and here is probably the right place
+/**
+  Intra-procedural, block-level.  
+  May-HappensAfter relation.  
+  __Note:__ To be used with caution because it can be very slow.  
+*/
 .decl HappensAfter(next: Statement, stmt: Statement)
 .decl HappensAfterBase(next: Statement, stmt: Statement)
 
@@ -81,9 +104,14 @@ HappensAfter(nextnext, stmt) :-
 
 /**
   Helper control-flow-related predicates
-**/
+*/
 
-.decl LocalBlockPath(from:Block, to:Block)
+
+/**
+  Intra-procedural, block-level.  
+  There is a path where `from` is executed before `to`.
+*/
+.decl LocalBlockPath(from: Block, to: Block)
 
 LocalBlockPath(src, target):-
   LocalBlockEdge(src, target).
@@ -92,7 +120,8 @@ LocalBlockPath(src, target):-
   LocalBlockPath(src, mid),
   LocalBlockEdge(mid, target).
 
-.decl LocalStatementPathInBlock(stmt1:Statement, stmt2:Statement)
+// The opposite of `PostDominatesInBlock`, really
+.decl LocalStatementPathInBlock(from: Statement, to: Statement)
 
 LocalStatementPathInBlock(stmt1, stmt2):-
   Helper_NextStatementInSameBlock(stmt1, stmt2).
@@ -109,33 +138,34 @@ LocalStatementPathInBlock(stmt1, stmt3):-
   This is useful because computing such relations (all-pairs) at the statement-level is prohibitively expensive
   but computing them top-down (on demand) like this makes it very cheap even inter-procedurally.
 
-  The Before(before:Statement, arg:symbol) and After(after:Statement, arg:symbol) input relations
+  The `Before(before: Statement, arg: symbol)` and `After(after: Statement, arg: symbol)` input relations
   are populated at every instantiation of the component to describe the relevant sets of statements for our query.
 
-  Output relation MayHappenBefore(before:Statement, after:Statement, arg:symbol) will contain a subset of statements `before`,`after` such that
+  Output relation `MayHappenBefore(before: Statement, after: Statement, arg: symbol)` will contain a subset of statements `before`,`after` such that
   statement `before` can be executed before statement `after` for some program path. Both statements are associated with the same `arg`.
 
-  Only external (outside of the component) library relations used are LocalStatementPathInBlock and LocalBlockPath.
+  Only external (outside of the component) library relations used are `LocalStatementPathInBlock` and `LocalBlockPath`.
 
   The example described above would be:
+
     .init storesSameAddress = MayHappenBeforeGlobalWithArg
     storesSameAddress.Before(before, val):- SSTORE(before, var, _), Variable_Value(var, val).
     storesSameAddress.After(after, val):- SSTORE(after, var, _), Variable_Value(var, val).
 */
 .comp MayHappenBeforeGlobalWithArg {
   // Input relations
-  .decl Before(before:Statement, arg:symbol)
-  .decl After(after:Statement, arg:symbol)
+  .decl Before(before: Statement, arg: symbol)
+  .decl After(after: Statement, arg: symbol)
 
   // Output relation 'before' can happen before 'after'
-  .decl MayHappenBefore(before:Statement, after:Statement, arg:symbol)
+  .decl MayHappenBefore(before: Statement, after: Statement, arg: symbol)
 
   // Intermediate relations. These start before the original `before` and `after` statements populating the input relations
   // and transitively go back through function calls to work inter-procedurally
   // originalBefore/After are kept because to report the original statements, before/after is what changes when going through private calls
   // before/afterBlock, before/afterFunction are relative to before/after and not the original ones and are in the relation to enable more efficient joins.
-  .decl BeforeInfo(originalBefore:Statement, before:Statement, beforeBlock:Block, beforeFunction:Function, arg:symbol)
-  .decl AfterInfo(originalAfter:Statement, after:Statement, afterBlock:Block, afterFunction:Function, arg:symbol)
+  .decl BeforeInfo(originalBefore: Statement, before: Statement, beforeBlock: Block, beforeFunction: Function, arg: symbol)
+  .decl AfterInfo(originalAfter: Statement, after: Statement, afterBlock: Block, afterFunction: Function, arg: symbol)
 
   // base case, starting from Before
   BeforeInfo(before, before, beforeBlock, beforeFunction, arg):-
@@ -184,15 +214,16 @@ LocalStatementPathInBlock(stmt1, stmt3):-
   This is useful because computing such relations (all-pairs) at the statement-level is prohibitively expensive
   but computing them top-down (on demand) like this makes it very cheap even inter-procedurally.
 
-  Internally it uses MayHappenBeforeGlobalWithArg.
+  Internally it uses `MayHappenBeforeGlobalWithArg`.
 
-  The Before(before:Statement) and After(after:Statement) input relations are populated
+  The `Before(before: Statement)` and `After(after: Statement)` input relations are populated
   at every instantiation of the component to describe the relevant sets of statements for our query.
 
-  Output relation MayHappenBefore(before:Statement, after:Statement) will contain a subset of statements `before`,`after` such that
+  Output relation `MayHappenBefore(before: Statement, after: Statement)` will contain a subset of statements `before`,`after` such that
   statement `before` can be executed before statement `after` for some program path.
 
   The example described above would be:
+
     .init storeAfterCall = MayHappenBeforeGlobal
     storeAfterCall.Before(before):- CallStmt(before).
     storeAfterCall.After(after):- SSTORE(after, _, _).
@@ -200,11 +231,11 @@ LocalStatementPathInBlock(stmt1, stmt3):-
 
 .comp MayHappenBeforeGlobal {
   // Input relations
-  .decl Before(before:Statement)
-  .decl After(after:Statement)
+  .decl Before(before: Statement)
+  .decl After(after: Statement)
 
   // Output relation 'before' can happen before 'after'
-  .decl MayHappenBefore(before:Statement, after:Statement)
+  .decl MayHappenBefore(before: Statement, after: Statement)
 
   .init mayHappenBeforeInternal = MayHappenBeforeGlobalWithArg
 
@@ -221,23 +252,23 @@ LocalStatementPathInBlock(stmt1, stmt3):-
   This is useful because computing such relations (all-pairs) at the statement-level is prohibitively expensive
   but computing them top-down (on demand) like this makes it very cheap even inter-procedurally.
 
-  Internally it uses two instantiations of MayHappenBeforeGlobal.
+  Internally it uses two instantiations of `MayHappenBeforeGlobal`.
 
-  The Before(before:Statement), Between(between:Statement), and After(after:Statement) input relations
+  The `Before(before: Statement)`, `Between(between: Statement)`, and `After(after: Statement)` input relations
   are populated at every instantiation of the component to describe the relevant sets of statements for our query.
 
-  Output relation MayHappenInBetween(before:Statement, between:Statement, after:Statement) will contain a subset of statements `before`, `between`, `after`
+  Output relation `MayHappenInBetween(before: Statement, between: Statement, after: Statement)` will contain a subset of statements `before`, `between`, `after`
   such that statement `between` can be executed after statement `before` and before statement `after`, for some program path.
 */
 
 .comp MayHappenInBetweenGlobal {
   // Input relations
-  .decl Before(before:Statement)
-  .decl Between(between:Statement)
-  .decl After(after:Statement)
+  .decl Before(before: Statement)
+  .decl Between(between: Statement)
+  .decl After(after: Statement)
 
   // Output relation
-  .decl MayHappenInBetween(before:Statement, between:Statement, after:Statement)
+  .decl MayHappenInBetween(before: Statement, between: Statement, after: Statement)
 
   .init beforeToBetween = MayHappenBeforeGlobal
   beforeToBetween.Before(before):- Before(before).

@@ -89,12 +89,15 @@
 .decl FallthroughEdge(block: Block, nextBlock: Block)
 .input FallthroughEdge(IO="file", filename="IRFallthroughEdge.csv", delimiter="\t")
 
+/**
+  Caller `block` makes call to __internal__ `function`
+*/
 .decl CallGraphEdge(block: Block, function: Function)
 .input CallGraphEdge(IO="file", filename="IRFunctionCall.csv", delimiter="\t")
 
 /**
-  Represents part of the callgraph for functions that are called and which return
-  control flow back to the caller.
+  Caller `block` makes call to __internal__ `function`, then returns
+  control flow back to the caller in `return`.
 */
 .decl FunctionCallReturn(block: Block, function: Function, return: Block)
 .input FunctionCallReturn(IO="file", filename="IRFunctionCallReturn.csv", delimiter="\t")

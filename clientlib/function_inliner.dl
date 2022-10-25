@@ -3,7 +3,7 @@
 //#include "../gigahorse-toolchain/clientlib/flows.dl"
 //#include "../gigahorse-toolchain/clientlib/dominators.dl"
 
-/*
+/**
   Component that performs call-site-level inlining.
   Can be extended with the InlineCandidate relation being overridable
   enabling the creation of custom inline strategies.

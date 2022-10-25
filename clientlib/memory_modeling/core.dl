@@ -25,7 +25,7 @@ VariableLengthMemoryCopyStatement(stmt, memAddrVar, lenVar):-
 
 /**
   MSTORE that is guranteed to only write less than a whole word
-  with the rest being just previously read from memory.
+  with the rest being just previously read from memory.  
   Patterns are syntactic and can break with newer compiler versions.
   Produced by the abiencodeWithSelector primitive.
 */
@@ -39,8 +39,7 @@ PartialMSTORE(mstore, mload, realFrom, 32 - maskBytes):-
   LocalStatementPathInBlock(mload , mstore),
   LowBytesMaskOp(loaded, loadedMasked, maskBytes),
   (OR(_, loadedMasked, shifted, from) ; OR(_, shifted, loadedMasked, from)),
-  Statement_Defines(shiftStmt, shifted, 0),
-  LShiftBytes(shiftStmt, realFrom, maskBytes).
+  LShiftBytes(realFrom, shifted, maskBytes).
 
 PartialMSTORE(mstore, mload, realFrom, 32 - maskBytes):-
   MLOAD(mload, indexVar, loaded),
@@ -49,8 +48,7 @@ PartialMSTORE(mstore, mload, realFrom, 32 - maskBytes):-
   LowBytesMaskOp(loaded, loadedMasked, maskBytes),
   (OR(_, loadedMasked, shiftedAndMasked, from) ; OR(_, shiftedAndMasked, loadedMasked, from)),
   AntiMaskOp(shifted, shiftedAndMasked, 0, maskBytes - 1),
-  Statement_Defines(shiftStmt, shifted, 0),
-  LShiftBytes(shiftStmt, realFrom, maskBytes).
+  LShiftBytes(realFrom, shifted, maskBytes).
 
 
 /**
@@ -496,8 +494,7 @@ DEBUG_OUTPUT(MSTOREToMemConsStmt_WrittenVar)
 MSTOREToMemConsStmtWritesShiftedVar(mstore, memConsStmt, relativeIndex, realStoredVar):-
   MemWriteToMemConsStmtResolved(mstore, memConsStmt, relativeIndex, 0, highLimit),
   MSTORE(mstore, _, storedVar),
-  Statement_Defines(shiftStmt, storedVar, 0),
-  LShiftBytes(shiftStmt, realStoredVar, 32 - highLimit).
+  LShiftBytes(realStoredVar, storedVar, 32 - highLimit).
 
 MSTOREToMemConsStmt_WrittenVar(mstore, memConsStmt, relativeIndex, realStoredVar):-
   MSTOREToMemConsStmtWritesShiftedVar(mstore, memConsStmt, relativeIndex, realStoredVar).

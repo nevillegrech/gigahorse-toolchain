@@ -367,8 +367,7 @@ BytesOrStringLength(storVar, lenVar):-
   (AND(_, storLoad, oneVar, lastBitVar) ; AND(_, oneVar, storLoad, lastBitVar)),
   Variable_Value(oneVar, "0x1"),
   ISZERO(_, lastBitVar, notLastBitVar),
-  LShiftBytes(shiftStmt, notLastBitVar, 1),
-  Statement_Defines(shiftStmt, shifted, 0),
+  LShiftBytes(notLastBitVar, shifted, 1),
   SUB(_, shifted, otherOneVar, minOne),
   Variable_Value(otherOneVar, "0x1"),
   (AND(_, minOne, storLoad, almost) ; AND(_, storLoad, minOne, almost)),
@@ -412,8 +411,7 @@ VarHoldsBytesOfStorVar(to, load, storVar, 0, 31):-
 
 VarHoldsBytesOfStorVar(to, load, storVar, low + bytes, high):-
   VarHoldsBytesOfStorVar(shiftedVar, load, storVar, low, high),
-  RShiftBytes(stmt, shiftedVar, bytes),
-  Statement_Defines(stmt, to, 0).
+  RShiftBytes(shiftedVar, to, bytes).
 
 VarHoldsBytesOfStorVar(to, load, storVar, low, newHigh):-
   VarHoldsBytesOfStorVar(var, load, storVar, low, high),
@@ -429,8 +427,8 @@ VarHoldsBytesOfStorVar(to, load, storVar, low, newHigh):-
 */
 VarHoldsBytesOfStorVarFinal(var, load, storVar, low, high):-
   VarHoldsBytesOfStorVar(var, load, storVar, low, high),
-  //!LShiftBytes(_, var, _),
-  !RShiftBytes(_, var, _),
+  //!LShiftBytes(var, _, _),
+  !RShiftBytes(var, _, _),
   !LowBytesMaskOp(var, _, _),
   !AntiMaskOp(var, _, _, _).
 
@@ -542,8 +540,7 @@ ConstWrittenToBytesOfStorVar("0xNoVar", "0x0", store, load, storVar, byteLow, by
 VarHoldsBytesOfStorVar(to, store, storVar, bytes, 31):-
   VarWrittenToBytesOfStorVar(_, store, _, storVar, _, _),
   Statement_Uses(store, storedVar, 1),
-  RShiftBytes(stmt, storedVar, bytes),
-  Statement_Defines(stmt, to, 0).
+  RShiftBytes(storedVar, to, bytes).
 
 VarHoldsBytesOfStorVar(to, store, storVar, 0, maskLen - 1):-
   VarWrittenToBytesOfStorVar(_, store, _, storVar, _, _),
