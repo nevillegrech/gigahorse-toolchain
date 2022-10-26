@@ -629,6 +629,7 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
   PublicFunctionJump(block, FALLBACK_FUNCTION_SIGHASH),
   PublicFunction(fallbackStart, FALLBACK_FUNCTION_SIGHASH):-
     BlockComparesCallDataSizeToFour(block, _, fallbackStart),
+    1 = count : BlockComparesCallDataSizeToFour(_, _, fallbackStart),
     !BlockJumpsOnCallDataSize(fallbackStart, _, _).
 
   BlockHasReceiveAsFallThrough(block, jumpi, fallthrough, target):-
