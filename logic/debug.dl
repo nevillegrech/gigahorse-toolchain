@@ -1,6 +1,5 @@
 
 .output global.BlockEdge, global.FallthroughEdge, global.BlockJumpValidTarget, global.BlockJumpTarget, MaybeInFunctionUnderContext
-.output NotValidReturnBlock, NotValidReturnEdge
 .output MaybeFunctionCallReturn // DEBUG
 .output PotentialCall // DEBUG
 .output PossibleReturnAddressWithPos // DEBUG
