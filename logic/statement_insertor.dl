@@ -432,7 +432,7 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
 
   In_Block_OriginalBlock(block, block):-
     analysis.Statement_Block(_, block),
-    !Prev_Block_OriginalBlock(block, _).
+    !Prev_Block_OriginalBlock(_, _).
   
   In_Block_OriginalBlock(block, originalBlock):-
     Prev_Block_OriginalBlock(block, originalBlock).
