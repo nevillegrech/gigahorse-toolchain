@@ -99,14 +99,6 @@ Analytics_ReachableBlocksInTAC(originalBlock):-
 
 #endif
 
-Analytics_ReachableBlocksInTAC(blk):-
-  global.ReachableContext(_, blk),
-  Block_IRBlock(blk, _, block),
-  (
-    LocalBlockEdge(block, _);
-    LocalBlockEdge(_, block);
-    TAC_Block(_, block)
-  ).
 
 Analytics_BlockHasNoTACBlock(block):-
   Analytics_ReachableBlocks(block),
