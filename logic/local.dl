@@ -590,6 +590,7 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     JUMPI(jumpiStmt),
     Statement_Uses_Local(jumpiStmt, negPred, 1).
 
+  // New vyper pattern
   BlockComparesSigVyper(block, sigHash) :-
     Statement_Block(pushStmt, block),
     (PUSH4(pushStmt, sigHash) ; PUSH3(pushStmt, sigHash)),
@@ -638,7 +639,7 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
   PublicFunctionJump(block, FALLBACK_FUNCTION_SIGHASH),
   PublicFunction(fallbackStart, FALLBACK_FUNCTION_SIGHASH):-
     BlockComparesCallDataSizeToFour(block, _, fallbackStart),
-    1 = count : BlockComparesCallDataSizeToFour(_, _, fallbackStart),
+    1 = count : BlockComparesCallDataSizeToFour(_, _, _),
     !BlockJumpsOnCallDataSize(fallbackStart, _, _).
 
   BlockHasReceiveAsFallThrough(block, jumpi, fallthrough, target):-
@@ -677,15 +678,20 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
 
 .init preTrans = PreTransLocalAnalysis
 
+.init revertCloner = RevertBlockCloner
+COPY_CODE(revertCloner, factReader)
+
 #ifdef BLOCK_CLONING
 // Enable the early cloning of blocks to increase precision (sacrificing performance)
 .init blockCloner = BLOCK_CLONING
-COPY_CODE(blockCloner, factReader)
+COPY_OUTPUT(blockCloner, revertCloner)
+blockCloner.Prev_Block_OriginalBlock(block, originalBlock):- revertCloner.Block_OriginalBlock(block, originalBlock).
 COPY_OUTPUT(preTrans, blockCloner)
 
 #else
-// No early cloning
-COPY_CODE(preTrans, factReader)
+
+COPY_OUTPUT(preTrans, revertCloner)
+
 #endif
 
 INITIALIZE_STATEMENT_INSERTOR_FROM(insertor, preTrans, postTrans)

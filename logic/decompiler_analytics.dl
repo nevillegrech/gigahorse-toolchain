@@ -59,23 +59,43 @@ Analytics_ReachableBlocksInTAC(originalBlock):-
 
 #else
 
-Analytics_ReachableBlocks(block):-
-  preTrans.Statement_Block(_, block),
-  global.ReachableContext(_, block).
-
-Analytics_UnreachableBlock(block):-
-  preTrans.Statement_Block(_, block),
+Analytics_ReachableBlocks(originalBlock):-
+  global.ReachableContext(_, block),
   postTrans.Statement_Block(_, block),
-  !global.ReachableContext(_, block).
+  revertCloner.Block_OriginalBlock(block, originalBlock).
 
-Analytics_ReachableBlocksInTAC(block):-
-  Analytics_ReachableBlocks(block),
+Analytics_UnreachableBlock(originalBlock):-
+  postTrans.Statement_Block(_, block),
+  revertCloner.Block_OriginalBlock(block, originalBlock),
+  !Analytics_ReachableBlocks(originalBlock).
+
+Analytics_ReachableBlocksInTAC(originalBlock):-
+  Analytics_ReachableBlocks(originalBlock),
+  revertCloner.Block_OriginalBlock(block, originalBlock),
   Block_IRBlock(block, _, irblock),
   (
     LocalBlockEdge(irblock, _);
     LocalBlockEdge(_, irblock);
     TAC_Block(_, irblock)
   ).
+
+// Analytics_ReachableBlocks(block):-
+//   preTrans.Statement_Block(_, block),
+//   global.ReachableContext(_, block).
+
+// Analytics_UnreachableBlock(block):-
+//   preTrans.Statement_Block(_, block),
+//   postTrans.Statement_Block(_, block),
+//   !global.ReachableContext(_, block).
+
+// Analytics_ReachableBlocksInTAC(block):-
+//   Analytics_ReachableBlocks(block),
+//   Block_IRBlock(block, _, irblock),
+//   (
+//     LocalBlockEdge(irblock, _);
+//     LocalBlockEdge(_, irblock);
+//     TAC_Block(_, irblock)
+//   ).
 
 #endif
 

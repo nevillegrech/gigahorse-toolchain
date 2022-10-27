@@ -1,4 +1,6 @@
 
+#define SCALABLE_FALLBACK
+
 #define CONTEXT_SENSITIVITY HybridPreciseContext
 
 #include "main.dl"
