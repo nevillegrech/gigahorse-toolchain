@@ -583,22 +583,25 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     Statement_Block(pushStmt, block),
     (PUSH4(pushStmt, sigHash) ; PUSH3(pushStmt, sigHash)),
     Statement_Defines(pushStmt, sigHashVar),
-    EQ(eqStmt), Statement_Uses_Local(eqStmt, sigHashVar, _),
+    Statement_Uses_Local(eqStmt, sigHashVar, _),
+    EQ(eqStmt),
     Statement_Defines(eqStmt, pred),
-    ISZERO(isZeroStmt),  Statement_Uses_Local(isZeroStmt, pred, 0),
+    Statement_Uses_Local(isZeroStmt, pred, 0),
+    ISZERO(isZeroStmt),
     Statement_Defines(isZeroStmt, negPred),
-    JUMPI(jumpiStmt),
-    Statement_Uses_Local(jumpiStmt, negPred, 1).
+    Statement_Uses_Local(jumpiStmt, negPred, 1),
+    JUMPI(jumpiStmt).
 
   // New vyper pattern
   BlockComparesSigVyper(block, sigHash) :-
     Statement_Block(pushStmt, block),
     (PUSH4(pushStmt, sigHash) ; PUSH3(pushStmt, sigHash)),
     Statement_Defines(pushStmt, sigHashVar),
-    XOR(xorStmt), Statement_Uses_Local(xorStmt, sigHashVar, _),
+    Statement_Uses_Local(xorStmt, sigHashVar, _),
+    XOR(xorStmt),
     Statement_Defines(xorStmt, pred),
-    JUMPI(jumpiStmt),
-    Statement_Uses_Local(jumpiStmt, pred, 1).
+    Statement_Uses_Local(jumpiStmt, pred, 1),
+    JUMPI(jumpiStmt).
 
   PublicFunctionJump(block, sigHash) :-   BlockComparesSig(block, sigHash).
 
