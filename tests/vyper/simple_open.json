@@ -1,0 +1,5 @@
+{
+    "client_path": null,
+    "gigahorse_args": ["-i", "--disable_inline"],
+    "expected_results": [["Analytics_JumpToMany", 0, 0], ["Analytics_UnreachableBlock", 0, 0], ["Analytics_PublicFunction", 10, 0]]
+}

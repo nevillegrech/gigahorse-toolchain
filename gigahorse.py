@@ -444,6 +444,7 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
         if exists:
             decomp_start = time.time()
             inline_start = time.time()
+            decompiler_config = None
         else:
             # Disassemble contract
             blocks = blockparse.EVMBytecodeParser(bytecode).parse()

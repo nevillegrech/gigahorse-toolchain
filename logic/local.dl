@@ -583,12 +583,25 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     Statement_Block(pushStmt, block),
     (PUSH4(pushStmt, sigHash) ; PUSH3(pushStmt, sigHash)),
     Statement_Defines(pushStmt, sigHashVar),
-    EQ(eqStmt), Statement_Uses_Local(eqStmt, sigHashVar, _),
+    Statement_Uses_Local(eqStmt, sigHashVar, _),
+    EQ(eqStmt),
     Statement_Defines(eqStmt, pred),
-    ISZERO(isZeroStmt),  Statement_Uses_Local(isZeroStmt, pred, 0),
+    Statement_Uses_Local(isZeroStmt, pred, 0),
+    ISZERO(isZeroStmt),
     Statement_Defines(isZeroStmt, negPred),
-    JUMPI(jumpiStmt),
-    Statement_Uses_Local(jumpiStmt, negPred, 1).
+    Statement_Uses_Local(jumpiStmt, negPred, 1),
+    JUMPI(jumpiStmt).
+
+  // New vyper pattern
+  BlockComparesSigVyper(block, sigHash) :-
+    Statement_Block(pushStmt, block),
+    (PUSH4(pushStmt, sigHash) ; PUSH3(pushStmt, sigHash)),
+    Statement_Defines(pushStmt, sigHashVar),
+    Statement_Uses_Local(xorStmt, sigHashVar, _),
+    XOR(xorStmt),
+    Statement_Defines(xorStmt, pred),
+    Statement_Uses_Local(jumpiStmt, pred, 1),
+    JUMPI(jumpiStmt).
 
   PublicFunctionJump(block, sigHash) :-   BlockComparesSig(block, sigHash).
 
@@ -629,6 +642,7 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
   PublicFunctionJump(block, FALLBACK_FUNCTION_SIGHASH),
   PublicFunction(fallbackStart, FALLBACK_FUNCTION_SIGHASH):-
     BlockComparesCallDataSizeToFour(block, _, fallbackStart),
+    1 = count : BlockComparesCallDataSizeToFour(_, _, _),
     !BlockJumpsOnCallDataSize(fallbackStart, _, _).
 
   BlockHasReceiveAsFallThrough(block, jumpi, fallthrough, target):-
@@ -667,15 +681,20 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
 
 .init preTrans = PreTransLocalAnalysis
 
+.init revertCloner = RevertBlockCloner
+COPY_CODE(revertCloner, factReader)
+
 #ifdef BLOCK_CLONING
 // Enable the early cloning of blocks to increase precision (sacrificing performance)
 .init blockCloner = BLOCK_CLONING
-COPY_CODE(blockCloner, factReader)
+COPY_OUTPUT(blockCloner, revertCloner)
+blockCloner.Prev_Block_OriginalBlock(block, originalBlock):- revertCloner.Block_OriginalBlock(block, originalBlock).
 COPY_OUTPUT(preTrans, blockCloner)
 
 #else
-// No early cloning
-COPY_CODE(preTrans, factReader)
+
+COPY_OUTPUT(preTrans, revertCloner)
+
 #endif
 
 INITIALIZE_STATEMENT_INSERTOR_FROM(insertor, preTrans, postTrans)

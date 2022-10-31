@@ -30,7 +30,7 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
   .decl Statement_Next(stmt: Statement, next: Statement)
   .decl Statement_Opcode(stmt: Statement, op: Opcode)
   .decl PushValue(stmt: Statement, value: Value)
-      
+
   // Outputs
   .decl Out_Statement_Next(stmt: Statement, next: Statement)
   .decl Out_Statement_Opcode(stmt: Statement, op: Opcode)
@@ -232,9 +232,9 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
   Abstract block cloner.
   Subcomponents just need to override and provide facts for BlockCloningCandidate.
 */
-.comp BlockCloner : CodeTransformer {
+.comp AbstractBlockCloner <LocalAnalysis> : CodeTransformer {
 
-  .init analysis = OptimizedGlobalAnalysis<TransactionalContext>
+  .init analysis = LocalAnalysis
   //.init analysis = PreTransLocalAnalysis
 
   //.limitsize analysis.BlockOutputContents(n=500000)
@@ -242,6 +242,9 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
   analysis.PushValue(push, val):- PushValue(push, val).
   analysis.Statement_Opcode(stmt, op):- Statement_Opcode(stmt, op).
   analysis.Statement_Next(stmt, stmtNext):- Statement_Next(stmt, stmtNext).
+
+  .decl Prev_Block_OriginalBlock(block: Block, originalBlock: Block)
+  .decl In_Block_OriginalBlock(block: Block, originalBlock: Block)
 
   // The last `statement` in the original bytecode, start adding cloned code after it.
   .decl MaxOriginalStatement(statement: Statement)
@@ -256,6 +259,10 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
 
   .decl ClonedBlockAddressPushedBy(pushBlock: Block, pushStmt: Statement, blockToClone: Block)
 
+  /**
+    Direct subcomponents provide different definitions of this rule
+    to fit their different safety guarantee levels.
+  */
   .decl BlockPushedToStack(pushStmt: Statement, pushedVar: Variable, pushedBlock: Block)
   .decl BlockPushesBlockToStack(from: Block, pushedBlock: Block)
 
@@ -323,18 +330,9 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
     BlockPushedToStack(pushStmt, _, blockToClone),
     analysis.Statement_Block(pushStmt, pushBlock).
 
-  BlockPushedToStack(pushStmt, pushedVar, as(pushedBlock, Block)):-
-    analysis.Variable_Value(pushedVar, pushedBlock),
-    analysis.VariableAlwaysUsedAsJumpTarget(pushedVar),
-    analysis.JUMPDEST(as(pushedBlock, Statement)),
-    analysis.Statement_Defines(pushStmt, pushedVar).
-
   BlockPushesBlockToStack(block, pushedBlock):-
     BlockPushedToStack(pushStmt, _, pushedBlock),
     analysis.Statement_Block(pushStmt, block).
-    // REVIEW: Silly way to try to ensure that this block value is not used for something else
-    // Ideally when this is deployed we'd have to use some whole-contract logic
-    //!analysis.Statement_Uses_Local(_, blockVar, _).
 
   .decl FallthroughBlock(block: Block)
   FallthroughBlock(block):-
@@ -432,17 +430,71 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
     PushValue(oldStmt, val),
     StatementToClonedStatement(_, _, oldStmt, clonedStmt).
 
-  Block_OriginalBlock(block, block):-
-    analysis.Statement_Block(_, block).
+  In_Block_OriginalBlock(block, block):-
+    analysis.Statement_Block(_, block),
+    !Prev_Block_OriginalBlock(_, _).
   
+  In_Block_OriginalBlock(block, originalBlock):-
+    Prev_Block_OriginalBlock(block, originalBlock).
+
+  // REVIEW: Do we need to care about empty blocks?
   Block_OriginalBlock(block, originalBlock):-
-    BlockToCloneNewInstance(_, originalBlock, block).
+    analysis.Statement_Block(_, block),
+    In_Block_OriginalBlock(block, originalBlock).
+
+  Block_OriginalBlock(block, originalBlock):-
+    BlockToCloneNewInstance(_, intermediateBlock, block),
+    In_Block_OriginalBlock(intermediateBlock, originalBlock).
 }
 
 /**
+  BlockCloner using an underlying global analysis to ensure that the
+  program's semantics will not break. To be used in most cases.
+*/
+.comp SafeBlockCloner : AbstractBlockCloner <DefaultOptimizedGlobalAnalysis> {
+
+  BlockPushedToStack(pushStmt, pushedVar, as(pushedBlock, Block)):-
+    analysis.Variable_Value(pushedVar, pushedBlock),
+    // requires global analysis
+    analysis.VariableAlwaysUsedAsJumpTarget(pushedVar),
+    analysis.JUMPDEST(as(pushedBlock, Statement)),
+    analysis.Statement_Defines(pushStmt, pushedVar).
+}
+
+/**
+  BlockCloner using an underlying local analysis, therefore providing less
+  guarantees.  
+  __To be used with caution for shallow cloning.__
+*/
+.comp UnsafeBlockCloner : AbstractBlockCloner <PreTransLocalAnalysis> {
+
+  BlockPushedToStack(pushStmt, pushedVar, as(pushedBlock, Block)):-
+    analysis.Variable_Value(pushedVar, pushedBlock),
+    analysis.JUMPDEST(as(pushedBlock, Statement)),
+    analysis.Statement_Defines(pushStmt, pushedVar).
+}
+
+/**
+  Simple cloner, targets shared `REVERT` blocks.
+  Can help with memory modeling, as well as source decompilation.
+*/
+.comp RevertBlockCloner : UnsafeBlockCloner {
+
+  .override BlockCloningCandidate
+
+  BlockCloningCandidate(revertBlock):-
+    analysis.REVERT(revertStmt),
+    analysis.Statement_Block(revertStmt, revertBlock),
+    analysis.Variable_Value(targetVar1, as(revertBlock, Value)),
+    analysis.ImmediateBlockJumpTarget(caller1, targetVar1),
+    analysis.Variable_Value(targetVar2, as(revertBlock, Value)),
+    analysis.ImmediateBlockJumpTarget(caller2, targetVar2),
+    caller1 != caller2.
+}
+/**
   Heuristic based cloner implementation, gives good results, non-negligible slowdown
 */
-.comp HeuristicBlockCloner : BlockCloner {
+.comp HeuristicBlockCloner : SafeBlockCloner {
 
   .override BlockCloningCandidate
 
@@ -483,7 +535,7 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
   Guided block cloning, taking advantage of imprecision results of a previous decompilation run
   Not used right now as its results were worse than using HeuristicBlockCloner
 */
-.comp InputBlockCloner : BlockCloner {
+.comp InputBlockCloner : SafeBlockCloner {
 
   .override BlockCloningCandidate
 
