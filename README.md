@@ -11,7 +11,7 @@ First make sure you have the following things installed on your system:
 
 - Python 3.8 (Refer to standard documentation)
 
-- Souffle 2.0.2 (We only test using the release versions, later development versions may work but are untested by us. Refer to Souffle documentation. The easiest way to install this is to use the release from https://github.com/souffle-lang/souffle/releases/tag/2.0.2)
+- Souffle 2.3 (We only test using the release versions, later development versions may work but are untested by us. Refer to Souffle documentation. The easiest way to install this is to use the release from https://github.com/souffle-lang/souffle/releases/tag/2.3)
 
 Now install the Souffle custom functors. Just navigate to the `souffle-addon` folder:
 
@@ -28,7 +28,7 @@ You should now be ready to run Gigahorse.
 ## Running Gigahorse
 The `gigahorse.py` script can be run on a contract individually or on a collection of contract bytecode files in specified directory, and it will run the binary lifter implemented in `logic/main.dl` on each contract, optionally followed by any additional client analyses specified by the user using the `-C` flag.
 
-The default pipeline first attempts to decompile a contract using a **transactional** context-sensitivity configuration. If that times out it performs a second attempt using a **hybrid-precise** context sensitivity configuration, tuned for scalability. If the legacy (single decompilation) pipeline is preferred you can use the `--single_decomp` flag.
+The default pipeline first attempts to decompile a contract using a **transactional** context-sensitivity configuration. If that times out it performs a second attempt with the _scalable-fallback_ configuration (using a **hybrid-precise** context sensitivity algorithm, tuned for scalability). In addition, if the default configuration succeeds but produces imprecise output, the _precise-fallback_ configuration (currently the same as the `--early_cloning` config) is used to attempt to remove that imprecision. Both fallback configurations can be disabled if needed using the `--disable_scalable_fallback` and `--disable_precise_fallback` flags respectivelly.
 
 The Gigahorse pipeline also includes a few rounds of inlining of small functions in order to help the subsequent client libraries get more high-level inferences. The inlining functionality can be disabled with `--disable_inline`.
 
