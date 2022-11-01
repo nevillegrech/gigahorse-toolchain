@@ -452,10 +452,10 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
 
             os.symlink(join(work_dir, 'bytecode.hex'), join(out_dir, 'bytecode.hex'))
 
-            if os.path.exists(join(work_dir, 'solidity_version.csv')):
+            if os.path.exists(join(work_dir, 'compiler_info.csv')):
                 # Create a symlink with a name starting with 'Verbatim_' to be added to results json
-                os.symlink(join(work_dir, 'solidity_version.csv'), join(out_dir, 'Verbatim_solidity_version.csv'))
-                os.symlink(join(work_dir, 'solidity_version.csv'), join(fallback_out_dir, 'Verbatim_solidity_version.csv'))
+                os.symlink(join(work_dir, 'compiler_info.csv'), join(out_dir, 'Verbatim_compiler_info.csv'))
+                os.symlink(join(work_dir, 'compiler_info.csv'), join(fallback_out_dir, 'Verbatim_compiler_info.csv'))
 
             timeouts, _ = run_clients(souffle_pre_clients, other_pre_clients, work_dir, work_dir)
             if timeouts:
