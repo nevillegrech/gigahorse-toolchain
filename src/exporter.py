@@ -136,7 +136,7 @@ class InstructionTsvExporter(Exporter):
             # Was introduced in solc 0.4.7 and changed in 0.5.9
             solidity_metadata_prefix_old = b"\xa1\x65bzzr0".hex()
             # 0xa165 + "vyper" + 0x83 which is followed by the vyper version
-            # works for vyper versions >= 0.3.5
+            # works for vyper versions >= 0.3.4 (followed by the bytecode length for versions >= 0.3.5)
             vyper_metadata_prefix = b"\xa1\x65vyper\x83".hex()
 
             language = "unknown"
