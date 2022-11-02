@@ -1,5 +1,6 @@
 {
     "client_path": null,
     "gigahorse_args": ["-i", "--disable_inline"],
-    "expected_results": [["Analytics_JumpToMany", 0, 0], ["Analytics_UnreachableBlock", 0, 0], ["Analytics_PublicFunction", 10, 0]]
+    "expected_analytics": [["Analytics_JumpToMany", 0, 0], ["Analytics_UnreachableBlock", 0, 0], ["Analytics_PublicFunction", 10, 0]],
+    "expected_verbatim": [["Verbatim_compiler_info", "vyper\t0.3.7"]]
 }
