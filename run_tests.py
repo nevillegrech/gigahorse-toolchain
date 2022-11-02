@@ -32,7 +32,8 @@ class LogicTestCase(unittest.TestCase):
 
         self.gigahorse_args = test_config.get('gigahorse_args', [])
 
-        self.expected_results: List[Tuple[str, int, float]] = test_config.get("expected_results", [])
+        self.expected_analytics: List[Tuple[str, int, float]] = test_config.get("expected_analytics", [])
+        self.expected_verbatim: List[Tuple[str, str]] = test_config.get("expected_verbatim", [])
 
     def id(self) -> str:
         return self.name
@@ -93,8 +94,11 @@ class LogicTestCase(unittest.TestCase):
         for x, y in temp_analytics.items():
             analytics[x] = y
 
-        for metric, expected, margin in self.expected_results:
+        for metric, expected, margin in self.expected_analytics:
             self.assertTrue(within_margin(analytics[metric], expected, margin), f"Value for {metric} ({analytics[metric]}) not within margin of expected value ({expected}).")
+
+        for metric, expected in self.expected_verbatim:
+            self.assertTrue(analytics[metric] == expected, f"Value for {metric} ({analytics[metric]}) not the expected value ({expected}).")
 
 
 def discover_logic_tests(current_config: MutableMapping[str, Any], directory: str) -> Iterator[Tuple[Mapping[str, Any], str]]:

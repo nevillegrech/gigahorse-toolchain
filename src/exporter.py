@@ -115,6 +115,12 @@ class InstructionTsvExporter(Exporter):
         """
         Print basic block info to tsv.
         """
+
+        def get_version_str(metadata_prefix):
+            index = bytecode_hex.rindex(metadata_prefix) + len(metadata_prefix)
+            version_bytes = bytecode_hex[index : index + 6]
+            return f"{int(version_bytes[0:2], 16)}.{int(version_bytes[2:4], 16)}.{int(version_bytes[4:6], 16)}"
+
         if output_dir != "":
             os.makedirs(output_dir, exist_ok=True)
         
@@ -123,19 +129,31 @@ class InstructionTsvExporter(Exporter):
                 assert '\n' not in bytecode_hex
                 f.write(bytecode_hex)
 
-            solidity_version = "unknown"
-            # "64736f6c6343" is 0x64 + "solc" + 0x43 which is followed by the solc version
+            # 0x64 + "solc" + 0x43 which is followed by the solc version
             # only exists in solidity bytecode compiled using solc >= 0.5.9 when it is not explicitly removed
-            if "64736f6c6343" in bytecode_hex:
-                solidity_version_bytes = bytecode_hex[bytecode_hex.rindex("64736f6c6343") + 12 : bytecode_hex.rindex("64736f6c6343") + 18]
-                solidity_version = f"{int(solidity_version_bytes[0:2], 16)}.{int(solidity_version_bytes[2:4], 16)}.{int(solidity_version_bytes[4:6], 16)}"
-            # "a165627a7a7230" is 0xa165 + "bzzr0" which is followed by the swarn hash of the metadata file (useless to us)
+            solidity_metadata_prefix = b"\x64solc\x43".hex()
+            # 0xa165 + "bzzr0" is followed by the swarn hash of the metadata file (useless to us)
             # Was introduced in solc 0.4.7 and changed in 0.5.9
-            elif "a165627a7a7230" in bytecode_hex:
-                solidity_version = "0.4.7<=v<0.5.9"
+            solidity_metadata_prefix_old = b"\xa1\x65bzzr0".hex()
+            # 0xa165 + "vyper" + 0x83 which is followed by the vyper version
+            # works for vyper versions >= 0.3.4 (followed by the bytecode length for versions >= 0.3.5)
+            vyper_metadata_prefix = b"\xa1\x65vyper\x83".hex()
 
-            with open(output_dir + "/solidity_version.csv", "w") as f:
-                f.write(solidity_version)
+            language = "unknown"
+            compiler_version = "unknown"
+
+            if solidity_metadata_prefix in bytecode_hex:
+                language = "solidity"
+                compiler_version = get_version_str(solidity_metadata_prefix)
+            elif solidity_metadata_prefix_old in bytecode_hex:
+                language = "solidity"
+                compiler_version = "0.4.7<=v<0.5.9"
+            elif vyper_metadata_prefix in bytecode_hex:
+                language = "vyper"
+                compiler_version = get_version_str(vyper_metadata_prefix)
+
+            with open(output_dir + "/compiler_info.csv", "w") as f:
+                f.write(f"{language}\t{compiler_version}")
 
         signatures_filename_in = public_function_signature_filename
         signatures_filename_out = os.path.join(output_dir, 'PublicFunctionSignature.facts')
