@@ -95,6 +95,51 @@ PreMask_Length(cat("ff", mask), bytes+1) :-
   .decl BlockEdge(callerCtx: sens.Context, caller: Block, calleeCtx: sens.Context, callee: Block)
   
 
+  .decl GlobalVariable_Value(ctx: sens.Context, variable: VariableOrStackIndex, value: Value)
+  DEBUG_OUTPUT(GlobalVariable_Value)
+  .init globalVariableValueConstantFolding = ConstantFolding
+  DEBUG_OUTPUT(Statement_Uses)
+  DEBUG_OUTPUT(Statement_Uses_Local)
+
+  GlobalVariable_Value(ctx, variable, value):-
+    ReachableContext(ctx, block),
+    Statement_Block(statement, block),
+    Statement_Defines(statement, variable),
+    Variable_Value(variable, value).
+
+  GlobalVariable_Value(ctx, stackIndex, value):-
+    ReachableContext(ctx, block),
+    Statement_Block(statement, block),
+    Statement_Uses_Local(statement, stackIndex, _),
+    CheckIsStackIndex(stackIndex),
+    BlockInputContents(ctx, block, stackIndex, variable),
+    Variable_Value(variable, value).
+
+  // Auxiliary relations for constant folding
+  .decl GlobalBinopStatementOpAndConstantArgValues(ctx: sens.Context, stmt: Statement, op: Opcode, a_val: Value, b_val: Value)
+  GlobalBinopStatementOpAndConstantArgValues(ctx, stmt, op, aval, bval) :-
+    Statement_Opcode(stmt, op),
+    Statement_Uses_Local(stmt, a, 0),
+    Statement_Uses_Local(stmt, b, 1),
+    GlobalVariable_Value(ctx, a, aval),
+    GlobalVariable_Value(ctx, b, bval).
+
+
+  // .decl UnopStatementOpAndArgs(stmt: Statement, op: Opcode, a: Variable)
+  // UnopStatementOpAndArgs(stmt, op, as(a, Variable)) :-
+  //   Statement_Opcode(stmt, op),
+  //   Statement_Uses_Local(stmt, a, 0),
+  //   !Statement_Uses_Local(stmt, _, 1),
+  //   CheckIsVariable(a).
+
+  globalVariableValueConstantFolding.RequestConstantFold2(op, a_val, b_val) :-
+    GlobalBinopStatementOpAndConstantArgValues(_, _, op, a_val, b_val).
+
+  GlobalVariable_Value(ctx, to, result) :-
+    globalVariableValueConstantFolding.ConstantFoldResult2(op, a_val, b_val, result),
+    GlobalBinopStatementOpAndConstantArgValues(ctx, stmt, op, a_val, b_val),
+    Statement_Defines(stmt, to).
+    .plan 1:(2,1,3)
 
   /*
   ***********
@@ -148,6 +193,11 @@ PreMask_Length(cat("ff", mask), bytes+1) :-
     Variable_Value(targetVar, targetValue),
     JUMPDEST(as(targetValue, symbol)).
 
+  BlockJumpValidTarget(ctx, block, targetVar, as(targetValue, Block)) :-
+    BlockJumpTarget(ctx, block, targetVar),
+    GlobalVariable_Value(ctx, targetVar, targetValue),
+    JUMPDEST(as(targetValue, symbol)).
+
 
   /*
   ***********
@@ -176,6 +226,7 @@ PreMask_Length(cat("ff", mask), bytes+1) :-
     .plan 1:(2,1)
 
 
+  // Note: It's under __any__ ctx. To be used with caution.
   .decl Statement_Uses(stmt: Statement, var: Variable, n: StackIndex)
 
   // Case: variable originates locally
