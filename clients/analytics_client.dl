@@ -139,13 +139,49 @@ Analytics_Variables(a) :-
 // Has many dependencies, incl memory modeling and data structures
 #include "../clientlib/guards.dl"
 
+/**
+ * Memory Modeling
+ */
+
 .decl Analytics_CallToSignature(sigHashVal: Value)
 .output Analytics_CallToSignature
+
+.decl Analytics_ERC20TransferCall(call:Statement)
+.output Analytics_ERC20TransferCall
+
+.decl Analytics_ERC20TransferFromCall(call:Statement)
+.output Analytics_ERC20TransferFromCall
+
+.decl Analytics_ERC20ApproveCall(call:Statement)
+.output Analytics_ERC20ApproveCall
+
+.decl Analytics_ExternalCallActualReturn(call: Statement, actual: Variable, index: number)
+.output Analytics_ExternalCallActualReturn
 
 Analytics_CallToSignature(substr(sigHashVal, 0, 10)) :-
   CALLStatement(call, _),
   StatementUsesMemory_ActualMemoryArg(call, _, 0, actual),
   Variable_Value(actual, sigHashVal).
+
+Analytics_ERC20TransferCall(call):-
+  ERC20TransferCall(call, _, _).
+
+Analytics_ERC20TransferFromCall(call):-
+  ERC20TransferFromCall(call, _, _, _).
+
+Analytics_ERC20ApproveCall(call):-
+  ERC20ApproveCall(call, _, _).
+
+Analytics_ExternalCallActualReturn(call, actual, index):-
+  ExternalCall_ActualReturn(call, actual, index).
+
+
+.decl Analytics_RevertSigUsed(sig: symbol)
+.output Analytics_RevertSigUsed
+
+Analytics_RevertSigUsed(sig):-
+  RevertToSignature(_, sig).
+
 
 .decl Analytics_EventSignature(sigHashVal: Value)
 .output Analytics_EventSignature
@@ -154,6 +190,10 @@ Analytics_EventSignature(sigHashVal) :-
   LOGStatement(log, _),
   Statement_Uses(log, actual, 2),
   Variable_Value(actual, sigHashVal).
+
+/**
+ * Guards
+ */
 
 .decl Analytics_SenderGuard(glovalVar: Value)
 .output Analytics_SenderGuard
@@ -166,6 +206,10 @@ Analytics_SenderGuard(globalVar):-
 
 Analytics_ReentrancyGuard(glovalVar):-
   ReentrancyGuard(glovalVar).
+
+/**
+ * Storage Modeling
+ */
 
 .decl Analytics_GlobalVariable(globalVar: symbol)
 .output Analytics_GlobalVariable

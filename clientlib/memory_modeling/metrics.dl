@@ -1,23 +1,5 @@
 #pragma once
 
-/*
- * Analytics
- */
-
-.decl Analytics_ERC20TransferCall(call:Statement)
-.output Analytics_ERC20TransferCall
-
-.decl Analytics_ERC20TransferFromCall(call:Statement)
-.output Analytics_ERC20TransferFromCall
-
-.decl Analytics_ERC20ApproveCall(call:Statement)
-.output Analytics_ERC20ApproveCall
-
-.decl Analytics_CallWithSig(call:Statement)
-.output Analytics_CallWithSig
-
-.decl Analytics_RevertSigUsed(sig: symbol)
-.output Analytics_RevertSigUsed
 
 /**
   Approximation to 'reused' memory reading statements.
@@ -40,20 +22,6 @@
 .decl Analytics_PublicFunctionArrayArg(arg:Variable)
 .output Analytics_PublicFunctionArrayArg
 
-Analytics_ERC20TransferCall(call):-
-  ERC20TransferCall(call, _, _).
-
-Analytics_ERC20TransferFromCall(call):-
-  ERC20TransferFromCall(call, _, _, _).
-
-Analytics_ERC20ApproveCall(call):-
-  ERC20ApproveCall(call, _, _).
-
-Analytics_CallWithSig(call):-
-  CallToSignature(call, _).
-
-Analytics_RevertSigUsed(sig):-
-  RevertToSignature(_, sig).
 
 Analytics_MemConsStmtUsesFromDistinctPaths(memConsStmt):-
   StatementUsesMemory_LengthVar(memConsStmt, _, lenVar),
