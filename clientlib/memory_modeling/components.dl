@@ -282,6 +282,7 @@
 	  block2 != block1,
 	  block2 != block3,
 	  !Dominates(block3, block2),
+	  !Dominates(block2, block1),
 	  min(len3, len2) >= min(len3, len1).
 
 	FromStmtToStmtDiffBlockHavePathInterrupted(stmt1, block1, stmt3, block3, arg):-

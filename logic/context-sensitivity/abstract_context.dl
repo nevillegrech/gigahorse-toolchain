@@ -118,6 +118,21 @@
   MergeContext(ctx, caller, ctx) :-
     MaxContextDepth(_, 0),
     ReachableContext(ctx, caller).
+
+  // For in-depth metrics
+  .decl ContextContainsBlock(ctx: Context, blk: Block, index: number)
+  .decl ContextContainsBlockTimes(ctx: Context, blk: Block, times: number)
+
+  ContextContainsBlock(ctx, blk, 0):-
+    DecomposeContext(ctx, blk, _).
+
+  ContextContainsBlock(ctx, blk, i + 1):-
+    DecomposeContext(ctx, _, rest),
+    ContextContainsBlock(rest, blk, i).
+
+  ContextContainsBlockTimes(ctx, blk, times):-
+    ContextContainsBlock(ctx, blk, _),
+    times = count : ContextContainsBlock(ctx, blk, _).
 }
 
 

@@ -1,0 +1,6 @@
+{
+    "client_path": null,
+    "gigahorse_args": ["-i", "--disable_scalable_fallback", "--disable_precise_fallback", "--disable_inline", "-M", "CONTEXT_SENSITIVITY=TransactionalContext"],
+    "expected_analytics": [["Analytics_JumpToMany", 0, 0], ["Analytics_UnreachableBlock", 0, 0],
+    ["Analytics_BlockHasNoTACBlock", 0, 0]]
+}
