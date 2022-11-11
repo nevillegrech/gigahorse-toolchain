@@ -75,7 +75,8 @@
 	  LocalBlockPath(block2, block3),
 	  block2 != block1,
 	  block2 != block3,
-	  !Dominates(block3, block2).
+	  !Dominates(block3, block2),
+	  !Dominates(block2, block1).
 
 	FromStmtToStmtDiffBlockHavePathInterrupted(stmt1, block1, stmt3, block3):-
 	  FromStmtToStmtDiffBlockHavePath(stmt1, block1, stmt3, block3),
@@ -178,7 +179,8 @@
 	  LocalBlockPath(block2, block3),
 	  block2 != block1,
 	  block2 != block3,
-	  !Dominates(block3, block2).
+	  !Dominates(block3, block2),
+	  !Dominates(block2, block1).
 
 	FromStmtToStmtDiffBlockHavePathInterrupted(stmt1, block1, stmt3, block3, arg):-
 	  FromStmtToStmtDiffBlockHavePath(stmt1, block1, stmt3, block3, arg),
