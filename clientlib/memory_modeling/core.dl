@@ -1,12 +1,9 @@
 #pragma once
 
-/*
 
- */
-
-/*
-  Describing statements that bulk copy continuous data from memory
-  CALLDATACOPY, RETURNDATACOPY, CODECOPY, EXTCODECOPY
+/**
+  Describing statements that bulk copy continuous data from memory:
+  `CALLDATACOPY`, `RETURNDATACOPY`, `CODECOPY`, `EXTCODECOPY`
 */
 .decl VariableLengthMemoryCopyStatement(stmt:Statement, memAddrVar:Variable, lenVar:Variable)
 DEBUG_OUTPUT(VariableLengthMemoryCopyStatement)
@@ -24,10 +21,10 @@ VariableLengthMemoryCopyStatement(stmt, memAddrVar, lenVar):-
   Statement_Uses(stmt, lenVar, 3).
 
 /**
-  MSTORE that is guranteed to only write less than a whole word
+  `MSTORE` that is guranteed to only write less than a whole word
   with the rest being just previously read from memory.  
   Patterns are syntactic and can break with newer compiler versions.
-  Produced by the abiencodeWithSelector primitive.
+  Produced by the `abiencodeWithSelector` primitive.
 */
 
 .decl PartialMSTORE(mstore:Statement, mload:Statement, storedVar:Variable, updateBytes:number)
@@ -132,17 +129,14 @@ StatementUsesMemoryOfNonComputableLength(stmt, kind, lenvar):-
   StatementUsesMemory_LengthVar(stmt, kind, lenvar),
   !Variable_Value(lenvar, _).
 
-/*
- *  StatementWritesMemoryOfConstantLength:
- *    contains all statements that write memory of a length we can compute
- *
- *  StatementWritesMemoryOfLength:
- *    contains the above and uses an approximation for the rest.
- */
-
+// Contains all statements that write memory of a length we can compute
 .decl StatementWritesMemoryOfConstantLength(stmt:Statement, addrVar:Variable, length:number)
 DEBUG_OUTPUT(StatementWritesMemoryOfConstantLength)
 
+/**
+  Contains the definite results of `StatementWritesMemoryOfConstantLength`
+  and an approximation for statements where we can't compute the length
+*/
 .decl StatementWritesMemoryOfLength(stmt:Statement, addrVar:Variable, length:number)
 DEBUG_OUTPUT(StatementWritesMemoryOfLength)
 

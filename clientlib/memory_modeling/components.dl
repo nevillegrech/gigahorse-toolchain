@@ -1,33 +1,37 @@
 #pragma once
 
 /**
-  Stmts in From reach stmt in To bypassing all stmts in Bypassing
+  Stmts in `From` reach stmt in `To` bypassing all stmts in `Bypassing`
   By parametrizing the three statement sets we answer questions such as:
-    Do two loads of the free memory pointer point to the same address( have no write to the free memory pointer in between)?
-
-    Find the memory consuming statement that consumes the memory a store writes to.
-    (An MSTORE and a mem cons statement without another mem cons statement in between)
+  - Do two loads of the free memory pointer point to the same address (have no write to the free memory pointer in between)?
+  - Which `CALL` statement does this `RETURNDATASIZE` or `RETURNDATACOPY` statement refer to?
 **/
 
-.comp ReachableByPassing{
-	.decl From(stmt:Statement)
-	.decl Bypassing(stmt:Statement)
-	.decl To(stmt:Statement)
+.comp ReachableByPassing {
 	
-	.decl BlockHasFromStmt(block:Block, stmt:Statement)
-	.decl BlockHasBypassingStmt(block:Block, stmt:Statement)
-	.decl BlockHasToStmt(block:Block, stmt:Statement)
+	// Inputs
+	.decl From(stmt: Statement)
+	.decl Bypassing(stmt: Statement)
+	.decl To(stmt: Statement)
 
-	.decl FromStmtToStmtSameBlock(stmt1:Statement, stmt3:Statement)
-	.decl FromStmtToStmtSameBlockInterrupted(stmt1:Statement, stmt3:Statement)
-	.decl FromStmtToStmtSameBlockUninterrupted(stmt1:Statement, stmt3:Statement)
+	// Outputs
+	.decl ReachableBypassingAny(stmt1: Statement, stmt2: Statement)
+	.decl ReachableBypassingAnyStrict(stmt1: Statement, stmt2: Statement)
 
-	.decl FromStmtToStmtDiffBlockHavePath(stmt1:Statement, block1:Block, stmt3:Statement, block2:Block)
-	.decl FromStmtToStmtDiffBlockHavePathInterrupted(stmt1:Statement, block1:Block, stmt3:Statement, block3:Block)
-	.decl FromStmtToStmtDiffBlockHavePathUninterrupted(stmt1:Statement, stmt3:Statement)
+	// Helpers/intermediate relations
+	.decl BlockHasFromStmt(block: Block, stmt: Statement)
+	.decl BlockHasBypassingStmt(block: Block, stmt: Statement)
+	.decl BlockHasToStmt(block: Block, stmt: Statement)
 
-	.decl ReachableBypassingAny(stmt1:Statement, stmt2:Statement)
-	.decl ReachableBypassingAnyStrict(stmt1:Statement, stmt2:Statement)
+	.decl FromStmtToStmtSameBlock(stmt1: Statement, stmt3: Statement)
+	.decl FromStmtToStmtSameBlockInterrupted(stmt1: Statement, stmt3: Statement)
+	.decl FromStmtToStmtSameBlockUninterrupted(stmt1: Statement, stmt3: Statement)
+
+	.decl FromStmtToStmtDiffBlockHavePath(stmt1: Statement, block1: Block, stmt3: Statement, block2: Block)
+	.decl FromStmtToStmtDiffBlockHavePathInterrupted(stmt1: Statement, block1: Block, stmt3: Statement, block3: Block)
+	.decl FromStmtToStmtDiffBlockHavePathUninterrupted(stmt1: Statement, stmt3: Statement)
+
+
 
 
 	BlockHasFromStmt(block, stmt):-
@@ -106,32 +110,35 @@
 	  ).
 }
 
-/*
- * Same as the previous with an extra argument to further distinguish
- * relevant stmts
- * Can be used to answer questions such as: Which is the last stmt to
- * write to the particular address that is loaded. 
- * (write to that address bypassing all other writes to the same address)
+/**
+  Same as the `ReachableBypassing` component with an extra argument to further distinguish relevant stmts.
+  Can be used to answer questions such as:
+  - Which is the last stmt to write to the particular address that is loaded.
+   (write to that address bypassing all other writes to the same address)
  */
-.comp ReachableBypassingWArg{
-	.decl From(stmt:Statement, arg:symbol)
-	.decl Bypassing(stmt:Statement, arg:symbol)
-	.decl To(stmt:Statement, arg:symbol)
-	
-	.decl BlockHasFromStmt(block:Block, stmt:Statement, arg:symbol)
-	.decl BlockHasBypassingStmt(block:Block, stmt:Statement, arg:symbol)
-	.decl BlockHasToStmt(block:Block, stmt:Statement, arg:symbol)
+.comp ReachableBypassingWArg {
 
-	.decl FromStmtToStmtSameBlock(stmt1:Statement, stmt3:Statement, arg:symbol)
-	.decl FromStmtToStmtSameBlockInterrupted(stmt1:Statement, stmt3:Statement, arg:symbol)
-	.decl FromStmtToStmtSameBlockUninterrupted(stmt1:Statement, stmt3:Statement, arg:symbol)
+	// Inputs
+	.decl From(stmt: Statement, arg: symbol)
+	.decl Bypassing(stmt: Statement, arg: symbol)
+	.decl To(stmt: Statement, arg: symbol)
 
-	.decl FromStmtToStmtDiffBlockHavePath(stmt1:Statement, block1:Block, stmt3:Statement, block2:Block, arg:symbol)
-	.decl FromStmtToStmtDiffBlockHavePathInterrupted(stmt1:Statement, block1:Block, stmt3:Statement, block2:Block, arg:symbol)
-	.decl FromStmtToStmtDiffBlockHavePathUninterrupted(stmt1:Statement, stmt3:Statement, arg:symbol)
+	// Outputs
+	.decl ReachableBypassingAny(stmt1: Statement, stmt2: Statement, arg: symbol)
+	.decl ReachableBypassingAnyStrict(stmt1: Statement, stmt2: Statement, arg: symbol)
 
-	.decl ReachableBypassingAny(stmt1:Statement, stmt2:Statement, arg:symbol)
-	.decl ReachableBypassingAnyStrict(stmt1:Statement, stmt2:Statement, arg:symbol)
+	// Helpers/intermediate relations
+	.decl BlockHasFromStmt(block: Block, stmt: Statement, arg: symbol)
+	.decl BlockHasBypassingStmt(block: Block, stmt: Statement, arg: symbol)
+	.decl BlockHasToStmt(block: Block, stmt: Statement, arg: symbol)
+
+	.decl FromStmtToStmtSameBlock(stmt1: Statement, stmt3: Statement, arg: symbol)
+	.decl FromStmtToStmtSameBlockInterrupted(stmt1: Statement, stmt3: Statement, arg: symbol)
+	.decl FromStmtToStmtSameBlockUninterrupted(stmt1: Statement, stmt3: Statement, arg: symbol)
+
+	.decl FromStmtToStmtDiffBlockHavePath(stmt1: Statement, block1: Block, stmt3: Statement, block2: Block, arg: symbol)
+	.decl FromStmtToStmtDiffBlockHavePathInterrupted(stmt1: Statement, block1: Block, stmt3: Statement, block2: Block, arg: symbol)
+	.decl FromStmtToStmtDiffBlockHavePathUninterrupted(stmt1: Statement, stmt3: Statement, arg: symbol)
 
 
 	BlockHasFromStmt(block, stmt, arg):-
@@ -210,29 +217,34 @@
 	  ).
 }
 
-/*
- * Special case of the previous to support memory operations at an address with
- * a specified length. Probably not reusable but its better as a component
+/**
+  Special case of `ReachableBypassingWArg` to support memory operations at an address with
+  a specified length. Probably not reusable but its better as a component.
  */
-.comp ReachableBypassingWArgAndLen{
-	.decl From(stmt:Statement, arg:symbol, len:number)
-	.decl Bypassing(stmt:Statement, arg:symbol, len:number)
-	.decl To(stmt:Statement, arg:symbol, len:number)
+.comp ReachableBypassingWArgAndLen {
 
-	.decl BlockHasFromStmt(block:Block, stmt:Statement, arg:symbol, len:number)
-	.decl BlockHasBypassingStmt(block:Block, stmt:Statement, arg:symbol, len:number)
-	.decl BlockHasToStmt(block:Block, stmt:Statement, arg:symbol, len:number)
+	// Inputs
+	.decl From(stmt: Statement, arg: symbol, len: number)
+	.decl Bypassing(stmt: Statement, arg: symbol, len: number)
+	.decl To(stmt: Statement, arg: symbol, len: number)
 
-	.decl FromStmtToStmtSameBlock(stmt1:Statement, stmt3:Statement, arg:symbol)
-	.decl FromStmtToStmtSameBlockInterrupted(stmt1:Statement, stmt3:Statement, arg:symbol)
-	.decl FromStmtToStmtSameBlockUninterrupted(stmt1:Statement, stmt3:Statement, arg:symbol)
+	// Outputs
+	.decl ReachableBypassingAny(stmt1: Statement, stmt2: Statement, arg: symbol)
+    .decl ReachableBypassingAnyStrict(stmt1: Statement, stmt2: Statement, arg: symbol)
 
-	.decl FromStmtToStmtDiffBlockHavePath(stmt1:Statement, block1:Block, stmt3:Statement, block2:Block, arg:symbol)
-	.decl FromStmtToStmtDiffBlockHavePathInterrupted(stmt1:Statement, block1:Block, stmt3:Statement, block2:Block, arg:symbol)
-	.decl FromStmtToStmtDiffBlockHavePathUninterrupted(stmt1:Statement, stmt3:Statement, arg:symbol)
+	// Helpers/intermediate relations
+	.decl BlockHasFromStmt(block: Block, stmt: Statement, arg: symbol, len: number)
+	.decl BlockHasBypassingStmt(block: Block, stmt: Statement, arg: symbol, len: number)
+	.decl BlockHasToStmt(block: Block, stmt: Statement, arg: symbol, len: number)
 
-	.decl ReachableBypassingAny(stmt1:Statement, stmt2:Statement, arg:symbol)
-    .decl ReachableBypassingAnyStrict(stmt1:Statement, stmt2:Statement, arg:symbol)
+	.decl FromStmtToStmtSameBlock(stmt1: Statement, stmt3: Statement, arg: symbol)
+	.decl FromStmtToStmtSameBlockInterrupted(stmt1: Statement, stmt3: Statement, arg: symbol)
+	.decl FromStmtToStmtSameBlockUninterrupted(stmt1: Statement, stmt3: Statement, arg: symbol)
+
+	.decl FromStmtToStmtDiffBlockHavePath(stmt1: Statement, block1: Block, stmt3: Statement, block2: Block, arg: symbol)
+	.decl FromStmtToStmtDiffBlockHavePathInterrupted(stmt1: Statement, block1: Block, stmt3: Statement, block2: Block, arg: symbol)
+	.decl FromStmtToStmtDiffBlockHavePathUninterrupted(stmt1: Statement, stmt3: Statement, arg: symbol)
+
 
 	BlockHasFromStmt(block, stmt, arg, len):-
 	  From(stmt, arg, len),
@@ -324,12 +336,15 @@
 /**
   For debugging and checking that a given predicate is a function
 **/
-.comp AssertIsFunction{
-  .decl From(from:symbol)
-  .decl FunRelation(from:symbol, to:symbol)
+.comp AssertIsFunction {
 
-  .decl FromHasTwoEdges(from:symbol)
-  .decl FromHasNoEdges(from:symbol)
+  // Inputs
+  .decl From(from: symbol)
+  .decl FunRelation(from: symbol, to: symbol)
+
+  // Outputs
+  .decl FromHasTwoEdges(from: symbol)
+  .decl FromHasNoEdges(from: symbol)
   
   .output FromHasNoEdges
   .output FromHasTwoEdges
@@ -345,17 +360,22 @@
 }
 
 
-.comp DominatorInClass{
+/**
+  Component used to identify a representative for variables with aliasing values.
+  This is used to find a representative for aliasing vars pointing to the same array.
+*/
+.comp DominatorInClass {
 
-  .decl LoadInBlock(var:Variable, load:Statement, block:Block)
+  // Input
+  .decl InSameClass(var1: Variable, var2: Variable)
 
-  .decl InSameClass(var1:Variable, var2:Variable)
+  // Output
+  .decl Var_ClassRep(var: Variable, classRep: symbol)
 
-  .decl DominatesInClass(var1:Variable, var2:Variable, load1:Statement, load2:Statement)
-
-  .decl DominatesAllInClass(var:Variable, load:Statement)
-
-  .decl Var_ClassRep(var:Variable, classRep:symbol)
+  // Helpers/intermediate relations
+  .decl LoadInBlock(var: Variable, load: Statement, block: Block)
+  .decl DominatesInClass(var1: Variable, var2: Variable, load1: Statement, load2: Statement)
+  .decl DominatesAllInClass(var: Variable, load: Statement)
 
   LoadInBlock(arrVar, mload, block):-
     (InSameClass(arrVar, _);InSameClass(_, arrVar)),
