@@ -104,6 +104,18 @@ CallDataCopyArgInfo(callDataCopy, arrayVar, argHex):-
   ArgArrayLenWrittenTo(lenVar, arrayVar),
   VarPlusThirtyTwo(arrayVar, arrayDataStart).
 
+// Evaluate when this is needed
+// IsRegularArrayVar(arrayVar),
+// Array_ElementLength(arrayVar, elemSize):-
+// //CallDataCopyArgInfo(callDataCopy, arrayVar, argHex):-
+//   CallDataLoadReadsLength(_, _, calldataArrayVar, lenVar, argHex),
+//   VarTimesConstant(lenVar, elemSize, lenBytes),
+//   CallDataCopyLoop(loop, calldataArrayDataStart, arrayDataStart),
+//   VarPlusThirtyTwo(calldataArrayVar, calldataArrayDataStart),
+//   //CALLDATACOPY(callDataCopy, arrayDataStart, _, lenBytes),
+//   ArgArrayLenWrittenTo(lenVar, arrayVar),
+//   VarPlusThirtyTwo(arrayVar, arrayDataStart).
+
 ArgArrayLenWrittenTo(lenVar, arrayVar):-
   CallDataLoadReadsLength(_, _, _, lenVar, _),
   MSTORE(_, arrayVar, lenVar).
@@ -111,6 +123,10 @@ ArgArrayLenWrittenTo(lenVar, arrayVar):-
 
 ArrayDataStartVar(array, arrayStart):-
   IsRegularArrayVar(array),
+  VarPlusThirtyTwo(array, arrayStart).
+
+ArrayDataStartVar(array, arrayStart):-
+  IsCallDataArrayVar(array, _),
   VarPlusThirtyTwo(array, arrayStart).
 
 // REVIEW: This generates too many results
@@ -454,6 +470,21 @@ ArrayAllocationInternal(mstore, array, elementSize, arrayLengthVar):-
   Statement_Uses(mstore, updatedFMP, 1),
   MSTOREFreePtr(mstore).
 
+/**
+  Covers patterns produced for calldata arrays copied to memory.
+  For solidity versions >= 0.8
+*/
+IsRegularArrayVar(array),
+Array_ElementLength(array, elementSize),
+ArrayAllocationInternal(mstore, array, elementSize, arrayLengthVar):-
+  PossibleArray(array),
+  MSTORE(_, array, arrayLengthVar),
+  VarTimesConstant(arrayLengthVar, elementSize, arraySizeBytes),
+  VarPlusThirtyTwo(arraySizeBytes, arrayTotalSizeBytes),
+  VarPlusThrirtyOneAndNotThirtyOne(arrayTotalSizeBytes, arrayFinalSizeBytes),
+  ADDFix(_, arrayFinalSizeBytes, array, updatedFMP),
+  Statement_Uses(mstore, updatedFMP, 1),
+  MSTOREFreePtr(mstore).
 
 /**
   bytes or strings

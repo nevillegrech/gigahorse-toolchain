@@ -23,6 +23,7 @@ DEBUG_OUTPUT(InductionVariableLowerBoundVar)
 DEBUG_OUTPUT(InductionVariableUpperBoundVar)
 DEBUG_OUTPUT(WellFormedLoopInductionVariable)
 DEBUG_OUTPUT(MemoryCopyLoop)
+DEBUG_OUTPUT(CallDataCopyLoop)
 DEBUG_OUTPUT(MemoryCopyLoopConstLength)
 
 .type SimpleInductionVariable = [beforeLoopVar:Variable, inLoopVar:Variable]
@@ -34,6 +35,13 @@ DEBUG_OUTPUT(MemoryCopyLoopConstLength)
 .decl InductionVariableUpperBoundVar(loop:Block, indVar:SimpleInductionVariable, bound:Variable)
 .decl MemoryCopyLoop(loop:Block, memAddrFrom:Variable, memAddrTo:Variable)
 .decl MemoryCopyLoopConstLength(loop:Block, memAddrFrom:Variable, memAddrTo:Variable, length:number)
+
+/**
+  `loop` copies calldata starting from `callDataAddrFrom` to memory starting from `memAddrTo`.
+  Does not contain any info on the length of the copied data
+*/
+.decl CallDataCopyLoop(loop: Block, callDataAddrFrom: Variable, memAddrTo: Variable)
+
 .decl WellFormedLoopInductionVariable(loop:Block, inductionPhiVar:Variable, simpleIndVar:SimpleInductionVariable)
 
 WellFormedLoopInductionVariable(loop, phiVar, [beforeLoopVar, inLoopVar]):-
@@ -88,6 +96,22 @@ MemoryCopyLoop(loop, beforeLoopVarFrom, beforeLoopVarTo):-
   InductionVariableIncreasesByConst(loop, [beforeLoopVarFrom, inLoopVarFrom], 32),
   PHIStmtTwoUses(_, beforeLoopVarFrom, inLoopVarFrom, fromIndexVar),
   MLOAD(_, fromIndexVar, copiedVar),
+  InductionVariableIncreasesByConst(loop, [beforeLoopVarTo, inLoopVarTo], 32),
+  PHIStmtTwoUses(_, beforeLoopVarTo, inLoopVarTo, toIndexVar),
+  MSTORE(_, toIndexVar, copiedVar).
+
+CallDataCopyLoop(loop, calldataAddrFrom, memAddrTo):-
+  InductionVariableIncreasesByConst(loop, [beforeLoopVar, inLoopVar], 32),
+  PHIStmtTwoUses(_, beforeLoopVar, inLoopVar, phiVar),
+  ADDFix(_, phiVar, calldataAddrFrom, fromIndexVar),
+  CALLDATALOAD(_, fromIndexVar, copiedVar),
+  ADDFix(_, phiVar, memAddrTo, toIndexVar),
+  MSTORE(_, toIndexVar, copiedVar).
+
+CallDataCopyLoop(loop, beforeLoopVarFrom, beforeLoopVarTo):-
+  InductionVariableIncreasesByConst(loop, [beforeLoopVarFrom, inLoopVarFrom], 32),
+  PHIStmtTwoUses(_, beforeLoopVarFrom, inLoopVarFrom, fromIndexVar),
+  CALLDATALOAD(_, fromIndexVar, copiedVar),
   InductionVariableIncreasesByConst(loop, [beforeLoopVarTo, inLoopVarTo], 32),
   PHIStmtTwoUses(_, beforeLoopVarTo, inLoopVarTo, toIndexVar),
   MSTORE(_, toIndexVar, copiedVar).
