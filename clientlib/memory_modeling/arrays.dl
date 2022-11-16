@@ -4,16 +4,16 @@
  Arrays
  **/
 
-.decl IsCallDataArrayVar(var:Variable, argHex:symbol)
+.decl IsCallDataArrayVar(var: Variable, argHex: symbol)
 DEBUG_OUTPUT(IsCallDataArrayVar)
 
-.decl IsRegularArrayVar(var:Variable)
+.decl IsRegularArrayVar(var: Variable)
 DEBUG_OUTPUT(IsRegularArrayVar)
 
-.decl IsRawDataArrayVar(var:Variable)
+.decl IsRawDataArrayVar(var: Variable)
 DEBUG_OUTPUT(IsRawDataArrayVar)
 
-.decl IsABIEncodedArrayVar(var:Variable)
+.decl IsABIEncodedArrayVar(var: Variable)
 DEBUG_OUTPUT(IsABIEncodedArrayVar)
 
 /*
@@ -65,10 +65,16 @@ CallDataLoadReadsLength(cdl, cdl2, plusFourVar, lenVar, argHex):-
   Variable_NumericValue(fourVar, 4),
   CALLDATALOAD(cdl2, plusFourVar, lenVar).
 
+/**
+  REVIEW at some point as it may be too loose.
+  However we can't do much better right now.
+*/
 Array_ElementLength(plusFourVar, elemSize):-
   IsCallDataArrayVar(plusFourVar, argHex),
   CallDataLoadReadsLength(_, _, plusFourVar, lenVar, argHex),
-  VarTimesConstant(lenVar, elemSize, _).
+  VarTimesConstant(lenVar, elemSize, res),
+  // Hack to recover precision and avoid the identity case of VarTimesConstant
+  lenVar != res.
 
 
 
@@ -202,6 +208,11 @@ ArrayIndexAccess(array, indexVar, index):-
   ArrayDataStartVar(array, dataStartVar),
   ADDFix(_, dataStartVar, indexTimesCons, indexVar),
   VarTimesConstant(index, elementSize, indexTimesCons).
+
+// Completeness addition to cover some patterns produced by solc >= 0.8
+ArrayIndexAccess(array, newIndexVar, index):-
+  ArrayIndexAccess(array, indexVar, index),
+  VarPlusConst(indexVar, "0x0", newIndexVar).
 
 /**
   This rule detects the following pattern:

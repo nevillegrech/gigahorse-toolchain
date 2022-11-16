@@ -7,21 +7,23 @@
   using the same revert statement in the compiled bytecode.
   Seen it in optimized 0.8.x code.
 */
-.decl Analytics_MemConsStmtUsesFromDistinctPaths(memConsStmt:Statement)
+.decl Analytics_MemConsStmtUsesFromDistinctPaths(memConsStmt: Statement)
 .output Analytics_MemConsStmtUsesFromDistinctPaths
 
-.decl Analytics_NonModeledMSTORE(mstore:Statement)
+.decl Analytics_NonModeledMSTORE(mstore: Statement)
 .output Analytics_NonModeledMSTORE
 
-.decl Analytics_NonModeledMLOAD(mload:Statement)
+.decl Analytics_NonModeledMLOAD(mload: Statement)
 .output Analytics_NonModeledMLOAD
 
-.decl Analytics_PublicFunctionArg(arg:Variable)
+.decl Analytics_PublicFunctionArg(arg: Variable)
 .output Analytics_PublicFunctionArg
 
-.decl Analytics_PublicFunctionArrayArg(arg:Variable)
+.decl Analytics_PublicFunctionArrayArg(arg: Variable)
 .output Analytics_PublicFunctionArrayArg
 
+.decl Analytics_NonModeledCALLDATALOAD(cdl: Statement)
+.output Analytics_NonModeledCALLDATALOAD
 
 Analytics_MemConsStmtUsesFromDistinctPaths(memConsStmt):-
   StatementUsesMemory_LengthVar(memConsStmt, _, lenVar),
@@ -38,8 +40,12 @@ Analytics_PublicFunctionArg(arg):-
   PublicFunctionArg(_, arg, _).
 
 Analytics_PublicFunctionArrayArg(arrayArg):-
-  PublicFunctionArg(_, arrayArg, _),
-  IsCallDataArrayVar(arrayArg, _).
+  PublicFunctionArrayArg(_, arrayArg, _).
+
+Analytics_NonModeledCALLDATALOAD(cdl):-
+  CALLDATALOAD(cdl, _, _),
+  !CALLDATALOADOfStaticAddr(cdl),
+  !CALLDATALOADArrayRelated(cdl).
 
 /*
  * Other metrics

@@ -41,12 +41,15 @@ PublicFunctionArg(pubFun, arg, constNum):-
   !CallDataLoadReadsLength(cdl, _, _, _, _),
   (constNum - 4) % 32 != 0.
 
-PublicFunctionArg(pubFun, arrayArg, (@hex_to_number(constHex) - 4) / 32):-
+PublicFunctionArg(pubFun, arrayArg, index):-
+  PublicFunctionArrayArg(pubFun, arrayArg, index).
+
+PublicFunctionArrayArg(pubFun, as(arrayArg, ArrayVariable), (@hex_to_number(constHex) - 4) / 32):-
   IsCallDataArrayVar(arrayArg, constHex),
   Variable_Function(arrayArg, pubFun),
   (@hex_to_number(constHex) - 4) % 32 = 0.
 
-PublicFunctionArg(pubFun, arrayArg, @hex_to_number(constHex)):-
+PublicFunctionArrayArg(pubFun, as(arrayArg, ArrayVariable), @hex_to_number(constHex)):-
   IsCallDataArrayVar(arrayArg, constHex),
   Variable_Function(arrayArg, pubFun),
   (@hex_to_number(constHex) - 4) % 32 != 0.
