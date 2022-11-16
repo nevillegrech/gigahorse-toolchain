@@ -16,15 +16,16 @@ DEBUG_OUTPUT(IsRawDataArrayVar)
 .decl IsABIEncodedArrayVar(var: Variable)
 DEBUG_OUTPUT(IsABIEncodedArrayVar)
 
-/*
- * cdl loads the array's offset in the calldata 
- * cdl2 loads the array's length
+/**
+  `cdl` loads the `cdlArrayVar`'s offset in the calldata 
+  `cdl2` loads the array's length in `lenVar`
 */
 
 .decl CallDataLoadReadsLength(cdl:Statement, cdl2:Statement, cdlArrayVar:Variable, lenVar:Variable, argHex:symbol)
 DEBUG_OUTPUT(CallDataLoadReadsLength)
 
-.decl CallDataCopyArgInfo(callDataCopy:Statement, arrayVar:Variable, argHex:symbol)
+// TODO: Change arg order
+.decl CallDataCopyArgInfo(callDataCopy: Statement, memArrayTo: Variable, callDataArrayFrom: Variable)
 DEBUG_OUTPUT(CallDataCopyArgInfo)
 
 .decl Array_ElementLength(array:Variable, elementSize:symbol)
@@ -92,23 +93,27 @@ ArrayDataStartVar(array, dataStartVar):-
   ADDFix(_, to, x24, dataStartVar),
   Variable_NumericValue(x24, 36).
 
-IsRegularArrayVar(arrayVar),
-Array_ElementLength(arrayVar, "0x1"),
-CallDataCopyArgInfo(callDataCopy, arrayVar, argHex):-
-  CallDataLoadReadsLength(_, _, _, lenVar, argHex),
+IsRegularArrayVar(memArrayTo),
+Array_ElementLength(memArrayTo, "0x1"),
+CallDataCopyArgInfo(callDataCopy, memArrayTo, callDataArrayFrom):-
+  CallDataLoadReadsLength(_, _, callDataArrayFrom, lenVar, _),
   CALLDATACOPY(callDataCopy, arrayDataStart, _, lenVar),
-  ArgArrayLenWrittenTo(lenVar, arrayVar),
-  VarPlusThirtyTwo(arrayVar, arrayDataStart).
+  ArgArrayLenWrittenTo(lenVar, memArrayTo),
+  VarPlusThirtyTwo(memArrayTo, arrayDataStart).
 
 
-IsRegularArrayVar(arrayVar),
-Array_ElementLength(arrayVar, elemSize),
-CallDataCopyArgInfo(callDataCopy, arrayVar, argHex):-
-  CallDataLoadReadsLength(_, _, _, lenVar, argHex),
+IsRegularArrayVar(memArrayTo),
+Array_ElementLength(memArrayTo, elemSize),
+CallDataCopyArgInfo(callDataCopy, memArrayTo, callDataArrayFrom):-
+  CallDataLoadReadsLength(_, _, callDataArrayFrom, lenVar, _),
   VarTimesConstant(lenVar, elemSize, lenBytes),
   CALLDATACOPY(callDataCopy, arrayDataStart, _, lenBytes),
-  ArgArrayLenWrittenTo(lenVar, arrayVar),
-  VarPlusThirtyTwo(arrayVar, arrayDataStart).
+  ArgArrayLenWrittenTo(lenVar, memArrayTo),
+  VarPlusThirtyTwo(memArrayTo, arrayDataStart).
+
+ArrayCopy(as(callDataArrayFrom, ArrayVariable), memArrayToId):-
+  CallDataCopyArgInfo(_, memArrayTo, callDataArrayFrom),
+  VarIsArray(memArrayTo, memArrayToId).
 
 // Evaluate when this is needed
 // IsRegularArrayVar(arrayVar),
