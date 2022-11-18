@@ -10,8 +10,8 @@ contract CallDataToMemoryArrays {
       return nums;
   }
 
-  function get(bool[] memory bools) external pure returns (bool[] memory) {
-      return bools;
+  function get(string memory str) external pure returns (string memory) {
+      return str;
   }
 
 }
