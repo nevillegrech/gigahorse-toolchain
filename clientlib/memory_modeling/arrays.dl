@@ -115,17 +115,18 @@ ArrayCopy(as(callDataArrayFrom, ArrayVariable), memArrayToId):-
   CallDataCopyArgInfo(_, memArrayTo, callDataArrayFrom),
   VarIsArray(memArrayTo, memArrayToId).
 
-// Evaluate when this is needed
 // IsRegularArrayVar(arrayVar),
 // Array_ElementLength(arrayVar, elemSize):-
-// //CallDataCopyArgInfo(callDataCopy, arrayVar, argHex):-
-//   CallDataLoadReadsLength(_, _, calldataArrayVar, lenVar, argHex),
-//   VarTimesConstant(lenVar, elemSize, lenBytes),
-//   CallDataCopyLoop(loop, calldataArrayDataStart, arrayDataStart),
-//   VarPlusThirtyTwo(calldataArrayVar, calldataArrayDataStart),
-//   //CALLDATACOPY(callDataCopy, arrayDataStart, _, lenBytes),
-//   ArgArrayLenWrittenTo(lenVar, arrayVar),
-//   VarPlusThirtyTwo(arrayVar, arrayDataStart).
+//CallDataCopyArgInfo(callDataCopy, arrayVar, argHex):-
+// For post 0.8.x calldata arrays
+ArrayCopy(as(callDataArrayFrom, ArrayVariable), memArrayToId):-
+  CallDataLoadReadsLength(_, _, callDataArrayFrom, lenVar, _),
+  // VarTimesConstant(lenVar, elemSize, lenBytes),
+  CallDataCopyLoop(_, calldataArrayDataStart, memArrayToDataStart),
+  ArrayDataStartVar(callDataArrayFrom, calldataArrayDataStart),
+  ArgArrayLenWrittenTo(lenVar, memArrayTo),
+  ArrayDataStartVar(memArrayTo, memArrayToDataStart),
+  VarIsArray(memArrayTo, memArrayToId).
 
 ArgArrayLenWrittenTo(lenVar, arrayVar):-
   CallDataLoadReadsLength(_, _, _, lenVar, _),
