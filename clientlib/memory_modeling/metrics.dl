@@ -25,6 +25,9 @@
 .decl Analytics_NonModeledCALLDATALOAD(cdl: Statement)
 .output Analytics_NonModeledCALLDATALOAD
 
+.decl Analytics_ArrayCopy(from: ArrayVariable, to: ArrayVariable)
+.output Analytics_ArrayCopy
+
 Analytics_MemConsStmtUsesFromDistinctPaths(memConsStmt):-
   StatementUsesMemory_LengthVar(memConsStmt, _, lenVar),
   LocalFlows(phiVar, lenVar),
@@ -46,6 +49,9 @@ Analytics_NonModeledCALLDATALOAD(cdl):-
   CALLDATALOAD(cdl, _, _),
   !CALLDATALOADOfStaticAddr(cdl),
   !CALLDATALOADArrayRelated(cdl).
+
+Analytics_ArrayCopy(from, to):-
+  ArrayCopy(from, to).
 
 /*
  * Other metrics

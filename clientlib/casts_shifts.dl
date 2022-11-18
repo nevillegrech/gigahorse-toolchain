@@ -20,6 +20,9 @@ DEBUG_OUTPUT(CastedAndShiftedVar)
 .decl LowBytesMaskOp(fromVar: Variable, toVar: Variable, maskLen: number)
 DEBUG_OUTPUT(LowBytesMaskOp)
 
+.decl VarsEqualOrMasked(var1: Variable, var2: Variable)
+DEBUG_OUTPUT(VarsEqualOrMasked)
+
 /**
   What we call anti-byte mask operations are the results of `AND`ing `fromVar`
   to a constant like the following:
@@ -82,6 +85,13 @@ CastedAndShiftedVar(originVar, toVar, shiftedBy, castedTo):-
 // Hack
 CastedAndShiftedVar(caller, caller, 0, 20):-
   CALLER(_, caller).
+
+
+VarsEqualOrMasked(var1, var1):-
+  isVariable(var1).
+
+VarsEqualOrMasked(var1, var2):-
+  LowBytesMaskOp(var1, var2, _).
 
 /**
   Internal relations

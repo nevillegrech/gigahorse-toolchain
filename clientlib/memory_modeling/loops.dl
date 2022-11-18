@@ -24,6 +24,7 @@ DEBUG_OUTPUT(InductionVariableUpperBoundVar)
 DEBUG_OUTPUT(WellFormedLoopInductionVariable)
 DEBUG_OUTPUT(MemoryCopyLoop)
 DEBUG_OUTPUT(CallDataCopyLoop)
+DEBUG_OUTPUT(ArrayCopy)
 DEBUG_OUTPUT(MemoryCopyLoopConstLength)
 
 .type SimpleInductionVariable = [beforeLoopVar:Variable, inLoopVar:Variable]
@@ -88,33 +89,37 @@ MemoryCopyLoop(loop, memAddrFrom, memAddrTo):-
   InductionVariableIncreasesByConst(loop, [beforeLoopVar, inLoopVar], 32),
   PHIStmtTwoUses(_, beforeLoopVar, inLoopVar, phiVar),
   ADDFix(_, phiVar, memAddrFrom, fromIndexVar),
-  MLOAD(_, fromIndexVar, copiedVar),
+  MLOAD(_, fromIndexVar, fromVar),
   ADDFix(_, phiVar, memAddrTo, toIndexVar),
-  MSTORE(_, toIndexVar, copiedVar).
+  MSTORE(_, toIndexVar, toVar),
+  VarsEqualOrMasked(fromVar, toVar).
 
 MemoryCopyLoop(loop, beforeLoopVarFrom, beforeLoopVarTo):-
   InductionVariableIncreasesByConst(loop, [beforeLoopVarFrom, inLoopVarFrom], 32),
   PHIStmtTwoUses(_, beforeLoopVarFrom, inLoopVarFrom, fromIndexVar),
-  MLOAD(_, fromIndexVar, copiedVar),
+  MLOAD(_, fromIndexVar, fromVar),
   InductionVariableIncreasesByConst(loop, [beforeLoopVarTo, inLoopVarTo], 32),
   PHIStmtTwoUses(_, beforeLoopVarTo, inLoopVarTo, toIndexVar),
-  MSTORE(_, toIndexVar, copiedVar).
+  MSTORE(_, toIndexVar, toVar),
+  VarsEqualOrMasked(fromVar, toVar).
 
 CallDataCopyLoop(loop, calldataAddrFrom, memAddrTo):-
   InductionVariableIncreasesByConst(loop, [beforeLoopVar, inLoopVar], 32),
   PHIStmtTwoUses(_, beforeLoopVar, inLoopVar, phiVar),
   ADDFix(_, phiVar, calldataAddrFrom, fromIndexVar),
-  CALLDATALOAD(_, fromIndexVar, copiedVar),
+  CALLDATALOAD(_, fromIndexVar, fromVar),
   ADDFix(_, phiVar, memAddrTo, toIndexVar),
-  MSTORE(_, toIndexVar, copiedVar).
+  MSTORE(_, toIndexVar, toVar),
+  VarsEqualOrMasked(fromVar, toVar).
 
 CallDataCopyLoop(loop, beforeLoopVarFrom, beforeLoopVarTo):-
   InductionVariableIncreasesByConst(loop, [beforeLoopVarFrom, inLoopVarFrom], 32),
   PHIStmtTwoUses(_, beforeLoopVarFrom, inLoopVarFrom, fromIndexVar),
-  CALLDATALOAD(_, fromIndexVar, copiedVar),
+  CALLDATALOAD(_, fromIndexVar, fromVar),
   InductionVariableIncreasesByConst(loop, [beforeLoopVarTo, inLoopVarTo], 32),
   PHIStmtTwoUses(_, beforeLoopVarTo, inLoopVarTo, toIndexVar),
-  MSTORE(_, toIndexVar, copiedVar).
+  MSTORE(_, toIndexVar, toVar),
+  VarsEqualOrMasked(fromVar, toVar).
 
 MemoryCopyLoopConstLength(loop, memAddrFrom, memAddrTo, length):-
   MemoryCopyLoop(loop, memAddrFrom, memAddrTo),
@@ -145,3 +150,20 @@ StatementWritesMemoryCopiedFromLoop(memWriteStmt, newIndexVar, memAddrTo, numDif
   MemoryAddressVarsNumDiff(startVar, memAddrFrom, numDiff),
   0 <= numDiff, numDiff < loopLength,
   newIndexVar = cat(startVar, "_gen").
+
+
+ArrayCopy(fromArray, toArray):-
+  MemoryCopyLoop(loop, fromArrayDataStart, toArrayDataStart),
+  ArrayDataStartVar(fromArrayVar, fromArrayDataStart),
+  ArrayDataStartVar(toArrayVar, toArrayDataStart),
+  VarIsArray(fromArrayVar, fromArray),
+  VarIsArray(toArrayVar, toArray),
+  InductionVariableIncreasesByConst(loop, simpleIndVar, incrConst),
+  InductionVariableUpperBoundVar(loop, simpleIndVar, upperBoundVar),
+  VarTimesConstant(lengthVar1, as(@number_to_hex(incrConst), Value), upperBoundVar),
+  ArrayVarLengthVar(fromArrayVar2, lengthVar1),
+  VarIsArray(fromArrayVar2, fromArray),
+  VarIsArray(fromArrayVar3, fromArray),
+  ArrayVarLengthVar(fromArrayVar3, lengthVar2),
+  MSTORE(_, toArrayVar2, lengthVar2),
+  VarIsArray(toArrayVar2, toArray).
