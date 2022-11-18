@@ -151,13 +151,14 @@ StatementWritesMemoryCopiedFromLoop(memWriteStmt, newIndexVar, memAddrTo, numDif
   0 <= numDiff, numDiff < loopLength,
   newIndexVar = cat(startVar, "_gen").
 
-
+// For everything other than bytes or string
 ArrayCopy(fromArray, toArray):-
   MemoryCopyLoop(loop, fromArrayDataStart, toArrayDataStart),
   ArrayDataStartVar(fromArrayVar, fromArrayDataStart),
   ArrayDataStartVar(toArrayVar, toArrayDataStart),
   VarIsArray(fromArrayVar, fromArray),
   VarIsArray(toArrayVar, toArray),
+  // incrConst will be 1 or 32 in practise, maybe make this stricter
   InductionVariableIncreasesByConst(loop, simpleIndVar, incrConst),
   InductionVariableUpperBoundVar(loop, simpleIndVar, upperBoundVar),
   VarTimesConstant(lengthVar1, as(@number_to_hex(incrConst), Value), upperBoundVar),
@@ -166,4 +167,21 @@ ArrayCopy(fromArray, toArray):-
   VarIsArray(fromArrayVar3, fromArray),
   ArrayVarLengthVar(fromArrayVar3, lengthVar2),
   MSTORE(_, toArrayVar2, lengthVar2),
+  VarIsArray(toArrayVar2, toArray).
+
+// Only for bytes or string
+ArrayCopy(fromArray, toArray):-
+  MemoryCopyLoop(loop, fromArrayDataStart, toArrayDataStart),
+  ArrayDataStartVar(fromArrayVar, fromArrayDataStart),
+  Array_ElementLength(fromArrayVar, "0x1"),
+  ArrayDataStartVar(toArrayVar, toArrayDataStart),
+  VarIsArray(fromArrayVar, fromArray),
+  VarIsArray(toArrayVar, toArray),
+  InductionVariableIncreasesByConst(loop, simpleIndVar, 32),
+  InductionVariableUpperBoundVar(loop, simpleIndVar, upperBoundVar),
+  ArrayVarLengthVar(fromArrayVar2, upperBoundVar),
+  VarIsArray(fromArrayVar2, fromArray),
+  VarIsArray(fromArrayVar3, fromArray),
+  ArrayVarLengthVar(fromArrayVar3, lengthVar),
+  MSTORE(_, toArrayVar2, lengthVar),
   VarIsArray(toArrayVar2, toArray).

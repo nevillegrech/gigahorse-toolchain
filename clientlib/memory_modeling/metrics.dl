@@ -226,6 +226,11 @@ CALLDATALOADArrayRelated(stmt):-
   CallDataLoadReadsLength(_, stmt, _, _, _);
   CallDataArrayGet(stmt, _, _, _).
 
+CALLDATALOADArrayRelated(cdl):-
+  CallDataCopyLoop(loop, _, _),
+  BlockInStructuredLoop(block, loop),
+  Statement_Block(cdl, block),
+  CALLDATALOAD(cdl, _, _).
 
 Verbatim_CDLAllVSStaticVSArr(allnum, staticAddr, arrGet):-
   allnum = count : CALLDATALOAD(_, _, _),
