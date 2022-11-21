@@ -223,7 +223,7 @@ CALLDATALOADOfStaticAddr(stmt):-
   Variable_Value(index, _).
 
 CALLDATALOADArrayRelated(stmt):-
-  CallDataLoadReadsLength(_, stmt, _, _, _);
+  CallDataLoadReadsLength(stmt, _, _);
   CallDataArrayGet(stmt, _, _, _).
 
 CALLDATALOADArrayRelated(cdl):-
