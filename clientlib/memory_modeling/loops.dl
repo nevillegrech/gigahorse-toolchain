@@ -152,7 +152,7 @@ StatementWritesMemoryCopiedFromLoop(memWriteStmt, newIndexVar, memAddrTo, numDif
   newIndexVar = cat(startVar, "_gen").
 
 // For everything other than bytes or string
-ArrayCopy(fromArray, toArray):-
+ArrayCopy(loop, fromArray, toArray):-
   MemoryCopyLoop(loop, fromArrayDataStart, toArrayDataStart),
   ArrayDataStartVar(fromArrayVar, fromArrayDataStart),
   ArrayDataStartVar(toArrayVar, toArrayDataStart),
@@ -170,7 +170,7 @@ ArrayCopy(fromArray, toArray):-
   VarIsArray(toArrayVar2, toArray).
 
 // Only for bytes or string
-ArrayCopy(fromArray, toArray):-
+ArrayCopy(loop, fromArray, toArray):-
   MemoryCopyLoop(loop, fromArrayDataStart, toArrayDataStart),
   ArrayDataStartVar(fromArrayVar, fromArrayDataStart),
   Array_ElementLength(fromArrayVar, "0x1"),

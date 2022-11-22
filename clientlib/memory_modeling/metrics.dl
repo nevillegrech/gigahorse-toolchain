@@ -25,7 +25,7 @@
 .decl Analytics_NonModeledCALLDATALOAD(cdl: Statement)
 .output Analytics_NonModeledCALLDATALOAD
 
-.decl Analytics_ArrayCopy(from: ArrayVariable, to: ArrayVariable)
+.decl Analytics_ArrayCopy(loc: symbol, from: ArrayVariable, to: ArrayVariable)
 .output Analytics_ArrayCopy
 
 Analytics_MemConsStmtUsesFromDistinctPaths(memConsStmt):-
@@ -50,8 +50,8 @@ Analytics_NonModeledCALLDATALOAD(cdl):-
   !CALLDATALOADOfStaticAddr(cdl),
   !CALLDATALOADArrayRelated(cdl).
 
-Analytics_ArrayCopy(from, to):-
-  ArrayCopy(from, to).
+Analytics_ArrayCopy(loc, from, to):-
+  ArrayCopy(loc, from, to).
 
 /*
  * Other metrics

@@ -110,7 +110,9 @@ DEBUG_OUTPUT(StructStore)
 */
 .decl PublicFunctionArrayArg(pubFun: Function, arrayArg: ArrayVariable, index: number)
 
+.type StatementOrLoop = Statement | Block
+
 /**
-  
+  Statement or loop `loc` copies the value of array `from` to array `to`.
 */
-.decl ArrayCopy(from: ArrayVariable, to: ArrayVariable)
+.decl ArrayCopy(loc: StatementOrLoop, from: ArrayVariable, to: ArrayVariable)

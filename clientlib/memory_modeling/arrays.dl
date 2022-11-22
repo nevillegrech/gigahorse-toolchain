@@ -123,18 +123,18 @@ CallDataCopyArgInfo(callDataCopy, memArrayTo, callDataArrayFrom):-
   ArgArrayLenWrittenTo(lenVar, memArrayTo),
   VarPlusThirtyTwo(memArrayTo, arrayDataStart).
 
-ArrayCopy(as(callDataArrayFrom, ArrayVariable), memArrayToId):-
-  CallDataCopyArgInfo(_, memArrayTo, callDataArrayFrom),
+ArrayCopy(callDataCopy, as(callDataArrayFrom, ArrayVariable), memArrayToId):-
+  CallDataCopyArgInfo(callDataCopy, memArrayTo, callDataArrayFrom),
   VarIsArray(memArrayTo, memArrayToId).
 
 // IsRegularArrayVar(arrayVar),
 // Array_ElementLength(arrayVar, elemSize):-
 //CallDataCopyArgInfo(callDataCopy, arrayVar, argHex):-
 // For post 0.8.x calldata arrays
-ArrayCopy(as(callDataArrayFrom, ArrayVariable), memArrayToId):-
+ArrayCopy(loop, as(callDataArrayFrom, ArrayVariable), memArrayToId):-
   CallDataLoadReadsLength(_, callDataArrayFrom, lenVar),
   // VarTimesConstant(lenVar, elemSize, lenBytes),
-  CallDataCopyLoop(_, calldataArrayDataStart, memArrayToDataStart),
+  CallDataCopyLoop(loop, calldataArrayDataStart, memArrayToDataStart),
   ArrayDataStartVar(callDataArrayFrom, calldataArrayDataStart),
   ArgArrayLenWrittenTo(lenVar, memArrayTo),
   ArrayDataStartVar(memArrayTo, memArrayToDataStart),
