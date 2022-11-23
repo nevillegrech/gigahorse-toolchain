@@ -32,3 +32,19 @@ contract SimpleArray {
 contract SimpleMapping {
     mapping (address => bool) public owners;
 }
+
+contract ArrayKeyMappings {
+
+    mapping(bytes => bool) private map1;
+    mapping(string => address) private map2;
+
+    function targetFunction(bytes32 hash, bytes calldata key) external {
+        require(!map1[key], "Already registered");
+        map1[key] = true;
+    }
+
+    function targetFunction(bytes32 hash, string memory key) external {
+        require(map2[key] == address(0), "Already registered");
+        map2[key] = msg.sender;
+    }
+}
