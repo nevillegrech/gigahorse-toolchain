@@ -292,6 +292,8 @@ and ArrayStore
 
 DEBUG_OUTPUT(ArrayLoad)
 DEBUG_OUTPUT(ArrayStore)
+DEBUG_OUTPUT(ArrayLoadAtIndex)
+DEBUG_OUTPUT(ArrayStoreAtIndex)
 
 ArrayLoad(mload, arrId, to):-
   MLOAD(mload, indexVar, to),

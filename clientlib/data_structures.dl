@@ -111,7 +111,15 @@ MapElementStmt(stmt, mapId, fromArray):-
   SHA3(_, arrVar, _, storeIndex),
   RawDataArrayVar_ClassRep(arrVar, arrId),
   ArrayCopy(_, fromArray, arrId),
-  ArrayStore(_, arrId, mapIdVar),
+  (ArrayStore(_, arrId, mapIdVar); ArrayStoreAtIndex(_, arrId, _, mapIdVar)),
+  Variable_Value(mapIdVar, mapId).
+
+MapElementStmt(stmt, mapId, arrId):-
+  (SSTORE(stmt, storeIndex, _) ; SLOAD(stmt, storeIndex, _)),
+  SHA3(_, dataStartVar, _, storeIndex),
+  ArrayDataStartVar(arrVar, dataStartVar),
+  VarIsArray(arrVar, arrId),
+  (ArrayStore(_, arrId, mapIdVar); ArrayStoreAtIndex(_, arrId, _, mapIdVar)),
   Variable_Value(mapIdVar, mapId).
 #endif
                 
