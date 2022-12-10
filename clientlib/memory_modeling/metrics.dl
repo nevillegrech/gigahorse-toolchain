@@ -7,21 +7,26 @@
   using the same revert statement in the compiled bytecode.
   Seen it in optimized 0.8.x code.
 */
-.decl Analytics_MemConsStmtUsesFromDistinctPaths(memConsStmt:Statement)
+.decl Analytics_MemConsStmtUsesFromDistinctPaths(memConsStmt: Statement)
 .output Analytics_MemConsStmtUsesFromDistinctPaths
 
-.decl Analytics_NonModeledMSTORE(mstore:Statement)
+.decl Analytics_NonModeledMSTORE(mstore: Statement)
 .output Analytics_NonModeledMSTORE
 
-.decl Analytics_NonModeledMLOAD(mload:Statement)
+.decl Analytics_NonModeledMLOAD(mload: Statement)
 .output Analytics_NonModeledMLOAD
 
-.decl Analytics_PublicFunctionArg(arg:Variable)
+.decl Analytics_PublicFunctionArg(arg: Variable)
 .output Analytics_PublicFunctionArg
 
-.decl Analytics_PublicFunctionArrayArg(arg:Variable)
+.decl Analytics_PublicFunctionArrayArg(arg: Variable)
 .output Analytics_PublicFunctionArrayArg
 
+.decl Analytics_NonModeledCALLDATALOAD(cdl: Statement)
+.output Analytics_NonModeledCALLDATALOAD
+
+.decl Analytics_ArrayCopy(loc: symbol, from: ArrayVariable, to: ArrayVariable)
+.output Analytics_ArrayCopy
 
 Analytics_MemConsStmtUsesFromDistinctPaths(memConsStmt):-
   StatementUsesMemory_LengthVar(memConsStmt, _, lenVar),
@@ -38,8 +43,15 @@ Analytics_PublicFunctionArg(arg):-
   PublicFunctionArg(_, arg, _).
 
 Analytics_PublicFunctionArrayArg(arrayArg):-
-  PublicFunctionArg(_, arrayArg, _),
-  IsCallDataArrayVar(arrayArg, _).
+  PublicFunctionArrayArg(_, arrayArg, _).
+
+Analytics_NonModeledCALLDATALOAD(cdl):-
+  CALLDATALOAD(cdl, _, _),
+  !CALLDATALOADOfStaticAddr(cdl),
+  !CALLDATALOADArrayRelated(cdl).
+
+Analytics_ArrayCopy(loc, from, to):-
+  ArrayCopy(loc, from, to).
 
 /*
  * Other metrics
@@ -211,9 +223,14 @@ CALLDATALOADOfStaticAddr(stmt):-
   Variable_Value(index, _).
 
 CALLDATALOADArrayRelated(stmt):-
-  CallDataLoadReadsLength(_, stmt, _, _, _);
+  CallDataLoadReadsLength(stmt, _, _);
   CallDataArrayGet(stmt, _, _, _).
 
+CALLDATALOADArrayRelated(cdl):-
+  CallDataCopyLoop(loop, _, _),
+  BlockInStructuredLoop(block, loop),
+  Statement_Block(cdl, block),
+  CALLDATALOAD(cdl, _, _).
 
 Verbatim_CDLAllVSStaticVSArr(allnum, staticAddr, arrGet):-
   allnum = count : CALLDATALOAD(_, _, _),

@@ -4,27 +4,34 @@
  Arrays
  **/
 
-.decl IsCallDataArrayVar(var:Variable, argHex:symbol)
+.decl IsCallDataArrayVar(var: Variable)
 DEBUG_OUTPUT(IsCallDataArrayVar)
 
-.decl IsRegularArrayVar(var:Variable)
+.decl IsRegularArrayVar(var: Variable)
 DEBUG_OUTPUT(IsRegularArrayVar)
 
-.decl IsRawDataArrayVar(var:Variable)
+.decl IsRawDataArrayVar(var: Variable)
 DEBUG_OUTPUT(IsRawDataArrayVar)
 
-.decl IsABIEncodedArrayVar(var:Variable)
+.decl IsABIEncodedArrayVar(var: Variable)
 DEBUG_OUTPUT(IsABIEncodedArrayVar)
 
-/*
- * cdl loads the array's offset in the calldata 
- * cdl2 loads the array's length
+.decl IsArgCallDataArrayVar(var: Variable, argHex: symbol)
+DEBUG_OUTPUT(IsArgCallDataArrayVar)
+
+/**
+  `cdl` loads the `cdlArrayVar`'s offset in the calldata 
+  `cdl2` loads the array's length in `lenVar`
 */
 
-.decl CallDataLoadReadsLength(cdl:Statement, cdl2:Statement, cdlArrayVar:Variable, lenVar:Variable, argHex:symbol)
+.decl CallDataLoadArrayLoadingPattern(cdl: Statement, cdl2: Statement, cdlArrayVar: Variable, lenVar: Variable, argHex: symbol)
+DEBUG_OUTPUT(CallDataLoadArrayLoadingPattern)
+
+.decl CallDataLoadReadsLength(cdl: Statement, cdlArrayVar: Variable, lenVar: Variable)
 DEBUG_OUTPUT(CallDataLoadReadsLength)
 
-.decl CallDataCopyArgInfo(callDataCopy:Statement, arrayVar:Variable, argHex:symbol)
+// TODO: Change arg order
+.decl CallDataCopyArgInfo(callDataCopy: Statement, memArrayTo: Variable, callDataArrayFrom: Variable)
 DEBUG_OUTPUT(CallDataCopyArgInfo)
 
 .decl Array_ElementLength(array:Variable, elementSize:symbol)
@@ -56,24 +63,36 @@ DEBUG_OUTPUT(StatementUsesMemory_UsesArray)
 
 .decl MLOADReadsArrayLength(stmt:Statement)
 
+IsCallDataArrayVar(callDataArrayVar):-
+  IsArgCallDataArrayVar(callDataArrayVar, _).
 
-IsCallDataArrayVar(plusFourVar, argHex),
-CallDataLoadReadsLength(cdl, cdl2, plusFourVar, lenVar, argHex):-
+CallDataLoadReadsLength(cdl, callDataArrayVar, lenVar):-
+  IsCallDataArrayVar(callDataArrayVar),
+  CALLDATALOAD(cdl, callDataArrayVar, lenVar).
+
+IsArgCallDataArrayVar(plusFourVar, argHex),
+CallDataLoadArrayLoadingPattern(cdl, cdl2, plusFourVar, lenVar, argHex):-
   CALLDATALOAD(cdl, argIdVar, toVar),
   Variable_Value(argIdVar, argHex),
   ADDFix(_, toVar, fourVar, plusFourVar),
   Variable_NumericValue(fourVar, 4),
   CALLDATALOAD(cdl2, plusFourVar, lenVar).
 
+/**
+  REVIEW at some point as it may be too loose.
+  However we can't do much better right now.
+*/
 Array_ElementLength(plusFourVar, elemSize):-
-  IsCallDataArrayVar(plusFourVar, argHex),
-  CallDataLoadReadsLength(_, _, plusFourVar, lenVar, argHex),
-  VarTimesConstant(lenVar, elemSize, _).
+  IsArgCallDataArrayVar(plusFourVar, argHex),
+  CallDataLoadArrayLoadingPattern(_, _, plusFourVar, lenVar, argHex),
+  VarTimesConstant(lenVar, elemSize, res),
+  // Hack to recover precision and avoid the identity case of VarTimesConstant
+  lenVar != res.
 
 
 
 Array_ElementLength(array, elementSize):-
-  IsCallDataArrayVar(array, _),
+  IsArgCallDataArrayVar(array, _),
   ArrayDataStartVar(array, dataStartVar),
   ADDFix(_, dataStartVar, indexTimesCons, cdlIndex),
   VarTimesConstant(_, elementSize, indexTimesCons),
@@ -81,36 +100,63 @@ Array_ElementLength(array, elementSize):-
 
 
 ArrayDataStartVar(array, dataStartVar):-
-  CallDataLoadReadsLength(cdl, _, array, _, _),
+  CallDataLoadArrayLoadingPattern(cdl, _, array, _, _),
   CALLDATALOAD(cdl, _, to),
   ADDFix(_, to, x24, dataStartVar),
   Variable_NumericValue(x24, 36).
 
-IsRegularArrayVar(arrayVar),
-Array_ElementLength(arrayVar, "0x1"),
-CallDataCopyArgInfo(callDataCopy, arrayVar, argHex):-
-  CallDataLoadReadsLength(_, _, _, lenVar, argHex),
+IsRegularArrayVar(memArrayTo),
+Array_ElementLength(memArrayTo, "0x1"),
+CallDataCopyArgInfo(callDataCopy, memArrayTo, callDataArrayFrom):-
+  CallDataLoadReadsLength(_, callDataArrayFrom, lenVar),
   CALLDATACOPY(callDataCopy, arrayDataStart, _, lenVar),
-  ArgArrayLenWrittenTo(lenVar, arrayVar),
-  VarPlusThirtyTwo(arrayVar, arrayDataStart).
+  ArgArrayLenWrittenTo(lenVar, memArrayTo),
+  VarPlusThirtyTwo(memArrayTo, arrayDataStart).
 
 
-IsRegularArrayVar(arrayVar),
-Array_ElementLength(arrayVar, elemSize),
-CallDataCopyArgInfo(callDataCopy, arrayVar, argHex):-
-  CallDataLoadReadsLength(_, _, _, lenVar, argHex),
+IsRegularArrayVar(memArrayTo),
+Array_ElementLength(memArrayTo, elemSize),
+CallDataCopyArgInfo(callDataCopy, memArrayTo, callDataArrayFrom):-
+  CallDataLoadReadsLength(_, callDataArrayFrom, lenVar),
   VarTimesConstant(lenVar, elemSize, lenBytes),
   CALLDATACOPY(callDataCopy, arrayDataStart, _, lenBytes),
-  ArgArrayLenWrittenTo(lenVar, arrayVar),
-  VarPlusThirtyTwo(arrayVar, arrayDataStart).
+  ArgArrayLenWrittenTo(lenVar, memArrayTo),
+  VarPlusThirtyTwo(memArrayTo, arrayDataStart).
+
+CallDataCopyArgInfo(callDataCopy, rawDataArrayTo, callDataArrayFrom):-
+  CallDataLoadReadsLength(_, callDataArrayFrom, lenVar),
+  VarTimesConstant(lenVar, _, lenBytes),
+  CALLDATACOPY(callDataCopy, rawDataArrayTo, _, lenBytes),
+  RawDataArrayVar_ClassRep(rawDataArrayTo, _).
+
+ArrayCopy(callDataCopy, as(callDataArrayFrom, ArrayVariable), memArrayToId):-
+  CallDataCopyArgInfo(callDataCopy, memArrayTo, callDataArrayFrom),
+  (VarIsArray(memArrayTo, memArrayToId) ; RawDataArrayVar_ClassRep(memArrayTo, memArrayToId)).
+
+// IsRegularArrayVar(arrayVar),
+// Array_ElementLength(arrayVar, elemSize):-
+//CallDataCopyArgInfo(callDataCopy, arrayVar, argHex):-
+// For post 0.8.x calldata arrays
+ArrayCopy(loop, as(callDataArrayFrom, ArrayVariable), memArrayToId):-
+  CallDataLoadReadsLength(_, callDataArrayFrom, lenVar),
+  // VarTimesConstant(lenVar, elemSize, lenBytes),
+  CallDataCopyLoop(loop, calldataArrayDataStart, memArrayToDataStart),
+  ArrayDataStartVar(callDataArrayFrom, calldataArrayDataStart),
+  ArgArrayLenWrittenTo(lenVar, memArrayTo),
+  ArrayDataStartVar(memArrayTo, memArrayToDataStart),
+  VarIsArray(memArrayTo, memArrayToId).
 
 ArgArrayLenWrittenTo(lenVar, arrayVar):-
-  CallDataLoadReadsLength(_, _, _, lenVar, _),
+  CallDataLoadReadsLength(_, _, lenVar),
   MSTORE(_, arrayVar, lenVar).
 
 
 ArrayDataStartVar(array, arrayStart):-
   IsRegularArrayVar(array),
+  VarPlusThirtyTwo(array, arrayStart).
+
+ArrayDataStartVar(array, arrayStart):-
+  IsCallDataArrayVar(array),
   VarPlusThirtyTwo(array, arrayStart).
 
 // REVIEW: This generates too many results
@@ -187,6 +233,11 @@ ArrayIndexAccess(array, indexVar, index):-
   ADDFix(_, dataStartVar, indexTimesCons, indexVar),
   VarTimesConstant(index, elementSize, indexTimesCons).
 
+// Completeness addition to cover some patterns produced by solc >= 0.8
+ArrayIndexAccess(array, newIndexVar, index):-
+  ArrayIndexAccess(array, indexVar, index),
+  VarPlusConst(indexVar, "0x0", newIndexVar).
+
 /**
   This rule detects the following pattern:
   tmp = ADD index, baseVar // baseVar is equal to array - 0x20
@@ -241,6 +292,8 @@ and ArrayStore
 
 DEBUG_OUTPUT(ArrayLoad)
 DEBUG_OUTPUT(ArrayStore)
+DEBUG_OUTPUT(ArrayLoadAtIndex)
+DEBUG_OUTPUT(ArrayStoreAtIndex)
 
 ArrayLoad(mload, arrId, to):-
   MLOAD(mload, indexVar, to),
@@ -454,6 +507,21 @@ ArrayAllocationInternal(mstore, array, elementSize, arrayLengthVar):-
   Statement_Uses(mstore, updatedFMP, 1),
   MSTOREFreePtr(mstore).
 
+/**
+  Covers patterns produced for calldata arrays copied to memory.
+  For solidity versions >= 0.8
+*/
+IsRegularArrayVar(array),
+Array_ElementLength(array, elementSize),
+ArrayAllocationInternal(mstore, array, elementSize, arrayLengthVar):-
+  PossibleArray(array),
+  MSTORE(_, array, arrayLengthVar),
+  VarTimesConstant(arrayLengthVar, elementSize, arraySizeBytes),
+  VarPlusThirtyTwo(arraySizeBytes, arrayTotalSizeBytes),
+  VarPlusThrirtyOneAndNotThirtyOne(arrayTotalSizeBytes, arrayFinalSizeBytes),
+  ADDFix(_, arrayFinalSizeBytes, array, updatedFMP),
+  Statement_Uses(mstore, updatedFMP, 1),
+  MSTOREFreePtr(mstore).
 
 /**
   bytes or strings
@@ -612,6 +680,12 @@ ArrayActualArg(caller, function, pos, "Regular"):-
   CallGraphEdge(caller, function),
   FormalArgs(function, _, pos).
 
+ArrayActualArg(caller, function, pos, "CallData"):-
+  ActualArgs(caller, actual, pos),
+  IsCallDataArrayVar(actual),
+  CallGraphEdge(caller, function),
+  FormalArgs(function, _, pos).
+
 ArrayDataActualArg(caller, function, pos, "Data"):-
   ActualArgs(caller, actual, pos),
   ArrayDataStartVar(arr, actual),
@@ -623,8 +697,16 @@ ArrayFormalRet(fun, index, "Regular"):-
   FormalReturnArgs(fun, formalRet, index),
   IsRegularArrayVar(formalRet).
 
+ArrayFormalRet(fun, index, "CallData"):-
+  FormalReturnArgs(fun, formalRet, index),
+  IsCallDataArrayVar(formalRet).
+
 IsRegularArrayVar(formal):-
   ArrayActualArg(_, function, pos, "Regular"),
+  FormalArgs(function, formal, pos).
+
+IsCallDataArrayVar(formal):-
+  ArrayActualArg(_, function, pos, "CallData"),
   FormalArgs(function, formal, pos).
 
 IsRegularArrayVar(actual):-
@@ -632,14 +714,21 @@ IsRegularArrayVar(actual):-
   CallGraphEdge(caller, fun),
   ActualReturnArgs(caller, actual, index).
 
+IsCallDataArrayVar(actual):-
+  ArrayFormalRet(fun, index, "CallData"),
+  CallGraphEdge(caller, fun),
+  ActualReturnArgs(caller, actual, index).
+
 Array_ElementLength(formal, elementSize):-
-  ArrayActualArg(caller, function, pos, "Regular"),
+  ArrayActualArg(caller, function, pos, kind),
+  (kind = "Regular" ; kind = "CallData"),
   ActualArgs(caller, actual, pos),
   Array_ElementLength(actual, elementSize),
   FormalArgs(function, formal, pos).
 
 Array_ElementLength(actual, elementSize):-
-  ArrayFormalRet(fun, index, "Regular"),
+  ArrayFormalRet(fun, index, kind),
+  (kind = "Regular" ; kind = "CallData"),
   FormalReturnArgs(fun, formalRet, index),
   Array_ElementLength(formalRet, elementSize),
   ActualReturnArgs(_, actual, index).

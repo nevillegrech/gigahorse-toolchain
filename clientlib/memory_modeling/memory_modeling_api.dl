@@ -104,3 +104,15 @@ DEBUG_OUTPUT(StructStore)
   `arg` is the `index`'th formal argument of public function `pubFun`
 */
 .decl PublicFunctionArg(pubFun: Function, arg: Variable, index: number)
+
+/**
+  Calldata `arrayArg` is the `index`'th formal argument of public function `pubFun`
+*/
+.decl PublicFunctionArrayArg(pubFun: Function, arrayArg: ArrayVariable, index: number)
+
+.type StatementOrLoop = Statement | Block
+
+/**
+  Statement or loop `loc` copies the value of array `from` to array `to`.
+*/
+.decl ArrayCopy(loc: StatementOrLoop, from: ArrayVariable, to: ArrayVariable)
