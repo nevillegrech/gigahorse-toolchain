@@ -191,108 +191,143 @@ PossibleArraySizeVariable(resVar, const) :-
 
 #define STORAGE_CONSTRUCT(kind, parCons, index) cat(cat(cat(cat(kind ,"++["), parCons), "]++"), to_string(index))
 
-.type CompositeStorageIndex <: symbol
+.type IndexList = [index: Variable, rest: IndexList]
 
-.type CompositeStorageIndexInfo = [kind:symbol, cons:StorageIndex, index:number]
+.type StorageIndexNew = ConstantIndex {value: Value}
+                      | DataStructureStorageIndex {kind: symbol, parIndex: StorageIndexNew, offset: number, dataStructureIndex: Variable}
+                      | ArrayIndex {parIndex: StorageIndexNew, indexVar: Variable}
+                      | ArrayDataStart {parIndex: StorageIndexNew}
+                      | MappingIndex {parIndex: StorageIndexNew, keyVar: Variable}
+                      | OffsetIndex {parIndex: StorageIndexNew, offset: number}
 
-.type ConstantStorageIndex = Value
+.type StorageConstructNew = Constant {value: Value}
+                     | DataStructureStorageConstruct {kind: symbol, parConstruct: StorageConstructNew, offset: number}
+                     | Array {parConstruct: StorageConstructNew}
+                     | Mapping {parConstruct: StorageConstructNew, offset: number}
+                     | Variable {construct: StorageConstructNew}
 
-.type StorageIndex = CompositeStorageIndex | ConstantStorageIndex
+// .type CompositeStorageIndex <: symbol
 
-.type StorageConstruct = [kind:symbol, index:StorageIndex]
+.decl StorageIndex_StorageConstruct(index: StorageIndexNew, construct: StorageConstructNew)
 
-.decl CompositeStorageIndex_Info(cons:CompositeStorageIndex, info:CompositeStorageIndexInfo)
+// .type CompositeStorageIndexInfo = [kind: symbol, cons: StorageIndex, offset: number]
 
-.decl IsStorageIndex(construct:StorageIndex, parentCons:StorageIndex)
+// .type ConstantStorageIndex = Value
 
-.decl PossibleStorageIndex(construct:StorageIndex, parentCons:StorageIndex)
+// .type StorageIndex = CompositeStorageIndex | ConstantStorageIndex
+
+// .type StorageConstruct = [kind: symbol, index: StorageIndex]
+
+// .decl CompositeStorageIndex_Info(cons: CompositeStorageIndex, info: CompositeStorageIndexInfo)
+
+.decl ActualStorageIndex(index: StorageIndexNew)
+
+.decl StorageIndex_ParentIndex(index: StorageIndexNew, parIndex: StorageIndexNew)
+
+.decl UsedStorageIndex(index: StorageIndexNew)
 
 //.decl OffsetStorageIndex(construct:StorageIndex, parentCons:StorageIndex, offset:number)
 
-.decl StorageAccessStmt(stmt:Statement, cons:StorageIndex, key:Variable)
+// .decl StorageAccessStmt(stmt: Statement, cons: StorageIndex, key: Variable)
 
-.decl Variable_StorageIndex(var:Variable, construct:StorageIndex)
+/**
+  Contais all __possible__ storage indexes.
+*/
+.decl Variable_StorageIndex(var: Variable, construct: StorageIndexNew)
 
-.decl IsStorageConstruct(cons:StorageConstruct)
+.decl IsStorageConstruct(cons: StorageConstructNew)
 
-.decl PHITrans(from:Variable, to:Variable)
+.decl PHITrans(from: Variable, to: Variable)
 
+DEBUG_OUTPUT(StorageIndex_StorageConstruct)
+DEBUG_OUTPUT(ActualStorageIndex)
+DEBUG_OUTPUT(UsedStorageIndex)
+DEBUG_OUTPUT(Variable_StorageIndex)
+DEBUG_OUTPUT(IsStorageConstruct)
 
-PossibleStorageIndex(val, "GLOBALSCOPE"),
-Variable_StorageIndex(var, val):-
+Variable_StorageIndex(var, $ConstantIndex(val)):-
   Variable_Value(var, val).
 
-PossibleStorageIndex(cons, parentCons),
-Variable_StorageIndex(def, cons),
-CompositeStorageIndex_Info(cons, [kind, parentCons, index]):-
-  Variable_StorageIndex(arg2, sameParCons),
-  CompositeStorageIndex_Info(sameParCons, [kind, parentCons, oldIndex]),
-  ADDFix(_, arg2, constVar, def),
-  Variable_Value(constVar, const),
-  index = @hex_to_number(const) + oldIndex,
-  cons = STORAGE_CONSTRUCT(kind, parentCons, index).
+// Variable_StorageIndex(def, $DataStructureStorageIndex(kind, parentCons, @hex_to_number(const) + oldOffset, arg)):-
+//   Variable_StorageIndex(var, $DataStructureStorageIndex(kind, parentCons, oldOffset, arg)),
+//   ADDFix(_, var, constVar, def),
+//   Variable_Value(constVar, const).
 
-PossibleStorageIndex(cons, parentCons),
-Variable_StorageIndex(def, cons),
-StorageAccessStmt(stmt, cons, arg1),
-CompositeStorageIndex_Info(cons, ["MAP", parentCons, 0]):-
-  Variable_StorageIndex(arg2, parentCons),
-  SHA3_2ARG(stmt, arg1, arg2, def),
-  cons = STORAGE_CONSTRUCT("MAP", parentCons, 0).
-
-PossibleStorageIndex(cons, parentCons),
-Variable_StorageIndex(def, cons),
-StorageAccessStmt(stmt, cons, var),
-CompositeStorageIndex_Info(cons, ["ARRAY", parentCons, 0]):-
-  Variable_StorageIndex(arg, parentCons),
-  SHA3_1ARG(_, arg, shaDef),
-  ADDFix(stmt, shaDef, varTimesConst, def),
-  VarTimesConstant(var, _, varTimesConst),
-  cons = STORAGE_CONSTRUCT("ARRAY", parentCons, 0).
-
-PossibleStorageIndex(cons, parentCons),
-Variable_StorageIndex(def, cons),
-StorageAccessStmt(stmt, cons, index),
-CompositeStorageIndex_Info(cons, ["ARRAY", parentCons, 0]):-
-  Variable_StorageIndex(arg, parentCons),
-  SHA3_1ARG(_, arg, shaDef),
-  ADDFix(stmt, shaDef, index, def),
-  !VarTimesConstant(_, _, index),
-  cons = STORAGE_CONSTRUCT("ARRAY", parentCons, 0).
-
-PossibleStorageIndex(cons, parentCons),
-Variable_StorageIndex(shaDef, cons),
-CompositeStorageIndex_Info(cons, ["ARRAY", parentCons, 0]):-
-  Variable_StorageIndex(arg, parentCons),
-  SHA3_1ARG(_, arg, shaDef),
-  cons = STORAGE_CONSTRUCT("ARRAY", parentCons, 0).
-
-
-IsStorageIndex(cons, parentCons):-
+// REVIEW: Does not include results for ArrayDataStart
+Variable_StorageIndex(def, $OffsetIndex(cons, @hex_to_number(const))):-
   Variable_StorageIndex(var, cons),
-  PossibleStorageIndex(cons, parentCons),
+  (cons = $ArrayIndex(parentCons, indexVar); cons = $MappingIndex(parentCons, indexVar)),
+  ADDFix(_, var, constVar, def),
+  Variable_Value(constVar, const).
+
+Variable_StorageIndex(def, $OffsetIndex(parentCons, @hex_to_number(const) + oldOffset)):-
+  Variable_StorageIndex(var, $OffsetIndex(parentCons, oldOffset)),
+  ADDFix(_, var, constVar, def),
+  Variable_Value(constVar, const).
+
+Variable_StorageIndex(def, $MappingIndex(parentCons, arg1)):-
+// Variable_StorageIndex(def, $DataStructureStorageIndex("MAP", parentCons, 0, arg1)):-
+  Variable_StorageIndex(arg2, parentCons),
+  SHA3_2ARG(_, arg1, arg2, def).
+
+Variable_StorageIndex(shaDef, $ArrayDataStart(parIndex)):-
+  Variable_StorageIndex(arg, parIndex),
+  SHA3_1ARG(_, arg, shaDef).
+
+Variable_StorageIndex(def, $ArrayIndex(parIndex, indexVar)):-
+// Variable_StorageIndex(def, $DataStructureStorageIndex("ARRAY", parentCons, 0, indexVar)):-
+  Variable_StorageIndex(var, $ArrayDataStart(parIndex)),
+  ADDFix(_, var, indexTimesConst, def),
+  VarTimesConstantNoIdentity(indexVar, _, indexTimesConst).
+
+Variable_StorageIndex(def, $ArrayIndex(parIndex, indexVar)):-
+// Variable_StorageIndex(def, $DataStructureStorageIndex("ARRAY", parentCons, 0, indexVar)):-
+  Variable_StorageIndex(var, $ArrayDataStart(parIndex)),
+  ADDFix(_, var, indexVar, def),
+  !VarTimesConstantNoIdentity(_, _, indexVar).
+
+StorageIndex_StorageConstruct($ConstantIndex(val), $Constant(val)):-
+  ActualStorageIndex($ConstantIndex(val)).
+
+StorageIndex_StorageConstruct($DataStructureStorageIndex(kind, parentIndex, offset, highLevelIndex), $DataStructureStorageConstruct(kind, parentCons, offset)):-
+  ActualStorageIndex($DataStructureStorageIndex(kind, parentIndex, offset, highLevelIndex)),
+  StorageIndex_StorageConstruct(parentIndex, parentCons).
+
+ActualStorageIndex(index):-
+  Variable_StorageIndex(var, index),
   (SLOAD(_, var, _) ; SSTORE(_, var, _)).
 
-IsStorageIndex(cons, parentCons):-
+ActualStorageIndex(index):-
   PHITrans(var, phiVar),
-  Variable_StorageIndex(var, cons),
-  PossibleStorageIndex(cons, parentCons),
+  Variable_StorageIndex(var, index),
   (SLOAD(_, phiVar, _) ; SSTORE(_, phiVar, _)).
 
-IsStorageIndex(parentCons, parentParentCons):-
-  IsStorageIndex(_, parentCons),
-  PossibleStorageIndex(parentCons, parentParentCons).
+StorageIndex_ParentIndex($DataStructureStorageIndex(kind, parIndex, offset, index), parIndex):-
+  ActualStorageIndex($DataStructureStorageIndex(kind, parIndex, offset, index)).
 
-IsStorageConstruct(["VAR", index]):-
-  IsStorageIndex(index, _),
-  !IsStorageIndex(_, index).
+UsedStorageIndex(index):-
+  ActualStorageIndex(index),
+  !StorageIndex_ParentIndex(_, index).
 
-IsStorageConstruct([kind, parIndex]):-
-  IsStorageIndex(index, parIndex),
-  CompositeStorageIndex_Info(index, [kind, _, _]).
+// ActualStorageIndex(index):-
+//   UsedStorageIndex(index).
 
-.decl NewModelKnownLoad(stmt: Statement, cons:StorageIndex)
-.decl NewModelKnownStore(stmt: Statement, cons:StorageIndex)
+ActualStorageIndex(parentCons):-
+  ActualStorageIndex($DataStructureStorageIndex(_, parentCons, _, _)).
+
+IsStorageConstruct($Variable(cons)):-
+  UsedStorageIndex(index),
+  StorageIndex_StorageConstruct(index, cons).
+
+IsStorageConstruct($Array(parentCons)):-
+  ActualStorageIndex(index),
+  StorageIndex_StorageConstruct(index, $DataStructureStorageConstruct("ARRAY", parentCons, _)).
+
+// IsStorageConstruct([kind, parIndex]):-
+//   IsStorageIndex(index, parIndex).
+
+.decl NewModelKnownLoad(stmt: Statement, cons: StorageIndexNew)
+.decl NewModelKnownStore(stmt: Statement, cons: StorageIndexNew)
 
 NewModelKnownLoad(store, cons):-
   SLOAD(store, index, _),
@@ -410,12 +445,32 @@ SSTOREToConst(sstore, const, var):-
   SSTORE(sstore, constVar, var),
   Variable_Value(constVar, const).
 
-.decl VarHoldsBytesOfStorVar(var:Variable, srcLoad:Statement, storVar:symbol, byteLow:number, byteHigh:number)
 
-.decl VarHoldsBytesOfStorVarFinal(var:Variable, srcLoad:Statement, storVar:symbol, byteLow:number, byteHigh:number)
+/**
+  __Note__: Contains both top-level global variables and storage constructs as they
+  both need the same handling for word sharing in storage slots. They are differentiated later.
+*/
+.decl VarHoldsBytesOfStorVar(var: Variable, srcLoad: Statement, storVar: symbol, byteLow: number, byteHigh: number)
+
+/**
+  This is a heuristic, we use the "Final" forms of loaded vars
+  (seeing when a variable from storage is no longer shifted or masked)
+  to see that the limits of merged variables are modeled correctly
+  but then any VarHoldsBytesOfStorVar corresponding to a valid variable
+  is considered a LOAD of that variable.
+
+  __Note__: Contains both top-level global variables and storage constructs as they
+  both need the same handling for word sharing in storage slots. They are differentiated later.
+*/
+.decl VarHoldsBytesOfStorVarFinal(var: Variable, srcLoad: Statement, storVar: symbol, byteLow: number, byteHigh: number)
 
 VarHoldsBytesOfStorVar(to, load, storVar, 0, 31):-
   SLOADOfConst(load, storVar, to).
+
+// VarHoldsBytesOfStorVar(to, sload, index, 0, 31):-
+//   SLOAD(sload, indexVar, to),
+//   Variable_StorageIndex(indexVar, index),
+//   IsStorageConstruct(["VAR", index]).
 
 VarHoldsBytesOfStorVar(to, load, storVar, low + bytes, high):-
   VarHoldsBytesOfStorVar(shiftedVar, load, storVar, low, high),
@@ -426,13 +481,7 @@ VarHoldsBytesOfStorVar(to, load, storVar, low, newHigh):-
   newHigh = min(high, low + maskLen - 1),
   LowBytesMaskOp(var, to, maskLen).
 
-/*
- This is a heuristic, we use the "Final" forms of loaded vars
- (seeing when a variable from storage is no longer shifted or masked)
- to see that the limits of merged variables are modeled correctly
- but then any VarHoldsBytesOfStorVar corresponding to a valid variable
- is considered a LOAD of that variable.
-*/
+
 VarHoldsBytesOfStorVarFinal(var, load, storVar, low, high):-
   VarHoldsBytesOfStorVar(var, load, storVar, low, high),
   //!LShiftBytes(var, _, _),
@@ -440,14 +489,15 @@ VarHoldsBytesOfStorVarFinal(var, load, storVar, low, high):-
   !LowBytesMaskOp(var, _, _),
   !AntiMaskOp(var, _, _, _).
 
-.decl AnyLoadStoreStorVarBytes(loadOrStore:Statement, storVar:symbol, low:number, high:number)
+.decl AnyLoadStoreStorVarBytes(loadOrStore: Statement, storVar: symbol, low: number, high: number)
 
-.decl FailedMergedStorageModeling(storVar:symbol)
+.decl FailedMergedStorageModeling(storVar: symbol)
 DEBUG_OUTPUT(FailedMergedStorageModeling)
-.decl SuccessfulMergedStorageModeling(storVar:symbol)
+
+.decl SuccessfulMergedStorageModeling(storVar: symbol)
 DEBUG_OUTPUT(SuccessfulMergedStorageModeling)
 
-.decl LoadOrStoreToStoreVar(stmt:Statement, storVar:symbol)
+.decl LoadOrStoreToStoreVar(stmt: Statement, storVar: symbol)
 
 AnyLoadStoreStorVarBytes(stmt, storVar, low, high):-
   VarHoldsBytesOfStorVarFinal(_, stmt, storVar, low, high);
@@ -555,10 +605,9 @@ VarHoldsBytesOfStorVar(to, store, storVar, 0, maskLen - 1):-
   Statement_Uses(store, storedVar, 1),
   LowBytesMaskOp(storedVar, to, maskLen).
 
-/*
- * Global Variables
+/**
+  Top-Level Global Variables
  */
-
 
 .decl GlobalVariable(v: Value)
 
@@ -566,7 +615,7 @@ VarHoldsBytesOfStorVar(to, store, storVar, 0, maskLen - 1):-
 
 .decl StoreGlobalVariable(stmt: Statement, val: Value, var: Variable)
 
-.decl StorageVariableInfo(storageVariable:symbol, storageSlot:symbol, byteLow:number, byteHigh:number)
+.decl StorageVariableInfo(storageVariable: symbol, storageSlot: symbol, byteLow: number, byteHigh: number)
 
 
 /* Old logic
@@ -586,11 +635,13 @@ LoadGlobalVariable(stmt, storVar, var):-
 
 LoadGlobalVariable(stmt, as(storVar, Value), var):-
   SuccessfulMergedStorageModeling(storVar),
+  SLOADOfConst(_, storVar, _), // ensure it's a global variable
   VarHoldsBytesOfStorVarFinal(var, _, storVar, 0, 31),
   Statement_Defines(stmt, var, 0).
 
 LoadGlobalVariable(stmt, v, var):-
   SuccessfulMergedStorageModeling(storVar),
+  SLOADOfConst(_, storVar, _), // ensure it's a global variable
   VarHoldsBytesOfStorVarFinal(_, _, storVar, low, high),
   VarHoldsBytesOfStorVar(var, _, storVar, low, high),
   Statement_Defines(stmt, var, 0),
@@ -608,11 +659,13 @@ StoreGlobalVariable(stmt, storVar, var):-
 
 StoreGlobalVariable(store, v, writtenVar):-
   SuccessfulMergedStorageModeling(storVar),
+  SSTOREToConst(_, storVar, _), // ensure it's a global variable
   VarWrittenToBytesOfStorVarFinal(writtenVar, store, _, storVar, byteLow, byteHigh),
   v = MERGED_STORAGE_VAR(storVar, byteLow, byteHigh).
 
 StoreGlobalVariable(store, v, constVar):-
   SuccessfulMergedStorageModeling(storVar),
+  SSTOREToConst(_, storVar, _), // ensure it's a global variable
   ConstWrittenToBytesOfStorVar(constVar, _, store, _, storVar, byteLow, byteHigh),
   v = MERGED_STORAGE_VAR(storVar, byteLow, byteHigh).
 
