@@ -48,3 +48,47 @@ contract ArrayKeyMappings {
         map2[key] = msg.sender;
     }
 }
+
+contract MergedArray {
+    struct Info {
+        address owner;
+        uint8 number;
+        bool flag;
+    }
+    Info[] public owners;
+}
+
+contract TwoWordValueArray {
+    struct Info {
+        uint256 val1;
+        uint256 val2;
+    }
+    Info[] public vals;
+    address public owner;
+}
+
+contract NestedMapping {
+    mapping (address => mapping (address => uint256)) public allowance;
+
+    function approve(address spender, uint256 amount) external {
+        allowance[msg.sender][spender] = amount;
+    }
+}
+
+contract Complex {
+    struct str {
+        address a;
+        uint256[] ns;
+    }
+    struct str2 {
+        address a;
+        mapping (address => address) mp;
+    }
+    mapping (address => str) public owners;
+    mapping (address => str2) public admins;
+
+    function getOwners(address key) external view returns (address, uint256[] memory) {
+        str storage owner = owners[key];
+        return (owner.a, owner.ns);
+    }
+}
