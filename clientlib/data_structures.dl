@@ -189,24 +189,36 @@ PossibleArraySizeVariable(resVar, const) :-
  Aims to support arbituary nested data structures
 ***/
 
+/**
+  `StorageIndex` contains information on the data structure used as well as the variables
+  used to index/access it, representing the actual low-level index flowing to `SSTORE`/`SLOAD` stmts.
+*/
 .type StorageIndex = ConstantIndex {value: Value}
                     | ArrayAccessIndex {parIndex: StorageIndex, indexVar: Variable}
                     | ArrayDataStartIndex {parIndex: StorageIndex}
                     | MappingAccessIndex {parIndex: StorageIndex, keyVar: Variable}
                     | OffsetIndex {parIndex: StorageIndex, offset: number}
 
+/**
+  `StorageConstruct` contains the information of `StorageIndex`, stripped of indexing/access vars
+*/
 .type StorageConstruct = Constant {value: Value}
                         | Array {parConstruct: StorageConstruct}
                         | Mapping {parConstruct: StorageConstruct}
                         | Offset {parConstruct: StorageConstruct, offset: number}
                         | Variable {construct: StorageConstruct}
 
+/**
+  Syntactic translation of `StorageIndex` to `StorageConstruct`
+*/
 .decl StorageIndex_StorageConstruct(index: StorageIndex, construct: StorageConstruct)
 
+// Storage index that ends up flowing to `SSTORE`/`SLOAD` op
 .decl ActualStorageIndex(index: StorageIndex)
 
 .decl StorageIndex_ParentIndex(index: StorageIndex, parIndex: StorageIndex)
 
+// Storage index used in an `SSTORE`/`SLOAD` op
 .decl UsedStorageIndex(index: StorageIndex)
 
 /**
@@ -216,6 +228,13 @@ PossibleArraySizeVariable(resVar, const) :-
 
 .decl IsStorageConstruct(cons: StorageConstruct)
 
+.decl IsDataStructureConstruct(cons: StorageConstruct)
+
+// Number of elements the value of a data structure has
+.decl DataStructure_ElemNum(cons: StorageConstruct, elemNum: number)
+
+.decl StorageConstruct_Parent(cons: StorageConstruct, parentCons: StorageConstruct)
+
 .decl PHITrans(from: Variable, to: Variable)
 
 DEBUG_OUTPUT(StorageIndex_StorageConstruct)
@@ -223,38 +242,41 @@ DEBUG_OUTPUT(ActualStorageIndex)
 DEBUG_OUTPUT(UsedStorageIndex)
 DEBUG_OUTPUT(Variable_StorageIndex)
 DEBUG_OUTPUT(IsStorageConstruct)
+DEBUG_OUTPUT(StorageConstruct_Parent)
+DEBUG_OUTPUT(DataStructure_ElemNum)
 
 Variable_StorageIndex(var, $ConstantIndex(val)):-
   Variable_Value(var, val).
 
 
 // REVIEW: Does not include results for ArrayDataStartIndex
-Variable_StorageIndex(def, $OffsetIndex(cons, @hex_to_number(const))):-
-  Variable_StorageIndex(var, cons),
-  (cons = $ArrayAccessIndex(parentCons, indexVar); cons = $MappingAccessIndex(parentCons, indexVar)),
+Variable_StorageIndex(def, $OffsetIndex(index, @hex_to_number(const))):-
+  Variable_StorageIndex(var, index),
+  (index = $ArrayAccessIndex(parentIndex, indexVar); index = $MappingAccessIndex(parentIndex, indexVar)),
+  parentIndex = parentIndex, indexVar = indexVar, // suppress warning
   ADDFix(_, var, constVar, def),
   Variable_Value(constVar, const).
 
-Variable_StorageIndex(def, $OffsetIndex(parentCons, @hex_to_number(const) + oldOffset)):-
-  Variable_StorageIndex(var, $OffsetIndex(parentCons, oldOffset)),
+Variable_StorageIndex(def, $OffsetIndex(parentIndex, @hex_to_number(const) + oldOffset)):-
+  Variable_StorageIndex(var, $OffsetIndex(parentIndex, oldOffset)),
   ADDFix(_, var, constVar, def),
   Variable_Value(constVar, const).
 
-Variable_StorageIndex(def, $MappingAccessIndex(parentCons, arg1)):-
-  Variable_StorageIndex(arg2, parentCons),
+Variable_StorageIndex(def, $MappingAccessIndex(parentIndex, arg1)):-
+  Variable_StorageIndex(arg2, parentIndex),
   SHA3_2ARG(_, arg1, arg2, def).
 
-Variable_StorageIndex(shaDef, $ArrayDataStartIndex(parIndex)):-
-  Variable_StorageIndex(arg, parIndex),
+Variable_StorageIndex(shaDef, $ArrayDataStartIndex(parentIndex)):-
+  Variable_StorageIndex(arg, parentIndex),
   SHA3_1ARG(_, arg, shaDef).
 
-Variable_StorageIndex(def, $ArrayAccessIndex(parIndex, indexVar)):-
-  Variable_StorageIndex(var, $ArrayDataStartIndex(parIndex)),
+Variable_StorageIndex(def, $ArrayAccessIndex(parentIndex, indexVar)):-
+  Variable_StorageIndex(var, $ArrayDataStartIndex(parentIndex)),
   ADDFix(_, var, indexTimesConst, def),
   VarTimesConstantNoIdentity(indexVar, _, indexTimesConst).
 
-Variable_StorageIndex(def, $ArrayAccessIndex(parIndex, indexVar)):-
-  Variable_StorageIndex(var, $ArrayDataStartIndex(parIndex)),
+Variable_StorageIndex(def, $ArrayAccessIndex(parentIndex, indexVar)):-
+  Variable_StorageIndex(var, $ArrayDataStartIndex(parentIndex)),
   ADDFix(_, var, indexVar, def),
   !VarTimesConstantNoIdentity(_, _, indexVar).
 
@@ -279,12 +301,12 @@ StorageIndex_StorageConstruct($OffsetIndex(parentIndex, offset), $Offset(parentC
 
 ActualStorageIndex(index):-
   Variable_StorageIndex(var, index),
-  (SLOAD(_, var, _) ; SSTORE(_, var, _)).
+  StorageIndexVar(var).
 
 ActualStorageIndex(index):-
   PHITrans(var, phiVar),
   Variable_StorageIndex(var, index),
-  (SLOAD(_, phiVar, _) ; SSTORE(_, phiVar, _)).
+  StorageIndexVar(phiVar).
 
 StorageIndex_ParentIndex(index, parentIndex):-
   ActualStorageIndex(index),
@@ -299,9 +321,6 @@ UsedStorageIndex(index):-
   ActualStorageIndex(index),
   !StorageIndex_ParentIndex(_, index).
 
-// ActualStorageIndex(index):-
-//   UsedStorageIndex(index).
-
 ActualStorageIndex(parentIndex):-
   ActualStorageIndex(index),
   StorageIndex_ParentIndex(index, parentIndex).
@@ -310,15 +329,33 @@ IsStorageConstruct($Variable(cons)):-
   UsedStorageIndex(index),
   StorageIndex_StorageConstruct(index, cons).
 
-IsStorageConstruct(cons):-
+IsStorageConstruct(cons),
+IsDataStructureConstruct(cons):-
   ActualStorageIndex(index),
   StorageIndex_StorageConstruct(index, cons),
-  (cons = $Array(parentCons) ; cons = $Mapping(parentCons)), // filter intermediate constructs
+  (cons = $Array(parentCons); cons = $Mapping(parentCons)), // filter intermediate constructs
   parentCons = parentCons. // suppress warning
 
-// IsStorageConstruct([kind, parIndex]):-
-//   IsStorageIndex(index, parIndex).
+StorageConstruct_Parent(cons, paparentCons):-
+  IsStorageConstruct(cons),
+  (cons = $Array(parentCons); cons = $Mapping(parentCons); cons = $Variable(parentCons)),
+  parentCons = $Offset(paparentCons, offset),
+  offset = offset. // suppress warning
 
+StorageConstruct_Parent(cons, parentCons):-
+  IsStorageConstruct(cons),
+  (cons = $Array(parentCons); cons = $Mapping(parentCons); cons = $Variable(parentCons)),
+  (parentCons = $Array(paparentCons) ; parentCons = $Mapping(paparentCons); parentCons = $Variable(paparentCons)),
+  paparentCons = paparentCons. // suppress warning
+
+DataStructure_ElemNum(cons, elemNum):-
+  IsDataStructureConstruct(cons),
+  elemNum = count : StorageConstruct_Parent(_, cons).
+
+
+/**
+  METRICS
+*/
 .decl NewModelKnownLoad(stmt: Statement, cons: StorageIndex)
 .decl NewModelKnownStore(stmt: Statement, cons: StorageIndex)
 
