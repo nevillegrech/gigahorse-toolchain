@@ -221,6 +221,8 @@ PossibleArraySizeVariable(resVar, const) :-
 // Storage index used in an `SSTORE`/`SLOAD` op
 .decl UsedStorageIndex(index: StorageIndex)
 
+.decl StorageIndex_HighLevelUses(index: StorageIndex, accessVar: Variable, i: number, nestedness: number)
+
 /**
   Contais all __possible__ storage indexes.
 */
@@ -233,6 +235,8 @@ PossibleArraySizeVariable(resVar, const) :-
 // Number of elements the value of a data structure has
 .decl DataStructure_ElemNum(cons: StorageConstruct, elemNum: number)
 
+.decl DataStructure_Type(cons: StorageConstruct, type: symbol)
+
 .decl StorageConstruct_Parent(cons: StorageConstruct, parentCons: StorageConstruct)
 
 .decl PHITrans(from: Variable, to: Variable)
@@ -244,6 +248,8 @@ DEBUG_OUTPUT(Variable_StorageIndex)
 DEBUG_OUTPUT(IsStorageConstruct)
 DEBUG_OUTPUT(StorageConstruct_Parent)
 DEBUG_OUTPUT(DataStructure_ElemNum)
+DEBUG_OUTPUT(DataStructure_Type)
+DEBUG_OUTPUT(StorageIndex_HighLevelUses)
 
 Variable_StorageIndex(var, $ConstantIndex(val)):-
   Variable_Value(var, val).
@@ -325,6 +331,21 @@ ActualStorageIndex(parentIndex):-
   ActualStorageIndex(index),
   StorageIndex_ParentIndex(index, parentIndex).
 
+StorageIndex_HighLevelUses(index, accessVar, 0, 1):-
+  ActualStorageIndex(index),
+  (index = $ArrayAccessIndex($ConstantIndex(const), accessVar); index = $MappingAccessIndex($ConstantIndex(const), accessVar)),
+  const = const.
+
+StorageIndex_HighLevelUses(index, accessVar, prevNestedness, prevNestedness + 1):-
+  ActualStorageIndex(index),
+  (index = $ArrayAccessIndex(parIndex, accessVar); index = $MappingAccessIndex(parIndex, accessVar)),
+  StorageIndex_HighLevelUses(parIndex, _, _, prevNestedness).
+
+StorageIndex_HighLevelUses(index, accessVar, i, prevNestedness + 1):-
+  ActualStorageIndex(index),
+  StorageIndex_ParentIndex(index, parentIndex),
+  StorageIndex_HighLevelUses(parentIndex, accessVar, i, prevNestedness).
+
 IsStorageConstruct($Variable(cons)):-
   UsedStorageIndex(index),
   StorageIndex_StorageConstruct(index, cons).
@@ -351,6 +372,36 @@ StorageConstruct_Parent(cons, parentCons):-
 DataStructure_ElemNum(cons, elemNum):-
   IsDataStructureConstruct(cons),
   elemNum = count : StorageConstruct_Parent(_, cons).
+
+DataStructure_Type(cons, "mapping (uint256 => uint256)"):-
+  DataStructure_ElemNum(cons, 1),
+  StorageConstruct_Parent($Variable(cons), cons),
+  cons = $Mapping(parentCons), parentCons = parentCons.
+
+DataStructure_Type(cons, cat("mapping (uint256 => ", cat(type, ")"))):-
+  DataStructure_ElemNum(cons, 1),
+  StorageConstruct_Parent(child, cons),
+  DataStructure_Type(child, type),
+  cons = $Mapping(parentCons), parentCons = parentCons.
+
+DataStructure_Type(cons, "uint256[]"):-
+  DataStructure_ElemNum(cons, 1),
+  StorageConstruct_Parent($Variable(cons1), cons), cons1 = cons1,
+  cons = $Array(parentCons), parentCons = parentCons.
+
+DataStructure_Type(cons, cat(type, "[]")):-
+  DataStructure_ElemNum(cons, 1),
+  StorageConstruct_Parent(child, cons),
+  DataStructure_Type(child, type),
+  cons = $Array(parentCons), parentCons = parentCons.
+
+
+.decl StorageOffset_Type(offset: Value, type: symbol)
+
+StorageOffset_Type(offset, type):-
+  DataStructure_Type(cons, type),
+  (cons = $Array(parentCons); cons = $Mapping(parentCons)),
+  parentCons = $Constant(offset).
 
 
 /**
