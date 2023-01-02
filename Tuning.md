@@ -35,4 +35,4 @@ __WARNING:__ Using limitsize will also stop the execution of other relations in 
 ### Disabling inlining of small functions
 
 By default, the gigahorse pipeline contains a stage inlining small functions, in order to produce a more high-level IR for subsequent client analyses.
-The inlining stage can be disabled using the `--disable_inline` flag.
+The inlining stage can be enabled using the `--extra_inline` flag.
