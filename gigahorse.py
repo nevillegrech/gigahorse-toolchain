@@ -603,7 +603,7 @@ compile_processes_args.append((DEFAULT_DECOMPILER_DL, DEFAULT_DECOMPILER_DL+SOUF
 if not args.disable_scalable_fallback:
     compile_processes_args.append((FALLBACK_SCALABLE_DECOMPILER_DL, FALLBACK_SCALABLE_DECOMPILER_DL+SOUFFLE_COMPILED_SUFFIX))
 
-if not args.disable_inline:
+if args.extra_inline:
     compile_processes_args.append((DEFAULT_INLINER_DL, DEFAULT_INLINER_DL+SOUFFLE_COMPILED_SUFFIX))
 
 if not args.disable_precise_fallback:
