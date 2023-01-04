@@ -42,7 +42,7 @@ KeyToOffset(keyVar, storeOffsetVar, keySize) :-
   MSTORE(mstoreStmt, shaStart2, keyVar),
   Variable_Value(keySizeVar, keySize),
   DataFlows(storeOffsetVar, index),
-  StorageIndexVar(index).
+  StorageAccessOp(_, index).
 
 // Same, but in this instance storage is not used
 DataStructuresTempStmt(mstoreStmt),
@@ -63,11 +63,11 @@ KeyToOffset(keyVar1, storeOffsetVar2, keySize) :-
 //#endif
 
 
-.decl StorageIndexVar(index: Variable)
+.decl StorageAccessOp(stmt: Statement, index: Variable)
 
-StorageIndexVar(index) :-
-  SSTORE(_, index, _) ;
-  SLOAD(_, index, _).      
+StorageAccessOp(stmt, index):-
+  SSTORE(stmt, index, _) ;
+  SLOAD(stmt, index, _).      
 
 .decl ArrayIdToStorageIndex(c:Value, storeOffsetVar:Variable)
 
@@ -218,6 +218,8 @@ PossibleArraySizeVariable(resVar, const) :-
 
 .decl StorageIndex_ParentIndex(index: StorageIndex, parIndex: StorageIndex)
 
+.decl StorageIndexPredecesor(index: StorageIndex, predIndex: StorageIndex)
+
 // Storage index used in an `SSTORE`/`SLOAD` op
 .decl UsedStorageIndex(index: StorageIndex)
 
@@ -235,20 +237,33 @@ PossibleArraySizeVariable(resVar, const) :-
 // Number of elements the value of a data structure has
 .decl DataStructure_ElemNum(cons: StorageConstruct, elemNum: number)
 
+.decl DataStructureValueIsStruct(cons: StorageConstruct, structID: symbol, elemNum: number)
+
+.decl StructToString(structID: symbol, stringStruct: symbol)
+.decl StructToStringUpTo(structID: symbol, stringStruct: symbol, upTo: number)
+
 .decl DataStructure_Type(cons: StorageConstruct, type: symbol)
 
-.decl StorageConstruct_Parent(cons: StorageConstruct, parentCons: StorageConstruct)
+// Note: Can probably be unified with `DataStructure_Type`
+.decl StorageVariable_Type(cons: StorageConstruct, type: symbol)
+
+.decl StorageConstruct_ParentAndOffset(cons: StorageConstruct, parentCons: StorageConstruct, offset: number)
 
 .decl PHITrans(from: Variable, to: Variable)
+
+.decl StorageStmtToIndexAndConstruct(stmt: Statement, index: StorageIndex, construct: StorageConstruct)
 
 DEBUG_OUTPUT(StorageIndex_StorageConstruct)
 DEBUG_OUTPUT(ActualStorageIndex)
 DEBUG_OUTPUT(UsedStorageIndex)
 DEBUG_OUTPUT(Variable_StorageIndex)
 DEBUG_OUTPUT(IsStorageConstruct)
-DEBUG_OUTPUT(StorageConstruct_Parent)
+DEBUG_OUTPUT(StorageConstruct_ParentAndOffset)
 DEBUG_OUTPUT(DataStructure_ElemNum)
+DEBUG_OUTPUT(DataStructureValueIsStruct)
+DEBUG_OUTPUT(StructToString)
 DEBUG_OUTPUT(DataStructure_Type)
+DEBUG_OUTPUT(StorageVariable_Type)
 DEBUG_OUTPUT(StorageIndex_HighLevelUses)
 
 Variable_StorageIndex(var, $ConstantIndex(val)):-
@@ -307,12 +322,12 @@ StorageIndex_StorageConstruct($OffsetIndex(parentIndex, offset), $Offset(parentC
 
 ActualStorageIndex(index):-
   Variable_StorageIndex(var, index),
-  StorageIndexVar(var).
+  StorageAccessOp(stmt, var).
 
 ActualStorageIndex(index):-
   PHITrans(var, phiVar),
   Variable_StorageIndex(var, index),
-  StorageIndexVar(phiVar).
+  StorageAccessOp(stmt, phiVar).
 
 StorageIndex_ParentIndex(index, parentIndex):-
   ActualStorageIndex(index),
@@ -322,6 +337,13 @@ StorageIndex_ParentIndex(index, parentIndex):-
     (index = $MappingAccessIndex(parentIndex, indexVar), indexVar = indexVar); // suppress warning
     (index = $OffsetIndex(parentIndex, offset), offset = offset) // suppress warning
   ).
+
+StorageIndexPredecesor(index, predIndex):-
+  StorageIndex_ParentIndex(index, predIndex).
+
+StorageIndexPredecesor(index, predIndex):-
+  StorageIndex_ParentIndex(index, parentIndex),
+  StorageIndexPredecesor(parentIndex, predIndex).
 
 UsedStorageIndex(index):-
   ActualStorageIndex(index),
@@ -357,13 +379,13 @@ IsDataStructureConstruct(cons):-
   (cons = $Array(parentCons); cons = $Mapping(parentCons)), // filter intermediate constructs
   parentCons = parentCons. // suppress warning
 
-StorageConstruct_Parent(cons, paparentCons):-
+StorageConstruct_ParentAndOffset(cons, paparentCons, offset):-
   IsStorageConstruct(cons),
   (cons = $Array(parentCons); cons = $Mapping(parentCons); cons = $Variable(parentCons)),
   parentCons = $Offset(paparentCons, offset),
   offset = offset. // suppress warning
 
-StorageConstruct_Parent(cons, parentCons):-
+StorageConstruct_ParentAndOffset(cons, parentCons, 0):-
   IsStorageConstruct(cons),
   (cons = $Array(parentCons); cons = $Mapping(parentCons); cons = $Variable(parentCons)),
   (parentCons = $Array(paparentCons) ; parentCons = $Mapping(paparentCons); parentCons = $Variable(paparentCons)),
@@ -371,30 +393,75 @@ StorageConstruct_Parent(cons, parentCons):-
 
 DataStructure_ElemNum(cons, elemNum):-
   IsDataStructureConstruct(cons),
-  elemNum = count : StorageConstruct_Parent(_, cons).
+  elemNum = count : StorageConstruct_ParentAndOffset(_, cons, _).
 
-DataStructure_Type(cons, "mapping (uint256 => uint256)"):-
+DataStructureValueIsStruct(cons, cat("struct_", to_string(ord(cons))), elemNum):-
+  DataStructure_ElemNum(cons, elemNum),
+  elemNum > 1.
+
+StructToStringUpTo(structID, cat("struct ", cat(structID, cat(" { ", decl))), 0):-
+  DataStructureValueIsStruct(cons, structID, _),
+  StorageConstruct_ParentAndOffset(child, cons, 0),
+  (StorageVariable_Type(child, type); DataStructure_Type(child, type)),
+  name = "field_0",
+  decl = cat(type, cat(" ", cat(name, ";"))).
+
+StructToStringUpTo(structID, cat(prev, cat(" ", decl)), i + 1):-
+  DataStructureValueIsStruct(cons, structID, _),
+  StructToStringUpTo(structID, prev, i),
+  StorageConstruct_ParentAndOffset(child, cons, i + 1),
+  (StorageVariable_Type(child, type); DataStructure_Type(child, type)),
+  name = cat("field_", to_string(i + 1)),
+  decl = cat(type, cat(" ", cat(name, ";"))).
+
+StructToString(structID, cat(prev, " }")):-
+  DataStructureValueIsStruct(_, structID, elemNum),
+  StructToStringUpTo(structID, prev, elemNum - 1).
+
+DataStructure_Type(cons, cat("mapping (uint256 => ", cat(type, ")"))):-
   DataStructure_ElemNum(cons, 1),
-  StorageConstruct_Parent($Variable(cons), cons),
+  StorageConstruct_ParentAndOffset($Variable(cons), cons, 0),
+  StorageVariable_Type($Variable(cons), type),
   cons = $Mapping(parentCons), parentCons = parentCons.
 
 DataStructure_Type(cons, cat("mapping (uint256 => ", cat(type, ")"))):-
   DataStructure_ElemNum(cons, 1),
-  StorageConstruct_Parent(child, cons),
+  StorageConstruct_ParentAndOffset(child, cons, 0),
   DataStructure_Type(child, type),
   cons = $Mapping(parentCons), parentCons = parentCons.
 
 DataStructure_Type(cons, "uint256[]"):-
   DataStructure_ElemNum(cons, 1),
-  StorageConstruct_Parent($Variable(cons1), cons), cons1 = cons1,
+  StorageConstruct_ParentAndOffset($Variable(cons1), cons, 0), cons1 = cons1,
+  cons = $Array(parentCons), parentCons = parentCons.
+
+DataStructure_Type(cons, cat(structID, "[]")):-
+  DataStructureValueIsStruct(cons, structID, _),
   cons = $Array(parentCons), parentCons = parentCons.
 
 DataStructure_Type(cons, cat(type, "[]")):-
   DataStructure_ElemNum(cons, 1),
-  StorageConstruct_Parent(child, cons),
+  StorageConstruct_ParentAndOffset(child, cons, 0),
   DataStructure_Type(child, type),
   cons = $Array(parentCons), parentCons = parentCons.
 
+StorageVariable_Type(var, "uint256"):-
+  IsStorageConstruct(var),
+  var = $Variable(cons), cons = cons.
+
+
+StorageStmtToIndexAndConstruct(stmt, index, $Variable(cons)):-
+  UsedStorageIndex(index),
+  StorageIndex_StorageConstruct(index, cons),
+  PHITrans(var, phiVar),
+  Variable_StorageIndex(var, index),
+  StorageAccessOp(stmt, phiVar).
+
+StorageStmtToIndexAndConstruct(stmt, index, $Variable(cons)):-
+  UsedStorageIndex(index),
+  StorageIndex_StorageConstruct(index, cons),
+  Variable_StorageIndex(var, index),
+  StorageAccessOp(stmt, var).
 
 .decl StorageOffset_Type(offset: Value, type: symbol)
 
@@ -769,6 +836,7 @@ StorageVariableInfo(storVar, storVar, 0, 31):-
 
 StorageVariableInfo(storVar, storVar, 0, 31):-
   FailedMergedStorageModeling(storVar).
+
 /**
   Basic type inference
   Hacky for now just to print the correct uintX or address if nessesary.
