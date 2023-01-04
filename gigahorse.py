@@ -196,10 +196,10 @@ parser.add_argument("--enable_limitsize",
                         )
                     )
 
-parser.add_argument("--extra_inline",
+parser.add_argument("--disable_inline",
                     action="store_true",
                     default=False,
-                    help="Enables the inlining of small functions performed after TAC code is generated"
+                    help="Disables the inlining of small functions performed after TAC code is generated"
                     " (to increase the amount of high level inferences produced by the memory and storage modeling components).")
 
 parser.add_argument("--early_cloning",
@@ -470,7 +470,7 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
             decompiler_config = run_decomp(contract_filename, work_dir, out_dir, fallback_out_dir)
 
             inline_start = time.time()
-            if args.extra_inline:
+            if not args.disable_inline:
                 # ignore timeouts and errors here
                 run_clients([DEFAULT_INLINER_DL]*DEFAULT_INLINER_ROUNDS, [], out_dir, out_dir)
 
@@ -603,7 +603,7 @@ compile_processes_args.append((DEFAULT_DECOMPILER_DL, DEFAULT_DECOMPILER_DL+SOUF
 if not args.disable_scalable_fallback:
     compile_processes_args.append((FALLBACK_SCALABLE_DECOMPILER_DL, FALLBACK_SCALABLE_DECOMPILER_DL+SOUFFLE_COMPILED_SUFFIX))
 
-if args.extra_inline:
+if not args.disable_inline:
     compile_processes_args.append((DEFAULT_INLINER_DL, DEFAULT_INLINER_DL+SOUFFLE_COMPILED_SUFFIX))
 
 if not args.disable_precise_fallback:
