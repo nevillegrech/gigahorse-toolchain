@@ -91,4 +91,9 @@ contract Complex {
         str storage owner = owners[key];
         return (owner.a, owner.ns);
     }
+
+    function adminFor(address key1, address key2) external view returns (address) {
+        return admins[key1].mp[key2];
+    }
+
 }

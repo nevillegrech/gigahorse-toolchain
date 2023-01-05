@@ -223,7 +223,7 @@ PossibleArraySizeVariable(resVar, const) :-
 // Storage index used in an `SSTORE`/`SLOAD` op
 .decl UsedStorageIndex(index: StorageIndex)
 
-.decl StorageIndex_HighLevelUses(index: StorageIndex, accessVar: Variable, i: number, nestedness: number)
+.decl StorageIndex_HighLevelUses(index: StorageIndex, accessVar: Variable, offset: number, i: number, nestedness: number)
 
 /**
   Contais all __possible__ storage indexes.
@@ -261,10 +261,11 @@ DEBUG_OUTPUT(IsStorageConstruct)
 DEBUG_OUTPUT(StorageConstruct_ParentAndOffset)
 DEBUG_OUTPUT(DataStructure_ElemNum)
 DEBUG_OUTPUT(DataStructureValueIsStruct)
-DEBUG_OUTPUT(StructToString)
 DEBUG_OUTPUT(DataStructure_Type)
 DEBUG_OUTPUT(StorageVariable_Type)
 DEBUG_OUTPUT(StorageIndex_HighLevelUses)
+DEBUG_OUTPUT(StorageIndex_ParentIndex)
+DEBUG_OUTPUT(StorageStmtToIndexAndConstruct)
 
 Variable_StorageIndex(var, $ConstantIndex(val)):-
   Variable_Value(var, val).
@@ -353,20 +354,30 @@ ActualStorageIndex(parentIndex):-
   ActualStorageIndex(index),
   StorageIndex_ParentIndex(index, parentIndex).
 
-StorageIndex_HighLevelUses(index, accessVar, 0, 1):-
+StorageIndex_HighLevelUses(index, accessVar, 0, 0, 1):-
   ActualStorageIndex(index),
   (index = $ArrayAccessIndex($ConstantIndex(const), accessVar); index = $MappingAccessIndex($ConstantIndex(const), accessVar)),
   const = const.
 
-StorageIndex_HighLevelUses(index, accessVar, prevNestedness, prevNestedness + 1):-
+StorageIndex_HighLevelUses(index, otherVar, prevOffset, i, prevNestedness + 1),
+StorageIndex_HighLevelUses(index, accessVar, 0, prevNestedness, prevNestedness + 1):-
   ActualStorageIndex(index),
   (index = $ArrayAccessIndex(parIndex, accessVar); index = $MappingAccessIndex(parIndex, accessVar)),
-  StorageIndex_HighLevelUses(parIndex, _, _, prevNestedness).
+  StorageIndex_HighLevelUses(parIndex, otherVar, prevOffset, i, prevNestedness).
 
-StorageIndex_HighLevelUses(index, accessVar, i, prevNestedness + 1):-
-  ActualStorageIndex(index),
-  StorageIndex_ParentIndex(index, parentIndex),
-  StorageIndex_HighLevelUses(parentIndex, accessVar, i, prevNestedness).
+StorageIndex_HighLevelUses($OffsetIndex(parentIndex, offset), accessVar, prevOffset, i, prevNestedness):-
+  ActualStorageIndex($OffsetIndex(parentIndex, offset)),
+  StorageIndex_HighLevelUses(parentIndex, accessVar, prevOffset, i, prevNestedness),
+  i < prevNestedness - 1.
+
+StorageIndex_HighLevelUses($OffsetIndex(parentIndex, offset), accessVar, offset, nestedness - 1, nestedness):-
+  ActualStorageIndex($OffsetIndex(parentIndex, offset)),
+  StorageIndex_HighLevelUses(parentIndex, accessVar, 0, nestedness - 1, nestedness).
+
+// StorageIndex_HighLevelUses(index, accessVar, i, prevNestedness + 1):-
+//   ActualStorageIndex(index),
+//   StorageIndex_ParentIndex(index, parentIndex),
+//   StorageIndex_HighLevelUses(parentIndex, accessVar, i, prevNestedness).
 
 IsStorageConstruct($Variable(cons)):-
   UsedStorageIndex(index),
