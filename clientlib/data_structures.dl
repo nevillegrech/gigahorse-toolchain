@@ -232,6 +232,8 @@ PossibleArraySizeVariable(resVar, const) :-
 
 .decl IsStorageConstruct(cons: StorageConstruct)
 
+.decl ArrayLengthStatement(stmt: Statement, index: StorageIndex, cons: StorageConstruct)
+
 .decl IsDataStructureConstruct(cons: StorageConstruct)
 
 // Number of elements the value of a data structure has
@@ -251,7 +253,7 @@ PossibleArraySizeVariable(resVar, const) :-
 
 .decl PHITrans(from: Variable, to: Variable)
 
-.decl StorageStmtToIndexAndConstruct(stmt: Statement, index: StorageIndex, construct: StorageConstruct)
+.decl StorageStmtToIndexAndConstruct(stmt: Statement, kind: symbol, index: StorageIndex, construct: StorageConstruct)
 
 DEBUG_OUTPUT(StorageIndex_StorageConstruct)
 DEBUG_OUTPUT(ActualStorageIndex)
@@ -266,12 +268,13 @@ DEBUG_OUTPUT(StorageVariable_Type)
 DEBUG_OUTPUT(StorageIndex_HighLevelUses)
 DEBUG_OUTPUT(StorageIndex_ParentIndex)
 DEBUG_OUTPUT(StorageStmtToIndexAndConstruct)
+DEBUG_OUTPUT(ArrayLengthStatement)
 
 Variable_StorageIndex(var, $ConstantIndex(val)):-
   Variable_Value(var, val).
 
 
-// REVIEW: Does not include results for ArrayDataStartIndex
+// REVIEW: Addition does not handle ArrayDataStartIndex
 Variable_StorageIndex(def, $OffsetIndex(index, @hex_to_number(const))):-
   Variable_StorageIndex(var, index),
   (index = $ArrayAccessIndex(parentIndex, indexVar); index = $MappingAccessIndex(parentIndex, indexVar)),
@@ -374,6 +377,11 @@ StorageIndex_HighLevelUses($OffsetIndex(parentIndex, offset), accessVar, offset,
   ActualStorageIndex($OffsetIndex(parentIndex, offset)),
   StorageIndex_HighLevelUses(parentIndex, accessVar, 0, nestedness - 1, nestedness).
 
+// Don't think we need anything else here. May be wrong.
+StorageIndex_HighLevelUses($ArrayDataStartIndex(parentIndex), accessVar, prevOffset, i, prevNestedness):-
+  ActualStorageIndex($ArrayDataStartIndex(parentIndex)),
+  StorageIndex_HighLevelUses(parentIndex, accessVar, prevOffset, i, prevNestedness).
+
 // StorageIndex_HighLevelUses(index, accessVar, i, prevNestedness + 1):-
 //   ActualStorageIndex(index),
 //   StorageIndex_ParentIndex(index, parentIndex),
@@ -435,6 +443,10 @@ DataStructure_Type(cons, cat("mapping (uint256 => ", cat(type, ")"))):-
   StorageVariable_Type($Variable(cons), type),
   cons = $Mapping(parentCons), parentCons = parentCons.
 
+DataStructure_Type(cons, cat("mapping (uint256 => ", cat(structID, ")"))):-
+  DataStructureValueIsStruct(cons, structID, _),
+  cons = $Mapping(parentCons), parentCons = parentCons.
+
 DataStructure_Type(cons, cat("mapping (uint256 => ", cat(type, ")"))):-
   DataStructure_ElemNum(cons, 1),
   StorageConstruct_ParentAndOffset(child, cons, 0),
@@ -460,15 +472,23 @@ StorageVariable_Type(var, "uint256"):-
   IsStorageConstruct(var),
   var = $Variable(cons), cons = cons.
 
+// // Disable general rule for now
+// StorageStmtToIndexAndConstruct(stmt, "ACCESS", index, $Variable(cons)):-
+//   UsedStorageIndex(index),
+//   StorageIndex_StorageConstruct(index, cons),
+//   PHITrans(var, phiVar),
+//   Variable_StorageIndex(var, index),
+//   StorageAccessOp(stmt, phiVar).
 
-StorageStmtToIndexAndConstruct(stmt, index, $Variable(cons)):-
-  UsedStorageIndex(index),
-  StorageIndex_StorageConstruct(index, cons),
+StorageStmtToIndexAndConstruct(stmt, "GETDATASTART", $ArrayDataStartIndex(parIndex), cons):-
+  UsedStorageIndex($ArrayDataStartIndex(parIndex)),
+  StorageIndex_StorageConstruct($ArrayDataStartIndex(parIndex), cons),
+  Variable_StorageIndex(var, $ArrayDataStartIndex(parIndex)),
   PHITrans(var, phiVar),
-  Variable_StorageIndex(var, index),
-  StorageAccessOp(stmt, phiVar).
+  StorageAccessOp(_, phiVar),
+  Statement_Defines(stmt, var, _).
 
-StorageStmtToIndexAndConstruct(stmt, index, $Variable(cons)):-
+StorageStmtToIndexAndConstruct(stmt, "ACCESS", index, $Variable(cons)):-
   UsedStorageIndex(index),
   StorageIndex_StorageConstruct(index, cons),
   Variable_StorageIndex(var, index),
@@ -481,6 +501,13 @@ StorageOffset_Type(offset, type):-
   (cons = $Array(parentCons); cons = $Mapping(parentCons)),
   parentCons = $Constant(offset).
 
+StorageStmtToIndexAndConstruct(stmt, "LENGTH", index, $Array(cons)),
+ArrayLengthStatement(stmt, index, $Array(cons)):-
+  StorageAccessOp(stmt, var),
+  Variable_StorageIndex(var, index),
+  ActualStorageIndex(index),
+  StorageIndex_StorageConstruct(index, cons),
+  IsStorageConstruct($Array(cons)).
 
 /**
   METRICS
