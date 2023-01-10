@@ -113,6 +113,7 @@ DEBUG_OUTPUT(StructStore)
 .type StatementOrLoop = Statement | Block
 
 /**
-  Statement or loop `loc` copies the value of array `from` to array `to`.
+  Statement or loop `loc` copies the value of array `from` to array `to`.  
+  __Note__: `to` can be `RawDataArray` right now. Perhaps not the best way to go.
 */
 .decl ArrayCopy(loc: StatementOrLoop, from: ArrayVariable, to: ArrayVariable)

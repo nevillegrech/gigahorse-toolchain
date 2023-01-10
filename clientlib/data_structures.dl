@@ -291,6 +291,10 @@ Variable_StorageIndex(def, $MappingAccessIndex(parentIndex, arg1)):-
   Variable_StorageIndex(arg2, parentIndex),
   SHA3_2ARG(_, arg1, arg2, def).
 
+Variable_StorageIndex(def, $MappingAccessIndex(parentIndex, as(arg1, Variable))):-
+  Variable_StorageIndex(arg2, parentIndex),
+  SHA3_2ARGWithArray(_, arg1, arg2, def).
+
 Variable_StorageIndex(shaDef, $ArrayDataStartIndex(parentIndex)):-
   Variable_StorageIndex(arg, parentIndex),
   SHA3_1ARG(_, arg, shaDef).
