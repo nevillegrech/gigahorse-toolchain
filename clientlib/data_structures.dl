@@ -342,6 +342,11 @@ StorageIndex_ParentIndex(index, parentIndex):-
     (index = $OffsetIndex(parentIndex, offset), offset = offset) // suppress warning
   ).
 
+
+StorageIndexPredecesor(index, index):-
+  StorageIndex_ParentIndex(index, _);
+  StorageIndex_ParentIndex(_, index).
+
 StorageIndexPredecesor(index, predIndex):-
   StorageIndex_ParentIndex(index, predIndex).
 
