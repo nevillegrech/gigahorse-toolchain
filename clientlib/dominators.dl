@@ -282,3 +282,17 @@ LocalStatementPathInBlock(stmt1, stmt3):-
     beforeToBetween.MayHappenBefore(before, between),
     betweenToAfter.MayHappenBefore(between, after).
 }
+
+.type CallStack = [callerBlock: Block, rest: CallStack]
+
+.decl FunctionReachableFromPublic(function: Function, selector: symbol, callStack: CallStack)
+// Can we ever have recursion? Deal with it the lazy way
+.limitsize FunctionReachableFromPublic(n=50000)
+
+FunctionReachableFromPublic(function, selector, nil):-
+  PublicFunctionSelector(function, selector).
+
+FunctionReachableFromPublic(callee, selector, [callerBlock, callerStack]):-
+  FunctionReachableFromPublic(caller, selector, callerStack),
+  InFunction(callerBlock, caller),
+  CallGraphEdge(callerBlock, callee).
