@@ -217,7 +217,7 @@ TAC_Block(phiStmt, block) :-
 /***********
  *  Function-discovery outputs to visualization scripts
  ***********/
-
+// The following contain "Dead" results
 .output IRFunctionCall
 .output IRFunctionCallReturn
 .output IRFunction_Return
@@ -241,8 +241,14 @@ ActualReturnArgs(caller, var_rep, n) :-
 .output HighLevelFunctionName
 .output IRFallthroughEdge
 
+.decl IRInFunctionFiltered(block: IRBlock, func: IRFunction)
+
+IRInFunctionFiltered(block, func):-
+  IRInFunction(block, func),
+  ReachableFromFunHead(block).
+
 .output Mask_Length
-.output IRInFunction(IO="file", filename="InFunction.csv", delimiter="\t")
+.output IRInFunctionFiltered(IO="file", filename="InFunction.csv", delimiter="\t")
 .output IRFunctionEntry
 
 /*****
@@ -278,14 +284,22 @@ TAC_Block_Head(block, irstmt) :-
    Statement_IRStatement(stmt, _, irstmt),
    postTrans.IsBasicBlockHead(stmt).
 
+// TODO: Account for cloning. Shouldn't matter as it's all low-level stuff
 .decl TAC_Statement_OriginalStatement(irstmt: IRStatement, stmt: Statement)
 
+.type StatementList = [stmt: Statement, rest: StatementList]
+
+.decl TAC_Statement_OriginalStatementList(irstmt: IRStatement, stmtList: StatementList)
+
+
 // unmodified statements
+TAC_Statement_OriginalStatementList(irstmt, [stmt, nil]),
 TAC_Statement_OriginalStatement(irstmt, stmt) :-
   Statement_IRStatement(stmt, _, irstmt),
   preTrans.Statement_Block(stmt, _).
 
 // Inserted statements that didn't exist before
+TAC_Statement_OriginalStatementList(irstmt, [stmt_nexthead, nil]),
 TAC_Statement_OriginalStatement(irstmt, stmt_nexthead) :-
   Statement_IRStatement(stmt, _, irstmt),
   !preTrans.Statement_Block(stmt, _), // didn't exist
@@ -294,7 +308,7 @@ TAC_Statement_OriginalStatement(irstmt, stmt_nexthead) :-
   Block_IRBlock(block_next, _, irblock_next),
   stmt_nexthead = as(block_next, Statement).
 
-.output TAC_Statement_OriginalStatement
+.output TAC_Statement_OriginalStatement, TAC_Statement_OriginalStatementList
 
 .decl TAC_OriginalStatement_Block(original_stmt: Statement, irblock: IRBlock)
 .output TAC_OriginalStatement_Block

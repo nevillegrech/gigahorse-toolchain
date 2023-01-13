@@ -28,6 +28,7 @@
   .decl In_Block_Gas(block:Block, gas:number)
   .decl In_Block_CodeChunkAccessed(block:Block, chunk:Chunk)
   .decl In_Statement_OriginalStatement(irstmt: Statement, stmt: symbol)
+  .decl In_Statement_OriginalStatementList(irstmt: Statement, stmtList: OriginalStatementList)
   .decl In_OriginalStatement_Block(stmt:symbol, block:Block)
   .decl In_FormalArgs(fn: Function, a: Variable, pos: number)
   .decl In_Statement_Uses(stmt: Statement, var: Variable, i: number)
@@ -50,6 +51,7 @@
   .decl Out_Block_Gas(block:Block, gas:number)  //CHECK
   .decl Out_Block_CodeChunkAccessed(block:Block, chunk:Chunk)  //CHECK
   .decl Out_Statement_OriginalStatement(irstmt: Statement, stmt: symbol)
+  .decl Out_Statement_OriginalStatementList(irstmt: Statement, stmtList: OriginalStatementList)
   .decl Out_OriginalStatement_Block(stmt:symbol, block:Block)
   .decl Out_FormalArgs(fn: Function, a: Variable, pos: number) //CHECK
   .decl Out_Statement_Uses(stmt: Statement, var: Variable, i: number)  //CHECK
@@ -277,6 +279,17 @@
   Out_Statement_OriginalStatement(outStmt, stmt):-
     In_Statement_OriginalStatement(inStmt, stmt),
     InStatement_OutStatement(inStmt, _, outStmt).
+
+  Out_Statement_OriginalStatementList(outStmt, stmtList):-
+    In_Statement_OriginalStatementList(inStmt, stmtList),
+    InStatement_OutStatement(inStmt, "", outStmt).
+
+  Out_Statement_OriginalStatementList(outStmt, [originalCall, stmtList]):-
+    In_Statement_OriginalStatementList(inStmt, stmtList),
+    StatementToClone(inStmt, _, callerBlock, _, outStmt),
+    In_Statement_Block(callStmt, callerBlock),
+    In_Statement_Opcode(callStmt, "CALLPRIVATE"),
+    In_Statement_OriginalStatement(callStmt, originalCall).
 
   Out_OriginalStatement_Block(stmt, outBlock):-
     In_OriginalStatement_Block(stmt, inBlock),
@@ -599,6 +612,7 @@ inliner.In_IsFunction(func):- IsFunction(func).
 inliner.In_Block_Gas(block, gas):- Block_Gas(block, gas).
 inliner.In_Block_CodeChunkAccessed(block, chunk):- Block_CodeChunkAccessed(block, chunk).
 inliner.In_Statement_OriginalStatement(stmt, original):- Statement_OriginalStatement(stmt, original).
+inliner.In_Statement_OriginalStatementList(stmt, original):- Statement_OriginalStatementList(stmt, original).
 inliner.In_OriginalStatement_Block(stmt, block):- OriginalStatement_Block(stmt, block).
 inliner.In_FormalArgs(fn, a, pos):- FormalArgs(fn, a, pos).
 inliner.In_Statement_Uses(stmt, var, i):- Statement_Uses(stmt, var, i).
@@ -625,6 +639,7 @@ inliner.In_ActualReturnArgs(caller, arg, pos):- ActualReturnArgs(caller, arg, po
 .output inliner.Out_Block_Gas(IO="file", filename="TAC_Block_Gas.csv", delimiter="\t")
 .output inliner.Out_Block_CodeChunkAccessed(IO="file", filename="TAC_Block_CodeChunkAccessed.csv", delimiter="\t")
 .output inliner.Out_Statement_OriginalStatement(IO="file", filename="TAC_Statement_OriginalStatement.csv", delimiter="\t")
+.output inliner.Out_Statement_OriginalStatementList(IO="file", filename="TAC_Statement_OriginalStatementList.csv", delimiter="\t")
 .output inliner.Out_OriginalStatement_Block(IO="file", filename="TAC_OriginalStatement_Block.csv", delimiter="\t")
 .output inliner.Out_FormalArgs(IO="file", filename="FormalArgs.csv", delimiter="\t")
 .output inliner.Out_Statement_Uses(IO="file", filename="TAC_Use.csv", delimiter="\t")
