@@ -286,11 +286,13 @@ LocalStatementPathInBlock(stmt1, stmt3):-
 .type CallStack = [callerBlock: Block, rest: CallStack]
 
 .decl FunctionReachableFromPublic(function: Function, selector: symbol, callStack: CallStack)
+DEBUG_OUTPUT(FunctionReachableFromPublic)
 // Can we ever have recursion? Deal with it the lazy way
 .limitsize FunctionReachableFromPublic(n=50000)
 
-FunctionReachableFromPublic(function, selector, nil):-
-  PublicFunctionSelector(function, selector).
+FunctionReachableFromPublic(function, selectorNorm, nil):-
+  PublicFunctionSelector(function, selector),
+  ConstantPossibleSigHash(selector, selectorNorm, _).
 
 FunctionReachableFromPublic(callee, selector, [callerBlock, callerStack]):-
   FunctionReachableFromPublic(caller, selector, callerStack),
