@@ -290,6 +290,9 @@ DEBUG_OUTPUT(FunctionReachableFromPublic)
 // Can we ever have recursion? Deal with it the lazy way
 .limitsize FunctionReachableFromPublic(n=50000)
 
+.decl CallStackToOriginalStatementList(callStack: CallStack, originals: OriginalStatementList)
+DEBUG_OUTPUT(CallStackToOriginalStatementList)
+
 FunctionReachableFromPublic(function, selectorNorm, nil):-
   PublicFunctionSelector(function, selector),
   ConstantPossibleSigHash(selector, selectorNorm, _).
@@ -298,3 +301,11 @@ FunctionReachableFromPublic(callee, selector, [callerBlock, callerStack]):-
   FunctionReachableFromPublic(caller, selector, callerStack),
   InFunction(callerBlock, caller),
   CallGraphEdge(callerBlock, callee).
+
+CallStackToOriginalStatementList(nil, nil).
+
+CallStackToOriginalStatementList([caller, rest], [original, restOriginal]):-
+  FunctionReachableFromPublic(_, _, [caller, rest]),
+  CallStackToOriginalStatementList(rest, restOriginal),
+  Block_Tail(caller, call),
+  Statement_OriginalStatement(call, original).
