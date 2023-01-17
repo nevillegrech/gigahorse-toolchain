@@ -15,6 +15,10 @@
 .type Chunk <: number
 .type OriginalStatement <: symbol
 
+.type StringList = [x: symbol, y: StringList]
+// Removed the definition in order to use the stateless functor on lists
+// .type OriginalStatementList = [stmt: OriginalStatement, rest: OriginalStatementList]
+.type OriginalStatementList = StringList
 
 
 #include "tac_instructions.dl"
@@ -152,8 +156,6 @@ IsPublicFunction(func) :- PublicFunctionSelector(func, _).
 .decl Statement_OriginalStatement(stmt: Statement, originalStatement: OriginalStatement)
 .input Statement_OriginalStatement(IO="file", filename="TAC_Statement_OriginalStatement.csv", delimiter="\t")
 
-
-.type OriginalStatementList = [stmt: OriginalStatement, rest: OriginalStatementList]
 
 .decl Statement_OriginalStatementList(irstmt: Statement, stmtList: OriginalStatementList)
 .input Statement_OriginalStatementList(IO="file", filename="TAC_Statement_OriginalStatementList.csv", delimiter="\t")
