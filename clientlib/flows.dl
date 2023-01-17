@@ -85,6 +85,25 @@ standardflowanalysis.TransferBoundary(b) :- IsBlock(b).
 
 #define DataFlows standardflowanalysis.GlobalFlows
 
+.init constantOpFlows = GlobalFlowAnalysis
+constantOpFlows.TransferStmt(stmt):-
+  UnaryArith(op),
+  Statement_Opcode(stmt, op).
+
+constantOpFlows.TransferStmt(stmt):-
+  BinArith(op),
+  Statement_Opcode(stmt, op),
+  Statement_Uses(stmt, var, _),
+  Variable_Value(var, _). // Maybe replace with BasicVariable_Value
+
+constantOpFlows.TransferStmt(stmt):-
+  Statement_Opcode(stmt, "PHI").
+
+constantOpFlows.InitialFlowVar(v):- isVariable(v).
+constantOpFlows.TransferBoundary(b):- IsBlock(b).
+
+#define DataFlowsThroughConstOps constantOpFlows.GlobalFlows
+
 // Need a custom data flow analysis? Of course you do!
 // Initialise this component and indicate with opcodes to use as transfer functions.
 // Also indicate the transfer boundary (e.g. Loop blocks for induction variables)
