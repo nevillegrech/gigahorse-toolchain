@@ -15,9 +15,12 @@
 .type Chunk <: number
 .type OriginalStatement <: symbol
 
-.type StringList = [x: symbol, y: StringList]
+// Defined in souffle-addon/functor_includes.dl
+// .type StringList = [x: symbol, y: StringList]
+
 // Removed the definition in order to use the stateless functor on lists
 // .type OriginalStatementList = [stmt: OriginalStatement, rest: OriginalStatementList]
+
 .type OriginalStatementList = StringList
 
 
