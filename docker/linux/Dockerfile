@@ -5,16 +5,17 @@ USER root
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Install some essentials
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get upgrade && apt-get install -y \
     build-essential \
     libboost-all-dev \
-    curl
+    wget
 
 # Install python3
 RUN apt-get install python3-dev python3-pip -y
 
 # Install souffle
-RUN curl -s https://packagecloud.io/install/repositories/souffle-lang/souffle/script.deb.sh | bash
+RUN wget https://souffle-lang.github.io/ppa/souffle-key.public -O /usr/share/keyrings/souffle-archive-keyring.gpg
+RUN echo "deb [signed-by=/usr/share/keyrings/souffle-archive-keyring.gpg] https://souffle-lang.github.io/ppa/ubuntu/ stable main" | tee /etc/apt/sources.list.d/souffle.list
 RUN apt-get update && apt-get install souffle -y
 
 # Dependencies for Gigahorse output viz

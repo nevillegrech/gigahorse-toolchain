@@ -4,8 +4,9 @@ USER root
 
 ENV DEBIAN_FRONTEND=noninteractive
 
+
 # Install some essentials
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get upgrade && apt-get install -y \
     libboost-all-dev 
 
 # Install python3
