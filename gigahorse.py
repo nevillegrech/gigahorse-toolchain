@@ -330,7 +330,7 @@ def compile_datalog(spec):
         log(f"Compiling {spec} to C++ program and executable")
         compilation_command = [args.souffle_bin, '-M', souffle_macros, '-o', cache_path, spec, '-L', functor_path]
         process = subprocess.run(compilation_command, universal_newlines=True, env = souffle_env)
-        assert not(process.returncode), "Compilation failed. Stopping."
+        assert not(process.returncode), f"Compilation for {spec} failed. Stopping."
 
     shutil.copy2(cache_path, executable_path)
 
@@ -643,6 +643,8 @@ if args.restart:
 if not args.interpreted:
     for p in running_processes:
         p.join()
+        if p.exitcode:
+            raise Exception("Souffle binary compilation failed, stopping.")
 
     # check all programs have been compiled
     for compile_args in compile_processes_args:
