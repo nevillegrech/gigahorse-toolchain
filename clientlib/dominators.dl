@@ -285,11 +285,18 @@ LocalStatementPathInBlock(stmt1, stmt3):-
 
 .type CallStack = [callerBlock: Block, rest: CallStack]
 
+/**
+  Computes (all, most of the time) the different ways a private function can be reached for the different
+  public entry points.
+*/
 .decl FunctionReachableFromPublic(function: Function, selector: symbol, callStack: CallStack)
 DEBUG_OUTPUT(FunctionReachableFromPublic)
 // Can we ever have recursion? Deal with it the lazy way
 .limitsize FunctionReachableFromPublic(n=50000)
 
+/**
+  Converts a CallStack (list of call-blocks) to an OriginalStatementList (list of call-statements)
+*/
 .decl CallStackToOriginalStatementList(callStack: CallStack, originals: OriginalStatementList)
 DEBUG_OUTPUT(CallStackToOriginalStatementList)
 

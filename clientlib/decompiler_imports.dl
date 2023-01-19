@@ -160,6 +160,11 @@ IsPublicFunction(func) :- PublicFunctionSelector(func, _).
 .input Statement_OriginalStatement(IO="file", filename="TAC_Statement_OriginalStatement.csv", delimiter="\t")
 
 
+/**
+  Relation that links statements to a list of statements in the original bytecode.
+  Gives us better bytecode mapping for inlined statements.
+  Is a best effort that should cover most statements.
+*/
 .decl Statement_OriginalStatementList(irstmt: Statement, stmtList: OriginalStatementList)
 .input Statement_OriginalStatementList(IO="file", filename="TAC_Statement_OriginalStatementList.csv", delimiter="\t")
 
