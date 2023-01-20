@@ -330,12 +330,12 @@ StorageIndex_StorageConstruct($OffsetIndex(parentIndex, offset), $Offset(parentC
 
 ActualStorageIndex(index):-
   Variable_StorageIndex(var, index),
-  StorageAccessOp(stmt, var).
+  StorageAccessOp(_, var).
 
 ActualStorageIndex(index):-
   PHITrans(var, phiVar),
   Variable_StorageIndex(var, index),
-  StorageAccessOp(stmt, phiVar).
+  StorageAccessOp(_, phiVar).
 
 StorageIndex_ParentIndex(index, parentIndex):-
   ActualStorageIndex(index),
@@ -560,20 +560,20 @@ Verbatim_NewModelKnownAndAllLoads(known, all):-
   known = count: NewModelKnownLoad(_, _),
   all = count: SLOAD(_, _, _).
 
-.decl NewModelIsUnknownLoad(load:Statement)
-DEBUG_OUTPUT(NewModelIsUnknownLoad)
 
-NewModelIsUnknownLoad(load):-
-  SLOAD(load, _, _),
-  !NewModelKnownLoad(load, _).
+.decl Analytics_NonModeledSSTORE(sstore: Statement)
+.output Analytics_NonModeledSSTORE
 
-.decl NewModelIsUnknownStore(store:Statement)
-DEBUG_OUTPUT(NewModelIsUnknownStore)
+.decl Analytics_NonModeledSLOAD(sload: Statement)
+.output Analytics_NonModeledSLOAD
 
-NewModelIsUnknownStore(store):-
+Analytics_NonModeledSSTORE(store):-
   SSTORE(store, _, _),
   !NewModelKnownStore(store, _).
 
+Analytics_NonModeledSLOAD(load):-
+  SLOAD(load, _, _),
+  !NewModelKnownLoad(load, _).
 
 .decl NewModelAllStoresKnown()
 
