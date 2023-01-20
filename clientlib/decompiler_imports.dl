@@ -15,6 +15,13 @@
 .type Chunk <: number
 .type OriginalStatement <: symbol
 
+// Defined in souffle-addon/functor_includes.dl
+// .type StringList = [x: symbol, y: StringList]
+
+// Removed the definition in order to use the stateless functor on lists
+// .type OriginalStatementList = [stmt: OriginalStatement, rest: OriginalStatementList]
+
+.type OriginalStatementList = StringList
 
 
 #include "tac_instructions.dl"
@@ -151,6 +158,15 @@ IsPublicFunction(func) :- PublicFunctionSelector(func, _).
 */
 .decl Statement_OriginalStatement(stmt: Statement, originalStatement: OriginalStatement)
 .input Statement_OriginalStatement(IO="file", filename="TAC_Statement_OriginalStatement.csv", delimiter="\t")
+
+
+/**
+  Relation that links statements to a list of statements in the original bytecode.
+  Gives us better bytecode mapping for inlined statements.
+  Is a best effort that should cover most statements.
+*/
+.decl Statement_OriginalStatementList(irstmt: Statement, stmtList: OriginalStatementList)
+.input Statement_OriginalStatementList(IO="file", filename="TAC_Statement_OriginalStatementList.csv", delimiter="\t")
 
 // Code chunks accessed
 .decl Block_CodeChunkAccessed(block: Block, chunk_id: Chunk)

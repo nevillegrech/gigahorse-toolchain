@@ -4,7 +4,7 @@
 
 .init inductionVariableFlow = LocalFlowAnalysis
 
-inductionVariableFlow.TransferOpcode("AND").
+inductionVariableFlow.TransferStmt(stmt):- Statement_Opcode(stmt, "AND").
 inductionVariableFlow.TransferBoundary(block) :- BlockInStructuredLoop(block, _).
 
 // A variable that is monotonically increasing with each successive iteration in loop

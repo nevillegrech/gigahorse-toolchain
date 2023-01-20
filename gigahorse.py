@@ -235,6 +235,11 @@ parser.add_argument("--restart",
                     default=False,
                     help="Erase working dir and decompile/analyze from scratch.")
 
+parser.add_argument("--debug",
+                    action="store_true",
+                    default=False,
+                    help="Various minor changes to aid development. Halts on souffle compilation failure.")
+
 parser.add_argument("--reuse_datalog_bin",
                     action="store_true",
                     default=False,
@@ -290,16 +295,22 @@ def get_souffle_macros():
 
     return souffle_macros
 
+def get_souffle_executable_path(dl_filename):
+    executable_filename = os.path.basename(dl_filename) + SOUFFLE_COMPILED_SUFFIX
+    executable_path = join(args.cache_dir, executable_filename)
+    return executable_path
+
 def write_context_depth_file(filename, max_context_depth):
     context_depth_file = open(filename, "w")
     context_depth_file.write(f"{max_context_depth}\n")
     context_depth_file.close()
 
-def compile_datalog(spec, executable):
-    if args.reuse_datalog_bin and os.path.isfile(executable):
-        return
-
+def compile_datalog(spec):
     pathlib.Path(args.cache_dir).mkdir(exist_ok=True)
+    executable_path = get_souffle_executable_path(spec)
+
+    if args.reuse_datalog_bin and os.path.isfile(executable_path):
+        return
 
     souffle_macros = get_souffle_macros()
 
@@ -324,9 +335,9 @@ def compile_datalog(spec, executable):
         log(f"Compiling {spec} to C++ program and executable")
         compilation_command = [args.souffle_bin, '-M', souffle_macros, '-o', cache_path, spec, '-L', functor_path]
         process = subprocess.run(compilation_command, universal_newlines=True, env = souffle_env)
-        assert not(process.returncode), "Compilation failed. Stopping."
+        assert not(process.returncode), f"Compilation for {spec} failed. Stopping."
 
-    shutil.copy2(cache_path, executable)
+    shutil.copy2(cache_path, executable_path)
 
 
     
@@ -356,20 +367,29 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
         errors = []
         timeouts = []
         for souffle_client in souffle_clients:
+            err_filename = join(out_dir, os.path.basename(souffle_client) + '.err')
             if not args.interpreted:
+                err_file = devnull
                 analysis_args = [
-                    join(os.getcwd(), souffle_client+SOUFFLE_COMPILED_SUFFIX),
+                    get_souffle_executable_path(souffle_client),
                     f"--facts={in_dir}", f"--output={out_dir}"
                 ]
             else:
+                err_file = open(err_filename, 'w') if args.debug else devnull
                 analysis_args = [
                     DEFAULT_SOUFFLE_BIN,
                     join(os.getcwd(), souffle_client),
                     f"--fact-dir={in_dir}", f"--output-dir={out_dir}",
                     "-M", get_souffle_macros()
                 ]
-            if run_process(analysis_args, calc_timeout(souffle_client)) < 0:
+
+            if run_process(analysis_args, calc_timeout(souffle_client), stderr=err_file) < 0:
                 timeouts.append(souffle_client)
+            if args.debug and err_file != devnull:
+                souffle_err = open(err_filename).read()
+                if "Error:" in souffle_err:
+                    errors.append(os.path.basename(souffle_client))
+                    log(souffle_err)
 
         for other_client in other_clients:
             other_client_split = [o for o in other_client.split(' ') if o]
@@ -598,16 +618,16 @@ logging.basicConfig(format='%(message)s', level=log_level)
 
 # Here we compile the decompiler and any of its clients in parallel :)
 compile_processes_args = []
-compile_processes_args.append((DEFAULT_DECOMPILER_DL, DEFAULT_DECOMPILER_DL+SOUFFLE_COMPILED_SUFFIX))
+compile_processes_args.append([DEFAULT_DECOMPILER_DL])
 
 if not args.disable_scalable_fallback:
-    compile_processes_args.append((FALLBACK_SCALABLE_DECOMPILER_DL, FALLBACK_SCALABLE_DECOMPILER_DL+SOUFFLE_COMPILED_SUFFIX))
+    compile_processes_args.append([FALLBACK_SCALABLE_DECOMPILER_DL])
 
 if not args.disable_inline:
-    compile_processes_args.append((DEFAULT_INLINER_DL, DEFAULT_INLINER_DL+SOUFFLE_COMPILED_SUFFIX))
+    compile_processes_args.append([DEFAULT_INLINER_DL])
 
 if not args.disable_precise_fallback:
-    compile_processes_args.append((FALLBACK_PRECISE_DECOMPILER_DL, FALLBACK_PRECISE_DECOMPILER_DL+SOUFFLE_COMPILED_SUFFIX))
+    compile_processes_args.append([FALLBACK_PRECISE_DECOMPILER_DL])
 
 clients_split = [a.strip() for a in args.client.split(',')]
 souffle_clients = [a for a in clients_split if a.endswith('.dl')]
@@ -619,10 +639,10 @@ other_pre_clients = [a for a in pre_clients_split if not (a.endswith('.dl') or a
 
 if not args.interpreted:
     for c in souffle_pre_clients:
-        compile_processes_args.append((c, c+SOUFFLE_COMPILED_SUFFIX))
+        compile_processes_args.append([c])
 
     for c in souffle_clients:
-        compile_processes_args.append((c, c+SOUFFLE_COMPILED_SUFFIX))
+        compile_processes_args.append([c])
 
     running_processes = []
     for compile_args in compile_processes_args:
@@ -637,10 +657,12 @@ if args.restart:
 if not args.interpreted:
     for p in running_processes:
         p.join()
+        if args.debug and p.exitcode:
+            raise Exception("Souffle binary compilation failed, stopping.")
 
     # check all programs have been compiled
-    for _, v in compile_processes_args:
-        open(v, 'r') # check program exists
+    for compile_args in compile_processes_args:
+        open(get_souffle_executable_path(compile_args[0]), 'r') # check program exists
 
 # Extract contract filenames.
 log("Processing contract names.")
