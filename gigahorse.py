@@ -235,6 +235,11 @@ parser.add_argument("--restart",
                     default=False,
                     help="Erase working dir and decompile/analyze from scratch.")
 
+parser.add_argument("--debug",
+                    action="store_true",
+                    default=False,
+                    help="Various minor changes to aid development. Halts on souffle compilation failure.")
+
 parser.add_argument("--reuse_datalog_bin",
                     action="store_true",
                     default=False,
@@ -362,20 +367,29 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
         errors = []
         timeouts = []
         for souffle_client in souffle_clients:
+            err_filename = join(out_dir, os.path.basename(souffle_client) + '.err')
             if not args.interpreted:
+                err_file = devnull
                 analysis_args = [
                     get_souffle_executable_path(souffle_client),
                     f"--facts={in_dir}", f"--output={out_dir}"
                 ]
             else:
+                err_file = open(err_filename, 'w') if args.debug else devnull
                 analysis_args = [
                     DEFAULT_SOUFFLE_BIN,
                     join(os.getcwd(), souffle_client),
                     f"--fact-dir={in_dir}", f"--output-dir={out_dir}",
                     "-M", get_souffle_macros()
                 ]
-            if run_process(analysis_args, calc_timeout(souffle_client)) < 0:
+
+            if run_process(analysis_args, calc_timeout(souffle_client), stderr=err_file) < 0:
                 timeouts.append(souffle_client)
+            if args.debug and err_file != devnull:
+                souffle_err = open(err_filename).read()
+                if "Error:" in souffle_err:
+                    errors.append(os.path.basename(souffle_client))
+                    log(souffle_err)
 
         for other_client in other_clients:
             other_client_split = [o for o in other_client.split(' ') if o]
@@ -643,7 +657,7 @@ if args.restart:
 if not args.interpreted:
     for p in running_processes:
         p.join()
-        if p.exitcode:
+        if args.debug and p.exitcode:
             raise Exception("Souffle binary compilation failed, stopping.")
 
     # check all programs have been compiled
