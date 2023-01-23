@@ -213,27 +213,27 @@ PossibleArraySizeVariable(resVar, const) :-
 */
 .decl StorageIndex_StorageConstruct(index: StorageIndex, construct: StorageConstruct)
 
-// Storage index that ends up flowing to `SSTORE`/`SLOAD` op
-.decl ActualStorageIndex(index: StorageIndex)
-
-.decl StorageIndex_ParentIndex(index: StorageIndex, parIndex: StorageIndex)
-
-.decl StorageIndexPredecesor(index: StorageIndex, predIndex: StorageIndex)
-
-// Storage index used in an `SSTORE`/`SLOAD` op
-.decl UsedStorageIndex(index: StorageIndex)
-
-.decl StorageIndex_HighLevelUses(index: StorageIndex, accessVar: Variable, offset: number, i: number, nestedness: number)
-
 /**
   Contais all __possible__ storage indexes.
 */
 .decl Variable_StorageIndex(var: Variable, construct: StorageIndex)
 
+// Storage indexes that end up flowing to `SSTORE`/`SLOAD` op
+.decl ActualStorageIndex(index: StorageIndex)
+
+.decl StorageIndex_ParentIndex(index: StorageIndex, parIndex: StorageIndex)
+
+// Transitive closure over the `StorageIndex_ParentIndex` relation
+.decl StorageIndexPredecesor(index: StorageIndex, predIndex: StorageIndex)
+
+// "Final" storage index: used in an `SSTORE`/`SLOAD` op and not to construct a more complex index
+.decl UsedStorageIndex(index: StorageIndex)
+
+.decl StorageIndex_HighLevelUses(index: StorageIndex, accessVar: Variable, offset: number, i: number, nestedness: number)
+
 .decl IsStorageConstruct(cons: StorageConstruct)
 
-.decl ArrayLengthStatement(stmt: Statement, index: StorageIndex, cons: StorageConstruct)
-
+// StorageConstruct is array or mapping
 .decl IsDataStructureConstruct(cons: StorageConstruct)
 
 // Number of elements the value of a data structure has
@@ -241,19 +241,31 @@ PossibleArraySizeVariable(resVar, const) :-
 
 .decl DataStructureValueIsStruct(cons: StorageConstruct, structID: symbol, elemNum: number)
 
+// Map `structID` to solidity-like struct definition `stringStruct`
 .decl StructToString(structID: symbol, stringStruct: symbol)
 .decl StructToStringUpTo(structID: symbol, stringStruct: symbol, upTo: number)
 
+// Note: Can probably be unified with `StorageVariable_Type`
 .decl DataStructure_Type(cons: StorageConstruct, type: symbol)
-
 // Note: Can probably be unified with `DataStructure_Type`
 .decl StorageVariable_Type(cons: StorageConstruct, type: symbol)
 
 .decl StorageConstruct_ParentAndOffset(cons: StorageConstruct, parentCons: StorageConstruct, offset: number)
 
-.decl PHITrans(from: Variable, to: Variable)
-
+/**
+  Maps `SSTORE` and `SLOAD` statements to the high-level information:
+  - `kind` can be "ACCESS", "LENGTH", "GETDATASTART"
+  - `index` can be used to get the high-level uses of the composite storage data structure accesses and writes
+  - `construct` is the data structure that is being accessed/written to
+*/
 .decl StorageStmtToIndexAndConstruct(stmt: Statement, kind: symbol, index: StorageIndex, construct: StorageConstruct)
+
+/**
+  Information is containted in the previous relation (`StorageStmtToIndexAndConstruct`).
+  Maybe we don't need it, maybe we need more of these?
+*/
+.decl ArrayLengthStatement(stmt: Statement, index: StorageIndex, cons: StorageConstruct)
+
 
 DEBUG_OUTPUT(StorageIndex_StorageConstruct)
 DEBUG_OUTPUT(ActualStorageIndex)
@@ -536,12 +548,6 @@ NewModelKnownStore(store, cons):-
     (PHITrans(var, index),
   Variable_StorageIndex(var, cons))).
 
-PHITrans(from, to):-
-  PHI(_, from, to).
-
-PHITrans(from, to):-
-  PHITrans(from, mid),
-  PHITrans(mid, to).
 
 //METRICS
 

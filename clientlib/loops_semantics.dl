@@ -59,3 +59,16 @@ InductionVariable(var, loop) :-
   Variable_Value(index, storeVal),
   GlobalInductionVariableStore(storeVal, loop),
   StatementInStructuredLoop(loadStmt, loop).
+
+/**
+  Transitively, the `to` variable is the lhs of a PHI node and can take the
+  value of the `from` variable.
+*/
+.decl PHITrans(from: Variable, to: Variable)
+
+PHITrans(from, to):-
+  PHI(_, from, to).
+
+PHITrans(from, to):-
+  PHITrans(from, mid),
+  PHITrans(mid, to).
