@@ -31,6 +31,14 @@ DEBUG_OUTPUT(Struct_WordWidth)
 .decl InitialStoreToPossibleStruct(mstore: Statement, structBase: Variable, storedVar: Variable, wordOffset: number)
 DEBUG_OUTPUT(InitialStoreToPossibleStruct)
 
+/**
+  Helper to disqualify memory constructs that fit the patterns for both structs and constant arrays.
+  This is an issue because array and struct inference are mutually recursive and we cannot
+  use recursion.
+*/
+.decl ProbablyConstantArray(structBase: Variable)
+DEBUG_OUTPUT(ProbablyConstantArray)
+
 .decl StructIndex(structBase: Variable, indexVar: Variable, wordOffset: number)
 DEBUG_OUTPUT(StructIndex)
 
@@ -60,6 +68,14 @@ InitialStoreToPossibleStruct(mstore, structBaseVar, storedVar, memOffset / 32):-
   StatementDominates(mload, mstore),
   StatementDominates(mstore, freePtrUpdStore).
 
+ProbablyConstantArray(probablyArrayVar):-
+  PossibleStructAllocation(_, _, probablyArrayVar, _),
+  stores =  count : InitialStoreToPossibleStruct(_, probablyArrayVar, _, _),
+  stores =  count : {
+    InitialStoreToPossibleStruct(_, probablyArrayVar, storedVar, _),
+    BasicVariable_Value(storedVar, _)
+  }.
+
 // REVIEW: it requires at least as many InitialStoreToPossibleStruct as the struct's words
 // it may possibly not be the case in optimized code
 // REVIEW: only infers the structs in cases where it escapes the current method
@@ -68,7 +84,8 @@ StructAllocation(freePtrUpdStore, structBaseVar, wordWidth):-
   PossibleStructAllocation(_, freePtrUpdStore, structBaseVar, wordWidth),
   wordWidth >= count : InitialStoreToPossibleStruct(_, structBaseVar, _, _),
   DataFlows(structBaseVar, argOrRet),
-  (ActualArgs(_, argOrRet, _) ; ActualReturnArgs(_, argOrRet, _)).
+  (ActualArgs(_, argOrRet, _) ; ActualReturnArgs(_, argOrRet, _)),
+  !ProbablyConstantArray(structBaseVar).
 
 Struct_WordWidth(structBase, wordWidth):-
   StructAllocation(_, structBase, wordWidth).
