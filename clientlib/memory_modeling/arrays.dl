@@ -129,6 +129,8 @@ CallDataCopyArgInfo(callDataCopy, rawDataArrayTo, callDataArrayFrom):-
   CALLDATACOPY(callDataCopy, rawDataArrayTo, _, lenBytes),
   RawDataArrayVar_ClassRep(rawDataArrayTo, _).
 
+// REVIEW: Can make the case for regular arrays more precise by requesting the length
+// to be written as well.
 ArrayCopy(callDataCopy, as(callDataArrayFrom, ArrayVariable), memArrayToId):-
   CallDataCopyArgInfo(callDataCopy, memArrayTo, callDataArrayFrom),
   (VarIsArray(memArrayTo, memArrayToId) ; RawDataArrayVar_ClassRep(memArrayTo, memArrayToId)).
@@ -322,6 +324,9 @@ ArrayStore(mstore, arrId, from):-
 ArrayLengthVar(arrId, lenVar):-
   ArrayVarLengthVar(array, lenVar),
   RegularArrayVar_ClassRep(array, arrId).
+
+ArrayLengthVar(as(callDataArray, ArrayVariable), lenVar):-
+  CallDataLoadReadsLength(_, callDataArray, lenVar).
 
 MLOADReadsArrayLength(mload):-
   IsRegularArrayVar(array),
@@ -626,6 +631,45 @@ MemoryModelingTempStmt(mstore):-
   MSTORE(mstore, array, _).
 
 
+.decl WriteAfterArrayContents(mstore: Statement, array: ArrayVariable)
+DEBUG_OUTPUT(WriteAfterArrayContents)
+
+WriteAfterArrayContents(mstore, array):-
+  VarIsArray(arrayVar, array),
+  ArrayDataStartVar(arrayVar, arrayDataStart),
+  ArrayLengthVar(arrayVar, arrayLenVar),
+  ADDFix(_, arrayDataStart, arrayLenVar, memLoc),
+  MSTORE(mstore, memLoc, _).
+
+WriteAfterArrayContents(mstore, array):-
+  VarIsArray(arrayVar, array),
+  ArrayDataStartVar(arrayVar, arrayDataStart),
+  ArrayCopy(_, fromArray, array),
+  ArrayLengthVar(fromArray, arrayLenVar),
+  ADDFix(_, arrayDataStart, arrayLenVar, memLoc),
+  MSTORE(mstore, memLoc, _).
+
+.init writeAfterArrayToMemConsStmt = ReachableBypassingWArg
+
+writeAfterArrayToMemConsStmt.From(mstore, array):-
+  WriteAfterArrayContents(mstore, array),
+  MemWriteToMemConsStmt(mstore, _).
+
+writeAfterArrayToMemConsStmt.Bypassing(mstore, array):-
+  WriteAfterArrayContents(mstore, array),
+  MemWriteToMemConsStmt(mstore, _).
+
+writeAfterArrayToMemConsStmt.To(memCons, array):-
+  WriteAfterArrayContents(mstore, array),
+  MemWriteToMemConsStmt(mstore, memCons).
+
+.decl LastWriteAfterArrayContents(mstore: Statement, memCons: Statement, array: ArrayVariable)
+DEBUG_OUTPUT(LastWriteAfterArrayContents)
+
+LastWriteAfterArrayContents(mstore, memCons, array):-
+  WriteAfterArrayContents(mstore, array),
+  MemWriteToMemConsStmt(mstore, memCons),
+  writeAfterArrayToMemConsStmt.ReachableBypassingAny(mstore, memCons, array).
 
 
 /**

@@ -21,6 +21,15 @@ SHA3_2ARG(stmt, arg1, arg2, def) :-
   MemoryStatement_ActualArg(stmt, arg2, 1),
   !MemoryStatement_ActualArg(stmt, _, 2).
 
+.decl SHA3_2ARGWithArray(stmt: Statement, arg1: ArrayVariable, arg2: Variable, def: Variable)
+
+SHA3_2ARGWithArray(sha3, fromArray, arg2, def):-
+  SHA3(sha3, arrVar, _, def),
+  RawDataArrayVar_ClassRep(arrVar, arrId),
+  ArrayCopy(_, fromArray, arrId),
+  LastWriteAfterArrayContents(mstore, sha3, arrId),
+  MSTORE(mstore, _, arg2).
+
 .decl SHA3_3ARG(stmt: Statement, arg1: Variable, arg2: Variable, arg3: Variable, def: Variable)
 
 SHA3_3ARG(stmt, arg1, arg2, arg3, def) :-

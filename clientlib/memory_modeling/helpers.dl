@@ -60,6 +60,12 @@ DEBUG_OUTPUT(VarTimesConstant)
 .decl VarDivByConstant(var:Variable, constant:Value, result:Variable)
 DEBUG_OUTPUT(VarDivByConstant)
 
+/**
+  Same as `VarTimesConstant` but without the identity case for every variable
+*/
+.decl VarTimesConstantNoIdentity(var:Variable, constant:Value, result:Variable)
+DEBUG_OUTPUT(VarTimesConstantNoIdentity)
+
 VarPlusThirtyTwo(var, varPlus):-
   ADDFix(_, var, thirtyTwo, varPlus),
   BasicVariable_Value(thirtyTwo, "0x20").
@@ -96,6 +102,7 @@ VarPlusThrirtyOneDivMulSixtyFour(var, result):-
   VarDivByConstant(varPlus, "0x20", varDiv),
   VarTimesConstant(varDiv, "0x20", result).
 
+VarTimesConstantNoIdentity(var, constVal, result),
 VarTimesConstant(var, constVal, result):-
   (MUL(_, var, constVar, result); MUL(_, constVar, var, result)),
   Variable_Value(constVar, constVal).

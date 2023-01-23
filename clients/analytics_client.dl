@@ -228,3 +228,18 @@ Analytics_Map(globalVar):-
 
 Analytics_StorageArray(globalVar):-
   ArrayElementStmt(_, globalVar, _).
+
+/**
+  New storage model analytics
+*/
+.decl Verbatim_StorageOffset_Type(offset: Value, type: symbol)
+.output Verbatim_StorageOffset_Type
+
+Verbatim_StorageOffset_Type(offset, type):-
+  StorageOffset_Type(offset, type).
+
+.decl Verbatim_StructToString(structID: symbol, stringStruct: symbol)
+.output Verbatim_StructToString
+
+Verbatim_StructToString(structID, stringStruct):-
+  StructToString(structID, stringStruct).
