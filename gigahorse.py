@@ -228,7 +228,7 @@ parser.add_argument("-q",
 parser.add_argument("--rerun_clients",
                     action="store_true",
                     default=False,
-                    help="Rerun previously executed client analyses.")
+                    help="Rerun client analyses. Only attempts to decompile if it hasn't tried in the current working dir.")
 
 parser.add_argument("--restart",
                     action="store_true",
@@ -497,6 +497,12 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
             # end decompilation
         if exists and not args.rerun_clients:
             return
+
+        # Do not attempt to decompile for earlier timeouts when using --rerun_clients
+        if args.rerun_clients and not decomp_out_produced(out_dir):
+            meta.append("TIMEOUT")
+            return
+
         client_start = time.time()
         timeouts, errors = run_clients(souffle_clients, other_clients, out_dir, out_dir)
 
