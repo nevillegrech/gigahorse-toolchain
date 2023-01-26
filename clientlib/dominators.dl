@@ -301,8 +301,7 @@ DEBUG_OUTPUT(FunctionReachableFromPublic)
 DEBUG_OUTPUT(CallStackToOriginalStatementList)
 
 FunctionReachableFromPublic(function, selectorNorm, nil):-
-  PublicFunctionSelector(function, selector),
-  ConstantPossibleSigHash(selector, selectorNorm, _).
+  PublicFunctionId(function, selectorNorm, _).
 
 FunctionReachableFromPublic(callee, selector, [callerBlock, callerStack]):-
   FunctionReachableFromPublic(caller, selector, callerStack),
