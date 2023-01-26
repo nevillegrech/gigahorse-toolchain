@@ -130,6 +130,38 @@
 IsPublicFunction(func) :- PublicFunctionSelector(func, _).
 
 /**
+  Helper for selectors
+*/
+.decl NormalizeSelector(sigHash: symbol, sigHashNorm: symbol)
+NormalizeSelector(sigHash, sigHashNorm):-
+  ConstantPossibleSigHash(sigHash, sigHashNorm, _).
+
+NormalizeSelector(sigHash, sigHashNorm):-
+  Variable_Value(_, sigHash),
+  substr(sigHash, 0, 2) = "0x",
+  ((strlen(sigHash) = 10, sigHashNorm = sigHash) ;
+   (strlen(sigHash) = 9, sigHashNorm = cat("0x", cat("0"), substr(sigHash, 2, 7)));
+   (strlen(sigHash) = 8, sigHashNorm = cat("0x", cat("00"), substr(sigHash, 2, 6)));
+   (strlen(sigHash) = 7, sigHashNorm = cat("0x", cat("000"), substr(sigHash, 2, 5)))).
+
+
+/**
+  Spec: if there is a known name, list that, otherwise the text of the sig hash
+  This is the complement of CallToSignature, on the declaration side
+*/
+.decl PublicFunctionId(fun: Function, sigHashNorm: symbol, sigText: symbol)
+PublicFunctionId(fun, sigHashNorm, sigText) :-
+  PublicFunctionSelector(fun, pubsigHash),
+  ConstantPossibleSigHash(pubsigHash, sigHashNorm, sigText).
+
+PublicFunctionId(fun, sigHashNorm, sigHashNorm):-
+  PublicFunctionSelector(fun, pubsigHash),
+  !ConstantPossibleSigHash(pubsigHash, _, _),
+  NormalizeSelector(pubsigHash, sigHashNorm).
+
+DEBUG_OUTPUT(PublicFunctionId)
+
+/**
   Name given to each function. May contain public signature too.
   Useful for presentation purposes.
 */
