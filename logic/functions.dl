@@ -123,6 +123,15 @@ PublicFunctionFiltered(func, sigHash):-
 
     .decl IsFunctionCall(block:Block, func:Block)
 
+    IsFunctionCall(prev, func),
+    IsPublicFunctionCall(prev, func) :-
+      postTrans.PublicFunctionJump(prev, sigHash),
+      PublicFunctionFiltered(func, sigHash),
+      global.BlockEdge(_, prev, _, func).
+
+    IsFunctionCall(block, func) :-
+      IsPrivateFunctionCall(_, block, func).
+
     .decl IsPrivateFunctionCall(ctx:global.sens.Context, block:Block, func:Block)
 
     .decl IsReturn(retCtx:global.sens.Context, ret:Block, target:Block)
@@ -365,16 +374,6 @@ IsFunctionEntry(block) :- PublicFunctionFiltered(block, _).
 IsFunctionEntry("0x0").
 IsFunctionEntry(func) :- IsFunctionCallReturn(_, _, func, _, _, _).
 
-IsFunctionCall(prev, func),
-IsPublicFunctionCall(prev, func) :-
-   postTrans.PublicFunctionJump(prev, sigHash),
-   PublicFunctionFiltered(func, sigHash),
-   global.BlockEdge(_, prev, _, func).
-
-
-IsFunctionCall(block, func) :-
-  IsPrivateFunctionCall(_, block, func).
-
 // Use the precise version here!
 IsPrivateFunctionCall(ctx, block, func) :-
   IsFunctionCallReturn(ctx, block, func, _, _, _).
@@ -417,6 +416,54 @@ StackBalancingBlockJumpImprecision(block, func):-
 
 }
 
+.comp SourceMappingFunctionFinder : AbstractFunctionFinder {
+
+    .decl SourceMappedJump(stmt:Statement, jumpType:symbol)
+    .input SourceMappedJump(IO="file", filename="SourceMappedJump.csv", delimiter="\t")
+
+    .decl LocalReachableFrom(fro:Block, to:Block)
+
+    LocalReachableFrom(fro, to) :-
+      IsFunctionEntry(fro),
+      !IsReturn(_, fro, to), // one block functions are possible, though probably inlined.
+      global.BlockEdge(_, fro, _, to).
+
+    LocalReachableFrom(fro, to) :-
+      LocalReachableFrom(fro, pred),
+      !IsReturn(_, pred, to),
+      global.BlockEdge(_, pred, _, to).
+
+    MaybeInFunction(block, fn) :-
+      IsFunctionEntry(pred),
+      LocalReachableFrom(pred, block), fn = pred.
+
+    IsPrivateFunctionCall(ctx, caller, fn),
+    IsFunctionEntry(block) :-
+      SourceMappedJump(stmt, "i"),
+      global.BasicBlock_Tail(caller, stmt),
+      global.BlockJumpValidTarget(ctx, caller, _, block), fn = block.
+
+    IsReturn(retCtx, ret, target) :-
+      SourceMappedJump(stmt, "o"),
+      global.BasicBlock_Tail(ret, stmt),
+      global.BlockJumpValidTarget(retCtx, ret, _, target).
+
+    // Unlike with heuristic function finding, there is no doubt when we have found a private function
+    MaybeFunctionCallReturn(ctx, caller, func, retCtx, retBlock, retTarget) :-
+      IsFunctionCallReturn(ctx, caller, func, retCtx, retBlock, retTarget).
+
+    IsFunctionCallReturn(ctx, caller, func, retCtx, retBlock, retTarget) :-
+      IsFunctionCall(caller, func),
+      global.ReachableContext(ctx, caller),
+      IsReturn(retCtx, retBlock, retTarget).
+
+}
+
+#ifdef HAS_SOURCE
+.init fnFinder = SourceMappingFunctionFinder
+#else
+.init fnFinder = HeuristicFunctionFinder
+#endif
 
 /***********
  * Introduce new IR
