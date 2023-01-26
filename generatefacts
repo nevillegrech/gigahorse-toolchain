@@ -10,6 +10,8 @@ from os.path import abspath, dirname, join
 # Local project imports
 import src.exporter as exporter
 import src.blockparse as blockparse
+import src.source_map as source_map
+
 
 def main(args):
     # Parse bytecode
@@ -26,41 +28,63 @@ def main(args):
     logging.info("Initial parsing completed.")
 
     logging.info("Writing facts to disk.")
-    exporter.InstructionTsvExporter(blocks).export(output_dir=args.outdir, bytecode_hex=bytecode)
+    exporter.InstructionTsvExporter(blocks).export(
+        output_dir=args.outdir, bytecode_hex=bytecode
+    )
 
-if __name__ == '__main__':
+    if args.source_map:
+        source_map.SourceMapExporter(args.source_map.read(), bytecode).export(
+            output_dir=args.outdir
+        )
+
+
+if __name__ == "__main__":
     # Configure argparse
     parser = argparse.ArgumentParser(
-        description="Fact generation for EVM bytecode disassembly.")
+        description="Fact generation for EVM bytecode disassembly."
+    )
 
-    parser.add_argument("-a",
-                    "--disassembly",
-                    action="store_true",
-                    default=False,
-                    help="decompile dissassembled input.")
+    parser.add_argument(
+        "-a",
+        "--disassembly",
+        action="store_true",
+        default=False,
+        help="decompile dissassembled input.",
+    )
 
-    parser.add_argument("--generate_interface",
-                    action="store_true",
-                    default=False,
-                    help="generate .dl decompiler input interface.")
-    
+    parser.add_argument(
+        "--generate_interface",
+        action="store_true",
+        default=False,
+        help="generate .dl decompiler input interface.",
+    )
 
-    parser.add_argument("infile",
-                    nargs="?",
-                    type=argparse.FileType("r"),
-                    default=sys.stdin,
-                    help="file from which decompiler input should be read "
-                         "(stdin by default).")
+    parser.add_argument(
+        "infile",
+        nargs="?",
+        type=argparse.FileType("r"),
+        default=sys.stdin,
+        help="file from which decompiler input should be read (stdin by default).",
+    )
 
-    parser.add_argument("outdir",
-                    nargs="?",
-                    const="",
-                    metavar="DIR",
-                    default="",
-                    help="produce facts for original bytecode input.")
+    parser.add_argument(
+        "outdir",
+        nargs="?",
+        const="",
+        metavar="DIR",
+        default="",
+        help="produce facts for original bytecode input.",
+    )
+
+    parser.add_argument(
+        "-sm",
+        "--source-map",
+        nargs="?",
+        type=argparse.FileType("r"),
+        default=None,
+        help="file from which source map should be read.",
+    )
 
     # Parse the arguments.
     args = parser.parse_args()
     main(args)
-
-
