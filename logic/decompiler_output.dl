@@ -221,7 +221,7 @@ TAC_Block(phiStmt, block) :-
 .output IRFunctionCall
 .output IRFunctionCallReturn
 .output IRFunction_Return
-.output IsFunctionEntry(IO="file", filename="Function.csv", delimiter="\t")
+.output fnFinder.IsFunctionEntry(IO="file", filename="Function.csv", delimiter="\t")
 
 .decl FormalArgs(func:IRFunction, var:TACVariable, n:number)
 .output FormalArgs

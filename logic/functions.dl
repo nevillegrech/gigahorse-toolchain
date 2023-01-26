@@ -32,7 +32,141 @@ ContextCanReach(ctxFrom, ctxTo) :-
   ContextCanReach(ctxFrom, ctxOther),
   ContextEdge(ctxOther, ctxTo).
 
+// SL: Basic filtering to remove some trash introduced in rare cases by the basic logic in local.dl
+.decl PublicFunctionFiltered(block: Block, sigHash: Value)
 
+PublicFunctionFiltered(func, sigHash):-
+   postTrans.PublicFunctionJump(prev, sigHash),
+   postTrans.PublicFunction(func, sigHash),
+   global.BlockEdge(_, prev, _, func).
+
+
+.comp AbstractFunctionFinder {
+
+    // Precise context-sensitive reasoning
+    .decl MaybeInFunctionUnderContext(ctx: global.sens.Context, block:Block, func:Block)
+
+    MaybeInFunctionUnderContext(ctx, func, func) :-
+      (IsPublicFunctionCall(_, func) ; func = "0x0"),
+      global.ReachableContext(ctx, func).
+
+    MaybeInFunctionUnderContext(ctx, func, func) :-
+      IsPrivateFunctionCall(prevCtx, block, func), //REVIEW: Could use MaybeFunctionCallReturn?
+      global.BlockEdge(prevCtx, block, ctx, func).
+
+    MaybeInFunctionUnderContext(ctx, next, func) :-
+      MaybeInFunctionUnderContext(prevCtx, block, func),
+      global.BlockEdge(prevCtx, block, ctx, next),
+      // Not binding 'block' to cover case where fallback is reached from more than one prev blocks
+      !IsPublicFunctionCall(_, next),
+      !IsPrivateFunctionCall(prevCtx, block, next),
+      !IsReturn(prevCtx, block, next).
+
+    MaybeInFunctionUnderContext(ctx, next, func) :-
+      OptMaybeInFunctionUnderContext(callerCtx, caller, func),
+      // Use the complete version here!
+      IsFunctionCallReturn(callerCtx, caller, _, retCtx, retBlock, next), //REVIEW use maybefunccall?
+      global.BlockEdge(retCtx, retBlock, ctx, next).
+
+    .decl OptMaybeInFunctionUnderContext(callerCtx: global.sens.Context, caller:Block, func:Block)
+    OptMaybeInFunctionUnderContext(callerCtx, caller, func) :-
+      MaybeInFunctionUnderContext(callerCtx, caller, func),
+      MaybeFunctionCallReturn(callerCtx, caller, _, _, _, _). // TODO: Make this consistent.
+
+   .decl MaybeInFunction(block:Block, func:Block)
+   MaybeInFunction(block, func) :-
+      MaybeInFunctionUnderContext(_, block, func).
+
+   // For this function, the block should be inlined.
+   .decl BlockToClone(block: Block, func: Block)
+   BlockToClone(next, func) :-
+      MaybeInFunction(next, func),
+      BlockInMultipleFunctions(next),
+      next != func. // don't clone function entries, other functions will clone them
+
+    /**
+      If a block is a possible return of more than one functions, clone it in both
+      Previous code had an invariant where a "return block can only pertain to one function!"
+      which was problematic in many cases and could end up cloning blocks but not mark them as return blocks
+      */
+    BlockToClone(retBlock, func):-
+      MaybeFunctionCallReturn_Ins(_, func, retBlock, _),
+      MaybeFunctionCallReturn_Ins(_, func2, retBlock, _),
+      func != func2,
+      func !=retBlock,
+      func2 !=retBlock.
+
+    .decl BlockInMultipleFunctions(entry: Block)
+    BlockInMultipleFunctions(block) :-
+      MaybeInFunction(block, func1),
+      MaybeInFunction(block, func2),
+      func1 != func2.
+
+    .decl IsFunctionEntry(entry:Block)
+
+    .decl MaybeFunctionCallReturn(ctx:global.sens.Context, caller:Block, func:Block, retCtx:global.sens.Context, retBlock:Block, retTarget:Block)
+
+    .decl MaybeFunctionCallReturn_Ins(caller:Block, func:Block, retBlock:Block, retTarget:Block)
+
+    /**
+      Introduced to use in many rules that don't use the context of the context-sensitive version
+      Should be used when possible because the latter can get very heavy
+      */
+    MaybeFunctionCallReturn_Ins(caller, func, retBlock, retTarget):-
+      MaybeFunctionCallReturn(_, caller, func, _, retBlock, retTarget).
+
+    // Caller calls func and func returns to retTarget. Should only be inferred with
+    // high confidence.
+    .decl IsFunctionCallReturn(ctx:global.sens.Context, caller:Block, func:Block, retCtx:global.sens.Context, retBlock:Block, retTarget:Block)
+
+    .decl IsPublicFunctionCall(block:Block, func:Block)
+
+    .decl IsFunctionCall(block:Block, func:Block)
+
+    .decl IsPrivateFunctionCall(ctx:global.sens.Context, block:Block, func:Block)
+
+    .decl IsReturn(retCtx:global.sens.Context, ret:Block, target:Block)
+
+  /**
+    WARNING: Be careful when using! This is an unintuitive
+    concept. It's only mapping the intra-procedural subset of
+    BlockEdges to the functional IR, not all BlockEdges. It's also
+    not the same as the "local" block edges of the functional IR,
+    because these also continue the function code after a call.
+    */
+  .decl InterprocBlockEdge(from: Block, to: Block) inline
+
+  InterprocBlockEdge(from, to) :-
+    global.BlockEdge(ctxFrom, from, ctxTo, to),
+    MaybeInFunctionUnderContext(ctxFrom, from, func),
+    MaybeInFunctionUnderContext(ctxTo, to, func),
+    PubFun(func, pubFun),
+    global.sens.Context_PublicFunction(ctxTo, pubFun),
+    // The following negation makes our code incomplete in cases where the return block
+    // can be shared by callee and caller, but keeps our produced IR precise.
+    // Removing it results in inconsistent IR (return blocks with local edges from them)
+    // and less precise, but also more complete output.
+    !IsFunctionCallReturn(_, _, func, _, from, _), // REVIEW: Keeping this for now. We need to fix it.
+    !IsFunctionCallReturn(_, _, _, ctxFrom, from, to),
+    !IsFunctionCallReturn(ctxFrom, from, to, _, _, _).
+
+  InterprocBlockEdge(from, to) :-
+    global.BlockEdge(ctxFrom, from, ctxTo, to),
+    MaybeInFunctionUnderContext(ctxFrom, from, func),
+    MaybeInFunctionUnderContext(ctxTo, to, func),
+    !PubFun(func, _),
+    // The following negation makes our code incomplete in cases where the return block
+    // can be shared by callee and caller, but keeps our produced IR precise.
+    // Removing it results in inconsistent IR (return blocks with local edges from them)
+    // and less precise, but also more complete output.
+    !IsFunctionCallReturn(_, _, func, _, from, _), // REVIEW: Keeping this for now. We need to fix it.
+    !IsFunctionCallReturn(_, _, _, ctxFrom, from, to),
+    !IsFunctionCallReturn(ctxFrom, from, to, _, _, _).
+
+}
+
+
+.comp HeuristicFunctionFinder : AbstractFunctionFinder {
 
 /******
          Heuristics for detecting call-return patterns
@@ -102,8 +236,6 @@ MaxRankForPossibleReturnAddressSetter(targetSetter, rank) :-
 // If we find a direct jump (to a purported function) and the first
 // pushed return address (jumped-to by code reachable from the
 // purported function) before it, we detect a call-return pattern.
-  
-
 
 /**
   Also match a subset of those with return addresses and full info. The
@@ -115,8 +247,7 @@ MaxRankForPossibleReturnAddressSetter(targetSetter, rank) :-
   under some context and not under others
   Retaining ctx information at this level makes MaybeInFunctionUnderContext very precise
   This in turn allows us to go from BlockEdges to IRBlockEdges with increased precision
-*/
-.decl MaybeFunctionCallReturn(ctx:global.sens.Context, caller:Block, func:Block, retCtx:global.sens.Context, retBlock:Block, retTarget:Block)
+  */
 MaybeFunctionCallReturn(ctx, caller, func, retCtx, retBlock, retTarget) :-
   PossibleReturnAddressWithRank(ctx, caller, retCtx, retBlock, retTarget, 0),
   postTrans.ImmediateBlockJumpTarget(caller, targetVar),
@@ -125,15 +256,6 @@ MaybeFunctionCallReturn(ctx, caller, func, retCtx, retBlock, retTarget) :-
   global.BlockJumpValidTarget(ctx, caller, targetVar, func),
   ContextCanReach(ctx, retCtx),
   global.BlockJumpValidTarget(retCtx, retBlock, _, retTarget).
-
-/**
-  Introduced to use in many rules that don't use the context of the context-sensitive version
-  Should be used when possible because the latter can get very heavy
-*/
-.decl MaybeFunctionCallReturn_Ins(caller:Block, func:Block, retBlock:Block, retTarget:Block)
-MaybeFunctionCallReturn_Ins(caller, func, retBlock, retTarget):-
-  MaybeFunctionCallReturn(_, caller, func, _, retBlock, retTarget).
-
 
 // Auxiliary, for optimization
 .decl PossibleReturnAddressWithPositiveRank(callCtx:global.sens.Context, targetSetter:Block, retCtx:global.sens.Context, retBlock:Block, retTarget:Block, rank:number)
@@ -184,7 +306,6 @@ PossibleReturnAddressWithRank(newCallCtx, caller, retCtx, retBlock, retTarget, n
   It's important to note that a statement may be a return with respect
   to one edge, but not with respect to others. There are many conditional returns.
 */
-.decl IsReturn(retCtx:global.sens.Context, ret:Block, target:Block)
 IsReturn(retCtx, retBlock, retTarget) :-
   IsFunctionCallReturn(_, _, _, retCtx, retBlock, retTarget).
 
@@ -220,18 +341,6 @@ FunctionReturnIsStackBalanceBlock(func) :-
   MaybeFunctionCallReturn_Ins(_, func, retBlock, _),
   postTrans.StackBalanceBlock(retBlock).
 
-/**
-  If a block is a possible return of more than one functions, clone it in both
-  Previous code had an invariant where a "return block can only pertain to one function!"
-  which was problematic in many cases and could end up cloning blocks but not mark them as return blocks
-*/
-BlockToClone(retBlock, func):-
-  MaybeFunctionCallReturn_Ins(_, func, retBlock, _),
-  MaybeFunctionCallReturn_Ins(_, func2, retBlock, _),
-  func != func2,
-  func !=retBlock,
-  func2 !=retBlock.
-
 // Block reached from return edge cannot also be called directly
 .decl NotValidReturnEdge(retBlock: Block, retTarget: Block)
 NotValidReturnEdge(retBlock, retTarget) :-
@@ -240,21 +349,11 @@ NotValidReturnEdge(retBlock, retTarget) :-
 
 // Caller calls func and func returns to retTarget. Should only be inferred with
 // high confidence.
-.decl IsFunctionCallReturn(ctx:global.sens.Context, caller:Block, func:Block, retCtx:global.sens.Context, retBlock:Block, retTarget:Block)
 IsFunctionCallReturn(ctx, caller, func, retCtx, retBlock, retTarget) :-
   MaybeFunctionCallReturn(ctx, caller, func, retCtx, retBlock, retTarget),
   //FunctionCalledMultipleTimes(func),
   (FunctionCalledMultipleTimes(func) ; FunctionSharesReturnBlock(func) ; FunctionReturnIsStackBalanceBlock(func)),
   !NotValidReturnEdge(retBlock, retTarget).
-
-
-// SL: Basic filtering to remove some trash introduced in rare cases by the basic logic in local.dl
-.decl PublicFunctionFiltered(block: Block, sigHash: Value)
-
-PublicFunctionFiltered(func, sigHash):-
-   postTrans.PublicFunctionJump(prev, sigHash),
-   postTrans.PublicFunction(func, sigHash),
-   global.BlockEdge(_, prev, _, func).
 
 // NOTE the philosophy!  MaybeFunctionCallReturn intends to be
 // complete, IsFunctionCallReturn intends to be precise.  Be careful when
@@ -262,15 +361,9 @@ PublicFunctionFiltered(func, sigHash):-
 
 /// Let's try something dead simple for assigning blocks to functions.
 
-.decl IsFunctionEntry(entry:Block)
 IsFunctionEntry(block) :- PublicFunctionFiltered(block, _).
 IsFunctionEntry("0x0").
 IsFunctionEntry(func) :- IsFunctionCallReturn(_, _, func, _, _, _).
-
-.decl IsFunctionCall(block:Block, func:Block)
-
-.decl IsPrivateFunctionCall(ctx:global.sens.Context, block:Block, func:Block)
-.decl IsPublicFunctionCall(block:Block, func:Block)
 
 IsFunctionCall(prev, func),
 IsPublicFunctionCall(prev, func) :-
@@ -285,56 +378,6 @@ IsFunctionCall(block, func) :-
 // Use the precise version here!
 IsPrivateFunctionCall(ctx, block, func) :-
   IsFunctionCallReturn(ctx, block, func, _, _, _).
-
-// Precise context-sensitive reasoning
-.decl MaybeInFunctionUnderContext(ctx: global.sens.Context, block:Block, func:Block)
-
-MaybeInFunctionUnderContext(ctx, func, func) :-
-  (IsPublicFunctionCall(_, func) ; func = "0x0"),
-  global.ReachableContext(ctx, func).
-
-MaybeInFunctionUnderContext(ctx, func, func) :-
-  IsPrivateFunctionCall(prevCtx, block, func), //REVIEW: Could use MaybeFunctionCallReturn?
-  global.BlockEdge(prevCtx, block, ctx, func).
-
-MaybeInFunctionUnderContext(ctx, next, func) :-
-  MaybeInFunctionUnderContext(prevCtx, block, func),
-  global.BlockEdge(prevCtx, block, ctx, next),
-  // Not binding 'block' to cover case where fallback is reached from more than one prev blocks
-  !IsPublicFunctionCall(_, next),
-  !IsPrivateFunctionCall(prevCtx, block, next),
-  !IsReturn(prevCtx, block, next).
-
-MaybeInFunctionUnderContext(ctx, next, func) :-
-  OptMaybeInFunctionUnderContext(callerCtx, caller, func),
-  // Use the complete version here!
-  IsFunctionCallReturn(callerCtx, caller, _, retCtx, retBlock, next), //REVIEW use maybefunccall?
-  global.BlockEdge(retCtx, retBlock, ctx, next).
-
-
-.decl OptMaybeInFunctionUnderContext(callerCtx: global.sens.Context, caller:Block, func:Block)
-OptMaybeInFunctionUnderContext(callerCtx, caller, func) :-
-  MaybeInFunctionUnderContext(callerCtx, caller, func),
-  MaybeFunctionCallReturn(callerCtx, caller, _, _, _, _). // TODO: Make this consistent.
-
-
-.decl MaybeInFunction(block:Block, func:Block)
-MaybeInFunction(block, func) :-
-  MaybeInFunctionUnderContext(_, block, func).
-
-.decl BlockInMultipleFunctions(entry: Block)
-BlockInMultipleFunctions(block) :-
-  MaybeInFunction(block, func1),
-  MaybeInFunction(block, func2),
-  func1 != func2.
-
-
-// For this function, the block should be inlined.
-.decl BlockToClone(block: Block, func: Block)
-BlockToClone(next, func) :-
-  MaybeInFunction(next, func),
-  BlockInMultipleFunctions(next),
-  next != func. // don't clone function entries, other functions will clone them
 
 /* The following stack balancing code is dead code */
 
@@ -372,6 +415,8 @@ StackBalancingBlockJumpImprecision(block, func):-
   next1 != next2,
   prev1 != prev2.
 
+}
+
 
 /***********
  * Introduce new IR
@@ -397,22 +442,22 @@ StackBalancingBlockJumpImprecision(block, func):-
 
 Function_IRFunction(funcentry, irEntry),
 IRFunctionEntry(irEntry) :-
-  IsFunctionEntry(funcentry),
+  fnFinder.IsFunctionEntry(funcentry),
   irEntry = FUNCTION_TO_IRFUNCTION(funcentry).
 
 // Be loose in our demands for accepting a block as being in the same
 // function.
 Block_IRBlock(block, func, irblock),
 IRInFunction(irblock, irFunc) :-
-  MaybeInFunction(block, func),
-  !BlockToClone(block, func),
+  fnFinder.MaybeInFunction(block, func),
+  !fnFinder.BlockToClone(block, func),
   irblock = BLOCK_TO_IRBLOCK(block),
   Function_IRFunction(func, irFunc).
 
 Block_IRBlock(block, func, irblock),
 IRInFunction(irblock, irFunc) :-
-  MaybeInFunction(block, func),
-  BlockToClone(block, func),
+  fnFinder.MaybeInFunction(block, func),
+  fnFinder.BlockToClone(block, func),
   irblock = FRESH_IRBLOCK(block, func),
   Function_IRFunction(func, irFunc).
 
@@ -427,8 +472,8 @@ IRInFunction(irblock, irFunc) :-
 IRFunction_Return(irfunc, retir),
 IRFunctionCallReturn(callerir, irfunc, callerretir),
 IRFunction_Return_Edge(retir, callerretir) :-
-  IsFunctionCallReturn(ctx, caller, func, _, ret, callerret), //REVIEW: take advantage of retCtx
-  MaybeInFunctionUnderContext(ctx, caller, prevfunc),
+  fnFinder.IsFunctionCallReturn(ctx, caller, func, _, ret, callerret),
+  fnFinder.MaybeInFunctionUnderContext(ctx, caller, prevfunc), //REVIEW: take advantage of retCtx
   Block_IRBlock(ret, func, retir),
   Block_IRBlock(caller, prevfunc, callerir),
   Block_IRBlock(callerret, prevfunc, callerretir),
@@ -446,7 +491,7 @@ IRFunctionCall(callerir, irfunc) :-
   IRFunctionCallReturn(callerir, irfunc, _).
 
 IRFunctionCall(fromir, irfunc) :-
-  IsPublicFunctionCall(from, func),
+  fnFinder.IsPublicFunctionCall(from, func),
   Block_IRBlock(from, _ /* prevfunc */, fromir),
   Function_IRFunction(func, irfunc).
 //  !BlockToClone(func, prevfunc).
@@ -485,34 +530,8 @@ PubFun(entry, sigHash):- global.sens.Context_PublicFunction(_, sigHash), PublicF
 .decl IRBlockEdge(from: IRBlock, to: IRBlock)
 
 IRBlockEdge(irfrom, irto) :-
-  global.BlockEdge(ctxFrom, from, ctxTo, to),
+  fnFinder.InterprocBlockEdge(from, to),
   Block_IRBlock(from, func, irfrom),
-  MaybeInFunctionUnderContext(ctxFrom, from, func),
-  MaybeInFunctionUnderContext(ctxTo, to, func),
-  PubFun(func, pubFun),
-  global.sens.Context_PublicFunction(ctxTo, pubFun),
-  // The following negation makes our code incomplete in cases where the return block
-  // can be shared by callee and caller, but keeps our produced IR precise.
-  // Removing it results in inconsistent IR (return blocks with local edges from them)
-  // and less precise, but also more complete output.
-  !IsFunctionCallReturn(_, _, func, _, from, _), // REVIEW: Keeping this for now. We need to fix it.
-  !IsFunctionCallReturn(_, _, _, ctxFrom, from, to),
-  !IsFunctionCallReturn(ctxFrom, from, to, _, _, _),
-  Block_IRBlock(to, func, irto).
-
-IRBlockEdge(irfrom, irto) :-
-  global.BlockEdge(ctxFrom, from, ctxTo, to),
-  Block_IRBlock(from, func, irfrom),
-  MaybeInFunctionUnderContext(ctxFrom, from, func),
-  MaybeInFunctionUnderContext(ctxTo, to, func),
-  !PubFun(func, _),
-  // The following negation makes our code incomplete in cases where the return block
-  // can be shared by callee and caller, but keeps our produced IR precise.
-  // Removing it results in inconsistent IR (return blocks with local edges from them)
-  // and less precise, but also more complete output.
-  !IsFunctionCallReturn(_, _, func, _, from, _), // REVIEW: Keeping this for now. We need to fix it.
-  !IsFunctionCallReturn(_, _, _, ctxFrom, from, to),
-  !IsFunctionCallReturn(ctxFrom, from, to, _, _, _),
   Block_IRBlock(to, func, irto).
 
 .decl IRBlockPath(from: IRBlock, to: IRBlock)
@@ -583,7 +602,7 @@ IRStatement_VarString(irstmt, irFunc),
 IRBlock_VarString(irblock, irFunc),
 IRStatement_Block(irstmt, irblock),
 Statement_IRStatement(stmt, func, irstmt) :-
-  BlockToClone(block, func),
+  fnFinder.BlockToClone(block, func),
   postTrans.Statement_Block(stmt, block),
   Block_IRBlock(block, func, irblock),
   Function_IRFunction(func, irFunc),
@@ -594,7 +613,7 @@ IRBlock_VarString(irblock, ""),
 IRStatement_Block(irstmt, irblock),
 Statement_IRStatement(stmt, func, irstmt) :-
   Block_IRBlock(block, func, irblock),
-  !BlockToClone(block, func),
+  !fnFinder.BlockToClone(block, func),
   postTrans.Statement_Block(stmt, block),
   irstmt = STATEMENT_TO_IRSTATEMENT(stmt).
 

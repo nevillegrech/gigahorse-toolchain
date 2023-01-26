@@ -196,7 +196,7 @@ Analytics_PolymorphicTarget(block) :-
   Analytics_Jumps(block),                                                          
   global.BlockJumpValidTarget(_, block, _, target1),
   global.BlockJumpValidTarget(_, block, _, target2),
-  !IsReturn(_, block, _),
+  !fnFinder.IsReturn(_, block, _),
   target1 != target2.
 
 // SL: The main imprecision metric of our global analysis
