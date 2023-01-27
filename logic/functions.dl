@@ -421,22 +421,6 @@ StackBalancingBlockJumpImprecision(block, func):-
     .decl SourceMappedJump(stmt:Statement, jumpType:symbol)
     .input SourceMappedJump(IO="file", filename="SourceMappedJump.csv", delimiter="\t")
 
-    .decl LocalReachableFrom(fro:Block, to:Block)
-
-    LocalReachableFrom(fro, to) :-
-      IsFunctionEntry(fro),
-      !IsReturn(_, fro, to), // one block functions are possible, though probably inlined.
-      global.BlockEdge(_, fro, _, to).
-
-    LocalReachableFrom(fro, to) :-
-      LocalReachableFrom(fro, pred),
-      !IsReturn(_, pred, to),
-      global.BlockEdge(_, pred, _, to).
-
-    MaybeInFunction(block, fn) :-
-      IsFunctionEntry(pred),
-      LocalReachableFrom(pred, block), fn = pred.
-
     IsPrivateFunctionCall(ctx, caller, fn),
     IsFunctionEntry(block) :-
       SourceMappedJump(stmt, "i"),
