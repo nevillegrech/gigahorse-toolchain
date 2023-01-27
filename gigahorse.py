@@ -500,8 +500,7 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
 
         # Do not attempt to decompile for earlier timeouts when using --rerun_clients
         if args.rerun_clients and not decomp_out_produced(out_dir):
-            meta.append("TIMEOUT")
-            return
+            raise TimeoutException()
 
         client_start = time.time()
         timeouts, errors = run_clients(souffle_clients, other_clients, out_dir, out_dir)
