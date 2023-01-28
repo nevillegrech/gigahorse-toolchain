@@ -582,12 +582,12 @@ def analyze_contract(
             )
 
             if args.has_source and os.path.exists(
-                srcmap_filename := contract_filename.removesuffix(".hex") + ".srcmap"
+                srcmap_filename := contract_filename + ".srcmap"
             ):
                 with open(srcmap_filename) as file:
                     srcmap = file.read().strip()
                     source_map.SourceMapExporter(srcmap, bytecode).export(
-                        output_dir=out_dir
+                        output_dir=work_dir
                     )
             elif args.has_source:
                 raise RuntimeError(

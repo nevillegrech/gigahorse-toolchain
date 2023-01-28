@@ -42,7 +42,7 @@ def extract_source_map(source_map: str) -> SourceMap:
 class SourceMapExporter(Exporter):
     def __init__(self, source_map: str, bytecode_hex: str):
         super().__init__(extract_source_map(source_map))
-        self.bytecode = bytecode_hex.removeprefix("0x")
+        self.bytecode = bytecode_hex if bytecode_hex[:2] != "0x" else bytecode_hex[2:]
 
     def export(self, output_dir=""):
         source_mapped_jumps: List[Tuple] = []
