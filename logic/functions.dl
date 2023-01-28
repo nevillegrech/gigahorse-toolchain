@@ -421,6 +421,25 @@ StackBalancingBlockJumpImprecision(block, func):-
     .decl SourceMappedJump(stmt:Statement, jumpType:symbol)
     .input SourceMappedJump(IO="file", filename="SourceMappedJump.csv", delimiter="\t")
 
+    // like ContextEdge and ContextCanReach, but local to a function
+    .decl LocalContextEdge(froCtx:global.sens.Context, toCtx:global.sens.Context)
+    .decl LocalContextCanReach(froCtx:global.sens.Context, toCtx:global.sens.Context)
+
+    LocalContextEdge(froCtx, toCtx) :-
+      global.BlockEdge(froCtx, fro, toCtx, to),
+      !IsPrivateFunctionCall(froCtx, fro, to),
+      !IsPublicFunctionCall(fro, to),
+      !IsReturn(froCtx, fro, to).
+
+    LocalContextCanReach(ctx, ctx) :-
+      global.ReachableContext(ctx, _).
+
+    LocalContextCanReach(ctxFrom, ctxTo) :-
+      LocalContextCanReach(ctxFrom, ctxOther),
+      LocalContextEdge(ctxOther, ctxTo).
+
+    IsFunctionEntry("0x0").
+
     IsPrivateFunctionCall(ctx, caller, fn),
     IsFunctionEntry(block) :-
       SourceMappedJump(stmt, "i"),
@@ -437,8 +456,9 @@ StackBalancingBlockJumpImprecision(block, func):-
       IsFunctionCallReturn(ctx, caller, func, retCtx, retBlock, retTarget).
 
     IsFunctionCallReturn(ctx, caller, func, retCtx, retBlock, retTarget) :-
-      IsFunctionCall(caller, func),
-      global.ReachableContext(ctx, caller),
+      IsPrivateFunctionCall(ctx, caller, func),
+      global.BlockEdge(ctx, caller, calleeCtx, func),
+      LocalContextCanReach(calleeCtx, retCtx),
       IsReturn(retCtx, retBlock, retTarget).
 
 }
