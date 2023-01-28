@@ -143,9 +143,9 @@ PublicFunctionFiltered(func, sigHash):-
     not the same as the "local" block edges of the functional IR,
     because these also continue the function code after a call.
     */
-  .decl InterprocBlockEdge(from: Block, to: Block) inline
+  .decl IntraprocBlockEdge(from: Block, to: Block) inline
 
-  InterprocBlockEdge(from, to) :-
+  IntraprocBlockEdge(from, to) :-
     global.BlockEdge(ctxFrom, from, ctxTo, to),
     MaybeInFunctionUnderContext(ctxFrom, from, func),
     MaybeInFunctionUnderContext(ctxTo, to, func),
@@ -159,7 +159,7 @@ PublicFunctionFiltered(func, sigHash):-
     !IsFunctionCallReturn(_, _, _, ctxFrom, from, to),
     !IsFunctionCallReturn(ctxFrom, from, to, _, _, _).
 
-  InterprocBlockEdge(from, to) :-
+  IntraprocBlockEdge(from, to) :-
     global.BlockEdge(ctxFrom, from, ctxTo, to),
     MaybeInFunctionUnderContext(ctxFrom, from, func),
     MaybeInFunctionUnderContext(ctxTo, to, func),
@@ -581,7 +581,7 @@ PubFun(entry, sigHash):- global.sens.Context_PublicFunction(_, sigHash), PublicF
 .decl IRBlockEdge(from: IRBlock, to: IRBlock)
 
 IRBlockEdge(irfrom, irto) :-
-  fnFinder.InterprocBlockEdge(from, to),
+  fnFinder.IntraprocBlockEdge(from, to),
   Block_IRBlock(from, func, irfrom),
   Block_IRBlock(to, func, irto).
 
