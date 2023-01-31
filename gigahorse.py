@@ -285,13 +285,16 @@ def prepare_working_dir(contract_name) -> (bool, str, str, str):
     return False, newdir, out_dir, fallback_out_dir
 
 def get_souffle_macros():
-    souffle_macros = f'GIGAHORSE_DIR={GIGAHORSE_DIR} BULK_ANALYSIS= {args.souffle_macros}'.strip()
+    souffle_macros = f'GIGAHORSE_DIR={GIGAHORSE_DIR} {args.souffle_macros}'.strip()
+
+    if not args.debug:
+        souffle_macros += ' BULK_ANALYSIS='
 
     if args.enable_limitsize:
-        souffle_macros+=' ENABLE_LIMITSIZE='
+        souffle_macros += ' ENABLE_LIMITSIZE='
 
     if args.early_cloning:
-        souffle_macros+=' BLOCK_CLONING=HeuristicBlockCloner'
+        souffle_macros += ' BLOCK_CLONING=HeuristicBlockCloner'
 
     return souffle_macros
 
