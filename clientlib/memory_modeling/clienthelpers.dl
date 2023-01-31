@@ -140,30 +140,3 @@ ERC20ApproveCall(call, spender, value) :-
   CallToSignature(call, "approve(address,uint256)"),
   StatementUsesMemory_ActualMemoryArg(call, _, 1, spender),
   StatementUsesMemory_ActualMemoryArg(call, _, 2, value).
-
-/**
-  Flows with memory
-*/
-
-.comp GlobalFlowAnalysisWithMemory : GlobalFlowAnalysis {
-  .override Uses
-  .override Defines
-
-  Uses(stmt, use):-
-    Statement_Uses(stmt, use, _);
-    MemoryStatement_ActualArg(stmt, use, _).
-
-  Defines(stmt, def):-
-    Statement_Defines(stmt, def, _);
-    ExternalCall_ActualReturn(stmt, def, _).
-
-}
-
-.init flowsIncludingMemory = GlobalFlowAnalysisWithMemory
-flowsIncludingMemory.TransferStmt(stmt) :- (FlowOp(op), Statement_Opcode(stmt, op)); StatementUsesMemory(stmt, _).
-flowsIncludingMemory.InitialFlowVar(v) :- isVariable(v).
-flowsIncludingMemory.TransferBoundary(b) :- IsBlock(b).
-
-
-
-#define DataFlowsWithMem flowsIncludingMemory.GlobalFlows
