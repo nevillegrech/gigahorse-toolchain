@@ -485,6 +485,8 @@
 
   Out_ActualReturnArgs(outCaller, outVar, pos):-
     In_ActualReturnArgs(caller, inVar, pos),
+    In_CallGraphEdge(caller, calleeFun),
+    !FunctionToInline(calleeFun),
     InBlock_OutBlock(caller, same, outCaller),
     InVar_OutVar(inVar, same, outVar).
 
