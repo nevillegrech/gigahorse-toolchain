@@ -339,9 +339,10 @@ def prepare_working_dir(contract_name) -> (bool, str, str, str):
 
 
 def get_souffle_macros():
-    souffle_macros = (
-        f"GIGAHORSE_DIR={GIGAHORSE_DIR} BULK_ANALYSIS= {args.souffle_macros}".strip()
-    )
+    souffle_macros = f"GIGAHORSE_DIR={GIGAHORSE_DIR} {args.souffle_macros}".strip()
+
+    if not args.debug:
+        souffle_macros += " BULK_ANALYSIS="
 
     if args.enable_limitsize:
         souffle_macros += " ENABLE_LIMITSIZE="
@@ -638,8 +639,7 @@ def analyze_contract(
 
         # Do not attempt to decompile for earlier timeouts when using --rerun_clients
         if args.rerun_clients and not decomp_out_produced(out_dir):
-            meta.append("TIMEOUT")
-            return
+            raise TimeoutException()
 
         client_start = time.time()
         timeouts, errors = run_clients(souffle_clients, other_clients, out_dir, out_dir)

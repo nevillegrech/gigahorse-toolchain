@@ -160,6 +160,9 @@ LocalStatementPathInBlock(stmt1, stmt3):-
   // Output relation 'before' can happen before 'after'
   .decl MayHappenBefore(before: Statement, after: Statement, arg: symbol)
 
+  // Output relation 'before' will happen before 'after'
+  .decl WillHappenBefore(before: Statement, after: Statement, arg: symbol)
+
   // Intermediate relations. These start before the original `before` and `after` statements populating the input relations
   // and transitively go back through function calls to work inter-procedurally
   // originalBefore/After are kept because to report the original statements, before/after is what changes when going through private calls
@@ -195,6 +198,7 @@ LocalStatementPathInBlock(stmt1, stmt3):-
     Statement_Block(callStmt, calleeBlock),
     Statement_Opcode(callStmt, "CALLPRIVATE").
 
+  WillHappenBefore(originalBefore, originalAfter, arg),
   MayHappenBefore(originalBefore, originalAfter, arg):-
     BeforeInfo(originalBefore, before, block, fun, arg),
     AfterInfo(originalAfter, after, block, fun, arg),
@@ -204,6 +208,11 @@ LocalStatementPathInBlock(stmt1, stmt3):-
     BeforeInfo(originalBefore, _, beforeBlock, fun, arg),
     AfterInfo(originalAfter, _, afterBlock, fun, arg), // REVIEW: maybe inverted order is faster.
     LocalBlockPath(beforeBlock, afterBlock).
+
+  WillHappenBefore(originalBefore, originalAfter, arg):-
+    BeforeInfo(originalBefore, _, beforeBlock, fun, arg),
+    AfterInfo(originalAfter, _, afterBlock, fun, arg), // REVIEW: maybe inverted order is faster.
+    Dominates(beforeBlock, afterBlock), beforeBlock != afterBlock.
 }
 
 /**
@@ -237,12 +246,17 @@ LocalStatementPathInBlock(stmt1, stmt3):-
   // Output relation 'before' can happen before 'after'
   .decl MayHappenBefore(before: Statement, after: Statement)
 
+  // Output relation 'before' will happen before 'after'
+  .decl WillHappenBefore(before: Statement, after: Statement)
+
   .init mayHappenBeforeInternal = MayHappenBeforeGlobalWithArg
 
   mayHappenBeforeInternal.Before(before, "NULL"):- Before(before).
   mayHappenBeforeInternal.After(after, "NULL"):- After(after).
 
   MayHappenBefore(before, after):- mayHappenBeforeInternal.MayHappenBefore(before, after, "NULL").
+
+  WillHappenBefore(before, after):- mayHappenBeforeInternal.WillHappenBefore(before, after, "NULL").
 }
 
 /**

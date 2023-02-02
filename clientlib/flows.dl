@@ -6,11 +6,23 @@
 //
 
 .comp GlobalFlowAnalysis {
+  // inputs
   .decl TransferStmt(stmt: Statement)
   .decl InitialFlowVar(var: Variable)
-  .decl Flows(from:Variable, to:Variable)
   .decl TransferBoundary(block: Block)
-      
+
+  .decl Uses(stmt: Statement, use: Variable) overridable
+  .decl Defines(stmt: Statement, def: Variable) overridable
+
+  // Outputs
+  .decl Flows(from: Variable, to: Variable)
+
+  Uses(stmt, use):-
+    Statement_Uses(stmt, use, _).
+
+  Defines(stmt, def):-
+    Statement_Defines(stmt, def, _).
+
    // Maps formals args (or locals) to formal return args
    Flows(x, x) :- InitialFlowVar(x).
 
@@ -22,8 +34,8 @@
 
    Flows(x, y) :-
      Flows(_, x),
-     Statement_Uses(stmt, x, _),
-     Statement_Defines(stmt, y, _),
+     Uses(stmt, x),
+     Defines(stmt, y),
      TransferStmt(stmt),
      Statement_Block(stmt, block),
      TransferBoundary(block).
@@ -108,28 +120,46 @@ constantOpFlows.TransferBoundary(b):- IsBlock(b).
 // Initialise this component and indicate with opcodes to use as transfer functions.
 // Also indicate the transfer boundary (e.g. Loop blocks for induction variables)
 .comp LocalFlowAnalysis {
+  .decl TransferStmt(stmt: Statement)
+  .decl TransferBoundary(block: Block)
+
+  .decl Uses(stmt: Statement, use: Variable) overridable
+  .decl Defines(stmt: Statement, def: Variable) overridable
+
+  // Output
   .decl Flows(x: Variable, y: Variable)
   .decl NonTransitiveFlows(x: Variable, y: Variable)
+
+
+  // PHI instructions should always transfer
+  TransferStmt(stmt):- Statement_Opcode(stmt, "PHI").
+
+  Uses(stmt, use):-
+    Statement_Uses(stmt, use, _).
+
+  Defines(stmt, def):-
+    Statement_Defines(stmt, def, _).
+
 
   NonTransitiveFlows(x, x),
   Flows(x, x) :- isVariable(x).
 
-  NonTransitiveFlows(x, y),
-  Flows(x, y) :-
-    TransferOpcodeArgument(op, n),
-    Statement_Opcode(stmt, op),
-    Statement_Block(stmt, block),
-    TransferBoundary(block),
-    Statement_Defines(stmt, y, _),
-    Statement_Uses(stmt, x, n).
+  // NonTransitiveFlows(x, y),
+  // Flows(x, y) :-
+  //   TransferOpcodeArgument(op, n),
+  //   Statement_Opcode(stmt, op),
+  //   Statement_Block(stmt, block),
+  //   TransferBoundary(block),
+  //   Defines(stmt, y, _),
+  //   Uses(stmt, x, n).
   
   NonTransitiveFlows(x, y),
   Flows(x, y) :-
     TransferStmt(stmt),
     Statement_Block(stmt, block),
     TransferBoundary(block),
-    Statement_Defines(stmt, y, _),
-    Statement_Uses(stmt, x, _).
+    Defines(stmt, y),
+    Uses(stmt, x).
 
   // Case: Flows from formal to formal return
   NonTransitiveFlows(actual, actualReturn),
@@ -154,15 +184,9 @@ constantOpFlows.TransferBoundary(b):- IsBlock(b).
     Flows(y, z).
     .plan 1:(2,1)
 
+  // SL: Why is this here? remove it?
   .decl TransferOpcodeArgument(op: Opcode, argument: number)
   TransferOpcodeArgument(op, n) :- TransferOpcodeArgument(op, n). // suppress warning
-
-  .decl TransferStmt(stmt: Statement)
-
-  // PHI instructions should always transfer
-  TransferStmt(stmt):- Statement_Opcode(stmt, "PHI").
-
-  .decl TransferBoundary(block: Block)
 }
 
 // Note that this is an inter-procedural analysis with no context sensitivity
