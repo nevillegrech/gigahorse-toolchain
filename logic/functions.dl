@@ -1,3 +1,4 @@
+#include "source.dl"
 #define FRESH_VARIABLE(var, stmt, stackIndex) (IRStatementNum((stmt), ?stmtNum), var=-0xFFFF+?stmtNum*MAX_STACK_HEIGHT+(stackIndex))
 
 //#define DEBUG
@@ -418,34 +419,71 @@ StackBalancingBlockJumpImprecision(block, func):-
 
 .comp SourceMappingFunctionFinder : AbstractFunctionFinder {
 
-    .decl SourceMappedJump(stmt:Statement, jumpType:symbol)
-    .input SourceMappedJump(IO="file", filename="SourceMappedJump.csv", delimiter="\t")
+    .decl OptPrivateFunctionCall(ctx:global.sens.Context, caller:Block, calleeCtx:global.sens.Context, callee:Block)
 
-    // like ContextEdge and ContextCanReach, but local to a function
-    .decl LocalContextEdge(froCtx:global.sens.Context, toCtx:global.sens.Context)
-    .decl LocalContextCanReach(froCtx:global.sens.Context, toCtx:global.sens.Context)
+    // reachability from function entries
+    .decl ReachableInFunction(ctx:global.sens.Context, func:Block, reachableCtx:global.sens.Context, block:Block)
 
-    LocalContextEdge(froCtx, toCtx) :-
-      global.BlockEdge(froCtx, fro, toCtx, to),
-      !IsPrivateFunctionCall(froCtx, fro, to),
-      !IsPublicFunctionCall(fro, to),
-      !IsReturn(froCtx, fro, to).
+    .decl InPublicFunctionEntry(func:Block)
 
-    LocalContextCanReach(ctx, ctx) :-
-      global.ReachableContext(ctx, _).
+    ReachableInFunction(ctx, func, ctx, func) :-
+      IsFunctionEntry(func),
+      global.ReachableContext(ctx, func).
 
-    LocalContextCanReach(ctxFrom, ctxTo) :-
-      LocalContextCanReach(ctxFrom, ctxOther),
-      LocalContextEdge(ctxOther, ctxTo).
+    ReachableInFunction(ctx, func, toCtx, block) :-
+      ReachableInFunction(ctx, func, prevCtx, prevBlock),
+      !IsReturn(prevCtx, prevBlock, _),
+      !IsPrivateFunctionCall(prevCtx, prevBlock, _),
+      global.BlockEdge(prevCtx, prevBlock, toCtx, block).
+
+    // case where we call a function and then return.
+    // This version is precise, but not scalable.
+    ReachableInFunction(ctx, func, toCtx, target) :-
+      ReachableInFunction(ctx, func, callCtx, caller),
+      IsFunctionCallReturn(callCtx, caller, _, retCtx, ret, target),
+      global.BlockEdge(retCtx, ret, toCtx, target).
+    .plan 1:(2, 1, 3)
+
+    InPublicFunctionEntry(block) :-
+      PublicFunctionFiltered(block, _).
+
+    InPublicFunctionEntry(next) :-
+      InPublicFunctionEntry(prev),
+      global.BlockEdge(_, prev, _, next),
+      global.BasicBlock_Tail(prev, stmt),
+      !SourceMappedJump(stmt, "i").
+      // no need to check return.
+
+    // // Imprecise, but more scalable version.
+    // // The idea here is that matched call/return edges have the same location in source.
+    // ReachableInFunction(ctx, func, toCtx, retTarget) :-
+    //   SourceMappedJump(call, "i"),
+    //   SourceMappedStmt(call, offset, len, file),
+    //   SourceMappedStmt(ret, offset, len, file),
+    //   global.BasicBlock_Tail(callerBlock, call),
+    //   ReachableInFunction(ctx, func, _, callerBlock),
+    //   global.BasicBlock_Head(retTarget, ret),
+    //   IsReturn(retCtx, retBlock, retTarget),
+    //   global.BlockEdge(retCtx, retBlock, toCtx, retTarget).
 
     IsFunctionEntry("0x0").
-
-    IsPrivateFunctionCall(ctx, caller, fn),
     IsFunctionEntry(block) :-
+      PublicFunctionFiltered(block, _).
+
+    OptPrivateFunctionCall(ctx, caller, calleeCtx, fn) :-
       SourceMappedJump(stmt, "i"),
       global.BasicBlock_Tail(caller, stmt),
-      global.BlockJumpValidTarget(ctx, caller, _, block), fn = block.
+      !InPublicFunctionEntry(caller),
+      global.BlockJumpValidTarget(ctx, caller, _, block), fn = block,
+      global.BlockEdge(ctx, caller, calleeCtx, block).
 
+    IsPrivateFunctionCall(ctx, caller, fn) :-
+      OptPrivateFunctionCall(ctx, caller, _, fn).
+
+    IsFunctionEntry(block) :-
+      IsPrivateFunctionCall(_, _, block).
+
+    // may contain some dead returns
     IsReturn(retCtx, ret, target) :-
       SourceMappedJump(stmt, "o"),
       global.BasicBlock_Tail(ret, stmt),
@@ -456,10 +494,21 @@ StackBalancingBlockJumpImprecision(block, func):-
       IsFunctionCallReturn(ctx, caller, func, retCtx, retBlock, retTarget).
 
     IsFunctionCallReturn(ctx, caller, func, retCtx, retBlock, retTarget) :-
-      IsPrivateFunctionCall(ctx, caller, func),
-      global.BlockEdge(ctx, caller, calleeCtx, func),
-      LocalContextCanReach(calleeCtx, retCtx),
+      OptPrivateFunctionCall(ctx, caller, calleeCtx, func),
+      ReachableInFunction(calleeCtx, func, retCtx, retBlock),
       IsReturn(retCtx, retBlock, retTarget).
+
+    // // Not fully precise like the rule above, but should be much more scalable.
+    // // The idea here is simple; matched call/return edges will have the same location in source.
+    // // Precision is lost on recursive calls, possibly in other cases as well.
+    // IsFunctionCallReturn(ctx, caller, func, retCtx, retBlock, retTarget) :-
+    //   SourceMappedJump(call, "i"),
+    //   SourceMappedStmt(call, offset, len, file),
+    //   SourceMappedStmt(ret, offset, len, file),
+    //   global.BasicBlock_Head(retTarget, ret),
+    //   IsReturn(retCtx, retBlock, retTarget),
+    //   global.BasicBlock_Tail(callerBlock, call),
+    //   IsPrivateFunctionCall(ctx, caller, func).
 
 }
 

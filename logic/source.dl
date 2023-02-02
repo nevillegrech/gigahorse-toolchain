@@ -1,0 +1,10 @@
+#pragma once
+#ifdef HAS_SOURCE
+
+.decl SourceMappedJump(stmt:Statement, jumpType:symbol)
+.input SourceMappedJump
+
+.decl SourceMappedStmt(stmt:Statement, offset:number, len:number, fileIdx:number)
+.input SourceMappedStmt
+
+#endif
