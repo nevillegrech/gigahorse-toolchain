@@ -419,14 +419,21 @@ IRInFunction(irblock, irFunc) :-
 // Now let's settle the edges of the graph: which
 // block is connected to which next one.
 
-.decl IRFunction_Return_Edge(block: IRBlock, next: IRBlock)
+
+/**
+  Contains the (callee-side) return block `ret` of __private__ function `fn`
+*/
 .decl IRFunction_Return(fn: IRFunction, ret: IRBlock)
+
+/**
+  Block `caller` makes a call to __private__ function `func`, with control-flow resuming to
+  the caller-side block `retcaller`.
+*/
 .decl IRFunctionCallReturn(caller: IRBlock, func: IRFunction, retcaller: IRBlock)
 
 // Be strict in our precision demands for recognizing a call
 IRFunction_Return(irfunc, retir),
-IRFunctionCallReturn(callerir, irfunc, callerretir),
-IRFunction_Return_Edge(retir, callerretir) :-
+IRFunctionCallReturn(callerir, irfunc, callerretir):-
   IsFunctionCallReturn(ctx, caller, func, _, ret, callerret), //REVIEW: take advantage of retCtx
   MaybeInFunctionUnderContext(ctx, caller, prevfunc),
   Block_IRBlock(ret, func, retir),
@@ -436,10 +443,10 @@ IRFunction_Return_Edge(retir, callerretir) :-
   //!BlockToClone(func, prevfunc).
 
 
-// REVIEW: IRFunctionCall will include the IRFunctionCallReturn
-// edges, i.e., the fully resolved calls, all the way to returns
-// to the same caller function. Seems later stages can handle this?
-
+/**
+  `IRFunctionCall` includes the results of `IRFunctionCallReturn` (__private__ function calls).  
+  In addition it includes the "calls" to the contract's own __public__ functions inside the function selector.
+*/
 .decl IRFunctionCall(from: IRBlock, func: IRFunction)
 
 IRFunctionCall(callerir, irfunc) :-
