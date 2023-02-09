@@ -343,6 +343,7 @@ ABIEncodedArrayWFunctionSelector(abiArr):-
   ABIEncodedArrayVar_ClassRep(abiArrVar, abiArr).
 
 StatementUsesMemory_ActualMemoryArg(stmt, kind, index, actual):-
+  StatementUsesMemoryReadsABIEnc(stmt, _),
   StatementUsesMemory_StartVar(stmt, kind, abiArrVar),
   ABIEncodedArrayVar_ClassRep(abiArrVar, abiArrRep),
   ABIEncodedArrayNoFunctionSelector(abiArrRep),
@@ -351,6 +352,7 @@ StatementUsesMemory_ActualMemoryArg(stmt, kind, index, actual):-
   index = relativeIndex/32.
 
 StatementUsesMemory_ActualMemoryArg(stmt, kind, index, actual):-
+  StatementUsesMemoryReadsABIEncWSelector(stmt, _),
   StatementUsesMemory_StartVar(stmt, kind, abiArrVar),
   ABIEncodedArrayVar_ClassRep(abiArrVar, abiArrRep),
   ABIEncodedArrayWFunctionSelector(abiArrRep),
@@ -359,6 +361,7 @@ StatementUsesMemory_ActualMemoryArg(stmt, kind, index, actual):-
   index = 1 + relativeIndex/32.
 
 StatementUsesMemory_ActualMemoryArg(stmt, kind, 0, actual):-
+  StatementUsesMemoryReadsABIEncWSelector(stmt, _),
   StatementUsesMemory_StartVar(stmt, kind, abiArrVar),
   ABIEncodedArrayVar_ClassRep(abiArrVar, abiArrRep),
   ABIEncodedArrayWFunctionSelector(abiArrRep),

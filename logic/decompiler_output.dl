@@ -96,6 +96,25 @@ TAC_Variable_Value(as(tacvar, TACVariable), value) :-
    postTrans.Variable_Value(var, value),
    STARTSWITH(value, "0x").
 
+/**
+  __HACK__ to get around the patterns produced by the new `--via-ir` compilation pipeline.
+  These patterns will pass arguments to public functions (in the function selector code) the same way
+  they are passed to private functions. These are often constants used all over the place.
+*/
+.decl PublicFunctionFormalIsConstant(irFunc: IRFunction, formal: TACVariable, value: symbol)
+
+PublicFunctionFormalIsConstant(publicFunc, formalArg, value):-
+  IRPublicFunction(publicFunc, _),
+  FormalArgs(publicFunc, formalArg, n),
+  IRFunctionCall(fromIrBlock, publicFunc),
+  IRBasicBlock_Tail(fromIrBlock, callStmt),
+  TAC_Use(callStmt, actualArg, n + 1),
+  TAC_Variable_Value(actualArg, value),
+  1 = count : IRFunctionCall(_, publicFunc).
+
+TAC_Variable_Value(formalArg, value):-
+  PublicFunctionFormalIsConstant(_, formalArg, value).
+
 // New Instructions
 // *returnArgs = CALLPRIVATE(stmt, function, *args)
 // RETURNPRIVATE(stmt, *args)
