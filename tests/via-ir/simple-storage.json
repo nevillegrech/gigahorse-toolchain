@@ -1,0 +1,6 @@
+{
+    "client_path": "clients/analytics_client.dl",
+    "gigahorse_args": ["-i", "--disable_inline", "--disable_scalable_fallback"],
+    "expected_analytics": [["Analytics_NonModeledSSTORE", 0, 0], ["Analytics_NonModeledSLOAD", 0, 0],
+                            ["Analytics_NonModeledMSTORE", 0, 0], ["Analytics_NonModeledMLOAD", 0, 0]]
+}
