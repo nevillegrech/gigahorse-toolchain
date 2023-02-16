@@ -198,14 +198,9 @@ Analytics_EventSignature(sigHashVal) :-
 .decl Analytics_SenderGuard(glovalVar: Value)
 .output Analytics_SenderGuard
 
-.decl Analytics_ReentrancyGuard(glovalVar: Value)
-.output Analytics_ReentrancyGuard
-
 Analytics_SenderGuard(globalVar):-
   SenderGuard(globalVar, _).
 
-Analytics_ReentrancyGuard(glovalVar):-
-  ReentrancyGuard(glovalVar).
 
 /**
  * Storage Modeling
