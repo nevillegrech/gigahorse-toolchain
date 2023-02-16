@@ -35,6 +35,29 @@ Analytics_Jumps(block) :-
 .decl Analytics_BlockHasNoTACBlock(block: Block)
 .output Analytics_BlockHasNoTACBlock
 
+// Blocks that are data
+.decl BlockIsData(block: Block)
+
+// Blocks with MISSING opcode are data
+BlockIsData(block):-
+  revertCloner.analysis.Statement_Block(stmt, block),
+  revertCloner.analysis.Statement_Opcode(stmt, "MISSING").
+
+BlockIsData(block):-
+  revertCloner.analysis.CODECOPYStatement(_, codeOffsetNumHex, smallNumHex),
+  revertCloner.analysis.Statement_Block(_, block),
+  @lt_256(codeOffsetNumHex, block) = "0x1",
+  @lt_256(block, @add_256(codeOffsetNumHex, smallNumHex)) = "0x1".
+
+.decl Analytics_JUMPDESTNeverPushed(block: Block)
+.output Analytics_JUMPDESTNeverPushed
+
+Analytics_JUMPDESTNeverPushed(block):-
+  revertCloner.analysis.Statement_Opcode(stmt, "JUMPDEST"),
+  revertCloner.analysis.Statement_Block(stmt, block),
+  !revertCloner.BlockPushedToStack(_, _, block),
+  !BlockIsData(block).
+
 #ifdef BLOCK_CLONING
 
 Analytics_ReachableBlocks(originalBlock):-
@@ -45,6 +68,7 @@ Analytics_ReachableBlocks(originalBlock):-
 Analytics_UnreachableBlock(originalBlock):-
   postTrans.Statement_Block(_, block),
   blockCloner.Block_OriginalBlock(block, originalBlock),
+  !BlockIsData(originalBlock),
   !Analytics_ReachableBlocks(originalBlock).
 
 Analytics_ReachableBlocksInTAC(originalBlock):-
@@ -67,6 +91,7 @@ Analytics_ReachableBlocks(originalBlock):-
 Analytics_UnreachableBlock(originalBlock):-
   postTrans.Statement_Block(_, block),
   revertCloner.Block_OriginalBlock(block, originalBlock),
+  !BlockIsData(originalBlock),
   !Analytics_ReachableBlocks(originalBlock).
 
 Analytics_ReachableBlocksInTAC(originalBlock):-
