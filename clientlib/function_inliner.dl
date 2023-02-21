@@ -578,6 +578,17 @@
     MSTORE(_, storeAddr, _),
     !VarIsArray(formalArg, _).
 
+  .decl FunctionContainsExternalCall(fun:Function)
+
+  FunctionContainsExternalCall(fun):-
+    (In_Statement_Opcode(callStmt, "CALL"); In_Statement_Opcode(callStmt, "STATICCALL"); In_Statement_Opcode(callStmt, "DELEGATECALL")),
+    In_Statement_Function(callStmt, fun).
+
+  InlineCandidate(fun):-
+    (In_Statement_Opcode(returnDataStmt, "RETURNDATASIZE"); In_Statement_Opcode(returnDataStmt, "RETURNDATACOPY")),
+    In_Statement_Function(returnDataStmt, fun),
+    !FunctionContainsExternalCall(fun).
+
   .decl FunctionContainsMemConsStmt(fun:Function)
 
   FunctionContainsMemConsStmt(fun):-
