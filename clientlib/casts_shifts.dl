@@ -186,6 +186,44 @@ ValueIsNotAntiByteMask(val):-
   i >= low,
    i < high.
 
+// AntiByteMask(val, low, high):-
+//   ByteMask_ZerosMinMax(val, low, high),
+//   !ValueIsNotAntiByteMask(val).
+
 AntiByteMask(val, low, high):-
-  ByteMask_ZerosMinMax(val, low, high),
-  !ValueIsNotAntiByteMask(val).
+  ByteMask_MaskRange(val, [low, high]).
+
+.type Range = [from: number, to: number]
+// .type RangeList = [curr: Range, rest: RangeList]
+
+.decl ByteMask_KeepRange(mask: Value, keepRange: Range)
+DEBUG_OUTPUT(ByteMask_KeepRange)
+
+
+ByteMask_KeepRange(mask, [i, j]):-
+  ValueIsByteMask(mask),
+  ValueMasksOrKeepsByteAtIndex(mask, 1, i),
+  !ValueMasksOrKeepsByteAtIndex(mask, 1, i - 1),
+  ValueMasksOrKeepsByteAtIndex(mask, 1, j),
+  !ValueMasksOrKeepsByteAtIndex(mask, 1, j + 1),
+  i <= j,
+  1 + j - i = count : {ValueMasksOrKeepsByteAtIndex(mask, 1, k), i <= k, k <= j}.
+
+
+.decl ByteMask_MaskRange(mask: Value, maskRange: Range)
+DEBUG_OUTPUT(ByteMask_MaskRange)
+
+
+ByteMask_MaskRange(mask, [i, j]):-
+  ValueIsByteMask(mask),
+  ValueMasksOrKeepsByteAtIndex(mask, 0, i),
+  !ValueMasksOrKeepsByteAtIndex(mask, 0, i - 1),
+  ValueMasksOrKeepsByteAtIndex(mask, 0, j),
+  !ValueMasksOrKeepsByteAtIndex(mask, 0, j + 1),
+  i <= j,
+  1 + j - i = count : {ValueMasksOrKeepsByteAtIndex(mask, 0, k), i <= k, k <= j}.
+
+ByteMask_MaskRange(mask, [numOfBytes, 31]):-
+  ValueIsByteMask(mask),
+  numOfBytes = strlen(mask)/2 - 1,
+  numOfBytes < 32.

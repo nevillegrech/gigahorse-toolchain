@@ -1,7 +1,32 @@
-pragma solidity 0.8.4;
+pragma solidity 0.8.17;
 
 contract MergedVars {
     address public owner;
+    uint8 public number;
+    bool public flag;
+
+    function update(address newOwner, uint8 newNumber, bool newFlag) external {
+        owner = newOwner;
+        number = newNumber;
+        flag = newFlag;
+    }
+
+    function update(address newOwner, bool newFlag) external {
+        owner = newOwner;
+        flag = newFlag;
+    }
+
+    function update(ValueProvider provider) external {
+        owner = provider.getAddr();
+        number = provider.getSmallInt();
+        flag = provider.getBool();
+    }
+}
+
+contract MergedVars2 {
+    address public owner;
+    int8 public signed;
+    int16 public signed2;
     uint8 public number;
     bool public flag;
 
@@ -27,6 +52,10 @@ interface ValueProvider {
 
 contract SimpleArray {
     address[] public owners;
+
+    function addOwner(address newOwner) external {
+        owners.push(newOwner);
+    }
 }
 
 contract SimpleMapping {

@@ -652,7 +652,7 @@ SSTOREToConst(sstore, const, var):-
   both need the same handling for word sharing in storage slots. They are differentiated later.
 */
 .decl VarHoldsBytesOfStorVar(var: Variable, srcLoad: Statement, storVar: symbol, byteLow: number, byteHigh: number)
-
+DEBUG_OUTPUT(VarHoldsBytesOfStorVar)
 /**
   This is a heuristic, we use the "Final" forms of loaded vars
   (seeing when a variable from storage is no longer shifted or masked)
@@ -664,6 +664,7 @@ SSTOREToConst(sstore, const, var):-
   both need the same handling for word sharing in storage slots. They are differentiated later.
 */
 .decl VarHoldsBytesOfStorVarFinal(var: Variable, srcLoad: Statement, storVar: symbol, byteLow: number, byteHigh: number)
+DEBUG_OUTPUT(VarHoldsBytesOfStorVarFinal)
 
 VarHoldsBytesOfStorVar(to, load, storVar, 0, 31):-
   SLOADOfConst(load, storVar, to).
@@ -691,9 +692,13 @@ VarHoldsBytesOfStorVarFinal(var, load, storVar, low, high):-
   !AntiMaskOp(var, _, _, _).
 
 .decl AnyLoadStoreStorVarBytes(loadOrStore: Statement, storVar: symbol, low: number, high: number)
+DEBUG_OUTPUT(AnyLoadStoreStorVarBytes)
 
 .decl FailedMergedStorageModeling(storVar: symbol)
 DEBUG_OUTPUT(FailedMergedStorageModeling)
+
+.decl FailedMergedStorageModelingReason(storVar: symbol, stmt: Statement, stmt2: Statement, range1: Range, range2: Range)
+DEBUG_OUTPUT(FailedMergedStorageModelingReason)
 
 .decl SuccessfulMergedStorageModeling(storVar: symbol)
 DEBUG_OUTPUT(SuccessfulMergedStorageModeling)
@@ -709,9 +714,10 @@ AnyLoadStoreStorVarBytes(stmt, storVar, 0, 31):-
   SSTOREToConst(stmt, storVar, _),
   !SLOADOfConst(_, storVar, _).
 
+FailedMergedStorageModelingReason(storVar, stmt, stmt2, [low, high], [otherLow, otherHigh]),
 FailedMergedStorageModeling(storVar):-
-  AnyLoadStoreStorVarBytes(_, storVar, low, high),
-  AnyLoadStoreStorVarBytes(_, storVar, otherLow, otherHigh),  otherLow = otherLow, otherHigh = otherHigh, // NOWARN
+  AnyLoadStoreStorVarBytes(stmt, storVar, low, high),
+  AnyLoadStoreStorVarBytes(stmt2, storVar, otherLow, otherHigh),  otherLow = otherLow, otherHigh = otherHigh, // NOWARN
   !ArrayIdToStorageIndex(as(storVar, Value), _),
   (low != otherLow ; high != otherHigh),
   ( (low < otherLow , otherLow < high) ; (low < otherHigh, otherHigh < high) ).
@@ -720,6 +726,7 @@ LoadOrStoreToStoreVar(stmt, storVar):-
   SLOADOfConst(stmt, storVar, _);
   SSTOREToConst(stmt, storVar, _).
 
+FailedMergedStorageModelingReason(storVar, stmt, stmt, nil, nil),
 FailedMergedStorageModeling(storVar):-
   AnyLoadStoreStorVarBytes(_, storVar, _, _),
   LoadOrStoreToStoreVar(stmt, storVar),
@@ -734,27 +741,77 @@ SuccessfulMergedStorageModeling(storVar):-
   !FailedMergedStorageModeling(storVar),
   !ArrayIdToStorageIndex(as(storVar, Value), _).
 
+.decl ProbablyPartialStorageUpdateSequenceWrite(tempVar: Variable, writtenVar: Variable, load: Statement, storVar: symbol, byteLow: number, byteHigh: number)
+DEBUG_OUTPUT(ProbablyPartialStorageUpdateSequenceWrite)
+
+.decl ProbablyPartialStorageUpdateSequenceKeep(tempVar: Variable, load: Statement, storVar: symbol, byteLow: number, byteHigh: number)
+DEBUG_OUTPUT(ProbablyPartialStorageUpdateSequenceKeep)
+
+.decl ProbablyPartialStorageUpdatePattern(fromVar: Variable, toVar: Variable, writtenVar: Variable, byteLow: number, byteHigh: number)
+DEBUG_OUTPUT(ProbablyPartialStorageUpdatePattern)
+
 .decl VarWrittenToBytesOfStorVar(var:Variable, store:Statement, load:Statement, storVar:symbol, byteLow:number, byteHigh:number)
+DEBUG_OUTPUT(VarWrittenToBytesOfStorVar)
 
 .decl VarWrittenToBytesOfStorVarIsMergedVar(var:Variable, modeledVar:Variable, store:Statement, load:Statement, storVar:symbol, byteLow:number, byteHigh:number)
 
 .decl VarWrittenToBytesOfStorVarFinal(var:Variable, store:Statement, load:Statement, storVar:symbol, byteLow:number, byteHigh:number)
 
 .decl ConstWrittenToBytesOfStorVar(constVar:Variable, const:Value, store:Statement, load:Statement, storVar:symbol, byteLow:number, byteHigh:number)
+DEBUG_OUTPUT(ConstWrittenToBytesOfStorVar)
+
+ProbablyPartialStorageUpdatePattern(fromVar, toVar, writtenVar, byteLow, byteLow + castedTo - 1):-
+  // AntiMaskOp(fromVar, oldMasked, byteLow, byteHigh),
+  CastedAndShiftedVar(writtenVar, castedNShifted, byteLow, castedTo),
+  (OR(_, castedNShifted, fromVar, toVar) ; OR(_, fromVar, castedNShifted, toVar)).
+
+ProbablyPartialStorageUpdatePattern(fromVar, toVar, writtenVar, 0, byteHigh - 1):-
+  // AntiMaskOp(fromVar, oldMasked, 0, byteHigh),
+  LowBytesMaskOp(writtenVar, castedVar, byteHigh),
+  (OR(_, castedVar, fromVar, toVar) ; OR(_, fromVar, castedVar, toVar)).
+
+// HACK!
+ProbablyPartialStorageUpdatePattern(fromVar, toVar, writtenVar, byteLow, byteHigh):-
+  ProbablyPartialStorageUpdatePattern(tmpVar, toVar, writtenVar, byteLow, byteHigh),
+  (AND(_, antiMaskVar, fromVar, tmpVar) ; AND(_, fromVar, antiMaskVar, tmpVar)),
+  BasicVariable_Value(antiMaskVar, antiMask),
+  ByteMask_MaskRange(antiMask, [byteLow, byteHigh]).
+
+ProbablyPartialStorageUpdateSequenceWrite(toVar, writtenVar, load, storVar, byteLow, byteHigh),
+ProbablyPartialStorageUpdateSequenceKeep(toVar, load, storVar, keepByteLow, keepByteHigh):-
+  VarHoldsBytesOfStorVar(originVar, load, storVar, 0, 31),
+  AntiMaskOp(originVar, originMasked, keepByteLow, keepByteHigh),
+  ProbablyPartialStorageUpdatePattern(originMasked, toVar, writtenVar, byteLow, byteHigh).
+
+ProbablyPartialStorageUpdateSequenceWrite(toVar, writtenVar, load, storVar, byteLow, byteHigh):-
+  ProbablyPartialStorageUpdateSequenceWrite(originVar, writtenVar, load, storVar, byteLow, byteHigh),
+  ProbablyPartialStorageUpdatePattern(originVar, toVar, _, _, _).
+
+ProbablyPartialStorageUpdateSequenceWrite(toVar, writtenVar, load, storVar, byteLow, byteHigh):-
+  ProbablyPartialStorageUpdateSequenceWrite(originVar, _, load, storVar, _, _),
+  ProbablyPartialStorageUpdatePattern(originVar, toVar, writtenVar, byteLow, byteHigh).
+
+ProbablyPartialStorageUpdateSequenceKeep(toVar, load, storVar, keepByteLow, keepByteHigh):-
+  ProbablyPartialStorageUpdateSequenceKeep(originVar, load, storVar, keepByteLow, keepByteHigh),
+  ProbablyPartialStorageUpdatePattern(originVar, toVar, _, _, _).
 
 VarWrittenToBytesOfStorVar(writtenVar, store, load, storVar, byteLow, byteHigh):-
-  VarHoldsBytesOfStorVar(originVar, load, storVar, 0, 31),
-  AntiMaskOp(originVar, oldMasked, byteLow, byteHigh),
-  CastedAndShiftedVar(writtenVar, toVar, byteLow, byteHigh - byteLow + 1),
-  (OR(_, toVar, oldMasked, storedVar) ; OR(_, oldMasked, toVar, storedVar)),
-  SSTOREToConst(store, storVar, storedVar).
+  SSTOREToConst(store, storVar, storedVar),
+  ProbablyPartialStorageUpdateSequenceWrite(storedVar, writtenVar, load, storVar, byteLow, byteHigh).
 
-VarWrittenToBytesOfStorVar(writtenVar, store, load, storVar, 0, byteHigh):-
-  VarHoldsBytesOfStorVar(originVar, load, storVar, 0, 31),
-  AntiMaskOp(originVar, oldMasked, 0, byteHigh),
-  LowBytesMaskOp(writtenVar, toVar, byteHigh + 1),
-  (OR(_, toVar, oldMasked, storedVar) ; OR(_, oldMasked, toVar, storedVar)),
-  SSTOREToConst(store, storVar, storedVar).
+// VarWrittenToBytesOfStorVar(writtenVar, store, load, storVar, byteLow, byteHigh):-
+//   VarHoldsBytesOfStorVar(originVar, load, storVar, 0, 31),
+//   AntiMaskOp(originVar, oldMasked, byteLow, byteHigh),
+//   CastedAndShiftedVar(writtenVar, toVar, byteLow, byteHigh - byteLow + 1),
+//   (OR(_, toVar, oldMasked, storedVar) ; OR(_, oldMasked, toVar, storedVar)),
+//   SSTOREToConst(store, storVar, storedVar).
+
+// VarWrittenToBytesOfStorVar(writtenVar, store, load, storVar, 0, byteHigh):-
+//   VarHoldsBytesOfStorVar(originVar, load, storVar, 0, 31),
+//   AntiMaskOp(originVar, oldMasked, 0, byteHigh),
+//   LowBytesMaskOp(writtenVar, toVar, byteHigh + 1),
+//   (OR(_, toVar, oldMasked, storedVar) ; OR(_, oldMasked, toVar, storedVar)),
+//   SSTOREToConst(store, storVar, storedVar).
 
 /**
  Special case to fix a bug when writting from one storage location to another,
