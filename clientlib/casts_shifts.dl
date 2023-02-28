@@ -152,7 +152,7 @@ ShiftConst("0x1", 0).
 ShiftConst(val, n+1):-
   ShiftConst(oldVal, n),
   val = cat(oldVal, "00"),
-  n < 30.
+  n <= 30.
 
 
 // For completeness considers values in the program and masks that may not appear as they are (may be shifted)
