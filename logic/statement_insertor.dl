@@ -468,10 +468,12 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
 */
 .comp UnsafeBlockCloner : AbstractBlockCloner <PreTransLocalAnalysis> {
 
+  // Only deal with immediate jumps for now. Could break programs otherwise
   BlockPushedToStack(pushStmt, pushedVar, as(pushedBlock, Block)):-
     analysis.Variable_Value(pushedVar, pushedBlock),
     analysis.JUMPDEST(as(pushedBlock, Statement)),
-    analysis.Statement_Defines(pushStmt, pushedVar).
+    analysis.Statement_Defines(pushStmt, pushedVar),
+    analysis.ImmediateBlockJumpTarget(_, pushedVar).
 }
 
 /**
