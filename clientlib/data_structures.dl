@@ -731,8 +731,7 @@ FailedMergedStorageModeling(storVar):-
   AnyLoadStoreStorVarBytes(_, storVar, _, _),
   LoadOrStoreToStoreVar(stmt, storVar),
   !AnyLoadStoreStorVarBytes(stmt, storVar, _, _),
-  // TODO: Fix that case. commented out because sload stmt is now removed
-  // !VarWrittenToBytesOfStorVar(_, _, stmt, storVar, _, _),
+  !BytesOfStorVarKept(_, stmt, storVar, _, _),
   !ConstWrittenToBytesOfStorVar(_, _, _, stmt, storVar, _, _),
   !ArrayIdToStorageIndex(as(storVar, Value), _).
 
@@ -811,9 +810,22 @@ ProbablyPartialStorageUpdateSequenceKeep(toVar, load, storVar, keepByteLow, keep
   ProbablyPartialStorageUpdateSequenceKeep(originVar, load, storVar, keepByteLow, keepByteHigh),
   ProbablyPartialStorageUpdatePattern(originVar, toVar, _, _, _).
 
+// ProbablyPartialStorageUpdateSequenceKeep(toVar, load, storVar, keepByteLow, keepByteHigh):-
+//   ProbablyPartialStorageUpdateSequenceKeep(originVar, load, storVar, keepByteLow, keepByteHigh),
+//   (AND(_, maskVar, originVar, toVar) ; AND(_, originVar, maskVar, toVar)),
+//   BasicVariable_Value(maskVar, mask),
+//   ByteMask_KeepRange(mask, [keepByteLow, keepByteHigh]),
+//   byteLow >= keepByteLow, keepByteLow < byteHigh, byteHigh <= keepByteHigh.
+
 VarWrittenToBytesOfStorVar(writtenVar, store, storVar, byteLow, byteHigh):-
   SSTOREToConst(store, storVar, storedVar),
   ProbablyPartialStorageUpdateSequenceWrite(storedVar, writtenVar, byteLow, byteHigh).
+
+.decl BytesOfStorVarKept(store: Statement, load: Statement, storVar: symbol, keepByteLow: number, keepByteHigh: number)
+
+BytesOfStorVarKept(store, load, storVar, keepByteLow, keepByteHigh):-
+  SSTOREToConst(store, storVar, storedVar),
+  ProbablyPartialStorageUpdateSequenceKeep(storedVar, load, storVar, keepByteLow, keepByteHigh).
 
 // VarWrittenToBytesOfStorVar(writtenVar, store, load, storVar, byteLow, byteHigh):-
 //   VarHoldsBytesOfStorVar(originVar, load, storVar, 0, 31),
