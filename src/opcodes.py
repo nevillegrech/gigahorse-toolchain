@@ -225,6 +225,7 @@ MSIZE    = OpCode("MSIZE",    0x59, 0, 1, 2)
 GAS      = OpCode("GAS",      0x5a, 0, 1, 2)
 JUMPDEST = OpCode("JUMPDEST", 0x5b, 0, 0, 1)
 
+PUSH0  = OpCode("PUSH0",  0x5f, 0, 1, 2)
 PUSH1  = OpCode("PUSH1",  0x60, 0, 1, 3)
 PUSH2  = OpCode("PUSH2",  0x61, 0, 1, 3)
 PUSH3  = OpCode("PUSH3",  0x62, 0, 1, 3)
