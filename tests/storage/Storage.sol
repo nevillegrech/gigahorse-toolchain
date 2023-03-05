@@ -1,4 +1,4 @@
-pragma solidity 0.8.17;
+pragma solidity 0.8.19;
 
 contract MergedVars {
     address public owner;
@@ -13,6 +13,12 @@ contract MergedVars {
 
     function update(address newOwner, bool newFlag) external {
         owner = newOwner;
+        flag = newFlag;
+    }
+
+    function update2(address newOwner, bool newFlag) external {
+        owner = newOwner;
+        number = 131;
         flag = newFlag;
     }
 

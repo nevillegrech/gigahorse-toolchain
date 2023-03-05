@@ -741,13 +741,13 @@ SuccessfulMergedStorageModeling(storVar):-
   !FailedMergedStorageModeling(storVar),
   !ArrayIdToStorageIndex(as(storVar, Value), _).
 
-.decl ProbablyPartialStorageUpdateSequenceWrite(tempVar: Variable, writtenVar: Variable, byteLow: number, byteHigh: number)
+.decl ProbablyPartialStorageUpdateSequenceWrite(tempVar: Variable, kind: symbol, writtenVarOrConst: symbol, byteLow: number, byteHigh: number)
 DEBUG_OUTPUT(ProbablyPartialStorageUpdateSequenceWrite)
 
 .decl ProbablyPartialStorageUpdateSequenceKeep(tempVar: Variable, load: Statement, storVar: symbol, byteLow: number, byteHigh: number)
 DEBUG_OUTPUT(ProbablyPartialStorageUpdateSequenceKeep)
 
-.decl ProbablyPartialStorageUpdatePattern(fromVar: Variable, toVar: Variable, writtenVar: Variable, byteLow: number, byteHigh: number)
+.decl ProbablyPartialStorageUpdatePattern(fromVar: Variable, toVar: Variable, kind: symbol, varOrConst: symbol, byteLow: number, byteHigh: number)
 DEBUG_OUTPUT(ProbablyPartialStorageUpdatePattern)
 
 .decl VarWrittenToBytesOfStorVar(var:Variable, store:Statement, storVar:symbol, byteLow:number, byteHigh:number)
@@ -760,55 +760,56 @@ DEBUG_OUTPUT(VarWrittenToBytesOfStorVar)
 .decl ConstWrittenToBytesOfStorVar(constVar:Variable, const:Value, store:Statement, load:Statement, storVar:symbol, byteLow:number, byteHigh:number)
 DEBUG_OUTPUT(ConstWrittenToBytesOfStorVar)
 
-ProbablyPartialStorageUpdatePattern(fromVar, toVar, writtenVar, byteLow, byteLow + castedTo - 1):-
+ProbablyPartialStorageUpdatePattern(fromVar, toVar, "VAR", writtenVar, byteLow, byteLow + castedTo - 1):-
   // AntiMaskOp(fromVar, oldMasked, byteLow, byteHigh),
   CastedAndShiftedVar(writtenVar, castedNShifted, byteLow, castedTo),
   (OR(_, castedNShifted, fromVar, toVar) ; OR(_, fromVar, castedNShifted, toVar)).
 
-ProbablyPartialStorageUpdatePattern(fromVar, toVar, writtenVar, 0, byteHigh - 1):-
+ProbablyPartialStorageUpdatePattern(fromVar, toVar, "VAR", writtenVar, 0, byteHigh - 1):-
   // AntiMaskOp(fromVar, oldMasked, 0, byteHigh),
   LowBytesMaskOp(writtenVar, castedVar, byteHigh),
   (OR(_, castedVar, fromVar, toVar) ; OR(_, fromVar, castedVar, toVar)).
 
 // HACK!
-ProbablyPartialStorageUpdatePattern(fromVar, toVar, writtenVar, byteLow, byteHigh):-
-  ProbablyPartialStorageUpdatePattern(tmpVar, toVar, writtenVar, byteLow, byteHigh),
+ProbablyPartialStorageUpdatePattern(fromVar, toVar, kind, writtenVarOrConst, byteLow, byteHigh):-
+  ProbablyPartialStorageUpdatePattern(tmpVar, toVar, kind, writtenVarOrConst, byteLow, byteHigh),
   (AND(_, antiMaskVar, fromVar, tmpVar) ; AND(_, fromVar, antiMaskVar, tmpVar)),
   BasicVariable_Value(antiMaskVar, antiMask),
   ByteMask_MaskRange(antiMask, [byteLow, byteHigh]).
 
-ProbablyPartialStorageUpdateSequenceWrite(toVar, writtenVar, byteLow, byteHigh),
+ProbablyPartialStorageUpdateSequenceWrite(toVar, kind, writtenVarOrConst, byteLow, byteHigh),
 ProbablyPartialStorageUpdateSequenceKeep(toVar, load, storVar, keepByteLow, keepByteHigh):-
   VarHoldsBytesOfStorVar(originVar, load, storVar, 0, 31),
   // AntiMaskOp(originVar, originMasked, keepByteLow, keepByteHigh),
   (AND(_, antiMaskVar, originVar, originMasked) ; AND(_, originVar, antiMaskVar, originMasked)),
   BasicVariable_Value(antiMaskVar, antiMask),
   ByteMask_KeepRange(antiMask, [keepByteLow, keepByteHigh]),
-  ProbablyPartialStorageUpdatePattern(originMasked, toVar, writtenVar, byteLow, byteHigh).
+  ProbablyPartialStorageUpdatePattern(originMasked, toVar, kind, writtenVarOrConst, byteLow, byteHigh).
 
-ProbablyPartialStorageUpdateSequenceWrite(toVar, writtenVar, byteLow, byteHigh):-
-  ProbablyPartialStorageUpdateSequenceWrite(originVar, writtenVar, byteLow, byteHigh),
-  ProbablyPartialStorageUpdatePattern(originVar, toVar, _, _, _).
+ProbablyPartialStorageUpdateSequenceWrite(toVar, kind, writtenVarOrConst, byteLow, byteHigh):-
+  ProbablyPartialStorageUpdateSequenceWrite(originVar, kind, writtenVarOrConst, byteLow, byteHigh),
+  ProbablyPartialStorageUpdatePattern(originVar, toVar, _, _, _, _).
 
-ProbablyPartialStorageUpdateSequenceWrite(toVar, writtenVar, byteLow, byteHigh):-
-  ProbablyPartialStorageUpdatePattern(originVar1, toVar, writtenVar, byteLow, byteHigh),
-  ProbablyPartialStorageUpdatePattern(originVar2, toVar, _, _, _),
+ProbablyPartialStorageUpdateSequenceWrite(toVar, kind, writtenVarOrConst, byteLow, byteHigh):-
+  ProbablyPartialStorageUpdatePattern(originVar1, toVar, kind, writtenVarOrConst, byteLow, byteHigh),
+  ProbablyPartialStorageUpdatePattern(originVar2, toVar, _,  _, _, _),
   originVar1 != originVar2.
 
-ProbablyPartialStorageUpdateSequenceWrite(toVar, writtenVar, byteLow, byteHigh):-
-  ProbablyPartialStorageUpdateSequenceWrite(originVar, writtenVar, byteLow, byteHigh),
+// Not sure if this is needed. Will revisit
+ProbablyPartialStorageUpdateSequenceWrite(toVar, kind, writtenVarOrConst, byteLow, byteHigh):-
+  ProbablyPartialStorageUpdateSequenceWrite(originVar, kind, writtenVarOrConst, byteLow, byteHigh),
   (AND(_, maskVar, originVar, toVar) ; AND(_, originVar, maskVar, toVar)),
   BasicVariable_Value(maskVar, mask),
   ByteMask_KeepRange(mask, [keepByteLow, keepByteHigh]),
   byteLow >= keepByteLow, keepByteLow < byteHigh, byteHigh <= keepByteHigh.
 
-ProbablyPartialStorageUpdateSequenceWrite(toVar, writtenVar, byteLow, byteHigh):-
-  ProbablyPartialStorageUpdateSequenceWrite(originVar, _, _, _),
-  ProbablyPartialStorageUpdatePattern(originVar, toVar, writtenVar, byteLow, byteHigh).
+ProbablyPartialStorageUpdateSequenceWrite(toVar, kind, writtenVarOrConst, byteLow, byteHigh):-
+  ProbablyPartialStorageUpdateSequenceWrite(originVar, _, _, _, _),
+  ProbablyPartialStorageUpdatePattern(originVar, toVar, kind, writtenVarOrConst, byteLow, byteHigh).
 
 ProbablyPartialStorageUpdateSequenceKeep(toVar, load, storVar, keepByteLow, keepByteHigh):-
   ProbablyPartialStorageUpdateSequenceKeep(originVar, load, storVar, keepByteLow, keepByteHigh),
-  ProbablyPartialStorageUpdatePattern(originVar, toVar, _, _, _).
+  ProbablyPartialStorageUpdatePattern(originVar, toVar, _, _, _, _).
 
 // ProbablyPartialStorageUpdateSequenceKeep(toVar, load, storVar, keepByteLow, keepByteHigh):-
 //   ProbablyPartialStorageUpdateSequenceKeep(originVar, load, storVar, keepByteLow, keepByteHigh),
@@ -817,9 +818,9 @@ ProbablyPartialStorageUpdateSequenceKeep(toVar, load, storVar, keepByteLow, keep
 //   ByteMask_KeepRange(mask, [keepByteLow, keepByteHigh]),
 //   byteLow >= keepByteLow, keepByteLow < byteHigh, byteHigh <= keepByteHigh.
 
-VarWrittenToBytesOfStorVar(writtenVar, store, storVar, byteLow, byteHigh):-
+VarWrittenToBytesOfStorVar(as(writtenVar, Variable), store, storVar, byteLow, byteHigh):-
   SSTOREToConst(store, storVar, storedVar),
-  ProbablyPartialStorageUpdateSequenceWrite(storedVar, writtenVar, byteLow, byteHigh).
+  ProbablyPartialStorageUpdateSequenceWrite(storedVar, "VAR", writtenVar, byteLow, byteHigh).
 
 .decl BytesOfStorVarKept(store: Statement, load: Statement, storVar: symbol, keepByteLow: number, keepByteHigh: number)
 
