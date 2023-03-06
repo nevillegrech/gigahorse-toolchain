@@ -177,6 +177,9 @@ GAS(stmt) :- Statement_Opcode(stmt, "GAS").
 .decl JUMPDEST(stmt: Statement)
 JUMPDEST(stmt) :- Statement_Opcode(stmt, "JUMPDEST").
 
+.decl PUSH0(stmt: Statement)
+PUSH0(stmt) :- Statement_Opcode(stmt, "PUSH0").
+
 .decl PUSH1(stmt: Statement, value: Value)
 PUSH1(stmt, value) :- Statement_Opcode(stmt, "PUSH1"), PushValue(stmt, value).
 

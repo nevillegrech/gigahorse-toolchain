@@ -138,7 +138,11 @@ TAC_Op(irstmt, op) :-
 
 TAC_Op(irstmt, "CONST") :-
    Statement_IRStatement(stmt, _, irstmt),
-   (postTrans.PushValue(stmt, _) ; postTrans.PC(stmt)).
+   (
+    postTrans.PushValue(stmt, _);
+    postTrans.PC(stmt);
+    postTrans.PUSH0(stmt)
+  ).
 
 TAC_Op(irstmt, "THROW") :-
    Statement_IRStatement(stmt, _, irstmt),
