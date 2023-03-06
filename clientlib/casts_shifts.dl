@@ -128,7 +128,7 @@ VarsEqualOrMasked(var1, var2):-
 
 // `value`s that are used to perform shift operations via `MUL`/`DIV` 
 .decl ShiftConst(value: Value, shiftBytes: number)
-.decl ValueWithEvenLength(val: Value, len: number)
+.decl Value_Length(val: Value, len: number)
 // `masksOrKeeps` is 0 if the `byte` is `00`, 1 if the `byte` is `ff`, -1 otherwise
 .decl ValueMasksOrKeepsByteAtIndex(val: Value, masksOrKeeps: number, byte: number)
 // All bytes of `value` are either `00` or `ff`
@@ -156,23 +156,43 @@ ShiftConst(val, n+1):-
 
 
 // For completeness considers values in the program and masks that may not appear as they are (may be shifted)
-ValueWithEvenLength(val, len):-
+// Value_ByteLength(val, len/2 + len%2):-
+Value_Length(val, len):-
   (BasicVariable_Value(_, val); Mask_Length(val, _)),
-  len = strlen(val),
-  len % 2 = 0.
+  len = strlen(val).
 
-ValueMasksOrKeepsByteAtIndex(val, res, (len - i - 2)/2):-
-  ValueWithEvenLength(val, len),
-  i = range(2, len - 1, 2),
-  sub = substr(val, i, 2),
+.decl Value_GetByte(val: Value, byteVal: symbol, byte: number)
+DEBUG_OUTPUT(Value_GetByte)
+Value_GetByte(val, byteVal, byte):-
+  Value_Length(val, len),
+  len % 2 = 0,
+  byteLen = len/2 - 1,
+  byte = range(0, byteLen, 1),
+  byteVal = substr(val, len - 2*byte -2, 2).
+
+Value_GetByte(val, byteVal, byte):-
+  Value_Length(val, len),
+  len % 2 = 1,
+  byteLen = len/2,
+  byte = range(0, byteLen-1, 1),
+  byteVal = substr(val, len - 2*byte -2, 2).
+
+Value_GetByte(val, byteVal, len/2 - 1):-
+  Value_Length(val, len),
+  len % 2 = 1,
+  byteVal = substr(val, 2, 1).
+
+ValueMasksOrKeepsByteAtIndex(val, res, byte):-
+  Value_GetByte(val, byteVal, byte),
   (
-    (sub = "ff", res = 1) ;
-    (sub = "00", res = 0) ;
-    (sub != "00", sub != "ff", res = -1)
+    (byteVal = "ff", res = 1) ;
+    (byteVal = "00", res = 0) ;
+    (byteVal != "00", byteVal != "ff", res = -1)
   ).
-
+DEBUG_OUTPUT(ValueMasksOrKeepsByteAtIndex)
 ValueIsByteMask(val):-
-  ValueWithEvenLength(val, _),
+  Value_Length(val, len),
+  len % 2 = 0,
   !ValueMasksOrKeepsByteAtIndex(val, -1, _).
 
 ByteMask_ZerosMinMax(val, minV, maxV):-
@@ -227,3 +247,16 @@ ByteMask_MaskRange(mask, [numOfBytes, 31]):-
   ValueIsByteMask(mask),
   numOfBytes = strlen(mask)/2 - 1,
   numOfBytes < 32.
+
+
+.decl ConstantProbablyShifted(val: Value, baseVal: Value, shiftBytes: number)
+DEBUG_OUTPUT(ConstantProbablyShifted)
+
+ConstantProbablyShifted(val, baseVal, shiftBytes):-
+  Value_Length(val, len),
+  ValueMasksOrKeepsByteAtIndex(val, 0, 0),
+  ValueMasksOrKeepsByteAtIndex(val, 0, j),
+  !ValueMasksOrKeepsByteAtIndex(val, 0, j + 1),
+  j = count : {ValueMasksOrKeepsByteAtIndex(val, 0, k), k < j},
+  shiftBytes = j + 1,
+  baseVal = substr(val, 0, len - 2*shiftBytes).
