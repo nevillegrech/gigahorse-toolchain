@@ -247,6 +247,7 @@ OpcodeLogLen("PC", 0).
 OpcodeLogLen("MSIZE", 0).
 OpcodeLogLen("GAS", 0).
 OpcodeLogLen("JUMPDEST", 0).
+OpcodeLogLen("PUSH0", 0).
 OpcodeLogLen("PUSH1", 0).
 OpcodeLogLen("PUSH2", 0).
 OpcodeLogLen("PUSH3", 0).
@@ -398,6 +399,7 @@ OpcodePushLen("PC", 0).
 OpcodePushLen("MSIZE", 0).
 OpcodePushLen("GAS", 0).
 OpcodePushLen("JUMPDEST", 0).
+OpcodePushLen("PUSH0", 0).
 OpcodePushLen("PUSH1", 1).
 OpcodePushLen("PUSH2", 2).
 OpcodePushLen("PUSH3", 3).
@@ -543,6 +545,7 @@ OpcodeStackDelta("PC", 1).
 OpcodeStackDelta("MSIZE", 1).
 OpcodeStackDelta("GAS", 1).
 OpcodeStackDelta("JUMPDEST", 0).
+OpcodeStackDelta("PUSH0", 1).
 OpcodeStackDelta("PUSH1", 1).
 OpcodeStackDelta("PUSH2", 1).
 OpcodeStackDelta("PUSH3", 1).
@@ -688,6 +691,7 @@ OpcodePopWords("PC", 0).
 OpcodePopWords("MSIZE", 0).
 OpcodePopWords("GAS", 0).
 OpcodePopWords("JUMPDEST", 0).
+OpcodePopWords("PUSH0", 0).
 OpcodePopWords("PUSH1", 0).
 OpcodePopWords("PUSH2", 0).
 OpcodePopWords("PUSH3", 0).
@@ -833,6 +837,7 @@ OpcodePushWords("PC", 1).
 OpcodePushWords("MSIZE", 1).
 OpcodePushWords("GAS", 1).
 OpcodePushWords("JUMPDEST", 0).
+OpcodePushWords("PUSH0", 1).
 OpcodePushWords("PUSH1", 1).
 OpcodePushWords("PUSH2", 1).
 OpcodePushWords("PUSH3", 1).
@@ -978,6 +983,7 @@ OpcodeGas("PC", 2).
 OpcodeGas("MSIZE", 2).
 OpcodeGas("GAS", 2).
 OpcodeGas("JUMPDEST", 1).
+OpcodeGas("PUSH0", 2).
 OpcodeGas("PUSH1", 3).
 OpcodeGas("PUSH2", 3).
 OpcodeGas("PUSH3", 3).
@@ -1123,6 +1129,7 @@ OpcodeOrd("PC", 88).
 OpcodeOrd("MSIZE", 89).
 OpcodeOrd("GAS", 90).
 OpcodeOrd("JUMPDEST", 91).
+OpcodeOrd("PUSH0", 95).
 OpcodeOrd("PUSH1", 96).
 OpcodeOrd("PUSH2", 97).
 OpcodeOrd("PUSH3", 98).

@@ -330,7 +330,12 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
   Variable_Value(var, value) :-
     PushValue(stmt, value),
     Statement_Defines(stmt, var).
-  
+
+  // Added to the Shanghai fork, EIP-3855
+  Variable_Value(var, "0x0") :-
+    PUSH0(stmt),
+    Statement_Defines(stmt, var).
+
   // Get current program counter
   Variable_Value(var, as(stmt, Value)) :-
     PC(stmt),
