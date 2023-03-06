@@ -730,6 +730,7 @@ FailedMergedStorageModelingReason(storVar, stmt, stmt, nil, nil),
 FailedMergedStorageModeling(storVar):-
   AnyLoadStoreStorVarBytes(_, storVar, _, _),
   LoadOrStoreToStoreVar(stmt, storVar),
+  !UselessSLOAD(stmt),
   !AnyLoadStoreStorVarBytes(stmt, storVar, _, _),
   !BytesOfStorVarKept(_, stmt, storVar, _, _),
   !ConstWrittenToBytesOfStorVar(_, _, _, stmt, storVar, _, _),
@@ -831,18 +832,13 @@ ProbablyPartialStorageUpdateSequenceKeep(toVar, load, storVar, max(keepByteLow, 
   BasicVariable_Value(maskVar, mask),
   ByteMask_KeepRange(mask, [maskKeepByteLow, maskKeepByteHigh]),
   max(keepByteLow, maskKeepByteLow) <= min(keepByteHigh, maskKeepByteHigh).
-  // (
-  //   (keepByteLow <= maskKeepByteLow, keepByteHigh >= maskKeepByteLow);
-  //   (maskKeepByteLow <= keepByteLow, maskKeepByteHigh >= keepByteLow)
-  // ).
-  // (
-  //   (newKeepByteLow = maskKeepByteLow, keepByteLow < maskKeepByteLow, keepByteHigh <= maskKeepByteHigh);
-  //   (newKeepByteLow = keepByteLow, keepByteLow >= maskKeepByteLow, keepByteHigh <= maskKeepByteHigh)
-  // ),
-  // (
-  //   (newKeepByteHigh = maskKeepByteLow, keepByteLow <= maskKeepByteLow, keepByteHigh <= maskKeepByteHigh);
-  //   (newKeepByteHigh = keepByteHigh, keepByteLow <= maskKeepByteLow, keepByteHigh <= maskKeepByteHigh)
-  // ).
+
+UselessSLOAD(sload):-
+  ProbablyPartialStorageUpdateSequenceKeep(originVar, sload, _, keepByteLow, keepByteHigh),
+  (AND(_, maskVar, originVar, _) ; AND(_, originVar, maskVar, _)),
+  BasicVariable_Value(maskVar, mask),
+  ByteMask_KeepRange(mask, [maskKeepByteLow, maskKeepByteHigh]),
+  max(keepByteLow, maskKeepByteLow) > min(keepByteHigh, maskKeepByteHigh).
 
 // [20, 31], [27, 29]
 // [1, 13], [27, 29]
@@ -860,6 +856,9 @@ ConstWrittenToBytesOfStorVar("0xlala", as(writtenConst, Value), store, "lolo", s
 BytesOfStorVarKept(store, load, storVar, keepByteLow, keepByteHigh):-
   SSTOREToConst(store, storVar, storedVar),
   ProbablyPartialStorageUpdateSequenceKeep(storedVar, load, storVar, keepByteLow, keepByteHigh).
+
+.decl UselessSLOAD(sload: Statement)
+DEBUG_OUTPUT(UselessSLOAD)
 
 // VarWrittenToBytesOfStorVar(writtenVar, store, load, storVar, byteLow, byteHigh):-
 //   VarHoldsBytesOfStorVar(originVar, load, storVar, 0, 31),

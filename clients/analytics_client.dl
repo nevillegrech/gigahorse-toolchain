@@ -224,6 +224,11 @@ Analytics_Map(globalVar):-
 Analytics_StorageArray(globalVar):-
   ArrayElementStmt(_, globalVar, _).
 
+.decl Analytics_UselessSLOAD(stmt: Statement)
+.output Analytics_UselessSLOAD
+
+Analytics_UselessSLOAD(stmt):-
+  UselessSLOAD(stmt).
 /**
   New storage model analytics
 */
