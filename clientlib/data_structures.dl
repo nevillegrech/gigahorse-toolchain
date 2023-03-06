@@ -835,6 +835,7 @@ ProbablyPartialStorageUpdateSequenceKeep(toVar, load, storVar, max(keepByteLow, 
 
 UselessSLOAD(sload):-
   ProbablyPartialStorageUpdateSequenceKeep(originVar, sload, _, keepByteLow, keepByteHigh),
+  !BytesOfStorVarKept(_, sload, _, _, _),
   (AND(_, maskVar, originVar, _) ; AND(_, originVar, maskVar, _)),
   BasicVariable_Value(maskVar, mask),
   ByteMask_KeepRange(mask, [maskKeepByteLow, maskKeepByteHigh]),
