@@ -802,7 +802,7 @@ ProbablyPartialStorageUpdateSequenceWrite(toVar, kind, writtenVarOrConst, byteLo
   originVar1 != originVar2,
   !ProbablyPartialStorageUpdatePattern(_, as(writtenVarOrConst, Variable), _,  _, _, _).
 
-// Not sure if this is needed. Will revisit
+// Could be more complex (allow for parts of the previous writes to survive)
 ProbablyPartialStorageUpdateSequenceWrite(toVar, kind, writtenVarOrConst, byteLow, byteHigh):-
   ProbablyPartialStorageUpdateSequenceWrite(originVar, kind, writtenVarOrConst, byteLow, byteHigh),
   (AND(_, maskVar, originVar, toVar) ; AND(_, originVar, maskVar, toVar)),
@@ -818,21 +818,34 @@ ProbablyPartialStorageUpdateSequenceKeep(toVar, load, storVar, keepByteLow, keep
   ProbablyPartialStorageUpdateSequenceKeep(originVar, load, storVar, keepByteLow, keepByteHigh),
   ProbablyPartialStorageUpdatePattern(originVar, toVar, _, _, _, _).
 
-ProbablyPartialStorageUpdateSequenceKeep(toVar, load, storVar, keepByteLow, keepByteHigh):-
+// ProbablyPartialStorageUpdateSequenceKeep(toVar, load, storVar, keepByteLow, keepByteHigh):-
+//   ProbablyPartialStorageUpdateSequenceKeep(originVar, load, storVar, keepByteLow, keepByteHigh),
+//   (AND(_, maskVar, originVar, toVar) ; AND(_, originVar, maskVar, toVar)),
+//   BasicVariable_Value(maskVar, mask),
+//   ByteMask_KeepRange(mask, [maskKeepByteLow, maskKeepByteHigh]),
+//   keepByteLow >= maskKeepByteLow, keepByteHigh <= maskKeepByteHigh.
+
+ProbablyPartialStorageUpdateSequenceKeep(toVar, load, storVar, max(keepByteLow, maskKeepByteLow), min(keepByteHigh, maskKeepByteHigh)):-
   ProbablyPartialStorageUpdateSequenceKeep(originVar, load, storVar, keepByteLow, keepByteHigh),
   (AND(_, maskVar, originVar, toVar) ; AND(_, originVar, maskVar, toVar)),
   BasicVariable_Value(maskVar, mask),
   ByteMask_KeepRange(mask, [maskKeepByteLow, maskKeepByteHigh]),
-  keepByteLow >= maskKeepByteLow, keepByteHigh <= maskKeepByteHigh.
+  max(keepByteLow, maskKeepByteLow) <= min(keepByteHigh, maskKeepByteHigh).
+  // (
+  //   (keepByteLow <= maskKeepByteLow, keepByteHigh >= maskKeepByteLow);
+  //   (maskKeepByteLow <= keepByteLow, maskKeepByteHigh >= keepByteLow)
+  // ).
+  // (
+  //   (newKeepByteLow = maskKeepByteLow, keepByteLow < maskKeepByteLow, keepByteHigh <= maskKeepByteHigh);
+  //   (newKeepByteLow = keepByteLow, keepByteLow >= maskKeepByteLow, keepByteHigh <= maskKeepByteHigh)
+  // ),
+  // (
+  //   (newKeepByteHigh = maskKeepByteLow, keepByteLow <= maskKeepByteLow, keepByteHigh <= maskKeepByteHigh);
+  //   (newKeepByteHigh = keepByteHigh, keepByteLow <= maskKeepByteLow, keepByteHigh <= maskKeepByteHigh)
+  // ).
 
-ProbablyPartialStorageUpdateSequenceKeep(toVar, load, storVar, maskKeepByteLow, keepByteHigh):-
-  ProbablyPartialStorageUpdateSequenceKeep(originVar, load, storVar, keepByteLow, keepByteHigh),
-  (AND(_, maskVar, originVar, toVar) ; AND(_, originVar, maskVar, toVar)),
-  BasicVariable_Value(maskVar, mask),
-  ByteMask_KeepRange(mask, [maskKeepByteLow, maskKeepByteHigh]),
-  keepByteLow < maskKeepByteLow, keepByteHigh <= maskKeepByteHigh.
-
-// [20, 31], [27, 31]
+// [20, 31], [27, 29]
+// [1, 13], [27, 29]
 
 VarWrittenToBytesOfStorVar(as(writtenVar, Variable), store, storVar, byteLow, byteHigh):-
   SSTOREToConst(store, storVar, storedVar),
