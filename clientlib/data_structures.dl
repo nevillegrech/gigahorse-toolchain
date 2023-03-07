@@ -707,8 +707,9 @@ DEBUG_OUTPUT(SuccessfulMergedStorageModeling)
 
 AnyLoadStoreStorVarBytes(stmt, storVar, low, high):-
   VarHoldsBytesOfStorVarFinal(_, stmt, storVar, low, high);
-  VarWrittenToBytesOfStorVar(_, stmt, storVar, low, high);
-  ConstWrittenToBytesOfStorVar(_, _, stmt, _, storVar, low, high).
+  VarWrittenToBytesOfStorVar(_, stmt, storVar, low, high).
+  // Commenting it out, because constant stores can be merged
+  // ConstWrittenToBytesOfStorVar(_, _, stmt, _, storVar, low, high).
 
 AnyLoadStoreStorVarBytes(stmt, storVar, 0, 31):-
   SSTOREToConst(stmt, storVar, _),
@@ -861,6 +862,39 @@ BytesOfStorVarKept(store, load, storVar, keepByteLow, keepByteHigh):-
 .decl UselessSLOAD(sload: Statement)
 DEBUG_OUTPUT(UselessSLOAD)
 
+
+.decl ByteOfStorVarKeptOrUpdated(store: Statement, storVar: symbol, byte: number)
+DEBUG_OUTPUT(ByteOfStorVarKeptOrUpdated)
+ByteOfStorVarKeptOrUpdated(store, storVar, byte):-
+  SSTOREToConst(store, storVar, storedVar),
+  (
+    ProbablyPartialStorageUpdateSequenceKeep(storedVar, _, storVar, byteLow, byteHigh);
+    ProbablyPartialStorageUpdateSequenceWrite(storedVar, _, _, byteLow, byteHigh)
+  ),
+  byte = range(byteLow, byteHigh + 1, 1).
+
+.decl SSTOREZeroByte(store: Statement, storVar: symbol, byte: number)
+DEBUG_OUTPUT(SSTOREZeroByte)
+
+.decl SSTOREZeroRange(store: Statement, storVar: symbol, byteLow: number, byteHigh: number)
+DEBUG_OUTPUT(SSTOREZeroRange)
+
+SSTOREZeroByte(store, storVar, byte):-
+  SSTOREToConst(store, storVar, _),
+  byte = range(0, 32, 1),
+  !ByteOfStorVarKeptOrUpdated(store, storVar, byte).
+
+SSTOREZeroRange(store, storVar, byteLow, byteHigh):-
+  SSTOREZeroByte(store, storVar, byteLow),
+  !SSTOREZeroByte(store, storVar, byteLow - 1),
+  SSTOREZeroByte(store, storVar, byteHigh),
+  !SSTOREZeroByte(store, storVar, byteHigh + 1),
+  byteLow <= byteHigh,
+  1 + byteHigh - byteLow = count : {SSTOREZeroByte(store, storVar, k), byteLow <= k, k <= byteHigh}.
+
+ConstWrittenToBytesOfStorVar("0xlala", "0x0", store, "lolo", storVar, byteLow, byteHigh):-
+  SSTOREZeroRange(store, storVar, byteLow, byteHigh).
+
 // VarWrittenToBytesOfStorVar(writtenVar, store, load, storVar, byteLow, byteHigh):-
 //   VarHoldsBytesOfStorVar(originVar, load, storVar, 0, 31),
 //   AntiMaskOp(originVar, oldMasked, byteLow, byteHigh),
@@ -894,18 +928,18 @@ VarWrittenToBytesOfStorVarFinal(writtenVar, store, storVar, byteLow, byteHigh):-
   !VarWrittenToBytesOfStorVarIsMergedVar(writtenVar, _, store, storVar, byteLow, byteHigh).
 
 
-ConstWrittenToBytesOfStorVar(constVar, as(@shr_256(@number_to_hex(byteLow * 8), const), Value), store, load, storVar, byteLow, byteHigh):-
-  VarHoldsBytesOfStorVar(originVar, load, storVar, 0, 31),
-  AntiMaskOp(originVar, oldMasked, byteLow, byteHigh),
-  (OR(_, constVar, oldMasked, storedVar) ; OR(_, oldMasked, constVar, storedVar)),
-  Variable_Value(constVar, const),
-  SSTOREToConst(store, storVar, storedVar),
-  !VarWrittenToBytesOfStorVar(_, store, storVar, _, _).
+// ConstWrittenToBytesOfStorVar(constVar, as(@shr_256(@number_to_hex(byteLow * 8), const), Value), store, load, storVar, byteLow, byteHigh):-
+//   VarHoldsBytesOfStorVar(originVar, load, storVar, 0, 31),
+//   AntiMaskOp(originVar, oldMasked, byteLow, byteHigh),
+//   (OR(_, constVar, oldMasked, storedVar) ; OR(_, oldMasked, constVar, storedVar)),
+//   Variable_Value(constVar, const),
+//   SSTOREToConst(store, storVar, storedVar),
+//   !VarWrittenToBytesOfStorVar(_, store, storVar, _, _).
 
-ConstWrittenToBytesOfStorVar("0xNoVar", "0x0", store, load, storVar, byteLow, byteHigh):-
-  VarHoldsBytesOfStorVar(originVar, load, storVar, 0, 31),
-  AntiMaskOp(originVar, storedVar, byteLow, byteHigh),
-  SSTOREToConst(store, storVar, storedVar).
+// ConstWrittenToBytesOfStorVar("0xNoVar", "0x0", store, load, storVar, byteLow, byteHigh):-
+//   VarHoldsBytesOfStorVar(originVar, load, storVar, 0, 31),
+//   AntiMaskOp(originVar, storedVar, byteLow, byteHigh),
+//   SSTOREToConst(store, storVar, storedVar).
 
 /**
   HACK (?) HACK (?) HACK (?)
