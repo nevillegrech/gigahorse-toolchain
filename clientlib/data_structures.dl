@@ -707,9 +707,9 @@ DEBUG_OUTPUT(SuccessfulMergedStorageModeling)
 
 AnyLoadStoreStorVarBytes(stmt, storVar, low, high):-
   VarHoldsBytesOfStorVarFinal(_, stmt, storVar, low, high);
-  VarWrittenToBytesOfStorVar(_, stmt, storVar, low, high).
-  // Commenting it out, because constant stores can be merged
-  // ConstWrittenToBytesOfStorVar(_, _, stmt, _, storVar, low, high).
+  VarWrittenToBytesOfStorVar(_, stmt, storVar, low, high);
+  // Will need to handle these differently because in optimized code a single constant can initialize many vars
+  ConstWrittenToBytesOfStorVar(_, _, stmt, _, storVar, low, high).
 
 AnyLoadStoreStorVarBytes(stmt, storVar, 0, 31):-
   SSTOREToConst(stmt, storVar, _),
