@@ -88,6 +88,7 @@ ExternalCall_NumOfArgs(call, numOfArgs):-
 
 CallToSignature(call, sigText):-
   ConstantPossibleSigHash(sigHashVal, normSigHashVal, sigText),
+  strlen(sigHashVal) > 4,
   Variable_Value(sigVar, sigHashVal),
   normSigHashVal != "0xffffffff", // hack for now
   LocalFlows(sigVar, actual),

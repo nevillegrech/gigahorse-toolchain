@@ -133,16 +133,19 @@ NonUniqueMLOADMSTOREForAddrVar(store, load) :-
   MLOADMSTORESameAddrVar(store, load),
   MLOADMSTORESameAddrVar(store2, load),
   store != store2.
-  
+
 .decl UniqueMSTOREMLOADForAddrVar(store: Statement, load: Statement)
 UniqueMSTOREMLOADForAddrVar(store, load) :-
   MLOADMSTORESameAddrVar(store, load),
   !NonUniqueMLOADMSTOREForAddrVar(store, load).
 
+// REVIEW: Should remove, via-ir produces smarter code that will make it fire more often
+// Right now some thing will break. So we have to postpone.
 Variable_Value(to, val):-
   UniqueMSTOREMLOADForAddrVar(store, load),
   MSTORE(store, var, from),
   MLOAD(load, var, to),
+  !BasicVariable_Value(var, _),
   LocalStatementPathInBlock(store, load),
   Variable_Value(from, val).
 
@@ -151,6 +154,7 @@ Variable_Value(to, val):-
   UniqueMSTOREMLOADForAddrVar(store, load),
   MSTORE(store, var, from),
   MLOAD(load, var, to),
+  !BasicVariable_Value(var, _),
   Statement_Block(store, storeBlock),
   Statement_Block(load, loadBlock),
   Dominates(storeBlock, loadBlock),
