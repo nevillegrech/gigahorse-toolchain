@@ -779,6 +779,13 @@ ProbablyPartialStorageUpdatePattern(fromVar, toVar, "CONST", baseVal, shiftBytes
   ConstantProbablyShifted(writtenVal, baseVal, shiftBytes),
   (OR(_, writtenVar, fromVar, toVar) ; OR(_, fromVar, writtenVar, toVar)).
 
+ProbablyPartialStorageUpdatePattern(fromVar, toVar, "CONST", writtenVal, 0, byteLen - 1):-
+  // AntiMaskOp(fromVar, oldMasked, 0, byteHigh),
+  BasicVariable_Value(writtenVar, writtenVal),
+  !ConstantProbablyShifted(writtenVal, _, _),
+  byteLen = (strlen(writtenVal) - 2 + 1)/2,
+  (OR(_, writtenVar, fromVar, toVar) ; OR(_, fromVar, writtenVar, toVar)).
+
 // HACK! Additional/Useless masking
 // ProbablyPartialStorageUpdatePattern(fromVar, toVar, kind, writtenVarOrConst, byteLow, byteHigh):-
 //   ProbablyPartialStorageUpdatePattern(tmpVar, toVar, kind, writtenVarOrConst, byteLow, byteHigh),
@@ -881,6 +888,7 @@ DEBUG_OUTPUT(SSTOREZeroRange)
 
 SSTOREZeroByte(store, storVar, byte):-
   SSTOREToConst(store, storVar, _),
+  ByteOfStorVarKeptOrUpdated(store, storVar, _),
   byte = range(0, 32, 1),
   !ByteOfStorVarKeptOrUpdated(store, storVar, byte).
 
@@ -936,10 +944,14 @@ VarWrittenToBytesOfStorVarFinal(writtenVar, store, storVar, byteLow, byteHigh):-
 //   SSTOREToConst(store, storVar, storedVar),
 //   !VarWrittenToBytesOfStorVar(_, store, storVar, _, _).
 
-// ConstWrittenToBytesOfStorVar("0xNoVar", "0x0", store, load, storVar, byteLow, byteHigh):-
-//   VarHoldsBytesOfStorVar(originVar, load, storVar, 0, 31),
-//   AntiMaskOp(originVar, storedVar, byteLow, byteHigh),
-//   SSTOREToConst(store, storVar, storedVar).
+BytesOfStorVarKept(store, load, storVar, keepByteLow, keepByteHigh),
+ConstWrittenToBytesOfStorVar("0xNoVar", "0x0", store, load, storVar, maskByteLow, maskByteHigh):-
+  VarHoldsBytesOfStorVar(originVar, load, storVar, 0, 31),
+  (AND(_, maskVar, originVar, storedVar) ; AND(_, originVar, maskVar, storedVar)),
+  BasicVariable_Value(maskVar, mask),
+  ByteMask_KeepRange(mask, [keepByteLow, keepByteHigh]),
+  ByteMask_MaskRange(mask, [maskByteLow, maskByteHigh]),
+  SSTOREToConst(store, storVar, storedVar).
 
 /**
   HACK (?) HACK (?) HACK (?)
