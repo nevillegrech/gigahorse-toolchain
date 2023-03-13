@@ -802,6 +802,16 @@ ProbablyPartialStorageUpdateSequenceKeep(toVar, load, storVar, keepByteLow, keep
   ByteMask_KeepRange(byteMask, [keepByteLow, keepByteHigh]),
   ProbablyPartialStorageUpdatePattern(originMasked, toVar, kind, writtenVarOrConst, byteLow, byteHigh).
 
+ProbablyPartialStorageUpdateSequenceWrite(toVar, "CONST", "0x0", byteLow, byteHigh),
+ProbablyPartialStorageUpdateSequenceKeep(toVar, load, storVar, keepByteLow, keepByteHigh):-
+  VarHoldsBytesOfStorVar(originVar, load, storVar, 0, 31),
+  (AND(_, maskVar, originVar, originMasked) ; AND(_, originVar, maskVar, originMasked)),
+  BasicVariable_Value(maskVar, byteMask),
+  ByteMask_KeepRange(byteMask, [keepByteLow, keepByteHigh]),
+  ByteMask_MaskRange(byteMask, [byteLow, byteHigh]),
+  (OR(_, zeroVar, originMasked, toVar) ; OR(_, originMasked, zeroVar, toVar)),
+  BasicVariable_Value(zeroVar, "0x0").
+
 ProbablyPartialStorageUpdateSequenceWrite(toVar, kind, writtenVarOrConst, byteLow, byteHigh):-
   ProbablyPartialStorageUpdateSequenceWrite(originVar, kind, writtenVarOrConst, byteLow, byteHigh),
   ProbablyPartialStorageUpdatePattern(originVar, toVar, _, _, _, _).
