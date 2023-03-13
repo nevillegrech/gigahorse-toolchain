@@ -782,6 +782,7 @@ ProbablyPartialStorageUpdatePattern(fromVar, toVar, "CONST", baseVal, shiftBytes
 ProbablyPartialStorageUpdatePattern(fromVar, toVar, "CONST", writtenVal, 0, byteLen - 1):-
   // AntiMaskOp(fromVar, oldMasked, 0, byteHigh),
   BasicVariable_Value(writtenVar, writtenVal),
+  writtenVal != "0x0", // Zero is handled differently
   !ConstantProbablyShifted(writtenVal, _, _),
   byteLen = (strlen(writtenVal) - 2 + 1)/2,
   (OR(_, writtenVar, fromVar, toVar) ; OR(_, fromVar, writtenVar, toVar)).
