@@ -23,6 +23,12 @@ DEBUG_OUTPUT(CastedAndShiftedVar)
 .decl LowBytesMaskOp(fromVar: Variable, toVar: Variable, maskLen: number)
 DEBUG_OUTPUT(LowBytesMaskOp)
 
+.decl SignedIntCast(fromVar: Variable, toVar: Variable, width: number)
+DEBUG_OUTPUT(SignedIntCast)
+
+.decl BooleanCast(fromVar: Variable, toVar: Variable)
+DEBUG_OUTPUT(BooleanCast)
+
 .decl VarsEqualOrMasked(var1: Variable, var2: Variable)
 DEBUG_OUTPUT(VarsEqualOrMasked)
 
@@ -38,25 +44,30 @@ DEBUG_OUTPUT(VarsEqualOrMasked)
 .decl AntiMaskOp(fromVar: Variable, toVar: Variable, byteLow: number, byteHigh: number) 
 DEBUG_OUTPUT(AntiMaskOp)
 
-/* Not actually a byte mask but a boolean cast */
-LowBytesMaskOp(from, to, 1):-
-  ISZERO(_, from, tmp),
-  ISZERO(_, tmp, to).
-
-
 LowBytesMaskOp(from, to, castedTo):-
   ValueIsByteMask(mask),
   Mask_Length(mask, castedTo),
   BasicVariable_Value(maskVar, mask),
   (AND(_, from, maskVar, to) ; AND(_, maskVar, from, to)).
 
-// Hack for boolean masks.
 LowBytesMaskOp(from, to, 1):-
+  BooleanCast(from, to).
+
+LowBytesMaskOp(from, to, width):-
+  SignedIntCast(from, to, width).
+
+// Hack for boolean masks.
+BooleanCast(from, to):-
   BasicVariable_Value(maskVar, "0xf"),
   (AND(_, from, maskVar, to) ; AND(_, maskVar, from, to)).
 
+/* Not actually a byte mask but a boolean cast */
+BooleanCast(from, to):-
+  ISZERO(_, from, tmp),
+  ISZERO(_, tmp, to).
+
 // Casts to signed integers
-LowBytesMaskOp(from, to, @hex_to_number(numBytes) + 1):-
+SignedIntCast(from, to, @hex_to_number(numBytes) + 1):-
   SIGNEXTEND(_, numBytesVar, from, to),
   BasicVariable_Value(numBytesVar, numBytes).
 
