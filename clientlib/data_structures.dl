@@ -817,6 +817,16 @@ ProbablyPartialStorageUpdateSequenceWrite(toVar, kind, writtenVarOrConst, byteLo
   ProbablyPartialStorageUpdatePattern(originVar, toVar, _, _, _, _).
 
 ProbablyPartialStorageUpdateSequenceWrite(toVar, kind, writtenVarOrConst, byteLow, byteHigh):-
+  ProbablyPartialStorageUpdateSequenceWrite(fromVar, kind, writtenVarOrConst, byteLow, byteHigh),
+  (OR(_, zeroVar, fromVar, toVar) ; OR(_, fromVar, zeroVar, toVar)),
+  BasicVariable_Value(zeroVar, "0x0").
+
+ProbablyPartialStorageUpdateSequenceKeep(toVar, load, storVar, keepByteLow, keepByteHigh):-
+  ProbablyPartialStorageUpdateSequenceKeep(fromVar, load, storVar, keepByteLow, keepByteHigh),
+  (OR(_, zeroVar, fromVar, toVar) ; OR(_, fromVar, zeroVar, toVar)),
+  BasicVariable_Value(zeroVar, "0x0").
+
+ProbablyPartialStorageUpdateSequenceWrite(toVar, kind, writtenVarOrConst, byteLow, byteHigh):-
   ProbablyPartialStorageUpdatePattern(originVar1, toVar, kind, writtenVarOrConst, byteLow, byteHigh),
   ProbablyPartialStorageUpdatePattern(originVar2, toVar, _,  _, _, _),
   originVar1 != originVar2,
