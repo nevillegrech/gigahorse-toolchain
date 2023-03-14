@@ -802,12 +802,6 @@ ProbablyPartialStorageUpdatePattern(fromVar, toVar, "CONST", writtenVal, 0, byte
   byteLen = (strlen(writtenVal) - 2 + 1)/2,
   (OR(_, writtenVar, fromVar, toVar) ; OR(_, fromVar, writtenVar, toVar)).
 
-// HACK! Additional/Useless masking
-// ProbablyPartialStorageUpdatePattern(fromVar, toVar, kind, writtenVarOrConst, byteLow, byteHigh):-
-//   ProbablyPartialStorageUpdatePattern(tmpVar, toVar, kind, writtenVarOrConst, byteLow, byteHigh),
-//   (AND(_, antiMaskVar, fromVar, tmpVar) ; AND(_, fromVar, antiMaskVar, tmpVar)),
-//   BasicVariable_Value(antiMaskVar, antiMask),
-//   ByteMask_MaskRange(antiMask, [byteLow, byteHigh]).
 
 ProbablyPartialStorageUpdateSequenceWrite(toVar, kind, writtenVarOrConst, byteLow, byteHigh),
 ProbablyPartialStorageUpdateSequenceKeep(toVar, load, storVar, keepByteLow, keepByteHigh):-
@@ -891,9 +885,9 @@ BytesOfStorVarKept(store, load, storVar, keepByteLow, keepByteHigh):-
 .decl UselessSLOAD(sload: Statement)
 DEBUG_OUTPUT(UselessSLOAD)
 
-
 .decl ByteOfStorVarKeptOrUpdated(store: Statement, storVar: symbol, byte: number)
 DEBUG_OUTPUT(ByteOfStorVarKeptOrUpdated)
+
 ByteOfStorVarKeptOrUpdated(store, storVar, byte):-
   SSTOREToConst(store, storVar, storedVar),
   (
@@ -951,10 +945,8 @@ VarWrittenToBytesOfStorVarFinal(writtenVar, store, storVar, byteLow, byteHigh):-
 BytesOfStorVarKept(store, load, storVar, keepByteLow, keepByteHigh),
 ConstWrittenToBytesOfStorVar("0xNoVar", "0x0", store, load, storVar, maskByteLow, maskByteHigh):-
   VarHoldsBytesOfStorVar(originVar, load, storVar, 0, 31),
-  (AND(_, maskVar, originVar, storedVar) ; AND(_, originVar, maskVar, storedVar)),
-  BasicVariable_Value(maskVar, mask),
-  ByteMask_KeepRange(mask, [keepByteLow, keepByteHigh]),
-  ByteMask_MaskRange(mask, [maskByteLow, maskByteHigh]),
+  ByteMaskOpKeepRange(originVar, storedVar, [keepByteLow, keepByteHigh]),
+  ByteMaskOpMaskRange(originVar, storedVar, [maskByteLow, maskByteHigh]),
   SSTOREToConst(store, storVar, storedVar).
 
 /**
