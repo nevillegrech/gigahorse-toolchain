@@ -200,7 +200,7 @@ ValueMasksOrKeepsByteAtIndex(val, res, byte):-
     (byteVal = "00", res = 0) ;
     (byteVal != "00", byteVal != "ff", res = -1)
   ).
-DEBUG_OUTPUT(ValueMasksOrKeepsByteAtIndex)
+
 ValueIsByteMask(val):-
   Value_Length(val, len),
   len % 2 = 0,
@@ -225,11 +225,9 @@ AntiByteMask(val, low, high):-
   ByteMask_MaskRange(val, [low, high]).
 
 .type Range = [from: number, to: number]
-// .type RangeList = [curr: Range, rest: RangeList]
 
 .decl ByteMask_KeepRange(mask: Value, keepRange: Range)
 DEBUG_OUTPUT(ByteMask_KeepRange)
-
 
 ByteMask_KeepRange(mask, [i, j]):-
   ValueIsByteMask(mask),
@@ -243,7 +241,6 @@ ByteMask_KeepRange(mask, [i, j]):-
 
 .decl ByteMask_MaskRange(mask: Value, maskRange: Range)
 DEBUG_OUTPUT(ByteMask_MaskRange)
-
 
 ByteMask_MaskRange(mask, [i, j]):-
   ValueIsByteMask(mask),
@@ -259,7 +256,25 @@ ByteMask_MaskRange(mask, [numOfBytes, 31]):-
   numOfBytes = strlen(mask)/2 - 1,
   numOfBytes < 32.
 
+.decl ByteMaskOpKeepRange(var: Variable, masked: Variable, keepRange: Range)
+DEBUG_OUTPUT(ByteMaskOpKeepRange)
 
+.decl ByteMaskOpMaskRange(var: Variable, masked: Variable, maskRange: Range)
+DEBUG_OUTPUT(ByteMaskOpMaskRange)
+
+ByteMaskOpKeepRange(var, masked, keepRange):-
+  (AND(_, maskVar, var, masked) ; AND(_, var, maskVar, masked)),
+  BasicVariable_Value(maskVar, byteMask),
+  ByteMask_KeepRange(byteMask, keepRange).
+
+ByteMaskOpMaskRange(var, masked, keepRange):-
+  (AND(_, maskVar, var, masked) ; AND(_, var, maskVar, masked)),
+  BasicVariable_Value(maskVar, byteMask),
+  ByteMask_MaskRange(byteMask, keepRange).
+
+/**
+  Constant `val` is `baseVal` shifted to the left by `shiftBytes`.
+*/
 .decl ConstantProbablyShifted(val: Value, baseVal: Value, shiftBytes: number)
 DEBUG_OUTPUT(ConstantProbablyShifted)
 
