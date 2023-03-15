@@ -348,7 +348,7 @@ ArrayLengthStatement(stmt, index, $Array(cons)):-
 .decl BytesOrStringLength(storVar:symbol, lenVar:Variable)
 
 BytesOrStringLength(storVar, lenVar):-
-  VarHoldsBytesOfStorVar(storLoad, _, storVar, 0, 31),
+  VarHoldsBytesOfStorVar(storLoad, _, $Variable($Constant(storVar)), 0, 31),
   (AND(_, storLoad, oneVar, lastBitVar) ; AND(_, oneVar, storLoad, lastBitVar)),
   Variable_Value(oneVar, "0x1"),
   ISZERO(_, lastBitVar, notLastBitVar),

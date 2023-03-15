@@ -1,8 +1,18 @@
 
 #define MERGED_STORAGE_VAR(storVar,byteLow,byteHigh) cat(storVar, cat("_", cat(to_string(byteLow), cat("_", to_string(byteHigh)))))
 
-.decl SLOADOfConst(sload:Statement, const:Value, var:Variable)
-.decl SSTOREToConst(sstore:Statement, const:Value, var:Variable)
+.decl SLOADFlowsToSSTORE(sload: Statement, sstore: Statement, construct: StorageConstruct)
+DEBUG_OUTPUT(SLOADFlowsToSSTORE)
+
+SLOADFlowsToSSTORE(sload, sstore, construct):-
+  StorageStmtToIndexAndConstruct(sload, "ACCESS", _, construct),
+  SLOAD(sload, _, loadedVar),
+  LocalFlows(loadedVar, storedVar),
+  SSTORE(sstore, _, storedVar),
+  StorageStmtToIndexAndConstruct(sstore, "ACCESS", _, construct).
+
+.decl SLOADOfConst(sload: Statement, const: Value, var: Variable)
+.decl SSTOREToConst(sstore: Statement, const: Value, var: Variable)
 
 SLOADOfConst(sload, const, var):-
   SLOAD(sload, constVar, var),
@@ -12,12 +22,23 @@ SSTOREToConst(sstore, const, var):-
   SSTORE(sstore, constVar, var),
   Variable_Value(constVar, const).
 
+.decl SLOADOfConstruct(sload: Statement, construct: StorageConstruct, var: Variable)
+.decl SSTOREToConstruct(sstore: Statement, construct: StorageConstruct, var: Variable)
+
+SLOADOfConstruct(sload, construct, var):-
+  SLOAD(sload, _, var),
+  StorageStmtToIndexAndConstruct(sload, "ACCESS", _, construct).
+
+SSTOREToConstruct(sstore, construct, var):-
+  SSTORE(sstore, _, var),
+  StorageStmtToIndexAndConstruct(sstore, "ACCESS", _, construct).
+
 
 /**
   __Note__: Contains both top-level global variables and storage constructs as they
   both need the same handling for word sharing in storage slots. They are differentiated later.
 */
-.decl VarHoldsBytesOfStorVar(var: Variable, srcLoad: Statement, storVar: symbol, byteLow: number, byteHigh: number)
+.decl VarHoldsBytesOfStorVar(var: Variable, srcLoad: Statement, storVar: StorageConstruct, byteLow: number, byteHigh: number)
 DEBUG_OUTPUT(VarHoldsBytesOfStorVar)
 /**
   This is a heuristic, we use the "Final" forms of loaded vars
@@ -29,11 +50,13 @@ DEBUG_OUTPUT(VarHoldsBytesOfStorVar)
   __Note__: Contains both top-level global variables and storage constructs as they
   both need the same handling for word sharing in storage slots. They are differentiated later.
 */
-.decl VarHoldsBytesOfStorVarFinal(var: Variable, srcLoad: Statement, storVar: symbol, byteLow: number, byteHigh: number)
+.decl VarHoldsBytesOfStorVarFinal(var: Variable, srcLoad: Statement, storVar: StorageConstruct, byteLow: number, byteHigh: number)
 DEBUG_OUTPUT(VarHoldsBytesOfStorVarFinal)
 
-VarHoldsBytesOfStorVar(to, load, storVar, 0, 31):-
-  SLOADOfConst(load, storVar, to).
+VarHoldsBytesOfStorVar(to, load, construct, 0, 31):-
+  SLOAD(load, _, to),
+  StorageStmtToIndexAndConstruct(load, "ACCESS", _, construct).
+  // SLOADOfConst(load, storVar, to).
 
 // VarHoldsBytesOfStorVar(to, sload, index, 0, 31):-
 //   SLOAD(sload, indexVar, to),
@@ -57,19 +80,19 @@ VarHoldsBytesOfStorVarFinal(var, load, storVar, low, high):-
   !LowBytesMaskOp(var, _, _),
   !AntiMaskOp(var, _, _, _).
 
-.decl AnyLoadStoreStorVarBytes(loadOrStore: Statement, storVar: symbol, low: number, high: number)
+.decl AnyLoadStoreStorVarBytes(loadOrStore: Statement, storVar: StorageConstruct, low: number, high: number)
 DEBUG_OUTPUT(AnyLoadStoreStorVarBytes)
 
-.decl FailedMergedStorageModeling(storVar: symbol)
+.decl FailedMergedStorageModeling(storVar: StorageConstruct)
 DEBUG_OUTPUT(FailedMergedStorageModeling)
 
-.decl FailedMergedStorageModelingReason(storVar: symbol, stmt: Statement, stmt2: Statement, range1: Range, range2: Range)
+.decl FailedMergedStorageModelingReason(storVar: StorageConstruct, stmt: Statement, stmt2: Statement, range1: Range, range2: Range)
 DEBUG_OUTPUT(FailedMergedStorageModelingReason)
 
-.decl SuccessfulMergedStorageModeling(storVar: symbol)
+.decl SuccessfulMergedStorageModeling(storVar: StorageConstruct)
 DEBUG_OUTPUT(SuccessfulMergedStorageModeling)
 
-.decl LoadOrStoreToStoreVar(stmt: Statement, storVar: symbol)
+.decl LoadOrStoreToStoreVar(stmt: Statement, storVar: StorageConstruct)
 
 AnyLoadStoreStorVarBytes(stmt, storVar, low, high):-
   VarHoldsBytesOfStorVarFinal(_, stmt, storVar, low, high);
@@ -77,9 +100,9 @@ AnyLoadStoreStorVarBytes(stmt, storVar, low, high):-
   // Will need to handle these differently because in optimized code a single constant can initialize many vars
   ConstWrittenToBytesOfStorVar(_, _, stmt, _, storVar, low, high).
 
-AnyLoadStoreStorVarBytes(stmt, storVar, 0, 31):-
-  SSTOREToConst(stmt, storVar, _),
-  !SLOADOfConst(_, storVar, _).
+AnyLoadStoreStorVarBytes(store, construct, 0, 31):-
+  SSTOREToConstruct(store, construct, _),
+  !SLOADOfConstruct(_, construct, _).
 
 FailedMergedStorageModelingReason(storVar, stmt, stmt2, [low, high], [otherLow, otherHigh]),
 FailedMergedStorageModeling(storVar):-
@@ -89,9 +112,8 @@ FailedMergedStorageModeling(storVar):-
   (low != otherLow ; high != otherHigh),
   ( (low < otherLow , otherLow < high) ; (low < otherHigh, otherHigh < high) ).
 
-LoadOrStoreToStoreVar(stmt, storVar):-
-  SLOADOfConst(stmt, storVar, _);
-  SSTOREToConst(stmt, storVar, _).
+LoadOrStoreToStoreVar(stmt, construct):-
+  StorageStmtToIndexAndConstruct(stmt, "ACCESS", _, construct).
 
 FailedMergedStorageModelingReason(storVar, stmt, stmt, nil, nil),
 FailedMergedStorageModeling(storVar):-
@@ -120,7 +142,7 @@ DEBUG_OUTPUT(ProbablyPartialStorageUpdateSequenceWrite)
   Models complex expressions of many shifted and masked vars to update a single storage slot.
   Bytes `byteLow` to `byteHigh` of `var` hold the existing bytes stored in the storage slot of `storVar`, as loaded in `load`.
 */
-.decl ProbablyPartialStorageUpdateSequenceKeep(var: Variable, load: Statement, storVar: symbol, byteLow: number, byteHigh: number)
+.decl ProbablyPartialStorageUpdateSequenceKeep(var: Variable, load: Statement, storVar: StorageConstruct, byteLow: number, byteHigh: number)
 DEBUG_OUTPUT(ProbablyPartialStorageUpdateSequenceKeep)
 
 /**
@@ -131,20 +153,20 @@ DEBUG_OUTPUT(ProbablyPartialStorageUpdateSequenceKeep)
 .decl ProbablyPartialStorageUpdatePattern(fromVar: Variable, toVar: Variable, kind: symbol, varOrConst: symbol, byteLow: number, byteHigh: number)
 DEBUG_OUTPUT(ProbablyPartialStorageUpdatePattern)
 
-.decl VarWrittenToBytesOfStorVar(var: Variable, store: Statement, storVar: symbol, byteLow: number, byteHigh: number)
+.decl VarWrittenToBytesOfStorVar(var: Variable, store: Statement, storVar: StorageConstruct, byteLow: number, byteHigh: number)
 DEBUG_OUTPUT(VarWrittenToBytesOfStorVar)
 
 /**
  Special case of `VarWrittenToBytesOfStorVar` to fix a bug when writting from one storage location to another,
 */
-.decl VarWrittenToBytesOfStorVarIsMergedVar(var:Variable, modeledVar:Variable, store:Statement, storVar:symbol, byteLow:number, byteHigh:number)
+.decl VarWrittenToBytesOfStorVarIsMergedVar(var:Variable, modeledVar:Variable, store:Statement, storVar:StorageConstruct, byteLow:number, byteHigh:number)
 
 /**
   Filtered `VarWrittenToBytesOfStorVar`, taking `VarWrittenToBytesOfStorVarIsMergedVar` into account.
 */
-.decl VarWrittenToBytesOfStorVarFinal(var:Variable, store:Statement, storVar:symbol, byteLow:number, byteHigh:number)
+.decl VarWrittenToBytesOfStorVarFinal(var:Variable, store:Statement, storVar:StorageConstruct, byteLow:number, byteHigh:number)
 
-.decl ConstWrittenToBytesOfStorVar(constVar:Variable, const:Value, store:Statement, load:Statement, storVar:symbol, byteLow:number, byteHigh:number)
+.decl ConstWrittenToBytesOfStorVar(constVar:Variable, const:Value, store:Statement, load:Statement, storVar:StorageConstruct, byteLow:number, byteHigh:number)
 DEBUG_OUTPUT(ConstWrittenToBytesOfStorVar)
 
 ProbablyPartialStorageUpdatePattern(fromVar, toVar, "VAR", writtenVar, byteLow, byteLow + castedTo - 1):-
@@ -234,30 +256,30 @@ UselessSLOAD(sload):-
   max(keepByteLow, maskKeepByteLow) > min(keepByteHigh, maskKeepByteHigh).
 
 
-VarWrittenToBytesOfStorVar(as(writtenVar, Variable), store, storVar, byteLow, byteHigh):-
-  SSTOREToConst(store, storVar, storedVar),
+VarWrittenToBytesOfStorVar(as(writtenVar, Variable), store, construct, byteLow, byteHigh):-
+  SSTOREToConstruct(store, construct, storedVar),
   ProbablyPartialStorageUpdateSequenceWrite(storedVar, "VAR", writtenVar, byteLow, byteHigh).
 
-ConstWrittenToBytesOfStorVar("0xlala", as(writtenConst, Value), store, "lolo", storVar, byteLow, byteHigh):-
-  SSTOREToConst(store, storVar, storedVar),
+ConstWrittenToBytesOfStorVar("0xlala", as(writtenConst, Value), store, "lolo", construct, byteLow, byteHigh):-
+  SSTOREToConstruct(store, construct, storedVar),
   ProbablyPartialStorageUpdateSequenceWrite(storedVar, "CONST", writtenConst, byteLow, byteHigh).
 
-.decl BytesOfStorVarKept(store: Statement, load: Statement, storVar: symbol, keepByteLow: number, keepByteHigh: number)
+.decl BytesOfStorVarKept(store: Statement, load: Statement, construct: StorageConstruct, keepByteLow: number, keepByteHigh: number)
 
-BytesOfStorVarKept(store, load, storVar, keepByteLow, keepByteHigh):-
-  SSTOREToConst(store, storVar, storedVar),
-  ProbablyPartialStorageUpdateSequenceKeep(storedVar, load, storVar, keepByteLow, keepByteHigh).
+BytesOfStorVarKept(store, load, construct, keepByteLow, keepByteHigh):-
+  SSTOREToConstruct(store, construct, storedVar),
+  ProbablyPartialStorageUpdateSequenceKeep(storedVar, load, construct, keepByteLow, keepByteHigh).
 
 .decl UselessSLOAD(sload: Statement)
 DEBUG_OUTPUT(UselessSLOAD)
 
-.decl ByteOfStorVarKeptOrUpdated(store: Statement, storVar: symbol, byte: number)
+.decl ByteOfStorVarKeptOrUpdated(store: Statement, construct: StorageConstruct, byte: number)
 DEBUG_OUTPUT(ByteOfStorVarKeptOrUpdated)
 
-ByteOfStorVarKeptOrUpdated(store, storVar, byte):-
-  SSTOREToConst(store, storVar, storedVar),
+ByteOfStorVarKeptOrUpdated(store, construct, byte):-
+  SSTOREToConstruct(store, construct, storedVar),
   (
-    ProbablyPartialStorageUpdateSequenceKeep(storedVar, _, storVar, byteLow, byteHigh);
+    ProbablyPartialStorageUpdateSequenceKeep(storedVar, _, construct, byteLow, byteHigh);
     ProbablyPartialStorageUpdateSequenceWrite(storedVar, _, _, byteLow, byteHigh)
   ),
   byte = range(byteLow, byteHigh + 1, 1).
@@ -265,55 +287,55 @@ ByteOfStorVarKeptOrUpdated(store, storVar, byte):-
 /**
   `byte` is not `ByteOfStorVarKeptOrUpdated()` so the value 0x0 is stored to it.
 */
-.decl SSTOREZeroByte(store: Statement, storVar: symbol, byte: number)
+.decl SSTOREZeroByte(store: Statement, construct: StorageConstruct, byte: number)
 DEBUG_OUTPUT(SSTOREZeroByte)
 
 /**
   Bytes from `byteLow` to `byteHigh` are not `ByteOfStorVarKeptOrUpdated()` so the value 0x0 is stored to them.
 */
-.decl SSTOREZeroRange(store: Statement, storVar: symbol, byteLow: number, byteHigh: number)
+.decl SSTOREZeroRange(store: Statement, construct: StorageConstruct, byteLow: number, byteHigh: number)
 DEBUG_OUTPUT(SSTOREZeroRange)
 
-SSTOREZeroByte(store, storVar, byte):-
-  SSTOREToConst(store, storVar, _),
-  ByteOfStorVarKeptOrUpdated(store, storVar, _),
+SSTOREZeroByte(store, construct, byte):-
+  SSTOREToConstruct(store, construct, _),
+  ByteOfStorVarKeptOrUpdated(store, construct, _),
   byte = range(0, 32, 1),
-  !ByteOfStorVarKeptOrUpdated(store, storVar, byte).
+  !ByteOfStorVarKeptOrUpdated(store, construct, byte).
 
-SSTOREZeroRange(store, storVar, byteLow, byteHigh):-
-  SSTOREZeroByte(store, storVar, byteLow),
-  !SSTOREZeroByte(store, storVar, byteLow - 1),
-  SSTOREZeroByte(store, storVar, byteHigh),
-  !SSTOREZeroByte(store, storVar, byteHigh + 1),
+SSTOREZeroRange(store, construct, byteLow, byteHigh):-
+  SSTOREZeroByte(store, construct, byteLow),
+  !SSTOREZeroByte(store, construct, byteLow - 1),
+  SSTOREZeroByte(store, construct, byteHigh),
+  !SSTOREZeroByte(store, construct, byteHigh + 1),
   byteLow <= byteHigh,
-  1 + byteHigh - byteLow = count : {SSTOREZeroByte(store, storVar, k), byteLow <= k, k <= byteHigh}.
+  1 + byteHigh - byteLow = count : {SSTOREZeroByte(store, construct, k), byteLow <= k, k <= byteHigh}.
 
-ConstWrittenToBytesOfStorVar("0xlala", "0x0", store, "lolo", storVar, byteLow, byteHigh):-
-  SSTOREZeroRange(store, storVar, byteLow, byteHigh).
+ConstWrittenToBytesOfStorVar("0xlala", "0x0", store, "lolo", construct, byteLow, byteHigh):-
+  SSTOREZeroRange(store, construct, byteLow, byteHigh).
 
 
-VarWrittenToBytesOfStorVarIsMergedVar(writtenVar, modeledVar, store, storVar, 0, byteHigh):-
-  VarWrittenToBytesOfStorVar(writtenVar, store, storVar, 0, byteHigh),
+VarWrittenToBytesOfStorVarIsMergedVar(writtenVar, modeledVar, store, construct, 0, byteHigh):-
+  VarWrittenToBytesOfStorVar(writtenVar, store, construct, 0, byteHigh),
   Statement_Defines(otherLoad, writtenVar, 0),
   VarHoldsBytesOfStorVar(modeledVar, otherLoad, _, 0, byteHigh),
   Statement_Uses(store, storedVar, 1),
   DataFlows(modeledVar, storedVar).
 
-VarWrittenToBytesOfStorVarFinal(modeledVar, store, storVar, byteLow, byteHigh):-
-  VarWrittenToBytesOfStorVar(writtenVar, store, storVar, byteLow, byteHigh),
-  VarWrittenToBytesOfStorVarIsMergedVar(writtenVar, modeledVar, store, storVar, byteLow, byteHigh).
+VarWrittenToBytesOfStorVarFinal(modeledVar, store, construct, byteLow, byteHigh):-
+  VarWrittenToBytesOfStorVar(writtenVar, store, construct, byteLow, byteHigh),
+  VarWrittenToBytesOfStorVarIsMergedVar(writtenVar, modeledVar, store, construct, byteLow, byteHigh).
 
-VarWrittenToBytesOfStorVarFinal(writtenVar, store, storVar, byteLow, byteHigh):-
-  VarWrittenToBytesOfStorVar(writtenVar, store, storVar, byteLow, byteHigh),
-  !VarWrittenToBytesOfStorVarIsMergedVar(writtenVar, _, store, storVar, byteLow, byteHigh).
+VarWrittenToBytesOfStorVarFinal(writtenVar, store, construct, byteLow, byteHigh):-
+  VarWrittenToBytesOfStorVar(writtenVar, store, construct, byteLow, byteHigh),
+  !VarWrittenToBytesOfStorVarIsMergedVar(writtenVar, _, store, construct, byteLow, byteHigh).
 
 
-BytesOfStorVarKept(store, load, storVar, keepByteLow, keepByteHigh),
-ConstWrittenToBytesOfStorVar("0xNoVar", "0x0", store, load, storVar, maskByteLow, maskByteHigh):-
-  VarHoldsBytesOfStorVar(originVar, load, storVar, 0, 31),
+BytesOfStorVarKept(store, load, construct, keepByteLow, keepByteHigh),
+ConstWrittenToBytesOfStorVar("0xNoVar", "0x0", store, load, construct, maskByteLow, maskByteHigh):-
+  VarHoldsBytesOfStorVar(originVar, load, construct, 0, 31),
   ByteMaskOpKeepRange(originVar, storedVar, [keepByteLow, keepByteHigh]),
   ByteMaskOpMaskRange(originVar, storedVar, [maskByteLow, maskByteHigh]),
-  SSTOREToConst(store, storVar, storedVar).
+  SSTOREToConstruct(store, construct, storedVar).
 
 /**
   HACK (?) HACK (?) HACK (?)
@@ -359,63 +381,63 @@ GlobalVariable(v):-
 
 LoadGlobalVariable(stmt, storVar, var):-
   SLOADOfConst(stmt, storVar, var),
-  FailedMergedStorageModeling(storVar).
+  FailedMergedStorageModeling($Variable($Constant(storVar))).
 
 LoadGlobalVariable(stmt, as(storVar, Value), var):-
-  SuccessfulMergedStorageModeling(storVar),
+  SuccessfulMergedStorageModeling($Variable($Constant(storVar))),
   SLOADOfConst(_, storVar, _), // ensure it's a global variable
-  VarHoldsBytesOfStorVarFinal(var, _, storVar, 0, 31),
+  VarHoldsBytesOfStorVarFinal(var, _, $Variable($Constant(storVar)), 0, 31),
   Statement_Defines(stmt, var, 0).
 
 LoadGlobalVariable(stmt, v, var):-
-  SuccessfulMergedStorageModeling(storVar),
+  SuccessfulMergedStorageModeling($Variable($Constant(storVar))),
   SLOADOfConst(_, storVar, _), // ensure it's a global variable
-  VarHoldsBytesOfStorVarFinal(_, _, storVar, low, high),
-  VarHoldsBytesOfStorVar(var, _, storVar, low, high),
+  VarHoldsBytesOfStorVarFinal(_, _, $Variable($Constant(storVar)), low, high),
+  VarHoldsBytesOfStorVar(var, _, $Variable($Constant(storVar)), low, high),
   Statement_Defines(stmt, var, 0),
   (low != 0 ; high != 31),
   v = MERGED_STORAGE_VAR(storVar, low, high).
 
 StoreGlobalVariable(stmt, storVar, var):-
   SSTOREToConst(stmt, storVar, var),
-  FailedMergedStorageModeling(storVar).
+  FailedMergedStorageModeling($Variable($Constant(storVar))).
 
 StoreGlobalVariable(stmt, storVar, var):-
   SSTOREToConst(stmt, storVar, var),
-  SuccessfulMergedStorageModeling(storVar),
-  (VarHoldsBytesOfStorVarFinal(_, _, storVar, 0, 31); !SLOADOfConst(_, storVar, _)).
+  SuccessfulMergedStorageModeling($Variable($Constant(storVar))),
+  (VarHoldsBytesOfStorVarFinal(_, _, $Variable($Constant(storVar)), 0, 31); !SLOADOfConstruct(_, $Variable($Constant(storVar)), _)).
 
 StoreGlobalVariable(store, v, writtenVar):-
-  SuccessfulMergedStorageModeling(storVar),
+  SuccessfulMergedStorageModeling($Variable($Constant(storVar))),
   SSTOREToConst(_, storVar, _), // ensure it's a global variable
-  VarWrittenToBytesOfStorVarFinal(writtenVar, store, storVar, byteLow, byteHigh),
+  VarWrittenToBytesOfStorVarFinal(writtenVar, store, $Variable($Constant(storVar)), byteLow, byteHigh),
   v = MERGED_STORAGE_VAR(storVar, byteLow, byteHigh).
 
 StoreGlobalVariable(store, v, constVar):-
-  SuccessfulMergedStorageModeling(storVar),
+  SuccessfulMergedStorageModeling($Variable($Constant(storVar))),
   SSTOREToConst(_, storVar, _), // ensure it's a global variable
-  ConstWrittenToBytesOfStorVar(constVar, _, store, _, storVar, byteLow, byteHigh),
+  ConstWrittenToBytesOfStorVar(constVar, _, store, _, $Variable($Constant(storVar)), byteLow, byteHigh),
   v = MERGED_STORAGE_VAR(storVar, byteLow, byteHigh).
 
 StorageVariableInfo(MERGED_STORAGE_VAR(storVar, byteLow, byteHigh), storVar, byteLow, byteHigh):-
-  SuccessfulMergedStorageModeling(storVar),
+  SuccessfulMergedStorageModeling($Variable($Constant(storVar))),
   (
-    ConstWrittenToBytesOfStorVar(_, _, _, _, storVar, byteLow, byteHigh);
-    VarWrittenToBytesOfStorVarFinal(_, _, storVar, byteLow, byteHigh);
-    VarHoldsBytesOfStorVarFinal(_, _, storVar, byteLow, byteHigh)
+    ConstWrittenToBytesOfStorVar(_, _, _, _, $Variable($Constant(storVar)), byteLow, byteHigh);
+    VarWrittenToBytesOfStorVarFinal(_, _, $Variable($Constant(storVar)), byteLow, byteHigh);
+    VarHoldsBytesOfStorVarFinal(_, _, $Variable($Constant(storVar)), byteLow, byteHigh)
   ),
   byteHigh - byteLow != 31.
 
 StorageVariableInfo(storVar, storVar, 0, 31):-
-  SuccessfulMergedStorageModeling(storVar),
+  SuccessfulMergedStorageModeling($Variable($Constant(storVar))),
   (
-    ConstWrittenToBytesOfStorVar(_, _, _, _, storVar, 0, 31);
-    VarWrittenToBytesOfStorVarFinal(_, _, storVar, 0, 31);
-    VarHoldsBytesOfStorVarFinal(_, _, storVar, 0, 31)
+    ConstWrittenToBytesOfStorVar(_, _, _, _, $Variable($Constant(storVar)), 0, 31);
+    VarWrittenToBytesOfStorVarFinal(_, _, $Variable($Constant(storVar)), 0, 31);
+    VarHoldsBytesOfStorVarFinal(_, _, $Variable($Constant(storVar)), 0, 31)
   ).
 
 StorageVariableInfo(storVar, storVar, 0, 31):-
-  FailedMergedStorageModeling(storVar).
+  FailedMergedStorageModeling($Variable($Constant(storVar))).
 
 /**
   Basic type inference
@@ -438,7 +460,7 @@ StorageVariableType(storVar, type):-
 
 SpecialStorageVariableType(storVar, "address"):-
   StorageVariableInfo(storVar, originStorVar, byteLow, byteHigh),
-  VarHoldsBytesOfStorVarFinal(var, _, originStorVar, byteLow, byteHigh),
+  VarHoldsBytesOfStorVarFinal(var, _, $Variable($Constant(originStorVar)), byteLow, byteHigh),
   widthBytes = 1 + byteHigh - byteLow,
   widthBytes = 20,
   DataFlows(var, addr),
@@ -446,7 +468,7 @@ SpecialStorageVariableType(storVar, "address"):-
 
 SpecialStorageVariableType(storVar, "address"):-
   StorageVariableInfo(storVar, originStorVar, byteLow, byteHigh),
-  VarWrittenToBytesOfStorVarFinal(var, _, originStorVar, byteLow, byteHigh),
+  VarWrittenToBytesOfStorVarFinal(var, _, $Variable($Constant(originStorVar)), byteLow, byteHigh),
   widthBytes = 1 + byteHigh - byteLow,
   widthBytes = 20,
   DataFlows(addr, var),
@@ -458,7 +480,7 @@ SpecialStorageVariableType(storVar, "address"):-
   DataFlows(addrFrom, addr),
   (EQ(_, otherAddr, addr, _) ; EQ(_, addr, otherAddr, _)),
   DataFlows(var, otherAddr),
-  VarHoldsBytesOfStorVarFinal(var, _, originStorVar, byteLow, byteHigh),
+  VarHoldsBytesOfStorVarFinal(var, _, $Variable($Constant(originStorVar)), byteLow, byteHigh),
   StorageVariableInfo(storVar, originStorVar, byteLow, byteHigh),
   widthBytes = 1 + byteHigh - byteLow,
   widthBytes = 20.
