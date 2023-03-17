@@ -19,9 +19,19 @@ DEBUG_OUTPUT(LShiftBytes)
 .decl CastedAndShiftedVar(fromVar: Variable, toVar: Variable, shiftedBy: number, castedTo: number)
 DEBUG_OUTPUT(CastedAndShiftedVar)
 
-// `toVar` is `fromVar` with the bytes higher than maskLen masked off
+/**
+  `toVar` is `fromVar` with the bytes higher than maskLen masked off.
+  Used for casts to `uintX` and `address`.
+*/
 .decl LowBytesMaskOp(fromVar: Variable, toVar: Variable, maskLen: number)
 DEBUG_OUTPUT(LowBytesMaskOp)
+
+/**
+  `toVar` is `fromVar` with the bytes lower than maskLen masked off.
+  Used for casts to `bytesX`.
+*/
+.decl HighBytesMaskOp(fromVar: Variable, toVar: Variable, maskLen: number)
+DEBUG_OUTPUT(HighBytesMaskOp)
 
 .decl SignedIntCast(fromVar: Variable, toVar: Variable, width: number)
 DEBUG_OUTPUT(SignedIntCast)
@@ -55,6 +65,10 @@ LowBytesMaskOp(from, to, 1):-
 
 LowBytesMaskOp(from, to, width):-
   SignedIntCast(from, to, width).
+
+HighBytesMaskOp(var, masked, 32 - keepLow):-
+  ByteMaskOpKeepRange(var, masked, [keepLow, 31]),
+  ByteMaskOpMaskRange(var, masked, [0, keepLow - 1]).
 
 // Hack for boolean masks.
 BooleanCast(from, to):-
