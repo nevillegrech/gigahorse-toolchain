@@ -1,6 +1,4 @@
 
-#define MERGED_STORAGE_VAR(storVar,byteLow,byteHigh) cat(storVar, cat("_", cat(to_string(byteLow), cat("_", to_string(byteHigh)))))
-
 .decl SLOADFlowsToSSTORE(sload: Statement, sstore: Statement, construct: StorageConstruct)
 DEBUG_OUTPUT(SLOADFlowsToSSTORE)
 
@@ -310,7 +308,7 @@ SSTOREZeroRange(store, construct, byteLow, byteHigh):-
   byteLow <= byteHigh,
   1 + byteHigh - byteLow = count : {SSTOREZeroByte(store, construct, k), byteLow <= k, k <= byteHigh}.
 
-ConstWrittenToBytesOfStorVar("0xlala", "0x0", store, "lolo", construct, byteLow, byteHigh):-
+ConstWrittenToBytesOfStorVar("0xNoVar", "0x0", store, "lolo", construct, byteLow, byteHigh):-
   SSTOREZeroRange(store, construct, byteLow, byteHigh).
 
 
@@ -359,14 +357,20 @@ VarHoldsBytesOfStorVar(to, store, storVar, 0, maskLen - 1):-
   Top-Level Global Variables
  */
 
+#define MERGED_STORAGE_VAR(storVar,byteLow,byteHigh) cat(storVar, cat("_", cat(to_string(byteLow), cat("_", to_string(byteHigh)))))
+
 .decl GlobalVariable(v: Value)
 
 .decl LoadGlobalVariable(stmt: Statement, val: Value, var: Variable)
 
 .decl StoreGlobalVariable(stmt: Statement, val: Value, var: Variable)
 
+// Info for top-level global variables
 .decl StorageVariableInfo(storageVariable: symbol, storageSlot: symbol, byteLow: number, byteHigh: number)
 
+// Processing of storage variables, accounting for tightly packed words
+.decl ProcessedStorageVariable(storageVar: StorageConstruct, storageVarProcessed: StorageConstruct)
+DEBUG_OUTPUT(ProcessedStorageVariable)
 
 /* Old logic
 GlobalVariable(v) :-
@@ -419,25 +423,34 @@ StoreGlobalVariable(store, v, constVar):-
   ConstWrittenToBytesOfStorVar(constVar, _, store, _, $Variable($Constant(storVar)), byteLow, byteHigh),
   v = MERGED_STORAGE_VAR(storVar, byteLow, byteHigh).
 
-StorageVariableInfo(MERGED_STORAGE_VAR(storVar, byteLow, byteHigh), storVar, byteLow, byteHigh):-
-  SuccessfulMergedStorageModeling($Variable($Constant(storVar))),
-  (
-    ConstWrittenToBytesOfStorVar(_, _, _, _, $Variable($Constant(storVar)), byteLow, byteHigh);
-    VarWrittenToBytesOfStorVarFinal(_, _, $Variable($Constant(storVar)), byteLow, byteHigh);
-    VarHoldsBytesOfStorVarFinal(_, _, $Variable($Constant(storVar)), byteLow, byteHigh)
-  ),
-  byteHigh - byteLow != 31.
 
 StorageVariableInfo(storVar, storVar, 0, 31):-
-  SuccessfulMergedStorageModeling($Variable($Constant(storVar))),
+  ProcessedStorageVariable(construct, construct),
+  construct = $Variable($Constant(storVar)).
+
+StorageVariableInfo(storVar, storVar, byteLow, byteHigh):-
+  ProcessedStorageVariable($Variable($Constant(storVar)), $TighlyPackedVariable($Constant(storVar), byteLow, byteHigh)).
+
+ProcessedStorageVariable(storageVar, storageVar):-
+  FailedMergedStorageModeling(storageVar).
+
+ProcessedStorageVariable(construct, construct):-
+  SuccessfulMergedStorageModeling(construct),
   (
-    ConstWrittenToBytesOfStorVar(_, _, _, _, $Variable($Constant(storVar)), 0, 31);
-    VarWrittenToBytesOfStorVarFinal(_, _, $Variable($Constant(storVar)), 0, 31);
-    VarHoldsBytesOfStorVarFinal(_, _, $Variable($Constant(storVar)), 0, 31)
+    ConstWrittenToBytesOfStorVar(_, _, _, _, construct, 0, 31);
+    VarWrittenToBytesOfStorVarFinal(_, _, construct, 0, 31);
+    VarHoldsBytesOfStorVarFinal(_, _, construct, 0, 31)
   ).
 
-StorageVariableInfo(storVar, storVar, 0, 31):-
-  FailedMergedStorageModeling($Variable($Constant(storVar))).
+ProcessedStorageVariable(storageVar, $TighlyPackedVariable(parentCons, byteLow, byteHigh)):-
+  SuccessfulMergedStorageModeling(storageVar),
+  storageVar = $Variable(parentCons),
+  (
+    ConstWrittenToBytesOfStorVar(_, _, _, _, storageVar, byteLow, byteHigh);
+    VarWrittenToBytesOfStorVarFinal(_, _, storageVar, byteLow, byteHigh);
+    VarHoldsBytesOfStorVarFinal(_, _, storageVar, byteLow, byteHigh)
+  ),
+  byteHigh - byteLow != 31.
 
 /**
   Basic type inference
