@@ -22,6 +22,7 @@
                         | Mapping {parConstruct: StorageConstruct}
                         | Offset {parConstruct: StorageConstruct, offset: number}
                         | Variable {construct: StorageConstruct}
+                        | TighlyPackedVariable {construct: StorageConstruct, byteLow: number, byteHigh: number}
 
 /**
   Syntactic translation of `StorageIndex` to `StorageConstruct`
@@ -37,6 +38,9 @@
 .decl ActualStorageIndex(index: StorageIndex)
 
 .decl StorageIndex_ParentIndex(index: StorageIndex, parIndex: StorageIndex)
+
+// Same as `StorageIndex_ParentIndex` but doesn't contain results where the child `index` is an `OffsetIndex`
+.decl StorageIndex_ParentIndexExclOffset(index: StorageIndex, parIndex: StorageIndex)
 
 // Transitive closure over the `StorageIndex_ParentIndex` relation
 .decl StorageIndexPredecesor(index: StorageIndex, predIndex: StorageIndex)
@@ -173,6 +177,14 @@ StorageIndex_ParentIndex(index, parentIndex):-
     (index = $OffsetIndex(parentIndex, offset), offset = offset) // suppress warning
   ).
 
+StorageIndex_ParentIndexExclOffset(index, parentIndex):-
+  ActualStorageIndex(index),
+  (
+    (index = $ArrayAccessIndex(parentIndex, indexVar), indexVar = indexVar); // suppress warning
+    (index = $ArrayDataStartIndex(parentIndex));
+    (index = $MappingAccessIndex(parentIndex, indexVar), indexVar = indexVar) // suppress warning
+  ).
+
 
 StorageIndexPredecesor(index, index):-
   StorageIndex_ParentIndex(index, _);
@@ -185,9 +197,10 @@ StorageIndexPredecesor(index, predIndex):-
   StorageIndex_ParentIndex(index, parentIndex),
   StorageIndexPredecesor(parentIndex, predIndex).
 
+// Ensure an index is not used as a parent for anything other than an offset
 UsedStorageIndex(index):-
   ActualStorageIndex(index),
-  !StorageIndex_ParentIndex(_, index).
+  !StorageIndex_ParentIndexExclOffset(_, index).
 
 ActualStorageIndex(parentIndex):-
   ActualStorageIndex(index),
