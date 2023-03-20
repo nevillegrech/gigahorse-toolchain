@@ -33,6 +33,7 @@ SSTOREToConstruct(sstore, construct, var):-
 
 
 /**
+  Variable holds a range of bytes from a storage word. Relies on `VarHoldsBytesOfStorVarPlus`.
   __Note__: Contains both top-level global variables and storage constructs as they
   both need the same handling for word sharing in storage slots. They are differentiated later.
 */
@@ -40,11 +41,13 @@ SSTOREToConstruct(sstore, construct, var):-
 DEBUG_OUTPUT(VarHoldsBytesOfStorVar)
 
 /**
+  Variable holds a range of bytes from a storage word, starting from `startByte`.
   __Note__: Contains both top-level global variables and storage constructs as they
   both need the same handling for word sharing in storage slots. They are differentiated later.
 */
 .decl VarHoldsBytesOfStorVarPlus(var: Variable, srcLoad: Statement, storVar: StorageConstruct, startByte: number, byteLow: number, byteHigh: number)
 DEBUG_OUTPUT(VarHoldsBytesOfStorVarPlus)
+
 /**
   This is a heuristic, we use the "Final" forms of loaded vars
   (seeing when a variable from storage is no longer shifted or masked)
@@ -58,52 +61,26 @@ DEBUG_OUTPUT(VarHoldsBytesOfStorVarPlus)
 .decl VarHoldsBytesOfStorVarFinal(var: Variable, srcLoad: Statement, storVar: StorageConstruct, byteLow: number, byteHigh: number)
 DEBUG_OUTPUT(VarHoldsBytesOfStorVarFinal)
 
-VarHoldsBytesOfStorVarPlus(to, load, construct, 0, 0, 31),
-VarHoldsBytesOfStorVar(to, load, construct, 0, 31):-
+VarHoldsBytesOfStorVarPlus(to, load, construct, 0, 0, 31):-
   SLOAD(load, _, to),
   StorageStmtToIndexAndConstruct(load, "ACCESS", _, construct).
-  // SLOADOfConst(load, storVar, to).
 
 VarHoldsBytesOfStorVar(var, load, storVar, low, high):-
   VarHoldsBytesOfStorVarPlus(var, load, storVar, _, low, high).
-
-
-// VarHoldsBytesOfStorVar(to, sload, index, 0, 31):-
-//   SLOAD(sload, indexVar, to),
-//   Variable_StorageIndex(indexVar, index),
-//   IsStorageConstruct(["VAR", index]).
-
-// VarHoldsBytesOfStorVar(to, load, storVar, low + bytes, high):-
-//   VarHoldsBytesOfStorVar(shiftedVar, load, storVar, low, high),
-//   RShiftBytes(shiftedVar, to, bytes).
 
 VarHoldsBytesOfStorVarPlus(to, load, storVar, max(startByte - bytes, 0), low + bytes - startByte, high):-
   VarHoldsBytesOfStorVarPlus(shiftedVar, load, storVar, startByte, low, high),
   RShiftBytes(shiftedVar, to, bytes).
 
-// VarHoldsBytesOfStorVar(to, load, storVar, low, high - bytes):-
-//   VarHoldsBytesOfStorVar(shiftedVar, load, storVar, low, high),
-//   LShiftBytes(shiftedVar, to, bytes).
-
 VarHoldsBytesOfStorVarPlus(to, load, storVar, startByte + bytes, low, high + low - bytes - startByte):-
   VarHoldsBytesOfStorVarPlus(shiftedVar, load, storVar, startByte, low, high),
   LShiftBytes(shiftedVar, to, bytes).
-
-// VarHoldsBytesOfStorVar(to, load, storVar, low, newHigh):-
-//   VarHoldsBytesOfStorVar(var, load, storVar, low, high),
-//   newHigh = min(high, low + maskLen - 1),
-//   LowBytesMaskOp(var, to, maskLen).
 
 VarHoldsBytesOfStorVarPlus(to, load, storVar, startByte, low, newHigh):-
   VarHoldsBytesOfStorVarPlus(var, load, storVar, startByte, low, high),
   minKeptByte = min(startByte + high, startByte + low + maskLen - 1),
   newHigh =  minKeptByte - startByte,
   LowBytesMaskOp(var, to, maskLen).
-
-// VarHoldsBytesOfStorVar(to, load, storVar, newLow, high):-
-//   VarHoldsBytesOfStorVar(var, load, storVar, low, high),
-//   newLow = max(low, high - maskLen + 1),
-//   HighBytesMaskOp(var, to, maskLen).
 
 VarHoldsBytesOfStorVarPlus(to, load, storVar, startByte, newLow, high):-
   VarHoldsBytesOfStorVarPlus(var, load, storVar, startByte, low, high),
