@@ -20,6 +20,12 @@ DEBUG_OUTPUT(LShiftBytes)
 DEBUG_OUTPUT(CastedAndShiftedVar)
 
 /**
+  `toVar` is `fromVar` casted to `castedTo` bytes and then shifted to the right by `shiftedBy` bytes.
+*/
+.decl HighBytesCastedAndRightShiftedVar(fromVar: Variable, toVar: Variable, shiftedBy: number, castedTo: number)
+DEBUG_OUTPUT(HighBytesCastedAndRightShiftedVar)
+
+/**
   `toVar` is `fromVar` with the bytes higher than maskLen masked off.
   Used for casts to `uintX` and `address`.
 */
@@ -120,6 +126,9 @@ CastedAndShiftedVar(originVar, toVar, shiftedBy, castedTo):-
   LowBytesMaskOp(originVar, castedVar, castedTo),
   LShiftBytes(castedVar, toVar, shiftedBy).
 
+HighBytesCastedAndRightShiftedVar(originVar, toVar, shiftedBy, castedTo):-
+  HighBytesMaskOp(originVar, castedVar, castedTo),
+  RShiftBytes(castedVar, toVar, shiftedBy).
 /**
   Optimized pattern like so:
     0xa4: va4 = SHL v9f(0xa0), v84
