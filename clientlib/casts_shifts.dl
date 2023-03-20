@@ -84,7 +84,15 @@ BooleanCast(from, to):-
 /* Not actually a byte mask but a boolean cast */
 BooleanCast(from, to):-
   ISZERO(_, from, tmp),
-  ISZERO(_, tmp, to).
+  ISZERO(_, tmp, to),
+  !ISZERO(_, to, _).
+
+BooleanCast(from, to):-
+  ISZERO(_, from, tmp1),
+  ISZERO(_, tmp1, tmp2),
+  ISZERO(_, tmp2, tmp3),
+  ISZERO(_, tmp3, to),
+  !ISZERO(_, to, _).
 
 // Casts to signed integers
 SignedIntCast(from, to, @hex_to_number(numBytes) + 1):-
