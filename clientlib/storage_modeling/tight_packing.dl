@@ -1,11 +1,24 @@
 
+.init castsAndShiftsFlows = LocalFlowAnalysis
+castsAndShiftsFlows.TransferStmt(stmt):-
+  Statement_Opcode(stmt, "OR").
+
+castsAndShiftsFlows.TransferStmt(stmt):-
+  (AND(stmt, maskVar, _, _) ; AND(stmt, _, maskVar, _)),
+  BasicVariable_Value(maskVar, byteMask),
+  ValueIsByteMask(byteMask).
+
+// castsAndShiftsFlows.InitialFlowVar(v):- isVariable(v).
+castsAndShiftsFlows.TransferBoundary(b):- IsBlock(b).
+
 .decl SLOADFlowsToSSTORE(sload: Statement, sstore: Statement, construct: StorageConstruct)
 DEBUG_OUTPUT(SLOADFlowsToSSTORE)
 
 SLOADFlowsToSSTORE(sload, sstore, construct):-
   StorageStmtToIndexAndConstruct(sload, "ACCESS", _, construct),
   SLOAD(sload, _, loadedVar),
-  LocalFlows(loadedVar, storedVar),
+  //LocalFlows(loadedVar, storedVar),
+  castsAndShiftsFlows.Flows(loadedVar, storedVar),
   SSTORE(sstore, _, storedVar),
   StorageStmtToIndexAndConstruct(sstore, "ACCESS", _, construct).
 
