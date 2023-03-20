@@ -103,12 +103,17 @@ VarHoldsBytesOfStorVarPlus(to, load, storVar, startByte, newLow, high):-
 
 VarHoldsBytesOfStorVarFinal(var, load, storVar, low, high):-
   VarHoldsBytesOfStorVar(var, load, storVar, low, high),
-  !SLOADFlowsToSSTORE(load, _, _),
+  !SLOADFlowsToSSTORE(load, _, _), // This negation causes issues, trying to balance it out with the following rule
   !LShiftBytes(var, _, _),
   !RShiftBytes(var, _, _),
   !LowBytesMaskOp(var, _, _),
   !HighBytesMaskOp(var, _, _),
   !AntiMaskOp(var, _, _, _).
+
+
+VarHoldsBytesOfStorVarFinal(var, load, storVar, low, high):-
+  VarHoldsBytesOfStorVar(var, load, storVar, low, high),
+  (MSTORE(_, _, var); ActualArgs(_, var, _); ActualReturnArgs(_, var, _)).
 
 .decl AnyLoadStoreStorVarBytes(loadOrStore: Statement, storVar: StorageConstruct, low: number, high: number)
 DEBUG_OUTPUT(AnyLoadStoreStorVarBytes)
