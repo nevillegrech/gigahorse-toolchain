@@ -160,6 +160,33 @@ Variable_Value(to, val):-
   Dominates(storeBlock, loadBlock),
   Variable_Value(from, val).
 
+/**
+  Hack to work around two optimizations of the `--via-ir` pipeline:
+  1. The compiler tries to compress the stack, reusing popular constants (i.e. 0x0),
+  pushing them only at the function selector.
+  2. This can cause a stack too deep error, so these constants are stored at a constant offset instead
+*/
+.decl ConstantOffsetStoredOnlyOnce(mstore: Statement, addr: Value, storedValue: Value)
+DEBUG_OUTPUT(ConstantOffsetStoredOnlyOnce)
+
+.decl MSTOREToConstant(mstore: Statement, addr: Value)
+DEBUG_OUTPUT(MSTOREToConstant)
+
+MSTOREToConstant(mstore, addr):-
+  MSTORE(mstore, index, _),
+  BasicVariable_Value(index, addr).
+
+ConstantOffsetStoredOnlyOnce(mstore, addr, storedValue):-
+  MSTORE(mstore, index, storedVar),
+  BasicVariable_Value(index, addr),
+  1 = count : {MSTORE(_, index1, _), BasicVariable_Value(index1, addr)},
+  BasicVariable_Value(storedVar, storedValue).
+
+Variable_Value(loadedVar, storedValue):-
+  ConstantOffsetStoredOnlyOnce(mstore, addr, storedValue),
+  Statement_Function(mstore, "0x0"),
+  MLOAD(_, index, loadedVar),
+  BasicVariable_Value(index, addr).
 
 /**
   ECRECOVER solc bug
