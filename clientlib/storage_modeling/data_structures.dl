@@ -103,7 +103,7 @@ DEBUG_OUTPUT(ArrayLengthStatement)
 
 Variable_StorageIndex(var, $ConstantIndex(val)):-
   Variable_Value(var, val),
-  !ConstantToHashed(_, _, val). // May become restrictive in very rare cases, will reconsider
+  !StorageConstantToHash(_, _, val). // May become restrictive in very rare cases, will reconsider
 
 // If its the hash of a constant used in an SSTORE/SLOAD operation, its an array access
 Variable_StorageIndex(var, $ArrayDataStartIndex($ConstantIndex(val))):-
