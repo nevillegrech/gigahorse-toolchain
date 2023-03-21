@@ -121,7 +121,8 @@ VarHoldsBytesOfStorVarPlus(to, load, storVar, startByte, newLow, high):-
 
 VarHoldsBytesOfStorVarFinal(var, load, storVar, low, high):-
   VarHoldsBytesOfStorVar(var, load, storVar, low, high),
-  !SLOADFlowsToSSTORE(load, _, _), // This negation causes issues, trying to balance it out with the following rule
+  !VarFlowsFromSLOADToSSTORE(var, storVar),
+  // !SLOADFlowsToSSTORE(load, _, _), // This negation causes issues, trying to balance it out with the following rule
   !LShiftBytes(var, _, _),
   !RShiftBytes(var, _, _),
   !LowBytesMaskOp(var, _, _),
