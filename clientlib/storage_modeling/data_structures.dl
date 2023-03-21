@@ -102,8 +102,13 @@ DEBUG_OUTPUT(StorageStmtToIndexAndConstruct)
 DEBUG_OUTPUT(ArrayLengthStatement)
 
 Variable_StorageIndex(var, $ConstantIndex(val)):-
-  Variable_Value(var, val).
+  Variable_Value(var, val),
+  !ConstantToHashed(_, _, val). // May become restrictive in very rare cases, will reconsider
 
+// If its the hash of a constant used in an SSTORE/SLOAD operation, its an array access
+Variable_StorageIndex(var, $ArrayDataStartIndex($ConstantIndex(val))):-
+  Variable_Value(var, hash),
+  StorageConstantToHash(val, _, hash).
 
 // REVIEW: Addition does not handle ArrayDataStartIndex
 Variable_StorageIndex(def, $OffsetIndex(index, @hex_to_number(const))):-
@@ -201,6 +206,11 @@ StorageIndexPredecesor(index, predIndex):-
 UsedStorageIndex(index):-
   ActualStorageIndex(index),
   !StorageIndex_ParentIndexExclOffset(_, index).
+
+// Goes against our logic, allows conflicts due to bad decompilation
+// UsedStorageIndex(index):-
+//   ActualStorageIndex(index),
+//   StorageIndex_ParentIndexExclOffset($MappingAccessIndex(index, _), index).
 
 ActualStorageIndex(parentIndex):-
   ActualStorageIndex(index),
@@ -371,3 +381,17 @@ BytesOrStringLength(storVar, lenVar):-
   (AND(_, minOne, storLoad, almost) ; AND(_, storLoad, minOne, almost)),
   DIV(_, almost, twoVar, lenVar),
   Variable_Value(twoVar, "0x2").
+
+/**
+  A constant that flows to storage (possibly an array) to the result of its keccak256 hash.
+  This is needed to model optimized array patterns produced by the `--via-ir` pipeline.
+*/
+.decl StorageConstantToHash(const: Value, zeroPaded: symbol, hash: Value)
+DEBUG_OUTPUT(StorageConstantToHash)
+
+StorageConstantToHash(const, zeroPaded, as(@hex_keccak_256(zeroPaded), Value)):-
+  StorageAccessOp(_, var),
+  BasicVariable_Value(var, const),
+  cut = substr(const, 2, strlen(const) - 2),
+  Helper_Zeros(zeros, 64 - strlen(cut)),
+  zeroPaded = cat("0x", cat(zeros, cut)).

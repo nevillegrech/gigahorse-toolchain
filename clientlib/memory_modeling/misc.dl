@@ -38,15 +38,10 @@ DEBUG_OUTPUT(Helper_BigValueFilter)
 DEBUG_OUTPUT(Helper_Zeros)
 
 Helper_Zeros("", 0).
-Helper_Zeros("0", 1).
-Helper_Zeros("00", 2).
-Helper_Zeros("000", 3).
-Helper_Zeros("0000", 4).
-Helper_Zeros("00000", 5).
-Helper_Zeros("000000", 6).
-Helper_Zeros("0000000", 7).
-Helper_Zeros("00000000", 8).
-Helper_Zeros("000000000", 9).
+
+Helper_Zeros(cat(prev, "0"), i + 1):-
+  Helper_Zeros(prev, i), i <= 63.
+
 
 /**
   The function selector is 4 bytes that are in the begining of calldata
