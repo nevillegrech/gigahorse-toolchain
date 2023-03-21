@@ -11,8 +11,14 @@ castsAndShiftsFlows.TransferStmt(stmt):-
 // castsAndShiftsFlows.InitialFlowVar(v):- isVariable(v).
 castsAndShiftsFlows.TransferBoundary(b):- IsBlock(b).
 
+.decl FlowsToSSTOREOfConstruct(var: Variable, construct: StorageConstruct)
+DEBUG_OUTPUT(FlowsToSSTOREOfConstruct)
+
 .decl SLOADFlowsToSSTORE(sload: Statement, sstore: Statement, construct: StorageConstruct)
 DEBUG_OUTPUT(SLOADFlowsToSSTORE)
+
+.decl VarFlowsFromSLOADToSSTORE(var: Variable, construct: StorageConstruct)
+DEBUG_OUTPUT(VarFlowsFromSLOADToSSTORE)
 
 SLOADFlowsToSSTORE(sload, sstore, construct):-
   StorageStmtToIndexAndConstruct(sload, "ACCESS", _, construct),
@@ -21,6 +27,18 @@ SLOADFlowsToSSTORE(sload, sstore, construct):-
   castsAndShiftsFlows.Flows(loadedVar, storedVar),
   SSTORE(sstore, _, storedVar),
   StorageStmtToIndexAndConstruct(sstore, "ACCESS", _, construct).
+
+VarFlowsFromSLOADToSSTORE(var, construct):-
+  SLOADFlowsToSSTORE(sload, sstore, construct),
+  SLOAD(sload, _, loadedVar),
+  castsAndShiftsFlows.Flows(loadedVar, var),
+  castsAndShiftsFlows.Flows(var, storedVar),
+  SSTORE(sstore, _, storedVar).
+
+FlowsToSSTOREOfConstruct(var, construct):-
+  StorageStmtToIndexAndConstruct(sstore, "ACCESS", _, construct),
+  SSTORE(sstore, _, storedVar),
+  LocalFlows(var, storedVar).
 
 .decl SLOADOfConst(sload: Statement, const: Value, var: Variable)
 .decl SSTOREToConst(sstore: Statement, const: Value, var: Variable)
@@ -207,12 +225,14 @@ DEBUG_OUTPUT(ConstWrittenToBytesOfStorVar)
 ProbablyPartialStorageUpdatePattern(fromVar, toVar, "VAR", writtenVar, byteLow, byteLow + castedTo - 1):-
   CastedAndShiftedVar(writtenVar, castedNShifted, byteLow, castedTo),
   (OR(_, castedNShifted, fromVar, toVar) ; OR(_, fromVar, castedNShifted, toVar)),
-  !SLOAD(_, _, writtenVar). // TODO: Refine this
+  FlowsToSSTOREOfConstruct(writtenVar, construct),
+  !VarFlowsFromSLOADToSSTORE(writtenVar, construct).
 
 ProbablyPartialStorageUpdatePattern(fromVar, toVar, "VAR", writtenVar, 0, byteHigh - 1):-
   LowBytesMaskOp(writtenVar, castedVar, byteHigh),
   (OR(_, castedVar, fromVar, toVar) ; OR(_, fromVar, castedVar, toVar)),
-  !SLOAD(_, _, writtenVar). // TODO: Refine this
+  FlowsToSSTOREOfConstruct(writtenVar, construct),
+  !VarFlowsFromSLOADToSSTORE(writtenVar, construct).
 
 // ProbablyPartialStorageUpdatePattern(fromVar, toVar, "VAR", writtenVar, byteLow, byteLow + castedTo - 1):-
 //   HighBytesCastedAndRightShiftedVar(writtenVar, castedNShifted, byteLow, castedTo),
