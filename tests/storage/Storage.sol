@@ -13,6 +13,7 @@ contract MergedVars {
 
     function update(address newOwner, bool newFlag) external {
         owner = newOwner;
+        number = 0;
         flag = newFlag;
     }
 
@@ -34,12 +35,14 @@ contract MergedVars2 {
     int8 public signed;
     int16 public signed2;
     uint8 public number;
+    bytes7 public bitvar;
     bool public flag;
 
-    function update(address newOwner, uint8 newNumber, bool newFlag) external {
+    function update(address newOwner, uint8 newNumber, bool newFlag, bytes7 newBit) external {
         owner = newOwner;
         number = newNumber;
         flag = newFlag;
+        bitvar = newBit;
     }
 
     function update(ValueProvider provider) external {
@@ -91,6 +94,14 @@ contract MergedArray {
         bool flag;
     }
     Info[] public owners;
+
+    function add(address owner, uint8 number, bool flag) external {
+        owners.push(Info({
+            owner: owner,
+            number: number,
+            flag: flag
+        }));
+    }
 }
 
 contract TwoWordValueArray {
@@ -100,6 +111,25 @@ contract TwoWordValueArray {
     }
     Info[] public vals;
     address public owner;
+}
+
+contract MergedMapping {
+    struct Info {
+        address owner;
+        uint8 number;
+        bool flag;
+        bytes24 word2;
+    }
+    mapping (address => Info) public owners;
+
+    function add(address owner, uint8 number, bool flag, bytes24 word2) external {
+        owners[msg.sender] = Info({
+            owner: owner,
+            number: number,
+            flag: flag,
+            word2: word2
+        });
+    }
 }
 
 contract NestedMapping {
@@ -131,4 +161,33 @@ contract Complex {
         return admins[key1].mp[key2];
     }
 
+}
+
+contract PrivateMergedVars {
+    address public owner;
+    uint8 public number;
+    bool public flag;
+    mapping (address => uint) private nonces;
+
+    function update(address newOwner, uint8 newNumber, bool newFlag) external {
+        owner = newOwner;
+        number = newNumber;
+        flag = newFlag;
+    }
+
+    function update(address newOwner, bool newFlag) external {
+        owner = newOwner;
+        number = 0;
+        flag = newFlag;
+    }
+
+    function update2(address newOwner, bool newFlag) external {
+        owner = newOwner;
+        number = 131;
+        flag = newFlag;
+    }
+
+    function getNonce(address ad) external view returns (uint){
+        return nonces[ad];
+    }
 }
