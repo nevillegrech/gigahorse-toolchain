@@ -27,7 +27,7 @@
 /**
   Syntactic translation of `StorageIndex` to `StorageConstruct`
 */
-.decl StorageIndex_StorageConstruct(index: StorageIndex, construct: StorageConstruct)
+.decl StorageIndex_StorageConstruct(index: StorageIndex, construct: StorageConstruct) //btree_delete
 
 /**
   Contais all __possible__ storage indexes.
@@ -100,6 +100,7 @@ DEBUG_OUTPUT(StorageIndex_HighLevelUses)
 DEBUG_OUTPUT(StorageIndex_ParentIndex)
 DEBUG_OUTPUT(StorageStmtToIndexAndConstruct)
 DEBUG_OUTPUT(ArrayLengthStatement)
+DEBUG_OUTPUT(StructToStringUpTo)
 
 Variable_StorageIndex(var, $ConstantIndex(val)):-
   Variable_Value(var, val),
@@ -161,7 +162,15 @@ StorageIndex_StorageConstruct($MappingAccessIndex(parentIndex, highLevelIndex), 
   StorageIndex_StorageConstruct(parentIndex, parentCons).
 
 StorageIndex_StorageConstruct($OffsetIndex(parentIndex, offset), $Offset(parentCons, offset)):-
-  ActualStorageIndex($OffsetIndex(parentIndex, offset)),
+  ActualStorageIndex($OffsetIndex(parentIndex, offset)), offset != 0,
+  StorageIndex_StorageConstruct(parentIndex, parentCons).
+
+/**
+  We're treating 0 differently to avoid ambiguity between cons+0 and cons
+  Otherwise we'd have to normalize the results after all created constructs are created.
+*/
+StorageIndex_StorageConstruct($OffsetIndex(parentIndex, 0), parentCons):-
+  ActualStorageIndex($OffsetIndex(parentIndex, 0)),
   StorageIndex_StorageConstruct(parentIndex, parentCons).
 
 ActualStorageIndex(index):-
