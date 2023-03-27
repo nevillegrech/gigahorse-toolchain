@@ -162,19 +162,26 @@ Variable_Value(to, val):-
   2. This can cause a stack too deep error, so these constants are stored at a constant offset instead
 */
 .decl ConstantOffsetStoredOnlyOnce(mstore: Statement, addr: Value, storedValue: Value)
-DEBUG_OUTPUT(ConstantOffsetStoredOnlyOnce)
+.output ConstantOffsetStoredOnlyOnce
 
-.decl MSTOREToConstant(mstore: Statement, addr: Value)
-DEBUG_OUTPUT(MSTOREToConstant)
+/**
+  Stores to the constant offsets reserved by the memory mover
+*/
+.decl MSTOREToReservedLocation(mstore: Statement, addr: Value)
+DEBUG_OUTPUT(MSTOREToReservedLocation)
 
-MSTOREToConstant(mstore, addr):-
+MSTOREToReservedLocation(mstore, addr):-
+  MemoryMoverProbablyUsed(initValue),
   MSTORE(mstore, index, _),
-  BasicVariable_Value(index, addr).
+  BasicVariable_Value(index, addr),
+  // Ensure its within the area used by the memory mover
+  @hex_to_number(addr) >= 128,
+  @hex_to_number(addr) < initValue - 31.
 
 ConstantOffsetStoredOnlyOnce(mstore, addr, storedValue):-
-  MSTORE(mstore, index, storedVar),
-  BasicVariable_Value(index, addr),
-  1 = count : {MSTORE(_, index1, _), BasicVariable_Value(index1, addr)},
+  MSTOREToReservedLocation(mstore, addr),
+  1 = count : {MSTOREToReservedLocation(_, addr)},
+  MSTORE(mstore, _, storedVar),
   BasicVariable_Value(storedVar, storedValue).
 
 Variable_Value(loadedVar, storedValue):-
@@ -182,6 +189,20 @@ Variable_Value(loadedVar, storedValue):-
   Statement_Function(mstore, "0x0"),
   MLOAD(_, index, loadedVar),
   BasicVariable_Value(index, addr).
+
+.decl FreeMemoryPointerInitialization(mstore: Statement, initValue: number)
+FreeMemoryPointerInitialization(mstore, @hex_to_number(initValue)):-
+  MSTORE(mstore, index, storedVar),
+  Statement_Function(mstore, "0x0"),
+  BasicVariable_Value(index, "0x40"),
+  BasicVariable_Value(storedVar, initValue).
+
+.decl MemoryMoverProbablyUsed(initValue: number)
+.output MemoryMoverProbablyUsed
+
+MemoryMoverProbablyUsed(initValue):-
+  FreeMemoryPointerInitialization(_, initValue),
+  initValue > 128.
 
 /**
   ECRECOVER solc bug
