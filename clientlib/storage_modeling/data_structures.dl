@@ -298,7 +298,7 @@ StructToStringUpTo(structID, cat(prev, cat(" ", decl)), i + 1):-
   StructToStringUpTo(structID, prev, i),
   StorageConstruct_ParentAndOffset(child, cons, i + 1),
   (StorageVariable_Type(child, type); DataStructure_Type(child, type)),
-  name = cat("field_", to_string(i + 1)),
+  name = cat("field", to_string(i + 1)),
   decl = cat(type, cat(" ", cat(name, ";"))).
 
 StructToString(structID, cat(prev, " }")):-
