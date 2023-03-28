@@ -162,7 +162,7 @@ Variable_Value(to, val):-
   2. This can cause a stack too deep error, so these constants are stored at a constant offset instead
 */
 .decl ConstantOffsetStoredOnlyOnce(mstore: Statement, addr: Value, storedValue: Value)
-.output ConstantOffsetStoredOnlyOnce
+DEBUG_OUTPUT(ConstantOffsetStoredOnlyOnce)
 
 /**
   Stores to the constant offsets reserved by the memory mover
@@ -198,7 +198,7 @@ FreeMemoryPointerInitialization(mstore, @hex_to_number(initValue)):-
   BasicVariable_Value(storedVar, initValue).
 
 .decl MemoryMoverProbablyUsed(initValue: number)
-.output MemoryMoverProbablyUsed
+DEBUG_OUTPUT(MemoryMoverProbablyUsed)
 
 MemoryMoverProbablyUsed(initValue):-
   FreeMemoryPointerInitialization(_, initValue),
@@ -208,7 +208,7 @@ MemoryMoverProbablyUsed(initValue):-
   ECRECOVER solc bug
 **/
 .decl EcrecoverCompilerBug(insn:Statement)
-.output EcrecoverCompilerBug
+
 
 .decl StoreFreeMemPtrToMemZero(insn:Statement)
 
