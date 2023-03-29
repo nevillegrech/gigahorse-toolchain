@@ -12,13 +12,38 @@ DEBUG_OUTPUT(RShiftBytes)
 .decl LShiftBytes(fromVar: Variable, toVar: Variable, numBytes: number)
 DEBUG_OUTPUT(LShiftBytes)
 
-// `toVar` is `fromVar` casted to `castedTo` bytes and then shifted to the left by `shiftedBy` bytes
+/**
+  `toVar` is `fromVar` casted to `castedTo` bytes and then shifted to the left by `shiftedBy` bytes.
+  Also supports a different order with `fromVar` first shifted, then masked with a shifted mask.
+*/
 .decl CastedAndShiftedVar(fromVar: Variable, toVar: Variable, shiftedBy: number, castedTo: number)
 DEBUG_OUTPUT(CastedAndShiftedVar)
 
-// `toVar` is `fromVar` with the bytes higher than maskLen masked off
+/**
+  `toVar` is `fromVar` casted to `castedTo` bytes and then shifted to the right by `shiftedBy` bytes.
+*/
+.decl HighBytesCastedAndRightShiftedVar(fromVar: Variable, toVar: Variable, shiftedBy: number, castedTo: number)
+DEBUG_OUTPUT(HighBytesCastedAndRightShiftedVar)
+
+/**
+  `toVar` is `fromVar` with the bytes higher than maskLen masked off.
+  Used for casts to `uintX` and `address`.
+*/
 .decl LowBytesMaskOp(fromVar: Variable, toVar: Variable, maskLen: number)
 DEBUG_OUTPUT(LowBytesMaskOp)
+
+/**
+  `toVar` is `fromVar` with the bytes lower than maskLen masked off.
+  Used for casts to `bytesX`.
+*/
+.decl HighBytesMaskOp(fromVar: Variable, toVar: Variable, maskLen: number)
+DEBUG_OUTPUT(HighBytesMaskOp)
+
+.decl SignedIntCast(fromVar: Variable, toVar: Variable, width: number)
+DEBUG_OUTPUT(SignedIntCast)
+
+.decl BooleanCast(fromVar: Variable, toVar: Variable)
+DEBUG_OUTPUT(BooleanCast)
 
 .decl VarsEqualOrMasked(var1: Variable, var2: Variable)
 DEBUG_OUTPUT(VarsEqualOrMasked)
@@ -35,17 +60,44 @@ DEBUG_OUTPUT(VarsEqualOrMasked)
 .decl AntiMaskOp(fromVar: Variable, toVar: Variable, byteLow: number, byteHigh: number) 
 DEBUG_OUTPUT(AntiMaskOp)
 
-/* Not actually a byte mask but a boolean cast */
-LowBytesMaskOp(from, to, 1):-
-  ISZERO(_, from, tmp),
-  ISZERO(_, tmp, to).
-
-
 LowBytesMaskOp(from, to, castedTo):-
   ValueIsByteMask(mask),
   Mask_Length(mask, castedTo),
   BasicVariable_Value(maskVar, mask),
   (AND(_, from, maskVar, to) ; AND(_, maskVar, from, to)).
+
+LowBytesMaskOp(from, to, 1):-
+  BooleanCast(from, to).
+
+LowBytesMaskOp(from, to, width):-
+  SignedIntCast(from, to, width).
+
+HighBytesMaskOp(var, masked, 32 - keepLow):-
+  ByteMaskOpKeepRange(var, masked, [keepLow, 31]),
+  ByteMaskOpMaskRange(var, masked, [0, keepLow - 1]).
+
+// Hack for boolean masks.
+BooleanCast(from, to):-
+  BasicVariable_Value(maskVar, "0xf"),
+  (AND(_, from, maskVar, to) ; AND(_, maskVar, from, to)).
+
+/* Not actually a byte mask but a boolean cast */
+BooleanCast(from, to):-
+  ISZERO(_, from, tmp),
+  ISZERO(_, tmp, to),
+  !ISZERO(_, to, _).
+
+BooleanCast(from, to):-
+  ISZERO(_, from, tmp1),
+  ISZERO(_, tmp1, tmp2),
+  ISZERO(_, tmp2, tmp3),
+  ISZERO(_, tmp3, to),
+  !ISZERO(_, to, _).
+
+// Casts to signed integers
+SignedIntCast(from, to, @hex_to_number(numBytes) + 1):-
+  SIGNEXTEND(_, numBytesVar, from, to),
+  BasicVariable_Value(numBytesVar, numBytes).
 
 AntiMaskOp(originVar, to, byteLow, byteHigh):-
   (AND(_, antiMaskVar, originVar, to) ; AND(_, originVar, antiMaskVar, to)),
@@ -82,6 +134,25 @@ CastedAndShiftedVar(originVar, toVar, shiftedBy, castedTo):-
   LowBytesMaskOp(originVar, castedVar, castedTo),
   LShiftBytes(castedVar, toVar, shiftedBy).
 
+HighBytesCastedAndRightShiftedVar(originVar, toVar, shiftedBy, castedTo):-
+  HighBytesMaskOp(originVar, castedVar, castedTo),
+  RShiftBytes(castedVar, toVar, shiftedBy).
+/**
+  Optimized pattern like so:
+    0xa4: va4 = SHL v9f(0xa0), v84
+    0xa9: va9(0xff0000000000000000000000000000000000000000) = SHL va7(0xa0), va5(0xff)
+    0xaa: vaa = AND va9(0xff0000000000000000000000000000000000000000), va4
+*/
+CastedAndShiftedVar(originVar, toVar, shiftedBy, castedTo):-
+  LShiftBytes(originVar, shiftedVar, shiftedBy),
+  shiftBits = @mul_256("0x8", @number_to_hex(shiftedBy)),
+  (AND(_, shiftedVar, maskVar, toVar) ; AND(_, maskVar, shiftedVar, toVar)),
+  BasicVariable_Value(maskVar, shiftedMask),
+  unshiftedMask = as(@shr_256(shiftBits, shiftedMask), Value),
+  ValueIsByteMask(unshiftedMask),
+  castedTo = strlen(unshiftedMask)/2 - 1,
+  as(@shl_256(shiftBits, unshiftedMask), Value) = shiftedMask.
+
 // Hack
 CastedAndShiftedVar(caller, caller, 0, 20):-
   CALLER(_, caller).
@@ -99,7 +170,7 @@ VarsEqualOrMasked(var1, var2):-
 
 // `value`s that are used to perform shift operations via `MUL`/`DIV` 
 .decl ShiftConst(value: Value, shiftBytes: number)
-.decl ValueWithEvenLength(val: Value, len: number)
+.decl Value_Length(val: Value, len: number)
 // `masksOrKeeps` is 0 if the `byte` is `00`, 1 if the `byte` is `ff`, -1 otherwise
 .decl ValueMasksOrKeepsByteAtIndex(val: Value, masksOrKeeps: number, byte: number)
 // All bytes of `value` are either `00` or `ff`
@@ -123,26 +194,47 @@ ShiftConst("0x1", 0).
 ShiftConst(val, n+1):-
   ShiftConst(oldVal, n),
   val = cat(oldVal, "00"),
-  n < 30.
+  n <= 30.
 
 
-ValueWithEvenLength(val, len):-
-  BasicVariable_Value(_, val),
-  len = strlen(val),
-  len % 2 = 0.
+// For completeness considers values in the program and masks that may not appear as they are (may be shifted)
+// Value_ByteLength(val, len/2 + len%2):-
+Value_Length(val, len):-
+  (BasicVariable_Value(_, val); Mask_Length(val, _)),
+  len = strlen(val).
 
-ValueMasksOrKeepsByteAtIndex(val, res, (len - i - 2)/2):-
-  ValueWithEvenLength(val, len),
-  i = range(2, len - 1, 2),
-  sub = substr(val, i, 2),
+.decl Value_GetByte(val: Value, byteVal: symbol, byte: number)
+DEBUG_OUTPUT(Value_GetByte)
+Value_GetByte(val, byteVal, byte):-
+  Value_Length(val, len),
+  len % 2 = 0,
+  byteLen = len/2 - 1,
+  byte = range(0, byteLen, 1),
+  byteVal = substr(val, len - 2*byte -2, 2).
+
+Value_GetByte(val, byteVal, byte):-
+  Value_Length(val, len),
+  len % 2 = 1,
+  byteLen = len/2,
+  byte = range(0, byteLen-1, 1),
+  byteVal = substr(val, len - 2*byte -2, 2).
+
+Value_GetByte(val, byteVal, len/2 - 1):-
+  Value_Length(val, len),
+  len % 2 = 1,
+  byteVal = substr(val, 2, 1).
+
+ValueMasksOrKeepsByteAtIndex(val, res, byte):-
+  Value_GetByte(val, byteVal, byte),
   (
-    (sub = "ff", res = 1) ;
-    (sub = "00", res = 0) ;
-    (sub != "00", sub != "ff", res = -1)
+    (byteVal = "ff", res = 1) ;
+    (byteVal = "00", res = 0) ;
+    (byteVal != "00", byteVal != "ff", res = -1)
   ).
 
 ValueIsByteMask(val):-
-  ValueWithEvenLength(val, _),
+  Value_Length(val, len),
+  len % 2 = 0,
   !ValueMasksOrKeepsByteAtIndex(val, -1, _).
 
 ByteMask_ZerosMinMax(val, minV, maxV):-
@@ -156,6 +248,72 @@ ValueIsNotAntiByteMask(val):-
   i >= low,
    i < high.
 
+// AntiByteMask(val, low, high):-
+//   ByteMask_ZerosMinMax(val, low, high),
+//   !ValueIsNotAntiByteMask(val).
+
 AntiByteMask(val, low, high):-
-  ByteMask_ZerosMinMax(val, low, high),
-  !ValueIsNotAntiByteMask(val).
+  ByteMask_MaskRange(val, [low, high]).
+
+.type Range = [from: number, to: number]
+
+.decl ByteMask_KeepRange(mask: Value, keepRange: Range)
+DEBUG_OUTPUT(ByteMask_KeepRange)
+
+ByteMask_KeepRange(mask, [i, j]):-
+  ValueIsByteMask(mask),
+  ValueMasksOrKeepsByteAtIndex(mask, 1, i),
+  !ValueMasksOrKeepsByteAtIndex(mask, 1, i - 1),
+  ValueMasksOrKeepsByteAtIndex(mask, 1, j),
+  !ValueMasksOrKeepsByteAtIndex(mask, 1, j + 1),
+  i <= j,
+  1 + j - i = count : {ValueMasksOrKeepsByteAtIndex(mask, 1, k), i <= k, k <= j}.
+
+
+.decl ByteMask_MaskRange(mask: Value, maskRange: Range)
+DEBUG_OUTPUT(ByteMask_MaskRange)
+
+ByteMask_MaskRange(mask, [i, j]):-
+  ValueIsByteMask(mask),
+  ValueMasksOrKeepsByteAtIndex(mask, 0, i),
+  !ValueMasksOrKeepsByteAtIndex(mask, 0, i - 1),
+  ValueMasksOrKeepsByteAtIndex(mask, 0, j),
+  !ValueMasksOrKeepsByteAtIndex(mask, 0, j + 1),
+  i <= j,
+  1 + j - i = count : {ValueMasksOrKeepsByteAtIndex(mask, 0, k), i <= k, k <= j}.
+
+ByteMask_MaskRange(mask, [numOfBytes, 31]):-
+  ValueIsByteMask(mask),
+  numOfBytes = strlen(mask)/2 - 1,
+  numOfBytes < 32.
+
+.decl ByteMaskOpKeepRange(var: Variable, masked: Variable, keepRange: Range)
+DEBUG_OUTPUT(ByteMaskOpKeepRange)
+
+.decl ByteMaskOpMaskRange(var: Variable, masked: Variable, maskRange: Range)
+DEBUG_OUTPUT(ByteMaskOpMaskRange)
+
+ByteMaskOpKeepRange(var, masked, keepRange):-
+  (AND(_, maskVar, var, masked) ; AND(_, var, maskVar, masked)),
+  BasicVariable_Value(maskVar, byteMask),
+  ByteMask_KeepRange(byteMask, keepRange).
+
+ByteMaskOpMaskRange(var, masked, keepRange):-
+  (AND(_, maskVar, var, masked) ; AND(_, var, maskVar, masked)),
+  BasicVariable_Value(maskVar, byteMask),
+  ByteMask_MaskRange(byteMask, keepRange).
+
+/**
+  Constant `val` is `baseVal` shifted to the left by `shiftBytes`.
+*/
+.decl ConstantProbablyShifted(val: Value, baseVal: Value, shiftBytes: number)
+DEBUG_OUTPUT(ConstantProbablyShifted)
+
+ConstantProbablyShifted(val, baseVal, shiftBytes):-
+  Value_Length(val, len),
+  ValueMasksOrKeepsByteAtIndex(val, 0, 0),
+  ValueMasksOrKeepsByteAtIndex(val, 0, j),
+  !ValueMasksOrKeepsByteAtIndex(val, 0, j + 1),
+  j = count : {ValueMasksOrKeepsByteAtIndex(val, 0, k), k < j},
+  shiftBytes = j + 1,
+  baseVal = substr(val, 0, len - 2*shiftBytes).

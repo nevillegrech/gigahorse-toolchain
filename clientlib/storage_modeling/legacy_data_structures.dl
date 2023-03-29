@@ -1,0 +1,168 @@
+
+.decl LocalAlias(stmt1:Statement, var1:Variable, stmt2:Statement, var2:Variable)
+
+LocalAlias(stmt1, var1, stmt2, var2) :-
+  PostDominatesInBlock(stmt2, stmt1),
+  Statement_Uses(stmt1, var1, _),
+  Statement_Uses(stmt2, var2, _),
+  Variable_Value(var1, val),
+  Variable_Value(var2, val).
+      
+.decl KeyToOffset(keyVar:Variable, storeOffsetVar:Variable, keySize: Value)
+.decl NestedDataStructure(keyVar:Variable, storeOffsetVar:Variable, keySize: Value)
+
+// keyVar is a variable whose valued is SHA3ed to yield storeOffsetVar
+// In the case of an array, only a "fixed" offset is SHA'd
+// In the case of a map, a "key" is appended to a "fixed" offset and SHA'd.
+// We mostly ignore maps for now as these cannot be iterated
+// TODO: use alias analysis to improve soundness/precision
+
+.decl DataStructuresTempStmt(stmt: Statement)
+
+DataStructuresTempStmt(mstoreStmt),
+DataStructuresTempStmt(shaStmt),
+KeyToOffset(keyVar, storeOffsetVar, keySize) :-
+  SHA3(shaStmt, shaStart, keySizeVar, storeOffsetVar),
+  LocalAlias(mstoreStmt, shaStart2, shaStmt, shaStart),
+  MSTORE(mstoreStmt, shaStart2, keyVar),
+  Variable_Value(keySizeVar, keySize),
+  DataFlows(storeOffsetVar, index),
+  StorageAccessOp(_, index).
+
+// Same, but in this instance storage is not used
+DataStructuresTempStmt(mstoreStmt),
+DataStructuresTempStmt(shaStmt),
+KeyToOffset(keyVar, storeOffsetVar, keySize) :-
+  SHA3(shaStmt, shaStart, keySizeVar, storeOffsetVar),
+  LocalAlias(mstoreStmt, shaStart2, shaStmt, shaStart),
+  MSTORE(mstoreStmt, shaStart2, keyVar),
+  Variable_Value(keySizeVar, keySize),
+  KeyToOffset(_, _, keySize).
+
+
+NestedDataStructure(keyVar1, storeOffsetVar2, keySize),
+KeyToOffset(keyVar1, storeOffsetVar2, keySize) :-
+  KeyToOffset(keyVar1, storeOffsetVar1, _),
+  DataFlows(storeOffsetVar1, keyVar2),
+  KeyToOffset(keyVar2, storeOffsetVar2, keySize).
+//#endif
+
+
+.decl StorageAccessOp(stmt: Statement, index: Variable)
+
+StorageAccessOp(stmt, index):-
+  SSTORE(stmt, index, _) ;
+  SLOAD(stmt, index, _).      
+
+.decl ArrayIdToStorageIndex(c:Value, storeOffsetVar:Variable)
+
+// the constant value that’s SHA3ed to yield storeOffsetVar is c
+ArrayIdToStorageIndex(const, storeOffsetVar) :-
+   // Remember that the length of a key is the same as the word length (32)
+   KeyToOffset(keyVar, storeOffsetVar, "0x20"),
+   Variable_Value(keyVar, const).
+
+.decl MapKeyToStorageIndex(keyVar:Variable, storeOffsetVar:Variable)
+
+MapKeyToStorageIndex(keyVar, storeOffsetVar) :-
+   KeyToOffset(keyVar, storeOffsetVar, "0x40").
+
+.decl MapIdToStorageIndex(keyVar:Value, storeOffsetVar:Variable)
+
+DataStructuresTempStmt(mstoreStmt),
+MapIdToStorageIndex(mapId, storeOffsetVar) :-
+   KeyToOffset(_, storeOffsetVar, "0x40"),
+   MSTORE(mstoreStmt, mstoreStart, idVar),
+   Variable_Value(mstoreStart, "0x20"),
+   Statement_Defines(shaStmt, storeOffsetVar, _),
+   PostDominatesInBlock(shaStmt, mstoreStmt),
+   Variable_Value(idVar, mapId).
+
+.decl MapElementStmt(stmt: Statement, id: Value, keyVar: Variable)
+
+MapElementStmt(stmt, id, keyVar) :-
+   (SSTORE(stmt, index, _) ; SLOAD(stmt, index, _)),
+   MapIdToStorageIndex(id, index),
+   MapKeyToStorageIndex(keyVar, index).
+
+/***
+ Map with string keys
+****/
+DEBUG_OUTPUT(MapElementStmt)
+
+#ifdef MEMORY_MODELING_SUPPORT
+MapElementStmt(stmt, mapId, fromArray):-
+  (SSTORE(stmt, storeIndex, _) ; SLOAD(stmt, storeIndex, _)),
+  SHA3(_, arrVar, _, storeIndex),
+  RawDataArrayVar_ClassRep(arrVar, arrId),
+  ArrayCopy(_, fromArray, arrId),
+  (ArrayStore(_, arrId, mapIdVar); ArrayStoreAtIndex(_, arrId, _, mapIdVar)),
+  Variable_Value(mapIdVar, mapId).
+
+MapElementStmt(stmt, mapId, arrId):-
+  (SSTORE(stmt, storeIndex, _) ; SLOAD(stmt, storeIndex, _)),
+  SHA3(_, dataStartVar, _, storeIndex),
+  ArrayDataStartVar(arrVar, dataStartVar),
+  VarIsArray(arrVar, arrId),
+  (ArrayStore(_, arrId, mapIdVar); ArrayStoreAtIndex(_, arrId, _, mapIdVar)),
+  Variable_Value(mapIdVar, mapId).
+#endif
+                
+.decl MapElementElementStmt(stmt: Statement, id: Value, keyVar: Variable, element: Variable)
+
+MapElementElementStmt(stmt, id, keyVar, elementVar) :-
+   (SSTORE(stmt, storeIndex, _) ; SLOAD(stmt, storeIndex, _)),
+   (ADD(_, index, elementVar, storeIndex) ; ADD(_, elementVar, index, storeIndex)),
+   MapIdToStorageIndex(id, index),
+   MapKeyToStorageIndex(keyVar, index).
+
+.decl ArrayElementStmt(stmt: Statement, id: Value, indexVar: Variable)
+
+ArrayElementStmt(stmt, id, keyVar) :-
+   (SSTORE(stmt, storeIndex, _) ; SLOAD(stmt, storeIndex, _)),
+   (ADD(_, index, keyVar, storeIndex) ; ADD(_, keyVar, index, storeIndex)),
+   ArrayIdToStorageIndex(id, index).
+
+.decl ArraySizeStmt(stmt:Statement, const:Value)
+
+ArraySizeStmt(stmt, const) :-
+  (SLOAD(stmt, index, _) ; SSTORE(stmt, index, _)),
+  Variable_Value(index, const),
+  ArrayIdToStorageIndex(const, _).
+
+.decl AppendToArray(storeStmt: Statement, const: Value)
+
+AppendToArray(storeStmt, const) :-
+  ArrayIdToStorageIndex(const, index),
+  Variable_Value(sizeIndex, const),
+  SLOAD(_, sizeIndex, size), // TODO check 
+  DataFlows(size, newIndex),
+  DataFlows(index, newIndex),
+  SSTORE(storeStmt, newIndex, _). 
+
+.decl LoadFromDataStructure(stmt: Statement, id: Value, keyVar: Variable, var: Variable)
+.decl StoreToDataStructure(stmt: Statement, id: Value, var: Variable)
+
+
+LoadFromDataStructure(stmt, id, keyVar, var) :-
+   (MapElementStmt(stmt, id, keyVar) ;
+    ArrayElementStmt(stmt, id, keyVar) ;
+    MapElementElementStmt(stmt, id, keyVar, _)),
+  SLOAD(stmt, _, var).
+
+
+StoreToDataStructure(stmt, id, var) :-
+   (MapElementStmt(stmt, id, _) ;
+    ArrayElementStmt(stmt, id, _) ;
+    MapElementElementStmt(stmt, id, _, _)),
+  SSTORE(stmt, _, var).
+
+
+.decl PossibleArraySizeVariable(resVar:Variable, const:Value)
+
+// resVar is possibly the size of an array identified by const: when reading directly at address const,
+// we get the size of an array. When we want its contents, we need to take the SHA3 of const.
+PossibleArraySizeVariable(resVar, const) :-
+  SLOAD(_, index, resVar),
+  Variable_Value(index, const),
+  ArrayIdToStorageIndex(const, _).

@@ -1,7 +1,7 @@
 #pragma once
 
 #include "memory_modeling/memory_modeling.dl"
-#include "data_structures.dl"
+#include "storage_modeling/storage_modeling.dl"
 #include "flows.dl"
 
 // TODO: Add some kind of Mask Flow to avoid using DataFlows all over the place

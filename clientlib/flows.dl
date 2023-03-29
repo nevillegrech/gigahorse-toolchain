@@ -130,10 +130,6 @@ constantOpFlows.TransferBoundary(b):- IsBlock(b).
   .decl Flows(x: Variable, y: Variable)
   .decl NonTransitiveFlows(x: Variable, y: Variable)
 
-
-  // PHI instructions should always transfer
-  TransferStmt(stmt):- Statement_Opcode(stmt, "PHI").
-
   Uses(stmt, use):-
     Statement_Uses(stmt, use, _).
 

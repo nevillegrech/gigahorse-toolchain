@@ -177,10 +177,12 @@ MSTOREToMLOAD(mstore, mload, actual):-
 .decl ABIEncodedArrayIncludesArray(abiArr:ArrayVariable, memConsStmt:Statement, innerArr:Variable, index:number)
 DEBUG_OUTPUT(ABIEncodedArrayIncludesArray)
 
-.decl ABIEncodedArrayWFunctionSelector(abiArr:ArrayVariable)
+// Now binding array to `memConsStmt` due to reuse of memory indexes in newer code. Perhaps this makes this relation useless. May remove.
+.decl ABIEncodedArrayWFunctionSelector(abiArr: ArrayVariable, memConsStmt: Statement)
 DEBUG_OUTPUT(ABIEncodedArrayWFunctionSelector)
 
-.decl ABIEncodedArrayNoFunctionSelector(abiArr:ArrayVariable)
+// Now binding array to `memConsStmt` due to reuse of memory indexes in newer code. Perhaps this makes this relation useless. May remove.
+.decl ABIEncodedArrayNoFunctionSelector(abiArr: ArrayVariable, memConsStmt: Statement)
 DEBUG_OUTPUT(ABIEncodedArrayNoFunctionSelector)
 
 .decl ABIEncodedArrayIncludesArrayAtConcreteIndex(abiArr:ArrayVariable, memConsStmt:Statement, innerArr:Variable, index:number, arrayStartIndex:number)
@@ -241,7 +243,7 @@ ABIEncodedArrayIncludesArray(abiArr, memConsStmt, abiAddrPlusIndex, index):-
 
 ABIEncodedArrayIncludesArray(abiArr, memConsStmt, abiAddrPlusIndex, arrayPointerIndex):-
   ABIEncodedArrayVar_ClassRep(abiArrVar, abiArr),
-  ABIEncodedArrayNoFunctionSelector(abiArr),
+  ABIEncodedArrayNoFunctionSelector(abiArr, memConsStmt),
   ABIEncodedArrayWriteTo(mstore, abiArr, memConsStmt, arrayPointerIndex),
   MSTORE(mstore, _, arrayLocationIndex),
   ADDFixx(_, arrayLocationIndex, abiArrVar, abiAddrPlusIndex),
@@ -250,7 +252,7 @@ ABIEncodedArrayIncludesArray(abiArr, memConsStmt, abiAddrPlusIndex, arrayPointer
 // TODO: Fix this
 ABIEncodedArrayIncludesArray(abiArr, memConsStmt, abiAddrPlusIndex, arrayPointerIndex):-
   ABIEncodedArrayVar_ClassRep(abiArrVar, abiArr),
-  ABIEncodedArrayWFunctionSelector(abiArr),
+  ABIEncodedArrayWFunctionSelector(abiArr, memConsStmt),
   ABIEncodedArrayWriteTo(mstore, abiArr, memConsStmt, arrayPointerIndex),
   MSTORE(mstore, _, arrayLocationIndex),
   ADDFix(_, abiArrVar, fourVar, abiPlusFour),
@@ -296,12 +298,12 @@ MemoryModelingTempStmt(memWriteStmt):-
   !ArrayStoreAtIndex(memWriteStmt, _, _, _).
 
 ABIEncodedArrayWriteTo(memWriteStmt, abiArr, memConsStmt, relativeIndex):-
-  ABIEncodedArrayNoFunctionSelector(abiArr),
+  ABIEncodedArrayNoFunctionSelector(abiArr, memConsStmt),
   ABIEncodedArrayReadByStmt(abiArr, memConsStmt),
   MemWriteToMemConsStmtResolved(memWriteStmt, memConsStmt, relativeIndex, _, _).
 
 ABIEncodedArrayWriteTo(memWriteStmt, abiArr, memConsStmt, relativeIndex - 4):-
-  ABIEncodedArrayWFunctionSelector(abiArr),
+  ABIEncodedArrayWFunctionSelector(abiArr, memConsStmt),
   ABIEncodedArrayReadByStmt(abiArr, memConsStmt),
   MemWriteToMemConsStmtResolved(memWriteStmt, memConsStmt, relativeIndex, _, _).
 
@@ -327,7 +329,7 @@ IsABIEncodedArrayVar(abiArr):-
   StatementUsesMemoryReadsABIEnc(stmt, _),
   StatementUsesMemory_StartVar(stmt, _, abiArr).
 
-ABIEncodedArrayNoFunctionSelector(abiArr):-
+ABIEncodedArrayNoFunctionSelector(abiArr, stmt):-
   StatementUsesMemoryReadsABIEnc(stmt, _),
   StatementUsesMemory_StartVar(stmt, _, abiArrVar),
   ABIEncodedArrayVar_ClassRep(abiArrVar, abiArr).
@@ -337,7 +339,7 @@ IsABIEncodedArrayVar(abiArr):-
   StatementUsesMemoryReadsABIEncWSelector(stmt, _),
   StatementUsesMemory_StartVar(stmt, _, abiArr).
 
-ABIEncodedArrayWFunctionSelector(abiArr):-
+ABIEncodedArrayWFunctionSelector(abiArr, stmt):-
   StatementUsesMemoryReadsABIEncWSelector(stmt, _),
   StatementUsesMemory_StartVar(stmt, _, abiArrVar),
   ABIEncodedArrayVar_ClassRep(abiArrVar, abiArr).
@@ -346,7 +348,7 @@ StatementUsesMemory_ActualMemoryArg(stmt, kind, index, actual):-
   StatementUsesMemoryReadsABIEnc(stmt, _),
   StatementUsesMemory_StartVar(stmt, kind, abiArrVar),
   ABIEncodedArrayVar_ClassRep(abiArrVar, abiArrRep),
-  ABIEncodedArrayNoFunctionSelector(abiArrRep),
+  ABIEncodedArrayNoFunctionSelector(abiArrRep, stmt),
   ABIEncodedArrayHasVarAtIndex(abiArrRep, stmt, actual, relativeIndex),
   relativeIndex != -4,  
   index = relativeIndex/32.
@@ -355,7 +357,7 @@ StatementUsesMemory_ActualMemoryArg(stmt, kind, index, actual):-
   StatementUsesMemoryReadsABIEncWSelector(stmt, _),
   StatementUsesMemory_StartVar(stmt, kind, abiArrVar),
   ABIEncodedArrayVar_ClassRep(abiArrVar, abiArrRep),
-  ABIEncodedArrayWFunctionSelector(abiArrRep),
+  ABIEncodedArrayWFunctionSelector(abiArrRep, stmt),
   ABIEncodedArrayHasVarAtIndex(abiArrRep, stmt, actual, relativeIndex),
   relativeIndex != -4,
   index = 1 + relativeIndex/32.
@@ -364,7 +366,7 @@ StatementUsesMemory_ActualMemoryArg(stmt, kind, 0, actual):-
   StatementUsesMemoryReadsABIEncWSelector(stmt, _),
   StatementUsesMemory_StartVar(stmt, kind, abiArrVar),
   ABIEncodedArrayVar_ClassRep(abiArrVar, abiArrRep),
-  ABIEncodedArrayWFunctionSelector(abiArrRep),
+  ABIEncodedArrayWFunctionSelector(abiArrRep, stmt),
   ABIEncodedArrayHasVarAtIndex(abiArrRep, stmt, actual, -4).
 
 
@@ -409,7 +411,7 @@ ExternalCallTakesWholeCallData(stmt),
 StatementUsesMemory_ActualMemoryArg(stmt, kind, 0, abiArrVar):-
   StatementUsesMemory_StartVar(stmt, kind, abiArrVar),
   ABIEncodedArrayVar_ClassRep(abiArrVar, arrVarRep),
-  ABIEncodedArrayWFunctionSelector(arrVarRep),
+  ABIEncodedArrayWFunctionSelector(arrVarRep, stmt),
   IsRawDataArrayVar(abiArrVar).
 
 .output ArbitraryCall
@@ -417,7 +419,7 @@ StatementUsesMemory_ActualMemoryArg(stmt, kind, 0, abiArrVar):-
 ArbitraryCall(call):-
   StatementUsesMemory_StartVar(call, _, abiArrVar),
   ABIEncodedArrayVar_ClassRep(abiArrVar, arrVarRep),
-  ABIEncodedArrayWFunctionSelector(arrVarRep),
+  ABIEncodedArrayWFunctionSelector(arrVarRep, call),
   RawDataArrayVarsInSameClass(abiArrVar, abiArrVarAlias),
   MemoryCopyLoop(_, argArrayDataVar, abiArrVarAlias),
   ArrayDataStartVar(argArrayVar, argArrayDataVar),

@@ -1,0 +1,138 @@
+
+/**
+  METRICS
+*/
+.decl NewModelKnownLoad(stmt: Statement, cons: StorageIndex)
+.decl NewModelKnownStore(stmt: Statement, cons: StorageIndex)
+
+NewModelKnownLoad(store, cons):-
+  SLOAD(store, index, _),
+  ( Variable_StorageIndex(index, cons);
+    (PHITrans(var, index),
+  Variable_StorageIndex(var, cons))).
+
+NewModelKnownStore(store, cons):-
+  SSTORE(store, index, _),
+  ( Variable_StorageIndex(index, cons);
+    (PHITrans(var, index),
+  Variable_StorageIndex(var, cons))).
+
+
+//METRICS
+
+
+.decl Verbatim_NewModelKnownAndAllStores(known:number, all:number)
+.output Verbatim_NewModelKnownAndAllStores
+
+.decl Verbatim_NewModelKnownAndAllLoads(known:number, all:number)
+.output Verbatim_NewModelKnownAndAllLoads
+
+Verbatim_NewModelKnownAndAllStores(known, all):-
+  known = count: NewModelKnownStore(_, _),
+  all = count: SSTORE(_, _, _).
+
+Verbatim_NewModelKnownAndAllLoads(known, all):-
+  known = count: NewModelKnownLoad(_, _),
+  all = count: SLOAD(_, _, _).
+
+
+.decl Analytics_NonModeledSSTORE(sstore: Statement)
+.output Analytics_NonModeledSSTORE
+
+.decl Analytics_NonModeledSLOAD(sload: Statement)
+.output Analytics_NonModeledSLOAD
+
+Analytics_NonModeledSSTORE(store):-
+  SSTORE(store, _, _),
+  !NewModelKnownStore(store, _).
+
+Analytics_NonModeledSLOAD(load):-
+  SLOAD(load, _, _),
+  !NewModelKnownLoad(load, _).
+
+.decl NewModelAllStoresKnown()
+
+.decl NewModelAllLoadsKnown()
+
+.decl NewModelAllStorageOpsKnown()
+
+.decl NewModelHasStorageOpsUnknown()
+
+NewModelAllStoresKnown():-
+  Verbatim_NewModelKnownAndAllStores(all, all).
+
+NewModelAllLoadsKnown():-
+  Verbatim_NewModelKnownAndAllLoads(all, all).  
+
+NewModelAllStorageOpsKnown():-
+  NewModelAllLoadsKnown(),
+  NewModelAllStoresKnown().
+
+NewModelHasStorageOpsUnknown():-
+  !NewModelAllStorageOpsKnown().
+
+
+.decl KnownLoad(stmt: Statement, addr: Value, var: Variable)
+
+KnownLoad(stmt, addr, var) :-
+  LoadFromDataStructure(stmt, addr, _, var).
+
+KnownLoad(stmt, constaddr, src) :-
+  SLOADOfConst(stmt, constaddr, src).
+
+.decl KnownStore(stmt: Statement, addr: Value, var: Variable)
+
+KnownStore(stmt, addr, var) :-
+  StoreToDataStructure(stmt, addr, var).
+
+KnownStore(stmt, constaddr, src) :-
+  SSTOREToConst(stmt, constaddr, src).
+/**
+ METRICS
+**/
+
+.decl IsKnownLoad(stmt:Statement)
+
+.decl IsKnownStore(stmt:Statement)
+
+IsKnownStore(stmt):-
+  KnownStore(stmt, _, _).
+
+IsKnownLoad(stmt):-
+  KnownLoad(stmt, _, _).
+
+
+.decl Verbatim_KnownAndAllStores(known:number, all:number)
+.output Verbatim_KnownAndAllStores
+
+.decl Verbatim_KnownAndAllLoads(known:number, all:number)
+.output Verbatim_KnownAndAllLoads
+
+Verbatim_KnownAndAllStores(known, all):-
+  known = count: IsKnownStore(_),
+  all = count: SSTORE(_, _, _).
+
+Verbatim_KnownAndAllLoads(known, all):-
+  known = count: IsKnownLoad(_),
+  all = count: SLOAD(_, _, _).
+
+.decl AllStoresKnown()
+
+.decl AllLoadsKnown()
+
+.decl AllStorageOpsKnown()
+
+.decl HasStorageOpsUnknown()
+
+AllStoresKnown():-
+  Verbatim_KnownAndAllStores(all, all).
+
+AllLoadsKnown():-
+  Verbatim_KnownAndAllLoads(all, all).  
+
+AllStorageOpsKnown():-
+  AllLoadsKnown(),
+  AllStoresKnown().
+
+HasStorageOpsUnknown():-
+  !AllStorageOpsKnown().
