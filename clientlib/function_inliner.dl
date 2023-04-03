@@ -543,6 +543,7 @@
     !In_FormalReturnArgs(fun, _, 0).
 
   // Less than 3 blocks
+  // Possibly trigger happy
   InlineCandidate(fun):-
     In_CallGraphEdge(_, fun),
     In_FormalArgs(fun, _, _),
@@ -554,9 +555,10 @@
     1 = count : In_CallGraphEdge(_, fun),
     !IsPublicFunction(fun).
 
-  InlineCandidate(fun):-
-    StatementConsumesMemoryNoArgs(memConsStmt),
-    In_Statement_Function(memConsStmt, fun).
+  // Possibly trigger happy
+  // InlineCandidate(fun):-
+  //   StatementConsumesMemoryNoArgs(memConsStmt),
+  //   In_Statement_Function(memConsStmt, fun).
 
   InlineCandidate(fun):-
     In_FormalArgs(fun, formalArg, _),
@@ -565,18 +567,21 @@
     ( LocalFlows(loaded, formalRet);
       LocalFlows(formalArg, formalRet)),
     In_FormalReturnArgs(fun, formalRet, _),
-    !VarIsArray(formalArg, _).
+    !VarIsArray(formalArg, _),
+    !Struct_WordWidth(formalArg, _).
 
   InlineCandidate(fun):-
     MLOADFreePtr_To(_, loadedAddr),
     In_FormalReturnArgs(fun, loadedAddr, _),
-    !VarIsArray(loadedAddr, _).
+    !VarIsArray(loadedAddr, _),
+    !Struct_WordWidth(loadedAddr, _).
 
   InlineCandidate(fun):-
     In_FormalArgs(fun, formalArg, _),
     LocalFlows(formalArg, storeAddr),
     MSTORE(_, storeAddr, _),
-    !VarIsArray(formalArg, _).
+    !VarIsArray(formalArg, _),
+    !Struct_WordWidth(formalArg, _).
 
   .decl FunctionContainsExternalCall(fun:Function)
 
