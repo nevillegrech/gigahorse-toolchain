@@ -527,6 +527,14 @@
     LocalFlows(formalArg, storeIndex),
     (SLOAD(_, storeIndex, _) ; SSTORE(_, storeIndex, _)).
 
+
+  InlineCandidate(fun):-
+    In_FormalArgs(fun, formalArg, pos),
+    LocalFlows(formalArg, arg1),
+    SHA3_2ARG(_, arg1, _, shaDef),
+    LocalFlows(shaDef, storeIndex),
+    (SLOAD(_, storeIndex, _) ; SSTORE(_, storeIndex, _)).
+
   InlineCandidate(fun):-
     //In_Variable_Value(actualArg, _),
     //In_ActualArgs(caller, actualArg, pos),
@@ -534,6 +542,12 @@
     In_FormalArgs(fun, formalArg, _),
     LocalFlows(formalArg, calldataIndex),
     CALLDATALOAD(_, calldataIndex, _).
+
+  // Inline private functions loading external args.
+  InlineCandidate(fun):-
+    CALLDATALOAD(cdl, calldataIndex, _),
+    In_Variable_Value(calldataIndex, _),
+    In_Statement_Function(cdl, fun).
 
   // Functions that only have a return jump and no actual returns
   InlineCandidate(fun):-
