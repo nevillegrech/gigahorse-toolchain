@@ -528,10 +528,11 @@
     (SLOAD(_, storeIndex, _) ; SSTORE(_, storeIndex, _)).
 
 
+  // detect when solidity mapping pattern is broken
   InlineCandidate(fun):-
-    In_FormalArgs(fun, formalArg, pos),
-    LocalFlows(formalArg, arg1),
-    SHA3_2ARG(_, arg1, _, shaDef),
+    In_FormalArgs(fun, formalArg, _),
+    LocalFlows(formalArg, arg2),
+    SHA3_2ARG(_, _, arg2, shaDef),
     LocalFlows(shaDef, storeIndex),
     (SLOAD(_, storeIndex, _) ; SSTORE(_, storeIndex, _)).
 
