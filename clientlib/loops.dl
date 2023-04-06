@@ -56,10 +56,9 @@ LoopExitCond(condVar, loop) :-
    BlockInStructuredLoop(in, loop).
 
 
-TrueLoopExitCond(condVar, loop, jmpi_block) :-
+TrueLoopExitCond(condVar, loop, jmpiBlock) :-
    BlockInStructuredLoop(jmpiBlock, loop),
    Block_Tail(jmpiBlock, jmpi),
-   Statement_Block(jmpi, jmpi_block),
    JUMPI(jmpi, _, condVar),
    LocalBlockEdge(jmpiBlock, out),
    !BlockInStructuredLoop(out, loop),
