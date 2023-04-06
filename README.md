@@ -28,7 +28,7 @@ You should now be ready to run Gigahorse.
 ## Running Gigahorse
 The `gigahorse.py` script can be run on a contract individually or on a collection of contract bytecode files in specified directory, and it will run the binary lifter implemented in `logic/main.dl` on each contract, optionally followed by any additional client analyses specified by the user using the `-C` flag.
 
-The default pipeline first attempts to decompile a contract using a **transactional** context-sensitivity configuration. If that times out it performs a second attempt with the _scalable-fallback_ configuration (using a **hybrid-precise** context sensitivity algorithm, tuned for scalability). In addition, if the default configuration succeeds but produces imprecise output, the _precise-fallback_ configuration (currently the same as the `--early_cloning` config) is used to attempt to remove that imprecision. Both fallback configurations can be disabled if needed using the `--disable_scalable_fallback` and `--disable_precise_fallback` flags respectivelly.
+The default pipeline first attempts to decompile a contract using a **transactional** context-sensitivity configuration. If that times out it performs a second attempt with the _scalable-fallback_ configuration (using a **hybrid-precise** context sensitivity algorithm, tuned for scalability). In addition, if the default configuration succeeds but produces imprecise output, the _precise-fallback_ configuration (currently the same as the `--early_cloning` config) is used to attempt to remove that imprecision. Both fallback configurations can be disabled if needed using the `--disable_scalable_fallback` and `--disable_precise_fallback` flags respectively.
 
 The Gigahorse pipeline also includes a few rounds of inlining of small functions in order to help the subsequent client libraries get more high-level inferences. The inlining functionality can be disabled with `--disable_inline`.
 
@@ -44,7 +44,7 @@ Example (individual contract):
 
 Contracts that take too long to analyse will be skipped after a configurable timeout.
 
-The decompilation results are placed in the directory `.temp`, whereas metadate about the execution, e.g., metrics are placed in a `results.json` file, as a list of triples in the form:
+The decompilation results are placed in the directory `.temp`, whereas metadata about the execution, e.g., metrics are placed in a `results.json` file, as a list of triples in the form:
 
 ```[filename, properties, flags]```
 
