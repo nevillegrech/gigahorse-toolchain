@@ -186,6 +186,29 @@ ArrayCopy(loop, fromArray, toArray):-
   MSTORE(_, toArrayVar2, lengthVar),
   VarIsArray(toArrayVar2, toArray).
 
+/**
+  Hack for optimized cases: see tests/memory/arrays/01...
+  In these cases it may be easier to infer ArrayIndexAccess facts
+  But its hard to model them using MemoryCopyLoop because the from and to locations
+  may never be stored in variables
+*/
+ArrayCopy(loop, fromArray, toArray):-
+  InductionVariableIncreasesByConst(loop, simpleIndVar, 32),
+  BlockInLoop(block, loop),
+  Statement_Block(mload, block),
+  MemArrayGet(mload, fromArrayVar, index, copied),
+  VarIsArray(fromArrayVar, fromArray),
+  Statement_Block(mstore, block),
+  MemArrayPut(mstore, toArrayVar, index, copied),
+  VarIsArray(toArrayVar, toArray),
+  InductionVariableUpperBoundVar(loop, simpleIndVar, upperBoundVar),
+  ArrayVarLengthVar(fromArrayVar2, upperBoundVar),
+  VarIsArray(fromArrayVar2, fromArray),
+  VarIsArray(fromArrayVar3, fromArray),
+  ArrayVarLengthVar(fromArrayVar3, lengthVar),
+  MSTORE(_, toArrayVar2, lengthVar),
+  VarIsArray(toArrayVar2, toArray).
+
 // Also cover RawDataArrays. Maybe not the best thing to do
 ArrayCopy(loop, fromArray, toArray):-
   MemoryCopyLoop(loop, fromArrayDataStart, toArrayDataStart),
