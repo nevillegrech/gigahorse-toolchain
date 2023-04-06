@@ -259,6 +259,7 @@ ArrayIndexAccess(array, indexVar, actualIndexVar):-
   FreePointerBasedValuesNumDiffNoMemReuse(arrayVal, baseVal, @hex_to_number(const) - 32),
   Variable_SymbolicValue(array, arrayVal),
   IsRegularArrayVar(array),
+  Array_ElementLength(array, "0x1"),
   // Boilerplate but efficient code to ensure statement-level domination
   Statement_Defines(stmt2, indexVar, _),
   Statement_Block(stmt2, block2),
@@ -469,6 +470,16 @@ ArrayFromArray(array, oldArray):-
   MSTORE(_, array, arrayLength),
   ArrayVarLengthVar(oldArray, arrayLength).
 
+ArrayFromArray(array, oldArray):-
+  IsRegularArrayVar(array),
+  MSTORE(_, array, arrayLength),
+  ArrayVarLengthVar(oldArray, arrayLength).
+
+// Can be imprecise
+Array_ElementLength(array, elemLength):-
+  ArrayFromArray(array, oldArray),
+  Array_ElementLength(oldArray, elemLength).
+
 IsRegularArrayVar(array):-
   PossibleArray(array),
   PossibleArrayAlias(array, arrayAlias),
@@ -524,6 +535,22 @@ ArrayAllocationInternal(mstore, array, elementSize, arrayLengthVar):-
   VarTimesConstant(arrayLengthVar, elementSize, arraySizeBytes),
   VarPlusThirtyTwo(arraySizeBytes, arrayTotalSizeBytes),
   VarPlusThrirtyOneAndNotThirtyOne(arrayTotalSizeBytes, arrayFinalSizeBytes),
+  ADDFix(_, arrayFinalSizeBytes, array, updatedFMP),
+  Statement_Uses(mstore, updatedFMP, 1),
+  MSTOREFreePtr(mstore).
+
+
+/**
+  Covers patterns produced for calldata arrays copied to memory.
+  For solidity versions >= 0.8
+*/
+IsRegularArrayVar(array),
+Array_ElementLength(array, elementSize),
+ArrayAllocationInternal(mstore, array, elementSize, arrayLengthVar):-
+  PossibleArray(array),
+  MSTORE(_, array, arrayLengthVar),
+  VarTimesConstant(arrayLengthVar, elementSize, arraySizeBytes),
+  VarPlusSixtyThreeAndNotThirtyOne(arraySizeBytes, arrayFinalSizeBytes),
   ADDFix(_, arrayFinalSizeBytes, array, updatedFMP),
   Statement_Uses(mstore, updatedFMP, 1),
   MSTOREFreePtr(mstore).
