@@ -194,7 +194,7 @@ ArrayCopy(loop, fromArray, toArray):-
 */
 ArrayCopy(loop, fromArray, toArray):-
   InductionVariableIncreasesByConst(loop, simpleIndVar, 32),
-  BlockInLoop(block, loop),
+  BlockInStructuredLoop(block, loop),
   Statement_Block(mload, block),
   MemArrayGet(mload, fromArrayVar, index, copied),
   VarIsArray(fromArrayVar, fromArray),
