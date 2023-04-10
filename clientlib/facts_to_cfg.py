@@ -76,7 +76,7 @@ def construct_cfg() -> Tuple[Mapping[str, Block], Mapping[str, Function]]:
             tac_block_pred[succ].append(block)
 
     def stmt_sort_key(stmt_id: str) -> int:
-        return int(stmt_id.split('0x')[1].split('_')[0], base=16)
+        return int(stmt_id.replace("S", "").split('0x')[1].split('_')[0], base=16)
 
     # Construct blocks
     blocks: Mapping[str, Block] = {}

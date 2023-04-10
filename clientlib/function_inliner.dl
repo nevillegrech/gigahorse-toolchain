@@ -220,7 +220,7 @@
   StatementToClone(stmt, func, callerBlock, callerFun, newStmt):-
     BlockToClone(block, func, callerBlock, callerFun, _),
     In_Statement_Block(stmt, block),
-    newStmt = cat(cat(stmt, ""), callerBlock).
+    newStmt = cat(cat(stmt, "S"), callerBlock).
 
   InStatement_OutStatement(stmt, "", stmt):-
     In_Statement_Block(stmt, _),
