@@ -196,7 +196,8 @@ StorageIndex_ParentIndexExclOffset(index, parentIndex):-
   (
     (index = $ArrayAccessIndex(parentIndex, indexVar), indexVar = indexVar); // suppress warning
     (index = $ArrayDataStartIndex(parentIndex));
-    (index = $MappingAccessIndex(parentIndex, indexVar), indexVar = indexVar) // suppress warning
+    (index = $MappingAccessIndex(parentIndex, indexVar), indexVar = indexVar); // suppress warning
+    (index = $OffsetIndex(parentIndex, offset), offset > 0) // suppress warning
   ).
 
 
@@ -212,6 +213,7 @@ StorageIndexPredecesor(index, predIndex):-
   StorageIndexPredecesor(parentIndex, predIndex).
 
 // Ensure an index is not used as a parent for anything other than an offset
+// REVISIT
 UsedStorageIndex(index):-
   ActualStorageIndex(index),
   !StorageIndex_ParentIndexExclOffset(_, index).
