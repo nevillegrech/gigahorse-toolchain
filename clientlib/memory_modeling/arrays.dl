@@ -457,12 +457,27 @@ ArrayAllocation(arrId, elementSize, arrayLengthVar):-
   ArrayAllocationInternal(_, arrayVar, elementSize, arrayLengthVar),
   RegularArrayVar_ClassRep(arrayVar, arrId).
 
+ArrayAllocation(arrId, as(elementSize, Value), arrayLengthVar):-
+  IsRegularArrayVar(arrayVar),
+  MSTORE(_, arrayVar, arrayLengthVar),
+  RegularArrayVar_ClassRep(arrayVar, arrId),
+  Array_ElementLength(arrayVar, elementSize),
+  !ArrayAllocationInternal(_, arrayVar, _, _).
 
-//Allocations of arrays with unknown types.
-ArrayAllocationInternal(mstore, array, "??", arrayLengthVar):-
-  IsRegularArrayVar(array),
-  MSTORE(mstore, array, arrayLengthVar),
-  !Array_ElementLength(array, _).
+ArrayAllocation(arrId, "??", arrayLengthVar):-
+  IsRegularArrayVar(arrayVar),
+  MSTORE(_, arrayVar, arrayLengthVar),
+  RegularArrayVar_ClassRep(arrayVar, arrId),
+  !ArrayAllocationInternal(_, arrayVar, _, _),
+  !Array_ElementLength(arrayVar, _).
+
+// Allocations of arrays with unknown types.
+// Rule is commented out because we now add facts for `Array_ElementLength`
+// So the implicit invariant that No element length means no Allocation doesn't hold
+// ArrayAllocationInternal(mstore, array, "??", arrayLengthVar):-
+//   IsRegularArrayVar(array),
+//   MSTORE(mstore, array, arrayLengthVar),
+//   !Array_ElementLength(array, _).
 
 IsRegularArrayVar(array),
 ArrayFromArray(array, oldArray):-
