@@ -41,7 +41,7 @@ jobs:
 
       - name: Install Boost
         run: sudo apt install libboost-all-dev
-      
+
       - name: Build Souffle addon
          run: cd $GITHUB_WORKSPACE/souffle-addon && make
 
