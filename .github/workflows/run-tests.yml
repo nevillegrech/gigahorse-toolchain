@@ -1,4 +1,4 @@
-name: Build and Publish Docker
+name: CI-Tests
 
 on: 
   workflow_dispatch:
