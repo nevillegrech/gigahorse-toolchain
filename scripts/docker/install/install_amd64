@@ -1,4 +1,4 @@
-#!/usr/bin/bash
+#!/usr/bin/env bash
 
 GIGAHORSE_ROOT=`realpath ~/.gigahorse`
 BIN_PATH=$GIGAHORSE_ROOT/bin
