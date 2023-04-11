@@ -34,7 +34,7 @@ jobs:
       - name: Install Souffle2
         run: echo "deb [signed-by=/usr/share/keyrings/souffle-archive-keyring.gpg] https://souffle-lang.github.io/ppa/ubuntu/ stable main" | sudo tee /etc/apt/sources.list.d/souffle.list
       - name: Install Souffle3
-        run: sudo apt update && sudo apt install souffle
+        run: sudo apt update && sudo apt install souffle=2.3
 
       - name: Test Souffle
         run: souffle --version
@@ -43,7 +43,13 @@ jobs:
         run: sudo apt install libboost-all-dev
 
       - name: Build Souffle addon
-        run: cd $GITHUB_WORKSPACE/souffle-addon && make
+        run: cd $GITHUB_WORKSPACE/souffle-addon && make && cd $GITHUB_WORKSPACE
+
+      - name: Run gigahorse help
+        run: ./gigahorse.py --help
+
+      - name: Run gigahorse example
+        run: ./gigahorse.py examples/long_running.hex -i
 
       - name: Run tests
-        run: cd $GITHUB_WORKSPACE && ./run_tests.py
+        run: ./run_tests.py
