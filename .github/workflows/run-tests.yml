@@ -29,11 +29,13 @@ jobs:
         with:
           python-version: "3.7"
 
-      - name: Install Souffle
+      - name: Install Souffle1
         run: sudo wget https://souffle-lang.github.io/ppa/souffle-key.public -O /usr/share/keyrings/souffle-archive-keyring.gpg
+      - name: Install Souffle2
         run: echo "deb [signed-by=/usr/share/keyrings/souffle-archive-keyring.gpg] https://souffle-lang.github.io/ppa/ubuntu/ stable main" | sudo tee /etc/apt/sources.list.d/souffle.list
-        run: sudo apt update
-        run: sudo apt install souffle
+      - name: Install Souffle3
+        run: sudo apt update && sudo apt install souffle
+
 
       - name: Test Souffle
         run: souffle --version
