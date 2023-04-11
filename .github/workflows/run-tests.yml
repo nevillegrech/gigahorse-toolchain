@@ -36,6 +36,14 @@ jobs:
       - name: Install Souffle3
         run: sudo apt update && sudo apt install souffle
 
-
       - name: Test Souffle
         run: souffle --version
+
+      - name: Install Boost
+        run: sudo apt install libboost-all-dev
+      
+      - name: Build Souffle addon
+         run: cd $GITHUB_WORKSPACE/souffle-addon && make
+
+      - name: Run tests
+         run: cd $GITHUB_WORKSPACE && ./run_tests.py
