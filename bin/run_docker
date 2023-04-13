@@ -1,4 +1,4 @@
-#!/usr/bin/bash
+#!/bin/bash
 set -x
 GIGAHORSE_ROOT="$(dirname "$(dirname "$(readlink -fm "$0")")")"
 mkdir -p ${GIGAHORSE_ROOT}/.temp ${GIGAHORSE_ROOT}/cache

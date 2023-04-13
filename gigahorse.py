@@ -303,9 +303,10 @@ def get_souffle_executable_path(dl_filename):
     executable_path = join(args.cache_dir, executable_filename)
     return executable_path
 
-def write_context_depth_file(filename, max_context_depth):
+def write_context_depth_file(filename, max_context_depth=None):
     context_depth_file = open(filename, "w")
-    context_depth_file.write(f"{max_context_depth}\n")
+    if max_context_depth is not None:
+        context_depth_file.write(f"{max_context_depth}\n")
     context_depth_file.close()
 
 def compile_datalog(spec):
@@ -485,8 +486,7 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
                 # pre clients should be very light, should never happen
                 raise TimeoutException()
 
-            if args.context_depth is not None:
-                write_context_depth_file(os.path.join(work_dir, 'MaxContextDepth.csv'), args.context_depth)
+            write_context_depth_file(os.path.join(work_dir, 'MaxContextDepth.csv'), args.context_depth)
 
             decomp_start = time.time()
 
