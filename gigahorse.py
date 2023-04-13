@@ -184,6 +184,7 @@ parser.add_argument("-cd",
                     "--context_depth",
                     type=int,
                     nargs="?",
+                    default=8,
                     metavar="NUM",
                     help="Override the maximum context depth for decompilation (default is 8).")
 
@@ -485,8 +486,7 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
                 # pre clients should be very light, should never happen
                 raise TimeoutException()
 
-            if args.context_depth is not None:
-                write_context_depth_file(os.path.join(work_dir, 'MaxContextDepth.csv'), args.context_depth)
+            write_context_depth_file(os.path.join(work_dir, 'MaxContextDepth.csv'), args.context_depth)
 
             decomp_start = time.time()
 
