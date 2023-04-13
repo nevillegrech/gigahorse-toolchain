@@ -60,19 +60,12 @@ jobs:
       - name: Run tests
         run: pytest -v test_gigahorse.py --junitxml=test-results.xml
 
-      - name: Upload pytest test results
-        uses: actions/upload-artifact@v3
-        with:
-          name: pytest-results
-          path: test-results.xml
-        # Use always() to always run this step to publish test results when there are test failures
-        if: ${{ always() }}
-
       - name: Publish Test Results
         uses: EnricoMi/publish-unit-test-result-action@v2
         if: always()
         with:
           files: test-results.xml
+          check_name: "Test Results (Souffle 2.3)"
 
   test_souffle24:
     runs-on: ubuntu-latest
@@ -122,16 +115,9 @@ jobs:
       - name: Run tests
         run: pytest -v test_gigahorse.py --junitxml=test-results.xml
 
-      - name: Upload pytest test results
-        uses: actions/upload-artifact@v3
-        with:
-          name: pytest-results
-          path: test-results.xml
-        # Use always() to always run this step to publish test results when there are test failures
-        if: ${{ always() }}
-
       - name: Publish Test Results
         uses: EnricoMi/publish-unit-test-result-action@v2
         if: always()
         with:
           files: test-results.xml
+          check_name: "Test Results (Souffle 2.4)"
