@@ -184,7 +184,6 @@ parser.add_argument("-cd",
                     "--context_depth",
                     type=int,
                     nargs="?",
-                    default=8,
                     metavar="NUM",
                     help="Override the maximum context depth for decompilation (default is 8).")
 
@@ -304,9 +303,10 @@ def get_souffle_executable_path(dl_filename):
     executable_path = join(args.cache_dir, executable_filename)
     return executable_path
 
-def write_context_depth_file(filename, max_context_depth):
+def write_context_depth_file(filename, max_context_depth=None):
     context_depth_file = open(filename, "w")
-    context_depth_file.write(f"{max_context_depth}\n")
+    if max_context_depth is not None:
+        context_depth_file.write(f"{max_context_depth}\n")
     context_depth_file.close()
 
 def compile_datalog(spec):
