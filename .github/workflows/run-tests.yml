@@ -12,7 +12,7 @@ env:
 
 
 jobs:
-  test2.3:
+  test_souffle23:
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -74,7 +74,7 @@ jobs:
         with:
           files: test-results.xml
 
-  test2.4:
+  test_souffle24:
     runs-on: ubuntu-latest
     permissions:
       contents: read
