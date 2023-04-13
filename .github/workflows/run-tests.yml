@@ -66,3 +66,9 @@ jobs:
           path: test-results.xml
         # Use always() to always run this step to publish test results when there are test failures
         if: ${{ always() }}
+
+      - name: Publish Test Results
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        if: always()
+        with:
+          files: test-results.xml
