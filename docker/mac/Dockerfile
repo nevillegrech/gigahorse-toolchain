@@ -6,8 +6,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 
 # Install some essentials
-RUN apt-get update && apt-get upgrade && apt-get install -y \
-    libboost-all-dev 
+RUN apt-get update && apt-get upgrade -y && apt-get install -y libboost-all-dev 
 
 # Install python3
 RUN apt-get install python3-dev python3-pip -y
@@ -27,7 +26,6 @@ RUN apt-get install -y \
     libsqlite3-dev \
     make \
     mcpp \
-    python \
     sqlite \
     zlib1g-dev \
     libffi-dev \
