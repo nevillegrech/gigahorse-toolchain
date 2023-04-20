@@ -134,6 +134,7 @@ TAC_Op(irstmt, op) :-
    !IRTACNOP(irstmt),
    !postTrans.PushValue(stmt, _),
    !postTrans.PC(stmt),
+   !postTrans.PUSH0(stmt),
    !postTrans.INVALID(stmt).
 
 TAC_Op(irstmt, "CONST") :-
