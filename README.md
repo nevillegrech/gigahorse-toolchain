@@ -5,13 +5,14 @@ A binary lifter (and related framework) from low-level EVM code to a higher-leve
 
 ## Quickstart
 
+### Running/Installing Gigahorse from local clone (requires `souffle`)
 First make sure you have the following things installed on your system:
 
 - Boost libraries (Can be installed on Debian with `apt install libboost-all-dev`)
 
 - Python 3.8 (Refer to standard documentation)
 
-- Souffle 2.3 (We only test using the release versions, later development versions may work but are untested by us. Refer to Souffle documentation. The easiest way to install this is to use the release from https://github.com/souffle-lang/souffle/releases/tag/2.3)
+- Souffle 2.3 or 2.4 (We only test using the release versions, later development versions may work but are untested by us. Refer to Souffle documentation. The easiest way to install this is to use the release from https://github.com/souffle-lang/souffle/releases/tag/2.3)
 
 Now install the Souffle custom functors. Just navigate to the `souffle-addon` folder:
 
@@ -24,6 +25,22 @@ And run make to install:
     $ make                          # builds all, sets libfunctors.so as a link to libsoufflenum.so
 
 You should now be ready to run Gigahorse.
+
+### Installing Gigahorse via docker
+
+Alternatively, you can use Gigahorse via our pre-built docker images using the following instructions:
+1. For amd64:
+   ```
+   curl -s -L https://raw.githubusercontent.com/nevillegrech/gigahorse-toolchain/master/scripts/docker/install/install_amd64 | bash
+   ```
+
+   For arm64/m1 (not actively tested):
+   ```
+   curl -s -L https://raw.githubusercontent.com/nevillegrech/gigahorse-toolchain/master/scripts/docker/install/install_arm64 | bash
+   ```
+2. Then ```source ~/.bashrc```
+
+3. Check if gigahorse is available using ```gigahorse --help```
 
 ## Running Gigahorse
 The `gigahorse.py` script can be run on a contract individually or on a collection of contract bytecode files in specified directory, and it will run the binary lifter implemented in `logic/main.dl` on each contract, optionally followed by any additional client analyses specified by the user using the `-C` flag.
