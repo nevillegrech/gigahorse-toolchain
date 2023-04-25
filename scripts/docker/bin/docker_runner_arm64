@@ -1,4 +1,4 @@
-#!/usr/bin/bash
+#!/usr/bin/env bash
 
 GIGAHORSE_ROOT=`realpath ~/.gigahorse`
 mkdir -p ${GIGAHORSE_ROOT}/.temp ${GIGAHORSE_ROOT}/cache

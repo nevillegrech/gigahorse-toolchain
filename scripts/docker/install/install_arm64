@@ -1,5 +1,6 @@
-#!/usr/bin/bash
+#!/usr/bin/env bash
 
+mkdir -p `/.gigahorse`
 GIGAHORSE_ROOT=`realpath ~/.gigahorse`
 BIN_PATH=$GIGAHORSE_ROOT/bin
 
