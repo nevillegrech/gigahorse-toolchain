@@ -12,19 +12,27 @@ rels = [
 #  'Analytics_ERC20ApproveCall',
 ]
 
-analytics = [
-  'decomp_time',
-  'client_time',
-  'Analytics_JumpToMany'
-]
+analytic_comp = {
+  'scalability': lambda x: x,
+  'precision': lambda x: -x,
+  'imprecision': lambda x: x,
+  'completeness': lambda x: -x,
+  'incompleteness': lambda x: x
+}
 
-decomp_analytics = [
-  'Analytics_ReachableBlocks',
-  'Analytics_UnreachableBlock',
-  'Analytics_ReachableBlocksInTAC',
-  'Analytics_BlockHasNoTACBlock',
-  'Analytics_DeadBlocks',
-  'Analytics_PolymorphicTargetSameCtx',
+analytics = {
+  'decomp_time' : 'scalability',
+  'client_time' : 'scalability',
+  'Analytics_JumpToMany': 'imprecision'
+}
+
+decomp_analytics = {
+  'Analytics_ReachableBlocks': 'completeness',
+  'Analytics_UnreachableBlock': 'incompleteness',
+  'Analytics_ReachableBlocksInTAC': 'completeness',
+  'Analytics_BlockHasNoTACBlock': 'incompleteness',
+  'Analytics_DeadBlocks': 'imprecision',
+  'Analytics_PolymorphicTargetSameCtx': 'imprecision',
 #  'Analytics_MissingJumpTargetAnyCtx',
 #  'Analytics_LocalBlockEdge',
 #  'Analytics_JumpToManyWithoutGlobalImprecision',
@@ -32,21 +40,21 @@ decomp_analytics = [
 #  'Analytics_Contexts',
 #  'Analytics_JumpToManyWouldHaveBeenCloned',
 #  'Analytics_JumpToManyNonPopBlock',
-]
+}
 
-mem_analytics = [
-  'Analytics_NonModeledMSTORE',
-  'Analytics_NonModeledMLOAD',
-  'Analytics_PublicFunctionArg',
-  'Analytics_PublicFunctionArrayArg'
-]
+mem_analytics = {
+  'Analytics_NonModeledMSTORE': 'incompleteness',
+  'Analytics_NonModeledMLOAD': 'incompleteness',
+  'Analytics_PublicFunctionArg': 'completeness',
+  'Analytics_PublicFunctionArrayArg': 'completeness'
+}
 
-storage_analytics = [
-  'Analytics_NonModeledSSTORE',
-  'Analytics_NonModeledSLOAD',
-  'Analytics_GlobalVariable',
+storage_analytics = {
+  'Analytics_NonModeledSSTORE': 'incompleteness',
+  'Analytics_NonModeledSLOAD': 'incompleteness',
+  'Analytics_GlobalVariable': 'completeness',
 # 'Analytics_UselessSLOAD',
-]
+}
 
 list_of_verbatim_rels = {
   'Verbatim_BlocksReachabilityMetric'
@@ -76,7 +84,7 @@ def process_result_file(filename, output_set=None):
     for rel in rels:
         filemap[rel] = set()
 
-    for analytic in analytics:
+    for analytic in analytics.keys():
         filemap[analytic] = 0
     filemap['has_output'] = set()
     filemap['timeout'] = set()
@@ -103,7 +111,7 @@ def process_result_file(filename, output_set=None):
                 #print(f'contract {name} has vuln {vuln}')
                 filemap[rel].add(name)
 
-            for analytic in analytics:
+            for analytic in analytics.keys():
                 if analytic in contract[3]:
                     filemap[analytic] += contract[3][analytic]
 
@@ -111,13 +119,13 @@ def process_result_file(filename, output_set=None):
     return filemap
 
 if args.decomp:
-    analytics += decomp_analytics
+    analytics |= decomp_analytics
 
 if args.memory:
-    analytics += mem_analytics
+    analytics |= mem_analytics
 
 if args.storage:
-    analytics += storage_analytics
+    analytics |= storage_analytics
 
 result_files = args.result_files
 
@@ -150,13 +158,17 @@ if len(result_files) == 2:
         print(f'\n\nFor {rel} {len(not_in_file1)} not detected by config {result_files_simple[0]}: {not_in_file1}')
         print(f'For {rel} {len(not_in_file2)} not detected by config {result_files_simple[1]}: {not_in_file2}')
 
-for analytic in analytics:
+for analytic, kind in analytics.items():
     print(f'\n\033[1mANALYTIC: {analytic}\033[0m')
     for i in range(0, len(result_files)):
         print(f'{result_files_simple[i]}: {results_processed[i][analytic]}')
 
+    pref = sorted([result[analytic] for result in results_processed_common], key=analytic_comp[kind])[0]
     for i in range(0, len(result_files)):
-        print(f'{result_files_simple[i]} \033[1m(common)\033[0m: {results_processed_common[i][analytic]}')
+        diff = results_processed_common[i][analytic] - pref
+        percentage = 100 * (results_processed_common[i][analytic] - pref)/pref
+        extra = f" \x1b[31m({percentage:+.3g}%)\x1b[0m" if diff != 0 else ""
+        print(f'{result_files_simple[i]} \033[1m(common)\033[0m: {results_processed_common[i][analytic]}{extra}')
 
 
 if args.point_to_point:
