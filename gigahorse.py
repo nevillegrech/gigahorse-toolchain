@@ -421,7 +421,7 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
         config = "default"
         def_timeouts, _ = run_clients([DEFAULT_DECOMPILER_DL], [], in_dir, out_dir)
 
-        if not args.disable_precise_fallback and not def_timeouts and decomp_out_produced(out_dir):
+        if False and not args.disable_precise_fallback and not def_timeouts and decomp_out_produced(out_dir):
             # try the precise configuration only if the default didn't take more 0.3 of the total timeout
             # this was chosen because on average the precise decompiler takes about 2x the time of the default one
             if imprecise_decomp_out(out_dir) and calc_timeout(FALLBACK_PRECISE_DECOMPILER_DL) > 0.3 * timeout:
