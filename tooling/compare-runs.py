@@ -22,7 +22,6 @@ analytic_comp = {
 
 analytics = {
   'decomp_time' : 'scalability',
-  'client_time' : 'scalability',
   'Analytics_JumpToMany': 'imprecision'
 }
 
@@ -56,6 +55,10 @@ storage_analytics = {
 # 'Analytics_UselessSLOAD',
 }
 
+clients_analytics = {
+  'client_time' : 'scalability'
+}
+
 list_of_verbatim_rels = {
   'Verbatim_BlocksReachabilityMetric'
 }
@@ -73,7 +76,8 @@ parser.add_argument('-m', '--memory', action='store_true',
                     help='Includes memory modeling specific relations and analytics')
 parser.add_argument('-s', '--storage', action='store_true',
                     help='Includes storage modeling specific relations and analytics')
-
+parser.add_argument('-c', '--clients', action='store_true',
+                    help='Includes client specific relations and analytics')
 parser.add_argument('--point_to_point', type=str)
 
 args = parser.parse_args()
@@ -127,6 +131,9 @@ if args.memory:
 if args.storage:
     analytics |= storage_analytics
 
+if args.clients:
+    analytics |= clients_analytics
+
 result_files = args.result_files
 
 result_files_simple = [Path(file).stem for file in result_files]
@@ -146,6 +153,10 @@ timeout_in_all = set.intersection(*has_timeout)
 results_processed_common = [process_result_file(file, output_in_all) for file in result_files]
 
 print(f"{len(timeout_in_all) + len(output_in_any)} total contracts")
+print("")
+for i in range(0, len(result_files)):
+    print(f"{len(has_out[i])} contracts decompiled/analyzed by {result_files_simple[i]}")
+print("")
 print(f"{len(output_in_any)} contracts decompiled/analyzed by some config")
 print(f"{len(output_in_all)} contracts decompiled/analyzed by all configs \033[1m(common)\033[0m")
 
@@ -160,8 +171,9 @@ if len(result_files) == 2:
 
 for analytic, kind in analytics.items():
     print(f'\n\033[1mANALYTIC: {analytic}\033[0m')
-    for i in range(0, len(result_files)):
-        print(f'{result_files_simple[i]}: {results_processed[i][analytic]}')
+    if args.verbose:
+        for i in range(0, len(result_files)):
+            print(f'{result_files_simple[i]}: {results_processed[i][analytic]}')
 
     pref = sorted([result[analytic] for result in results_processed_common], key=analytic_comp[kind])[0]
     for i in range(0, len(result_files)):
