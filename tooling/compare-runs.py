@@ -155,7 +155,8 @@ results_processed_common = [process_result_file(file, output_in_all) for file in
 print(f"{len(timeout_in_all) + len(output_in_any)} total contracts")
 print("")
 for i in range(0, len(result_files)):
-    print(f"{len(has_out[i])} contracts decompiled/analyzed by {result_files_simple[i]}")
+    solo = has_out[i] - set.union(*[has_out[j] for j in range(len(has_out)) if j != i])
+    print(f"{len(has_out[i])} contracts decompiled/analyzed by {result_files_simple[i]} ({len(solo)} exclusively)")
 print("")
 print(f"{len(output_in_any)} contracts decompiled/analyzed by some config")
 print(f"{len(output_in_all)} contracts decompiled/analyzed by all configs \033[1m(common)\033[0m")
@@ -188,4 +189,7 @@ if args.point_to_point:
     format_row = "{:>30}" * (len(result_files_simple) + 2)
     print(format_row.format("", *(["Contract"] + result_files_simple)))
     for file in output_in_all:
-        print(format_row.format("", *([file] + [res[file]["analytics"][args.point_to_point] for res in results_processed_common])))
+        vals = [res[file]["analytics"][args.point_to_point] for res in results_processed_common]
+        if len(set(vals)) == 1:
+            continue
+        print(format_row.format("", *([file] + vals)))
