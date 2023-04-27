@@ -32,8 +32,8 @@ decomp_analytics = {
   'Analytics_BlockHasNoTACBlock': 'incompleteness',
   'Analytics_DeadBlocks': 'imprecision',
   'Analytics_PolymorphicTargetSameCtx': 'imprecision',
+  'Analytics_LocalBlockEdge': 'completeness',
 #  'Analytics_MissingJumpTargetAnyCtx',
-#  'Analytics_LocalBlockEdge',
 #  'Analytics_JumpToManyWithoutGlobalImprecision',
 #  'Analytics_Blocks',
 #  'Analytics_Contexts',
@@ -161,6 +161,8 @@ print("")
 print(f"{len(output_in_any)} contracts decompiled/analyzed by some config")
 print(f"{len(output_in_all)} contracts decompiled/analyzed by all configs \033[1m(common)\033[0m")
 
+if args.verbose:
+    print(f"Contracts that timed out for all configs: {timeout_in_all}")
 
 if len(result_files) == 2:
     for rel in rels + ['has_output']:
@@ -180,7 +182,7 @@ for analytic, kind in analytics.items():
     for i in range(0, len(result_files)):
         diff = results_processed_common[i][analytic] - pref
         percentage = 100 * (results_processed_common[i][analytic] - pref)/pref
-        extra = f" \x1b[31m({percentage:+.3g}%)\x1b[0m" if diff != 0 else ""
+        extra = f" \x1b[31m({percentage:+.4g}%)\x1b[0m" if diff != 0 else ""
         print(f'{result_files_simple[i]} \033[1m(common)\033[0m: {results_processed_common[i][analytic]}{extra}')
 
 
