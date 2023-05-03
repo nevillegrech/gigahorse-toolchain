@@ -1,0 +1,31 @@
+
+
+.comp SelectiveContextV2 <StaticOnlyGlobalAnalysis>: PublicComponentContextSensitivity <StaticOnlyGlobalAnalysis> {
+
+  // Trivial control flow case for when there is no function call
+  // OR max context depth is zero
+  // Split into two rules to add plan.
+  MergeContext(ctx, caller, ctx):-
+    ReachableContext(ctx, caller),
+    !local.PublicFunction(caller, _),
+    !local.EntryPoint(caller).
+
+  MergeContext(ctx, caller, ctx):-
+    ReachableContext(ctx, caller),
+    !local.PublicFunction(caller, _),
+    DecomposeContext(ctx, pub, _),
+    MaxContextDepth(pub, 0).
+    .plan 1:(2,3,1)
+
+  // Complex control flow case
+  //// Default variant
+  MergeContext(ctx, caller, [pub, newPrivateContext]):-
+    ReachableContext(ctx, caller),
+    local.EntryPoint(caller),
+    DecomposeContext(ctx, pub, pri),
+    TruncateContextIfNeeded(pub, pri, cutDownPri),
+    !local.PublicFunction(caller, _),
+    newPrivateContext = [caller, cutDownPri].
+    .plan 1:(3,1,2,4), 2:(4,3,1,2)
+
+}

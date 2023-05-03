@@ -56,7 +56,7 @@ PreMask_Length(cat("ff", mask), bytes+1) :-
   ***********
   */
 
-  .init sens = AbstractContextSensitivity<PreTransLocalAnalysis>
+  .init sens = AbstractContextSensitivity <StaticOnlyGlobalAnalysis>
 
   sens.local.PushValue(push, val):- PushValue(push, val).
   sens.local.Statement_Opcode(stmt, op):- Statement_Opcode(stmt, op).
@@ -72,7 +72,8 @@ PreMask_Length(cat("ff", mask), bytes+1) :-
   #endif
 
   DEBUG_OUTPUT(BlockOutputContents)
-  
+  DEBUG_OUTPUT(BlockInputContents)
+
   /**
     Stack contents at start of a `block`, given its calling `context`.
     Added overridable flag to override it in the optimized variant of the component
@@ -242,3 +243,170 @@ PreMask_Length(cat("ff", mask), bytes+1) :-
 .comp DefaultOptimizedGlobalAnalysis : OptimizedGlobalAnalysis <TransactionalContext> {
 
 }
+
+
+.comp StaticOnlyGlobalAnalysis : PreTransLocalAnalysis {
+
+  .decl EntryPoint(block: Block)
+  DEBUG_OUTPUT(EntryPoint)
+
+  .decl ReachableUnderEntry(entry: Block, block: Block)
+  DEBUG_OUTPUT(ReachableUnderEntry)
+
+  /**
+    Stack contents at end of a `block`, given its `entry` point.
+    Backwards analysis starting from nonImmediateJumps
+  */
+  .decl BlockOutputExitJumpdestIndex(entry: Block, exit: Block, block: Block, index: StackIndex)
+  DEBUG_OUTPUT(BlockOutputExitJumpdestIndex)
+  
+  /**
+    Stack contents at start of a `block`, given its `entry` point.
+  */
+  .decl BlockInputExitJumpdestIndex(entry: Block, exit: Block, block: Block, index: StackIndex)
+  DEBUG_OUTPUT(BlockInputExitJumpdestIndex)
+
+  .decl LostIt(entry: Block, exit: Block, block: Block, index: StackIndex)
+  DEBUG_OUTPUT(LostIt)
+
+  .decl DirectBlockEdge(from: Block, to: Block)
+
+  .decl NonImmediateExitPoint(entry: Block, exit: Block, jumpDestStackIndex: StackIndex)
+
+  .decl ImmediateExitPoint(entry: Block, exit: Block, next: Block)
+
+  .decl InternallyResolvedJumpdest(entry: Block, exit: Block, pushBlock: Block, target: Block)
+
+  .decl ExternallyProvidedJumpdest(entry: Block, exit: Block, jumpDestStackIndex: StackIndex)
+
+  DEBUG_OUTPUT(ImmediateExitPoint)
+  DEBUG_OUTPUT(NonImmediateExitPoint)
+  DEBUG_OUTPUT(DirectBlockEdge)
+  DEBUG_OUTPUT(BlockStackDelta)
+  DEBUG_OUTPUT(BlockPopDelta)
+  DEBUG_OUTPUT(LocalStackContents)
+  DEBUG_OUTPUT(InternallyResolvedJumpdest)
+  DEBUG_OUTPUT(ExternallyProvidedJumpdest)
+
+  .decl MissingProvidedJumpdest(entry: Block, exit: Block)
+  DEBUG_OUTPUT(MissingProvidedJumpdest)
+  EntryPoint("0x0").
+
+  EntryPoint(as(value, Block)):-
+    IsJump(jump),
+    LocalStackContents(jump, _, var),
+    Variable_Value(var, value),
+    JUMPDEST(as(value, Statement)).
+  
+  // New: Also consider possible function entry points
+  EntryPoint(as(target, Block)):-
+    IsJump(jump),
+    LocalStackContents(jump, _, var),
+    Variable_Value(var, value),
+    JUMPDEST(as(value, Statement)),
+    BasicBlock_Tail(block, jump),
+    ImmediateBlockJumpTarget(block, targetVar),
+    Variable_Value(targetVar, target),
+    JUMPDEST(as(target, Statement)).
+
+  ReachableUnderEntry(entry, entry):-
+    EntryPoint(entry).
+
+  ReachableUnderEntry(entry, next):-
+    ReachableUnderEntry(entry, block),
+    DirectBlockEdge(block, next),
+    !EntryPoint(next). // New: cannot reach another entry point
+
+
+  DirectBlockEdge(from, as(value, Block)):-
+    ImmediateBlockJumpTarget(from, var),
+    Variable_Value(var, value).
+
+  DirectBlockEdge(from, as(next, Block)):-
+    FallthroughStmt(fallthrough, next),
+    BasicBlock_Tail(from, fallthrough).
+  
+  NonImmediateExitPoint(entry, exit, as(stackIndex, StackIndex)):-
+    ReachableUnderEntry(entry, exit),
+    BasicBlock_Tail(exit, jump),
+    IsJump(jump),
+    BeforeLocalStackContents(jump, 0, stackIndex),
+    CheckIsStackIndex(stackIndex),
+    !ImmediateBlockJumpTarget(exit, _).
+  
+  ImmediateExitPoint(entry, exit, next):-
+    ReachableUnderEntry(entry, exit),
+    DirectBlockEdge(exit, next),
+    EntryPoint(next).
+
+  BlockInputExitJumpdestIndex(entry, exit, exit, index):-
+    NonImmediateExitPoint(entry, exit, index).
+
+  BlockOutputExitJumpdestIndex(entry, exit, prev, index):-
+    DirectBlockEdge(prev, next),
+    ReachableUnderEntry(entry, prev),
+    BlockInputExitJumpdestIndex(entry, exit, next, index),
+    // !EntryPoint(next),
+    next != entry.
+
+  BlockInputExitJumpdestIndex(entry, exit, block, index - delta) :-
+    BlockOutputExitJumpdestIndex(entry, exit, block, index),
+    BlockStackDelta(block, delta),
+    //BlockPopDelta(block, popLen),
+    //index >= popLen,
+    BasicBlock_Tail(block, stmt),
+    !LocalStackContents(stmt, index, _),
+    index - delta >= 0. // SL: Do we really need to specify that?
+
+  LostIt(entry, exit, block, index - delta) :-
+    BlockOutputExitJumpdestIndex(entry, exit, block, index),
+    BlockStackDelta(block, delta),
+    // BlockPopDelta(block, popLen),
+    // index >= popLen,
+    BasicBlock_Tail(block, stmt),
+    !LocalStackContents(stmt, index, _),
+    index - delta < 0.
+
+  BlockInputExitJumpdestIndex(entry, exit, block, as(stackIndex, StackIndex)):-
+    BlockOutputExitJumpdestIndex(entry, exit, block, index),
+    BasicBlock_Tail(block, stmt),
+    LocalStackContents(stmt, index, stackIndex),
+    CheckIsStackIndex(stackIndex).
+  
+  InternallyResolvedJumpdest(entry, exit, block, as(target, Block)):-
+    BlockOutputExitJumpdestIndex(entry, exit, block, index),
+    BasicBlock_Tail(block, stmt),
+    LocalStackContents(stmt, index, var),
+    CheckIsVariable(var),
+    Variable_Value(var, target).
+
+  ExternallyProvidedJumpdest(entry, exit, index):-
+    BlockInputExitJumpdestIndex(entry, exit, entry, index).
+
+  MissingProvidedJumpdest(entry, exit):-
+    EntryPoint(entry),
+    entry != "0x0",
+    NonImmediateExitPoint(entry, exit, _),
+    !InternallyResolvedJumpdest(entry, exit, _, _),
+    !ExternallyProvidedJumpdest(entry, exit, _).
+  
+  .decl MoreThanOneExternallyProvidedJumpdests(entry: Block)
+  DEBUG_OUTPUT(MoreThanOneExternallyProvidedJumpdests)
+
+  MoreThanOneExternallyProvidedJumpdests(entry):-
+    ExternallyProvidedJumpdest(entry, exit, index),
+    ExternallyProvidedJumpdest(entry, exit, index2),
+    index != index2.
+}
+
+// .decl Analytics_MoreThanOneExternallyProvidedJumpdests(entry: Block)
+// .output Analytics_MoreThanOneExternallyProvidedJumpdests
+
+// Analytics_MoreThanOneExternallyProvidedJumpdests(entry):-
+//   global.MoreThanOneExternallyProvidedJumpdests(entry).
+
+// .decl Analytics_MissingProvidedJumpdest(entry: Block)
+// .output Analytics_MissingProvidedJumpdest
+
+// Analytics_MissingProvidedJumpdest(entry):-
+//   global.MissingProvidedJumpdest(entry, _).
