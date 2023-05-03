@@ -20,19 +20,29 @@
 ContextEdge(ctxFrom, ctxTo):-
   global.BlockEdge(ctxFrom, _, ctxTo, _).
 
+
+.decl CanReachRequest(fromCtx: global.sens.Context, toCtx: global.sens.Context)
+.decl CanReachResponse(fromCtx: global.sens.Context, toCtx: global.sens.Context)
+
 .decl ContextCanReach(fromCtx: global.sens.Context, ctx: global.sens.Context)
 #ifdef ENABLE_LIMITSIZE
 .limitsize ContextCanReach(n=LIMITSIZE_CAN_REACH_UNDER_CONTEXT)
 #endif
 
+// ContextCanReach(ctx, ctx) :-
+//   global.ReachableContext(ctx, _).
+
 ContextCanReach(ctx, ctx) :-
-  global.ReachableContext(ctx, _).
+  CanReachRequest(ctx, _).
 
 ContextCanReach(ctxFrom, ctxTo) :-
   ContextCanReach(ctxFrom, ctxOther),
   ContextEdge(ctxOther, ctxTo).
 
-
+CanReachResponse(fromCtx, toCtx):-
+  CanReachRequest(fromCtx, toCtx),
+  ContextCanReach(fromCtx, toCtx).
+  .plan 1:(2,1)
 
 /******
          Heuristics for detecting call-return patterns
@@ -123,13 +133,22 @@ MaxRankForPossibleReturnAddressSetter(targetSetter, rank) :-
 */
 .decl MaybeFunctionCallReturn(ctx:global.sens.Context, caller:Block, func:Block, retCtx:global.sens.Context, retBlock:Block, retTarget:Block)
 MaybeFunctionCallReturn(ctx, caller, func, retCtx, retBlock, retTarget) :-
+  OptMaybeFunctionCallReturnRequest(ctx, caller, func, retCtx, retBlock, retTarget),
+  CanReachResponse(ctx, retCtx).
+  .plan 1:(2,1)
+
+.decl OptMaybeFunctionCallReturnRequest(ctx:global.sens.Context, caller:Block, func:Block, retCtx:global.sens.Context, retBlock:Block, retTarget:Block)
+
+OptMaybeFunctionCallReturnRequest(ctx, caller, func, retCtx, retBlock, retTarget):-
   PossibleReturnAddressWithRank(ctx, caller, retCtx, retBlock, retTarget, 0),
   postTrans.ImmediateBlockJumpTarget(caller, targetVar),
   postTrans.Statement_Block(jump, caller),
   postTrans.Statement_Opcode(jump, "JUMP"), //Added to invalidate JUMPIs we will need to deal with them though
   global.BlockJumpValidTarget(ctx, caller, targetVar, func),
-  ContextCanReach(ctx, retCtx),
   global.BlockJumpValidTarget(retCtx, retBlock, _, retTarget).
+
+CanReachRequest(ctx, retCtx):-
+  OptMaybeFunctionCallReturnRequest(ctx, _, _, retCtx, _, _).
 
 /**
   Introduced to use in many rules that don't use the context of the context-sensitive version
@@ -144,7 +163,14 @@ MaybeFunctionCallReturn_Ins(caller, func, retBlock, retTarget):-
 .decl PossibleReturnAddressWithPositiveRank(callCtx:global.sens.Context, targetSetter:Block, retCtx:global.sens.Context, retBlock:Block, retTarget:Block, rank:number)
 PossibleReturnAddressWithPositiveRank(callCtx, caller, retCtx, retBlock, retTarget, n) :-
   PossibleReturnAddressWithRank(callCtx, caller, retCtx, retBlock, retTarget, n),
-  ContextCanReach(callCtx, retCtx),
+  CanReachResponse(callCtx, retCtx),
+  global.BlockJumpValidTarget(retCtx, retBlock, _, retTarget),
+  n > 0,
+  n < RETURN_ADDRESS_RANK_THRESHOLD.
+  .plan 1:(2,1,3)
+
+CanReachRequest(callCtx, retCtx):-
+  PossibleReturnAddressWithRank(callCtx, _, retCtx, retBlock, retTarget, n),
   global.BlockJumpValidTarget(retCtx, retBlock, _, retTarget),
   n > 0,
   n < RETURN_ADDRESS_RANK_THRESHOLD.
