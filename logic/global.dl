@@ -420,7 +420,7 @@ PreMask_Length(cat("ff", mask), bytes+1) :-
   DEBUG_OUTPUT(ImportantExitPoint)
 
   ImportantExitPoint(entry, exit, exit):-
-    ImmediateExitPointsSameTarget(entry, exit, _).
+    ImmediateExitPointsSameTarget(entry, exit, _, _).
 
   .decl MoreThanOneExitPoints(entry: Block, exit: Block)
   DEBUG_OUTPUT(MoreThanOneExitPoints)
