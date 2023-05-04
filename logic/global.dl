@@ -394,9 +394,18 @@ PreMask_Length(cat("ff", mask), bytes+1) :-
   DEBUG_OUTPUT(MoreThanOneExternallyProvidedJumpdests)
 
   MoreThanOneExternallyProvidedJumpdests(entry):-
-    ExternallyProvidedJumpdest(entry, exit, index),
-    ExternallyProvidedJumpdest(entry, exit, index2),
+    ExternallyProvidedJumpdest(entry, _, index),
+    ExternallyProvidedJumpdest(entry, _, index2),
     index != index2.
+
+  .decl MoreThanOneExitPoints(entry: Block, exit: Block)
+  DEBUG_OUTPUT(MoreThanOneExitPoints)
+
+  MoreThanOneExitPoints(entry, exit1):-
+    (ExternallyProvidedJumpdest(entry, exit1, _); InternallyResolvedJumpdest(entry, exit1, _, _)),
+    (ExternallyProvidedJumpdest(entry, exit2, _); InternallyResolvedJumpdest(entry, exit2, _, _)),
+    exit1 != exit2.
+
 }
 
 // .decl Analytics_MoreThanOneExternallyProvidedJumpdests(entry: Block)

@@ -8,6 +8,7 @@
   MergeContext(ctx, caller, ctx):-
     ReachableContext(ctx, caller),
     !local.PublicFunction(caller, _),
+    !local.MoreThanOneExitPoints(_, caller),
     !local.EntryPoint(caller).
 
   MergeContext(ctx, caller, ctx):-
@@ -28,4 +29,21 @@
     newPrivateContext = [caller, cutDownPri].
     .plan 1:(3,1,2,4), 2:(4,3,1,2)
 
+  MergeContext(ctx, caller, [pub, newPrivateContext]):-
+    ReachableContext(ctx, caller),
+    local.MoreThanOneExitPoints(entry, caller),
+    DecomposeContext(ctx, pub, pri),
+    DecomposePrivateContext(pri, entry, _),
+    TruncateContextIfNeeded(pub, pri, cutDownPri),
+    !local.PublicFunction(caller, _),
+    newPrivateContext = [caller, cutDownPri].
+    .plan 1:(3,1,2,4,5), 2:(4,3,1,2,5), 3:(5,4,3,1,2)
+
+  MergeContext(ctx, caller, ctx):-
+    ReachableContext(ctx, caller),
+    local.MoreThanOneExitPoints(_, caller),
+    DecomposeContext(ctx, pub, pri),
+    DecomposePrivateContext(pri, entry, _),
+    !local.MoreThanOneExitPoints(entry, caller).
+    .plan 1:(3,1,2,4), 2:(4,3,1,2)
 }
