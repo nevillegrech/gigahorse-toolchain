@@ -398,12 +398,30 @@ PreMask_Length(cat("ff", mask), bytes+1) :-
     ExternallyProvidedJumpdest(entry, _, index2),
     index != index2.
 
+  .decl MoreThanOneExitBlocksSameIndex_Rep(entry: Block, exit: Block, rep: Block)
+  DEBUG_OUTPUT(MoreThanOneExitBlocksSameIndex_Rep)
+
+  MoreThanOneExitBlocksSameIndex_Rep(entry, exit1, rep):-
+    ExternallyProvidedJumpdest(entry, exit1, index),
+    ExternallyProvidedJumpdest(entry, exit2, index), exit1 != exit2,
+    repOrd = min a:{ExternallyProvidedJumpdest(entry, exit3, index), a = ord(exit3)},
+    ExternallyProvidedJumpdest(entry, rep, index),
+    ord(rep) = repOrd.
+
+  .decl ImmediateExitPointsSameTarget(entry: Block, exit1: Block, exit2: Block, target: Block)
+  DEBUG_OUTPUT(ImmediateExitPointsSameTarget)
+
+  ImmediateExitPointsSameTarget(entry, exit1, exit2, target):-
+    ImmediateExitPoint(entry, exit1, target),
+    ImmediateExitPoint(entry, exit2, target),
+    exit1 != exit2.
+
   .decl MoreThanOneExitPoints(entry: Block, exit: Block)
   DEBUG_OUTPUT(MoreThanOneExitPoints)
 
   MoreThanOneExitPoints(entry, exit1):-
-    (ExternallyProvidedJumpdest(entry, exit1, _); InternallyResolvedJumpdest(entry, exit1, _, _)),
-    (ExternallyProvidedJumpdest(entry, exit2, _); InternallyResolvedJumpdest(entry, exit2, _, _)),
+    (ExternallyProvidedJumpdest(entry, exit1, _); InternallyResolvedJumpdest(entry, exit1, _, _); ImmediateExitPoint(entry, exit1, _)),
+    (ExternallyProvidedJumpdest(entry, exit2, _); InternallyResolvedJumpdest(entry, exit2, _, _); ImmediateExitPoint(entry, exit2, _)),
     exit1 != exit2.
 
 }
