@@ -31,12 +31,12 @@
 
   MergeContext(ctx, caller, [pub, newPrivateContext]):-
     ReachableContext(ctx, caller),
-    local.ImportantExitPoint(entry, caller, _),
+    local.ImportantExitPoint(entry, caller, callerRep),
     DecomposeContext(ctx, pub, pri),
-    DecomposePrivateContext(pri, entry, _),
+    DecomposePrivateContext(pri, entry, _), // peek
     TruncateContextIfNeeded(pub, pri, cutDownPri),
     !local.PublicFunction(caller, _),
-    newPrivateContext = [caller, cutDownPri].
+    newPrivateContext = [callerRep, cutDownPri].
     .plan 1:(3,1,2,4,5), 2:(4,3,1,2,5), 3:(5,4,3,1,2)
 
   MergeContext(ctx, caller, ctx):-
