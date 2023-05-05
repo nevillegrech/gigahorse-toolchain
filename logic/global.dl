@@ -413,7 +413,9 @@ PreMask_Length(cat("ff", mask), bytes+1) :-
 
   ImmediateExitPointsSameTarget(entry, exit1, exit2, target):-
     ImmediateExitPoint(entry, exit1, target),
-    (ImmediateExitPoint(entry, exit2, target); InternallyResolvedJumpdest(entry, exit2, _, target)),
+    ImmediateExitPoint(entry, exit2, target),
+    // This generalization had no effect
+    // (ImmediateExitPoint(entry, exit2, target); InternallyResolvedJumpdest(entry, exit2, _, target)),
     exit1 != exit2.
 
   // TODO: Add heuristic that uses MoreThanOneExitBlocksSameIndex_Rep
@@ -426,8 +428,12 @@ PreMask_Length(cat("ff", mask), bytes+1) :-
   ImportantExitPoint(entry, exit, exit):-
     InternallyResolvedJumpdest(entry, exit, _, _).
 
+  ImportantExitPoint(entry, pushBlock, pushBlock):-
+    InternallyResolvedJumpdest(entry, _, pushBlock, _).
+
   // Don't know how often this will happen but I've seen it
-  // Note that its not an exit point. Could it affect us? 
+  // Note that its not an exit point. Could it affect us?
+  // No effect 
   ImportantExitPoint(entry, pushBlock1, pushBlock1):-
     InternallyResolvedJumpdest(entry, exit1, pushBlock1, target),
     InternallyResolvedJumpdest(entry, exit2, pushBlock2, target),
