@@ -413,7 +413,7 @@ PreMask_Length(cat("ff", mask), bytes+1) :-
 
   ImmediateExitPointsSameTarget(entry, exit1, exit2, target):-
     ImmediateExitPoint(entry, exit1, target),
-    ImmediateExitPoint(entry, exit2, target),
+    (ImmediateExitPoint(entry, exit2, target); InternallyResolvedJumpdest(entry, exit2, _, target)),
     exit1 != exit2.
 
   // TODO: Add heuristic that uses MoreThanOneExitBlocksSameIndex_Rep
@@ -429,6 +429,9 @@ PreMask_Length(cat("ff", mask), bytes+1) :-
   ImportantExitPoint(entry, exit, rep):-
     // MoreThanOneExternallyProvidedJumpdests(entry),
     ExternallyProvidedJumpdest_Rep(entry, exit, rep).
+
+  // ImportantExitPoint(entry, exit, rep):-  
+  //   ExternallyProvidedJumpdest_Rep(entry, exit, rep).
 
   .decl MoreThanOneExitPoints(entry: Block, exit: Block)
   DEBUG_OUTPUT(MoreThanOneExitPoints)
