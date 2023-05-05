@@ -91,12 +91,13 @@ CFGImprecisionInstance(ctx, block, targetVar1, targetVar2):-
   global.BlockJumpValidTarget(ctx, block, targetVar2, _),
   targetVar1 < targetVar2.
 
-CFGImprecisionPersists(srcCtx, srcBlock, prevCtx, prevBlock, targetVar1, targetVar2, pathLen + 1):-
-  CFGImprecisionPersists(srcCtx, srcBlock, ctx, block, targetVar1, targetVar2, pathLen),
-  global.BlockEdge(prevCtx, prevBlock, ctx, block),
-  global.BlockInputContents(prevCtx, prevBlock, someIndex, targetVar1),
-  global.BlockInputContents(prevCtx, prevBlock, someIndex, targetVar2),
-  pathLen < 30.
+// Commenting it out because its too heavy
+// CFGImprecisionPersists(srcCtx, srcBlock, prevCtx, prevBlock, targetVar1, targetVar2, pathLen + 1):-
+//   CFGImprecisionPersists(srcCtx, srcBlock, ctx, block, targetVar1, targetVar2, pathLen),
+//   global.BlockEdge(prevCtx, prevBlock, ctx, block),
+//   global.BlockInputContents(prevCtx, prevBlock, someIndex, targetVar1),
+//   global.BlockInputContents(prevCtx, prevBlock, someIndex, targetVar2),
+//   pathLen < 30.
 
 .decl CFGImprecisionPersistsOrd(srcCtx: number, srcBlk: Block, currCtx: number, currBlk: Block, targetVar1: Variable, targetVar2: Variable, pathLen: number)
 .output CFGImprecisionPersistsOrd
@@ -119,9 +120,7 @@ CFGImprecisionIntroducedOrd(ord(srcCtx), srcBlock, ord(prevCtx), prevBlock, ord(
 .decl CFGImprecisionExists(ctx: global.sens.Context, block: Block, targetVar1: Variable, targetVar2: Variable)
 
 CFGImprecisionExists(ctx, block, targetVar1, targetVar2):-
-  CFGImprecisionInstance(_, _, targetVar1, targetVar2),
-  global.BlockInputContents(ctx, block, someIndex, targetVar1),
-  global.BlockInputContents(ctx, block, someIndex, targetVar2).
+  CFGImprecisionInstance(ctx, block, targetVar1, targetVar2).
 
 .decl CFGImprecisionExistsInPrev(ctx: global.sens.Context, block: Block, prevCtx: global.sens.Context, prevBlock: Block, targetVar1: Variable, targetVar2: Variable)
 

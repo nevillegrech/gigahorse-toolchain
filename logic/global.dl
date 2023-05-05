@@ -398,11 +398,11 @@ PreMask_Length(cat("ff", mask), bytes+1) :-
     ExternallyProvidedJumpdest(entry, _, index2),
     index != index2.
 
-  .decl MoreThanOneExitBlocksSameIndex_Rep(entry: Block, exit: Block, rep: Block)
-  DEBUG_OUTPUT(MoreThanOneExitBlocksSameIndex_Rep)
+  .decl ExternallyProvidedJumpdest_Rep(entry: Block, exit: Block, rep: Block)
+  DEBUG_OUTPUT(ExternallyProvidedJumpdest_Rep)
 
-  MoreThanOneExitBlocksSameIndex_Rep(entry, exit1, rep):-
-    ExternallyProvidedJumpdest(entry, exit1, index),
+  ExternallyProvidedJumpdest_Rep(entry, exit, rep):-
+    ExternallyProvidedJumpdest(entry, exit, index),
     // ExternallyProvidedJumpdest(entry, exit2, index), exit1 != exit2,
     repOrd = min a:{ExternallyProvidedJumpdest(entry, exit3, index), a = ord(exit3)},
     ExternallyProvidedJumpdest(entry, rep, index),
@@ -427,8 +427,8 @@ PreMask_Length(cat("ff", mask), bytes+1) :-
     InternallyResolvedJumpdest(entry, exit, _, _).
 
   ImportantExitPoint(entry, exit, rep):-
-    MoreThanOneExternallyProvidedJumpdests(entry),
-    MoreThanOneExitBlocksSameIndex_Rep(entry, exit, rep).
+    // MoreThanOneExternallyProvidedJumpdests(entry),
+    ExternallyProvidedJumpdest_Rep(entry, exit, rep).
 
   .decl MoreThanOneExitPoints(entry: Block, exit: Block)
   DEBUG_OUTPUT(MoreThanOneExitPoints)
