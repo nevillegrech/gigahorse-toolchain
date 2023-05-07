@@ -428,9 +428,10 @@ PreMask_Length(cat("ff", mask), bytes+1) :-
   ImportantExitPoint(entry, exit, exit):-
     InternallyResolvedJumpdest(entry, exit, _, _).
 
-  ImportantExitPoint(entry, exit, exit):-
-    ImmediateExitPoint(entry, exit, _),
-    ExternallyProvidedJumpdest(entry, _, _).
+  // BAD!
+  // ImportantExitPoint(entry, exit, exit):-
+  //   ImmediateExitPoint(entry, exit, _),
+  //   ExternallyProvidedJumpdest(entry, _, _).
 
   // ImportantExitPoint(entry, pushBlock, pushBlock):-
   //   InternallyResolvedJumpdest(entry, _, pushBlock, _).
