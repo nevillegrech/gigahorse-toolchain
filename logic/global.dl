@@ -472,6 +472,11 @@ PreMask_Length(cat("ff", mask), bytes+1) :-
     InternallyResolvedJumpdest(entry, exit2, pushBlock2, target),
     exit1 != exit2, pushBlock1 != pushBlock2.
 
+
+  ImportantExitPoint(entry, exit, rep):-
+    ExternallyProvidedJumpdest_Rep(entry, exit, rep),
+    NonImmediateBlockJumpTargetEscapes(exit).
+
   // Too unscalable, doesn't give much precision
   // ImportantExitPoint(entry, exit, rep):-
   //   // MoreThanOneExternallyProvidedJumpdests(entry),
