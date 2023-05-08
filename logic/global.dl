@@ -247,6 +247,11 @@ PreMask_Length(cat("ff", mask), bytes+1) :-
 
 .comp StaticOnlyGlobalAnalysis : PreTransLocalAnalysis {
 
+  /**
+    An `entry` point is:
+    * Any block that is escapes a block's execution (i.e. is pushed to the stack to be consumed by another block)
+    * Any possible function start.
+  */
   .decl EntryPoint(block: Block)
   DEBUG_OUTPUT(EntryPoint)
 
@@ -271,12 +276,26 @@ PreMask_Length(cat("ff", mask), bytes+1) :-
 
   .decl DirectBlockEdge(from: Block, to: Block)
 
+  /**
+    An `exit` block of `entry` that is a non immediate jump to the variable at `jumpDestStackIndex`
+  */
   .decl NonImmediateExitPoint(entry: Block, exit: Block, jumpDestStackIndex: StackIndex)
 
+  /**
+    An `exit` block of `entry` that is a direct/immediate jump to another entry point (`next`)
+  */
   .decl ImmediateExitPoint(entry: Block, exit: Block, next: Block)
 
+  /**
+    The target of non immediate `exit` block is resolved internally to `target` block,
+    as pushed by `pushBlock`
+  */
   .decl InternallyResolvedJumpdest(entry: Block, exit: Block, pushBlock: Block, target: Block)
 
+  /**
+    The target of non immediate `exit` block is provided externally at position `jumpDestStackIndex`
+    of the `entry` block
+  */
   .decl ExternallyProvidedJumpdest(entry: Block, exit: Block, jumpDestStackIndex: StackIndex)
 
   DEBUG_OUTPUT(ImmediateExitPoint)
@@ -398,6 +417,10 @@ PreMask_Length(cat("ff", mask), bytes+1) :-
     ExternallyProvidedJumpdest(entry, _, index2),
     index != index2.
 
+  /**
+    Finds a `rep`resentative for every `ExternallyProvidedJumpdest` based on its resolved `index`.
+    This helps scalability when multiple `exit` blocks resolve to the same `index`.
+  */
   .decl ExternallyProvidedJumpdest_Rep(entry: Block, exit: Block, rep: Block)
   DEBUG_OUTPUT(ExternallyProvidedJumpdest_Rep)
 
@@ -408,6 +431,9 @@ PreMask_Length(cat("ff", mask), bytes+1) :-
     ExternallyProvidedJumpdest(entry, rep, index),
     ord(rep) = repOrd.
 
+  /**
+    Two `ImmediateExitPoint` blocks have the same `target`. Can cause loss of precision in the CFG
+  */
   .decl ImmediateExitPointsSameTarget(entry: Block, exit1: Block, exit2: Block, target: Block)
   DEBUG_OUTPUT(ImmediateExitPointsSameTarget)
 
@@ -418,7 +444,9 @@ PreMask_Length(cat("ff", mask), bytes+1) :-
     // (ImmediateExitPoint(entry, exit2, target); InternallyResolvedJumpdest(entry, exit2, _, target)),
     exit1 != exit2.
 
-  // TODO: Add heuristic that uses MoreThanOneExitBlocksSameIndex_Rep
+  /**
+    An `exit` point of `entry` that can cause imprecision if not considered by the context-sensitive CFG analysis
+  */
   .decl ImportantExitPoint(entry: Block, exit: Block, rep: Block)
   DEBUG_OUTPUT(ImportantExitPoint)
 
@@ -449,6 +477,9 @@ PreMask_Length(cat("ff", mask), bytes+1) :-
   //   // MoreThanOneExternallyProvidedJumpdests(entry),
   //   ExternallyProvidedJumpdest_Rep(entry, exit, rep).
 
+  /**
+    Not used rn
+  */
   .decl MoreThanOneExitPoints(entry: Block, exit: Block)
   DEBUG_OUTPUT(MoreThanOneExitPoints)
 
