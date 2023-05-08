@@ -473,9 +473,10 @@ PreMask_Length(cat("ff", mask), bytes+1) :-
     exit1 != exit2, pushBlock1 != pushBlock2.
 
 
-  ImportantExitPoint(entry, exit, rep):-
-    ExternallyProvidedJumpdest_Rep(entry, exit, rep),
-    NonImmediateBlockJumpTargetEscapes(exit).
+  // No-op on ir contracts
+  // ImportantExitPoint(entry, exit, rep):-
+  //   ExternallyProvidedJumpdest_Rep(entry, exit, rep),
+  //   NonImmediateBlockJumpTargetEscapes(exit).
 
   // Too unscalable, doesn't give much precision
   // ImportantExitPoint(entry, exit, rep):-
@@ -493,16 +494,17 @@ PreMask_Length(cat("ff", mask), bytes+1) :-
     (ExternallyProvidedJumpdest(entry, exit2, _); InternallyResolvedJumpdest(entry, exit2, _, _); ImmediateExitPoint(entry, exit2, _)),
     exit1 != exit2.
 
+
+  .decl Analytics_MoreThanOneExternallyProvidedJumpdests(entry: Block)
+  .output Analytics_MoreThanOneExternallyProvidedJumpdests(IO="file", filename = "Analytics_MoreThanOneExternallyProvidedJumpdests.csv", delimiter = "\t")
+
+  Analytics_MoreThanOneExternallyProvidedJumpdests(entry):-
+    MoreThanOneExternallyProvidedJumpdests(entry).
+
+  .decl Analytics_MissingProvidedJumpdest(entry: Block)
+  .output Analytics_MissingProvidedJumpdest(IO="file", filename = "Analytics_MissingProvidedJumpdest.csv", delimiter = "\t")
+
+  Analytics_MissingProvidedJumpdest(entry):-
+    MissingProvidedJumpdest(entry, _).
+
 }
-
-// .decl Analytics_MoreThanOneExternallyProvidedJumpdests(entry: Block)
-// .output Analytics_MoreThanOneExternallyProvidedJumpdests
-
-// Analytics_MoreThanOneExternallyProvidedJumpdests(entry):-
-//   global.MoreThanOneExternallyProvidedJumpdests(entry).
-
-// .decl Analytics_MissingProvidedJumpdest(entry: Block)
-// .output Analytics_MissingProvidedJumpdest
-
-// Analytics_MissingProvidedJumpdest(entry):-
-//   global.MissingProvidedJumpdest(entry, _).
