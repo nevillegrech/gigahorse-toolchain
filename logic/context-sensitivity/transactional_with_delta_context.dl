@@ -60,11 +60,11 @@
 
   // Complex control flow case
   //// Default variant
-  MergeContext(ctx, caller, [pub, newPrivateContext, residualDelta]):-
+  MergeContext(ctx, caller, [pub, newPrivateContext, delta]):-
     ReachableContext(ctx, caller),
     PrivateFunctionCallOrReturn(caller),
-    DecomposeContext(ctx, pub, pri, _),
-    TruncateContextIfNeeded(pub, pri, cutDownPri, residualDelta),
+    DecomposeContext(ctx, pub, pri, prevDelta),
+    TruncateContextIfNeeded(pub, pri, cutDownPri, prevDelta, delta),
     #ifndef NO_PUBLIC_CONTEXT
     !local.PublicFunction(caller, _),
     #endif

@@ -1,4 +1,4 @@
-#define STACK_DELTA_MODULO 3
+#define STACK_DELTA_MODULO 2
 
 /**
   Base, Abstract context sensitivity component.
@@ -309,7 +309,7 @@
   .decl PrivateContextDepth(ctx: PrivateContext, depth: number)
   .decl DecomposePrivateContext(priCtx: PrivateContext, block: Block, rest: PrivateContext)
   .decl DropLast(ctx: PrivateContext, newCtx: PrivateContext, droppedBlock: Block)
-  .decl TruncateContextIfNeeded(publicFun:symbol, ctx: PrivateContext, newCtx: PrivateContext, deltaResidual: number)
+  .decl TruncateContextIfNeeded(publicFun:symbol, ctx: PrivateContext, newCtx: PrivateContext, oldDelta: number, newDelta: number)
   .decl DecomposeContext(ctx: Context, publicFun: symbol, private: PrivateContext, delta: number)
 
   InitialPrivateContext(nil).
@@ -328,11 +328,6 @@
 
   DecomposeContext([pubFun, privCtx, delta], pubFun, privCtx, delta) :-
     IsPotentialContext(pubFun, privCtx, delta).
-
-  // All suffixes
-  IsPotentialContext(pubFun, rest, delta) :-
-    IsPotentialContext(pubFun, ctx, delta),
-    ctx = [block, rest], block = block.
 
   // All prefixes
   IsPotentialContext(pubFun, prefix, delta) :-
@@ -363,7 +358,7 @@
     PrivateContextDepth(rest, depth).
     .plan 1:(2,1)
 
-  TruncateContextIfNeeded(pubFun, ctx, newCtx, delta):-
+  TruncateContextIfNeeded(pubFun, ctx, newCtx, prevDelta, delta):-
     DecomposeContext(_, pubFun, ctx, prevDelta),
     PrivateContextDepth(ctx, maxDepth),
     MaxContextDepth(pubFun, maxDepth),
@@ -372,7 +367,7 @@
     delta = (prevDelta + droppedBlockDelta) % STACK_DELTA_MODULO.
     .plan 1:(2,1,3,4,5),2:(4,1,2,3,5)
 
-  TruncateContextIfNeeded(pubFun, ctx, ctx, delta):-
+  TruncateContextIfNeeded(pubFun, ctx, ctx, delta, delta):-
     DecomposeContext(_, pubFun, ctx, delta),
     PrivateContextDepth(ctx, depth),
     MaxContextDepth(pubFun, maxDepth),
