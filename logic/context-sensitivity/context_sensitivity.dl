@@ -8,3 +8,4 @@
 #include "transactional_context.dl"
 #include "finite_precise_context.dl"
 #include "hybrid_precise_context.dl"
+#include "transactional_with_delta_context.dl"
