@@ -699,6 +699,10 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
     PushValue(oldStmt, val),
     StatementToInlinedStatement(_, _, oldStmt, clonedStmt).
 
+  In_Block_OriginalBlock(block, block):-
+    analysis.Statement_Block(_, block),
+    !Prev_Block_OriginalBlock(_, _).
+
   In_Block_OriginalBlock(block, originalBlock):-
     Prev_Block_OriginalBlock(block, originalBlock).
 
