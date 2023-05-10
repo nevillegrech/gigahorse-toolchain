@@ -1,4 +1,6 @@
 
 #define CONTEXT_SENSITIVITY HybridPreciseContext
 
+#define MAX_STACK_HEIGHT 20
+
 #include "main.dl"
