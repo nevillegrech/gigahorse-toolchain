@@ -726,13 +726,13 @@ COPY_OUTPUT(inliner3, inliner2)
 #ifdef BLOCK_CLONING
 // Enable the early cloning of blocks to increase precision (sacrificing performance)
 .init blockCloner = BLOCK_CLONING
-COPY_OUTPUT(blockCloner, inliner2)
+COPY_OUTPUT(blockCloner, inliner3)
 blockCloner.Prev_Block_OriginalBlock(block, originalBlock):- revertCloner.Block_OriginalBlock(block, originalBlock).
 COPY_OUTPUT(preTrans, blockCloner)
 
 #else
 
-COPY_OUTPUT(preTrans, inliner2)
+COPY_OUTPUT(preTrans, inliner3)
 
 #endif
 
