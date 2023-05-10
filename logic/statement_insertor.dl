@@ -563,3 +563,140 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
 //   Analytics_JumpToMany(irblk),
 //   JumpToMany_ImprecisionSource(irblk, blk),
 //   blockCloner.BlockToClone(_, blk).
+
+.comp AbstractBlockInliner: CodeTransformer {
+
+  .init analysis = PreTransLocalAnalysis
+
+  analysis.PushValue(push, val):- PushValue(push, val).
+  analysis.Statement_Opcode(stmt, op):- Statement_Opcode(stmt, op).
+  analysis.Statement_Next(stmt, stmtNext):- Statement_Next(stmt, stmtNext).
+
+  .decl Prev_Block_OriginalBlock(block: Block, originalBlock: Block)
+  .decl In_Block_OriginalBlock(block: Block, originalBlock: Block)
+
+  // The last `statement` in the original bytecode, start adding cloned code after it.
+  .decl MaxOriginalStatement(statement: Statement)
+
+  // compute the block size
+  .decl BlockSize(block: Block, size: number)
+
+  // The `offset` (numeric diff from `block` head) of every `statement`, helps with cloning
+  .decl Statement_BlockOffset(statement: Statement, block: Block, offset: number)
+
+
+  // Create a new instance of `blockToClone` for its definition in `pushBlock`
+  .decl BlockToInline(caller: Block, blockToInline: Block)
+
+  // For each fact of `BlockToClone` we create an identifier (`opID`) and order them based on it
+  .decl BlockToInlineID(caller: Block, blockToInline: Block, opID: symbol)
+
+  /**
+    After we compute the order of the inserted clone blocks,
+    we assign each cloned instance to a starting bytecode offset (`generatedBlock`).
+  */
+  .decl BlockToInlineFirstAvailableStatement(caller: Block, blockToInline: Block, generatedStmt: Statement)
+
+  // `generatedStatement` will be the `stmt` of `blockToClone` when cloned in `pushBlock`
+  .decl StatementToInlinedStatement(caller: Block, blockToInline: Block, stmt: Statement, generatedStatement: Statement)
+  DEBUG_OUTPUT(StatementToInlinedStatement)
+
+  .init inlineOpSorter = OrdAscentingSorter
+
+  // mapping output blocks (cloned and non-cloned) to the blocks in the original bytecode
+  .decl Block_OriginalBlock(block: Block, originalBlock: Block)
+  DEBUG_OUTPUT(Block_OriginalBlock)
+  DEBUG_OUTPUT(BlockToInline)
+  DEBUG_OUTPUT(BlockToInlineID)
+
+  MaxOriginalStatement(as(maxStmt, Statement)):-
+    maxStmtNumber = max stmtNumber : { Statement_Opcode(stmt, _), stmtNumber = @hex_to_number(stmt)},
+    maxStmt = @number_to_hex(maxStmtNumber).
+
+  BlockSize(block, @hex_to_number(tail) - @hex_to_number(block)):-
+    analysis.BasicBlock_Tail(block, tail).
+
+  Statement_BlockOffset(stmt, block, @hex_to_number(stmt) - @hex_to_number(block)):-
+    analysis.Statement_Block(stmt, block).
+
+
+  BlockToInline(caller, blockToInline):-
+    analysis.NonImmediateBlockJumpImmediatelyResolved(caller, blockToInline, _).
+    
+  BlockToInlineID(caller, blockToInline, cat(caller, blockToInline)):-
+    BlockToInline(caller, blockToInline).
+
+  inlineOpSorter.Input(opID):- BlockToInlineID(_, _, opID).
+
+  BlockToInlineFirstAvailableStatement(caller, blockToInline, as(generatedStmt, Statement)):-
+    BlockToInlineID(caller, blockToInline, opID),
+    !inlineOpSorter.Input_Next(_, opID),
+    MaxOriginalStatement(maxStmt),
+    generatedStmt = @add_256(maxStmt, "0x20").
+
+  BlockToInlineFirstAvailableStatement(caller, blockToInline, as(generatedStmt, Statement)):-
+    BlockToInlineID(prevCaller, prevBlockToInline, prevOpID),
+    inlineOpSorter.Input_Next(prevOpID, opID),
+    BlockToInlineFirstAvailableStatement(prevCaller, prevBlockToInline, prevFirstStatement),
+    BlockToInlineID(caller, blockToInline, opID),
+    BlockSize(prevBlockToInline, prevInlineBlockSize),
+    generatedStmt = @add_256(prevFirstStatement, @number_to_hex(prevInlineBlockSize + 32)).
+
+  StatementToInlinedStatement(caller, blockToInline, stmt, as(generatedStatement, Statement)):-
+    BlockToInlineFirstAvailableStatement(caller, blockToInline, firstStmt),
+    analysis.Statement_Block(stmt, blockToInline),
+    analysis.Statement_Opcode(stmt, op),
+    op != "JUMPDEST",
+    generatedStatement = @add_256(firstStmt, @sub_256(stmt, blockToInline)).
+
+  .decl JUMPToInlinedBlock(jump: Statement)
+
+  JUMPToInlinedBlock(jump):-
+    BlockToInline(caller, _),
+    analysis.BasicBlock_Tail(caller, jump),
+    Statement_Opcode(jump, "JUMP"). // precaution
+
+  Out_Statement_Next(stmt, nextStmt):-
+    Statement_Next(stmt, nextStmt),
+    !JUMPToInlinedBlock(stmt).
+
+  Out_Statement_Next(stmt, genStmt):-
+    JUMPToInlinedBlock(stmt),
+    analysis.Statement_Block(stmt, caller),
+    BlockToInline(caller, blockToInline),
+    analysis.BasicBlock_Head(blockToInline, jumpDest),
+    analysis.Statement_Next(jumpDest, newFirst),
+    StatementToInlinedStatement(caller, blockToInline, newFirst, genStmt).
+
+  Out_Statement_Next(genStmt, next):-
+    JUMPToInlinedBlock(stmt),
+    analysis.Statement_Block(stmt, caller),
+    analysis.Statement_Next(stmt, next),
+    BlockToInline(caller, blockToInline),
+    analysis.BasicBlock_Tail(blockToInline, nextJump),
+    StatementToInlinedStatement(caller, blockToInline, nextJump, genStmt).
+
+  Out_Statement_Next(genStmt, nextGenStmt):-
+    StatementToInlinedStatement(caller, blockToInline, stmt, genStmt),
+    Statement_Next(stmt, nextStmt),
+    StatementToInlinedStatement(caller, blockToInline, nextStmt, nextGenStmt).
+
+  Out_Statement_Opcode(oldStmt, op):-
+    Statement_Opcode(oldStmt, op),
+    !JUMPToInlinedBlock(oldStmt).
+
+  Out_Statement_Opcode(jump, "POP"):-
+    JUMPToInlinedBlock(jump).
+
+  Out_Statement_Opcode(inlinedStmt, op):-
+    Statement_Opcode(oldStmt, op),
+    StatementToInlinedStatement(_, _, oldStmt, inlinedStmt).
+
+  Out_PushValue(oldStmt, oldVal):-
+    PushValue(oldStmt, oldVal).
+
+  Out_PushValue(clonedStmt, val):-
+    PushValue(oldStmt, val),
+    StatementToInlinedStatement(_, _, oldStmt, clonedStmt).
+
+}

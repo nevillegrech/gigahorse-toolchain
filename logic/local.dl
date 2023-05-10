@@ -524,6 +524,31 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     LocalStackContents(jump, _, var),
     !ImmediateBlockJumpTarget(block, _).
 
+  .decl ImmediateBlockJumpTargetEscapes(block: Block)
+  DEBUG_OUTPUT(ImmediateBlockJumpTargetEscapes)
+
+  ImmediateBlockJumpTargetEscapes(block):-
+    IsJump(jump),
+    BasicBlock_Tail(block, jump),
+    ImmediateBlockJumpTarget(block, var1),
+    Variable_Value(var1, val),
+    Variable_Value(var2, val),
+    LocalStackContents(jump, _, var2).
+
+  .decl NonImmediateBlockJumpImmediatelyResolved(caller: Block, nonImmediateJumpBlock: Block, target: Block)
+  DEBUG_OUTPUT(NonImmediateBlockJumpImmediatelyResolved)
+
+  NonImmediateBlockJumpImmediatelyResolved(caller, as(nonImmediateJumpBlock, Block), as(target, Block)):-
+    ImmediateBlockJumpTarget(caller, var1),
+    Variable_Value(var1, nonImmediateJumpBlock),
+    BasicBlock_Tail(as(nonImmediateJumpBlock, Block), nonImmediateJump),
+    Statement_Opcode(nonImmediateJump, "JUMP"),
+    Statement_Uses_Local(nonImmediateJump, stackIndex, 0),
+    BasicBlock_Tail(caller, immediateJump),
+    LocalStackContents(immediateJump, stackIndex, targetVar),
+    Variable_Value(targetVar, target),
+    !ImmediateBlockJumpTarget(as(nonImmediateJumpBlock, Block), _).
+
   /**
     Block's "next" is always the same.
     Helper for some ctx sensitivity algorithms
@@ -689,16 +714,25 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
 .init revertCloner = RevertBlockCloner
 COPY_CODE(revertCloner, factReader)
 
+.init inliner = AbstractBlockInliner
+COPY_CODE(inliner, factReader)
+
+.init inliner2 = AbstractBlockInliner
+COPY_OUTPUT(inliner2, inliner)
+
+.init inliner3 = AbstractBlockInliner
+COPY_OUTPUT(inliner3, inliner2)
+
 #ifdef BLOCK_CLONING
 // Enable the early cloning of blocks to increase precision (sacrificing performance)
 .init blockCloner = BLOCK_CLONING
-COPY_OUTPUT(blockCloner, revertCloner)
+COPY_OUTPUT(blockCloner, inliner2)
 blockCloner.Prev_Block_OriginalBlock(block, originalBlock):- revertCloner.Block_OriginalBlock(block, originalBlock).
 COPY_OUTPUT(preTrans, blockCloner)
 
 #else
 
-COPY_OUTPUT(preTrans, revertCloner)
+COPY_OUTPUT(preTrans, inliner2)
 
 #endif
 
