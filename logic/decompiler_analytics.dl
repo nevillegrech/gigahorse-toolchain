@@ -86,17 +86,17 @@ Analytics_ReachableBlocksInTAC(originalBlock):-
 Analytics_ReachableBlocks(originalBlock):-
   global.ReachableContext(_, block),
   postTrans.Statement_Block(_, block),
-  revertCloner.Block_OriginalBlock(block, originalBlock).
+  inliner3.Block_OriginalBlock(block, originalBlock).
 
 Analytics_UnreachableBlock(originalBlock):-
   postTrans.Statement_Block(_, block),
-  revertCloner.Block_OriginalBlock(block, originalBlock),
+  inliner3.Block_OriginalBlock(block, originalBlock),
   !BlockIsData(originalBlock),
   !Analytics_ReachableBlocks(originalBlock).
 
 Analytics_ReachableBlocksInTAC(originalBlock):-
   Analytics_ReachableBlocks(originalBlock),
-  revertCloner.Block_OriginalBlock(block, originalBlock),
+  inliner3.Block_OriginalBlock(block, originalBlock),
   Block_IRBlock(block, _, irblock),
   (
     LocalBlockEdge(irblock, _);
