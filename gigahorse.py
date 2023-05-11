@@ -391,7 +391,9 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
                 timeouts.append(souffle_client)
             if args.debug and err_file != devnull:
                 souffle_err = open(err_filename).read()
-                if "Error:" in souffle_err:
+                # Used to be "Error:" to avoid reporting the file not found errors of souffle
+                # However with souffle 2.4 they cause the program to stop so we have to report them as well
+                if "Error" in souffle_err:
                     errors.append(os.path.basename(souffle_client))
                     log(souffle_err)
 

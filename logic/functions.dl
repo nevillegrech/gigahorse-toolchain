@@ -72,16 +72,21 @@ PossibleReturnAddressWithPos(targetSetter, retCtx, retBlock, retTarget, pos) :-
   postTrans.JUMP(jumpStmt),
   postTrans.BeforeLocalStackContents(jumpStmt, pos, targetVariable).
 
+.decl OptPossibleReturnAddressWithPos(targetSetter:Block, retBlock:Block, retTarget:Block, pos:number)
+OptPossibleReturnAddressWithPos(targetSetter, retBlock, retTarget, pos) :-
+  PossibleReturnAddressWithPos(targetSetter, _, retBlock, retTarget, pos).
+  
 .decl PossibleReturnAddressWithLowerPos(targetSetter:Block, retBlock:Block, retTarget:Block, pos:number, otherPos:number)
 PossibleReturnAddressWithLowerPos(targetSetter, retBlock, retTarget, pos, otherPos) :-
-  PossibleReturnAddressWithPos(targetSetter, _, retBlock, retTarget, pos),
-  PossibleReturnAddressWithPos(targetSetter, _, _, _, otherPos),
+  OptPossibleReturnAddressWithPos(targetSetter, retBlock, retTarget, pos),
+  OptPossibleReturnAddressWithPos(targetSetter, _, _, otherPos),
   otherPos < pos.
 
 .decl InitialPossibleReturnAddressWithRank(targetSetter:Block, retCtx:global.sens.Context, retBlock:Block, retTarget:Block, rank:number)
 InitialPossibleReturnAddressWithRank(targetSetter, retCtx, retBlock, retTarget, rank) :-
   PossibleReturnAddressWithPos(targetSetter, retCtx, retBlock, retTarget, pos),
-  rank = count : PossibleReturnAddressWithLowerPos(targetSetter, retBlock, retTarget, pos, _).
+  rank = count : PossibleReturnAddressWithLowerPos(targetSetter, retBlock, retTarget, pos, _),
+  rank < RETURN_ADDRESS_RANK_THRESHOLD.  
 
 .decl OptBlockJumpContext(callCtx:global.sens.Context, targetSetter:Block)
 OptBlockJumpContext(callCtx, targetSetter) :-
@@ -94,8 +99,8 @@ PossibleReturnAddressWithRank(callCtx, targetSetter, retCtx, retBlock, retTarget
 
 .decl MaxRankForPossibleReturnAddressSetter(targetSetter:Block, rank:number)
 MaxRankForPossibleReturnAddressSetter(targetSetter, rank) :-
-  InitialPossibleReturnAddressWithRank(targetSetter, _, retBlock, retTarget, rank),
-  PossibleReturnAddressWithPos(targetSetter, _, retBlock, retTarget, pos),
+  InitialPossibleReturnAddressWithRank(targetSetter, retCtx, retBlock, retTarget, rank),
+  PossibleReturnAddressWithPos(targetSetter, retCtx, retBlock, retTarget, pos),
   !PossibleReturnAddressWithLowerPos(targetSetter, _, _, _, pos).
 
 

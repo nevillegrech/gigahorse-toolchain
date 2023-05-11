@@ -7,10 +7,13 @@
 inductionVariableFlow.TransferStmt(stmt):- Statement_Opcode(stmt, "AND"); Statement_Opcode(stmt, "PHI").
 inductionVariableFlow.TransferBoundary(block) :- BlockInStructuredLoop(block, _).
 
-// A variable that is monotonically increasing with each successive iteration in loop
+// A variable that is steadily changing with each successive iteration in loop
 .decl InductionVariable(v:Variable, loop: Block)
 
-// YS: strictly speaking, adding does not guarantee increasing...
+// Current definition: a var defined in a loop is an induction variable if:
+//   - it is directly added to itself or subtracted from itself
+//   - it is def-ed based on a variable that matches the above
+//   - it is def-ed by a local function call whose arg depends on the var itself.
 InductionVariable(inductionVar, loop) :-
    (ADD(addStmt, v, _, x) ; ADD(addStmt, _, v, x)),
    StatementInStructuredLoop(addStmt, loop),
@@ -28,6 +31,30 @@ InductionVariable(inductionVar, loop) :-
    Statement_Defines(indVarSet, inductionVar, _),
    StatementInStructuredLoop(indVarSet, loop).
    //!VariabledDefinedByNonAddInLoop(v, loop).
+
+InductionVariable(x, loop) :-
+   CallGraphEdge(caller, _),
+   BlockInStructuredLoop(caller, loop),
+   ActualReturnArgs(caller, x, _),
+   ActualArgs(caller, v, _),
+   inductionVariableFlow.Flows(x, v).
+
+
+//// Most general definition would be:
+
+// .decl Statement_DefUses(stmt: Statement, defVar: Variable, useVar: Variable)
+// Statement_DefUses(stmt, defVar, useVar) :-
+//    Statement_Defines(stmt, defVar, _),
+//    Statement_Uses(stmt, useVar, _).
+
+// InductionVariable(inductionVar, loop) :-
+//    StatementInStructuredLoop(stmt, loop),
+//    Statement_DefUses(stmt, x, v),
+//    inductionVariableFlow.Flows(x, v),
+//    inductionVariableFlow.Flows(x, inductionVar),
+//    Statement_Defines(indVarSet, inductionVar, _),
+//    StatementInStructuredLoop(indVarSet, loop).
+
 
 .decl VariabledDefinedByNonAddInLoop(v:Variable, loop:Block)
 // A variable that is defined by any statement other than ADD

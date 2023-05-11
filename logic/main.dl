@@ -11,6 +11,7 @@
   #define CONTEXT_SENSITIVITY TransactionalContext
 //  #define CONTEXT_SENSITIVITY FinitePreciseContext
 //  #define CONTEXT_SENSITIVITY HybridPreciseContext
+//  #define CONTEXT_SENSITIVITY TransactionalWithDeltaContext
 #endif
 
 #include "context-sensitivity/context_sensitivity.dl"

@@ -1,4 +1,4 @@
-.comp TransactionalContext <LocalAnalysis> : PublicComponentContextSensitivity <LocalAnalysis> {
+.comp TransactionalWithDeltaContext <LocalAnalysis> : PublicComponentAndDeltaContextSensitivity <LocalAnalysis> {
   // inverse-escape analysis
   .decl BlockUsesLocal(block: Block, var: VariableOrStackIndex)
   BlockUsesLocal(block, var) :-
@@ -24,8 +24,6 @@
     local.Variable_Value(var, val),
     local.Statement_Defines(stmt, var),
     local.Statement_Block(stmt, block),
-    local.BasicBlock_Tail(block, tail),
-    local.LocalStackContents(tail, _, var), // variable escapes the block
     !BlockUsesLocal(block, var).
 
   // We're only interested in private functions
@@ -56,47 +54,21 @@
     #ifndef NO_PUBLIC_CONTEXT
     !local.PublicFunction(caller, _),
     #endif
-    DecomposeContext(ctx, pub, _),
+    DecomposeContext(ctx, pub, _, _),
     MaxContextDepth(pub, 0).
     .plan 1:(2,3,1)
 
   // Complex control flow case
   //// Default variant
-  MergeContext(ctx, caller, [pub, newPrivateContext]):-
+  MergeContext(ctx, caller, [pub, newPrivateContext, delta]):-
     ReachableContext(ctx, caller),
     PrivateFunctionCallOrReturn(caller),
-    DecomposeContext(ctx, pub, pri),
-    TruncateContextIfNeeded(pub, pri, cutDownPri),
+    DecomposeContext(ctx, pub, pri, prevDelta),
+    TruncateContextIfNeeded(pub, pri, cutDownPri, prevDelta, delta),
     #ifndef NO_PUBLIC_CONTEXT
     !local.PublicFunction(caller, _),
     #endif
     newPrivateContext = [caller, cutDownPri].
     .plan 1:(3,1,2,4), 2:(4,3,1,2)
 
-  // // Complex control flow case
-  // //// Variant that distinguishes whether the context contains the block
-  // //// If it doesn't:
-  // MergeContext(ctx, caller, [pub, newPrivateContext]):-
-  //   ReachableContext(ctx, caller),
-  //   PrivateFunctionCallOrReturn(caller),
-  //   DecomposeContext(ctx, pub, pri),
-  //   TruncateContextIfNeeded(pub, pri, cutDownPri),
-  //   #ifndef NO_PUBLIC_CONTEXT
-  //   !local.PublicFunction(caller, _),
-  //   #endif
-  //   NotPrivateContextContainsElement(cutDownPri, caller),
-  //   newPrivateContext = [caller, cutDownPri].
-  //   .plan 1:(3,1,2,4,5), 2:(4,3,1,2,5), 3:(5,2,4,3,1)
-
-  // //// If it does:
-  // MergeContext(ctx, caller, ctx):-
-  //   ReachableContext(ctx, caller),
-  //   PrivateFunctionCallOrReturn(caller),
-  //   DecomposeContext(ctx, pub, pri),
-  //   TruncateContextIfNeeded(pub, pri, cutDownPri),
-  //   #ifndef NO_PUBLIC_CONTEXT
-  //   !local.PublicFunction(caller, _),
-  //   #endif
-  //   PrivateContextContainsElement(cutDownPri, caller).
-  //   .plan 1:(3,1,2,4,5), 2:(4,3,1,2,5), 3:(5,2,4,3,1)
 }

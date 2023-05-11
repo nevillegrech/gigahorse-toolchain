@@ -36,3 +36,32 @@ __WARNING:__ Using limitsize will also stop the execution of other relations in 
 
 By default, the gigahorse pipeline contains a stage inlining small functions, in order to produce a more high-level IR for subsequent client analyses.
 The inlining stage can be disabled using the `--disable_inline` flag.
+
+# Development and Debugging
+
+## Development using `gigahorse.py`
+
+You can use the `--debug` (shows `souffle` warnings/errors, outputs datalog relations using the `DEBUG_OUTPUT()` macro) and `-i` (runs `souffle` in interpreted mode) flags when developing gigahorse or client analyses.
+
+## Running Gigahorse Manually (for development purposes)
+To use this framework for development purposes (e.g., writing security analyses), an understanding of the analysis pipeline will be helpful. This section describes one common use case --- that of visualizing the CFG of the lifted IR. The pipeline will consist of the manual execution of following three steps:
+
+1. Fact generation
+2. Run main.dl using Souffle
+3. Visualize results
+
+In order to proceed, make sure that `LD_LIBRARY_PATH` and `LIBRARY_PATH` are set:
+
+    $ cd souffle-addon
+    $ export LD_LIBRARY_PATH=`pwd`  # or wherever you want to put the resulting libfunctors.so
+    $ export LIBRARY_PATH=`pwd`  # or wherever you want to put the resulting libfunctors.so
+
+We suggest adding `LD_LIBRARY_PATH` and `LIBRARY_PATH` to your `.bashrc` file
+
+
+Now let's manually execute the pipeline above:
+
+
+    $ ./generatefacts <contract> facts      # fact generation (translates EVM bytecode into relational format)
+    $ souffle -F facts logic/main.dl  # runs the main decompilation step (written as a Datalog program)
+    $ clients/visualizeout.py               # visualizes the IR and outputs (all outputs of Datalog programs are in a relational format)
