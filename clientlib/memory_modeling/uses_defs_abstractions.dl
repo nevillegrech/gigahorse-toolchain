@@ -606,3 +606,18 @@ StatementUsesMemory_ActualMemoryArg(callDataCopy, "CALLDATACOPY", 0, arrVarRep):
   CALLDATACOPY_AllCalldata(callDataCopy),
   CALLDATACOPY(callDataCopy, array, _, _),
   VarIsArray(array, arrVarRep).
+
+
+.decl CREATE2WithInitCode(create2: Statement, initCode: symbol)
+.output CREATE2WithInitCode
+
+CREATE2WithInitCode(create2, initCode):-
+  CREATE2(create2, _, _, _, _, _),
+  MemWriteToMemConsStmtResolved(codeCopy, create2, _, _, _),
+  ByteCodeHex(bytecode),
+  Statement_Opcode(codeCopy, "CODECOPY"),
+  Statement_Uses(codeCopy, codeIndexVar, 1),
+  Statement_Uses(codeCopy, lenVar, 2),
+  Variable_Value(codeIndexVar, codeIndex),
+  Variable_Value(lenVar, len),
+  initCode = substr(bytecode, 2*@hex_to_number(codeIndex), 2*@hex_to_number(len)).
