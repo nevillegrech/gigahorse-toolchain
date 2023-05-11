@@ -36,7 +36,7 @@ decomp_analytics = {
 #  'Analytics_MissingJumpTargetAnyCtx',
 #  'Analytics_JumpToManyWithoutGlobalImprecision',
 #  'Analytics_Blocks',
-#  'Analytics_Contexts',
+  'Analytics_Contexts' : 'scalability',
 #  'Analytics_JumpToManyWouldHaveBeenCloned',
 #  'Analytics_JumpToManyNonPopBlock',
 }
@@ -162,7 +162,9 @@ print(f"{len(output_in_any)} contracts decompiled/analyzed by some config")
 print(f"{len(output_in_all)} contracts decompiled/analyzed by all configs \033[1m(common)\033[0m")
 
 if args.verbose:
-    print(f"Contracts that timed out for all configs: {timeout_in_all}")
+    print(f"Contracts that timed out for all configs:")
+    for contract in timeout_in_all:
+        print(contract)
 
 if len(result_files) == 2:
     for rel in rels + ['has_output']:
@@ -191,6 +193,7 @@ if args.point_to_point:
     format_row = "{:>30}" * (len(result_files_simple) + 2)
     print(format_row.format("", *(["Contract"] + result_files_simple)))
     for file in output_in_all:
+        # vals = [res[file]["analytics"][args.point_to_point].replace('\n', '') for res in results_processed_common]
         vals = [res[file]["analytics"][args.point_to_point] for res in results_processed_common]
         if len(set(vals)) == 1:
             continue
