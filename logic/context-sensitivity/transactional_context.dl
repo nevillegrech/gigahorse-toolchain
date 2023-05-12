@@ -24,6 +24,8 @@
     local.Variable_Value(var, val),
     local.Statement_Defines(stmt, var),
     local.Statement_Block(stmt, block),
+    local.BasicBlock_Tail(block, tail),
+    local.LocalStackContents(tail, _, var), // variable escapes the block
     !BlockUsesLocal(block, var).
 
   // We're only interested in private functions
