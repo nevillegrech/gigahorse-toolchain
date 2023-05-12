@@ -211,6 +211,14 @@ Analytics_CREATE2WithInitCode(create2, initCode):-
 Analytics_CREATE2(create2):-
   Statement_Opcode(create2, "CREATE2").
 
+.decl Analytics_CREATE2AndKnownMetamorphicCode(create2: Statement)
+.output Analytics_CREATE2AndKnownMetamorphicCode
+
+Analytics_CREATE2AndKnownMetamorphicCode(create2):-
+  Statement_Opcode(create2, "CREATE2"),
+  ByteCodeHex(byteCode),
+  contains("5860208158601c335a63aaf10f428752fa158151803b80938091923cf3", byteCode).
+
 /**
  * Guards
  */
