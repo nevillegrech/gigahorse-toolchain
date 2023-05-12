@@ -21,6 +21,7 @@
 	// Helpers/intermediate relations
 	.decl BlockHasFromStmt(block: Block, stmt: Statement)
 	.decl BlockHasBypassingStmt(block: Block, stmt: Statement)
+	.decl BlockHasSomeBypassingStmt(block: Block)
 	.decl BlockHasToStmt(block: Block, stmt: Statement)
 
 	.decl FromStmtToStmtSameBlock(stmt1: Statement, stmt3: Statement)
@@ -42,6 +43,9 @@
 	  Bypassing(stmt),
 	  Statement_Block(stmt, block).
 
+    BlockHasSomeBypassingStmt(block) :-
+      BlockHasBypassingStmt(block, _).
+      
 	BlockHasToStmt(block, stmt):-
 	  To(stmt),
 	  Statement_Block(stmt, block).
@@ -72,15 +76,19 @@
 	  block1 != block3,
 	  !Dominates(block3, block1).
 
-	FromStmtToStmtDiffBlockHavePathInterrupted(stmt1, block1, stmt3, block3):-
-	  FromStmtToStmtDiffBlockHavePath(stmt1, block1, stmt3, block3),
+    .decl OptLocalBlockPathToBypassingStmt(block1: Block, block2: Block)
+    OptLocalBlockPathToBypassingStmt(block1, block2) :-
 	  LocalBlockPath(block1, block2),
-	  BlockHasBypassingStmt(block2, _),
-	  LocalBlockPath(block2, block3),
+	  BlockHasSomeBypassingStmt(block2),
 	  block2 != block1,
-	  block2 != block3,
-	  !Dominates(block3, block2),
 	  !Dominates(block2, block1).
+
+    FromStmtToStmtDiffBlockHavePathInterrupted(stmt1, block1, stmt3, block3):-
+	  FromStmtToStmtDiffBlockHavePath(stmt1, block1, stmt3, block3),
+      OptLocalBlockPathToBypassingStmt(block1, block2),
+	  LocalBlockPath(block2, block3),
+	  block2 != block3,
+	  !Dominates(block3, block2).
 
 	FromStmtToStmtDiffBlockHavePathInterrupted(stmt1, block1, stmt3, block3):-
 	  FromStmtToStmtDiffBlockHavePath(stmt1, block1, stmt3, block3),
@@ -130,6 +138,7 @@
 	// Helpers/intermediate relations
 	.decl BlockHasFromStmt(block: Block, stmt: Statement, arg: symbol)
 	.decl BlockHasBypassingStmt(block: Block, stmt: Statement, arg: symbol)
+	.decl BlockHasSomeBypassingStmt(block: Block, arg: symbol)
 	.decl BlockHasToStmt(block: Block, stmt: Statement, arg: symbol)
 
 	.decl FromStmtToStmtSameBlock(stmt1: Statement, stmt3: Statement, arg: symbol)
@@ -149,6 +158,9 @@
 	  Bypassing(stmt, arg),
 	  Statement_Block(stmt, block).
 
+    BlockHasSomeBypassingStmt(block, arg) :-
+      BlockHasBypassingStmt(block, _, arg).
+      
 	BlockHasToStmt(block, stmt, arg):-
 	  To(stmt, arg),
 	  Statement_Block(stmt, block).
@@ -182,7 +194,7 @@
 	FromStmtToStmtDiffBlockHavePathInterrupted(stmt1, block1, stmt3, block3, arg):-
 	  FromStmtToStmtDiffBlockHavePath(stmt1, block1, stmt3, block3, arg),
 	  LocalBlockPath(block1, block2),
-	  BlockHasBypassingStmt(block2, _, arg),
+	  BlockHasSomeBypassingStmt(block2, arg),
 	  LocalBlockPath(block2, block3),
 	  block2 != block1,
 	  block2 != block3,
@@ -235,13 +247,14 @@
 	// Helpers/intermediate relations
 	.decl BlockHasFromStmt(block: Block, stmt: Statement, arg: symbol, len: number)
 	.decl BlockHasBypassingStmt(block: Block, stmt: Statement, arg: symbol, len: number)
+	.decl BlockHasSomeBypassingStmt(block: Block, arg: symbol, len: number)
 	.decl BlockHasToStmt(block: Block, stmt: Statement, arg: symbol, len: number)
 
 	.decl FromStmtToStmtSameBlock(stmt1: Statement, stmt3: Statement, arg: symbol)
 	.decl FromStmtToStmtSameBlockInterrupted(stmt1: Statement, stmt3: Statement, arg: symbol)
 	.decl FromStmtToStmtSameBlockUninterrupted(stmt1: Statement, stmt3: Statement, arg: symbol)
 
-	.decl FromStmtToStmtDiffBlockHavePath(stmt1: Statement, block1: Block, stmt3: Statement, block2: Block, arg: symbol)
+	.decl FromStmtToStmtDiffBlockHavePath(stmt1: Statement, block1: Block, stmt3: Statement, block2: Block, arg: symbol, len2: number)
 	.decl FromStmtToStmtDiffBlockHavePathInterrupted(stmt1: Statement, block1: Block, stmt3: Statement, block2: Block, arg: symbol)
 	.decl FromStmtToStmtDiffBlockHavePathUninterrupted(stmt1: Statement, stmt3: Statement, arg: symbol)
 
@@ -254,6 +267,9 @@
 	  Bypassing(stmt, arg, len),
 	  Statement_Block(stmt, block).
 
+    BlockHasSomeBypassingStmt(block, arg, len) :-
+      BlockHasBypassingStmt(block, _, arg, len).
+      
 	BlockHasToStmt(block, stmt, arg, len):-
 	  To(stmt, arg, len),
 	  Statement_Block(stmt, block).
@@ -279,44 +295,45 @@
 	  FromStmtToStmtSameBlock(stmt1, stmt3, arg),
 	  !FromStmtToStmtSameBlockInterrupted(stmt1, stmt3, arg).
 
-	FromStmtToStmtDiffBlockHavePath(stmt1, block1, stmt3, block3, arg):-
+	FromStmtToStmtDiffBlockHavePath(stmt1, block1, stmt3, block3, arg, len3):-
 	  BlockHasFromStmt(block1, stmt1, arg, _),
 	  LocalBlockPath(block1, block3),
-	  BlockHasToStmt(block3, stmt3, arg, _),
+	  BlockHasToStmt(block3, stmt3, arg, len3),
 	  block1 != block3,
 	  !Dominates(block3, block1).
 
-	FromStmtToStmtDiffBlockHavePathInterrupted(stmt1, block1, stmt3, block3, arg):-
-	  FromStmtToStmtDiffBlockHavePath(stmt1, block1, stmt3, block3, arg),
+    .decl OptBlocksWithFromAndBypassingStmt(block1: Block, stmt1: Statement, block2: Block, arg: symbol, len1: number, len2: number)
+    OptBlocksWithFromAndBypassingStmt(block1, stmt1, block2, arg, len1, len2) :-
 	  BlockHasFromStmt(block1, stmt1, arg, len1),
 	  LocalBlockPath(block1, block2),
-	  BlockHasBypassingStmt(block2, _, arg, len2),
-	  LocalBlockPath(block2, block3),
-	  BlockHasToStmt(block3, stmt3, arg, len3),
+	  BlockHasSomeBypassingStmt(block2, arg, len2),
 	  block2 != block1,
+	  !Dominates(block2, block1).
+
+	FromStmtToStmtDiffBlockHavePathInterrupted(stmt1, block1, stmt3, block3, arg):-
+	  FromStmtToStmtDiffBlockHavePath(stmt1, block1, stmt3, block3, arg, len3),
+      OptBlocksWithFromAndBypassingStmt(block1, stmt1, block2, arg, len1, len2),
+	  LocalBlockPath(block2, block3),
 	  block2 != block3,
 	  !Dominates(block3, block2),
-	  !Dominates(block2, block1),
 	  min(len3, len2) >= min(len3, len1).
 
 	FromStmtToStmtDiffBlockHavePathInterrupted(stmt1, block1, stmt3, block3, arg):-
-	  FromStmtToStmtDiffBlockHavePath(stmt1, block1, stmt3, block3, arg),
+	  FromStmtToStmtDiffBlockHavePath(stmt1, block1, stmt3, block3, arg, len3),
 	  BlockHasFromStmt(block1, stmt1, arg, len1),
 	  BlockHasBypassingStmt(block1, stmt2, arg, len2),
-	  BlockHasToStmt(block3, stmt3, arg, len3),
 	  LocalStatementPathInBlock(stmt1, stmt2),
 	  min(len3, len2) >= min(len3, len1).
 
 	FromStmtToStmtDiffBlockHavePathInterrupted(stmt1, block1, stmt3, block3, arg):-
-	  FromStmtToStmtDiffBlockHavePath(stmt1, block1, stmt3, block3, arg),
+	  FromStmtToStmtDiffBlockHavePath(stmt1, block1, stmt3, block3, arg, len3),
 	  BlockHasFromStmt(block1, stmt1, arg, len1),
 	  BlockHasBypassingStmt(block3, stmt2, arg, len2),
-	  BlockHasToStmt(block3, stmt3, arg, len3),
 	  LocalStatementPathInBlock(stmt2, stmt3),
 	  min(len3, len2) >= min(len3, len1).
 
 	FromStmtToStmtDiffBlockHavePathUninterrupted(stmt1, stmt3, arg):-
-      FromStmtToStmtDiffBlockHavePath(stmt1, block1, stmt3, block3, arg),
+      FromStmtToStmtDiffBlockHavePath(stmt1, block1, stmt3, block3, arg, _),
       !FromStmtToStmtDiffBlockHavePathInterrupted(stmt1, block1, stmt3, block3, arg).
 
 	ReachableBypassingAny(stmt1, stmt3, arg):-
