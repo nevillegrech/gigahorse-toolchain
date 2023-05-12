@@ -195,7 +195,7 @@ Analytics_EventSignature(sigHashVal) :-
 .output Analytics_CREATE2ProbablyMetamorphic
 
 Analytics_CREATE2ProbablyMetamorphic(create2):-
-  CREATE2WithInitCode(create2, initCode),
+  Analytics_CREATE2WithInitCode(create2, initCode),
   contains("3b", initCode),
   contains("3c", initCode).
 
@@ -203,7 +203,8 @@ Analytics_CREATE2ProbablyMetamorphic(create2):-
 .output Analytics_CREATE2WithInitCode
 
 Analytics_CREATE2WithInitCode(create2, initCode):-
-  CREATE2WithInitCode(create2, initCode).
+  CREATE2WithInitCode(create2, initCode);
+  CREATE2WithPossibleInitCode(create2, initCode).
 
 .decl Analytics_CREATE2(create2: Statement)
 .output Analytics_CREATE2
