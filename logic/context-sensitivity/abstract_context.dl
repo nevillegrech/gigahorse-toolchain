@@ -1,4 +1,4 @@
-#define STACK_DELTA_MODULO 2
+#define STACK_DELTA_MODULO 7
 
 /**
   Base, Abstract context sensitivity component.
