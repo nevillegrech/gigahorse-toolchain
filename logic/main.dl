@@ -8,7 +8,8 @@
 
 #ifndef CONTEXT_SENSITIVITY
   // TransactionalContext is default
-  #define CONTEXT_SENSITIVITY TransactionalContext
+  // #define CONTEXT_SENSITIVITY TransactionalContext
+  #define CONTEXT_SENSITIVITY SelectiveContextV2
 //  #define CONTEXT_SENSITIVITY FinitePreciseContext
 //  #define CONTEXT_SENSITIVITY HybridPreciseContext
 #endif
