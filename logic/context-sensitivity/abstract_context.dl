@@ -10,6 +10,8 @@
     Blocks directly following `caller` under `ctx` will be reachable under `newContext`
   */
   .decl MergeContext(ctx: Context, caller: Block, newContext: Context)
+  .decl MergeContextRequest(ctx: Context, block: Block, nextBlock: Block)
+  .decl MergeContextResponse(ctx: Context, block: Block, nextBlock: Block, newContext: Context)
 
   .decl IsContext(ctx: Context)
   .decl InitialContext(ctx: Context)
