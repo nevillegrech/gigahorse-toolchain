@@ -1,4 +1,6 @@
 
+// #define CONTEXT_SENSITIVITY FinitePreciseContext
+
 #define CONTEXT_SENSITIVITY HybridPreciseContext
 
 #define MAX_STACK_HEIGHT 30
