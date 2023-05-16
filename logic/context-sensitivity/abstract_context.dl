@@ -199,7 +199,7 @@
   /// WARN: These can be expensive!
   // .decl PrivateContextContainsElementNTimes(ctx: PrivateContext, block: Block, n: number)
   // PrivateContextContainsElementNTimes(nil, block, 0) :-
-  //   PrivateFunctionCallOrReturn(block).
+  //   local.PrivateFunctionCallOrReturn(block).
   // PrivateContextContainsElementNTimes(ctx, block, n) :-
   //   PrivateContextContainsElementNTimes(rest, block, n),
   //   DecomposePrivateContext(ctx, head, rest),

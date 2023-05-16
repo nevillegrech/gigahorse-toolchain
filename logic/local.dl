@@ -537,6 +537,57 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
 
   BlockHasTrivialControl(block):-
     ImmediateBlockJumpTarget(block, _).
+
+  // inverse-escape analysis: helpers for ctx sensitivity
+  .decl BlockUsesLocal(block: Block, var: VariableOrStackIndex)
+  BlockUsesLocal(block, var) :-
+    Statement_Block(stmt, block),
+    Statement_Uses_Local(stmt, var, _).
+
+  .decl StaticBlockJumpTarget(caller: Block, target: Value)
+  StaticBlockJumpTarget(caller, target) :-
+    ImmediateBlockJumpTarget(caller, targetVar),
+    Variable_Value(targetVar, target),
+    JUMPDEST(as(target, symbol)).
+
+  .decl StaticBlockJumpTargetNonUnique(caller: Block, target: Value)
+  StaticBlockJumpTargetNonUnique(caller, target) :-
+    StaticBlockJumpTarget(caller, target),
+    StaticBlockJumpTarget(caller2, target),
+    caller != caller2.
+
+  // pushes a label for later use. A return addr?
+  .decl BlockPushesLabel(block: Block, val: Value)
+  BlockPushesLabel(block, val) :-
+    JUMPDEST(as(val, symbol)),
+    Variable_Value(var, val),
+    Statement_Defines(stmt, var),
+    Statement_Block(stmt, block),
+    !BlockUsesLocal(block, var).
+
+  .decl PrivateFunctionCall(caller: Block, callee: Block, continuation: Block)
+  PrivateFunctionCall(caller, as(calleeValue, Block), as(contValue, Block)) :-
+    StaticBlockJumpTarget(caller, calleeValue),  // looks like a call
+    BlockPushesLabel(caller, contValue).       // looks like pushing a return
+
+  .decl MultiplePrivateFunctionCall(caller: Block)
+  MultiplePrivateFunctionCall(caller) :-
+    PrivateFunctionCall(caller, callee, cont1),
+    PrivateFunctionCall(caller, callee, cont2),
+    cont1 != cont2.
+   .plan 1:(2,1)
+
+  .decl PrivateFunctionReturn(returnBlock: Block)
+  PrivateFunctionReturn(returnBlock) :-
+    Statement_Block(stmt, returnBlock),
+    JUMP(stmt),
+    !ImmediateBlockJumpTarget(returnBlock, _).
+
+  .decl PrivateFunctionCallOrReturn(block: Block)
+  PrivateFunctionCallOrReturn(block) :-
+    PrivateFunctionCall(block, _, _);
+    PrivateFunctionReturn(block).
+
 }
 
 .comp PreTransLocalAnalysis : LocalAnalysis {
