@@ -178,6 +178,13 @@ PreMask_Length(cat(mask, "ff"), bytes+1) :-
     sens.MergeContext(callerCtx, caller, calleeCtx).
     .plan 1:(2,1)
 
+  sens.MergeContextRequest(callerCtx, caller, callee) :-
+    BlockJumpValidTarget(callerCtx, caller, _, callee).
+
+  BlockEdge(callerCtx, caller, calleeCtx, callee) :-
+    BlockJumpValidTarget(callerCtx, caller, _, callee),
+    sens.MergeContextResponse(callerCtx, caller, callee, calleeCtx).
+    .plan 1:(2,1)
 
   .decl Statement_Uses(stmt: Statement, var: Variable, n: StackIndex)
 
