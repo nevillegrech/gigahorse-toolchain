@@ -173,13 +173,15 @@ PreMask_Length(cat(mask, "ff"), bytes+1) :-
     FallthroughStmt(stmt, fallthrough),
     IsBasicBlockHead(fallthrough).
 
+  // There may be an unconditional context computed by the algorithm. Use it.
   BlockEdge(callerCtx, caller, calleeCtx, callee) :-
     BlockJumpValidTarget(callerCtx, caller, _, callee),
     sens.MergeContext(callerCtx, caller, calleeCtx).
     .plan 1:(2,1)
 
-  sens.MergeContextRequest(callerCtx, caller, callee) :-
-    BlockJumpValidTarget(callerCtx, caller, _, callee).
+  // Also check if there is a conditional (on-request) context for this case
+  sens.MergeContextRequest(callerCtx, block, continuation) :-
+    BlockJumpValidTarget(callerCtx, block, _, continuation).
 
   BlockEdge(callerCtx, caller, calleeCtx, callee) :-
     BlockJumpValidTarget(callerCtx, caller, _, callee),

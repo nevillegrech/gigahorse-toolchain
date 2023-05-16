@@ -31,7 +31,7 @@
   /// If a call -> append self (truncating end if needed)
   MergeContext(ctx, caller, [pub, newPrivateContext]):-
     ReachableContext(ctx, caller),
-    local.PrivateFunctionCall(caller, _, _),
+    local.PrivateFunctionCall(caller, _, _, _),
     DecomposeAndTruncateIfNeeded(ctx, pub, cutDownAtEndPri),
     #ifndef NO_PUBLIC_CONTEXT
     !local.PublicFunction(caller, _),
@@ -39,17 +39,66 @@
     newPrivateContext = [caller, cutDownAtEndPri].
     .plan 1:(3,1,2)
 
-  // if return, matching call exists, call is not a sequence -> drop stack head elements until matching call found, drop that too
+
+  /// "ORIGINAL" variant
+
+  // // For a matching context element, the call needs to have pushed the continuation
+  // // we are returning to, and no other continuation at all!
+  // .decl CutToCaller(priCtx: PrivateContext, continuation: Block, newPriCtx: PrivateContext)
+  // CutToCaller(priCtx, cont, newPriCtx) :-
+  //   DecomposePrivateContext(priCtx, head, newPriCtx),
+  //   local.PrivateFunctionCall(head, _, cont, _),
+  //   !local.MultiplePrivateFunctionCall(head).
+ 
+  // CutToCaller(priCtx, cont, newPriCtx) :-
+  //   CutToCaller(nextPriCtx, cont, newPriCtx),
+  //   DecomposePrivateContext(priCtx, head, nextPriCtx),
+  //   !local.PrivateFunctionCall(head, _, cont, _).
+  //   .plan 1:(2,1)
+ 
+  // .decl PossibleContinuationFromReturn(continuation: Block)
+  // PossibleContinuationFromReturn(continuation) :-
+  //   MergeContextRequest(_, retBlock, continuation),
+  //   PrivateFunctionReturn(retBlock).
+    
+  // .decl NoCutToCaller(priCtx: PrivateContext, continuation: Block)
+  // NoCutToCaller(initPriCtx, cont) :-
+  //   PossibleContinuationFromReturn(cont),
+  //   InitialPrivateContext(initPriCtx).
+
+  // NoCutToCaller(priCtx, cont) :-
+  //   NoCutToCaller(nextPriCtx, cont),
+  //   DecomposePrivateContext(priCtx, head, nextPriCtx),
+  //   !local.PrivateFunctionCall(head, _, cont, _).
+  //   .plan 1:(2,1)
+ 
+  // NoCutToCaller(priCtx, cont) :-
+  //   NoCutToCaller(nextPriCtx, cont),
+  //   DecomposePrivateContext(priCtx, head, nextPriCtx),
+  //   local.MultiplePrivateFunctionCall(head).
+  //   .plan 1:(2,1,3)
+
+  // NoCutToCaller(priCtx, cont) :-
+  //   CutToCaller(nextPriCtx, cont, _),
+  //   DecomposePrivateContext(priCtx, head, nextPriCtx),
+  //   local.PrivateFunctionCall(head, _, cont, _),
+  //   local.MultiplePrivateFunctionCall(head).
+  //   .plan 1:(2,1,3,4)
+
+
+
+  /// "NEW" variant
+  // For a matching context element, the call needs to have pushed deepest in the stack
+  // the continuation we are returning to, without also pushing the same continuation later.
   .decl CutToCaller(priCtx: PrivateContext, continuation: Block, newPriCtx: PrivateContext)
   CutToCaller(priCtx, cont, newPriCtx) :-
     DecomposePrivateContext(priCtx, head, newPriCtx),
-    local.PrivateFunctionCall(head, _, cont),
-    !local.MultiplePrivateFunctionCall(head).
+    local.PrivateFunctionCall(head, _, cont, cont).
 
   CutToCaller(priCtx, cont, newPriCtx) :-
     CutToCaller(nextPriCtx, cont, newPriCtx),
     DecomposePrivateContext(priCtx, head, nextPriCtx),
-    !local.PrivateFunctionCall(head, _, cont).
+    !local.PrivateFunctionCall(head, _, cont, _).
     .plan 1:(2,1)
 
   .decl PossibleContinuationFromReturn(continuation: Block)
@@ -65,23 +114,19 @@
   NoCutToCaller(priCtx, cont) :-
     NoCutToCaller(nextPriCtx, cont),
     DecomposePrivateContext(priCtx, head, nextPriCtx),
-    !local.PrivateFunctionCall(head, _, cont).
+    !local.PrivateFunctionCall(head, _, cont, cont).
     .plan 1:(2,1)
-
-  NoCutToCaller(priCtx, cont) :-
-    NoCutToCaller(nextPriCtx, cont),
-    DecomposePrivateContext(priCtx, head, nextPriCtx),
-    local.MultiplePrivateFunctionCall(head).
-    .plan 1:(2,1,3)
 
   NoCutToCaller(priCtx, cont) :-
     CutToCaller(nextPriCtx, cont, _),
     DecomposePrivateContext(priCtx, head, nextPriCtx),
-    local.PrivateFunctionCall(head, _, cont),
-    local.MultiplePrivateFunctionCall(head).
-    .plan 1:(2,1,3,4)
+    local.PrivateFunctionCall(head, _, cont, firstCont),
+    cont != firstCont.
+    .plan 1:(2,1,3)
 
 
+
+  // if return, matching call exists -> drop stack head elements until matching call found, drop that too
   MergeContextResponse(ctx, block, cont, [pub, cutPri]):-
     MergeContextRequest(ctx, block, cont),
     PrivateFunctionReturn(block),
