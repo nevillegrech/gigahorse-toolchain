@@ -234,10 +234,8 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
      Statement_Block(tail, block),
      !Statement_Next(tail, _).
   
-  .decl ValidStatement(stmt: Statement)
-  
+  .decl ValidStatement(stmt: Statement)  
   ValidStatement(stmt) :- Statement_Block(stmt, _).
-  
 
   /**
     A summary of all the effects of the basic block up to a statement. The
@@ -562,6 +560,89 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
 
   BlockHasTrivialControl(block):-
     ImmediateBlockJumpTarget(block, _).
+
+  // inverse-escape analysis: helpers for ctx sensitivity
+  .decl BlockUsesLocal(block: Block, var: VariableOrStackIndex)
+  BlockUsesLocal(block, var) :-
+    Statement_Block(stmt, block),
+    Statement_Uses_Local(stmt, var, _).
+
+  .decl StaticBlockJumpTarget(caller: Block, target: Value)
+  StaticBlockJumpTarget(caller, target) :-
+    ImmediateBlockJumpTarget(caller, targetVar),
+    Variable_Value(targetVar, target),
+    JUMPDEST(as(target, symbol)).
+
+  .decl StaticBlockJumpTargetNonUnique(caller: Block, target: Value)
+  StaticBlockJumpTargetNonUnique(caller, target) :-
+    StaticBlockJumpTarget(caller, target),
+    StaticBlockJumpTarget(caller2, target),
+    caller != caller2.
+
+  // pushes a label for later use. A return addr?
+  .decl BlockPushesLabel(block: Block, val: Value)
+  BlockPushesLabel(block, val) :-
+    JUMPDEST(as(val, symbol)),
+    Variable_Value(var, val),
+    Statement_Defines(stmt, var),
+    Statement_Block(stmt, block),
+    !BlockUsesLocal(block, var).
+
+  // Same reasoning, with more detail. In very rare cases, the continuation will not be found,
+  // even though BlockPushesLabel is true.
+  .decl CallBlockPushesContinuation(caller: Block, callee: Block, cont: Block, index: number)
+  CallBlockPushesContinuation(caller, as(calleeValue, Block), as(contVal, Block), index) :-
+    StaticBlockJumpTarget(caller, calleeValue),  // looks like a call
+    BasicBlock_Tail(caller, call),
+    BeforeLocalStackContents(call, index, var),
+    CheckIsVariable(var), // unnecessary?
+    Variable_Value(var, contVal),
+    JUMPDEST(as(contVal, symbol)), // unnecessary?
+    index > 0,
+    !BlockUsesLocal(caller, var). 
+ 
+  .decl CallBlockNotEarliestContinuation(caller: Block, callee: Block, cont: Block)
+  CallBlockNotEarliestContinuation(caller, callee, cont) :-
+    CallBlockPushesContinuation(caller, callee, cont, index1),
+    CallBlockPushesContinuation(caller, _, _, index2),
+    index2 > index1.
+
+  .decl CallBlockEarliestContinuation(caller: Block, callee: Block, cont: Block)
+  CallBlockEarliestContinuation(caller, callee, cont) :-
+    CallBlockPushesContinuation(caller, callee, cont, _),
+    !CallBlockNotEarliestContinuation(caller, callee, cont).
+
+  // If the earliest continuation is not unique, or if we have not been able to find the
+  // continuations on the stack at call time, fall back to an "undefined".
+  .decl PrivateFunctionCall(caller: Block, callee: Block, continuation: Block, firstContinuation: Block)
+  PrivateFunctionCall(caller, callee, as(contVal, Block), firstCont) :-
+    StaticBlockJumpTarget(caller, calleeValue),  // looks like a call
+    BlockPushesLabel(caller, contVal),  // continuation pushed
+    callee = as(calleeValue, Block),
+    (CallBlockEarliestContinuation(caller, callee, firstCont);
+     (!CallBlockEarliestContinuation(caller, callee, _), firstCont = "undefined")).
+ 
+  .decl MultiplePrivateFunctionCall(caller: Block)
+  MultiplePrivateFunctionCall(caller) :-
+    PrivateFunctionCall(caller, callee, cont1, _),
+    PrivateFunctionCall(caller, callee, cont2, _),
+    cont1 != cont2.
+   .plan 1:(2,1)
+
+  .decl PrivateFunctionReturn(returnBlock: Block)
+  PrivateFunctionReturn(returnBlock) :-
+    Statement_Block(stmt, returnBlock),
+    JUMP(stmt),
+    !ImmediateBlockJumpTarget(returnBlock, _).
+
+  .decl PrivateFunctionCallOrReturn(block: Block)
+  PrivateFunctionCallOrReturn(block) :-
+    PrivateFunctionCall(block, _, _, _);
+    PrivateFunctionReturn(block).
+
+ .output MultiplePrivateFunctionCall
+ .output PrivateFunctionCall
+// .output CallBlockEarliestContinuation
 }
 
 .comp PreTransLocalAnalysis : LocalAnalysis {

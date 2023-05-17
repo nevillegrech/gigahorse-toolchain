@@ -10,8 +10,8 @@
     Blocks directly following `caller` under `ctx` will be reachable under `newContext`
   */
   .decl MergeContext(ctx: Context, caller: Block, newContext: Context)
-  .decl MergeContextRequest(ctx: Context, block: Block, nextBlock: Block)
-  .decl MergeContextResponse(ctx: Context, block: Block, nextBlock: Block, newContext: Context)
+  .decl MergeContextRequest(ctx: Context, block: Block, otherBlock: Block)
+  .decl MergeContextResponse(ctx: Context, block: Block, otherBlock: Block, newContext: Context)
 
   .decl IsContext(ctx: Context)
   .decl InitialContext(ctx: Context)
@@ -199,7 +199,7 @@
   /// WARN: These can be expensive!
   // .decl PrivateContextContainsElementNTimes(ctx: PrivateContext, block: Block, n: number)
   // PrivateContextContainsElementNTimes(nil, block, 0) :-
-  //   PrivateFunctionCallOrReturn(block).
+  //   local.PrivateFunctionCallOrReturn(block).
   // PrivateContextContainsElementNTimes(ctx, block, n) :-
   //   PrivateContextContainsElementNTimes(rest, block, n),
   //   DecomposePrivateContext(ctx, head, rest),
