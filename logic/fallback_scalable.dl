@@ -1,6 +1,8 @@
 
+// #define CONTEXT_SENSITIVITY FinitePreciseContext
+
 #define CONTEXT_SENSITIVITY HybridPreciseContext
 
-#define MAX_STACK_HEIGHT 20
+#define MAX_STACK_HEIGHT 30
 
 #include "main.dl"

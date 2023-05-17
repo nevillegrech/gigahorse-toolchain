@@ -1,0 +1,158 @@
+#define RESIDUAL_MODULO_BASE 13
+
+// A variety of context that has three elements: public (entry point), private (finite depth), and residual.
+// The residual is a (lossy) summary of all context elements that have been truncated away, modulo
+// a base (to keep this bounded).
+.comp PublicComponentAndResidualContextSensitivity <LocalAnalysis> : VariableDepthContextSensitivity <LocalAnalysis> {
+  .type PrivateContext = [block: Block, rest: PrivateContext]
+  .type Context = [publicFun:symbol, pri: PrivateContext, residual: number]
+
+  .decl InitialPrivateContext(ctx: PrivateContext)
+  .decl PrivateContextDepth(ctx: PrivateContext, depth: number)
+  .decl DecomposePrivateContext(priCtx: PrivateContext, block: Block, rest: PrivateContext)
+  .decl DropLast(ctx: PrivateContext, newCtx: PrivateContext, droppedBlock: Block)
+  .decl TruncateContextIfNeeded(publicFun:symbol, ctx: PrivateContext, newCtx: PrivateContext, oldResidual: number, newResidual: number)
+  .decl DecomposeContext(ctx: Context, publicFun: symbol, private: PrivateContext, residual: number)
+
+  InitialPrivateContext(nil).
+
+  // Define our universe of contexts (including partial)
+  .decl IsPotentialContext(pubFun: symbol, ctx: PrivateContext, residual: number)
+  IsPotentialContext(FALLBACK_FUNCTION_SIGHASH, ctx, 0) :-
+    InitialPrivateContext(ctx).
+
+  IsPotentialContext(publicFun, private, residual) :-
+    ReachableContext(fullCtx, _), fullCtx = [publicFun, private, residual].
+
+  DecomposePrivateContext(ctx, block, rest) :-
+    IsPotentialContext(_, ctx, _),
+    ctx = [block, rest].
+
+  DecomposeContext([pubFun, privCtx, residual], pubFun, privCtx, residual) :-
+    IsPotentialContext(pubFun, privCtx, residual).
+
+  // All prefixes
+  IsPotentialContext(pubFun, prefix, residual) :-
+    IsPotentialContext(pubFun, ctx, prevResidual),
+    DropLast(ctx, prefix, droppedBlock),
+    residual = (prevResidual * prevResidual + ord(droppedBlock)) % RESIDUAL_MODULO_BASE.
+   .plan 1:(2,1)
+
+  DropLast(ctx, initial, droppedBlock) :-
+    DecomposePrivateContext(ctx, droppedBlock, initial),
+    InitialPrivateContext(initial).
+
+  DropLast(ctx, [block, newRest], droppedBlock)  :-
+    DecomposePrivateContext(ctx, block, rest),
+    DropLast(rest, newRest, droppedBlock).
+   .plan 1:(2,1)
+
+
+  InitialContext([FALLBACK_FUNCTION_SIGHASH, initialPrivateContext, 0]) :-
+    InitialPrivateContext(initialPrivateContext).
+
+  PrivateContextDepth(init, 0):-
+    InitialPrivateContext(init).
+
+  PrivateContextDepth(ctx, depth + 1):-
+    DecomposePrivateContext(ctx, _, rest),
+    PrivateContextDepth(rest, depth).
+    .plan 1:(2,1)
+
+  TruncateContextIfNeeded(pubFun, ctx, newCtx, prevResidual, residual):-
+    DecomposeContext(_, pubFun, ctx, prevResidual),
+    PrivateContextDepth(ctx, maxDepth),
+    MaxContextDepth(pubFun, maxDepth),
+    DropLast(ctx, newCtx, droppedBlock),
+    residual = (prevResidual * prevResidual + ord(droppedBlock)) % RESIDUAL_MODULO_BASE.
+    .plan 1:(2,1,3,4),2:(4,1,2,3)
+
+  TruncateContextIfNeeded(pubFun, ctx, ctx, residual, residual):-
+    DecomposeContext(_, pubFun, ctx, residual),
+    PrivateContextDepth(ctx, depth),
+    MaxContextDepth(pubFun, maxDepth),
+    depth < maxDepth.
+    .plan 1:(2,1,3)
+
+  Context_PublicFunction(ctx, pubFun):-
+    ReachableContext(ctx, _),
+    ctx = [pubFun, callCtx, residual],
+    callCtx = callCtx, residual = residual.
+
+  // Helpers
+  .decl PrivateContextContainsBlock(ctx: PrivateContext, blk: Block, index: number)
+  .decl ContextContainsBlock(ctx: Context, blk: Block, index: number)
+  .decl ContextContainsBlockTimes(ctx: Context, blk: Block, times: number)
+
+  PrivateContextContainsBlock(priCtx, blk, 0):-
+    DecomposePrivateContext(priCtx, blk, _).
+
+  PrivateContextContainsBlock(priCtx, blk, i + 1):-
+    DecomposePrivateContext(priCtx, _, rest),
+    PrivateContextContainsBlock(rest, blk, i).
+
+  ContextContainsBlock(ctx, blk, i):-
+    DecomposeContext(ctx, _, priCtx, _),
+    PrivateContextContainsBlock(priCtx, blk, i).
+
+  ContextContainsBlockTimes(ctx, blk, times):-
+    ContextContainsBlock(ctx, blk, _),
+    times = count : ContextContainsBlock(ctx, blk, _).
+
+  /**
+    Public function jump case for MergeContext
+  */
+
+  #ifndef NO_PUBLIC_CONTEXT
+  MergeContext(ctx, caller, ctx) :-
+    ReachableContext(ctx, caller),
+    local.PublicFunction(caller, sigHash),
+    !MaxContextDepth(sigHash, -1),
+    DecomposeContext(ctx, prevSigHash, _, _),
+    prevSigHash != FALLBACK_FUNCTION_SIGHASH.
+  .plan 1:(3,1,2)
+  MergeContext(ctx, caller, newContext):-
+    ReachableContext(ctx, caller),
+    local.PublicFunction(caller, sigHash),
+    !MaxContextDepth(sigHash, -1),
+    DecomposeContext(ctx, prevSigHash, pri, _),
+    prevSigHash = FALLBACK_FUNCTION_SIGHASH,
+    newContext = [sigHash, pri, 0].
+  .plan 1:(3,1,2)
+  #endif
+}
+
+.comp TransactionalWithResidualContext <LocalAnalysis> : PublicComponentAndResidualContextSensitivity <LocalAnalysis> {
+  // Trivial control flow case for when there is no function call
+  // OR max context depth is zero
+  // Split into two rules to add plan.
+  MergeContext(ctx, caller, ctx):-
+    ReachableContext(ctx, caller),
+    #ifndef NO_PUBLIC_CONTEXT
+    !local.PublicFunction(caller, _),
+    #endif
+    !local.PrivateFunctionCallOrReturn(caller).
+
+  MergeContext(ctx, caller, ctx):-
+    ReachableContext(ctx, caller),
+    #ifndef NO_PUBLIC_CONTEXT
+    !local.PublicFunction(caller, _),
+    #endif
+    DecomposeContext(ctx, pub, _, _),
+    MaxContextDepth(pub, 0).
+    .plan 1:(2,3,1)
+
+  // Complex control flow case
+  //// Default variant
+  MergeContext(ctx, caller, [pub, newPrivateContext, residual]):-
+    ReachableContext(ctx, caller),
+    local.PrivateFunctionCallOrReturn(caller),
+    DecomposeContext(ctx, pub, pri, prevResidual),
+    TruncateContextIfNeeded(pub, pri, cutDownPri, prevResidual, residual),
+    #ifndef NO_PUBLIC_CONTEXT
+    !local.PublicFunction(caller, _),
+    #endif
+    newPrivateContext = [caller, cutDownPri].
+    .plan 1:(3,1,2,4), 2:(4,3,1,2)
+
+}
