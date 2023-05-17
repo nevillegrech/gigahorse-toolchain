@@ -602,7 +602,6 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     PrivateFunctionCall(caller, callee, cont1, _),
     PrivateFunctionCall(caller, callee, cont2, _),
     cont1 != cont2.
-   .plan 1:(2,1)
 
   .decl PrivateFunctionReturn(returnBlock: Block)
   PrivateFunctionReturn(returnBlock) :-
