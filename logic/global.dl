@@ -264,6 +264,6 @@ PreMask_Length(cat(mask, "ff"), bytes+1) :-
 /**
   Declared just so it can be used as a parameter in another component
 */
-.comp DefaultOptimizedGlobalAnalysis : OptimizedGlobalAnalysis <TransactionalContext> {
+.comp DefaultOptimizedGlobalAnalysis : OptimizedGlobalAnalysis <TransactionalWithShrinkingContext> {
 
 }
