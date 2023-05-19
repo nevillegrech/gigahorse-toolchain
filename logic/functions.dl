@@ -10,23 +10,30 @@
  *****/
 
 
-/******
-         Generic basic block Reachable-from implementation
-******/
+/**
+  This relation is used in two places to ensure the precision of possible calls.
+  We start from the facts of `PossibleReturnAddressWithRank` and keep both `retBlock` and `retTarget`
+  in order to be general enough and support complex calls with shared `retBlock`s or `retTarget`s.
+*/
 
-.decl ContextCanReachFromCallerToReturn(fromCtx: global.sens.Context, caller: Block, ctx: global.sens.Context, toBlock: Block, retBlock: Block)
+.decl ContextCanReachFromCallerToReturn(fromCtx: global.sens.Context, caller: Block, ctx: global.sens.Context, toBlock: Block, retBlock: Block, targetBlock: Block)
 #ifdef ENABLE_LIMITSIZE
 .limitsize ContextCanReachFromCallerToReturn(n=LIMITSIZE_CAN_REACH_UNDER_CONTEXT)
 #endif
 
-ContextCanReachFromCallerToReturn(callCtx, caller, ctxTo, toBlock, retTarget) :-
-  PossibleReturnAddressWithRank(callCtx, caller, _, _, retTarget, _),
+ContextCanReachFromCallerToReturn(callCtx, caller, ctxTo, toBlock, retBlock, retTarget) :-
+  PossibleReturnAddressWithRank(callCtx, caller, _, retBlock, retTarget, _),
   global.BlockEdge(callCtx, caller, ctxTo, toBlock).
 
-ContextCanReachFromCallerToReturn(ctxFrom, caller, ctxTo, toBlock, retTarget) :-
-  ContextCanReachFromCallerToReturn(ctxFrom, caller, ctxOther, otherBlock, retTarget),
+ContextCanReachFromCallerToReturn(ctxFrom, caller, ctxTo, toBlock, retBlock, retTarget) :-
+  ContextCanReachFromCallerToReturn(ctxFrom, caller, ctxOther, otherBlock, retBlock, retTarget),
   global.BlockEdge(ctxOther, otherBlock, ctxTo, toBlock),
-  retTarget != otherBlock.
+  retBlock != otherBlock.
+
+ContextCanReachFromCallerToReturn(ctxFrom, caller, ctxTo, toBlock, retBlock, retTarget) :-
+  ContextCanReachFromCallerToReturn(ctxFrom, caller, ctxOther, retBlock, retBlock, retTarget),
+  global.BlockEdge(ctxOther, retBlock, ctxTo, toBlock),
+  toBlock != retTarget.
 
 
 
@@ -124,7 +131,7 @@ MaybeFunctionCallReturn(ctx, caller, func, retCtx, retBlock, retTarget) :-
   postTrans.Statement_Block(jump, caller),
   postTrans.Statement_Opcode(jump, "JUMP"), //Added to invalidate JUMPIs we will need to deal with them though
   global.BlockJumpValidTarget(ctx, caller, targetVar, func),
-  ContextCanReachFromCallerToReturn(ctx, caller, retCtx, retBlock, retTarget),
+  ContextCanReachFromCallerToReturn(ctx, caller, retCtx, retBlock, retBlock, retTarget),
   global.BlockJumpValidTarget(retCtx, retBlock, _, retTarget).
  .plan 1:(6,1,2,3,4,5,7)
 
@@ -141,7 +148,7 @@ MaybeFunctionCallReturn_Ins(caller, func, retBlock, retTarget):-
 .decl PossibleReturnAddressWithPositiveRank(callCtx:global.sens.Context, targetSetter:Block, retCtx:global.sens.Context, retBlock:Block, retTarget:Block, rank:number)
 PossibleReturnAddressWithPositiveRank(callCtx, caller, retCtx, retBlock, retTarget, n) :-
   PossibleReturnAddressWithRank(callCtx, caller, retCtx, retBlock, retTarget, n),
-  ContextCanReachFromCallerToReturn(callCtx, caller, retCtx, retBlock, retTarget),
+  ContextCanReachFromCallerToReturn(callCtx, caller, retCtx, retBlock, retBlock, retTarget),
   global.BlockJumpValidTarget(retCtx, retBlock, _, retTarget),
   n > 0,
   n < RETURN_ADDRESS_RANK_THRESHOLD.
