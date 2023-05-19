@@ -453,7 +453,10 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
 */
 .comp SafeBlockCloner : AbstractBlockCloner <DefaultOptimizedGlobalAnalysis> {
 
+  // We want this enabled all the time. This ifndef is just to avoid double limitsize definition
+  #ifndef ENABLE_LIMITSIZE
   .limitsize analysis.BlockOutputContents(n=LIMITSIZE_BLOCK_OUTPUT_CONTENTS)
+  #endif
 
   BlockPushedToStack(pushStmt, pushedVar, as(pushedBlock, Block)):-
     analysis.Variable_Value(pushedVar, pushedBlock),

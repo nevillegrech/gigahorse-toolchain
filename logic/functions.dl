@@ -19,14 +19,14 @@
 .limitsize ContextCanReachFromCallerToReturn(n=LIMITSIZE_CAN_REACH_UNDER_CONTEXT)
 #endif
 
-ContextCanReachFromCallerToReturn(callCtx, caller, ctxTo, toBlock, retBlock) :-
-  PossibleReturnAddressWithRank(callCtx, caller, _, retBlock, _, _),
+ContextCanReachFromCallerToReturn(callCtx, caller, ctxTo, toBlock, retTarget) :-
+  PossibleReturnAddressWithRank(callCtx, caller, _, _, retTarget, _),
   global.BlockEdge(callCtx, caller, ctxTo, toBlock).
 
-ContextCanReachFromCallerToReturn(ctxFrom, caller, ctxTo, toBlock, retBlock) :-
-  ContextCanReachFromCallerToReturn(ctxFrom, caller, ctxOther, otherBlock, retBlock),
+ContextCanReachFromCallerToReturn(ctxFrom, caller, ctxTo, toBlock, retTarget) :-
+  ContextCanReachFromCallerToReturn(ctxFrom, caller, ctxOther, otherBlock, retTarget),
   global.BlockEdge(ctxOther, otherBlock, ctxTo, toBlock),
-  retBlock != otherBlock.
+  retTarget != otherBlock.
 
 
 
@@ -124,7 +124,7 @@ MaybeFunctionCallReturn(ctx, caller, func, retCtx, retBlock, retTarget) :-
   postTrans.Statement_Block(jump, caller),
   postTrans.Statement_Opcode(jump, "JUMP"), //Added to invalidate JUMPIs we will need to deal with them though
   global.BlockJumpValidTarget(ctx, caller, targetVar, func),
-  ContextCanReachFromCallerToReturn(ctx, caller, retCtx, retBlock, retBlock),
+  ContextCanReachFromCallerToReturn(ctx, caller, retCtx, retBlock, retTarget),
   global.BlockJumpValidTarget(retCtx, retBlock, _, retTarget).
  .plan 1:(6,1,2,3,4,5,7)
 
@@ -141,7 +141,7 @@ MaybeFunctionCallReturn_Ins(caller, func, retBlock, retTarget):-
 .decl PossibleReturnAddressWithPositiveRank(callCtx:global.sens.Context, targetSetter:Block, retCtx:global.sens.Context, retBlock:Block, retTarget:Block, rank:number)
 PossibleReturnAddressWithPositiveRank(callCtx, caller, retCtx, retBlock, retTarget, n) :-
   PossibleReturnAddressWithRank(callCtx, caller, retCtx, retBlock, retTarget, n),
-  ContextCanReachFromCallerToReturn(callCtx, caller, retCtx, retBlock, retBlock),
+  ContextCanReachFromCallerToReturn(callCtx, caller, retCtx, retBlock, retTarget),
   global.BlockJumpValidTarget(retCtx, retBlock, _, retTarget),
   n > 0,
   n < RETURN_ADDRESS_RANK_THRESHOLD.
