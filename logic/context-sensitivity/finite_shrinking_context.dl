@@ -1,0 +1,236 @@
+// Sadly, this cannot just inherit TransactionalContext, or PublicComponentContextSensitivity,
+// or even VariableDepthContextSensitivity, because it needs to subtly change important
+// aspects of each one! So it just replicates code. The changes are marked with "HERE"
+
+.comp FiniteShrinkingContext <LocalAnalysis> : AbstractContextSensitivity <LocalAnalysis> {
+
+  //
+  // Much like VariableDepthContextSensitivity but need very different default depth
+  // 
+  .decl MaxContextDepth(sigHash: symbol, d: number)
+
+  .decl InputMaxContextDepth(d: number)
+  .input InputMaxContextDepth(filename="MaxContextDepth.csv")
+
+  MaxContextDepth(sigHash, d) :-
+    (local.PublicFunction(_, sigHash);
+     sigHash = FALLBACK_FUNCTION_SIGHASH),
+    InputMaxContextDepth(d).
+
+  // HERE: much deeper
+  MaxContextDepth(sigHash, 10) :-
+    (local.PublicFunction(_, sigHash);
+     sigHash = FALLBACK_FUNCTION_SIGHASH),
+    !InputMaxContextDepth(_).
+
+
+  //
+  // Much like PublicComponentContextSensitivity but need to change truncation logic
+  //
+  .type PrivateContext = [block: Block, rest: PrivateContext]
+  .type Context = [publicFun:symbol, pri: PrivateContext]
+
+  .decl InitialPrivateContext(ctx: PrivateContext)
+  // PrivateContextDepth replaces/enhances IsPrivateContext 
+  .decl PrivateContextDepth(ctx: PrivateContext, depth: number)
+  .decl DecomposePrivateContext(priCtx: PrivateContext, block: Block, rest: PrivateContext)
+  .decl DropLast(ctx: PrivateContext, newCtx: PrivateContext)
+  .output DropLast
+  .decl TruncateContextIfNeeded(publicFun:symbol, ctx: PrivateContext, newCtx: PrivateContext)
+  .decl DecomposeContext(ctx: Context, publicFun: symbol, private: PrivateContext)
+
+  InitialPrivateContext(nil).
+
+  InitialContext([FALLBACK_FUNCTION_SIGHASH, initialPrivateContext]) :-
+    InitialPrivateContext(initialPrivateContext).
+
+  DecomposeContext(ctx, publicFun, private):-
+    ReachableContext(ctx, _), ctx = [publicFun, private].
+
+  // Include in consideration all new contexts produced (and found reachable) by Merging, in the analysis logic
+  DecomposeContext(ctx, publicFun, private):-
+    ReachableContext(ctx, _), ctx = [publicFun, private].
+
+  DecomposePrivateContext(private, block, rest):-
+    DecomposeContext(_, _, private),
+    private = [block, rest].
+
+  // Also include all the sub-contexts we derive by dropping the last element
+  DecomposePrivateContext(newCtx, block, rest):-
+    DropLast(_, newCtx),
+    newCtx = [block, rest].
+
+
+  DropLast(ctx, nil):-
+    DecomposePrivateContext(ctx, _, nil).
+
+  DropLast(ctx, newCtx):-
+    DecomposePrivateContext(ctx, block, rest),
+    DropLast(rest, newRest),
+    newCtx = [ block, newRest ].
+    .plan 1:(2,1) 
+
+  PrivateContextDepth(init, 0):-
+    InitialPrivateContext(init).
+
+  PrivateContextDepth(ctx, depth + 1):-
+    DecomposePrivateContext(ctx, _, rest),
+    PrivateContextDepth(rest, depth).
+    .plan 1:(2,1)
+
+  //// HERE: This is the key of the finite context: when it reaches the limit, does not go on
+  TruncateContextIfNeeded(pubFun, ctx, ctx):-
+    DecomposeContext(_, pubFun, ctx),
+    PrivateContextDepth(ctx, depth),
+    MaxContextDepth(pubFun, maxDepth),
+    depth < maxDepth.
+
+  Context_PublicFunction(ctx, pubFun):-
+    ReachableContext(ctx, _),
+    ctx = [pubFun, callCtx],
+    callCtx = callCtx.
+
+  /**
+    Public function jump case for MergeContext
+  */
+
+  #ifndef NO_PUBLIC_CONTEXT
+  MergeContext(ctx, caller, ctx) :-
+    ReachableContext(ctx, caller),
+    local.PublicFunction(caller, sigHash),
+    !MaxContextDepth(sigHash, -1),
+    DecomposeContext(ctx, prevSigHash, _),
+    prevSigHash != FALLBACK_FUNCTION_SIGHASH.
+  .plan 1:(3,1,2)
+  MergeContext(ctx, caller, newContext):-
+    ReachableContext(ctx, caller),
+    local.PublicFunction(caller, sigHash),
+    !MaxContextDepth(sigHash, -1),
+    DecomposeContext(ctx, prevSigHash, pri),
+    prevSigHash = FALLBACK_FUNCTION_SIGHASH,
+    newContext = [sigHash, pri].
+  .plan 1:(3,1,2)
+  #endif
+
+
+  //
+  // Much like TransactionalContext, only does not inherit from the same super-components,
+  // instead redefines them as above.
+  //
+
+  // Trivial control flow case for when there is no function call
+  // OR max context depth is zero
+  // Split into two rules to add plan.
+  MergeContext(ctx, caller, ctx):-
+    ReachableContext(ctx, caller),
+    !local.PublicFunction(caller, _),
+    !local.PrivateFunctionCallOrReturn(caller).
+
+  MergeContext(ctx, caller, ctx):-
+    ReachableContext(ctx, caller),
+    !local.PublicFunction(caller, _),
+    DecomposeContext(ctx, pub, _),
+    MaxContextDepth(pub, 0).
+    .plan 1:(2,3,1)
+
+
+  .decl DecomposeAndTruncateIfNeeded(ctx: Context, publicFun: symbol, cutDownPri: PrivateContext)
+  DecomposeAndTruncateIfNeeded(ctx, pub, cutDownAtEndPri) :-
+    DecomposeContext(ctx, pub, pri),
+    TruncateContextIfNeeded(pub, pri, cutDownAtEndPri).
+   .plan 1:(2,1)
+
+
+  // Complex control flow cases
+  /// If a call -> append self (truncating end if needed)
+  MergeContext(ctx, caller, [pub, newPrivateContext]):-
+    ReachableContext(ctx, caller),
+    local.PrivateFunctionCall(caller, _, _, _),
+    DecomposeAndTruncateIfNeeded(ctx, pub, cutDownAtEndPri),
+    !local.PublicFunction(caller, _),
+    newPrivateContext = [caller, cutDownAtEndPri].
+    .plan 1:(3,1,2)
+
+
+  /// "NEW" variant
+  // For a matching context element, the call needs to have pushed deepest in the stack
+  // the continuation we are returning to, without also pushing the same continuation later.
+  .decl CutToCaller(priCtx: PrivateContext, continuation: Block, newPriCtx: PrivateContext) overridable
+  CutToCaller(priCtx, cont, newPriCtx) :-
+    DecomposePrivateContext(priCtx, head, newPriCtx),
+    local.PrivateFunctionCall(head, _, cont, cont).
+
+  CutToCaller(priCtx, cont, newPriCtx) :-
+    CutToCaller(nextPriCtx, cont, newPriCtx),
+    DecomposePrivateContext(priCtx, head, nextPriCtx),
+    !local.PrivateFunctionCall(head, _, cont, _).
+    .plan 1:(2,1)
+
+  .decl PossibleContinuationFromReturn(continuation: Block)
+  PossibleContinuationFromReturn(continuation) :-
+    MergeContextRequest(_, retBlock, continuation),
+    PrivateFunctionReturn(retBlock).
+    
+  .decl NoCutToCaller(priCtx: PrivateContext, continuation: Block) overridable
+  NoCutToCaller(initPriCtx, cont) :-
+    PossibleContinuationFromReturn(cont),
+    InitialPrivateContext(initPriCtx).
+
+  NoCutToCaller(priCtx, cont) :-
+    NoCutToCaller(nextPriCtx, cont),
+    DecomposePrivateContext(priCtx, head, nextPriCtx),
+    !local.PrivateFunctionCall(head, _, cont, cont).
+    .plan 1:(2,1)
+
+  NoCutToCaller(priCtx, cont) :-
+    CutToCaller(nextPriCtx, cont, _),
+    DecomposePrivateContext(priCtx, head, nextPriCtx),
+    local.PrivateFunctionCall(head, _, cont, firstCont),
+    cont != firstCont.
+    .plan 1:(2,1,3)
+
+
+
+  // if return, matching call exists -> drop stack head elements until matching call found, drop that too
+  MergeContextResponse(ctx, block, cont, [pub, cutPri]):-
+    MergeContextRequest(ctx, block, cont),
+    PrivateFunctionReturn(block),
+    DecomposeContext(ctx, pub, priCtx),
+    !local.PublicFunction(block, _),
+    CutToCaller(priCtx, cont, cutPri).
+    .plan 1:(3,1,2,4), 2:(4,3,1,2)
+
+  // if return and matching call doesn't exist -> push return
+  MergeContextResponse(ctx, block, cont, [pub, newPrivateContext]):-
+    MergeContextRequest(ctx, block, cont),
+    PrivateFunctionReturn(block),
+    DecomposeContext(ctx, pub, priCtx),
+    DecomposeAndTruncateIfNeeded(ctx, pub, cutDownAtEndPri),
+    NoCutToCaller(priCtx, cont),
+    !local.PublicFunction(block, _),
+    newPrivateContext = [block, cutDownAtEndPri].
+    .plan 1:(3,1,2,4,5), 2:(4,3,1,2,5), 3:(5,3,1,2,4)
+
+
+  // Helpers
+  .decl PrivateContextContainsBlock(ctx: PrivateContext, blk: Block, index: number)
+  .decl ContextContainsBlock(ctx: Context, blk: Block, index: number)
+  .decl ContextContainsBlockTimes(ctx: Context, blk: Block, times: number)
+
+  PrivateContextContainsBlock(priCtx, blk, 0):-
+    DecomposePrivateContext(priCtx, blk, _).
+
+  PrivateContextContainsBlock(priCtx, blk, i + 1):-
+    DecomposePrivateContext(priCtx, _, rest),
+    PrivateContextContainsBlock(rest, blk, i).
+
+  ContextContainsBlock(ctx, blk, i):-
+    DecomposeContext(ctx, _, priCtx),
+    PrivateContextContainsBlock(priCtx, blk, i).
+
+  ContextContainsBlockTimes(ctx, blk, times):-
+    ContextContainsBlock(ctx, blk, _),
+    times = count : ContextContainsBlock(ctx, blk, _).
+
+
+}
