@@ -388,7 +388,7 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
                 souffle_err = open(err_filename).read()
                 # Used to be "Error:" to avoid reporting the file not found errors of souffle
                 # However with souffle 2.4 they cause the program to stop so we have to report them as well
-                if "Error" in souffle_err:
+                if any(s in souffle_err for s in ["Error", "core dumped", "Segmentation", "corrupted"]):
                     errors.append(os.path.basename(souffle_client))
                     log(souffle_err)
 
