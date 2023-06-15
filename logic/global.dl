@@ -2,7 +2,7 @@
 // flow and detecting CFG edges (much like the Vandal decompiler) is here.
 
 #ifndef MAX_STACK_HEIGHT
-#define MAX_STACK_HEIGHT 50
+#define MAX_STACK_HEIGHT 70
 #endif
 
 #define MAX_NUM_PRIVATE_FUNCTION_ARGS 10
