@@ -415,17 +415,16 @@ other_clients = [a for a in clients_split if not (a.endswith('.dl') or a == '')]
 
 if not args.interpreted:
     # Here we compile the decompiler and any of its clients in parallel :)
-    compile_processes_args = [[file, args.souffle_bin, args.cache_dir, args.reuse_datalog_bin, get_souffle_macros()] for file in fact_generator.get_datalog_files()]
+    souffle_files = fact_generator.get_datalog_files()
 
     if not args.disable_inline:
-        compile_processes_args.append([DEFAULT_INLINER_DL, args.souffle_bin, args.cache_dir, args.reuse_datalog_bin, get_souffle_macros()])
+        souffle_files.append(DEFAULT_INLINER_DL)
 
-    for c in souffle_clients:
-        compile_processes_args.append([c, args.souffle_bin, args.cache_dir, args.reuse_datalog_bin, get_souffle_macros()])
+    souffle_files += souffle_clients
 
     running_processes = []
-    for compile_args in compile_processes_args:
-        proc = Process(target = compile_datalog, args=compile_args)
+    for file in souffle_files:
+        proc = Process(target = compile_datalog, args=[file, args.souffle_bin, args.cache_dir, args.reuse_datalog_bin, get_souffle_macros()])
         proc.start()
         running_processes.append(proc)
 
@@ -440,8 +439,8 @@ if not args.interpreted:
             raise Exception("Souffle binary compilation failed, stopping.")
 
     # check all programs have been compiled
-    for compile_args in compile_processes_args:
-        open(get_souffle_executable_path(args.cache_dir, compile_args[0]), 'r') # check program exists
+    for file in souffle_files:
+        open(get_souffle_executable_path(args.cache_dir, file), 'r') # check program exists
 
 # Extract contract filenames.
 log("Processing contract names.")
