@@ -244,13 +244,12 @@ def get_souffle_macros():
 
     return souffle_macros
 
-def analyze_contract(job_index: int, index: int, contract_filename: str, result_queue, timeout) -> None:   
+def analyze_contract(index: int, contract_filename: str, result_queue) -> None:   
     """
     Perform dataflow analysis on a contract, storing the result in the queue.
     This is a worker function to be passed to a subprocess.
 
     Args:
-        job_index: the job number for this invocation of analyze_contract
         index: the number of the particular contract being analyzed
         contract_filename: the absolute path of the contract bytecode file to process
         result_queue: a multiprocessing queue in which to store the analysis results
@@ -426,7 +425,7 @@ if not args.interpreted:
         open(get_souffle_executable_path(args.cache_dir, file), 'r') # check program exists
 
 # Extract contract filenames.
-log("Processing contract names.")
+log("Processing contract names...")
 
 contracts = []
 
@@ -449,8 +448,7 @@ for filepath in args.filepath:
 
 contracts = contracts[args.skip:]
 
-
-log("Setting up workers.")
+log(f"Discovered {len(contracts)} contracts. Setting up workers.")
 # Set up multiprocessing result list and queue.
 manager = Manager()
 
@@ -486,7 +484,7 @@ try:
 
                 # reduce number of available jobs
                 job_index = avail_jobs.pop()
-                proc = Process(target=analyze_contract, args=(job_index, index, contract_name, res_queue, args.timeout_secs))
+                proc = Process(target=analyze_contract, args=(index, contract_name, res_queue))
                 proc.start()
                 start_time = time.time()
                 workers.append({"name": contract_name,

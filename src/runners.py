@@ -196,6 +196,7 @@ class AbstractFactGenerator:
 class DecompilerFactGenerator(AbstractFactGenerator):
     decompiler_dl = join(GIGAHORSE_DIR, 'logic/main.dl')
     fallback_scalable_decompiler_dl = join(GIGAHORSE_DIR, 'logic/fallback_scalable.dl')
+    pattern = ".*.hex"
 
     def __init__(self, args, analysis_executor):
         self.context_depth = args.context_depth
