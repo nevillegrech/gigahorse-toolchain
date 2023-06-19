@@ -189,31 +189,6 @@ parser.add_argument("-i",
                     default=False,
                     help="Run souffle in interpreted mode.")
 
-# Decompiler tuning
-parser.add_argument("-cd",
-                    "--context_depth",
-                    type=int,
-                    nargs="?",
-                    metavar="NUM",
-                    help="Override the maximum context depth for decompilation (default is 8).")
-
-parser.add_argument("--early_cloning",
-                    action="store_true",
-                    default=False,
-                    help="Adds a cloning pre-process step (targetting blocks that can cause imprecision) to the decompilation pipeline.")
-
-parser.add_argument("--disable_precise_fallback",
-                    action="store_true",
-                    default=False,
-                    help="Disables the precise fallback configuration (same as the --early_cloning flag) that kicks off if decompilation"
-                    " with the default (transactional) config is successful but produces imprecise results.")
-
-parser.add_argument("--disable_scalable_fallback",
-                    action="store_true",
-                    default=False,
-                    help="Disables the scalable fallback configuration (using a hybrid-precise context configuration) that kicks off"
-                    " if decompilation with the default (transactional) config takes up more than half of the total timeout.")
-
 
 def get_working_dir(contract_name):
     return join(os.path.abspath(args.working_dir), os.path.split(contract_name)[1].split('.')[0])
@@ -244,7 +219,7 @@ def get_souffle_macros():
 
     return souffle_macros
 
-def analyze_contract(index: int, contract_filename: str, result_queue) -> None:   
+def analyze_contract(index: int, contract_filename: str, result_queue, fact_generator, souffle_clients, other_clients) -> None:   
     """
     Perform dataflow analysis on a contract, storing the result in the queue.
     This is a worker function to be passed to a subprocess.
@@ -254,7 +229,7 @@ def analyze_contract(index: int, contract_filename: str, result_queue) -> None:
         contract_filename: the absolute path of the contract bytecode file to process
         result_queue: a multiprocessing queue in which to store the analysis results
     """
-
+    analysis_executor = fact_generator.analysis_executor
     try:
         # prepare working directory
         exists, work_dir, out_dir = prepare_working_dir(contract_filename)
@@ -374,159 +349,13 @@ def flush_queue(run_sig, result_queue, result_list):
             item = result_queue.get()
             result_list.append(item)
 
-# Main Body
-args = parser.parse_args()
-
-log_level = logging.WARNING if args.quiet else logging.INFO + 1
-log = lambda msg: logging.log(logging.INFO + 1, msg)
-logging.basicConfig(format='%(message)s', level=log_level)
-
-
-analysis_executor = AnalysisExecutor(args.timeout_secs, args.interpreted, args.minimum_client_time, args.debug, args.souffle_bin, args.cache_dir, get_souffle_macros())
-
-fact_generator = DecompilerFactGenerator(args, analysis_executor)
-
-if args.disable_precise_fallback:
-    log("The use of the --disable_precise_fallback is deprecated. Its functionality is disabled.")
-
-
-clients_split = [a.strip() for a in args.client.split(',')]
-souffle_clients = [a for a in clients_split if a.endswith('.dl')]
-other_clients = [a for a in clients_split if not (a.endswith('.dl') or a == '')]
-
-
-if not args.interpreted:
-    # Here we compile the decompiler and any of its clients in parallel :)
-    souffle_files = fact_generator.get_datalog_files()
-
-    if not args.disable_inline:
-        souffle_files.append(DEFAULT_INLINER_DL)
-
-    souffle_files += souffle_clients
-
-    running_processes = []
-    for file in souffle_files:
-        proc = Process(target = compile_datalog, args=[file, args.souffle_bin, args.cache_dir, args.reuse_datalog_bin, get_souffle_macros()])
-        proc.start()
-        running_processes.append(proc)
-
-if args.restart:
-    log("Removing working directory {}".format(args.working_dir))
-    shutil.rmtree(args.working_dir, ignore_errors = True)    
-    
-if not args.interpreted:
-    for p in running_processes:
-        p.join()
-        if args.debug and p.exitcode:
-            raise Exception("Souffle binary compilation failed, stopping.")
-
-    # check all programs have been compiled
-    for file in souffle_files:
-        open(get_souffle_executable_path(args.cache_dir, file), 'r') # check program exists
-
-# Extract contract filenames.
-log("Processing contract names...")
-
-contracts = []
-
-# Filter according to the given pattern.
-re_string = fact_generator.pattern
-if not re_string.endswith("$"):
-    re_string = re_string + "$"
-pattern = re.compile(re_string)
-
-
-for filepath in args.filepath:
-    if os.path.isdir(filepath):
-        if args.interpreted:
-            log("[WARNING]: Running batch analysis in interpreted mode.")
-        unfiltered = [join(filepath, f) for f in os.listdir(filepath)]
-    else:
-        unfiltered = [filepath]
-        
-    contracts += [u for u in unfiltered if pattern.match(u) is not None]
-
-contracts = contracts[args.skip:]
-
-log(f"Discovered {len(contracts)} contracts. Setting up workers.")
-# Set up multiprocessing result list and queue.
-manager = Manager()
-
-# This list contains analysis results as
-# (filename, category, meta, analytics) quadruples.
-res_list = manager.list()
-
-# Holds results transiently before flushing to res_list
-res_queue = SimpleQueue()
-
-# Start the periodic flush process, only run while run_signal is set.
-run_signal = Event()
-run_signal.set()
-flush_proc = Process(target=flush_queue, args=(run_signal, res_queue, res_list))
-flush_proc.start()
-
-workers = []
-avail_jobs = list(range(args.jobs))
-contract_iter = enumerate(contracts)
-contracts_exhausted = False
-
-log("Analysing...\n")
-try:
-    while not contracts_exhausted:
-        # If there's both workers and contracts available, use the former to work on the latter.
-        while not contracts_exhausted and len(avail_jobs) > 0:
-            try:
-                index, contract_name = next(contract_iter)
-                working_dir = get_working_dir(contract_name)
-                if os.path.isdir(working_dir) and not args.rerun_clients:
-                    # no need to create another process
-                    continue
-
-                # reduce number of available jobs
-                job_index = avail_jobs.pop()
-                proc = Process(target=analyze_contract, args=(index, contract_name, res_queue))
-                proc.start()
-                start_time = time.time()
-                workers.append({"name": contract_name,
-                                "proc": proc,
-                                "time": start_time,
-                                "job_index": job_index})
-            except StopIteration:
-                contracts_exhausted = True
-
-        # Loop until some process terminates (to retask it) or,
-        # if there are no unanalyzed contracts left, until currently-running contracts are done
-        while len(avail_jobs) == 0 or (contracts_exhausted and 0 < len(workers)):
-            to_remove = []
-            for i in range(len(workers)):
-                start_time = workers[i]["time"]
-                proc = workers[i]["proc"]
-                name = workers[i]["name"]
-                job_index = workers[i]["job_index"]
-
-                if not proc.is_alive():
-                    to_remove.append(i)
-                    proc.join()
-                    avail_jobs.append(job_index)
-
-            # Reverse index order so as to pop elements correctly
-            for i in reversed(to_remove):
-                workers.pop(i)
-
-            time.sleep(0.01)
-
-    # Conclude and write results to file.
-    run_signal.clear()
-    flush_proc.join(1)
-    # it's important to count the total after proc.join
+def write_results(res_list):
     total = len(res_list)
-    log(f"\nFinished {total} contracts...\n")
-
     vulnerability_counts = defaultdict(int)
     analytics_sums = defaultdict(int)
     meta_counts = defaultdict(int)
     all_files = set()
-    for contract, files, meta, analytics in res_list:
+    for _, files, meta, analytics in res_list:
         for f in files:
             all_files.add(f)
         for m in meta:
@@ -570,10 +399,188 @@ try:
     with open(args.results_file, 'w') as f:
         f.write(json.dumps(list(res_list), indent=1))
 
-except Exception as e:
-    import traceback
+def batch_analysis(fact_generator, souffle_clients, other_clients, contracts, num_of_jobs):
+    # Set up multiprocessing result list and queue.
+    manager = Manager()
 
-    traceback.print_exc()
-    flush_proc.terminate()
+    # This list contains analysis results as
+    # (filename, category, meta, analytics) quadruples.
+    res_list = manager.list()
 
-    sys.exit(1)
+    # Holds results transiently before flushing to res_list
+    res_queue = SimpleQueue()
+
+    # Start the periodic flush process, only run while run_signal is set.
+    run_signal = Event()
+    run_signal.set()
+    flush_proc = Process(target=flush_queue, args=(run_signal, res_queue, res_list))
+    flush_proc.start()
+
+    workers = []
+    avail_jobs = list(range(num_of_jobs))
+    contract_iter = enumerate(contracts)
+    contracts_exhausted = False
+
+    log("Analysing...\n")
+    try:
+        while not contracts_exhausted:
+            # If there's both workers and contracts available, use the former to work on the latter.
+            while not contracts_exhausted and len(avail_jobs) > 0:
+                try:
+                    index, contract_name = next(contract_iter)
+                    working_dir = get_working_dir(contract_name)
+                    if os.path.isdir(working_dir) and not args.rerun_clients:
+                        # no need to create another process
+                        continue
+
+                    # reduce number of available jobs
+                    job_index = avail_jobs.pop()
+                    proc = Process(target=analyze_contract, args=(index, contract_name, res_queue, fact_generator, souffle_clients, other_clients))
+                    proc.start()
+                    start_time = time.time()
+                    workers.append({"name": contract_name,
+                                    "proc": proc,
+                                    "time": start_time,
+                                    "job_index": job_index})
+                except StopIteration:
+                    contracts_exhausted = True
+
+            # Loop until some process terminates (to retask it) or,
+            # if there are no unanalyzed contracts left, until currently-running contracts are done
+            while len(avail_jobs) == 0 or (contracts_exhausted and 0 < len(workers)):
+                to_remove = []
+                for i in range(len(workers)):
+                    start_time = workers[i]["time"]
+                    proc = workers[i]["proc"]
+                    name = workers[i]["name"]
+                    job_index = workers[i]["job_index"]
+
+                    if not proc.is_alive():
+                        to_remove.append(i)
+                        proc.join()
+                        avail_jobs.append(job_index)
+
+                # Reverse index order so as to pop elements correctly
+                for i in reversed(to_remove):
+                    workers.pop(i)
+
+                time.sleep(0.01)
+
+        # Conclude and write results to file.
+        run_signal.clear()
+        flush_proc.join(1)
+        # it's important to count the total after proc.join
+
+        log(f"\nFinished {len(res_list)} contracts...\n")
+        write_results(res_list)
+
+    except Exception as e:
+        import traceback
+
+        traceback.print_exc()
+        flush_proc.terminate()
+
+        sys.exit(1)
+
+
+def run_gigahorse(args, fact_gen_class):
+
+    log_level = logging.WARNING if args.quiet else logging.INFO + 1
+    logging.basicConfig(format='%(message)s', level=log_level)
+
+    analysis_executor = AnalysisExecutor(args.timeout_secs, args.interpreted, args.minimum_client_time, args.debug, args.souffle_bin, args.cache_dir, get_souffle_macros())
+
+    fact_generator = fact_gen_class(args, analysis_executor)
+
+
+    clients_split = [a.strip() for a in args.client.split(',')]
+    souffle_clients = [a for a in clients_split if a.endswith('.dl')]
+    other_clients = [a for a in clients_split if not (a.endswith('.dl') or a == '')]
+
+
+    if not args.interpreted:
+        # Here we compile the decompiler and any of its clients in parallel :)
+        souffle_files = fact_generator.get_datalog_files()
+
+        if not args.disable_inline:
+            souffle_files.append(DEFAULT_INLINER_DL)
+
+        souffle_files += souffle_clients
+
+        running_processes = []
+        for file in souffle_files:
+            proc = Process(target = compile_datalog, args=[file, args.souffle_bin, args.cache_dir, args.reuse_datalog_bin, get_souffle_macros()])
+            proc.start()
+            running_processes.append(proc)
+
+    if args.restart:
+        log("Removing working directory {}".format(args.working_dir))
+        shutil.rmtree(args.working_dir, ignore_errors = True)    
+
+    if not args.interpreted:
+        for p in running_processes:
+            p.join()
+            if args.debug and p.exitcode:
+                raise Exception("Souffle binary compilation failed, stopping.")
+
+        # check all programs have been compiled
+        for file in souffle_files:
+            open(get_souffle_executable_path(args.cache_dir, file), 'r') # check program exists
+
+    # Extract contract filenames.
+    log("Processing contract names...")
+
+    contracts = []
+
+    # Filter according to the given pattern.
+    re_string = fact_generator.pattern
+    if not re_string.endswith("$"):
+        re_string = re_string + "$"
+    pattern = re.compile(re_string)
+
+
+    for filepath in args.filepath:
+        if os.path.isdir(filepath):
+            if args.interpreted:
+                log("[WARNING]: Running batch analysis in interpreted mode.")
+            unfiltered = [join(filepath, f) for f in os.listdir(filepath)]
+        else:
+            unfiltered = [filepath]
+            
+        contracts += [u for u in unfiltered if pattern.match(u) is not None]
+
+    contracts = contracts[args.skip:]
+
+    log(f"Discovered {len(contracts)} contracts. Setting up workers.")
+    batch_analysis(fact_generator, souffle_clients, other_clients, contracts, args.jobs)
+
+log = lambda msg: logging.log(logging.INFO + 1, msg)
+
+if __name__ == "__main__":
+    # Decompiler tuning
+    parser.add_argument("-cd",
+                        "--context_depth",
+                        type=int,
+                        nargs="?",
+                        metavar="NUM",
+                        help="Override the maximum context depth for decompilation (default is 8).")
+
+    parser.add_argument("--early_cloning",
+                        action="store_true",
+                        default=False,
+                        help="Adds a cloning pre-process step (targetting blocks that can cause imprecision) to the decompilation pipeline.")
+
+    parser.add_argument("--disable_precise_fallback",
+                        action="store_true",
+                        default=False,
+                        help="Disables the precise fallback configuration (same as the --early_cloning flag) that kicks off if decompilation"
+                        " with the default (transactional) config is successful but produces imprecise results.")
+
+    parser.add_argument("--disable_scalable_fallback",
+                        action="store_true",
+                        default=False,
+                        help="Disables the scalable fallback configuration (using a hybrid-precise context configuration) that kicks off"
+                        " if decompilation with the default (transactional) config takes up more than half of the total timeout.")
+
+    args = parser.parse_args()
+    run_gigahorse(args, DecompilerFactGenerator)

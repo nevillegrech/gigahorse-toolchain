@@ -207,6 +207,9 @@ class DecompilerFactGenerator(AbstractFactGenerator):
         self.souffle_pre_clients = [a for a in pre_clients_split if a.endswith('.dl')]
         self.other_pre_clients = [a for a in pre_clients_split if not (a.endswith('.dl') or a == '')]
 
+        if args.disable_precise_fallback:
+            log("The use of the --disable_precise_fallback is deprecated. Its functionality is disabled.")
+
     def generate_facts(self, contract_filename, work_dir, out_dir):
         with open(contract_filename) as file:
             bytecode = file.read().strip()
