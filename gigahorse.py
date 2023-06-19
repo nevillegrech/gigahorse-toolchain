@@ -23,12 +23,6 @@ from src.runners import get_souffle_executable_path, decomp_out_produced, compil
 DEFAULT_RESULTS_FILE = 'results.json'
 """File to write results to by default."""
 
-DEFAULT_DECOMPILER_DL = join(GIGAHORSE_DIR, 'logic/main.dl')
-"""Decompiler specification file."""
-
-FALLBACK_SCALABLE_DECOMPILER_DL = join(GIGAHORSE_DIR, 'logic/fallback_scalable.dl')
-"""Fallback decompiler specification file, optimized for scalability."""
-
 DEFAULT_INLINER_DL = join(GIGAHORSE_DIR, 'clientlib/function_inliner.dl')
 """IR helping inliner specification file."""
 
@@ -44,9 +38,6 @@ DEFAULT_TIMEOUT = 120
 
 DEFAULT_MINIMUM_CLIENT_TIME = 10
 """Default minimum time to allow each client to work."""
-
-DEFAULT_PATTERN = ".*.hex"
-"""Default filename pattern for contract files."""
 
 DEFAULT_NUM_JOBS = max(int(cpu_count() * 0.9), 1)
 """Bugfix for one core systems."""
@@ -85,15 +76,6 @@ parser.add_argument("-P",
                     nargs="?",
                     default="",
                     help="additional clients to run before decompilation.")
-
-parser.add_argument("-p",
-                    "--filename_pattern",
-                    nargs="?",
-                    default=DEFAULT_PATTERN,
-                    const=DEFAULT_PATTERN,
-                    metavar="REGEX",
-                    help="A regular expression. Only filenames matching it "
-                         "will be processed.")
 
 parser.add_argument("-r",
                     "--results_file",
@@ -160,13 +142,6 @@ parser.add_argument("-M",
                     default = "",
                     help = "Prepocessor macro definitions to pass to Souffle using the -M parameter")
 
-parser.add_argument("-cd",
-                    "--context_depth",
-                    type=int,
-                    nargs="?",
-                    metavar="NUM",
-                    help="Override the maximum context depth for decompilation (default is 8).")
-
 parser.add_argument("--enable_limitsize",
                     action="store_true",
                     default=False,
@@ -181,23 +156,6 @@ parser.add_argument("--disable_inline",
                     default=False,
                     help="Disables the inlining of small functions performed after TAC code is generated"
                     " (to increase the amount of high level inferences produced by the memory and storage modeling components).")
-
-parser.add_argument("--early_cloning",
-                    action="store_true",
-                    default=False,
-                    help="Adds a cloning pre-process step (targetting blocks that can cause imprecision) to the decompilation pipeline.")
-
-parser.add_argument("--disable_precise_fallback",
-                    action="store_true",
-                    default=False,
-                    help="Disables the precise fallback configuration (same as the --early_cloning flag) that kicks off if decompilation"
-                    " with the default (transactional) config is successful but produces imprecise results.")
-
-parser.add_argument("--disable_scalable_fallback",
-                    action="store_true",
-                    default=False,
-                    help="Disables the scalable fallback configuration (using a hybrid-precise context configuration) that kicks off"
-                    " if decompilation with the default (transactional) config takes up more than half of the total timeout.")
 
 parser.add_argument("-q",
                     "--quiet",
@@ -230,6 +188,31 @@ parser.add_argument("-i",
                     action="store_true",
                     default=False,
                     help="Run souffle in interpreted mode.")
+
+# Decompiler tuning
+parser.add_argument("-cd",
+                    "--context_depth",
+                    type=int,
+                    nargs="?",
+                    metavar="NUM",
+                    help="Override the maximum context depth for decompilation (default is 8).")
+
+parser.add_argument("--early_cloning",
+                    action="store_true",
+                    default=False,
+                    help="Adds a cloning pre-process step (targetting blocks that can cause imprecision) to the decompilation pipeline.")
+
+parser.add_argument("--disable_precise_fallback",
+                    action="store_true",
+                    default=False,
+                    help="Disables the precise fallback configuration (same as the --early_cloning flag) that kicks off if decompilation"
+                    " with the default (transactional) config is successful but produces imprecise results.")
+
+parser.add_argument("--disable_scalable_fallback",
+                    action="store_true",
+                    default=False,
+                    help="Disables the scalable fallback configuration (using a hybrid-precise context configuration) that kicks off"
+                    " if decompilation with the default (transactional) config takes up more than half of the total timeout.")
 
 
 def get_working_dir(contract_name):
@@ -448,7 +431,7 @@ log("Processing contract names.")
 contracts = []
 
 # Filter according to the given pattern.
-re_string = args.filename_pattern
+re_string = fact_generator.pattern
 if not re_string.endswith("$"):
     re_string = re_string + "$"
 pattern = re.compile(re_string)
