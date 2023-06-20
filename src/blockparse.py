@@ -44,6 +44,8 @@ The endianness to use when parsing hexadecimal or binary files.
 
 
 class BlockParser(abc.ABC):
+    _ops: t.List[basicblock.EVMOp]
+
     @abc.abstractmethod
     def __init__(self, raw: object):
         """
@@ -64,12 +66,12 @@ class BlockParser(abc.ABC):
         """
 
     @abc.abstractmethod
-    def parse(self) -> t.Iterable[basicblock.EVMBasicBlock]:
+    def parse(self) -> t.List[basicblock.EVMBasicBlock]:
         """
         Parses the raw input object and returns an iterable of BasicBlocks.
         """
         self._ops = []
-        return self._ops
+        return []
 
 
 class EVMDasmParser(BlockParser):
@@ -129,7 +131,7 @@ class EVMDasmParser(BlockParser):
         Returns:
           basicblock.EVMOp: the constructed EVMOp
         """
-        toks = line.replace("=>", " ").split()
+        toks: t.List[t.Any] = line.replace("=>", " ").split()
 
         # Convert hex PCs to ints
         if toks[0].startswith("0x"):
@@ -159,7 +161,7 @@ class EVMBytecodeParser(BlockParser):
         """
         super().__init__(bytecode)
 
-        if type(bytecode) is str:
+        if isinstance(bytecode, str):
             bytecode = bytes.fromhex(bytecode.replace("0x", ""))
         else:
             bytecode = bytes(bytecode)
@@ -177,7 +179,7 @@ class EVMBytecodeParser(BlockParser):
     def __has_more_bytes(self):
         return self.__pc < len(self._raw)
 
-    def parse(self) -> t.Iterable[basicblock.EVMBasicBlock]:
+    def parse(self) -> t.List[basicblock.EVMBasicBlock]:
         """
         Parses the raw input object containing EVM bytecode
         and returns an iterable of EVMBasicBlocks.

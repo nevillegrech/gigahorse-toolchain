@@ -6,7 +6,7 @@ import typing as t
 import src.opcodes as opcodes
 
 
-class EVMBasicBlock():
+class EVMBasicBlock:
     """
     Represents a single basic block in the control flow graph (CFG), including
     its parent and child nodes in the graph structure.
@@ -52,6 +52,8 @@ class EVMBasicBlock():
           entry: unique index of EVMOp from which the block should be split. The
             EVMOp at this index will become the first EVMOp of the new BasicBlock.
         """
+
+        assert(isinstance(self.entry, int))
         # Create the new block.
         new = type(self)(entry, self.exit, self.evm_ops[entry - self.entry:])
 
@@ -73,6 +75,7 @@ class EVMBasicBlock():
 
 
 class EVMOp:
+    block: t.Optional[EVMBasicBlock]
     """
     Represents a single EVM operation.
     """
@@ -132,7 +135,7 @@ class EVMOp:
         )
 
 
-def blocks_from_ops(ops: t.Iterable[EVMOp]) -> t.Iterable[EVMBasicBlock]:
+def blocks_from_ops(ops: t.List[EVMOp]) -> t.List[EVMBasicBlock]:
     """
     Process a sequence of EVMOps and create a sequence of EVMBasicBlocks.
 
@@ -160,8 +163,8 @@ def blocks_from_ops(ops: t.Iterable[EVMOp]) -> t.Iterable[EVMBasicBlock]:
             blocks.append(current)
 
             # Mark all JUMPs as unresolved
-            if op.opcode in (opcodes.JUMP, opcodes.JUMPI):
-                current.has_unresolved_jump = True
+            # if op.opcode in (opcodes.JUMP, opcodes.JUMPI):
+            #     current.has_unresolved_jump = True
 
             # Process the next sequential block in our next iteration
             current = new
