@@ -1,6 +1,5 @@
 import os
-from os.path import abspath, dirname, join, getsize
-import logging
+from os.path import join
 import subprocess
 import pathlib
 import hashlib
@@ -8,7 +7,7 @@ import resource
 import time
 import shutil
 
-from .common import GIGAHORSE_DIR, SOUFFLE_COMPILED_SUFFIX
+from .common import GIGAHORSE_DIR, SOUFFLE_COMPILED_SUFFIX, log
 from . import exporter
 from . import blockparse
 
@@ -17,7 +16,6 @@ devnull = subprocess.DEVNULL
 DEFAULT_MEMORY_LIMIT = 45 * 1_000_000_000
 """Hard capped memory limit for analyses processes (30 GB)"""
 
-log = lambda msg: logging.log(logging.INFO + 1, msg)
 
 souffle_env = os.environ.copy()
 functor_path = join(GIGAHORSE_DIR, 'souffle-addon')

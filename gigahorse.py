@@ -15,7 +15,7 @@ from os.path import join, getsize
 import os
 
 # Local project imports
-from src.common import GIGAHORSE_DIR, DEFAULT_SOUFFLE_BIN
+from src.common import GIGAHORSE_DIR, DEFAULT_SOUFFLE_BIN, log
 from src.runners import get_souffle_executable_path, decomp_out_produced, compile_datalog, DecompilerFactGenerator, AnalysisExecutor, TimeoutException
 
 ## Constants
@@ -553,8 +553,6 @@ def run_gigahorse(args, fact_gen_class):
 
     log(f"Discovered {len(contracts)} contracts. Setting up workers.")
     batch_analysis(fact_generator, souffle_clients, other_clients, contracts, args.jobs)
-
-log = lambda msg: logging.log(logging.INFO + 1, msg)
 
 if __name__ == "__main__":
     # Decompiler tuning
