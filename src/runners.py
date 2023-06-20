@@ -7,6 +7,8 @@ import resource
 import time
 import shutil
 
+from typing import Tuple, List, Any
+
 from .common import GIGAHORSE_DIR, SOUFFLE_COMPILED_SUFFIX, log
 from . import exporter
 from . import blockparse
@@ -36,16 +38,16 @@ if not os.path.isfile(join(functor_path, 'libfunctors.so')):
 class TimeoutException(Exception):
     pass
 
-def set_memory_limit(memory_limit):
+def set_memory_limit(memory_limit: int):
     resource.setrlimit(resource.RLIMIT_AS, (memory_limit, memory_limit))
 
-def get_souffle_executable_path(cache_dir, dl_filename):
+def get_souffle_executable_path(cache_dir: str, dl_filename: str):
     executable_filename = os.path.basename(dl_filename) + SOUFFLE_COMPILED_SUFFIX
     executable_path = join(cache_dir, executable_filename)
     return executable_path
 
 class AnalysisExecutor:
-    def __init__(self, timeout, interpreted, minimum_client_time, debug, souffle_bin, cache_dir, souffle_macros) -> None:
+    def __init__(self, timeout: int, interpreted: bool, minimum_client_time: int, debug: bool, souffle_bin: str, cache_dir: str, souffle_macros: str) -> None:
         self.timeout = timeout
         self.interpreted = interpreted
         self.minimum_client_time = minimum_client_time
@@ -54,20 +56,20 @@ class AnalysisExecutor:
         self.cache_dir = cache_dir
         self.souffle_macros = souffle_macros
 
-    def calc_timeout(self, start_time, half = False):
+    def calc_timeout(self, start_time: float, half: bool = False):
             timeout_left = self.timeout - time.time() + start_time
             if half:
                 timeout_left = timeout_left/2
 
             return max(timeout_left, self.minimum_client_time)
 
-    def run_clients(self, souffle_clients, other_clients, in_dir, out_dir, start_time, half=False):
+    def run_clients(self, souffle_clients: List[str], other_clients: List[str], in_dir: str, out_dir: str, start_time: float, half: bool = False):
         errors = []
         timeouts = []
         for souffle_client in souffle_clients:
             err_filename = join(out_dir, os.path.basename(souffle_client) + '.err')
             if not self.interpreted:
-                err_file = devnull
+                err_file: Any = devnull
                 analysis_args = [
                     get_souffle_executable_path(self.cache_dir, souffle_client),
                     f"--facts={in_dir}", f"--output={out_dir}"
@@ -131,7 +133,7 @@ def run_process(process_args, timeout: int, stdout=devnull, stderr=devnull, cwd:
     return time.time() - start_time
 
 
-def compile_datalog(spec, souffle_bin, cache_dir, reuse_datalog_bin, souffle_macros):
+def compile_datalog(spec: str, souffle_bin: str, cache_dir: str, reuse_datalog_bin: bool, souffle_macros: str) -> None:
     pathlib.Path(cache_dir).mkdir(exist_ok=True)
     executable_path = get_souffle_executable_path(cache_dir, spec)
 
@@ -164,30 +166,33 @@ def compile_datalog(spec, souffle_bin, cache_dir, reuse_datalog_bin, souffle_mac
     shutil.copy2(cache_path, executable_path)
 
 
-def write_context_depth_file(filename, max_context_depth=None):
+def write_context_depth_file(filename: str, max_context_depth: int = None) -> None:
     context_depth_file = open(filename, "w")
     if max_context_depth is not None:
         context_depth_file.write(f"{max_context_depth}\n")
     context_depth_file.close()
 
 
-def imprecise_decomp_out(out_dir):
+def imprecise_decomp_out(out_dir: str) -> bool:
     """Used to check if decompilation output is imprecise, currently only checks Analytics_JumpToMany"""
     imprecision_metric = len(open(join(out_dir, 'Analytics_JumpToMany.csv'), 'r').readlines())
     return imprecision_metric > 0
 
-def decomp_out_produced(out_dir):
+def decomp_out_produced(out_dir: str) -> bool:
     """Hacky. Needed to ensure process was not killed due to exceeding the memory limit."""
     return os.path.exists(join(out_dir, 'Analytics_JumpToMany.csv')) and os.path.exists(join(out_dir, 'TAC_Def.csv'))
 
 class AbstractFactGenerator:
-    def __init__(self, args):
+    analysis_executor: AnalysisExecutor
+    pattern: str
+
+    def __init__(self, args, analysis_executor: AnalysisExecutor):
         pass
 
-    def generate_facts(self, contract_filename, work_dir, out_dir):
+    def generate_facts(self, contract_filename: str, work_dir: str, out_dir: str) -> Tuple[float, float, str]:
         pass
 
-    def get_datalog_files(self):
+    def get_datalog_files(self) -> List[str]:
         pass
 
 
@@ -196,7 +201,7 @@ class DecompilerFactGenerator(AbstractFactGenerator):
     fallback_scalable_decompiler_dl = join(GIGAHORSE_DIR, 'logic/fallback_scalable.dl')
     pattern = ".*.hex"
 
-    def __init__(self, args, analysis_executor):
+    def __init__(self, args, analysis_executor: AnalysisExecutor):
         self.context_depth = args.context_depth
         self.disable_scalable_fallback = args.disable_scalable_fallback
         self.analysis_executor = analysis_executor
@@ -208,7 +213,7 @@ class DecompilerFactGenerator(AbstractFactGenerator):
         if args.disable_precise_fallback:
             log("The use of the --disable_precise_fallback is deprecated. Its functionality is disabled.")
 
-    def generate_facts(self, contract_filename, work_dir, out_dir):
+    def generate_facts(self, contract_filename: str, work_dir: str, out_dir: str) -> Tuple[float, float, str]:
         with open(contract_filename) as file:
             bytecode = file.read().strip()
         
@@ -235,14 +240,14 @@ class DecompilerFactGenerator(AbstractFactGenerator):
 
         return decomp_start - disassemble_start, time.time() - decomp_start, decompiler_config
     
-    def get_datalog_files(self):
+    def get_datalog_files(self) -> List[str]:
         datalog_files = self.souffle_pre_clients + [DecompilerFactGenerator.decompiler_dl]
         if not self.disable_scalable_fallback:
             datalog_files += [DecompilerFactGenerator.fallback_scalable_decompiler_dl]
 
         return datalog_files
 
-    def run_decomp(self, contract_filename, in_dir, out_dir, start_time):
+    def run_decomp(self, contract_filename: str, in_dir: str, out_dir: str, start_time: float) -> str:
         config = "default"
         def_timeouts, _ = self.analysis_executor.run_clients([DecompilerFactGenerator.decompiler_dl], [], in_dir, out_dir, start_time, not self.disable_scalable_fallback)
 

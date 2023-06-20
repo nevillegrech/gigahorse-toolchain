@@ -11,12 +11,13 @@ import sys
 import time
 from collections import defaultdict
 from multiprocessing import Process, SimpleQueue, Manager, Event, cpu_count
+from typing import List, Tuple, Type, Any, Dict, DefaultDict
 from os.path import join, getsize
 import os
 
 # Local project imports
 from src.common import GIGAHORSE_DIR, DEFAULT_SOUFFLE_BIN, log
-from src.runners import get_souffle_executable_path, decomp_out_produced, compile_datalog, DecompilerFactGenerator, AnalysisExecutor, TimeoutException
+from src.runners import get_souffle_executable_path, decomp_out_produced, compile_datalog, AbstractFactGenerator, DecompilerFactGenerator, AnalysisExecutor, TimeoutException
 
 ## Constants
 
@@ -190,10 +191,10 @@ parser.add_argument("-i",
                     help="Run souffle in interpreted mode.")
 
 
-def get_working_dir(contract_name):
+def get_working_dir(contract_name: str):
     return join(os.path.abspath(args.working_dir), os.path.split(contract_name)[1].split('.')[0])
 
-def prepare_working_dir(contract_name) -> (bool, str, str):
+def prepare_working_dir(contract_name: str) -> Tuple[bool, str, str]:
     newdir = get_working_dir(contract_name)
     out_dir = join(newdir, 'out')
 
@@ -205,7 +206,7 @@ def prepare_working_dir(contract_name) -> (bool, str, str):
     os.makedirs(out_dir)
     return False, newdir, out_dir
 
-def get_souffle_macros():
+def get_souffle_macros() -> str:
     souffle_macros = f'GIGAHORSE_DIR={GIGAHORSE_DIR} {args.souffle_macros}'.strip()
 
     if not args.debug:
@@ -219,7 +220,7 @@ def get_souffle_macros():
 
     return souffle_macros
 
-def analyze_contract(index: int, contract_filename: str, result_queue, fact_generator, souffle_clients, other_clients) -> None:   
+def analyze_contract(index: int, contract_filename: str, result_queue, fact_generator: AbstractFactGenerator, souffle_clients: List[str], other_clients: List[str]) -> None:   
     """
     Perform dataflow analysis on a contract, storing the result in the queue.
     This is a worker function to be passed to a subprocess.
@@ -234,15 +235,15 @@ def analyze_contract(index: int, contract_filename: str, result_queue, fact_gene
         # prepare working directory
         exists, work_dir, out_dir = prepare_working_dir(contract_filename)
         assert not(args.restart and exists)
-        analytics = {}
+        analytics: Dict[str, Any] = {}
         contract_name = os.path.split(contract_filename)[1]
         with open(contract_filename) as file:
             bytecode = file.read().strip()
 
         if exists:
-            disassemble_time = 0
-            decomp_time = 0
-            inline_time = 0
+            disassemble_time = 0.0
+            decomp_time = 0.0
+            inline_time = 0.0
             decompiler_config = None
         else:
             start_time = time.time()
@@ -306,7 +307,7 @@ def analyze_contract(index: int, contract_filename: str, result_queue, fact_gene
         result_queue.put((contract_name, [], ["ERROR"], {}))
 
 
-def get_gigahorse_analytics(out_dir, analytics):
+def get_gigahorse_analytics(out_dir: str, analytics: dict) -> None:
     for fname in os.listdir(out_dir):
         fpath = join(out_dir, fname)
         if not fname.startswith('Analytics_'):
@@ -321,7 +322,6 @@ def get_gigahorse_analytics(out_dir, analytics):
         stat_name = fname.split(".")[0]
         analytics[stat_name] = open(join(out_dir, fname)).read()
 
-    vul_types = defaultdict(int)
     try:
         f = open(join(out_dir, 'vulnerability.csv'))
     except FileNotFoundError:
@@ -333,7 +333,7 @@ def get_gigahorse_analytics(out_dir, analytics):
             key = f'{confidence}: {vulnerability_type}'
             analytics[key] = analytics.get(key, 0) + 1
 
-def flush_queue(run_sig, result_queue, result_list):
+def flush_queue(run_sig: Any, result_queue: SimpleQueue, result_list: Any) -> None:
     """
     For flushing the queue periodically to a list so it doesn't fill up.
 
@@ -349,11 +349,11 @@ def flush_queue(run_sig, result_queue, result_list):
             item = result_queue.get()
             result_list.append(item)
 
-def write_results(res_list):
+def write_results(res_list: Any) -> None:
     total = len(res_list)
-    vulnerability_counts = defaultdict(int)
-    analytics_sums = defaultdict(int)
-    meta_counts = defaultdict(int)
+    vulnerability_counts: DefaultDict[str, int] = defaultdict(int)
+    analytics_sums: DefaultDict[str, int] = defaultdict(int)
+    meta_counts: DefaultDict[str, int] = defaultdict(int)
     all_files = set()
     for _, files, meta, analytics in res_list:
         for f in files:
@@ -399,16 +399,16 @@ def write_results(res_list):
     with open(args.results_file, 'w') as f:
         f.write(json.dumps(list(res_list), indent=1))
 
-def batch_analysis(fact_generator, souffle_clients, other_clients, contracts, num_of_jobs):
+def batch_analysis(fact_generator: AbstractFactGenerator, souffle_clients: List[str], other_clients: List[str], contracts: List[str], num_of_jobs: int) -> None:
     # Set up multiprocessing result list and queue.
     manager = Manager()
 
     # This list contains analysis results as
     # (filename, category, meta, analytics) quadruples.
-    res_list = manager.list()
+    res_list: Any = manager.list()
 
     # Holds results transiently before flushing to res_list
-    res_queue = SimpleQueue()
+    res_queue: SimpleQueue = SimpleQueue()
 
     # Start the periodic flush process, only run while run_signal is set.
     run_signal = Event()
@@ -416,7 +416,7 @@ def batch_analysis(fact_generator, souffle_clients, other_clients, contracts, nu
     flush_proc = Process(target=flush_queue, args=(run_signal, res_queue, res_list))
     flush_proc.start()
 
-    workers = []
+    workers: List[Dict[str, Any]] = []
     avail_jobs = list(range(num_of_jobs))
     contract_iter = enumerate(contracts)
     contracts_exhausted = False
@@ -483,7 +483,7 @@ def batch_analysis(fact_generator, souffle_clients, other_clients, contracts, nu
         sys.exit(1)
 
 
-def run_gigahorse(args, fact_gen_class):
+def run_gigahorse(args, fact_gen_class: Type[AbstractFactGenerator]) -> None:
 
     log_level = logging.WARNING if args.quiet else logging.INFO + 1
     logging.basicConfig(format='%(message)s', level=log_level)
@@ -509,7 +509,7 @@ def run_gigahorse(args, fact_gen_class):
 
         running_processes = []
         for file in souffle_files:
-            proc = Process(target = compile_datalog, args=[file, args.souffle_bin, args.cache_dir, args.reuse_datalog_bin, get_souffle_macros()])
+            proc = Process(target = compile_datalog, args=(file, args.souffle_bin, args.cache_dir, args.reuse_datalog_bin, get_souffle_macros()))
             proc.start()
             running_processes.append(proc)
 
