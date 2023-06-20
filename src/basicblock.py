@@ -12,8 +12,8 @@ class EVMBasicBlock:
     its parent and child nodes in the graph structure.
     """
 
-    def __init__(self, entry: int = None, exit: int = None,
-                 evm_ops: List['EVMOp'] = None):
+    def __init__(self, entry: Optional[int] = None, exit: Optional[int] = None,
+                 evm_ops: Optional[List['EVMOp']] = None):
         """
         Creates a new basic block containing operations between the
         specified entry and exit instruction counters (inclusive).
@@ -80,7 +80,7 @@ class EVMOp:
     Represents a single EVM operation.
     """
 
-    def __init__(self, pc: int, opcode: opcodes.OpCode, value: int = None):
+    def __init__(self, pc: int, opcode: opcodes.OpCode, value: Optional[int] = None):
         """
         Create a new EVMOp object from the given params which should correspond to
         disasm output.

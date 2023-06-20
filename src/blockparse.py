@@ -37,10 +37,6 @@ import src.basicblock as basicblock
 import src.opcodes as opcodes
 
 STRICT = False
-ENDIANNESS = "big"
-"""
-The endianness to use when parsing hexadecimal or binary files.
-"""
 
 
 class BlockParser(abc.ABC):
@@ -190,7 +186,7 @@ class EVMBytecodeParser(BlockParser):
 
         while self.__has_more_bytes():
             pc = self.__pc
-            byte = int.from_bytes(self.__consume(1), ENDIANNESS)
+            byte = int.from_bytes(self.__consume(1), "big")
             const, const_size = None, 0
 
             try:
@@ -213,7 +209,7 @@ class EVMBytecodeParser(BlockParser):
 
             # for opcodes with an argument, consume the argument
             if const_size > 0:
-                const = int.from_bytes(self.__consume(const_size), ENDIANNESS)
+                const = int.from_bytes(self.__consume(const_size), "big")
 
             self._ops.append(basicblock.EVMOp(pc, op, const))
 

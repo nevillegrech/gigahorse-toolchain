@@ -7,7 +7,9 @@ import resource
 import time
 import shutil
 
-from typing import Tuple, List, Any
+from typing import Tuple, List, Any, Optional
+
+from abc import ABC, abstractmethod
 
 from .common import GIGAHORSE_DIR, SOUFFLE_COMPILED_SUFFIX, log
 from . import exporter
@@ -166,7 +168,7 @@ def compile_datalog(spec: str, souffle_bin: str, cache_dir: str, reuse_datalog_b
     shutil.copy2(cache_path, executable_path)
 
 
-def write_context_depth_file(filename: str, max_context_depth: int = None) -> None:
+def write_context_depth_file(filename: str, max_context_depth: Optional[int] = None) -> None:
     context_depth_file = open(filename, "w")
     if max_context_depth is not None:
         context_depth_file.write(f"{max_context_depth}\n")
@@ -182,16 +184,18 @@ def decomp_out_produced(out_dir: str) -> bool:
     """Hacky. Needed to ensure process was not killed due to exceeding the memory limit."""
     return os.path.exists(join(out_dir, 'Analytics_JumpToMany.csv')) and os.path.exists(join(out_dir, 'TAC_Def.csv'))
 
-class AbstractFactGenerator:
+class AbstractFactGenerator(ABC):
     analysis_executor: AnalysisExecutor
     pattern: str
 
     def __init__(self, args, analysis_executor: AnalysisExecutor):
         pass
 
+    @abstractmethod
     def generate_facts(self, contract_filename: str, work_dir: str, out_dir: str) -> Tuple[float, float, str]:
         pass
 
+    @abstractmethod
     def get_datalog_files(self) -> List[str]:
         pass
 
