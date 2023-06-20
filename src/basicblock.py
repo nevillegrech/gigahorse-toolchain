@@ -1,7 +1,7 @@
 # TODO: all this functionality can be carefully removed since we don't require
 # the need for finding basic blocks during fact generation
 
-import typing as t
+from typing import List, Optional
 
 import src.opcodes as opcodes
 
@@ -13,7 +13,7 @@ class EVMBasicBlock:
     """
 
     def __init__(self, entry: int = None, exit: int = None,
-                 evm_ops: t.List['EVMOp'] = None):
+                 evm_ops: List['EVMOp'] = None):
         """
         Creates a new basic block containing operations between the
         specified entry and exit instruction counters (inclusive).
@@ -75,7 +75,7 @@ class EVMBasicBlock:
 
 
 class EVMOp:
-    block: t.Optional[EVMBasicBlock]
+    block: Optional[EVMBasicBlock]
     """
     Represents a single EVM operation.
     """
@@ -135,7 +135,7 @@ class EVMOp:
         )
 
 
-def blocks_from_ops(ops: t.List[EVMOp]) -> t.List[EVMBasicBlock]:
+def blocks_from_ops(ops: List[EVMOp]) -> List[EVMBasicBlock]:
     """
     Process a sequence of EVMOps and create a sequence of EVMBasicBlocks.
 

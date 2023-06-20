@@ -31,7 +31,7 @@
 
 import abc
 import logging
-import typing as t
+from typing import List, Union, Iterable, Any
 
 import src.basicblock as basicblock
 import src.opcodes as opcodes
@@ -44,7 +44,8 @@ The endianness to use when parsing hexadecimal or binary files.
 
 
 class BlockParser(abc.ABC):
-    _ops: t.List[basicblock.EVMOp]
+    _raw: object
+    _ops: List[basicblock.EVMOp]
 
     @abc.abstractmethod
     def __init__(self, raw: object):
@@ -66,7 +67,7 @@ class BlockParser(abc.ABC):
         """
 
     @abc.abstractmethod
-    def parse(self) -> t.List[basicblock.EVMBasicBlock]:
+    def parse(self) -> List[basicblock.EVMBasicBlock]:
         """
         Parses the raw input object and returns an iterable of BasicBlocks.
         """
@@ -75,7 +76,7 @@ class BlockParser(abc.ABC):
 
 
 class EVMDasmParser(BlockParser):
-    def __init__(self, dasm: t.Iterable[str]):
+    def __init__(self, dasm: Iterable[str]):
         """
         Parses raw EVM disassembly lines and creates corresponding EVMBasicBlocks.
         This does NOT follow jumps or create graph edges - it just parses the
@@ -131,7 +132,7 @@ class EVMDasmParser(BlockParser):
         Returns:
           basicblock.EVMOp: the constructed EVMOp
         """
-        toks: t.List[t.Any] = line.replace("=>", " ").split()
+        toks: List[Any] = line.replace("=>", " ").split()
 
         # Convert hex PCs to ints
         if toks[0].startswith("0x"):
@@ -151,7 +152,7 @@ class EVMDasmParser(BlockParser):
 
 
 class EVMBytecodeParser(BlockParser):
-    def __init__(self, bytecode: t.Union[str, bytes]):
+    def __init__(self, bytecode: Union[str, bytes]):
         """
         Parse EVM bytecode directly into basic blocks.
 
@@ -179,7 +180,7 @@ class EVMBytecodeParser(BlockParser):
     def __has_more_bytes(self):
         return self.__pc < len(self._raw)
 
-    def parse(self) -> t.List[basicblock.EVMBasicBlock]:
+    def parse(self) -> List[basicblock.EVMBasicBlock]:
         """
         Parses the raw input object containing EVM bytecode
         and returns an iterable of EVMBasicBlocks.
