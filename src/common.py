@@ -12,7 +12,7 @@ SOUFFLE_COMPILED_SUFFIX = '_compiled'
 log = lambda msg: logging.log(logging.INFO + 1, msg)
 
 
-def __get_sig_file(simple_filename):
+def __get_sig_file(simple_filename: str) -> str:
     preferred_dest = join(join(dirname(abspath(__file__)), '../../common-facts'), simple_filename)
     fallback_dest = join(join(dirname(abspath(__file__)), '..'), simple_filename)
     return preferred_dest if exists(preferred_dest) else fallback_dest

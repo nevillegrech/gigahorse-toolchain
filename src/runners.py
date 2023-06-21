@@ -43,7 +43,7 @@ class TimeoutException(Exception):
 def set_memory_limit(memory_limit: int):
     resource.setrlimit(resource.RLIMIT_AS, (memory_limit, memory_limit))
 
-def get_souffle_executable_path(cache_dir: str, dl_filename: str):
+def get_souffle_executable_path(cache_dir: str, dl_filename: str) -> str:
     executable_filename = os.path.basename(dl_filename) + SOUFFLE_COMPILED_SUFFIX
     executable_path = join(cache_dir, executable_filename)
     return executable_path
@@ -58,14 +58,14 @@ class AnalysisExecutor:
         self.cache_dir = cache_dir
         self.souffle_macros = souffle_macros
 
-    def calc_timeout(self, start_time: float, half: bool = False):
+    def calc_timeout(self, start_time: float, half: bool = False) -> float:
             timeout_left = self.timeout - time.time() + start_time
             if half:
                 timeout_left = timeout_left/2
 
             return max(timeout_left, self.minimum_client_time)
 
-    def run_clients(self, souffle_clients: List[str], other_clients: List[str], in_dir: str, out_dir: str, start_time: float, half: bool = False):
+    def run_clients(self, souffle_clients: List[str], other_clients: List[str], in_dir: str, out_dir: str, start_time: float, half: bool = False) -> Tuple[List[str], List[str]]:
         errors = []
         timeouts = []
         for souffle_client in souffle_clients:
@@ -114,7 +114,7 @@ class AnalysisExecutor:
                 timeouts.append(other_client)
         return timeouts, errors
 
-def run_process(process_args, timeout: int, stdout=devnull, stderr=devnull, cwd: str='.', memory_limit=DEFAULT_MEMORY_LIMIT) -> float:
+def run_process(process_args, timeout: float, stdout=devnull, stderr=devnull, cwd: str='.', memory_limit=DEFAULT_MEMORY_LIMIT) -> float:
     ''' Runs process described by args, for a specific time period
     as specified by the timeout.
 

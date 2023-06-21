@@ -191,7 +191,7 @@ parser.add_argument("-i",
                     help="Run souffle in interpreted mode.")
 
 
-def get_working_dir(contract_name: str):
+def get_working_dir(contract_name: str) -> str:
     return join(os.path.abspath(args.working_dir), os.path.split(contract_name)[1].split('.')[0])
 
 def prepare_working_dir(contract_name: str) -> Tuple[bool, str, str]:
