@@ -5,16 +5,12 @@
   // Split into two rules to add plan.
   MergeContext(ctx, caller, ctx):-
     ReachableContext(ctx, caller),
-    #ifndef NO_PUBLIC_CONTEXT
     !local.PublicFunction(caller, _),
-    #endif
     !local.PrivateFunctionCallOrReturn(caller).
 
   MergeContext(ctx, caller, ctx):-
     ReachableContext(ctx, caller),
-    #ifndef NO_PUBLIC_CONTEXT
     !local.PublicFunction(caller, _),
-    #endif
     DecomposeContext(ctx, pub, _),
     MaxContextDepth(pub, 0).
     .plan 1:(2,3,1)
@@ -33,64 +29,15 @@
     ReachableContext(ctx, caller),
     local.PrivateFunctionCall(caller, _, _, _),
     DecomposeAndTruncateIfNeeded(ctx, pub, cutDownAtEndPri),
-    #ifndef NO_PUBLIC_CONTEXT
     !local.PublicFunction(caller, _),
-    #endif
     newPrivateContext = [caller, cutDownAtEndPri].
     .plan 1:(3,1,2)
-
-
-  /// "ORIGINAL" variant
-
-  // // For a matching context element, the call needs to have pushed the continuation
-  // // we are returning to, and no other continuation at all!
-  // .decl CutToCaller(priCtx: PrivateContext, continuation: Block, newPriCtx: PrivateContext)
-  // CutToCaller(priCtx, cont, newPriCtx) :-
-  //   DecomposePrivateContext(priCtx, head, newPriCtx),
-  //   local.PrivateFunctionCall(head, _, cont, _),
-  //   !local.MultiplePrivateFunctionCall(head).
- 
-  // CutToCaller(priCtx, cont, newPriCtx) :-
-  //   CutToCaller(nextPriCtx, cont, newPriCtx),
-  //   DecomposePrivateContext(priCtx, head, nextPriCtx),
-  //   !local.PrivateFunctionCall(head, _, cont, _).
-  //   .plan 1:(2,1)
- 
-  // .decl PossibleContinuationFromReturn(continuation: Block)
-  // PossibleContinuationFromReturn(continuation) :-
-  //   MergeContextRequest(_, retBlock, continuation),
-  //   PrivateFunctionReturn(retBlock).
-    
-  // .decl NoCutToCaller(priCtx: PrivateContext, continuation: Block)
-  // NoCutToCaller(initPriCtx, cont) :-
-  //   PossibleContinuationFromReturn(cont),
-  //   InitialPrivateContext(initPriCtx).
-
-  // NoCutToCaller(priCtx, cont) :-
-  //   NoCutToCaller(nextPriCtx, cont),
-  //   DecomposePrivateContext(priCtx, head, nextPriCtx),
-  //   !local.PrivateFunctionCall(head, _, cont, _).
-  //   .plan 1:(2,1)
- 
-  // NoCutToCaller(priCtx, cont) :-
-  //   NoCutToCaller(nextPriCtx, cont),
-  //   DecomposePrivateContext(priCtx, head, nextPriCtx),
-  //   local.MultiplePrivateFunctionCall(head).
-  //   .plan 1:(2,1,3)
-
-  // NoCutToCaller(priCtx, cont) :-
-  //   CutToCaller(nextPriCtx, cont, _),
-  //   DecomposePrivateContext(priCtx, head, nextPriCtx),
-  //   local.PrivateFunctionCall(head, _, cont, _),
-  //   local.MultiplePrivateFunctionCall(head).
-  //   .plan 1:(2,1,3,4)
-
 
 
   /// "NEW" variant
   // For a matching context element, the call needs to have pushed deepest in the stack
   // the continuation we are returning to, without also pushing the same continuation later.
-  .decl CutToCaller(priCtx: PrivateContext, continuation: Block, newPriCtx: PrivateContext)
+  .decl CutToCaller(priCtx: PrivateContext, continuation: Block, newPriCtx: PrivateContext) overridable
   CutToCaller(priCtx, cont, newPriCtx) :-
     DecomposePrivateContext(priCtx, head, newPriCtx),
     local.PrivateFunctionCall(head, _, cont, cont).
@@ -106,7 +53,7 @@
     MergeContextRequest(_, retBlock, continuation),
     PrivateFunctionReturn(retBlock).
     
-  .decl NoCutToCaller(priCtx: PrivateContext, continuation: Block)
+  .decl NoCutToCaller(priCtx: PrivateContext, continuation: Block) overridable
   NoCutToCaller(initPriCtx, cont) :-
     PossibleContinuationFromReturn(cont),
     InitialPrivateContext(initPriCtx).
@@ -131,9 +78,7 @@
     MergeContextRequest(ctx, block, cont),
     PrivateFunctionReturn(block),
     DecomposeContext(ctx, pub, priCtx),
-    #ifndef NO_PUBLIC_CONTEXT
     !local.PublicFunction(block, _),
-    #endif
     CutToCaller(priCtx, cont, cutPri).
     .plan 1:(3,1,2,4), 2:(4,3,1,2)
 
@@ -144,11 +89,56 @@
     DecomposeContext(ctx, pub, priCtx),
     DecomposeAndTruncateIfNeeded(ctx, pub, cutDownAtEndPri),
     NoCutToCaller(priCtx, cont),
-    #ifndef NO_PUBLIC_CONTEXT
     !local.PublicFunction(block, _),
-    #endif
     newPrivateContext = [block, cutDownAtEndPri].
     .plan 1:(3,1,2,4,5), 2:(4,3,1,2,5), 3:(5,3,1,2,4)
+
+
+}
+
+.comp AltTransactionalWithShrinkingContext <LocalAnalysis> : TransactionalWithShrinkingContext <LocalAnalysis> {
+
+    /// "ORIGINAL" variant
+
+  // For a matching context element, the call needs to have pushed the continuation
+  // we are returning to, and no other continuation at all!
+  .override CutToCaller
+
+  CutToCaller(priCtx, cont, newPriCtx) :-
+    DecomposePrivateContext(priCtx, head, newPriCtx),
+    local.PrivateFunctionCall(head, _, cont, _),
+    !local.MultiplePrivateFunctionCall(head).
+
+  CutToCaller(priCtx, cont, newPriCtx) :-
+    CutToCaller(nextPriCtx, cont, newPriCtx),
+    DecomposePrivateContext(priCtx, head, nextPriCtx),
+    !local.PrivateFunctionCall(head, _, cont, _).
+    .plan 1:(2,1)
+  
+  .override NoCutToCaller
+  
+  NoCutToCaller(initPriCtx, cont) :-
+    PossibleContinuationFromReturn(cont),
+    InitialPrivateContext(initPriCtx).
+
+  NoCutToCaller(priCtx, cont) :-
+    NoCutToCaller(nextPriCtx, cont),
+    DecomposePrivateContext(priCtx, head, nextPriCtx),
+    !local.PrivateFunctionCall(head, _, cont, _).
+    .plan 1:(2,1)
+
+  NoCutToCaller(priCtx, cont) :-
+    NoCutToCaller(nextPriCtx, cont),
+    DecomposePrivateContext(priCtx, head, nextPriCtx),
+    local.MultiplePrivateFunctionCall(head).
+    .plan 1:(2,1,3)
+
+  NoCutToCaller(priCtx, cont) :-
+    CutToCaller(nextPriCtx, cont, _),
+    DecomposePrivateContext(priCtx, head, nextPriCtx),
+    local.PrivateFunctionCall(head, _, cont, _),
+    local.MultiplePrivateFunctionCall(head).
+    .plan 1:(2,1,3,4)
 
 
 }

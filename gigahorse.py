@@ -43,9 +43,6 @@ DEFAULT_DECOMPILER_DL = join(GIGAHORSE_DIR, 'logic/main.dl')
 FALLBACK_SCALABLE_DECOMPILER_DL = join(GIGAHORSE_DIR, 'logic/fallback_scalable.dl')
 """Fallback decompiler specification file, optimized for scalability."""
 
-FALLBACK_PRECISE_DECOMPILER_DL = join(GIGAHORSE_DIR, 'logic/fallback_precise.dl')
-"""Alternative decompiler version that uses cues from previous round's decompilation to be more precise."""
-
 DEFAULT_INLINER_DL = join(GIGAHORSE_DIR, 'clientlib/function_inliner.dl')
 """IR helping inliner specification file."""
 
@@ -270,19 +267,17 @@ if not os.path.isfile(join(functor_path, 'libfunctors.so')):
 def get_working_dir(contract_name):
     return join(os.path.abspath(args.working_dir), os.path.split(contract_name)[1].split('.')[0])
 
-def prepare_working_dir(contract_name) -> (bool, str, str, str):
+def prepare_working_dir(contract_name) -> (bool, str, str):
     newdir = get_working_dir(contract_name)
     out_dir = join(newdir, 'out')
-    fallback_out_dir = join(newdir, 'fallbackout')
 
     if os.path.isdir(newdir):
-        return True, newdir, out_dir, fallback_out_dir
+        return True, newdir, out_dir
 
     # recreate dir
     os.makedirs(newdir)
     os.makedirs(out_dir)
-    os.makedirs(fallback_out_dir)
-    return False, newdir, out_dir, fallback_out_dir
+    return False, newdir, out_dir
 
 def get_souffle_macros():
     souffle_macros = f'GIGAHORSE_DIR={GIGAHORSE_DIR} {args.souffle_macros}'.strip()
@@ -393,7 +388,7 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
                 souffle_err = open(err_filename).read()
                 # Used to be "Error:" to avoid reporting the file not found errors of souffle
                 # However with souffle 2.4 they cause the program to stop so we have to report them as well
-                if "Error" in souffle_err:
+                if any(s in souffle_err for s in ["Error", "core dumped", "Segmentation", "corrupted"]):
                     errors.append(os.path.basename(souffle_client))
                     log(souffle_err)
 
@@ -416,30 +411,18 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
                 timeouts.append(other_client)
         return timeouts, errors
     
-    def run_decomp(contract_filename, in_dir, out_dir, fallback_out_dir):
+    def run_decomp(contract_filename, in_dir, out_dir):
 
         config = "default"
         def_timeouts, _ = run_clients([DEFAULT_DECOMPILER_DL], [], in_dir, out_dir)
 
-        if not args.disable_precise_fallback and not def_timeouts and decomp_out_produced(out_dir):
-            # try the precise configuration only if the default didn't take more 0.3 of the total timeout
-            # this was chosen because on average the precise decompiler takes about 2x the time of the default one
-            if imprecise_decomp_out(out_dir) and calc_timeout(FALLBACK_PRECISE_DECOMPILER_DL) > 0.3 * timeout:
-                log(f"Using precise fallback decompilation configuration for {os.path.split(contract_filename)[1]}")
-
-                pre_timeouts, _ = run_clients([FALLBACK_PRECISE_DECOMPILER_DL], [], in_dir, fallback_out_dir)
-                if not pre_timeouts and decomp_out_produced(fallback_out_dir):
-                    shutil.rmtree(out_dir)
-                    os.rename(fallback_out_dir, out_dir)
-                    config = "precise"
-
-        elif def_timeouts or not decomp_out_produced(out_dir):
+        if def_timeouts or not decomp_out_produced(out_dir):
             if args.disable_scalable_fallback:
                 raise TimeoutException()
             else:
                 # Default using scalable fallback config
                 log(f"Using scalable fallback decompilation configuration for {os.path.split(contract_filename)[1]}")
-                write_context_depth_file(os.path.join(in_dir, 'MaxContextDepth.csv'), 1)
+                write_context_depth_file(os.path.join(in_dir, 'MaxContextDepth.csv'), 10)
 
                 sca_timeouts, _ = run_clients([FALLBACK_SCALABLE_DECOMPILER_DL], [], in_dir, out_dir)
                 if not sca_timeouts and decomp_out_produced(out_dir):
@@ -460,7 +443,7 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
 
     try:
         # prepare working directory
-        exists, work_dir, out_dir, fallback_out_dir = prepare_working_dir(contract_filename)
+        exists, work_dir, out_dir = prepare_working_dir(contract_filename)
         assert not(args.restart and exists)
         analytics = {}
         contract_name = os.path.split(contract_filename)[1]
@@ -481,7 +464,6 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
             if os.path.exists(join(work_dir, 'compiler_info.csv')):
                 # Create a symlink with a name starting with 'Verbatim_' to be added to results json
                 os.symlink(join(work_dir, 'compiler_info.csv'), join(out_dir, 'Verbatim_compiler_info.csv'))
-                os.symlink(join(work_dir, 'compiler_info.csv'), join(fallback_out_dir, 'Verbatim_compiler_info.csv'))
 
             timeouts, _ = run_clients(souffle_pre_clients, other_pre_clients, work_dir, work_dir)
             if timeouts:
@@ -492,7 +474,7 @@ def analyze_contract(job_index: int, index: int, contract_filename: str, result_
 
             decomp_start = time.time()
 
-            decompiler_config = run_decomp(contract_filename, work_dir, out_dir, fallback_out_dir)
+            decompiler_config = run_decomp(contract_filename, work_dir, out_dir)
 
             inline_start = time.time()
             if not args.disable_inline:
@@ -626,6 +608,9 @@ log_level = logging.WARNING if args.quiet else logging.INFO + 1
 log = lambda msg: logging.log(logging.INFO + 1, msg)
 logging.basicConfig(format='%(message)s', level=log_level)
 
+if args.disable_precise_fallback:
+    log("The use of the --disable_precise_fallback is deprecated. Its functionality is disabled.")
+
 # Here we compile the decompiler and any of its clients in parallel :)
 compile_processes_args = []
 compile_processes_args.append([DEFAULT_DECOMPILER_DL])
@@ -635,9 +620,6 @@ if not args.disable_scalable_fallback:
 
 if not args.disable_inline:
     compile_processes_args.append([DEFAULT_INLINER_DL])
-
-if not args.disable_precise_fallback:
-    compile_processes_args.append([FALLBACK_PRECISE_DECOMPILER_DL])
 
 clients_split = [a.strip() for a in args.client.split(',')]
 souffle_clients = [a for a in clients_split if a.endswith('.dl')]
