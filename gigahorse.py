@@ -222,13 +222,16 @@ def get_souffle_macros() -> str:
 
 def analyze_contract(index: int, contract_filename: str, result_queue, fact_generator: AbstractFactGenerator, souffle_clients: List[str], other_clients: List[str]) -> None:   
     """
-    Perform dataflow analysis on a contract, storing the result in the queue.
+    Perform static analysis on a contract, storing the result in the queue.
     This is a worker function to be passed to a subprocess.
 
     Args:
         index: the number of the particular contract being analyzed
         contract_filename: the absolute path of the contract bytecode file to process
         result_queue: a multiprocessing queue in which to store the analysis results
+        fact_generator: the fact generator to be used (decompiler is used by default)
+        souffle_clients: list of souffle datalog clients
+        other_clients: list of other clients (language agnostic)
     """
     analysis_executor = fact_generator.analysis_executor
     try:
@@ -349,7 +352,11 @@ def flush_queue(run_sig: Any, result_queue: SimpleQueue, result_list: Any) -> No
             item = result_queue.get()
             result_list.append(item)
 
-def write_results(res_list: Any) -> None:
+def write_results(res_list: Any, results_file: str) -> None:
+    """
+    Filters the results in res_list, logging the appropriate messages
+    and writting them to the results_file json file 
+    """
     total = len(res_list)
     vulnerability_counts: DefaultDict[str, int] = defaultdict(int)
     analytics_sums: DefaultDict[str, int] = defaultdict(int)
@@ -395,11 +402,14 @@ def write_results(res_list: Any) -> None:
             log(f"  {k}: {v} of {total} contracts")
         log('\n')
             
-    log("\nWriting results to {}".format(args.results_file))
-    with open(args.results_file, 'w') as f:
+    log("\nWriting results to {}".format(results_file))
+    with open(results_file, 'w') as f:
         f.write(json.dumps(list(res_list), indent=1))
 
-def batch_analysis(fact_generator: AbstractFactGenerator, souffle_clients: List[str], other_clients: List[str], contracts: List[str], num_of_jobs: int) -> None:
+def batch_analysis(fact_generator: AbstractFactGenerator, souffle_clients: List[str], other_clients: List[str], contracts: List[str], num_of_jobs: int) -> Any:
+    """
+    Given a fact generator and the client lists, analyzes the contracts list, using num_of_jobs parallel jobs/processes
+    """
     # Set up multiprocessing result list and queue.
     manager = Manager()
 
@@ -472,7 +482,7 @@ def batch_analysis(fact_generator: AbstractFactGenerator, souffle_clients: List[
         # it's important to count the total after proc.join
 
         log(f"\nFinished {len(res_list)} contracts...\n")
-        write_results(res_list)
+        return res_list
 
     except Exception as e:
         import traceback
@@ -484,7 +494,9 @@ def batch_analysis(fact_generator: AbstractFactGenerator, souffle_clients: List[
 
 
 def run_gigahorse(args, fact_gen_class: Type[AbstractFactGenerator]) -> None:
-
+    """
+    Run gigahorse, passing the cmd line args and fact generator type as arguments
+    """
     log_level = logging.WARNING if args.quiet else logging.INFO + 1
     logging.basicConfig(format='%(message)s', level=log_level)
 
@@ -552,7 +564,8 @@ def run_gigahorse(args, fact_gen_class: Type[AbstractFactGenerator]) -> None:
     contracts = contracts[args.skip:]
 
     log(f"Discovered {len(contracts)} contracts. Setting up workers.")
-    batch_analysis(fact_generator, souffle_clients, other_clients, contracts, args.jobs)
+    res_list= batch_analysis(fact_generator, souffle_clients, other_clients, contracts, args.jobs)
+    write_results(res_list, args.results_file)
 
 if __name__ == "__main__":
     # Decompiler tuning
