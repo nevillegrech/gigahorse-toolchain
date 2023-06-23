@@ -370,7 +370,7 @@ ArrayWriteToRelativeIndex(arrayVar, mstore, relativeIndex):-
 
 DEBUG_OUTPUT(ArrayHasConstantLength)
 ArrayStore(mstore, arrId, from):-
-  ArrayHasConstantLength(arrayVar, length),
+  ArrayHasConstantLength(arrId, length),
   VarIsArray(arrayVar, arrId),
   ArrayWriteToRelativeIndex(arrayVar, mstore, relativeIndex),
   MSTORE(mstore, _, from),
@@ -433,10 +433,10 @@ PossibleArrayLoose(array):-
   MSTORE(_, array, var),
   ArrayVarLengthVar(_, var).
 
-.decl ArrayHasConstantLength(arrayVar:Variable, length:number)
+.decl ArrayHasConstantLength(arrayVarRep: ArrayVariable, length: number)
 
-ArrayHasConstantLength(arrayVar, length):-
-  ArrayAllocationInternal(_, arrayVar, _, arrayLengthVar),
+ArrayHasConstantLength(arrId, length):-
+  ArrayAllocation(arrId, _, arrayLengthVar),
   Variable_Value(arrayLengthVar, arrLenHex),
   length = @hex_to_number(arrLenHex),
   length < 2 ^ 28. //Some very big number that should never be possible.
@@ -828,7 +828,7 @@ Array_ElementLength(actual, elementSize):-
 
 MemoryModelingTempStmt(mstore),
 ConstArray_Contents(arrayRep, val):-
-  ArrayHasConstantLength(arrayVar, length),
+  ArrayHasConstantLength(arrayRep, length),
   VarIsArray(arrayVar, arrayRep),
   length <= 32,
   ArrayWriteToRelativeIndex(arrayVar, mstore, 0),
@@ -839,7 +839,7 @@ ConstArray_Contents(arrayRep, val):-
 MemoryModelingTempStmt(mstore1),
 MemoryModelingTempStmt(mstore2),
 ConstArray_Contents(arrayRep, val):-
-  ArrayHasConstantLength(arrayVar, length),
+  ArrayHasConstantLength(arrayRep, length),
   VarIsArray(arrayVar, arrayRep),
   length <= 64,
   ArrayWriteToRelativeIndex(arrayVar, mstore1, 0),
@@ -854,7 +854,7 @@ MemoryModelingTempStmt(mstore1),
 MemoryModelingTempStmt(mstore2),
 MemoryModelingTempStmt(mstore3),
 ConstArray_Contents(arrayRep, val):-
-  ArrayHasConstantLength(arrayVar, length),
+  ArrayHasConstantLength(arrayRep, length),
   VarIsArray(arrayVar, arrayRep),
   length <= 96,
   ArrayWriteToRelativeIndex(arrayVar, mstore1, 0),
@@ -870,7 +870,7 @@ ConstArray_Contents(arrayRep, val):-
 
 MemoryModelingTempStmt(codeCopy),
 ConstArray_Contents(arrayRep, const):-
-  ArrayHasConstantLength(arrayVar, _),
+  ArrayHasConstantLength(arrayRep, _),
   VarIsArray(arrayVar, arrayRep),
   ArrayDataStartVar(arrayVar, arrayDataStartVar),
   Statement_Opcode(codeCopy, "CODECOPY"),
