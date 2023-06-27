@@ -107,6 +107,11 @@ VarTimesConstant(var, constVal, result):-
   (MUL(_, var, constVar, result); MUL(_, constVar, var, result)),
   Variable_Value(constVar, constVal).
 
+VarTimesConstantNoIdentity(var, as(@exp_256("0x2", shiftBits), Value), result),
+VarTimesConstant(var, as(@exp_256("0x2", shiftBits), Value), result):-
+  SHL(_, shiftConst, var, result),
+  Variable_Value(shiftConst, shiftBits).
+
 VarTimesConstant(var, "0x1", var):-
   Statement_Defines(_, var, _).
 

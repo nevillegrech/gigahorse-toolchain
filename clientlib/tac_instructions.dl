@@ -227,6 +227,23 @@ CALLCODE(stmt, gas, target, value, data_start, data_length, return_start, return
   Statement_Uses(stmt, return_start, 5),
   Statement_Uses(stmt, return_length, 6).
 
+.decl CREATE(stmt:Statement, val:Variable, data_start:Variable, data_length:Variable, addr: Variable)
+CREATE(stmt, val, data_start, data_length, addr) :-
+  Statement_Opcode(stmt, "CREATE"),
+  Statement_Defines(stmt, addr, _),
+  Statement_Uses(stmt, val, 0),
+  Statement_Uses(stmt, data_start, 1),
+  Statement_Uses(stmt, data_length, 2).
+
+.decl CREATE2(stmt:Statement, val:Variable, data_start:Variable, data_length:Variable, salt:Variable, addr: Variable)
+CREATE2(stmt, val, data_start, data_length, salt, addr) :-
+  Statement_Opcode(stmt, "CREATE2"),
+  Statement_Defines(stmt, addr, _),
+  Statement_Uses(stmt, val, 0),
+  Statement_Uses(stmt, data_start, 1),
+  Statement_Uses(stmt, data_length, 2),
+  Statement_Uses(stmt, salt, 3).
+
 .decl RETURNDATASIZE(s: Statement, f: Variable)
 RETURNDATASIZE(stmt, f) :-
    Statement_Opcode(stmt, "RETURNDATASIZE"),
