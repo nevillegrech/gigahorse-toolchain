@@ -31,19 +31,18 @@
 
 import abc
 import logging
-import typing as t
+from typing import List, Union, Iterable, Any
 
 import src.basicblock as basicblock
 import src.opcodes as opcodes
 
 STRICT = False
-ENDIANNESS = "big"
-"""
-The endianness to use when parsing hexadecimal or binary files.
-"""
 
 
 class BlockParser(abc.ABC):
+    _raw: object
+    _ops: List[basicblock.EVMOp]
+
     @abc.abstractmethod
     def __init__(self, raw: object):
         """
@@ -64,16 +63,16 @@ class BlockParser(abc.ABC):
         """
 
     @abc.abstractmethod
-    def parse(self) -> t.Iterable[basicblock.EVMBasicBlock]:
+    def parse(self) -> List[basicblock.EVMBasicBlock]:
         """
         Parses the raw input object and returns an iterable of BasicBlocks.
         """
         self._ops = []
-        return self._ops
+        return []
 
 
 class EVMDasmParser(BlockParser):
-    def __init__(self, dasm: t.Iterable[str]):
+    def __init__(self, dasm: Iterable[str]):
         """
         Parses raw EVM disassembly lines and creates corresponding EVMBasicBlocks.
         This does NOT follow jumps or create graph edges - it just parses the
@@ -129,7 +128,7 @@ class EVMDasmParser(BlockParser):
         Returns:
           basicblock.EVMOp: the constructed EVMOp
         """
-        toks = line.replace("=>", " ").split()
+        toks: List[Any] = line.replace("=>", " ").split()
 
         # Convert hex PCs to ints
         if toks[0].startswith("0x"):
@@ -149,7 +148,7 @@ class EVMDasmParser(BlockParser):
 
 
 class EVMBytecodeParser(BlockParser):
-    def __init__(self, bytecode: t.Union[str, bytes]):
+    def __init__(self, bytecode: Union[str, bytes]):
         """
         Parse EVM bytecode directly into basic blocks.
 
@@ -159,7 +158,7 @@ class EVMBytecodeParser(BlockParser):
         """
         super().__init__(bytecode)
 
-        if type(bytecode) is str:
+        if isinstance(bytecode, str):
             bytecode = bytes.fromhex(bytecode.replace("0x", ""))
         else:
             bytecode = bytes(bytecode)
@@ -177,7 +176,7 @@ class EVMBytecodeParser(BlockParser):
     def __has_more_bytes(self):
         return self.__pc < len(self._raw)
 
-    def parse(self) -> t.Iterable[basicblock.EVMBasicBlock]:
+    def parse(self) -> List[basicblock.EVMBasicBlock]:
         """
         Parses the raw input object containing EVM bytecode
         and returns an iterable of EVMBasicBlocks.
@@ -187,7 +186,7 @@ class EVMBytecodeParser(BlockParser):
 
         while self.__has_more_bytes():
             pc = self.__pc
-            byte = int.from_bytes(self.__consume(1), ENDIANNESS)
+            byte = int.from_bytes(self.__consume(1), "big")
             const, const_size = None, 0
 
             try:
@@ -210,7 +209,7 @@ class EVMBytecodeParser(BlockParser):
 
             # for opcodes with an argument, consume the argument
             if const_size > 0:
-                const = int.from_bytes(self.__consume(const_size), ENDIANNESS)
+                const = int.from_bytes(self.__consume(const_size), "big")
 
             self._ops.append(basicblock.EVMOp(pc, op, const))
 

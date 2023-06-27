@@ -1,19 +1,19 @@
 # TODO: all this functionality can be carefully removed since we don't require
 # the need for finding basic blocks during fact generation
 
-import typing as t
+from typing import List, Optional
 
 import src.opcodes as opcodes
 
 
-class EVMBasicBlock():
+class EVMBasicBlock:
     """
     Represents a single basic block in the control flow graph (CFG), including
     its parent and child nodes in the graph structure.
     """
 
-    def __init__(self, entry: int = None, exit: int = None,
-                 evm_ops: t.List['EVMOp'] = None):
+    def __init__(self, entry: Optional[int] = None, exit: Optional[int] = None,
+                 evm_ops: Optional[List['EVMOp']] = None):
         """
         Creates a new basic block containing operations between the
         specified entry and exit instruction counters (inclusive).
@@ -52,6 +52,8 @@ class EVMBasicBlock():
           entry: unique index of EVMOp from which the block should be split. The
             EVMOp at this index will become the first EVMOp of the new BasicBlock.
         """
+
+        assert(isinstance(self.entry, int))
         # Create the new block.
         new = type(self)(entry, self.exit, self.evm_ops[entry - self.entry:])
 
@@ -73,11 +75,12 @@ class EVMBasicBlock():
 
 
 class EVMOp:
+    block: Optional[EVMBasicBlock]
     """
     Represents a single EVM operation.
     """
 
-    def __init__(self, pc: int, opcode: opcodes.OpCode, value: int = None):
+    def __init__(self, pc: int, opcode: opcodes.OpCode, value: Optional[int] = None):
         """
         Create a new EVMOp object from the given params which should correspond to
         disasm output.
@@ -132,7 +135,7 @@ class EVMOp:
         )
 
 
-def blocks_from_ops(ops: t.Iterable[EVMOp]) -> t.Iterable[EVMBasicBlock]:
+def blocks_from_ops(ops: List[EVMOp]) -> List[EVMBasicBlock]:
     """
     Process a sequence of EVMOps and create a sequence of EVMBasicBlocks.
 
@@ -160,8 +163,8 @@ def blocks_from_ops(ops: t.Iterable[EVMOp]) -> t.Iterable[EVMBasicBlock]:
             blocks.append(current)
 
             # Mark all JUMPs as unresolved
-            if op.opcode in (opcodes.JUMP, opcodes.JUMPI):
-                current.has_unresolved_jump = True
+            # if op.opcode in (opcodes.JUMP, opcodes.JUMPI):
+            #     current.has_unresolved_jump = True
 
             # Process the next sequential block in our next iteration
             current = new
