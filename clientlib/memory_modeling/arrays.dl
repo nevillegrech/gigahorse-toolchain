@@ -827,7 +827,7 @@ Array_ElementLength(actual, elementSize):-
 .decl ConstArray_Contents(arrayRep:ArrayVariable, hex:symbol)
 
 MemoryModelingTempStmt(mstore),
-ConstArray_Contents(arrayRep, val):-
+ConstArray_Contents(arrayRep, substr(val, 0, strlen(val) + 2*(length - 32))):-
   ArrayHasConstantLength(arrayRep, length),
   VarIsArray(arrayVar, arrayRep),
   length <= 32,
@@ -848,7 +848,7 @@ ConstArray_Contents(arrayRep, val):-
   ArrayWriteToRelativeIndex(arrayVar, mstore2, 32),
   MSTORE(mstore2, _, storedVar2),
   Variable_Value(storedVar2, val2),
-  val = cat(val1 , substr(val2, 2, strlen(val2)-2)).
+  val = cat(val1 , substr(val2, 2, strlen(val2) - 2 + 2*(length - 64))).
 
 MemoryModelingTempStmt(mstore1),
 MemoryModelingTempStmt(mstore2),
@@ -866,7 +866,7 @@ ConstArray_Contents(arrayRep, val):-
   ArrayWriteToRelativeIndex(arrayVar, mstore3, 64),
   MSTORE(mstore3, _, storedVar3),
   Variable_Value(storedVar3, val3),
-  val = cat(val1 , cat(substr(val2, 2, strlen(val2)-2), substr(val3, 2, strlen(val3)-2))).
+  val = cat(val1 , cat(substr(val2, 2, strlen(val2)-2), substr(val3, 2, strlen(val3) - 2 + 2*(length - 96)))).
 
 MemoryModelingTempStmt(codeCopy),
 ConstArray_Contents(arrayRep, const):-

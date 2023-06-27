@@ -623,19 +623,19 @@ CREATE2WithInitCode(create2, initCode):-
   initCode = substr(bytecode, 2*@hex_to_number(codeIndex), 2*@hex_to_number(len)).
 
 // Fallback logic, less precise than the above, to handle code using create2 libraries
-.decl CREATE2WithPossibleInitCode(create2: Statement, initCode: symbol)
-.output CREATE2WithPossibleInitCode
+// .decl CREATE2WithPossibleInitCode(create2: Statement, initCode: symbol)
+// .output CREATE2WithPossibleInitCode
 
 
-CREATE2WithPossibleInitCode(create2, initCode):-
-  CREATE2(create2, _, _, _, _, _),
-  !CREATE2WithInitCode(create2, _),
-  Statement_Opcode(codeCopy, "CODECOPY"),
-  StatementDominates(codeCopy, create2),
-  Statement_Uses(codeCopy, codeIndexVar, 1),
-  Statement_Uses(codeCopy, lenVar, 2),
-  Variable_Value(codeIndexVar, codeIndex),
-  Variable_Value(lenVar, len),
-  ByteCodeHex(bytecode),
-  @hex_to_number(len) > 128, // maybe incomplete
-  initCode = substr(bytecode, 2*@hex_to_number(codeIndex), 2*@hex_to_number(len)).
+// CREATE2WithPossibleInitCode(create2, initCode):-
+//   CREATE2(create2, _, _, _, _, _),
+//   !CREATE2WithInitCode(create2, _),
+//   Statement_Opcode(codeCopy, "CODECOPY"),
+//   StatementDominates(codeCopy, create2),
+//   Statement_Uses(codeCopy, codeIndexVar, 1),
+//   Statement_Uses(codeCopy, lenVar, 2),
+//   Variable_Value(codeIndexVar, codeIndex),
+//   Variable_Value(lenVar, len),
+//   ByteCodeHex(bytecode),
+//   @hex_to_number(len) > 128, // maybe incomplete
+//   initCode = substr(bytecode, 2*@hex_to_number(codeIndex), 2*@hex_to_number(len)).
