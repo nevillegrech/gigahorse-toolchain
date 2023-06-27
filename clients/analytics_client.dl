@@ -191,34 +191,11 @@ Analytics_EventSignature(sigHashVal) :-
   Statement_Uses(log, actual, 2),
   Variable_Value(actual, sigHashVal).
 
-.decl Analytics_CREATE2ProbablyMetamorphic(create2: Statement)
-.output Analytics_CREATE2ProbablyMetamorphic
-
-Analytics_CREATE2ProbablyMetamorphic(create2):-
-  Analytics_CREATE2WithInitCode(create2, initCode),
-  contains("3b", initCode),
-  contains("3c", initCode).
-
 .decl Analytics_CREATE2WithInitCode(create2: Statement, initCode: symbol)
 .output Analytics_CREATE2WithInitCode
 
 Analytics_CREATE2WithInitCode(create2, initCode):-
-  CREATE2WithInitCode(create2, initCode);
-  CREATE2WithPossibleInitCode(create2, initCode).
-
-.decl Analytics_CREATE2(create2: Statement)
-.output Analytics_CREATE2
-
-Analytics_CREATE2(create2):-
-  Statement_Opcode(create2, "CREATE2").
-
-.decl Analytics_CREATE2AndKnownMetamorphicCode(create2: Statement)
-.output Analytics_CREATE2AndKnownMetamorphicCode
-
-Analytics_CREATE2AndKnownMetamorphicCode(create2):-
-  Statement_Opcode(create2, "CREATE2"),
-  ByteCodeHex(byteCode),
-  contains("5860208158601c335a63aaf10f428752fa158151803b80938091923cf3", byteCode).
+  CREATE2WithInitCode(create2, initCode).
 
 /**
  * Guards
