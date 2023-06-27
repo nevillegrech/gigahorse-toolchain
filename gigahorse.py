@@ -127,8 +127,8 @@ parser.add_argument("-T",
                     default=DEFAULT_TIMEOUT,
                     const=DEFAULT_TIMEOUT,
                     metavar="SECONDS",
-                    help="Forcibly halt analysing any single contact after "
-                         "the specified number of seconds.")
+                    help="Forcibly halt decompilation/analysis of a single contact after "
+                         "the specified number of seconds. Separate timers for decompilation and anaysis.")
 
 parser.add_argument("--minimum_client_time",
                     type=int,
