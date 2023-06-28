@@ -127,8 +127,8 @@ parser.add_argument("-T",
                     default=DEFAULT_TIMEOUT,
                     const=DEFAULT_TIMEOUT,
                     metavar="SECONDS",
-                    help="Forcibly halt analysing any single contact after "
-                         "the specified number of seconds.")
+                    help="Forcibly halt decompilation/analysis of a single contact after "
+                         "the specified number of seconds. Separate timers for decompilation and anaysis.")
 
 parser.add_argument("--minimum_client_time",
                     type=int,
@@ -268,7 +268,7 @@ def analyze_contract(index: int, contract_filename: str, result_queue, fact_gene
             raise TimeoutException()
 
         client_start = time.time()
-        timeouts, errors = analysis_executor.run_clients(souffle_clients, other_clients, out_dir, out_dir, start_time)
+        timeouts, errors = analysis_executor.run_clients(souffle_clients, other_clients, out_dir, out_dir, client_start)
 
         # Collect the results and put them in the result queue
         files = []
