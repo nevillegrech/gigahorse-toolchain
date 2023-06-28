@@ -33,6 +33,7 @@ decomp_analytics = {
   'Analytics_DeadBlocks': 'imprecision',
   'Analytics_PolymorphicTargetSameCtx': 'imprecision',
   'Analytics_LocalBlockEdge': 'completeness',
+  'Analytics_StmtMissingOperand': 'incompleteness',
 #  'Analytics_MissingJumpTargetAnyCtx',
 #  'Analytics_JumpToManyWithoutGlobalImprecision',
 #  'Analytics_Blocks',
