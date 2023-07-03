@@ -797,23 +797,23 @@ COPY_CODE(revertCloner, factReader)
 .init inliner = AbstractBlockInliner
 COPY_CODE(inliner, factReader)
 
-.init inliner2 = AbstractBlockInliner
-COPY_OUTPUT(inliner2, inliner)
-inliner2.Prev_Block_OriginalBlock(block, originalBlock):- inliner.Block_OriginalBlock(block, originalBlock).
+// .init inliner2 = AbstractBlockInliner
+// COPY_OUTPUT(inliner2, inliner)
+// inliner2.Prev_Block_OriginalBlock(block, originalBlock):- inliner.Block_OriginalBlock(block, originalBlock).
 
-.init inliner3 = AbstractBlockInliner
-COPY_OUTPUT(inliner3, inliner2)
-inliner3.Prev_Block_OriginalBlock(block, originalBlock):- inliner2.Block_OriginalBlock(block, originalBlock).
+// .init inliner3 = AbstractBlockInliner
+// COPY_OUTPUT(inliner3, inliner2)
+// inliner3.Prev_Block_OriginalBlock(block, originalBlock):- inliner2.Block_OriginalBlock(block, originalBlock).
 #ifdef BLOCK_CLONING
 // Enable the early cloning of blocks to increase precision (sacrificing performance)
 .init blockCloner = BLOCK_CLONING
-COPY_OUTPUT(blockCloner, inliner3)
-blockCloner.Prev_Block_OriginalBlock(block, originalBlock):- inliner3.Block_OriginalBlock(block, originalBlock).
+COPY_OUTPUT(blockCloner, inliner)
+blockCloner.Prev_Block_OriginalBlock(block, originalBlock):- inliner.Block_OriginalBlock(block, originalBlock).
 COPY_OUTPUT(preTrans, blockCloner)
 
 #else
 
-COPY_OUTPUT(preTrans, inliner3)
+COPY_OUTPUT(preTrans, inliner)
 
 #endif
 
