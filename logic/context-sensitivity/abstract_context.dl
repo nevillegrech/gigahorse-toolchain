@@ -55,7 +55,7 @@
     InputMaxContextDepth(d).
 
 
-  MaxContextDepth(sigHash, 8) :-
+  MaxContextDepth(sigHash, 10) :-
     (local.PublicFunction(_, sigHash);
      sigHash = FALLBACK_FUNCTION_SIGHASH),
     !InputMaxContextDepth(_).

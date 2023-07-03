@@ -259,6 +259,7 @@ ArrayIndexAccess(array, indexVar, actualIndexVar):-
   FreePointerBasedValuesNumDiffNoMemReuse(arrayVal, baseVal, @hex_to_number(const) - 32),
   Variable_SymbolicValue(array, arrayVal),
   IsRegularArrayVar(array),
+  Array_ElementLength(array, "0x1"),
   // Boilerplate but efficient code to ensure statement-level domination
   Statement_Defines(stmt2, indexVar, _),
   Statement_Block(stmt2, block2),
@@ -369,7 +370,7 @@ ArrayWriteToRelativeIndex(arrayVar, mstore, relativeIndex):-
 
 DEBUG_OUTPUT(ArrayHasConstantLength)
 ArrayStore(mstore, arrId, from):-
-  ArrayHasConstantLength(arrayVar, length),
+  ArrayHasConstantLength(arrId, length),
   VarIsArray(arrayVar, arrId),
   ArrayWriteToRelativeIndex(arrayVar, mstore, relativeIndex),
   MSTORE(mstore, _, from),
@@ -432,10 +433,10 @@ PossibleArrayLoose(array):-
   MSTORE(_, array, var),
   ArrayVarLengthVar(_, var).
 
-.decl ArrayHasConstantLength(arrayVar:Variable, length:number)
+.decl ArrayHasConstantLength(arrayVarRep: ArrayVariable, length: number)
 
-ArrayHasConstantLength(arrayVar, length):-
-  ArrayAllocationInternal(_, arrayVar, _, arrayLengthVar),
+ArrayHasConstantLength(arrId, length):-
+  ArrayAllocation(arrId, _, arrayLengthVar),
   Variable_Value(arrayLengthVar, arrLenHex),
   length = @hex_to_number(arrLenHex),
   length < 2 ^ 28. //Some very big number that should never be possible.
@@ -456,18 +457,43 @@ ArrayAllocation(arrId, elementSize, arrayLengthVar):-
   ArrayAllocationInternal(_, arrayVar, elementSize, arrayLengthVar),
   RegularArrayVar_ClassRep(arrayVar, arrId).
 
+ArrayAllocation(arrId, as(elementSize, Value), arrayLengthVar):-
+  IsRegularArrayVar(arrayVar),
+  MSTORE(_, arrayVar, arrayLengthVar),
+  RegularArrayVar_ClassRep(arrayVar, arrId),
+  Array_ElementLength(arrayVar, elementSize),
+  !ArrayAllocationInternal(_, arrayVar, _, _).
 
-//Allocations of arrays with unknown types.
-ArrayAllocationInternal(mstore, array, "??", arrayLengthVar):-
-  IsRegularArrayVar(array),
-  MSTORE(mstore, array, arrayLengthVar),
-  !Array_ElementLength(array, _).
+ArrayAllocation(arrId, "??", arrayLengthVar):-
+  IsRegularArrayVar(arrayVar),
+  MSTORE(_, arrayVar, arrayLengthVar),
+  RegularArrayVar_ClassRep(arrayVar, arrId),
+  !ArrayAllocationInternal(_, arrayVar, _, _),
+  !Array_ElementLength(arrayVar, _).
+
+// Allocations of arrays with unknown types.
+// Rule is commented out because we now add facts for `Array_ElementLength`
+// So the implicit invariant that No element length means no Allocation doesn't hold
+// ArrayAllocationInternal(mstore, array, "??", arrayLengthVar):-
+//   IsRegularArrayVar(array),
+//   MSTORE(mstore, array, arrayLengthVar),
+//   !Array_ElementLength(array, _).
 
 IsRegularArrayVar(array),
 ArrayFromArray(array, oldArray):-
   PossibleArray(array),
   MSTORE(_, array, arrayLength),
   ArrayVarLengthVar(oldArray, arrayLength).
+
+ArrayFromArray(array, oldArray):-
+  IsRegularArrayVar(array),
+  MSTORE(_, array, arrayLength),
+  ArrayVarLengthVar(oldArray, arrayLength).
+
+// Can be imprecise
+Array_ElementLength(array, elemLength):-
+  ArrayFromArray(array, oldArray),
+  Array_ElementLength(oldArray, elemLength).
 
 IsRegularArrayVar(array):-
   PossibleArray(array),
@@ -524,6 +550,22 @@ ArrayAllocationInternal(mstore, array, elementSize, arrayLengthVar):-
   VarTimesConstant(arrayLengthVar, elementSize, arraySizeBytes),
   VarPlusThirtyTwo(arraySizeBytes, arrayTotalSizeBytes),
   VarPlusThrirtyOneAndNotThirtyOne(arrayTotalSizeBytes, arrayFinalSizeBytes),
+  ADDFix(_, arrayFinalSizeBytes, array, updatedFMP),
+  Statement_Uses(mstore, updatedFMP, 1),
+  MSTOREFreePtr(mstore).
+
+
+/**
+  Covers patterns produced for calldata arrays copied to memory.
+  For solidity versions >= 0.8
+*/
+IsRegularArrayVar(array),
+Array_ElementLength(array, elementSize),
+ArrayAllocationInternal(mstore, array, elementSize, arrayLengthVar):-
+  PossibleArray(array),
+  MSTORE(_, array, arrayLengthVar),
+  VarTimesConstant(arrayLengthVar, elementSize, arraySizeBytes),
+  VarPlusSixtyThreeAndNotThirtyOne(arraySizeBytes, arrayFinalSizeBytes),
   ADDFix(_, arrayFinalSizeBytes, array, updatedFMP),
   Statement_Uses(mstore, updatedFMP, 1),
   MSTOREFreePtr(mstore).
@@ -785,9 +827,10 @@ Array_ElementLength(actual, elementSize):-
 .decl ConstArray_Contents(arrayRep:ArrayVariable, hex:symbol)
 
 MemoryModelingTempStmt(mstore),
-ConstArray_Contents(arrayRep, val):-
-  ArrayHasConstantLength(arrayVar, length),
+ConstArray_Contents(arrayRep, substr(val, 0, strlen(val) + 2*(length - 32))):-
+  ArrayHasConstantLength(arrayRep, length),
   VarIsArray(arrayVar, arrayRep),
+  length > 0,
   length <= 32,
   ArrayWriteToRelativeIndex(arrayVar, mstore, 0),
   MSTORE(mstore, _, storedVar),
@@ -797,8 +840,9 @@ ConstArray_Contents(arrayRep, val):-
 MemoryModelingTempStmt(mstore1),
 MemoryModelingTempStmt(mstore2),
 ConstArray_Contents(arrayRep, val):-
-  ArrayHasConstantLength(arrayVar, length),
+  ArrayHasConstantLength(arrayRep, length),
   VarIsArray(arrayVar, arrayRep),
+  length > 0,
   length <= 64,
   ArrayWriteToRelativeIndex(arrayVar, mstore1, 0),
   MSTORE(mstore1, _, storedVar1),
@@ -806,14 +850,15 @@ ConstArray_Contents(arrayRep, val):-
   ArrayWriteToRelativeIndex(arrayVar, mstore2, 32),
   MSTORE(mstore2, _, storedVar2),
   Variable_Value(storedVar2, val2),
-  val = cat(val1 , substr(val2, 2, strlen(val2)-2)).
+  val = cat(val1 , substr(val2, 2, strlen(val2) - 2 + 2*(length - 64))).
 
 MemoryModelingTempStmt(mstore1),
 MemoryModelingTempStmt(mstore2),
 MemoryModelingTempStmt(mstore3),
 ConstArray_Contents(arrayRep, val):-
-  ArrayHasConstantLength(arrayVar, length),
+  ArrayHasConstantLength(arrayRep, length),
   VarIsArray(arrayVar, arrayRep),
+  length > 0,
   length <= 96,
   ArrayWriteToRelativeIndex(arrayVar, mstore1, 0),
   MSTORE(mstore1, _, storedVar1),
@@ -824,11 +869,11 @@ ConstArray_Contents(arrayRep, val):-
   ArrayWriteToRelativeIndex(arrayVar, mstore3, 64),
   MSTORE(mstore3, _, storedVar3),
   Variable_Value(storedVar3, val3),
-  val = cat(val1 , cat(substr(val2, 2, strlen(val2)-2), substr(val3, 2, strlen(val3)-2))).
+  val = cat(val1 , cat(substr(val2, 2, strlen(val2)-2), substr(val3, 2, strlen(val3) - 2 + 2*(length - 96)))).
 
 MemoryModelingTempStmt(codeCopy),
 ConstArray_Contents(arrayRep, const):-
-  ArrayHasConstantLength(arrayVar, _),
+  ArrayHasConstantLength(arrayRep, _),
   VarIsArray(arrayVar, arrayRep),
   ArrayDataStartVar(arrayVar, arrayDataStartVar),
   Statement_Opcode(codeCopy, "CODECOPY"),

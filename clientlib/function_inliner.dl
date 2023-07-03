@@ -535,6 +535,12 @@
     LocalFlows(formalArg, calldataIndex),
     CALLDATALOAD(_, calldataIndex, _).
 
+  InlineCandidate(fun):-
+    CALLDATALOAD(cdl, calldataIndex, _),
+    In_Variable_Value(calldataIndex, _),
+    In_Statement_Function(cdl, fun),
+    !IsPublicFunction(fun).
+
   // Functions that only have a return jump and no actual returns
   InlineCandidate(fun):-
     In_CallGraphEdge(_, fun),
