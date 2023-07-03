@@ -506,15 +506,11 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
   .override BlockCloningCandidate
 
   .decl PossibleCallerWithReturn(caller: Block, return: Block)
-  PossibleCallerWithReturn(caller, as(val, Block)):-
+  PossibleCallerWithReturn(caller, as(return, Block)):-
     analysis.ImmediateBlockJumpTarget(caller, targetVar),
     analysis.Variable_Value(targetVar, target),
     analysis.JUMPDEST(as(target, symbol)),
-    analysis.Statement_Block(stmt, caller),
-    analysis.Statement_Defines(stmt, var),
-    analysis.Variable_Value(var, val),
-    analysis.JUMPDEST(as(val, symbol)),
-    !analysis.Statement_Uses_Local(_, var, _).
+    analysis.BlockPushesLabel(caller, return).
 
   // SL: Too general, causes slowdown
   BlockCloningCandidate(candidate):-
