@@ -562,8 +562,8 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     Statement_Defines(stmt, var),
     Statement_Block(stmt, block),
     BasicBlock_Tail(block, call),
-    LocalStackContents(call, _, var),
-    !BlockUsesLocal(block, var).
+    LocalStackContents(call, _, var).
+    // !BlockUsesLocal(block, var).
 
   // Same reasoning, with more detail. In very rare cases, the continuation will not be found,
   // even though BlockPushesLabel is true.
@@ -575,8 +575,8 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     CheckIsVariable(var), // unnecessary?
     Variable_Value(var, contVal),
     JUMPDEST(as(contVal, symbol)), // unnecessary?
-    index > 0,
-    !BlockUsesLocal(caller, var). 
+    index > 0.
+    // !BlockUsesLocal(caller, var). 
  
   .decl CallBlockNotEarliestContinuation(caller: Block, callee: Block, cont: Block)
   CallBlockNotEarliestContinuation(caller, callee, cont) :-
