@@ -586,6 +586,8 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     Variable_Value(var, val),
     Statement_Defines(stmt, var),
     Statement_Block(stmt, block),
+    BasicBlock_Tail(block, call),
+    LocalStackContents(call, _, var),
     !BlockUsesLocal(block, var).
 
   // Same reasoning, with more detail. In very rare cases, the continuation will not be found,
