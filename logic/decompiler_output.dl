@@ -6,13 +6,6 @@
 
 .output ByteCodeHex(IO="file", filename="bytecode.hex")
 
-// useful intermediate outputs
-.output OpcodePossiblyHalts
-.output IRBlockEdge
-.output IRPublicFunction(IO="file", filename = "PublicFunction.csv", delimiter = "\t")
-.output Statement_IRStatement
-.output CycleEntry
-
 .decl FunctionalBlock_Uses_Local(block: IRBlock, stackIndex: StackIndex)
 
 FunctionalBlock_Uses_Local(block, as(stackIndex, StackIndex)) :-
@@ -28,11 +21,11 @@ PolymorphicStackIndex(block, stackIndex) :-
   FunctionalBlockInputContents(block, stackIndex, var2),
   var1 != var2.
 
+/**
+  Find all polymorphic stackIndexes
+  These need phi instructions introduced at the dominance frontier
+*/
 .decl PHILocation(block: IRBlock, stackIndex: StackIndex, newVarSymbol: IRStatement)
-
-// Find all polymorphic stackIndexes
-// These need phi instructions introduced at the dominance frontier
-.output PHILocation
 PHILocation(block, stackIndex, cat(cat(block, "_"), stackIndexHex)) :-
    PolymorphicStackIndex(block, stackIndex),
    stackIndexHex = @number_to_hex(stackIndex).
@@ -245,6 +238,9 @@ TAC_Block(phiStmt, block) :-
 .output IRFunctionCall
 .output IRFunctionCallReturn
 .output IRFunction_Return
+.output IRFunctionEntry
+.output HighLevelFunctionName
+.output IRPublicFunction(IO="file", filename = "PublicFunction.csv", delimiter = "\t")
 .output IsFunctionEntry(IO="file", filename="Function.csv", delimiter="\t")
 
 .decl FormalArgs(func:IRFunction, var:TACVariable, n:number)
@@ -262,7 +258,6 @@ ActualReturnArgs(caller, var_rep, n) :-
    Variable_Block_String(var, caller, var_rep).
 
 .output LocalBlockEdge
-.output HighLevelFunctionName
 .output IRFallthroughEdge
 
 .decl IRInFunctionFiltered(block: IRBlock, func: IRFunction)
@@ -273,7 +268,6 @@ IRInFunctionFiltered(block, func):-
 
 .output Mask_Length
 .output IRInFunctionFiltered(IO="file", filename="InFunction.csv", delimiter="\t")
-.output IRFunctionEntry
 
 /*****
  *  Statement Ordering
@@ -380,12 +374,12 @@ TAC_Block_Gas(block, totalgas) :-
    totalgas = sum gas : IRBlock_PartialGas(block, _, gas).
 
 
+// SL: Not used anywhere
 .decl UnmappedStatements(stmt: Statement)
-.output UnmappedStatements
-
 UnmappedStatements(stmt) :-
   preTrans.Statement_Block(stmt, _),
   !TAC_OriginalStatement_Block(stmt, _).
+
 /******
  * Event signatures
  *****/
@@ -397,7 +391,7 @@ UnmappedStatements(stmt) :-
 .output EventSignatureInContract
 
 .decl LOGStmt_SigHash(log:IRStatement, sigHash:symbol)
-//.output LOGStmt_SigHash
+
 
 LOGStmt_SigHash(stmt, sigHash):-
   (TAC_Op(stmt, "LOG0");
