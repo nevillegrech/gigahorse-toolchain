@@ -623,7 +623,19 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
 
   BlockToInline(caller, blockToInline):-
     analysis.NonImmediateBlockJumpImmediatelyResolved(caller, blockToInline, _).
-    
+
+  // Heuristic that replaces the revertBlockCloner
+  BlockToInline(caller, revertBlock):-
+    analysis.REVERT(revertStmt),
+    analysis.Statement_Block(revertStmt, revertBlock),
+    analysis.Variable_Value(targetVar1, as(revertBlock, Value)),
+    analysis.ImmediateBlockJumpTarget(caller, targetVar1),
+    analysis.BasicBlock_Tail(caller, call),
+    analysis.Statement_Opcode(call, "JUMP"),
+    analysis.Variable_Value(targetVar2, as(revertBlock, Value)),
+    analysis.ImmediateBlockJumpTarget(caller2, targetVar2),
+    caller != caller2.
+
   BlockToInlineID(caller, blockToInline, cat(caller, blockToInline)):-
     BlockToInline(caller, blockToInline).
 
