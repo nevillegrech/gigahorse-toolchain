@@ -4,86 +4,16 @@
  *
  */
 
-.decl PHIStmtTwoUses(phi:Statement, var1:Variable, var2:Variable, def:Variable)
-
-
-PHIStmtTwoUses(phi, var1, var2, def):-
-  PHI(phi, _, _),
-  2 = count: Statement_Uses(phi, _, _),
-  Statement_Defines(phi, def, 0),
-  Statement_Uses(phi, var1, -1),
-  Statement_Uses(phi, var2, -1),
-  var1 != var2.
-
-DEBUG_OUTPUT(InductionVariable)
-DEBUG_OUTPUT(InductionVariableIncreasesByConst)
-DEBUG_OUTPUT(InductionVariableDecreasesByConst)
-DEBUG_OUTPUT(InductionVariableStartsAtConst)
-DEBUG_OUTPUT(InductionVariableLowerBoundVar)
-DEBUG_OUTPUT(InductionVariableUpperBoundVar)
-DEBUG_OUTPUT(WellFormedLoopInductionVariable)
 DEBUG_OUTPUT(MemoryCopyLoop)
 DEBUG_OUTPUT(CallDataCopyLoop)
 DEBUG_OUTPUT(ArrayCopy)
 DEBUG_OUTPUT(MemoryCopyLoopConstLength)
-
-.type SimpleInductionVariable = [beforeLoopVar:Variable, inLoopVar:Variable]
-
-.decl InductionVariableIncreasesByConst(loop:Block, simpleIndVar:SimpleInductionVariable, const:number)
-.decl InductionVariableDecreasesByConst(loop:Block, simpleIndVar:SimpleInductionVariable, const:number)
-.decl InductionVariableStartsAtConst(loop:Block, simpleIndVar:SimpleInductionVariable, const:Value)
-.decl InductionVariableLowerBoundVar(loop:Block, indVar:SimpleInductionVariable, bound:Variable)
-.decl InductionVariableUpperBoundVar(loop:Block, indVar:SimpleInductionVariable, bound:Variable)
-.decl MemoryCopyLoop(loop:Block, memAddrFrom:Variable, memAddrTo:Variable)
-.decl MemoryCopyLoopConstLength(loop:Block, memAddrFrom:Variable, memAddrTo:Variable, length:number)
 
 /**
   `loop` copies calldata starting from `callDataAddrFrom` to memory starting from `memAddrTo`.
   Does not contain any info on the length of the copied data
 */
 .decl CallDataCopyLoop(loop: Block, callDataAddrFrom: Variable, memAddrTo: Variable)
-
-.decl WellFormedLoopInductionVariable(loop:Block, inductionPhiVar:Variable, simpleIndVar:SimpleInductionVariable)
-
-WellFormedLoopInductionVariable(loop, phiVar, [beforeLoopVar, inLoopVar]):-
-  InductionVariable(phiVar, loop),
-  PHIStmtTwoUses(_, beforeLoopVar, inLoopVar, phiVar),
-  Statement_Defines(beforeStmt, beforeLoopVar, _),
-  Statement_Block(beforeStmt, beforeBlock),
-  Dominates(beforeBlock, loop),
-  Statement_Defines(inLoopStmt, inLoopVar, _),
-  StatementInStructuredLoop(inLoopStmt, loop).
-
-InductionVariableIncreasesByConst(loop, [beforeLoopVar, inLoopVar], @hex_to_number(const)):-
-  WellFormedLoopInductionVariable(loop, phiVar, [beforeLoopVar, inLoopVar]),
-  VarPlusConst(phiVar, const, inLoopVar).
-
-InductionVariableDecreasesByConst(loop, [beforeLoopVar, inLoopVar], @hex_to_number(const)):-
-  WellFormedLoopInductionVariable(loop, phiVar, [beforeLoopVar, inLoopVar]),
-  VarMinusConst(phiVar, const, inLoopVar).
-
-InductionVariableStartsAtConst(loop, [beforeLoopVar, inLoopVar], const):-
-  WellFormedLoopInductionVariable(loop, _, [beforeLoopVar, inLoopVar]),
-  BasicVariable_Value(beforeLoopVar, const).
-
-InductionVariableLowerBoundVar(loop, [beforeLoopVar, inLoopVar], boundVar):-
-  LoopExitCond(condVar, loop),
-  WellFormedLoopInductionVariable(loop, _, [beforeLoopVar, inLoopVar]),
-  PHIStmtTwoUses(_, beforeLoopVar, inLoopVar, phiVar),
-  LT(_, phiVar, boundVar, condVar).
-
-InductionVariableUpperBoundVar(loop, [beforeLoopVar, inLoopVar], boundVar):-
-  LoopExitCond(condVar, loop),
-  WellFormedLoopInductionVariable(loop, _, [beforeLoopVar, inLoopVar]),
-  PHIStmtTwoUses(_, beforeLoopVar, inLoopVar, phiVar),
-  GT(_, phiVar, boundVar, condVar).
-
-InductionVariableUpperBoundVar(loop, [beforeLoopVar, inLoopVar], boundVar):-
-  LoopExitCond(condVar, loop),
-  WellFormedLoopInductionVariable(loop, _, [beforeLoopVar, inLoopVar]),
-  PHIStmtTwoUses(_, beforeLoopVar, inLoopVar, phiVar),
-  LT(_, phiVar, boundVar, ltVar),
-  ISZERO(_, ltVar, condVar).
 
 MemoryCopyLoop(loop, memAddrFrom, memAddrTo):-
   InductionVariableIncreasesByConst(loop, [beforeLoopVar, inLoopVar], 32),

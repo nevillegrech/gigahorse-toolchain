@@ -99,3 +99,98 @@ PHITrans(from, to):-
 PHITrans(from, to):-
   PHITrans(from, mid),
   PHITrans(mid, to).
+
+.decl PHIStmtTwoUses(phi:Statement, var1:Variable, var2:Variable, def:Variable)
+PHIStmtTwoUses(phi, var1, var2, def):-
+  PHI(phi, _, _),
+  2 = count: Statement_Uses(phi, _, _),
+  Statement_Defines(phi, def, 0),
+  Statement_Uses(phi, var1, -1),
+  Statement_Uses(phi, var2, -1),
+  var1 != var2.
+
+/**
+  Simple loop induction variable. Identified by the two variables.
+*/
+.type SimpleInductionVariable = [beforeLoopVar: Variable, inLoopVar: Variable]
+
+/**
+  
+*/
+.decl WellFormedLoopInductionVariable(loop: Block, inductionPhiVar: Variable, simpleIndVar: SimpleInductionVariable)
+.decl InductionVariableIncreasesByConst(loop:Block, simpleIndVar:SimpleInductionVariable, const:number)
+.decl InductionVariableDecreasesByConst(loop:Block, simpleIndVar:SimpleInductionVariable, const:number)
+.decl InductionVariableStartsAtConst(loop:Block, simpleIndVar:SimpleInductionVariable, const:Value)
+.decl InductionVariableLowerBoundVar(loop:Block, indVar:SimpleInductionVariable, bound:Variable)
+.decl InductionVariableUpperBoundVar(loop:Block, indVar:SimpleInductionVariable, bound:Variable)
+.decl MemoryCopyLoop(loop:Block, memAddrFrom:Variable, memAddrTo:Variable)
+.decl MemoryCopyLoopConstLength(loop:Block, memAddrFrom:Variable, memAddrTo:Variable, length:number)
+
+DEBUG_OUTPUT(WellFormedLoopInductionVariable)
+DEBUG_OUTPUT(InductionVariable)
+DEBUG_OUTPUT(InductionVariableIncreasesByConst)
+DEBUG_OUTPUT(InductionVariableDecreasesByConst)
+DEBUG_OUTPUT(InductionVariableStartsAtConst)
+DEBUG_OUTPUT(InductionVariableLowerBoundVar)
+DEBUG_OUTPUT(InductionVariableUpperBoundVar)
+
+WellFormedLoopInductionVariable(loop, phiVar, [beforeLoopVar, inLoopVar]):-
+  InductionVariable(phiVar, loop),
+  PHIStmtTwoUses(_, beforeLoopVar, inLoopVar, phiVar),
+  Statement_Defines(beforeStmt, beforeLoopVar, _),
+  Statement_Block(beforeStmt, beforeBlock),
+  Dominates(beforeBlock, loop),
+  Statement_Defines(inLoopStmt, inLoopVar, _),
+  StatementInStructuredLoop(inLoopStmt, loop).
+
+InductionVariableIncreasesByConst(loop, [beforeLoopVar, inLoopVar], @hex_to_number(const)):-
+  WellFormedLoopInductionVariable(loop, phiVar, [beforeLoopVar, inLoopVar]),
+  VarPlusConst(phiVar, const, inLoopVar).
+
+InductionVariableDecreasesByConst(loop, [beforeLoopVar, inLoopVar], @hex_to_number(const)):-
+  WellFormedLoopInductionVariable(loop, phiVar, [beforeLoopVar, inLoopVar]),
+  VarMinusConst(phiVar, const, inLoopVar).
+
+InductionVariableStartsAtConst(loop, [beforeLoopVar, inLoopVar], const):-
+  WellFormedLoopInductionVariable(loop, _, [beforeLoopVar, inLoopVar]),
+  BasicVariable_Value(beforeLoopVar, const).
+
+InductionVariableLowerBoundVar(loop, [beforeLoopVar, inLoopVar], boundVar):-
+  LoopExitCond(condVar, loop),
+  WellFormedLoopInductionVariable(loop, _, [beforeLoopVar, inLoopVar]),
+  PHIStmtTwoUses(_, beforeLoopVar, inLoopVar, phiVar),
+  LT(_, phiVar, boundVar, condVar).
+
+InductionVariableUpperBoundVar(loop, [beforeLoopVar, inLoopVar], boundVar):-
+  LoopExitCond(condVar, loop),
+  WellFormedLoopInductionVariable(loop, _, [beforeLoopVar, inLoopVar]),
+  PHIStmtTwoUses(_, beforeLoopVar, inLoopVar, phiVar),
+  GT(_, phiVar, boundVar, condVar).
+
+InductionVariableUpperBoundVar(loop, [beforeLoopVar, inLoopVar], boundVar):-
+  LoopExitCond(condVar, loop),
+  WellFormedLoopInductionVariable(loop, _, [beforeLoopVar, inLoopVar]),
+  PHIStmtTwoUses(_, beforeLoopVar, inLoopVar, phiVar),
+  LT(_, phiVar, boundVar, ltVar),
+  ISZERO(_, ltVar, condVar).
+
+
+
+.decl VariableDefinedInLoopUsedAfter(loop: Block, variable: Variable, useStmt: Statement)
+DEBUG_OUTPUT(VariableDefinedInLoopUsedAfter)
+VariableDefinedInLoopUsedAfter(loop, var, useStmt):-
+  StatementInStructuredLoop(defStmt, loop),
+  Statement_Defines(defStmt, var, _),
+  Statement_Uses(useStmt, var, _),
+  Statement_Block(useStmt, useBlock),
+  Dominates(loop, useBlock),
+  !PHIStmtTwoUses(useStmt, _, var, _),
+  !BlockInStructuredLoop(useBlock, loop).
+
+VariableDefinedInLoopUsedAfter(loop, phiVar, useStmt):-
+  WellFormedLoopInductionVariable(loop, _, [beforeLoopVar, inLoopVar]),
+  PHIStmtTwoUses(_, beforeLoopVar, inLoopVar, phiVar),
+  Statement_Uses(useStmt, phiVar, _),
+  Statement_Block(useStmt, useBlock),
+  Dominates(loop, useBlock),
+  !BlockInStructuredLoop(useBlock, loop).
