@@ -436,8 +436,15 @@
     InStatement_OutStatement(inStmt, same, outStmt),
     InVar_OutVar(inVar, same, outVar),
     !ClonedCallRets(_, _, _, _, inVar, _),
+    !CallToClonedFunction(_, inStmt, _),
     !ClonedCallRets(_, inStmt, _, _, _, _),
     !ClonedCallRets(_, _, _, inStmt, _, _).
+
+  Out_Statement_Uses(outStmt, outVar, 0):-
+    CallToClonedFunction(_, inStmt, _),
+    In_Statement_Uses(inStmt, inVar, 0),
+    InStatement_OutStatement(inStmt, "", outStmt),
+    InVar_OutVar(inVar, "", outVar).
 
   Out_Statement_Uses(outStmt, outVar, i):-
     In_Statement_Uses(inStmt, actualRet, i),
