@@ -288,14 +288,18 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
 
   // Covers JUMPIs and other fallthrough cases
   .decl FallthroughStmt(stmt: Statement, next: Statement)
+  .decl FallthroughBlockEdge(block: Block, next: Block)
 
-  FallthroughStmt(stmt, next) :-
+  FallthroughStmt(stmt, next):-
     BasicBlock_Tail(_, stmt),
     !JUMP(stmt),
     Statement_Opcode(stmt, opcode),
     !OpcodePossiblyHalts(opcode),
     Statement_Next(stmt, next).
 
+  FallthroughBlockEdge(block, as(next, Block)):-
+    FallthroughStmt(stmt, next),
+    BasicBlock_Tail(block, stmt).
 
   .decl ThrowJump(stmt: Statement)
   

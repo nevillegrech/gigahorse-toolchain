@@ -350,7 +350,7 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
   // Make sure they can be cloned safely 
   BlockToClone(from, to):-
     BlockPushesBlockToStack(from, to),
-    BlockPushesBlockToStack(otherFrom, to),
+    (BlockPushesBlockToStack(otherFrom, to); analysis.FallthroughBlockEdge(otherFrom, to)),
     BlockCloningCandidate(to),
     from != otherFrom,
     !BlockPushesCloningCandidate(to, _),
@@ -494,9 +494,24 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
     analysis.Statement_Block(revertStmt, revertBlock),
     analysis.Variable_Value(targetVar1, as(revertBlock, Value)),
     analysis.ImmediateBlockJumpTarget(caller1, targetVar1),
-    analysis.Variable_Value(targetVar2, as(revertBlock, Value)),
-    analysis.ImmediateBlockJumpTarget(caller2, targetVar2),
+    (
+      (
+        analysis.Variable_Value(targetVar2, as(revertBlock, Value)),
+        analysis.ImmediateBlockJumpTarget(caller2, targetVar2)
+      );
+      analysis.FallthroughBlockEdge(caller2, revertBlock)
+    ),
     caller1 != caller2.
+
+  BlockCloningCandidate(revertBlock):-
+    analysis.REVERT(revertStmt),
+    analysis.Statement_Block(revertStmt, revertBlock),
+    analysis.Variable_Value(targetVar1, as(revertBlock, Value)),
+    analysis.ImmediateBlockJumpTarget(caller1, targetVar1),
+    analysis.FallthroughStmt(fallthrough, as(revertBlock, Statement)),
+    analysis.Statement_Block(fallthrough, caller2),
+    caller1 != caller2.
+
 }
 /**
   Heuristic based cloner implementation, gives good results, non-negligible slowdown
