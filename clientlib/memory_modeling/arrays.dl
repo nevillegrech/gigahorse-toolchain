@@ -95,7 +95,7 @@ Array_ElementLength(array, elementSize):-
   IsArgCallDataArrayVar(array, _),
   ArrayDataStartVar(array, dataStartVar),
   ADDFix(_, dataStartVar, indexTimesCons, cdlIndex),
-  VarTimesConstant(_, elementSize, indexTimesCons),
+  VarTimesConstantNoIdentity(_, elementSize, indexTimesCons),
   CALLDATALOAD(_, cdlIndex, _).
 
 
