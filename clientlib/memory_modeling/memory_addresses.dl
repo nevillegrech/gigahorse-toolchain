@@ -211,6 +211,12 @@ FreePointerBasedValue(val, as(formal, Statement), 0, 0):-
   PossibleStructArg(_, _,formal),
   val = cat(cat(formal, "++"), "0").
 
+// SL: HACK here. casting arg to statement.
+Variable_SymbolicValue(actual, val),
+FreePointerBasedValue(val, as(actual, Statement), 0, 0):-
+  PossibleStructRet(_, actual,_),
+  val = cat(cat(actual, "++"), "0").
+
 /**
  The depth is not used to limit the new values being created but to count how
  many times a constant has been added to the value for arg inference.
