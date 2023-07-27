@@ -95,7 +95,7 @@ Array_ElementLength(array, elementSize):-
   IsArgCallDataArrayVar(array, _),
   ArrayDataStartVar(array, dataStartVar),
   ADDFix(_, dataStartVar, indexTimesCons, cdlIndex),
-  VarTimesConstant(_, elementSize, indexTimesCons),
+  VarTimesConstantNoIdentity(_, elementSize, indexTimesCons),
   CALLDATALOAD(_, cdlIndex, _).
 
 
@@ -107,6 +107,7 @@ ArrayDataStartVar(array, dataStartVar):-
 
 IsRegularArrayVar(memArrayTo),
 Array_ElementLength(memArrayTo, "0x1"),
+Array_ElementLength(callDataArrayFrom, "0x1"),
 CallDataCopyArgInfo(callDataCopy, memArrayTo, callDataArrayFrom):-
   CallDataLoadReadsLength(_, callDataArrayFrom, lenVar),
   CALLDATACOPY(callDataCopy, arrayDataStart, _, lenVar),
@@ -116,6 +117,7 @@ CallDataCopyArgInfo(callDataCopy, memArrayTo, callDataArrayFrom):-
 
 IsRegularArrayVar(memArrayTo),
 Array_ElementLength(memArrayTo, elemSize),
+Array_ElementLength(callDataArrayFrom, elemSize),
 CallDataCopyArgInfo(callDataCopy, memArrayTo, callDataArrayFrom):-
   CallDataLoadReadsLength(_, callDataArrayFrom, lenVar),
   VarTimesConstant(lenVar, elemSize, lenBytes),

@@ -571,17 +571,21 @@
     ( LocalFlows(loaded, formalRet);
       LocalFlows(formalArg, formalRet)),
     In_FormalReturnArgs(fun, formalRet, _),
+    !Struct_WordWidth(formalArg, _),
+    // !Struct_WordWidth(formalRet, _),
     !VarIsArray(formalArg, _).
 
   InlineCandidate(fun):-
     MLOADFreePtr_To(_, loadedAddr),
     In_FormalReturnArgs(fun, loadedAddr, _),
+    !Struct_WordWidth(loadedAddr, _),
     !VarIsArray(loadedAddr, _).
 
   InlineCandidate(fun):-
     In_FormalArgs(fun, formalArg, _),
     LocalFlows(formalArg, storeAddr),
     MSTORE(_, storeAddr, _),
+    !Struct_WordWidth(formalArg, _),
     !VarIsArray(formalArg, _).
 
   .decl FunctionContainsExternalCall(fun:Function)

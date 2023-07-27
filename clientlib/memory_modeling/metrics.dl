@@ -236,3 +236,19 @@ Verbatim_CDLAllVSStaticVSArr(allnum, staticAddr, arrGet):-
   allnum = count : CALLDATALOAD(_, _, _),
   staticAddr = count : CALLDATALOADOfStaticAddr(_),
   arrGet = count : CALLDATALOADArrayRelated(_).
+
+.decl Analytics_ArrayHasTwoElementLengths(array: Variable)
+.output Analytics_ArrayHasTwoElementLengths
+
+Analytics_ArrayHasTwoElementLengths(array):-
+  Array_ElementLength(array, elementSize1),
+  Array_ElementLength(array, elementSize2),
+  elementSize1 != elementSize2.
+
+.decl Analytics_StructHasTwoWidths(struct: Variable)
+.output Analytics_StructHasTwoWidths
+
+Analytics_StructHasTwoWidths(struct):-
+  Struct_WordWidth(struct, width1),
+  Struct_WordWidth(struct, width2),
+  width1 != width2.

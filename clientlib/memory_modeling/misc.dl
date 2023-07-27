@@ -153,6 +153,7 @@ Variable_Value(to, val):-
   Statement_Block(store, storeBlock),
   Statement_Block(load, loadBlock),
   Dominates(storeBlock, loadBlock),
+  storeBlock != loadBlock,
   Variable_Value(from, val).
 
 /**

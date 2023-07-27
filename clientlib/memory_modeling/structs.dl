@@ -71,10 +71,29 @@ InitialStoreToPossibleStruct(mstore, structBaseVar, storedVar, memOffset / 32):-
 ProbablyConstantArray(probablyArrayVar):-
   PossibleStructAllocation(_, _, probablyArrayVar, _),
   stores =  count : InitialStoreToPossibleStruct(_, probablyArrayVar, _, _),
+  stores > 0,
   stores =  count : {
     InitialStoreToPossibleStruct(_, probablyArrayVar, storedVar, _),
     BasicVariable_Value(storedVar, _)
   }.
+
+/**
+  Memory bounds check for struct allocations
+  Present in code produced by the viaIR pipeline
+*/
+.decl StructAllocationCheck(structBase: Variable)
+DEBUG_OUTPUT(StructAllocationCheck)
+
+StructAllocationCheck(structBase):-
+  PossibleStructAllocation(_, freePtrUpdStore, structBase, _),
+  MSTORE(freePtrUpdStore, _, storedVar),
+  LT(_, storedVar, structBase, pt1),
+  GT(_, storedVar, memLimitVar, pt2),
+  Variable_Value(memLimitVar, "0xffffffffffffffff"),
+  (OR(_, pt1, pt2, condVar); OR(_, pt2, pt1, condVar)),
+  JUMPI(jmpi, _, condVar),
+  ControlsWith(jmpi, throwBlock, condVar),
+  ThrowBlock(throwBlock).
 
 // REVIEW: it requires at least as many InitialStoreToPossibleStruct as the struct's words
 // it may possibly not be the case in optimized code
@@ -83,6 +102,13 @@ ProbablyConstantArray(probablyArrayVar):-
 StructAllocation(freePtrUpdStore, structBaseVar, wordWidth):-
   PossibleStructAllocation(_, freePtrUpdStore, structBaseVar, wordWidth),
   wordWidth >= count : InitialStoreToPossibleStruct(_, structBaseVar, _, _),
+  DataFlows(structBaseVar, argOrRet),
+  (ActualArgs(_, argOrRet, _) ; ActualReturnArgs(_, argOrRet, _)),
+  !ProbablyConstantArray(structBaseVar).
+
+StructAllocation(freePtrUpdStore, structBaseVar, wordWidth):-
+  PossibleStructAllocation(_, freePtrUpdStore, structBaseVar, wordWidth),
+  StructAllocationCheck(structBaseVar),
   DataFlows(structBaseVar, argOrRet),
   (ActualArgs(_, argOrRet, _) ; ActualReturnArgs(_, argOrRet, _)),
   !ProbablyConstantArray(structBaseVar).
@@ -128,20 +154,46 @@ MemoryModelingTempStmt(mstore):-
   StructAllocation(mstore, _, _).
 
 /**
-  PossibleStructArg is used to add new symbolic values for memory addresses to the formal variables
-  TODO: Add the same for returns
+  Hack to model structs passed through function args/rets
+*/
+.decl PossibleStruct(structVar: Variable)
+DEBUG_OUTPUT(PossibleStruct)
+
+/**
+  PossibleStructArg is used to add new symbolic values for memory addresses to the formal argument variables
 */
 .decl PossibleStructArg(function: Function, actual: Variable, formal: Variable)
 DEBUG_OUTPUT(PossibleStructArg)
 
+/**
+  PossibleStructRet is used to add new symbolic values for memory addresses to the actual return variables
+*/
+.decl PossibleStructRet(function: Function, actual: Variable, formal: Variable)
+DEBUG_OUTPUT(PossibleStructRet)
+
+PossibleStruct(possibleStruct):-
+  PossibleStructAllocation(_, _, possibleStruct, _);
+  PossibleStructRet(_, possibleStruct, _);
+  PossibleStructArg(_, _, possibleStruct).
+
 PossibleStructArg(function, actual, formal):-
   ActualArgs(caller, actual, pos),
-  PossibleStructAllocation(_, _, actual, _),
+  PossibleStruct(actual),
   CallGraphEdge(caller, function),
   FormalArgs(function, formal, pos).
 
+PossibleStructRet(function, actual, formal):-
+  FormalReturnArgs(function, formal, pos),
+  PossibleStruct(formal),
+  CallGraphEdge(caller, function),
+  ActualReturnArgs(caller, actual, pos).
+
+
 .decl StructArg(caller: Block, function: Function, pos: number, actual: Variable, formal: Variable)
 DEBUG_OUTPUT(StructArg)
+
+.decl StructRet(caller: Block, function: Function, pos: number, actual: Variable, formal: Variable)
+DEBUG_OUTPUT(StructRet)
 
 StructArg(caller, function, pos, actual, formal):-
   ActualArgs(caller, actual, pos),
@@ -149,9 +201,19 @@ StructArg(caller, function, pos, actual, formal):-
   CallGraphEdge(caller, function),
   FormalArgs(function, formal, pos).
 
+StructRet(caller, function, pos, actual, formal):-
+  FormalReturnArgs(function, formal, pos),
+  Struct_WordWidth(formal, _),
+  CallGraphEdge(caller, function),
+  ActualReturnArgs(caller, actual, pos).
+
 Struct_WordWidth(formal, wordWidth):-
   StructArg(_, _, _, actual, formal),
   Struct_WordWidth(actual, wordWidth).
+
+Struct_WordWidth(actual, wordWidth):-
+  StructRet(_, _, _, actual, formal),
+  Struct_WordWidth(formal, wordWidth).
 
 StructContainsArray(formal, wordOffset, elementSize):-
   StructArg(_, _, _, actual, formal),
