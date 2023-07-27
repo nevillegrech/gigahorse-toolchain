@@ -19,7 +19,8 @@ DEBUG_OUTPUT(Variable_NumericValue)
 
 .decl Variable_NumericValue(var: Variable, value: number)
 Variable_NumericValue(var, @hex_to_number(val)):-
-  Variable_Value(var, val).
+  Variable_Value(var, val),
+  @lt_256(val, "0xffffffff") != "0x0".
 
 .decl ADDFix(stmt:Statement, a:Variable, b:Variable, to:Variable)
 .decl ADDFixx(stmt:Statement, a:Variable, b:Variable, to:Variable)
