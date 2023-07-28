@@ -31,6 +31,7 @@ PublicFunctionArg(pubFun, arg, (constNum - 4) / 32):-
   CALLDATALOADOfConstant(cdl, _, constNum),
   CALLDATALOAD(cdl, _, arg),
   Statement_Function(cdl, pubFun),
+  IsPublicFunction(pubFun),
   !CallDataLoadArrayLoadingPattern(cdl, _, _, _, _),
   (constNum - 4) % 32 = 0.
 
@@ -38,6 +39,7 @@ PublicFunctionArg(pubFun, arg, constNum):-
   CALLDATALOADOfConstant(cdl, _, constNum),
   CALLDATALOAD(cdl, _, arg),
   Statement_Function(cdl, pubFun),
+  IsPublicFunction(pubFun),
   !CallDataLoadArrayLoadingPattern(cdl, _, _, _, _),
   (constNum - 4) % 32 != 0.
 
@@ -47,11 +49,13 @@ PublicFunctionArg(pubFun, arrayArg, index):-
 PublicFunctionArrayArg(pubFun, as(arrayArg, ArrayVariable), (@hex_to_number(constHex) - 4) / 32):-
   IsArgCallDataArrayVar(arrayArg, constHex),
   Variable_Function(arrayArg, pubFun),
+  IsPublicFunction(pubFun),
   (@hex_to_number(constHex) - 4) % 32 = 0.
 
 PublicFunctionArrayArg(pubFun, as(arrayArg, ArrayVariable), @hex_to_number(constHex)):-
   IsArgCallDataArrayVar(arrayArg, constHex),
   Variable_Function(arrayArg, pubFun),
+  IsPublicFunction(pubFun),
   (@hex_to_number(constHex) - 4) % 32 != 0.
 
 // e.g., for a statement 
