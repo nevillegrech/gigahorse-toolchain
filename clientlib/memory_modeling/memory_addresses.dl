@@ -235,6 +235,20 @@ FreePointerBasedValue(val, mload, newDepth, res):-
   val = cat(cat(mload, "++"), to_string(res)).
 
 Variable_SymbolicValue(to, val),
+FreePointerBasedValue(val, mload, newDepth, @hex_to_number(resVal)):-
+  ADDFix(_, numVar, freePtrBasedVar, to),
+  Variable_LargeValue(numVar, largeVal),
+  Variable_SymbolicValue(freePtrBasedVar, freePtrBasedVal),
+  FreePointerBasedValue(freePtrBasedVal, mload, depth, numVal2),
+  resVal = @add_256(largeVal, @number_to_hex(numVal2)),
+  @lt_256(resVal, "0x80000000") != "0x0",
+  (
+  (@hex_to_number(resVal) != numVal2, newDepth = depth);
+  (@hex_to_number(resVal) = numVal2, newDepth = depth)
+  ),
+  val = cat(cat(mload, "++"), to_string(@hex_to_number(resVal))).
+
+Variable_SymbolicValue(to, val),
 FreePointerBasedValue(val, mload, newDepth, res):-
   SUB(_, freePtrBasedVar, numVar, to),
   Variable_NumericValue(numVar, numVal),

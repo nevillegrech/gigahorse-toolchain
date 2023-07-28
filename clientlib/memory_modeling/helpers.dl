@@ -20,7 +20,16 @@ DEBUG_OUTPUT(Variable_NumericValue)
 .decl Variable_NumericValue(var: Variable, value: number)
 Variable_NumericValue(var, @hex_to_number(val)):-
   Variable_Value(var, val),
-  @lt_256(val, "0x7fffffff") != "0x0".
+  @lt_256(val, "0x80000000") != "0x0".
+
+/**
+  Contains a subset of `Variable_Value` that cannot be modeled
+  correctly by `Variable_NumericValue`
+*/
+.decl Variable_LargeValue(var: Variable, value: Value)
+Variable_LargeValue(var, val):-
+  Variable_Value(var, val),
+  @gt_256(val, "0x7fffffff") != "0x0".
 
 .decl ADDFix(stmt:Statement, a:Variable, b:Variable, to:Variable)
 .decl ADDFixx(stmt:Statement, a:Variable, b:Variable, to:Variable)
