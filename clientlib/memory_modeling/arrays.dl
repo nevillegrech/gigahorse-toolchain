@@ -1044,7 +1044,7 @@ VarPointToArray(callerCtx, actual, heapCtx, arrayId):-
   ActualReturnArgs(caller, actual, index).
 
 .decl Analytics_PolymorphicArrayVar(arrayVar: Variable, width: symbol)
-DEBUG_OUTPUT(Analytics_PolymorphicArrayVar)
+.output Analytics_PolymorphicArrayVar
 
 Analytics_PolymorphicArrayVar(arrayVar, width1):-
   VarPointToArray(_, arrayVar, _, arrayId1),
