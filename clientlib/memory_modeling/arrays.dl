@@ -627,6 +627,23 @@ ArrayAllocationInternal(mstore, array, "0x1", arrayLengthVar):-
 // REVIEW: This rule is maybe too imprecise and should be removed.
 IsRegularArrayVar(array),
 Array_ElementLength(array, elemLenVal),
+ArrayAllocationInternal(mstore, array, elemLenVal, arrayLengthVar):-
+  PossibleArray(array),
+  MSTORE(_, array, arrayLengthVar),
+  Variable_Value(arrayLengthVar, constantLengthVal),
+  ADDFix(_, arraySizeBytes, array, arrayPlusSizeBytes),
+  Variable_Value(arraySizeBytes, sizeBytesVal),
+  dataSizeVal = @sub_256(sizeBytesVal, "0x20"),
+  constantLengthVal != "0x0",
+  dataSizeVal != "0x0",
+  elemLenVal = @div_256(dataSizeVal, constantLengthVal),
+  // elemLenVal != "0x0",
+  (elemLenVal = "0x1" ; elemLenVal = "0x20"),
+  Statement_Uses(mstore, arrayPlusSizeBytes, 1),
+  MSTOREFreePtr(mstore).
+
+IsRegularArrayVar(array),
+Array_ElementLength(array, "0x1"),
 ArrayAllocationInternal(mstore, array, "0x1", arrayLengthVar):-
   PossibleArray(array),
   MSTORE(_, array, arrayLengthVar),
@@ -638,6 +655,7 @@ ArrayAllocationInternal(mstore, array, "0x1", arrayLengthVar):-
   dataSizeVal != "0x0",
   elemLenVal = @div_256(dataSizeVal, constantLengthVal),
   elemLenVal != "0x0",
+  "0x1" = @lt_256(elemLenVal, "0x20"),
   Statement_Uses(mstore, arrayPlusSizeBytes, 1),
   MSTOREFreePtr(mstore).
 
