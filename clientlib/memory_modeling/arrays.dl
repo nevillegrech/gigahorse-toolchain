@@ -1052,3 +1052,13 @@ Analytics_PolymorphicArrayVar(arrayVar, width1):-
   Array_ElementLength(arrayId1, width1),
   Array_ElementLength(arrayId2, width2),
   width1 != width2.
+
+.decl Analytics_PolymorphicArrayVarSameCtx(arrayVar: Variable, width: symbol)
+.output Analytics_PolymorphicArrayVarSameCtx
+
+Analytics_PolymorphicArrayVarSameCtx(arrayVar, width1):-
+  VarPointToArray(ctx, arrayVar, _, arrayId1),
+  VarPointToArray(ctx, arrayVar, _, arrayId2),
+  Array_ElementLength(arrayId1, width1),
+  Array_ElementLength(arrayId2, width2),
+  width1 != width2.
