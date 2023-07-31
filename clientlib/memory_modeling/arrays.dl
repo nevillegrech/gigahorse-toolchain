@@ -627,7 +627,7 @@ ArrayAllocationInternal(mstore, array, "0x1", arrayLengthVar):-
 // REVIEW: This rule is maybe too imprecise and should be removed.
 IsRegularArrayVar(array),
 Array_ElementLength(array, elemLenVal),
-ArrayAllocationInternal(mstore, array, elemLenVal, arrayLengthVar):-
+ArrayAllocationInternal(mstore, array, as(elemLenVal, Value), arrayLengthVar):-
   PossibleArray(array),
   MSTORE(_, array, arrayLengthVar),
   Variable_Value(arrayLengthVar, constantLengthVal),
@@ -637,7 +637,6 @@ ArrayAllocationInternal(mstore, array, elemLenVal, arrayLengthVar):-
   constantLengthVal != "0x0",
   dataSizeVal != "0x0",
   elemLenVal = @div_256(dataSizeVal, constantLengthVal),
-  // elemLenVal != "0x0",
   (elemLenVal = "0x1" ; elemLenVal = "0x20"),
   Statement_Uses(mstore, arrayPlusSizeBytes, 1),
   MSTOREFreePtr(mstore).
