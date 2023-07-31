@@ -836,7 +836,8 @@ Array_ElementLength(actual, elementSize):-
   (kind = "Regular" ; kind = "CallData"),
   FormalReturnArgs(fun, formalRet, index),
   Array_ElementLength(formalRet, elementSize),
-  ActualReturnArgs(_, actual, index).
+  CallGraphEdge(caller, fun),
+  ActualReturnArgs(caller, actual, index).
 
 /**
   Constant arrays and their contents.
