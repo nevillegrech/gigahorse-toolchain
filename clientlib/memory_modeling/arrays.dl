@@ -1018,3 +1018,37 @@ RawDataArrayVar_ClassRep(arrVar, as(classRep, ArrayVariable)):-
 VarIsArray(array, arrVarRep):-
   RegularArrayVar_ClassRep(array, arrVarRep);
   RawDataArrayVar_ClassRep(array, arrVarRep).
+
+
+.decl VarPointToArray(ctx: clientCtx.ClientContext, var: Variable, heapCtx: clientCtx.ClientContext, arrayId: ArrayVariable)
+DEBUG_OUTPUT(VarPointToArray)
+
+VarPointToArray(ctx, arrayVar, ctx, arrayId):-
+  clientCtx.ReachableClientContext(ctx, fun),
+  Variable_Function(arrayVar, fun),
+  VarIsArray(arrayVar, arrayId),
+  ArrayAllocation(arrayId, _, _).
+
+VarPointToArray(newCtx, formal, heapCtx, arrayId):-
+  clientCtx.MergeClientContext(callerCtx, caller, newCtx),
+  VarPointToArray(callerCtx, actual, heapCtx, arrayId),
+  ActualArgs(caller, actual, pos),
+  CallGraphEdge(caller, function),
+  FormalArgs(function, formal, pos).
+
+VarPointToArray(callerCtx, actual, heapCtx, arrayId):-
+  clientCtx.MergeClientContext(callerCtx, caller, calleeCtx),
+  CallGraphEdge(caller, function),
+  FormalReturnArgs(function, formal, index),
+  VarPointToArray(calleeCtx, formal, heapCtx, arrayId),
+  ActualReturnArgs(caller, actual, index).
+
+.decl Analytics_PolymorphicArrayVar(arrayVar: Variable, width: symbol)
+DEBUG_OUTPUT(Analytics_PolymorphicArrayVar)
+
+Analytics_PolymorphicArrayVar(arrayVar, width1):-
+  VarPointToArray(_, arrayVar, _, arrayId1),
+  VarPointToArray(_, arrayVar, _, arrayId2),
+  Array_ElementLength(arrayId1, width1),
+  Array_ElementLength(arrayId2, width2),
+  width1 != width2.
