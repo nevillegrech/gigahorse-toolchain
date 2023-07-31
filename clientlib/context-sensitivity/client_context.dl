@@ -1,0 +1,70 @@
+#define MAX_CLIENT_CONTEXT_DEPTH 20
+
+.comp AbstractClientContextSensitivity {
+  /**
+    Blocks directly following `caller` under `ctx` will be reachable under `newContext`
+  */
+  .decl MergeClientContext(ctx : ClientContext, caller : Block, newClientContext : ClientContext)
+
+  .decl ReachableClientContext(ctx: ClientContext, function: Function)
+  DEBUG_OUTPUT(ReachableClientContext)
+
+  .decl InitialClientContext(ctx : ClientContext)
+  InitialClientContext(nil).
+
+  .decl ClientContextDepth(ctx : ClientContext, depth : number)
+  ClientContextDepth(init, 0) :-
+    InitialClientContext(init).
+
+  .decl IsClientContext(rest:ClientContext)
+  IsClientContext(nil).
+
+  .decl DropLast(ctx : ClientContext, newCtx : ClientContext)
+  DropLast(ctx, nil) :-
+    IsClientContext(ctx),
+    ctx = [ block, nil ], block = block.
+
+  IsClientContext(newCtx),
+  DropLast(ctx, newCtx) :-
+    IsClientContext(ctx),
+    ctx = [ block, rest ],
+    DropLast(rest, newRest),
+    newCtx = [ block, newRest ].
+
+}
+
+
+.comp CallSiteClientContextSensitivity : AbstractClientContextSensitivity {
+
+  .type ClientContext = [ block:Block, rest:ClientContext ]
+
+  ClientContextDepth(newClientContext, depth + 1),
+  MergeClientContext(ctx, caller, newClientContext),
+  IsClientContext(newClientContext) :-
+    ReachableClientContext(ctx, callerFunction),
+    InFunction(caller, callerFunction),
+    ClientContextDepth(ctx, depth),
+    depth < MAX_CLIENT_CONTEXT_DEPTH,
+    newClientContext = [caller, ctx].
+
+  ClientContextDepth(newClientContext, MAX_CLIENT_CONTEXT_DEPTH),
+  MergeClientContext(ctx, caller, newClientContext),
+  IsClientContext(newClientContext) :-
+    ReachableClientContext(ctx, callerFunction),
+    InFunction(caller, callerFunction),
+    ClientContextDepth(ctx, MAX_CLIENT_CONTEXT_DEPTH),
+    DropLast(ctx, cutDownCtx),
+    newClientContext = [caller, cutDownCtx].
+
+  ReachableClientContext(newCtx, function) :-
+    CallGraphEdge(caller, function),
+    InFunction(caller, callerFunction),
+    ReachableClientContext(callerCtx, callerFunction),
+    MergeClientContext(callerCtx, caller, newCtx).
+
+  ReachableClientContext(initCtx, function) :-
+    GlobalEntryBlock(block),
+    InFunction(block, function),
+    InitialClientContext(initCtx).
+
+}
