@@ -635,9 +635,25 @@ ArrayAllocationInternal(mstore, array, as(elemLenVal, Value), arrayLengthVar):-
   Variable_Value(arraySizeBytes, sizeBytesVal),
   dataSizeVal = @sub_256(sizeBytesVal, "0x20"),
   constantLengthVal != "0x0",
+  constantLengthVal != "0x1",
   dataSizeVal != "0x0",
   elemLenVal = @div_256(dataSizeVal, constantLengthVal),
   (elemLenVal = "0x1" ; elemLenVal = "0x20"),
+  Statement_Uses(mstore, arrayPlusSizeBytes, 1),
+  MSTOREFreePtr(mstore).
+
+// Hack, to resolve the ambiguity of 1 element constant bytes arrays
+// Pattern will look like an 1 element constant uint array, but these are
+// more rare than 1 element constant bytes arrays
+IsRegularArrayVar(array),
+Array_ElementLength(array, elemLenVal),
+ArrayAllocationInternal(mstore, array, as(elemLenVal, Value), arrayLengthVar):-
+  PossibleArray(array),
+  MSTORE(_, array, arrayLengthVar),
+  Variable_Value(arrayLengthVar, "0x1"),
+  ADDFix(_, arraySizeBytes, array, arrayPlusSizeBytes),
+  Variable_Value(arraySizeBytes, sizeBytesVal),
+  elemLenVal = "0x1",
   Statement_Uses(mstore, arrayPlusSizeBytes, 1),
   MSTOREFreePtr(mstore).
 
