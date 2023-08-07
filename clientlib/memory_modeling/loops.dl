@@ -33,6 +33,17 @@ MemoryCopyLoop(loop, beforeLoopVarFrom, beforeLoopVarTo):-
   MSTORE(_, toIndexVar, toVar),
   VarsEqualOrMasked(fromVar, toVar).
 
+// rule by YB, targetting copies from regular array to raw data ones
+MemoryCopyLoop(loop, memAddrFrom, memAddrTo):-
+  InductionVariableIncreasesByConst(loop, [beforeLoopVar, inLoopVar], 32),
+  PHIStmtTwoUses(_, beforeLoopVar, inLoopVar, phiVar),
+  ADDFix(_, phiVar, memAddrFrom, arrayIndexFrom),
+  VarPlusThirtyTwo(arrayIndexFrom, arrayDataIndexFrom),
+  MLOAD(_, arrayDataIndexFrom, fromVar),
+  ADDFix(_, phiVar, memAddrTo, toIndexVar),
+  MSTORE(_, toIndexVar, toVar),
+  VarsEqualOrMasked(fromVar, toVar).
+
 CallDataCopyLoop(loop, calldataAddrFrom, memAddrTo):-
   InductionVariableIncreasesByConst(loop, [beforeLoopVar, inLoopVar], 32),
   PHIStmtTwoUses(_, beforeLoopVar, inLoopVar, phiVar),
