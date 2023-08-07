@@ -1,4 +1,4 @@
-#define MAX_CLIENT_CONTEXT_DEPTH 20
+#define MAX_CLIENT_CONTEXT_DEPTH 10
 
 .comp AbstractClientContextSensitivity {
   /**
