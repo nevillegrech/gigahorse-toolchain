@@ -6,6 +6,11 @@
 
 .output ByteCodeHex(IO="file", filename="bytecode.hex")
 
+.decl GlobalEntryBlock(block: IRBlock)
+.output GlobalEntryBlock
+
+GlobalEntryBlock("0x0").
+
 .decl FunctionalBlock_Uses_Local(block: IRBlock, stackIndex: StackIndex)
 
 FunctionalBlock_Uses_Local(block, as(stackIndex, StackIndex)) :-
