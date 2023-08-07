@@ -138,3 +138,18 @@ CALLDATALOADOfConstant(cdl, constHex, constNum):-
   CALLDATALOAD(cdl, index, _),
   Variable_Value(index, constHex),
   Variable_NumericValue(index, constNum).
+
+/**
+  Helper predicate to resolve ambiguous const array patterns
+*/
+.decl MSTOREValueIsProbablyBytes1(mstore: Statement)
+
+MSTOREValueIsProbablyBytes1(mstore):-
+  MSTORE(mstore, _, storedVar),
+  (
+  HighBytesMaskOp(_, storedVar, 1);
+   (
+    Variable_Value(storedVar, storedVal),
+    storedVal = as(@and_256(storedVal, "0xff00000000000000000000000000000000000000000000000000000000000000"), Value)
+   )
+  ).

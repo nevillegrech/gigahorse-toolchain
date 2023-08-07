@@ -671,13 +671,7 @@ Array_ElementLength(array, "0x1"),
 ArrayAllocationInternal(mstore, array, "0x1", arrayLengthVar):-
   AmbiguousElemLenConstArrayAllocation(mstore, array, arrayLengthVar),
   ArrayWriteToRelativeIndex(array, mstore2, 0),
-  MSTORE(mstore2, _, storedVar),
-  (HighBytesMaskOp(_, storedVar, 1);
-   (
-    Variable_Value(storedVar, storedVal),
-    storedVal = as(@and_256(storedVal, "0xff00000000000000000000000000000000000000000000000000000000000000"), Value)
-   )
-  ).
+  MSTOREValueIsProbablyBytes1(mstore2).
 
 IsRegularArrayVar(array),
 Array_ElementLength(array, "0x20"),
@@ -685,6 +679,7 @@ ArrayAllocationInternal(mstore, array, "0x20", arrayLengthVar):-
   AmbiguousElemLenConstArrayAllocation(mstore, array, arrayLengthVar),
   ArrayWriteToRelativeIndex(array, mstore2, 0),
   MSTORE(mstore2, _, storedVar),
+  !MSTOREValueIsProbablyBytes1(mstore2),
   (LowBytesMaskOp(_, storedVar, _);
   (!LowBytesMaskOp(_, storedVar, _), !HighBytesMaskOp(_, storedVar, 1));
    (
