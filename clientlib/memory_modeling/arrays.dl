@@ -89,6 +89,7 @@ Array_ElementLength(plusFourVar, elemSize):-
   IsArgCallDataArrayVar(plusFourVar, argHex),
   CallDataLoadArrayLoadingPattern(_, _, plusFourVar, lenVar, argHex),
   VarTimesConstant(lenVar, elemSize, res),
+  (elemSize = "0x1"; @mod_256(elemSize, "0x20") = "0x0"),
   // Hack to recover precision and avoid the identity case of VarTimesConstant
   lenVar != res.
 
@@ -99,7 +100,8 @@ Array_ElementLength(array, elementSize):-
   ArrayDataStartVar(array, dataStartVar),
   ADDFix(_, dataStartVar, indexTimesCons, cdlIndex),
   VarTimesConstantNoIdentity(_, elementSize, indexTimesCons),
-  CALLDATALOAD(_, cdlIndex, _).
+  CALLDATALOAD(_, cdlIndex, _),
+  (elementSize = "0x1"; @mod_256(elementSize, "0x20") = "0x0").
 
 
 ArrayDataStartVar(array, dataStartVar):-
@@ -1160,3 +1162,10 @@ Analytics_PolymorphicArrayVarSameCtx(arrayVar, width1):-
   Array_ElementLength(arrayId1, width1),
   Array_ElementLength(arrayId2, width2),
   width1 != width2.
+
+.decl Analytics_ArrayVarHasNoElementSize(arrayVar: Variable)
+.output Analytics_ArrayVarHasNoElementSize
+
+Analytics_ArrayVarHasNoElementSize(array):-
+  (IsRegularArrayVar(array); IsCallDataArrayVar(array)),
+  !Array_ElementLength(array, _).
