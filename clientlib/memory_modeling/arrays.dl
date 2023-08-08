@@ -34,6 +34,9 @@ DEBUG_OUTPUT(CallDataLoadReadsLength)
 .decl CallDataCopyArgInfo(callDataCopy: Statement, memArrayTo: Variable, callDataArrayFrom: Variable)
 DEBUG_OUTPUT(CallDataCopyArgInfo)
 
+.decl CallDataCopyOfArg(callDataCopy: Statement, memAddrTo: Variable, callDataArrayFrom: Variable, lenVar: Variable, sizeBytes: Variable, elemLen: symbol)
+DEBUG_OUTPUT(CallDataCopyOfArg)
+
 .decl Array_ElementLength(array:Variable, elementSize:symbol)
 DEBUG_OUTPUT(Array_ElementLength)
 
@@ -104,6 +107,20 @@ ArrayDataStartVar(array, dataStartVar):-
   CALLDATALOAD(cdl, _, to),
   ADDFix(_, to, x24, dataStartVar),
   Variable_NumericValue(x24, 36).
+
+// TODO: use `CallDataCopyOfArg` in the rules below
+Array_ElementLength(cdlArrayVar, "0x1"),
+CallDataCopyOfArg(callDataCopy, memAddrTo, cdlArrayVar, lenVar, lenVar, "0x1"):-
+  CallDataLoadReadsLength(_, cdlArrayVar, lenVar),
+  VarPlusThirtyTwo(cdlArrayVar, cdlArrayDataStart),
+  CALLDATACOPY(callDataCopy, memAddrTo, cdlArrayDataStart, lenVar).
+
+Array_ElementLength(cdlArrayVar, elemSize),
+CallDataCopyOfArg(callDataCopy, memAddrTo, cdlArrayVar, lenVar, lenBytesVar, elemSize):-
+  CallDataLoadReadsLength(_, cdlArrayVar, lenVar),
+  VarPlusThirtyTwo(cdlArrayVar, cdlArrayDataStart),
+  VarTimesConstant(lenVar, elemSize, lenBytesVar),
+  CALLDATACOPY(callDataCopy, memAddrTo, cdlArrayDataStart, lenBytesVar).
 
 IsRegularArrayVar(memArrayTo),
 Array_ElementLength(memArrayTo, "0x1"),

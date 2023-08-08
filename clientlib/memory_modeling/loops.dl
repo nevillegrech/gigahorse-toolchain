@@ -76,11 +76,18 @@ MemoryCopyLoopConstLength(loop, memAddrFrom, memAddrTo, length):-
   Variable_NumericValue(beforeLoopVar, 0),
   Variable_NumericValue(boundVar, length).
 
+// HACK: When an array is copied over to a memory region that houses the ABI encoded args of a memory op
+// we consider it a RawDataArray to get some inferences more easily.
 IsRawDataArrayVar(toRawArray):-
   MemoryCopyLoop(_, fromArrayData, toRawArray),
   ArrayDataStartVar(_, fromArrayData),
   IsABIEncodedArrayVar(toRawArray).
 
+// HACK: When an array is copied over to a memory region that houses the ABI encoded args of a memory op
+// we consider it a RawDataArray to get some inferences more easily.
+IsRawDataArrayVar(toRawArray):-
+  CallDataCopyOfArg(_, toRawArray, _, _, _, _),
+  IsABIEncodedArrayVar(toRawArray).
 
 .decl StatementWritesMemoryCopiedFromLoop(memWriteStmt:Statement, newIndexVar:Variable, memAddrTo:Variable, numDiff:number, writeLength:number)
 DEBUG_OUTPUT(StatementWritesMemoryCopiedFromLoop)
