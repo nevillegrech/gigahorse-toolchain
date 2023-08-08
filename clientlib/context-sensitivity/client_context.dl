@@ -1,0 +1,78 @@
+#define MAX_CLIENT_CONTEXT_DEPTH 10
+
+.comp AbstractClientContextSensitivity {
+  /**
+    Blocks directly following `caller` under `ctx` will be reachable under `newContext`
+  */
+  .decl MergeClientContext(ctx : ClientContext, caller : Block, newClientContext : ClientContext)
+
+  .decl ReachableClientContext(ctx: ClientContext, function: Function)
+  DEBUG_OUTPUT(ReachableClientContext)
+
+  .decl InitialClientContext(ctx : ClientContext)
+  InitialClientContext(nil).
+
+  .decl ClientContextDepth(ctx : ClientContext, depth : number)
+  ClientContextDepth(init, 0) :-
+    InitialClientContext(init).
+
+  .decl IsClientContext(rest:ClientContext)
+  IsClientContext(nil).
+
+  IsClientContext(newClientContext):-
+    MergeClientContext(_, _, newClientContext).
+}
+
+
+.comp CallSiteClientContextSensitivity : AbstractClientContextSensitivity {
+
+  .type ClientContext = [ block:Block, rest:ClientContext ]
+
+  .decl ClientContextDecomposed(clientCtx: ClientContext, caller: Block, rest: ClientContext)
+
+  ClientContextDecomposed(clientCtx, caller, rest):-
+    IsClientContext(clientCtx),
+    clientCtx = [caller, rest].
+
+  .decl DropLast(ctx : ClientContext, newCtx : ClientContext)
+  DropLast(clientCtx, nil) :-
+    ClientContextDecomposed(clientCtx, _, nil).
+
+  IsClientContext(newCtx),
+  DropLast(clientCtx, newCtx) :-
+    ClientContextDecomposed(clientCtx, caller, rest),
+    DropLast(rest, newRest),
+    newCtx = [caller, newRest].
+   .plan 1:(2,1)
+
+  ClientContextDepth(newClientContext, depth + 1),
+  MergeClientContext(ctx, caller, newClientContext):-
+    ReachableClientContext(ctx, callerFunction),
+    InFunction(caller, callerFunction),
+    ClientContextDepth(ctx, depth),
+    depth < MAX_CLIENT_CONTEXT_DEPTH,
+    newClientContext = [caller, ctx].
+   .plan 1:(3,1,2)
+
+  ClientContextDepth(newClientContext, MAX_CLIENT_CONTEXT_DEPTH),
+  MergeClientContext(ctx, caller, newClientContext):-
+    ReachableClientContext(ctx, callerFunction),
+    InFunction(caller, callerFunction),
+    ClientContextDepth(ctx, MAX_CLIENT_CONTEXT_DEPTH),
+    DropLast(ctx, cutDownCtx),
+    newClientContext = [caller, cutDownCtx].
+   .plan 1:(3,1,2,4), 2:(4,3,1,2)
+
+  ReachableClientContext(newCtx, function) :-
+    ReachableClientContext(callerCtx, callerFunction),
+    InFunction(caller, callerFunction),
+    CallGraphEdge(caller, function),
+    MergeClientContext(callerCtx, caller, newCtx).
+   .plan 1:(4,3,2,1)
+
+  ReachableClientContext(initCtx, function) :-
+    GlobalEntryBlock(block),
+    InFunction(block, function),
+    InitialClientContext(initCtx).
+
+}
