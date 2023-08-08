@@ -33,6 +33,17 @@ MemoryCopyLoop(loop, beforeLoopVarFrom, beforeLoopVarTo):-
   MSTORE(_, toIndexVar, toVar),
   VarsEqualOrMasked(fromVar, toVar).
 
+// rule by YB, targetting copies from regular array to raw data ones
+MemoryCopyLoop(loop, memAddrFrom, memAddrTo):-
+  InductionVariableIncreasesByConst(loop, [beforeLoopVar, inLoopVar], 32),
+  PHIStmtTwoUses(_, beforeLoopVar, inLoopVar, phiVar),
+  ADDFix(_, phiVar, memAddrFrom, arrayIndexFrom),
+  VarPlusThirtyTwo(arrayIndexFrom, arrayDataIndexFrom),
+  MLOAD(_, arrayDataIndexFrom, fromVar),
+  ADDFix(_, phiVar, memAddrTo, toIndexVar),
+  MSTORE(_, toIndexVar, toVar),
+  VarsEqualOrMasked(fromVar, toVar).
+
 CallDataCopyLoop(loop, calldataAddrFrom, memAddrTo):-
   InductionVariableIncreasesByConst(loop, [beforeLoopVar, inLoopVar], 32),
   PHIStmtTwoUses(_, beforeLoopVar, inLoopVar, phiVar),
@@ -65,11 +76,18 @@ MemoryCopyLoopConstLength(loop, memAddrFrom, memAddrTo, length):-
   Variable_NumericValue(beforeLoopVar, 0),
   Variable_NumericValue(boundVar, length).
 
+// HACK: When an array is copied over to a memory region that houses the ABI encoded args of a memory op
+// we consider it a RawDataArray to get some inferences more easily.
 IsRawDataArrayVar(toRawArray):-
   MemoryCopyLoop(_, fromArrayData, toRawArray),
   ArrayDataStartVar(_, fromArrayData),
   IsABIEncodedArrayVar(toRawArray).
 
+// HACK: When an array is copied over to a memory region that houses the ABI encoded args of a memory op
+// we consider it a RawDataArray to get some inferences more easily.
+IsRawDataArrayVar(toRawArray):-
+  CallDataCopyOfArg(_, toRawArray, _, _, _, _),
+  IsABIEncodedArrayVar(toRawArray).
 
 .decl StatementWritesMemoryCopiedFromLoop(memWriteStmt:Statement, newIndexVar:Variable, memAddrTo:Variable, numDiff:number, writeLength:number)
 DEBUG_OUTPUT(StatementWritesMemoryCopiedFromLoop)

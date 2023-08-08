@@ -143,7 +143,8 @@ MemoryStatement_ActualArgNew(memConsStmt, [WrapInQuotes(type), WrapInQuotes(info
   StatementUsesMemoryMemoryArgument(memConsStmt, _, index, [type, info, [indexv, length]]).
 
 MemoryModelingTempStmt(mstore):-
-  StatementUsesMemoryWriteAtRelativeIndex(_, _, mstore, _).
+  StatementUsesMemoryWriteAtRelativeIndex(_, _, mstore, _),
+  MSTORE(mstore, _, _).
 
 
 /***
@@ -298,6 +299,7 @@ ABIEncodedArrayIncludesArrayAtConcreteIndex(abiArr, memConsStmt, indexVar, array
 
 MemoryModelingTempStmt(memWriteStmt):-
   ABIEncodedArrayWriteTo(memWriteStmt, _, _, _),
+  MSTORE(memWriteStmt, _, _),
   !ArrayStore(memWriteStmt, _, _),
   !ArrayStoreAtIndex(memWriteStmt, _, _, _).
 

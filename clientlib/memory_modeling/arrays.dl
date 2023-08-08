@@ -34,6 +34,9 @@ DEBUG_OUTPUT(CallDataLoadReadsLength)
 .decl CallDataCopyArgInfo(callDataCopy: Statement, memArrayTo: Variable, callDataArrayFrom: Variable)
 DEBUG_OUTPUT(CallDataCopyArgInfo)
 
+.decl CallDataCopyOfArg(callDataCopy: Statement, memAddrTo: Variable, callDataArrayFrom: Variable, lenVar: Variable, sizeBytes: Variable, elemLen: symbol)
+DEBUG_OUTPUT(CallDataCopyOfArg)
+
 .decl Array_ElementLength(array:Variable, elementSize:symbol)
 DEBUG_OUTPUT(Array_ElementLength)
 
@@ -104,6 +107,20 @@ ArrayDataStartVar(array, dataStartVar):-
   CALLDATALOAD(cdl, _, to),
   ADDFix(_, to, x24, dataStartVar),
   Variable_NumericValue(x24, 36).
+
+// TODO: use `CallDataCopyOfArg` in the rules below
+Array_ElementLength(cdlArrayVar, "0x1"),
+CallDataCopyOfArg(callDataCopy, memAddrTo, cdlArrayVar, lenVar, lenVar, "0x1"):-
+  CallDataLoadReadsLength(_, cdlArrayVar, lenVar),
+  VarPlusThirtyTwo(cdlArrayVar, cdlArrayDataStart),
+  CALLDATACOPY(callDataCopy, memAddrTo, cdlArrayDataStart, lenVar).
+
+Array_ElementLength(cdlArrayVar, elemSize),
+CallDataCopyOfArg(callDataCopy, memAddrTo, cdlArrayVar, lenVar, lenBytesVar, elemSize):-
+  CallDataLoadReadsLength(_, cdlArrayVar, lenVar),
+  VarPlusThirtyTwo(cdlArrayVar, cdlArrayDataStart),
+  VarTimesConstant(lenVar, elemSize, lenBytesVar),
+  CALLDATACOPY(callDataCopy, memAddrTo, cdlArrayDataStart, lenBytesVar).
 
 IsRegularArrayVar(memArrayTo),
 Array_ElementLength(memArrayTo, "0x1"),
@@ -627,6 +644,71 @@ ArrayAllocationInternal(mstore, array, "0x1", arrayLengthVar):-
 // REVIEW: This rule is maybe too imprecise and should be removed.
 IsRegularArrayVar(array),
 Array_ElementLength(array, elemLenVal),
+ArrayAllocationInternal(mstore, array, as(elemLenVal, Value), arrayLengthVar):-
+  PossibleArray(array),
+  MSTORE(_, array, arrayLengthVar),
+  Variable_Value(arrayLengthVar, constantLengthVal),
+  ADDFix(_, arraySizeBytes, array, arrayPlusSizeBytes),
+  Variable_Value(arraySizeBytes, sizeBytesVal),
+  dataSizeVal = @sub_256(sizeBytesVal, "0x20"),
+  constantLengthVal != "0x0",
+  constantLengthVal != "0x1",
+  dataSizeVal != "0x0",
+  elemLenVal = @div_256(dataSizeVal, constantLengthVal),
+  (elemLenVal = "0x1" ; elemLenVal = "0x20"),
+  Statement_Uses(mstore, arrayPlusSizeBytes, 1),
+  MSTOREFreePtr(mstore).
+
+/**
+  Because of the rounding up of the array size to 32 bytes
+  the pattern for constant length arrays with a size of 1 is ambiguous.
+  This creates the need to heuristically infer their element width
+*/
+.decl AmbiguousElemLenConstArrayAllocation(mstore: Statement, array: Variable, arrayLengthVar: Variable)
+DEBUG_OUTPUT(AmbiguousElemLenConstArrayAllocation)
+
+// Hack, to resolve the ambiguity of 1 element constant bytes arrays
+// Pattern will look like an 1 element constant uint array, but these are
+// more rare than 1 element constant bytes arrays
+IsRegularArrayVar(array),
+// Array_ElementLength(array, elemLenVal),
+// ArrayAllocationInternal(mstore, array, as(elemLenVal, Value), arrayLengthVar):-
+AmbiguousElemLenConstArrayAllocation(mstore, array, arrayLengthVar):-
+  PossibleArray(array),
+  MSTORE(_, array, arrayLengthVar),
+  Variable_Value(arrayLengthVar, "0x1"),
+  ADDFix(_, arraySizeBytes, array, arrayPlusSizeBytes),
+  Variable_Value(arraySizeBytes, "0x40"),
+  elemLenVal = "0x1",
+  Statement_Uses(mstore, arrayPlusSizeBytes, 1),
+  MSTOREFreePtr(mstore).
+
+IsRegularArrayVar(array),
+Array_ElementLength(array, "0x1"),
+ArrayAllocationInternal(mstore, array, "0x1", arrayLengthVar):-
+  AmbiguousElemLenConstArrayAllocation(mstore, array, arrayLengthVar),
+  ArrayWriteToRelativeIndex(array, mstore2, 0),
+  MSTOREValueIsProbablyBytes1(mstore2).
+
+IsRegularArrayVar(array),
+Array_ElementLength(array, "0x20"),
+ArrayAllocationInternal(mstore, array, "0x20", arrayLengthVar):-
+  AmbiguousElemLenConstArrayAllocation(mstore, array, arrayLengthVar),
+  ArrayWriteToRelativeIndex(array, mstore2, 0),
+  MSTORE(mstore2, _, storedVar),
+  !MSTOREValueIsProbablyBytes1(mstore2),
+  (LowBytesMaskOp(_, storedVar, _);
+  (!LowBytesMaskOp(_, storedVar, _), !HighBytesMaskOp(_, storedVar, 1));
+   (
+    Variable_Value(storedVar, storedVal),
+    storedVal = as(@and_256(storedVal, "0x00ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"), Value)
+   )
+  ).
+
+
+
+IsRegularArrayVar(array),
+Array_ElementLength(array, "0x1"),
 ArrayAllocationInternal(mstore, array, "0x1", arrayLengthVar):-
   PossibleArray(array),
   MSTORE(_, array, arrayLengthVar),
@@ -638,6 +720,7 @@ ArrayAllocationInternal(mstore, array, "0x1", arrayLengthVar):-
   dataSizeVal != "0x0",
   elemLenVal = @div_256(dataSizeVal, constantLengthVal),
   elemLenVal != "0x0",
+  "0x1" = @lt_256(elemLenVal, "0x20"),
   Statement_Uses(mstore, arrayPlusSizeBytes, 1),
   MSTOREFreePtr(mstore).
 
@@ -819,7 +902,8 @@ Array_ElementLength(actual, elementSize):-
   (kind = "Regular" ; kind = "CallData"),
   FormalReturnArgs(fun, formalRet, index),
   Array_ElementLength(formalRet, elementSize),
-  ActualReturnArgs(_, actual, index).
+  CallGraphEdge(caller, fun),
+  ActualReturnArgs(caller, actual, index).
 
 /**
   Constant arrays and their contents.
@@ -1018,3 +1102,61 @@ RawDataArrayVar_ClassRep(arrVar, as(classRep, ArrayVariable)):-
 VarIsArray(array, arrVarRep):-
   RegularArrayVar_ClassRep(array, arrVarRep);
   RawDataArrayVar_ClassRep(array, arrVarRep).
+
+
+.decl VarPointsToArray(ctx: clientCtx.ClientContext, var: Variable, heapCtx: clientCtx.ClientContext, arrayId: ArrayVariable)
+DEBUG_OUTPUT(VarPointsToArray)
+
+.decl InsVarPointsToArray(var: Variable, arrayId: ArrayVariable)
+DEBUG_OUTPUT(InsVarPointsToArray)
+
+VarPointsToArray(ctx, arrayVar, ctx, arrayId):-
+  clientCtx.ReachableClientContext(ctx, fun),
+  Variable_Function(arrayVar, fun),
+  VarIsArray(arrayVar, arrayId),
+  ArrayAllocation(arrayId, _, _).
+
+VarPointsToArray(newCtx, formal, heapCtx, arrayId):-
+  clientCtx.MergeClientContext(callerCtx, caller, newCtx),
+  VarPointsToArray(callerCtx, actual, heapCtx, arrayId),
+  ActualArgs(caller, actual, pos),
+  CallGraphEdge(caller, function),
+  FormalArgs(function, formal, pos).
+
+VarPointsToArray(callerCtx, actual, heapCtx, arrayId):-
+  clientCtx.MergeClientContext(callerCtx, caller, calleeCtx),
+  CallGraphEdge(caller, function),
+  FormalReturnArgs(function, formal, index),
+  VarPointsToArray(calleeCtx, formal, heapCtx, arrayId),
+  ActualReturnArgs(caller, actual, index).
+
+InsVarPointsToArray(var, arrayId):-
+  VarPointsToArray(_, var, _, arrayId).
+
+.decl Analytics_PolymorphicArrayVar(arrayVar: Variable, width: symbol)
+.output Analytics_PolymorphicArrayVar
+
+Analytics_PolymorphicArrayVar(arrayVar, width1):-
+  InsVarPointsToArray(arrayVar, arrayId1),
+  InsVarPointsToArray(arrayVar, arrayId2),
+  Array_ElementLength(arrayId1, width1),
+  Array_ElementLength(arrayId2, width2),
+  width1 != width2.
+
+.decl Analytics_PolymorphicArrayVarAlt(arrayVar: Variable, width: symbol)
+.output Analytics_PolymorphicArrayVarAlt
+
+Analytics_PolymorphicArrayVarAlt(array, width1):-
+  Array_ElementLength(array, width1),
+  Array_ElementLength(array, width2),
+  width1 != width2.
+
+.decl Analytics_PolymorphicArrayVarSameCtx(arrayVar: Variable, width: symbol)
+.output Analytics_PolymorphicArrayVarSameCtx
+
+Analytics_PolymorphicArrayVarSameCtx(arrayVar, width1):-
+  VarPointsToArray(ctx, arrayVar, _, arrayId1),
+  VarPointsToArray(ctx, arrayVar, _, arrayId2),
+  Array_ElementLength(arrayId1, width1),
+  Array_ElementLength(arrayId2, width2),
+  width1 != width2.
