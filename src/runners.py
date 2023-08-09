@@ -317,7 +317,7 @@ class CustomFactGenerator(AbstractFactGenerator):
                 e,t = self.analysis_executor.run_script_client(arguments, work_dir, out_dir, fact_gen_time_start)
                 errors.extend(e)
                 timeouts.extend(t)
-        return time.time() - fact_gen_time_start, 0, None
+        return time.time() - fact_gen_time_start, 0.0, None
 
     def get_datalog_files(self) -> List[str]:
         return [a for a in self.fact_generator_scripts if a.endswith('.dl')]

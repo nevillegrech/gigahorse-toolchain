@@ -604,7 +604,6 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     if args.custom_fact_generator == None:
-        fact_gen_class = DecompilerFactGenerator
+        run_gigahorse(args, DecompilerFactGenerator)
     else:
-        fact_gen_class = CustomFactGenerator
-    run_gigahorse(args, fact_gen_class)
+        run_gigahorse(args, CustomFactGenerator)
