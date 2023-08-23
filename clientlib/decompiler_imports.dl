@@ -335,6 +335,15 @@ Block_Tail(block, stmt) :-
   !PHI(stmt, _, _),
   !Helper_NextStatementInSameBlock(stmt, _).
 
+Block_Tail(block, stmt):-
+  Statement_Block(stmt, block),
+  PHI(stmt, _, _),
+  num = count : Statement_Block(_, block), num = 1.
+
+Block_Head(block, stmt):-
+  Statement_Block(stmt, block),
+  PHI(stmt, _, _),
+  num = count : Statement_Block(_, block), num = 1.
 
 .decl IsBlock(block: Block)
 
@@ -356,12 +365,8 @@ ValidGlobalTerminalBlock(block) :-
    Block_Tail(block, tail),
    (STOP(tail) ; RETURN(tail, _, _)).
 
-.decl InputGlobalEntryBlock(block: Block)
-.input InputGlobalEntryBlock(IO="file", filename="InputGlobalEntryBlock.csv", delimiter="\t")
-
 .decl GlobalEntryBlock(block: Block)
-GlobalEntryBlock(block):- InputGlobalEntryBlock(block).
-GlobalEntryBlock("0x0"):- !InputGlobalEntryBlock(_).
+.input GlobalEntryBlock(IO="file", filename="GlobalEntryBlock.csv", delimiter="\t")
 
 
 .decl FallbackFunction(func: Function)
