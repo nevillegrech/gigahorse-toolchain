@@ -43,13 +43,14 @@ PublicFunctionArg(pubFun, arg, constNum):-
   !CallDataLoadArrayLoadingPattern(cdl, _, _, _, _),
   (constNum - 4) % 32 != 0.
 
-PublicFunctionArg(pubFun, arg, constNum):-
+PublicFunctionArg(pubFun, formalArg, constNum):-
   IsPublicFunction(pubFun),
   CallGraphEdge(caller_block, pubFun),
   Statement_Block(stmt, caller_block),
-  (JUMP(stmt, _); CALLPRIVATE(stmt, _)),
-  Statement_Uses(stmt, argVar, _), // TODO actualArgs instead of Uses?
+  CALLPRIVATE(stmt, _),
+  ActualArgs(caller_block, argVar, pos),
   DataFlows(arg, argVar),
+  FormalArgs(pubFun, formalArg, pos),
   CALLDATALOADOfConstant(cdl, _, constNum),
   CALLDATALOAD(cdl, _, arg).
 
