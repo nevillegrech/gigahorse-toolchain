@@ -517,6 +517,29 @@
     LocalFlows(sender, formalRet),
     In_FormalReturnArgs(fun, formalRet, _).
 
+.decl FunctionNameStartsWith(fun: Function, prefix: symbol)
+FunctionNameStartsWith(fun, prefix):-
+    HighLevelFunctionName(fun, funName),
+    prefix=substr(funName, 0, strlen(prefix)).
+
+  InlineCandidate(fun):-
+    HighLevelFunctionName(fun, funName),
+    (prefix = "abi_encode_";
+    prefix = "checked_";
+    prefix = "extract_";
+    prefix = "getter_";
+    prefix = "mapping_index_";
+    prefix = "modifier_";
+    prefix = "read_from_storage_";
+    prefix = "require_helper_";
+    prefix = "update_storage_value_";
+    prefix = "abi_decode";
+    prefix = "increment_";
+    prefix = "panic_error_";
+    ),
+    FunctionNameStartsWith(fun, prefix).
+
+
   /* To detect some storage constructs breaking through functions */
   InlineCandidate(fun):-
     (SHA3(_, _, _, var) ; Variable_Value(var, _)),
