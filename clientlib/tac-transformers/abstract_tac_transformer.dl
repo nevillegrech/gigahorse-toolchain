@@ -1,0 +1,50 @@
+#include "../decompiler_imports.dl"
+
+.comp AbstractTACTransformer {
+
+  .decl In_Statement_Opcode(stmt:Statement, opcode:Opcode)
+  .decl In_IsStatement(stmt:Statement)
+  .decl In_Statement_Block(stmt: Statement, block: Block)
+  .decl In_Variable_Value(var: Variable, value: Value)
+  .decl In_Variable_BlockValue(var: Variable, value: Value)
+  .decl In_LocalBlockEdge(block: Block, nextBlock: Block)
+  .decl In_FallthroughEdge(block: Block, nextBlock: Block)
+  .decl In_CallGraphEdge(block: Block, function: Function)
+  .decl In_FunctionCallReturn(block: Block, function: Function, return: Block)
+  .decl In_IsFunction(func: Function)
+  .decl In_Block_Gas(block:Block, gas:number)
+  .decl In_Block_CodeChunkAccessed(block:Block, chunk:Chunk)
+  .decl In_Statement_OriginalStatement(irstmt: Statement, stmt: symbol)
+  .decl In_Statement_OriginalStatementList(irstmt: Statement, stmtList: OriginalStatementList)
+  .decl In_OriginalStatement_Block(stmt:symbol, block:Block)
+  .decl In_FormalArgs(fn: Function, a: Variable, pos: number)
+  .decl In_Statement_Uses(stmt: Statement, var: Variable, i: number)
+  .decl In_Statement_Defines(stmt: Statement, var: Variable, n: number)
+  .decl In_Statement_Next(stmt: Statement, next: Statement)
+  .decl In_FunctionEntry(block: Block)
+  .decl In_InFunction(block: Block, function: Function)
+  .decl In_ActualReturnArgs(caller: Block, a: Variable, pos: number)
+
+  .decl Out_Statement_Opcode(stmt:Statement, opcode:Opcode)  //CHECK
+  .decl Out_IsStatement(stmt:Statement) //CHECK
+  .decl Out_Statement_Block(stmt: Statement, block: Block) //CHECK
+  .decl Out_Variable_Value(var: Variable, value: Value)
+  .decl Out_Variable_BlockValue(var: Variable, value: Value)
+  .decl Out_LocalBlockEdge(block: Block, nextBlock: Block)  //CHECK
+  .decl Out_FallthroughEdge(block: Block, nextBlock: Block)     //CHECK
+  .decl Out_CallGraphEdge(block: Block, function: Function)            //CHECK
+  .decl Out_FunctionCallReturn(block: Block, function: Function, return: Block)   //CHECK
+  .decl Out_IsFunction(func: Function)  //CHECK
+  .decl Out_Block_Gas(block:Block, gas:number)  //CHECK
+  .decl Out_Block_CodeChunkAccessed(block:Block, chunk:Chunk)  //CHECK
+  .decl Out_Statement_OriginalStatement(irstmt: Statement, stmt: symbol)
+  .decl Out_Statement_OriginalStatementList(irstmt: Statement, stmtList: OriginalStatementList)
+  .decl Out_OriginalStatement_Block(stmt:symbol, block:Block)
+  .decl Out_FormalArgs(fn: Function, a: Variable, pos: number) //CHECK
+  .decl Out_Statement_Uses(stmt: Statement, var: Variable, i: number)  //CHECK
+  .decl Out_Statement_Defines(stmt: Statement, var: Variable, n: number)  //CHECK
+  .decl Out_Statement_Next(stmt: Statement, next: Statement)  //CHECK
+  .decl Out_FunctionEntry(block: Block)  //CHECK
+  .decl Out_InFunction(block: Block, function: Function)  //CHECK
+  .decl Out_ActualReturnArgs(caller: Block, a: Variable, pos: number) //CHECK
+}

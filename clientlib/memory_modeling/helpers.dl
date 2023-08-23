@@ -138,3 +138,35 @@ CALLDATALOADOfConstant(cdl, constHex, constNum):-
   CALLDATALOAD(cdl, index, _),
   Variable_Value(index, constHex),
   Variable_NumericValue(index, constNum).
+
+/**
+  Helper predicate to resolve ambiguous const array patterns
+*/
+.decl MSTOREValueIsProbablyBytes1(mstore: Statement)
+
+MSTOREValueIsProbablyBytes1(mstore):-
+  MSTORE(mstore, _, storedVar),
+  (
+  HighBytesMaskOp(_, storedVar, 1);
+   (
+    Variable_Value(storedVar, storedVal),
+    storedVal = as(@and_256(storedVal, "0xff00000000000000000000000000000000000000000000000000000000000000"), Value)
+   )
+  ).
+
+/**
+  To be used to model the common pattern x = mem[64] + x - mem[64]
+  Unused for now
+*/
+.decl BasicAliasPattern(var: Variable, aliasVar: Variable)
+DEBUG_OUTPUT(BasicAliasPattern)
+
+BasicAliasPattern(var, aliasVar):-
+  ADDFix(_, var, memPtrA, varPlusMemPtr),
+  SUB(_, varPlusMemPtr, memPtrB, aliasVar),
+  MLOADFreePtr_To(mloadA, memPtrA),
+  MLOADSFreePtrUnchanged(mloadA, mloadB),
+  MLOADFreePtr_To(mloadB, memPtrB).
+
+BasicAliasPattern(var, var):-
+  isVariable(var).

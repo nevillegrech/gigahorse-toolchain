@@ -1,0 +1,157 @@
+#include "abstract_tac_transformer.dl"
+
+.comp FunctionCloner : AbstractTACTransformer {
+
+  // input
+  .decl FunctionToClone(fun: Function, id: symbol, callSite: Block)
+
+  /**
+    HELPERS
+  */
+  .decl FunctionToClonedInstance(fun: Function, id: symbol, clonedFun: Function)
+
+  .decl BlockToClonedInstance(block: Block, id: symbol, clonedBlock: Block)
+
+  .decl StatementToClonedInstance(stmt: Statement, id: symbol, clonedStmt: Statement)
+
+  .decl VariableToClonedInstance(var: Variable, id: symbol, clonedVar: Variable)
+
+  FunctionToClonedInstance(fun, id, as(cat(cat(fun, "_"), id), Function)):-
+    FunctionToClone(fun, id, _).
+
+  FunctionToClonedInstance(fun, "", fun):-
+    In_IsFunction(fun).
+
+  BlockToClonedInstance(block, id, as(cat(cat(block, "_"), id), Block)):-
+    FunctionToClone(fun, id, _),
+    In_InFunction(block, fun).
+
+  BlockToClonedInstance(block, "", block):-
+    In_IsFunction(fun),
+    In_InFunction(block, fun).
+
+  StatementToClonedInstance(stmt, id, as(cat(cat(stmt, "_"), id), Statement)):-
+    FunctionToClone(fun, id, _),
+    In_InFunction(block, fun),
+    In_Statement_Block(stmt, block).
+
+  StatementToClonedInstance(stmt, "", stmt):-
+    In_IsFunction(fun),
+    In_InFunction(block, fun),
+    In_Statement_Block(stmt, block).
+
+  VariableToClonedInstance(var, id, as(cat(cat(var, "_"), id), Variable)):-
+    FunctionToClone(fun, id, _),
+    In_InFunction(block, fun),
+    In_Statement_Block(stmt, block),
+    (In_Statement_Defines(stmt, var, _); In_Statement_Uses(stmt, var, _)).
+
+  VariableToClonedInstance(var, "", var):-
+    In_IsFunction(fun),
+    In_InFunction(block, fun),
+    In_Statement_Block(stmt, block),
+    (In_Statement_Defines(stmt, var, _); In_Statement_Uses(stmt, var, _)).
+
+  Out_Statement_Opcode(outStmt, opcode):-
+    In_Statement_Opcode(stmt, opcode),
+    StatementToClonedInstance(stmt, _, outStmt).
+  
+  Out_IsStatement(outStmt):-
+    In_IsStatement(stmt),
+    StatementToClonedInstance(stmt, _, outStmt).
+
+  Out_Statement_Block(newStmt, newBlock):-
+    In_Statement_Block(stmt, block),
+    BlockToClonedInstance(block, id, newBlock),
+    StatementToClonedInstance(stmt, id, outStmt).
+
+  Out_Variable_Value(newVar, value):-
+    In_Variable_Value(var, value),
+    VariableToClonedInstance(var, _, newVar).
+
+  Out_Variable_BlockValue(newVar, as(newBlock, Value)):-
+    In_Variable_BlockValue(var, value),
+    VariableToClonedInstance(var, id, newVar),
+    BlockToClonedInstance(as(value, Block), id, newBlock).
+
+  Out_LocalBlockEdge(newBlock, newNextBlock):-
+    In_LocalBlockEdge(block, nextBlock),
+    BlockToClonedInstance(block, id, newBlock),
+    BlockToClonedInstance(nextBlock, id, newNextBlock).
+
+  Out_FallthroughEdge(newBlock, newNextBlock):-
+    In_FallthroughEdge(block, nextBlock),
+    BlockToClonedInstance(block, id, newBlock),
+    BlockToClonedInstance(nextBlock, id, newNextBlock).
+
+  Out_CallGraphEdge(callerBlock, fun):-
+    In_CallGraphEdge(callerBlock, fun),
+    !FunctionToClone(fun, _, callerBlock).
+
+  Out_CallGraphEdge(callerBlock, clonedFun):-
+    In_CallGraphEdge(callerBlock, fun),
+    FunctionToClone(fun, id, callerBlock),
+    FunctionToClonedInstance(fun, id, clonedFun).
+
+  Out_FunctionCallReturn(callerBlock, fun, return):-
+    In_FunctionCallReturn(callerBlock, fun, return),
+    !FunctionToClone(fun, _, callerBlock).
+
+  Out_FunctionCallReturn(callerBlock, clonedFun, return):-
+    In_CallGraphEdge(callerBlock, fun),
+    FunctionToClone(fun, id, callerBlock),
+    FunctionToClonedInstance(fun, id, clonedFun).
+
+  Out_IsFunction(fun):-
+    In_IsFunction(fun).
+
+  Out_IsFunction(clonedFun):-
+    In_IsFunction(fun),
+    FunctionToClonedInstance(fun, _, clonedFun).
+
+  Out_Block_Gas(newBlock, gas):-
+    In_Block_Gas(block, gas),
+    BlockToClonedInstance(block, _, newBlock).
+
+  Out_Block_CodeChunkAccessed(newBlock, chunk):-
+    In_Block_Gas(block, gas),
+    BlockToClonedInstance(block, _, newBlock).
+
+  Out_Statement_OriginalStatement(outStmt, stmt):-
+    In_Statement_OriginalStatement(inStmt, stmt),
+    StatementToClonedInstance(inStmt, _, outStmt).
+
+  Out_FormalArgs(outFun, outArg, pos):-
+    In_FormalArgs(fun, arg, pos),
+    FunctionToClonedInstance(fun, id, outFun),
+    VariableToClonedInstance(arg, id, outArg).
+
+  Out_Statement_Uses(outStmt, outVar, i):-
+    In_Statement_Uses(inStmt, inVar, i),
+    StatementToClonedInstance(inStmt, id, outStmt),
+    VariableToClonedInstance(inVar, id, outVar).
+
+  Out_Statement_Defines(outStmt, outVar, i):-
+    In_Statement_Defines(inStmt, inVar, i),
+    StatementToClonedInstance(inStmt, id, outStmt),
+    VariableToClonedInstance(inVar, id, outVar).
+
+  Out_Statement_Next(outStmt, outNext):-
+    In_Statement_Next(inStmt, inNext),
+    StatementToClonedInstance(inStmt, id, outStmt),
+    StatementToClonedInstance(inNext, id, outNext).
+
+  Out_FunctionEntry(outEntry):-
+    In_FunctionEntry(inEntry),
+    BlockToClonedInstance(inEntry, _, outEntry).
+
+  Out_InFunction(outBlock, outFunction):-
+    In_InFunction(inBlock, inFunction),
+    BlockToClonedInstance(inBlock, id, outBlock),
+    FunctionToClonedInstance(inFunction, id, outFunction).
+
+  Out_ActualReturnArgs(outCaller, outRet, pos):-
+    In_ActualReturnArgs(inCaller, inRet, pos),
+    BlockToClonedInstance(inCaller, id, outCaller),
+    VariableToClonedInstance(inRet, id, outRet).
+}
