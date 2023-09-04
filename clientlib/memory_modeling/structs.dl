@@ -54,6 +54,7 @@ PossibleStructAllocation(mload, freePtrUpdStore, structBase, memDiff / 32):-
   MLOADFreePtr_To(mload, structBase),
   FreePointerBasedValue(updateVal, mload, _, memDiff),
   memDiff % 32 = 0,
+  memDiff / 32 > 0,
   Variable_SymbolicValue(updatedFMP, updateVal),
   MSTORE(freePtrUpdStore, _, updatedFMP),
   MSTOREFreePtr(freePtrUpdStore).
@@ -102,15 +103,15 @@ StructAllocationCheck(structBase):-
 StructAllocation(freePtrUpdStore, structBaseVar, wordWidth):-
   PossibleStructAllocation(_, freePtrUpdStore, structBaseVar, wordWidth),
   wordWidth >= count : InitialStoreToPossibleStruct(_, structBaseVar, _, _),
-  DataFlows(structBaseVar, argOrRet),
-  (ActualArgs(_, argOrRet, _) ; ActualReturnArgs(_, argOrRet, _)),
+  LocalFlows(structBaseVar, argOrRet),
+  (ActualArgs(_, argOrRet, _) ; FormalReturnArgs(_, argOrRet, _)),
   !ProbablyConstantArray(structBaseVar).
 
 StructAllocation(freePtrUpdStore, structBaseVar, wordWidth):-
   PossibleStructAllocation(_, freePtrUpdStore, structBaseVar, wordWidth),
   StructAllocationCheck(structBaseVar),
-  DataFlows(structBaseVar, argOrRet),
-  (ActualArgs(_, argOrRet, _) ; ActualReturnArgs(_, argOrRet, _)),
+  LocalFlows(structBaseVar, argOrRet),
+  (ActualArgs(_, argOrRet, _) ; FormalReturnArgs(_, argOrRet, _)),
   !ProbablyConstantArray(structBaseVar).
 
 Struct_WordWidth(structBase, wordWidth):-
