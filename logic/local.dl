@@ -690,6 +690,17 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     Statement_Uses_Local(jumpiStmt, pred, 1),
     JUMPI(jumpiStmt).
 
+  BlockComparesSigVyper(block, sigHash) :-
+    Statement_Block(pushStmt, block),
+    ImmediateBlockJumpTarget(block, _),
+    (PUSH4(pushStmt, sigHash) ; PUSH3(pushStmt, sigHash)),
+    Statement_Defines(pushStmt, sigHashVar),
+    SUB(subStmt),
+    Statement_Uses_Local(subStmt, sigHashVar, _),
+    Statement_Defines(subStmt, pred),
+    JUMPI(jumpiStmt),
+    Statement_Uses_Local(jumpiStmt, pred, 1).
+
   PublicFunctionJump(block, sigHash) :-   BlockComparesSig(block, sigHash).
 
   PublicFunction(as(targetValue, Block), sigHash) :-
@@ -824,7 +835,7 @@ insertor.insertOps(functionStartStmt,
    preTrans.BlockComparesSigVyper(block, hash),
    preTrans.BasicBlock_Tail(block, tail),
    preTrans.Statement_Next(tail, functionStartStmt),
-   !preTrans.BlockComparesSig(_, _).
+   !preTrans.BlockComparesSig(_, hash).
 
 // Receive transformation
 insertor.insertOps(functionStartStmt,
@@ -926,7 +937,7 @@ postTrans.PublicFunction(block, hash) :-
    postTrans.JUMPDEST(stmt),
    postTrans.Statement_Block(stmt, block),
    preTrans.BlockComparesSigVyper(_, hash),
-   !preTrans.BlockComparesSig(_, _),
+   !preTrans.BlockComparesSig(_, hash),
    ISLABEL(meta), hash = GET_LABEL_REFERENCE(meta).
 
 // For receive functions
