@@ -52,6 +52,12 @@ DEBUG_OUTPUT(VarPlusThirtyTwo)
 .decl VarPlusConst(var:Variable, const:Value, varPlus:Variable)
 DEBUG_OUTPUT(VarPlusConst)
 
+/**
+  Same as `VarPlusConst` but without the identity case for every variable
+*/
+.decl VarPlusConstNoIdentity(var:Variable, constant:Value, varPlus:Variable)
+DEBUG_OUTPUT(VarPlusConstNoIdentity)
+
 .decl VarMinusConst(var:Variable, const:Value, varMinus:Variable)
 DEBUG_OUTPUT(VarMinusConst)
 
@@ -80,6 +86,7 @@ VarPlusThirtyTwo(var, varPlus):-
   ADDFix(_, var, thirtyTwo, varPlus),
   BasicVariable_Value(thirtyTwo, "0x20").
 
+VarPlusConstNoIdentity(var, const, varPlus),
 VarPlusConst(var, const, varPlus):-
   ADDFix(_, var, constVar, varPlus),
   BasicVariable_Value(constVar, const).
@@ -115,19 +122,19 @@ VarPlusThrirtyOneDivMulSixtyFour(var, result):-
 VarTimesConstantNoIdentity(var, constVal, result),
 VarTimesConstant(var, constVal, result):-
   (MUL(_, var, constVar, result); MUL(_, constVar, var, result)),
-  Variable_Value(constVar, constVal).
+  BasicVariable_Value(constVar, constVal).
 
 VarTimesConstantNoIdentity(var, as(@exp_256("0x2", shiftBits), Value), result),
 VarTimesConstant(var, as(@exp_256("0x2", shiftBits), Value), result):-
   SHL(_, shiftConst, var, result),
-  Variable_Value(shiftConst, shiftBits).
+  BasicVariable_Value(shiftConst, shiftBits).
 
 VarTimesConstant(var, "0x1", var):-
   Statement_Defines(_, var, _).
 
 VarDivByConstant(var, constVal, result):-
   DIV(_, var, constVar, result),
-  Variable_Value(constVar, constVal).  
+  BasicVariable_Value(constVar, constVal).
 
 VarDivByConstant(var, "0x1", var):-
   Statement_Defines(_, var, _).

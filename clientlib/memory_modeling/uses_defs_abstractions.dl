@@ -33,6 +33,7 @@ PublicFunctionArg(pubFun, arg, (constNum - 4) / 32):-
   Statement_Function(cdl, pubFun),
   IsPublicFunction(pubFun),
   !CallDataLoadArrayLoadingPattern(cdl, _, _, _, _),
+  !CallDataStructLoadingPattern(cdl, _, _, _, _, _),
   (constNum - 4) % 32 = 0.
 
 PublicFunctionArg(pubFun, arg, constNum):-
@@ -41,10 +42,14 @@ PublicFunctionArg(pubFun, arg, constNum):-
   Statement_Function(cdl, pubFun),
   IsPublicFunction(pubFun),
   !CallDataLoadArrayLoadingPattern(cdl, _, _, _, _),
+  !CallDataStructLoadingPattern(cdl, _, _, _, _, _),
   (constNum - 4) % 32 != 0.
 
 PublicFunctionArg(pubFun, arrayArg, index):-
   PublicFunctionArrayArg(pubFun, arrayArg, index).
+
+PublicFunctionArg(pubFun, structArg, index):-
+  PublicFunctionStructArg(pubFun, structArg, index).
 
 PublicFunctionArrayArg(pubFun, as(arrayArg, ArrayVariable), (@hex_to_number(constHex) - 4) / 32):-
   IsArgCallDataArrayVar(arrayArg, constHex),
@@ -55,6 +60,18 @@ PublicFunctionArrayArg(pubFun, as(arrayArg, ArrayVariable), (@hex_to_number(cons
 PublicFunctionArrayArg(pubFun, as(arrayArg, ArrayVariable), @hex_to_number(constHex)):-
   IsArgCallDataArrayVar(arrayArg, constHex),
   Variable_Function(arrayArg, pubFun),
+  IsPublicFunction(pubFun),
+  (@hex_to_number(constHex) - 4) % 32 != 0.
+
+PublicFunctionStructArg(pubFun, structArg, (@hex_to_number(constHex) - 4) / 32):-
+  IsArgCallDataStruct(structArg, constHex),
+  Variable_Function(structArg, pubFun),
+  IsPublicFunction(pubFun),
+  (@hex_to_number(constHex) - 4) % 32 = 0.
+
+PublicFunctionStructArg(pubFun, structArg, @hex_to_number(constHex)):-
+  IsArgCallDataStruct(structArg, constHex),
+  Variable_Function(structArg, pubFun),
   IsPublicFunction(pubFun),
   (@hex_to_number(constHex) - 4) % 32 != 0.
 

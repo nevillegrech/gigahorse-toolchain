@@ -79,12 +79,28 @@ CallDataLoadArrayLoadingPattern(cdl, cdl2, plusFourVar, lenVar, argHex):-
   Variable_Value(argIdVar, argHex),
   ADDFix(_, toVar, fourVar, plusFourVar),
   Variable_NumericValue(fourVar, 4),
-  CALLDATALOAD(cdl2, plusFourVar, lenVar).
+  CALLDATALOAD(cdl2, plusFourVar, lenVar),
+  // Differentiate between arrays and structs here
+  // going for the easiest/most hacky way to do it for now
+  !VarPlusConstNoIdentity(plusFourVar, _, _).
+
+// IsCallDataArrayVar(loadedVar):-
+//   CallDataStructLoadingPattern(cdl, _, structBaseVar, _, loadedVar, _),
+//   Statement_Defines(cdl, toVar, _),
+//   ADDFix(_, toVar, fourVar, plusFourVar),
+//   Variable_NumericValue(fourVar, 4),
+//   ADDFix(plusFourVar, loadedVar, resVar).
+
 
 /**
+  TODO: Use it to capture calldata arrays of structs, encoded differently than
+  arrays of structs in calldata
   REVIEW at some point as it may be too loose.
   However we can't do much better right now.
 */
+.decl PossibleCallDataArrayElementLength(calldataArray: Variable, elemSize: symbol)
+
+
 Array_ElementLength(plusFourVar, elemSize):-
   IsArgCallDataArrayVar(plusFourVar, argHex),
   CallDataLoadArrayLoadingPattern(_, _, plusFourVar, lenVar, argHex),
@@ -543,7 +559,8 @@ ArrayAllocationInternal(mstore, array, elementSize, arrayLengthVar):-
   VarPlusThirtyTwo(arraySizeBytes, arraySizeBytesPlusLength),
   ADDFix(_, arraySizeBytesPlusLength, array, updatedFMP),
   Statement_Uses(mstore, updatedFMP, 1),
-  MSTOREFreePtr(mstore).
+  MSTOREFreePtr(mstore),
+  (elementSize = "0x1"; elementSize = "0x20").
 
 /**
  Not proven to work so far
@@ -557,7 +574,8 @@ ArrayAllocationInternal(mstore, array, elementSize, arrayLengthVar):-
   VarTimesConstant(arrayLengthVar, elementSize, arraySizeBytes),
   ADDFix(_, arraySizeBytes, arrayStart, updatedFMP),
   Statement_Uses(mstore, updatedFMP, 1),
-  MSTOREFreePtr(mstore).
+  MSTOREFreePtr(mstore),
+  (elementSize = "0x1"; elementSize = "0x20").
 
 /**
   Covers patterns produced for calldata arrays copied to memory.
@@ -573,7 +591,8 @@ ArrayAllocationInternal(mstore, array, elementSize, arrayLengthVar):-
   VarPlusThrirtyOneAndNotThirtyOne(arrayTotalSizeBytes, arrayFinalSizeBytes),
   ADDFix(_, arrayFinalSizeBytes, array, updatedFMP),
   Statement_Uses(mstore, updatedFMP, 1),
-  MSTOREFreePtr(mstore).
+  MSTOREFreePtr(mstore),
+  (elementSize = "0x1"; elementSize = "0x20").
 
 
 /**
@@ -589,7 +608,8 @@ ArrayAllocationInternal(mstore, array, elementSize, arrayLengthVar):-
   VarPlusSixtyThreeAndNotThirtyOne(arraySizeBytes, arrayFinalSizeBytes),
   ADDFix(_, arrayFinalSizeBytes, array, updatedFMP),
   Statement_Uses(mstore, updatedFMP, 1),
-  MSTOREFreePtr(mstore).
+  MSTOREFreePtr(mstore),
+  (elementSize = "0x1"; elementSize = "0x20").
 
 /**
   bytes or strings

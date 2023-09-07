@@ -114,8 +114,56 @@ StructAllocation(freePtrUpdStore, structBaseVar, wordWidth):-
   (ActualArgs(_, argOrRet, _) ; FormalReturnArgs(_, argOrRet, _)),
   !ProbablyConstantArray(structBaseVar).
 
+/**
+  If something that may be an array is stored to a memory addr derived from `structBaseVar`
+  of a `PossibleStructAllocation`, consider it a valid allocation.
+*/
+StructAllocation(freePtrUpdStore, structBaseVar, wordWidth):-
+  PossibleStructAllocation(mload, freePtrUpdStore, structBaseVar, wordWidth),
+  FreePointerBasedValue(storeIndexVal, mload, _, memOffset),
+  memOffset % 32 = 0,
+  memOffset / 32 < wordWidth,
+  Variable_SymbolicValue(memIndex, storeIndexVal),
+  MSTORE(_, memIndex, storedVar),
+  PossibleArray(storedVar).
+
 Struct_WordWidth(structBase, wordWidth):-
   StructAllocation(_, structBase, wordWidth).
+
+.decl IsArgCallDataStruct(structBaseVar: Variable, argHex: symbol)
+DEBUG_OUTPUT(IsArgCallDataStruct)
+
+.decl CallDataStructLoadingPattern(cdl: Statement, cdl2: Statement, structBase: Variable, index: number, loadedVar: Variable, argHex: symbol)
+DEBUG_OUTPUT(CallDataStructLoadingPattern)
+
+IsArgCallDataStruct(structBaseVar, argHex),
+CallDataStructLoadingPattern(cdl, cdl2, structBaseVar, @hex_to_number(index)/32, loadedVar, argHex):-
+  CALLDATALOAD(cdl, argIdVar, toVar),
+  Variable_Value(argIdVar, argHex),
+  ADDFix(_, toVar, fourVar, structBaseVar),
+  Variable_NumericValue(fourVar, 4),
+  VarPlusConst(structBaseVar, index, indexVar),
+  @hex_to_number(index) % 32 = 0,
+  CALLDATALOAD(cdl2, indexVar, loadedVar),
+  VarPlusConstNoIdentity(structBaseVar, _, _),
+  !ADDFix(_, loadedVar, structBaseVar, _).
+
+IsArgCallDataStruct(structBaseVar, argHex),
+IsCallDataArrayVar(structArrayVar),
+CallDataStructLoadingPattern(cdl, addStmt, structBaseVar, @hex_to_number(index)/32, structArrayVar, argHex):-
+  CALLDATALOAD(cdl, argIdVar, toVar),
+  Variable_Value(argIdVar, argHex),
+  ADDFix(_, toVar, fourVar, structBaseVar),
+  Variable_NumericValue(fourVar, 4),
+  VarPlusConst(structBaseVar, index, indexVar),
+  @hex_to_number(index) % 32 = 0,
+  CALLDATALOAD(cdl2, indexVar, loadedVar),
+  VarPlusConstNoIdentity(structBaseVar, _, _),
+  ADDFix(addStmt, loadedVar, structBaseVar, structArrayVar).
+
+Struct_WordWidth(structBaseVar, maxIndex + 1):-
+  IsArgCallDataStruct(structBaseVar, _),
+  maxIndex = max index : {CallDataStructLoadingPattern(_, _, structBaseVar, index, _, _)}.
 
 StructIndex(structBaseVar, indexVar, memOffset / 32):-
   Struct_WordWidth(structBaseVar, wordWidth),
@@ -223,5 +271,4 @@ StructContainsArray(formal, wordOffset, elementSize):-
 IsRegularArrayVar(loadedVar),
 Array_ElementLength(loadedVar, @number_to_hex(elementSize)):-
   StructContainsArray(formal, wordOffset, elementSize),
-  StructArg(_, _, _, _, formal),
   StructLoad(_, formal, wordOffset, loadedVar).
