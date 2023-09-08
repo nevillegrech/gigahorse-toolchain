@@ -82,15 +82,7 @@ CallDataLoadArrayLoadingPattern(cdl, cdl2, plusFourVar, lenVar, argHex):-
   CALLDATALOAD(cdl2, plusFourVar, lenVar),
   // Differentiate between arrays and structs here
   // going for the easiest/most hacky way to do it for now
-  !VarPlusConstNoIdentity(plusFourVar, _, _).
-
-// IsCallDataArrayVar(loadedVar):-
-//   CallDataStructLoadingPattern(cdl, _, structBaseVar, _, loadedVar, _),
-//   Statement_Defines(cdl, toVar, _),
-//   ADDFix(_, toVar, fourVar, plusFourVar),
-//   Variable_NumericValue(fourVar, 4),
-//   ADDFix(plusFourVar, loadedVar, resVar).
-
+  !ProbablyUsedAsStruct(plusFourVar).
 
 /**
   TODO: Use it to capture calldata arrays of structs, encoded differently than

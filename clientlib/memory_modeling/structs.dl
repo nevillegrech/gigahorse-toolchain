@@ -136,6 +136,13 @@ DEBUG_OUTPUT(IsArgCallDataStruct)
 .decl CallDataStructLoadingPattern(cdl: Statement, cdl2: Statement, structBase: Variable, index: number, loadedVar: Variable, argHex: symbol)
 DEBUG_OUTPUT(CallDataStructLoadingPattern)
 
+// Resolve ambiguous patterns between calldata structs and arrays
+.decl ProbablyUsedAsStruct(probablyStruct: Variable)
+ProbablyUsedAsStruct(probablyStruct):-
+  VarPlusConstNoIdentity(probablyStruct, const, loadVar),
+  @hex_to_number(const) % 32 = 0,
+  CALLDATALOAD(_, loadVar, _).
+
 IsArgCallDataStruct(structBaseVar, argHex),
 CallDataStructLoadingPattern(cdl, cdl2, structBaseVar, @hex_to_number(index)/32, loadedVar, argHex):-
   CALLDATALOAD(cdl, argIdVar, toVar),
@@ -145,7 +152,7 @@ CallDataStructLoadingPattern(cdl, cdl2, structBaseVar, @hex_to_number(index)/32,
   VarPlusConst(structBaseVar, index, indexVar),
   @hex_to_number(index) % 32 = 0,
   CALLDATALOAD(cdl2, indexVar, loadedVar),
-  VarPlusConstNoIdentity(structBaseVar, _, _),
+  ProbablyUsedAsStruct(structBaseVar),
   !ADDFix(_, loadedVar, structBaseVar, _).
 
 IsArgCallDataStruct(structBaseVar, argHex),
@@ -158,7 +165,7 @@ CallDataStructLoadingPattern(cdl, addStmt, structBaseVar, @hex_to_number(index)/
   VarPlusConst(structBaseVar, index, indexVar),
   @hex_to_number(index) % 32 = 0,
   CALLDATALOAD(cdl2, indexVar, loadedVar),
-  VarPlusConstNoIdentity(structBaseVar, _, _),
+  ProbablyUsedAsStruct(structBaseVar),
   ADDFix(addStmt, loadedVar, structBaseVar, structArrayVar).
 
 Struct_WordWidth(structBaseVar, maxIndex + 1):-
