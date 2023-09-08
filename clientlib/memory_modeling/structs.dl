@@ -142,6 +142,7 @@ DEBUG_OUTPUT(IsArgCallDataStruct)
 .decl CallDataStructLoadingPattern(load: Statement, structBase: Variable, index: number, loadedVar: Variable, argHex: symbol)
 DEBUG_OUTPUT(CallDataStructLoadingPattern)
 
+.decl IntermediateStructLoad(cdl: Statement, structBase: Variable)
 /**
   Resolve ambiguous patterns between calldata structs and arrays
   Will improve
@@ -154,6 +155,7 @@ ProbablyUsedAsCallDataStruct(probablyStruct):-
 
 IsArgCallDataStruct(structBaseVar, argHex),
 CallDataStructLoadingPattern(cdl, structBaseVar, @hex_to_number(offset)/32, loadedVar, argHex):-
+  InitialCallDataPointerDefinition(structBaseVar, argHex),
   Variable_CallDataPointer(structBaseVar, $OffsetCallDataPointer($InitialCallDataPointer(argHex), "0x0")),
   Variable_CallDataPointer(indexVar, $OffsetCallDataPointer($InitialCallDataPointer(argHex), offset)),
   Variable_Function(structBaseVar, fun),
@@ -166,13 +168,15 @@ CallDataStructLoadingPattern(cdl, structBaseVar, @hex_to_number(offset)/32, load
 IsArgCallDataStruct(structBaseVar, argHex),
 IsCallDataArrayVar(structArrayVar),
 // StructContainsArray(structBaseVar, @hex_to_number(offset)/32, "??"),
+IntermediateStructLoad(cdl, structBaseVar),
 CallDataStructLoadingPattern(addStmt, structBaseVar, @hex_to_number(offset)/32, structArrayVar, argHex):-
+  InitialCallDataPointerDefinition(structBaseVar, argHex),
   Variable_CallDataPointer(structBaseVar, $OffsetCallDataPointer($InitialCallDataPointer(argHex), "0x0")),
   Variable_CallDataPointer(indexVar, $OffsetCallDataPointer($InitialCallDataPointer(argHex), offset)),
   Variable_Function(structBaseVar, fun),
   Variable_Function(indexVar, fun),
   @hex_to_number(offset) % 32 = 0,
-  CALLDATALOAD(_, indexVar, loadedVar),
+  CALLDATALOAD(cdl, indexVar, loadedVar),
   ProbablyUsedAsCallDataStruct(structBaseVar),
   ADDFix(addStmt, loadedVar, structBaseVar, structArrayVar).
 

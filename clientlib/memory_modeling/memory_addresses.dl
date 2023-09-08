@@ -366,13 +366,18 @@ FreePointerBasedValue_AliasRep(val, repVal):-
 .decl Variable_CallDataPointer(var: Variable, callDataPtr: CallDataPointer)
 DEBUG_OUTPUT(Variable_CallDataPointer)
 
-Variable_CallDataPointer(callDataPtrVar, $OffsetCallDataPointer($InitialCallDataPointer(argHex), "0x0")):-
+.decl InitialCallDataPointerDefinition(var: Variable, argHex: Value)
+
+InitialCallDataPointerDefinition(callDataPtrVar, argHex):-
   CALLDATALOAD(cdl, argIdVar, toVar),
   Variable_Value(argIdVar, argHex),
   ADDFix(_, toVar, fourVar, callDataPtrVar),
   Variable_NumericValue(fourVar, 4),
   LocalFlows(callDataPtrVar, cdlIndex),
   CALLDATALOAD(_, cdlIndex, _).
+
+Variable_CallDataPointer(callDataPtrVar, $OffsetCallDataPointer($InitialCallDataPointer(argHex), "0x0")):-
+  InitialCallDataPointerDefinition(callDataPtrVar, argHex).
 
 Variable_CallDataPointer(res, $OffsetCallDataPointer($InitialCallDataPointer(argHex), as(@add_256(const, offset), Value))):-
   Variable_CallDataPointer(a, $OffsetCallDataPointer($InitialCallDataPointer(argHex), offset)),

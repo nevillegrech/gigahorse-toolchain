@@ -48,7 +48,7 @@ PublicFunctionArrayArg(pubFun, as(arrayArg, ArrayVariable), index):-
   IsPublicFunction(pubFun),
   num = @hex_to_number(constHex),
   (((num - 4) % 32 = 0, index = (num - 4) / 32); ((num - 4) % 32 != 0, index = num)).
-
+DEBUG_OUTPUT(PublicFunctionStructArg)
 PublicFunctionStructArg(pubFun, structArg, index):-
   IsArgCallDataStruct(structArg, constHex),
   Variable_Function(structArg, pubFun),
