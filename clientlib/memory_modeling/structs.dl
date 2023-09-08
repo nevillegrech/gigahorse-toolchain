@@ -130,47 +130,55 @@ StructAllocation(freePtrUpdStore, structBaseVar, wordWidth):-
 Struct_WordWidth(structBase, wordWidth):-
   StructAllocation(_, structBase, wordWidth).
 
+/**
+  Initial model of struct arguments in the calldata.
+  This is only supposed to model structs that include an array.
+  (see https://docs.soliditylang.org/en/latest/abi-spec.html#formal-specification-of-the-encoding)
+  If all of the struct's members are statically sized it's as if they are normal args.
+*/
 .decl IsArgCallDataStruct(structBaseVar: Variable, argHex: symbol)
 DEBUG_OUTPUT(IsArgCallDataStruct)
 
-.decl CallDataStructLoadingPattern(cdl: Statement, cdl2: Statement, structBase: Variable, index: number, loadedVar: Variable, argHex: symbol)
+.decl CallDataStructLoadingPattern(load: Statement, structBase: Variable, index: number, loadedVar: Variable, argHex: symbol)
 DEBUG_OUTPUT(CallDataStructLoadingPattern)
 
-// Resolve ambiguous patterns between calldata structs and arrays
-.decl ProbablyUsedAsStruct(probablyStruct: Variable)
-ProbablyUsedAsStruct(probablyStruct):-
+/**
+  Resolve ambiguous patterns between calldata structs and arrays
+  Will improve
+*/
+.decl ProbablyUsedAsCallDataStruct(probablyStruct: Variable)
+ProbablyUsedAsCallDataStruct(probablyStruct):-
   VarPlusConstNoIdentity(probablyStruct, const, loadVar),
   @hex_to_number(const) % 32 = 0,
   CALLDATALOAD(_, loadVar, _).
 
 IsArgCallDataStruct(structBaseVar, argHex),
-CallDataStructLoadingPattern(cdl, cdl2, structBaseVar, @hex_to_number(index)/32, loadedVar, argHex):-
-  CALLDATALOAD(cdl, argIdVar, toVar),
-  Variable_Value(argIdVar, argHex),
-  ADDFix(_, toVar, fourVar, structBaseVar),
-  Variable_NumericValue(fourVar, 4),
-  VarPlusConst(structBaseVar, index, indexVar),
-  @hex_to_number(index) % 32 = 0,
-  CALLDATALOAD(cdl2, indexVar, loadedVar),
-  ProbablyUsedAsStruct(structBaseVar),
+CallDataStructLoadingPattern(cdl, structBaseVar, @hex_to_number(offset)/32, loadedVar, argHex):-
+  Variable_CallDataPointer(structBaseVar, $OffsetCallDataPointer($InitialCallDataPointer(argHex), "0x0")),
+  Variable_CallDataPointer(indexVar, $OffsetCallDataPointer($InitialCallDataPointer(argHex), offset)),
+  Variable_Function(structBaseVar, fun),
+  Variable_Function(indexVar, fun),
+  @hex_to_number(offset) % 32 = 0,
+  CALLDATALOAD(cdl, indexVar, loadedVar),
+  ProbablyUsedAsCallDataStruct(structBaseVar),
   !ADDFix(_, loadedVar, structBaseVar, _).
 
 IsArgCallDataStruct(structBaseVar, argHex),
 IsCallDataArrayVar(structArrayVar),
-CallDataStructLoadingPattern(cdl, addStmt, structBaseVar, @hex_to_number(index)/32, structArrayVar, argHex):-
-  CALLDATALOAD(cdl, argIdVar, toVar),
-  Variable_Value(argIdVar, argHex),
-  ADDFix(_, toVar, fourVar, structBaseVar),
-  Variable_NumericValue(fourVar, 4),
-  VarPlusConst(structBaseVar, index, indexVar),
-  @hex_to_number(index) % 32 = 0,
-  CALLDATALOAD(cdl2, indexVar, loadedVar),
-  ProbablyUsedAsStruct(structBaseVar),
+// StructContainsArray(structBaseVar, @hex_to_number(offset)/32, "??"),
+CallDataStructLoadingPattern(addStmt, structBaseVar, @hex_to_number(offset)/32, structArrayVar, argHex):-
+  Variable_CallDataPointer(structBaseVar, $OffsetCallDataPointer($InitialCallDataPointer(argHex), "0x0")),
+  Variable_CallDataPointer(indexVar, $OffsetCallDataPointer($InitialCallDataPointer(argHex), offset)),
+  Variable_Function(structBaseVar, fun),
+  Variable_Function(indexVar, fun),
+  @hex_to_number(offset) % 32 = 0,
+  CALLDATALOAD(_, indexVar, loadedVar),
+  ProbablyUsedAsCallDataStruct(structBaseVar),
   ADDFix(addStmt, loadedVar, structBaseVar, structArrayVar).
 
 Struct_WordWidth(structBaseVar, maxIndex + 1):-
   IsArgCallDataStruct(structBaseVar, _),
-  maxIndex = max index : {CallDataStructLoadingPattern(_, _, structBaseVar, index, _, _)}.
+  maxIndex = max index : {CallDataStructLoadingPattern(_, structBaseVar, index, _, _)}.
 
 StructIndex(structBaseVar, indexVar, memOffset / 32):-
   Struct_WordWidth(structBaseVar, wordWidth),
