@@ -127,6 +127,16 @@ StructAllocation(freePtrUpdStore, structBaseVar, wordWidth):-
   MSTORE(_, memIndex, storedVar),
   PossibleArray(storedVar).
 
+/**
+  If a `PossibleStructAllocation`, structBaseVar is written to an address derived from a possible array,
+  consider it a valid allocation.
+*/
+StructAllocation(freePtrUpdStore, structBaseVar, wordWidth):-
+  PossibleStructAllocation(_, freePtrUpdStore, structBaseVar, wordWidth),
+  MSTORE(_, memIndex, structBaseVar),
+  LocalFlows(posibleArray, memIndex),
+  PossibleArray(posibleArray).
+
 Struct_WordWidth(structBase, wordWidth):-
   StructAllocation(_, structBase, wordWidth).
 
