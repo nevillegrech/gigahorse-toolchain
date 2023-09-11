@@ -301,3 +301,61 @@ IsRegularArrayVar(loadedVar),
 Array_ElementLength(loadedVar, @number_to_hex(elementSize)):-
   StructContainsArray(formal, wordOffset, elementSize),
   StructLoad(_, formal, wordOffset, loadedVar).
+
+
+.decl VarPointsToStruct(ctx: clientCtx.ClientContext, var: Variable, heapCtx: clientCtx.ClientContext, structId: Variable)
+DEBUG_OUTPUT(VarPointsToStruct)
+
+.decl InsVarPointsToStruct(var: Variable, structId: Variable)
+DEBUG_OUTPUT(InsVarPointsToStruct)
+
+
+VarPointsToStruct(ctx, structBase, ctx, structBase):-
+  clientCtx.ReachableClientContext(ctx, fun),
+  Variable_Function(structBase, fun),
+  StructAllocation(_, structBase, _).
+
+VarPointsToStruct(newCtx, formal, heapCtx, structId):-
+  clientCtx.MergeClientContext(callerCtx, caller, newCtx),
+  VarPointsToStruct(callerCtx, actual, heapCtx, structId),
+  ActualArgs(caller, actual, pos),
+  CallGraphEdge(caller, function),
+  FormalArgs(function, formal, pos).
+
+VarPointsToStruct(callerCtx, actual, heapCtx, structId):-
+  clientCtx.MergeClientContext(callerCtx, caller, calleeCtx),
+  CallGraphEdge(caller, function),
+  FormalReturnArgs(function, formal, index),
+  VarPointsToStruct(calleeCtx, formal, heapCtx, structId),
+  ActualReturnArgs(caller, actual, index).
+
+InsVarPointsToStruct(var, structId):-
+  VarPointsToStruct(_, var, _, structId).
+
+.decl Analytics_PolymorphicStruct(struct: Variable, width: number)
+.output Analytics_PolymorphicStruct
+
+Analytics_PolymorphicStruct(structVar, width1):-
+  InsVarPointsToStruct(structVar, structId1),
+  InsVarPointsToStruct(structVar, structId2),
+  Struct_WordWidth(structId1, width1),
+  Struct_WordWidth(structId2, width2),
+  width1 != width2.
+
+.decl Analytics_PolymorphicStructAlt(structId: Variable, width: number)
+.output Analytics_PolymorphicStructAlt
+
+Analytics_PolymorphicStructAlt(structId, width1):-
+  Struct_WordWidth(structId, width1),
+  Struct_WordWidth(structId, width2),
+  width1 != width2.
+
+.decl Analytics_PolymorphicStructSameCtx(arrayVar: Variable, width: number)
+.output Analytics_PolymorphicStructSameCtx
+
+Analytics_PolymorphicStructSameCtx(structVar, width1):-
+  VarPointsToStruct(ctx, structVar, _, structId1),
+  VarPointsToStruct(ctx, structVar, _, structId2),
+  Struct_WordWidth(structId1, width1),
+  Struct_WordWidth(structId2, width2),
+  width1 != width2.

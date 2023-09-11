@@ -369,10 +369,10 @@ DEBUG_OUTPUT(Variable_CallDataPointer)
 .decl InitialCallDataPointerDefinition(var: Variable, argHex: Value)
 
 InitialCallDataPointerDefinition(callDataPtrVar, argHex):-
-  CALLDATALOAD(cdl, argIdVar, toVar),
-  Variable_Value(argIdVar, argHex),
+  CALLDATALOAD(_, argIdVar, toVar),
+  BasicVariable_Value(argIdVar, argHex),
   ADDFix(_, toVar, fourVar, callDataPtrVar),
-  Variable_NumericValue(fourVar, 4),
+  BasicVariable_Value(fourVar, "0x4"),
   LocalFlows(callDataPtrVar, cdlIndex),
   CALLDATALOAD(_, cdlIndex, _).
 

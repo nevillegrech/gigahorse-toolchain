@@ -76,9 +76,9 @@ CallDataLoadReadsLength(cdl, callDataArrayVar, lenVar):-
 IsArgCallDataArrayVar(plusFourVar, argHex),
 CallDataLoadArrayLoadingPattern(cdl, cdl2, plusFourVar, lenVar, argHex):-
   CALLDATALOAD(cdl, argIdVar, toVar),
-  Variable_Value(argIdVar, argHex),
+  BasicVariable_Value(argIdVar, argHex),
   ADDFix(_, toVar, fourVar, plusFourVar),
-  Variable_NumericValue(fourVar, 4),
+  BasicVariable_Value(fourVar, "0x4"),
   CALLDATALOAD(cdl2, plusFourVar, lenVar),
   // Differentiate between arrays and structs here
   // going for the easiest/most hacky way to do it for now
@@ -90,21 +90,25 @@ CallDataLoadArrayLoadingPattern(cdl, cdl2, plusFourVar, lenVar, argHex):-
   REVIEW at some point as it may be too loose.
   However we can't do much better right now.
 */
-.decl PossibleCallDataArrayElementLength(calldataArray: Variable, elemSize: symbol)
+.decl PossibleCallDataArrayElementLength(calldataArray: Variable, elemSize: number)
+
+Array_ElementLength(callDataArrayVar, @number_to_hex(maxElementLength)):-
+  IsCallDataArrayVar(callDataArrayVar),
+  maxElementLength = max possibleElementSize : {
+    PossibleCallDataArrayElementLength(callDataArrayVar, possibleElementSize)
+  }.
 
 
-Array_ElementLength(plusFourVar, elemSize):-
-  IsArgCallDataArrayVar(plusFourVar, argHex),
-  CallDataLoadArrayLoadingPattern(_, _, plusFourVar, lenVar, argHex),
-  VarTimesConstant(lenVar, elemSize, res),
-  (elemSize = "0x1"; @mod_256(elemSize, "0x20") = "0x0"),
-  // Hack to recover precision and avoid the identity case of VarTimesConstant
-  lenVar != res.
+PossibleCallDataArrayElementLength(callDataArrayVar, @hex_to_number(elemSize)):-
+// Array_ElementLength(callDataArrayVar, elemSize):-
+  CallDataLoadReadsLength(_, callDataArrayVar, lenVar),
+  VarTimesConstantNoIdentity(lenVar, elemSize, _),
+  (elemSize = "0x1"; @mod_256(elemSize, "0x20") = "0x0").
 
 
 
 Array_ElementLength(array, elementSize):-
-  IsArgCallDataArrayVar(array, _),
+  IsCallDataArrayVar(array),
   ArrayDataStartVar(array, dataStartVar),
   ADDFix(_, dataStartVar, indexTimesCons, cdlIndex),
   VarTimesConstantNoIdentity(_, elementSize, indexTimesCons),
@@ -685,15 +689,12 @@ DEBUG_OUTPUT(AmbiguousElemLenConstArrayAllocation)
 // Pattern will look like an 1 element constant uint array, but these are
 // more rare than 1 element constant bytes arrays
 IsRegularArrayVar(array),
-// Array_ElementLength(array, elemLenVal),
-// ArrayAllocationInternal(mstore, array, as(elemLenVal, Value), arrayLengthVar):-
 AmbiguousElemLenConstArrayAllocation(mstore, array, arrayLengthVar):-
   PossibleArray(array),
   MSTORE(_, array, arrayLengthVar),
   Variable_Value(arrayLengthVar, "0x1"),
   ADDFix(_, arraySizeBytes, array, arrayPlusSizeBytes),
   Variable_Value(arraySizeBytes, "0x40"),
-  elemLenVal = "0x1",
   Statement_Uses(mstore, arrayPlusSizeBytes, 1),
   MSTOREFreePtr(mstore).
 
@@ -890,19 +891,20 @@ IsRegularArrayVar(formal):-
   ArrayActualArg(_, function, pos, "Regular"),
   FormalArgs(function, formal, pos).
 
-IsCallDataArrayVar(formal):-
-  ArrayActualArg(_, function, pos, "CallData"),
-  FormalArgs(function, formal, pos).
-
 IsRegularArrayVar(actual):-
   ArrayFormalRet(fun, index, "Regular"),
   CallGraphEdge(caller, fun),
   ActualReturnArgs(caller, actual, index).
 
-IsCallDataArrayVar(actual):-
-  ArrayFormalRet(fun, index, "CallData"),
-  CallGraphEdge(caller, fun),
-  ActualReturnArgs(caller, actual, index).
+// Disabling this for now to avoid cyclic negation in Element_Length inferences!
+// IsCallDataArrayVar(formal):-
+//   ArrayActualArg(_, function, pos, "CallData"),
+//   FormalArgs(function, formal, pos).
+
+// IsCallDataArrayVar(actual):-
+//   ArrayFormalRet(fun, index, "CallData"),
+//   CallGraphEdge(caller, fun),
+//   ActualReturnArgs(caller, actual, index).
 
 Array_ElementLength(formal, elementSize):-
   ArrayActualArg(caller, function, pos, kind),
