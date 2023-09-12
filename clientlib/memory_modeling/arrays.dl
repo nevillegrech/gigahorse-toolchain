@@ -91,6 +91,7 @@ CallDataLoadArrayLoadingPattern(cdl, cdl2, plusFourVar, lenVar, argHex):-
   However we can't do much better right now.
 */
 .decl PossibleCallDataArrayElementLength(calldataArray: Variable, elemSize: number)
+DEBUG_OUTPUT(PossibleCallDataArrayElementLength)
 
 Array_ElementLength(callDataArrayVar, @number_to_hex(maxElementLength)):-
   IsCallDataArrayVar(callDataArrayVar),
@@ -108,12 +109,13 @@ PossibleCallDataArrayElementLength(callDataArrayVar, @hex_to_number(elemSize)):-
 
 
 Array_ElementLength(array, elementSize):-
-  IsCallDataArrayVar(array),
+  IsCallDataArrayVar(array),1=0,
   ArrayDataStartVar(array, dataStartVar),
   ADDFix(_, dataStartVar, indexTimesCons, cdlIndex),
-  VarTimesConstantNoIdentity(_, elementSize, indexTimesCons),
+  VarTimesConstantNoIdentity(indexVar, elementSize, indexTimesCons),
+  // Avoid cases like 1*32 or 0*32, favor 32
+  !Variable_Value(indexVar, "0x20"),
   CALLDATALOAD(_, cdlIndex, _),
-  elementSize != "0x0",
   (elementSize = "0x1"; @mod_256(elementSize, "0x20") = "0x0").
 
 
