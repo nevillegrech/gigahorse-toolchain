@@ -113,6 +113,7 @@ Array_ElementLength(array, elementSize):-
   ADDFix(_, dataStartVar, indexTimesCons, cdlIndex),
   VarTimesConstantNoIdentity(_, elementSize, indexTimesCons),
   CALLDATALOAD(_, cdlIndex, _),
+  elementSize != "0x0",
   (elementSize = "0x1"; @mod_256(elementSize, "0x20") = "0x0").
 
 
