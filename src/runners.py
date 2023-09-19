@@ -6,6 +6,7 @@ import hashlib
 import resource
 import time
 import shutil
+import json
 
 from typing import Tuple, List, Any, Optional
 
@@ -239,9 +240,14 @@ class DecompilerFactGenerator(AbstractFactGenerator):
         with open(contract_filename) as file:
             bytecode = file.read().strip()
         
+            if os.path.exists(metad:= f"{contract_filename[:-4]}_metadata.json"):
+                metadata = json.load(open(metad))
+            else:
+                metadata = {}
+
         disassemble_start = time.time()
         blocks = blockparse.EVMBytecodeParser(bytecode).parse()
-        exporter.InstructionTsvExporter(blocks).export(output_dir=work_dir, bytecode_hex=bytecode)
+        exporter.InstructionTsvExporter(work_dir, blocks, True, bytecode, metadata).export()
 
         os.symlink(join(work_dir, 'bytecode.hex'), join(out_dir, 'bytecode.hex'))
 
