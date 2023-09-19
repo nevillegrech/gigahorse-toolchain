@@ -137,6 +137,14 @@ StructAllocation(freePtrUpdStore, structBaseVar, wordWidth):-
   LocalFlows(posibleArray, memIndex),
   PossibleArray(posibleArray).
 
+/**
+  Actually a pattern for constant-length arrays rather than structs
+  May differentiate the two at some point
+*/
+StructAllocation(freePtrUpdStore, structBaseVar, wordWidth):-
+  PossibleStructAllocation(_, freePtrUpdStore, structBaseVar, wordWidth),
+  CallDataCopyLoopConstantLength(_, _, structBaseVar, wordWidth*32).
+
 Struct_WordWidth(structBase, wordWidth):-
   StructAllocation(_, structBase, wordWidth).
 
