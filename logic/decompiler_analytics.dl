@@ -315,6 +315,35 @@ Analytics_PublicFunctionNameResolved(func) :-
    IRPublicFunction(func, sigHash),
    PublicFunctionSignature(sigHash, _).
 
+.decl Analytics_PrivateFunctionMatchesMetadata(func: Block)
+.output Analytics_PrivateFunctionMatchesMetadata
+
+Analytics_PrivateFunctionMatchesMetadata(func):-
+  IRFunctionEntry(irFunc),
+  Function_IRFunction(func, irFunc),
+  func != "0x0",
+  HighLevelFunctionInfo(_, func, _, _),
+  !IRPublicFunction(irFunc, _).
+
+.decl Analytics_PrivateFunctionMatchesMetadataIncorrectArgs(func: Block)
+.output Analytics_PrivateFunctionMatchesMetadataIncorrectArgs
+
+Analytics_PrivateFunctionMatchesMetadataIncorrectArgs(func):-
+  Analytics_PrivateFunctionMatchesMetadata(func),
+  Function_IRFunction(func, irFunc),
+  NumberOfFunctionArguments(irFunc, inferredArgs),
+  numArgs != inferredArgs - 1,
+  HighLevelFunctionInfo(_, func, numArgs, _).
+
+.decl Analytics_PrivateFunctionMatchesMetadataIncorrectReturnArgs(func: Block)
+.output Analytics_PrivateFunctionMatchesMetadataIncorrectReturnArgs
+
+Analytics_PrivateFunctionMatchesMetadataIncorrectReturnArgs(func):-
+  Analytics_PrivateFunctionMatchesMetadata(func),
+  Function_IRFunction(func, irFunc),
+  NumberOfFunctionReturnArguments(irFunc, inferredArgs),
+  numArgs != inferredArgs,
+  HighLevelFunctionInfo(_, func, _, numArgs).
 
 /**
   JUMP TO MANY
