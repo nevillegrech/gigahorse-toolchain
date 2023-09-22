@@ -187,7 +187,7 @@ for analytic, kind in analytics.items():
     pref = sorted([result[analytic] for result in results_processed_common], key=analytic_comp[kind])[0]
     for i in range(0, len(result_files)):
         diff = results_processed_common[i][analytic] - pref
-        percentage = 100 * (results_processed_common[i][analytic] - pref)/pref
+        percentage = 100 * (results_processed_common[i][analytic] - pref)/pref if pref > 0 else 0
         extra = f" \x1b[31m({percentage:+.4g}%)\x1b[0m" if diff != 0 else ""
         print(f'{result_files_simple[i]} \033[1m(common)\033[0m: {results_processed_common[i][analytic]}{extra}')
 
