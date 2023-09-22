@@ -872,16 +872,18 @@ insertor.insertOps(jumpi,
   preTrans.JUMPI(jumpi),
   preTrans.FallthroughStmt(jumpi, fallthrough).
 
-// This one removes conditional jumps that "always" jump
-insertor.removeOp(jmpi),
-insertor.insertOps(jmpi,
-  LIST(
-    STMT(SWAP1, ""),
-    STMT(POP, ""),
-    STMT(JUMP, "")
-  )
-) :-
-  preTrans.AlwaysJumps(jmpi).
+// SL: Removed this to get more completeness, especially in cases
+// of non-deployed code with uninitialized immutables
+// // This one removes conditional jumps that "always" jump
+// insertor.removeOp(jmpi),
+// insertor.insertOps(jmpi,
+//   LIST(
+//     STMT(SWAP1, ""),
+//     STMT(POP, ""),
+//     STMT(JUMP, "")
+//   )
+// ) :-
+//   preTrans.AlwaysJumps(jmpi).
 
 insertor.removeOp(codeCopy),
 insertor.removeOp(mload),
