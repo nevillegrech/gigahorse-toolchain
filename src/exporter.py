@@ -121,11 +121,11 @@ class InstructionTsvExporter(TsvExporter):
         """
         Processes metadata dicts are produced by solc, to lists of facts we can output
         """
-        def process_function_debug_data(function_debug_data: Dict[str, Dict[str, Optional[int]]]) -> List[Tuple[str, int, int, int]]:
+        def process_function_debug_data(function_debug_data: Dict[str, Dict[str, Optional[int]]]) -> List[Tuple[str, str, int, int]]:
             return [(function_id,
-                    hex(debug_info["entryPoint"]) if debug_info["entryPoint"] else 0,
-                    debug_info["parameterSlots"],
-                    debug_info["returnSlots"])
+                    hex(debug_info["entryPoint"]) if debug_info["entryPoint"] else "0x0",
+                    debug_info["parameterSlots"] if debug_info["parameterSlots"] else 0,
+                    debug_info["returnSlots"]if debug_info["returnSlots"] else 0)
                 for function_id, debug_info in function_debug_data.items()]
 
         def process_immutable_refs(immutable_refs: Dict[str, List[Dict[str, int]]]) -> List[Tuple[str, int]]:
