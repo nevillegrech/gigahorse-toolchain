@@ -690,7 +690,9 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     Statement_Uses_Local(jumpiStmt, pred, 1),
     JUMPI(jumpiStmt).
 
-  BlockComparesSigVyper(block, sigHash) :-
+  // pattern in via-ir contracts, public function start is the block's fallthrough
+  .decl BlockComparesSigFallthroughSolidity(block: Block, sigHash: Value)
+  BlockComparesSigFallthroughSolidity(block, sigHash) :-
     Statement_Block(pushStmt, block),
     ImmediateBlockJumpTarget(block, _),
     (PUSH4(pushStmt, sigHash) ; PUSH3(pushStmt, sigHash)),
@@ -835,6 +837,19 @@ insertor.insertOps(functionStartStmt,
    preTrans.BlockComparesSigVyper(block, hash),
    preTrans.BasicBlock_Tail(block, tail),
    preTrans.Statement_Next(tail, functionStartStmt),
+   !preTrans.BlockComparesSig(_, _).
+
+// transformation for pattern in via-ir contracts
+insertor.insertOps(functionStartStmt,
+  LIST(
+    STMT(PUSH4, MAKE_LABEL_REFERENCE(hash)),
+    STMT(JUMP, cat("PublicFunctionJump:", hash)),
+    STMT(JUMPDEST, MAKE_LABEL_REFERENCE(hash))
+  )
+) :-
+   preTrans.BlockComparesSigFallthroughSolidity(block, hash),
+   preTrans.BasicBlock_Tail(block, tail),
+   preTrans.Statement_Next(tail, functionStartStmt),
    !preTrans.BlockComparesSig(_, hash).
 
 // Receive transformation
@@ -939,6 +954,14 @@ postTrans.PublicFunction(block, hash) :-
    postTrans.JUMPDEST(stmt),
    postTrans.Statement_Block(stmt, block),
    preTrans.BlockComparesSigVyper(_, hash),
+   !preTrans.BlockComparesSig(_, _),
+   ISLABEL(meta), hash = GET_LABEL_REFERENCE(meta).
+
+postTrans.PublicFunction(block, hash) :-
+   insertor.MetaData(stmt, meta),
+   postTrans.JUMPDEST(stmt),
+   postTrans.Statement_Block(stmt, block),
+   preTrans.BlockComparesSigFallthroughSolidity(_, hash),
    !preTrans.BlockComparesSig(_, hash),
    ISLABEL(meta), hash = GET_LABEL_REFERENCE(meta).
 
