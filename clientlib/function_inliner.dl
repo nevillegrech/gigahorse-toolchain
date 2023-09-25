@@ -40,7 +40,8 @@ IsUtilFunc(fun):-
     prefix = "update_storage_value_";
     prefix = "abi_decode";
     prefix = "increment_";
-    prefix = "panic_error_"
+    prefix = "panic_error_";
+    prefix = "store_literal_";
     ),
     HighLevelFunctionName(fun, funName),
     prefix=substr(funName, 0, strlen(prefix)).
