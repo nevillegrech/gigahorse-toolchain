@@ -129,6 +129,10 @@
 .decl IsPublicFunction(func: Function)
 IsPublicFunction(func) :- PublicFunctionSelector(func, _).
 
+.decl FunctionIsInner(func: Function)
+.input FunctionIsInner(IO="file", filename="FunctionIsInner.csv", delimiter="\t")
+
+
 /**
   Helper for selectors
 */
