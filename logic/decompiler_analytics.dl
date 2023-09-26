@@ -30,6 +30,7 @@ Analytics_Jumps(block) :-
 .decl Analytics_ReachableBlocksInTAC(block: Block)
 .output Analytics_ReachableBlocksInTAC
 
+// `originalBlock` is reachable because `postTransformBlock` CFG block is
 .decl ReachableBlocksHelper(originalBlock: Block, postTransformBlock: Block)
 // Incompleteness metric: this can happen due to our precision-favoring heuristics
 // or incompleteness due to the use of limitsize for scalability
@@ -62,19 +63,14 @@ Analytics_JUMPDESTNeverPushed(block):-
 #ifdef BLOCK_CLONING
 
 ReachableBlocksHelper(originalBlock, block):-
-// Analytics_ReachableBlocks(originalBlock):-
   global.ReachableContext(_, block),
   postTrans.Statement_Block(_, block),
   blockCloner.Block_OriginalBlock(block, originalBlock).
 
 ReachableBlocksHelper(originalBlock, block):-
-// Analytics_ReachableBlocks(originalBlock):-
   blockCloner.Block_OriginalBlock(transformedBlock, originalBlock),
   postTrans.Statement_Block(as(transformedBlock, Statement), block),
   global.ReachableContext(_, block).
-
-// Analytics_ReachableBlocks(originalBlock):-
-//   ReachableBlocksHelper(originalBlock, _).
 
 
 Analytics_UnreachableBlock(originalBlock):-
@@ -83,25 +79,14 @@ Analytics_UnreachableBlock(originalBlock):-
   !BlockIsData(originalBlock),
   !Analytics_ReachableBlocks(originalBlock).
 
-// Analytics_ReachableBlocksInTAC(originalBlock):-
-//   ReachableBlocksHelper(originalBlock, block),
-//   Block_IRBlock(block, _, irblock),
-//   (
-//     LocalBlockEdge(irblock, _);
-//     LocalBlockEdge(_, irblock);
-//     TAC_Block(_, irblock)
-//   ).
-
 #else
 
 ReachableBlocksHelper(originalBlock, block):-
-// Analytics_ReachableBlocks(originalBlock):-
   global.ReachableContext(_, block),
   postTrans.Statement_Block(_, block),
   revertCloner.Block_OriginalBlock(block, originalBlock).
 
 ReachableBlocksHelper(originalBlock, block):-
-// Analytics_ReachableBlocks(originalBlock):-
   revertCloner.Block_OriginalBlock(transformedBlock, originalBlock),
   postTrans.Statement_Block(as(transformedBlock, Statement), block),
   global.ReachableContext(_, block).
@@ -111,34 +96,6 @@ Analytics_UnreachableBlock(originalBlock):-
   revertCloner.Block_OriginalBlock(block, originalBlock),
   !BlockIsData(originalBlock),
   !Analytics_ReachableBlocks(originalBlock).
-
-// Analytics_ReachableBlocksInTAC(originalBlock):-
-//   Analytics_ReachableBlocks(originalBlock),
-//   revertCloner.Block_OriginalBlock(block, originalBlock),
-//   Block_IRBlock(block, _, irblock),
-//   (
-//     LocalBlockEdge(irblock, _);
-//     LocalBlockEdge(_, irblock);
-//     TAC_Block(_, irblock)
-//   ).
-
-// Analytics_ReachableBlocks(block):-
-//   preTrans.Statement_Block(_, block),
-//   global.ReachableContext(_, block).
-
-// Analytics_UnreachableBlock(block):-
-//   preTrans.Statement_Block(_, block),
-//   postTrans.Statement_Block(_, block),
-//   !global.ReachableContext(_, block).
-
-// Analytics_ReachableBlocksInTAC(block):-
-//   Analytics_ReachableBlocks(block),
-//   Block_IRBlock(block, _, irblock),
-//   (
-//     LocalBlockEdge(irblock, _);
-//     LocalBlockEdge(_, irblock);
-//     TAC_Block(_, irblock)
-//   ).
 
 #endif
 
