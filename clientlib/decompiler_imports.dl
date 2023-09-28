@@ -129,6 +129,9 @@
 .decl IsPublicFunction(func: Function)
 IsPublicFunction(func) :- PublicFunctionSelector(func, _).
 
+/**
+  A subset of IsFunction, contains only functions that are the "inner" part of a high level function with a modifier.
+*/
 .decl FunctionIsInner(func: Function)
 .input FunctionIsInner(IO="file", filename="FunctionIsInner.csv", delimiter="\t")
 
