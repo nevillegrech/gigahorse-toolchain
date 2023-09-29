@@ -168,6 +168,7 @@ PublicFunctionId(fun, sigHashNorm, sigHashNorm):-
 
 DEBUG_OUTPUT(PublicFunctionId)
 
+
 /**
   Name given to each function. May contain public signature too.
   Useful for presentation purposes.
@@ -345,12 +346,14 @@ Block_Tail(block, stmt) :-
 Block_Tail(block, stmt):-
   Statement_Block(stmt, block),
   PHI(stmt, _, _),
-  num = count : Statement_Block(_, block), num = 1.
+  !Helper_NextStatementInSameBlock(stmt, _), //doesn't have next statement
+  1 = count : Helper_NextStatementInSameBlock(_, stmt). // has previous statement
 
 Block_Head(block, stmt):-
   Statement_Block(stmt, block),
   PHI(stmt, _, _),
-  num = count : Statement_Block(_, block), num = 1.
+  !Helper_NextStatementInSameBlock(_, stmt), // has no previous statements
+  1 = count : Helper_NextStatementInSameBlock(stmt, _). //has next statement
 
 .decl IsBlock(block: Block)
 
