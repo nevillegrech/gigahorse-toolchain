@@ -130,6 +130,13 @@
 IsPublicFunction(func) :- PublicFunctionSelector(func, _).
 
 /**
+  A subset of IsFunction, contains only functions that are the "inner" part of a high level function with a modifier.
+*/
+.decl FunctionIsInner(func: Function)
+.input FunctionIsInner(IO="file", filename="FunctionIsInner.csv", delimiter="\t")
+
+
+/**
   Helper for selectors
 */
 .decl NormalizeSelector(sigHash: symbol, sigHashNorm: symbol)
@@ -160,6 +167,7 @@ PublicFunctionId(fun, sigHashNorm, sigHashNorm):-
   NormalizeSelector(pubsigHash, sigHashNorm).
 
 DEBUG_OUTPUT(PublicFunctionId)
+
 
 /**
   Name given to each function. May contain public signature too.
@@ -338,12 +346,14 @@ Block_Tail(block, stmt) :-
 Block_Tail(block, stmt):-
   Statement_Block(stmt, block),
   PHI(stmt, _, _),
-  num = count : Statement_Block(_, block), num = 1.
+  !Helper_NextStatementInSameBlock(stmt, _), //doesn't have next statement
+  1 = count : Helper_NextStatementInSameBlock(_, stmt). // has previous statement
 
 Block_Head(block, stmt):-
   Statement_Block(stmt, block),
   PHI(stmt, _, _),
-  num = count : Statement_Block(_, block), num = 1.
+  !Helper_NextStatementInSameBlock(_, stmt), // has no previous statements
+  1 = count : Helper_NextStatementInSameBlock(stmt, _). //has next statement
 
 .decl IsBlock(block: Block)
 

@@ -274,6 +274,9 @@ IRInFunctionFiltered(block, func):-
 .output Mask_Length
 .output IRInFunctionFiltered(IO="file", filename="InFunction.csv", delimiter="\t")
 
+.decl FunctionIsInner(func: IRFunction)
+.output FunctionIsInner(IO="file", filename="FunctionIsInner.csv", delimiter="\t")
+
 /*****
  *  Statement Ordering
  *****/
