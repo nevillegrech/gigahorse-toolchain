@@ -95,10 +95,9 @@
   SafelyInlinableFunction(fun):-
     In_IsFunction(fun),
     !IsPublicFunction(fun),
-    GlobalEntryBlock(global_entry_block),
+    InFunction(fun_entry_block, fun),
     In_FunctionEntry(fun_entry_block),
-    fun_entry_block != global_entry_block,
-    //fun != "0x0", // SL: Hack because the function selector is not part of IsPublicFunction
+    !GlobalEntryBlock(fun_entry_block),
     FunctionReturnRestriction(fun),
     !FunHasArgMismatch(fun),
     !FunHasRetMismatch(fun),
