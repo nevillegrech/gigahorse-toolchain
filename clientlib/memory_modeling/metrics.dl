@@ -22,6 +22,9 @@
 .decl Analytics_PublicFunctionArrayArg(arg: Variable)
 .output Analytics_PublicFunctionArrayArg
 
+.decl Analytics_PublicFunctionStructArg(arg: Variable)
+.output Analytics_PublicFunctionStructArg
+
 .decl Analytics_NonModeledCALLDATALOAD(cdl: Statement)
 .output Analytics_NonModeledCALLDATALOAD
 
@@ -45,9 +48,13 @@ Analytics_PublicFunctionArg(arg):-
 Analytics_PublicFunctionArrayArg(arrayArg):-
   PublicFunctionArrayArg(_, arrayArg, _).
 
+Analytics_PublicFunctionStructArg(structArg):-
+  PublicFunctionStructArg(_, structArg, _).
+
 Analytics_NonModeledCALLDATALOAD(cdl):-
   CALLDATALOAD(cdl, _, _),
   !CALLDATALOADOfStaticAddr(cdl),
+  !CALLDATALOADStructRelated(cdl),
   !CALLDATALOADArrayRelated(cdl).
 
 Analytics_ArrayCopy(loc, from, to):-
@@ -217,6 +224,7 @@ Verbatim_AllVsModeledMLOADs(all, freeptr, retRead, arrLen, arrloadi, arrload, st
 
 .decl CALLDATALOADOfStaticAddr(stmt:Statement)
 .decl CALLDATALOADArrayRelated(stmt:Statement)
+.decl CALLDATALOADStructRelated(stmt:Statement)
 
 CALLDATALOADOfStaticAddr(stmt):-
   CALLDATALOAD(stmt, index, _),
@@ -230,6 +238,11 @@ CALLDATALOADArrayRelated(cdl):-
   CallDataCopyLoop(loop, _, _),
   BlockInStructuredLoop(block, loop),
   Statement_Block(cdl, block),
+  CALLDATALOAD(cdl, _, _).
+
+CALLDATALOADStructRelated(cdl):-
+  (CallDataStructLoadingPattern(cdl, _, _, _, _);
+  IntermediateStructLoad(cdl, _)),
   CALLDATALOAD(cdl, _, _).
 
 Verbatim_CDLAllVSStaticVSArr(allnum, staticAddr, arrGet):-

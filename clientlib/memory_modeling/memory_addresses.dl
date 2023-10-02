@@ -355,3 +355,31 @@ FreePointerBasedValue_AliasRep(val, repVal):-
   maxordy = max ord(otherVal) : FreePointerBasedValuesEqual(val, otherVal),
   FreePointerBasedValuesEqual(val, repVal),
   maxordy = ord(repVal).
+
+
+/**
+  Initial work on calldata pointers
+*/
+.type CallDataPointer = InitialCallDataPointer{argHex: Value}
+                      | OffsetCallDataPointer {base: CallDataPointer, offset: Value}
+
+.decl Variable_CallDataPointer(var: Variable, callDataPtr: CallDataPointer)
+DEBUG_OUTPUT(Variable_CallDataPointer)
+
+.decl InitialCallDataPointerDefinition(var: Variable, argHex: Value)
+
+InitialCallDataPointerDefinition(callDataPtrVar, argHex):-
+  CALLDATALOAD(_, argIdVar, toVar),
+  BasicVariable_Value(argIdVar, argHex),
+  ADDFix(_, toVar, fourVar, callDataPtrVar),
+  BasicVariable_Value(fourVar, "0x4"),
+  LocalFlows(callDataPtrVar, cdlIndex),
+  CALLDATALOAD(_, cdlIndex, _).
+
+Variable_CallDataPointer(callDataPtrVar, $OffsetCallDataPointer($InitialCallDataPointer(argHex), "0x0")):-
+  InitialCallDataPointerDefinition(callDataPtrVar, argHex).
+
+Variable_CallDataPointer(res, $OffsetCallDataPointer($InitialCallDataPointer(argHex), as(@add_256(const, offset), Value))):-
+  Variable_CallDataPointer(a, $OffsetCallDataPointer($InitialCallDataPointer(argHex), offset)),
+  ADDFix(_, a, b, res),
+  Variable_Value(b, const).

@@ -1,0 +1,8 @@
+{
+    "client_path": null,
+    "gigahorse_args": ["-i", "--disable_inline"],
+    "expected_analytics": [["Analytics_JumpToMany", 0, 0], ["Analytics_UnreachableBlock", 0, 0], ["Analytics_BlockHasNoTACBlock", 0, 0],
+                           ["Analytics_MissingJumpTargetSomeCtx", 0, 0], ["Analytics_MissingJumpTargetAnyCtx", 0, 0],
+                           ["Analytics_PrivateFunctionMatchesMetadata", 65, 0], ["Analytics_PrivateFunctionMatchesMetadataIncorrectArgs", 0, 0],
+                           ["Analytics_PrivateFunctionMatchesMetadataIncorrectReturnArgs", 0, 0]]
+}

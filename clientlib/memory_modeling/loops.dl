@@ -15,6 +15,12 @@ DEBUG_OUTPUT(MemoryCopyLoopConstLength)
 */
 .decl CallDataCopyLoop(loop: Block, callDataAddrFrom: Variable, memAddrTo: Variable)
 
+/**
+  Pattern produced to copy constant-length arrays from calldata to memory
+*/
+.decl CallDataCopyLoopConstantLength(loop: Block, callDataAddrFrom: Variable, memAddrTo: Variable, length: number)
+DEBUG_OUTPUT(CallDataCopyLoopConstantLength)
+
 MemoryCopyLoop(loop, memAddrFrom, memAddrTo):-
   InductionVariableIncreasesByConst(loop, [beforeLoopVar, inLoopVar], 32),
   PHIStmtTwoUses(_, beforeLoopVar, inLoopVar, phiVar),
@@ -61,6 +67,14 @@ CallDataCopyLoop(loop, beforeLoopVarFrom, beforeLoopVarTo):-
   PHIStmtTwoUses(_, beforeLoopVarTo, inLoopVarTo, toIndexVar),
   MSTORE(_, toIndexVar, toVar),
   VarsEqualOrMasked(fromVar, toVar).
+
+CallDataCopyLoopConstantLength(loop, callDataAddrFrom, memAddrTo, boundVal - startCallDataAddr):-
+  CallDataCopyLoop(loop, callDataAddrFrom, memAddrTo),
+  InductionVariableUpperBoundVar(loop, [callDataAddrFrom, inLoopCallDataVar], boundVar),
+  InductionVariableIncreasesByConst(loop, [callDataAddrFrom, inLoopCallDataVar], 32),
+  Variable_NumericValue(boundVar, boundVal),
+  Variable_NumericValue(callDataAddrFrom, startCallDataAddr).
+
 
 MemoryCopyLoopConstLength(loop, memAddrFrom, memAddrTo, length):-
   MemoryCopyLoop(loop, memAddrFrom, memAddrTo),
