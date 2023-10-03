@@ -36,6 +36,17 @@ PublicFunctionArg(pubFun, arg, index):-
   !PublicFunctionArrayArg(pubFun, _, index),
   !PublicFunctionStructArg(pubFun, _, index).
 
+PublicFunctionArg(pubFun, formalArg, constNum):-
+  IsPublicFunction(pubFun),
+  CallGraphEdge(caller_block, pubFun),
+  Statement_Block(stmt, caller_block),
+  CALLPRIVATE(stmt, _),
+  ActualArgs(caller_block, argVar, pos),
+  DataFlowsThroughConstOps(arg, argVar),
+  FormalArgs(pubFun, formalArg, pos),
+  CALLDATALOADOfConstant(cdl, _, constNum),
+  CALLDATALOAD(cdl, _, arg).
+
 PublicFunctionArg(pubFun, arrayArg, index):-
   PublicFunctionArrayArg(pubFun, arrayArg, index).
 
