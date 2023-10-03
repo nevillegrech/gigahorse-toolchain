@@ -49,7 +49,7 @@ PublicFunctionArg(pubFun, formalArg, constNum):-
   Statement_Block(stmt, caller_block),
   CALLPRIVATE(stmt, _),
   ActualArgs(caller_block, argVar, pos),
-  DataFlows(arg, argVar),
+  DataFlowsThroughConstOps(arg, argVar),
   FormalArgs(pubFun, formalArg, pos),
   CALLDATALOADOfConstant(cdl, _, constNum),
   CALLDATALOAD(cdl, _, arg).
