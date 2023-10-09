@@ -41,6 +41,7 @@ IsUtilFunc(fun):-
     prefix = "abi_decode";
     prefix = "increment_";
     prefix = "panic_error_";
+    prefix = "revert_error_";
     prefix = "store_literal_"
     ),
     HighLevelFunctionName(fun, funName),

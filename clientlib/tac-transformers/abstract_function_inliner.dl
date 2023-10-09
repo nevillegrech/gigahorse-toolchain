@@ -127,6 +127,7 @@
     SafelyInlinableFunction(func),
     In_IsFunction(func),
     !IsPublicFunction(func),
+    !FunctionIsInner(func),
     !CGEToInlineCandidate(func, _).
 
   /*
