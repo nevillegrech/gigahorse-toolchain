@@ -349,6 +349,12 @@ Block_Tail(block, stmt):-
   !Helper_NextStatementInSameBlock(stmt, _), //doesn't have next statement
   1 = count : Helper_NextStatementInSameBlock(_, stmt). // has previous statement
 
+Block_Tail(block, stmt):-
+  Statement_Block(stmt, block),
+  PHI(stmt, _, _),
+  !Helper_NextStatementInSameBlock(stmt, _), //doesn't have next statement
+  !Helper_NextStatementInSameBlock(_, stmt). // doesn't have previous statement
+
 Block_Head(block, stmt):-
   Statement_Block(stmt, block),
   PHI(stmt, _, _),

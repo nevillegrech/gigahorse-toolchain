@@ -30,6 +30,7 @@
 .decl IsUtilFunc(fun: Function)
 IsUtilFunc(fun):-
     (prefix = "abi_encode_";
+    prefix = "calldata_";
     prefix = "checked_";
     prefix = "extract_";
     prefix = "getter_";
