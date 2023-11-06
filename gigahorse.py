@@ -17,7 +17,7 @@ import os
 
 # Local project imports
 from src.common import GIGAHORSE_DIR, DEFAULT_SOUFFLE_BIN, log
-from src.runners import get_souffle_executable_path, decomp_out_produced, compile_datalog, AbstractFactGenerator, DecompilerFactGenerator, AnalysisExecutor, TimeoutException
+from src.runners import get_souffle_executable_path, compile_datalog, AbstractFactGenerator, DecompilerFactGenerator, CustomFactGenerator, AnalysisExecutor, TimeoutException
 
 ## Constants
 
@@ -264,7 +264,7 @@ def analyze_contract(index: int, contract_filename: str, result_queue, fact_gene
             return
 
         # Do not attempt to decompile for earlier timeouts when using --rerun_clients
-        if args.rerun_clients and not decomp_out_produced(out_dir):
+        if args.rerun_clients and not fact_generator.decomp_out_produced(out_dir):
             raise TimeoutException()
 
         client_start = time.time()
@@ -592,6 +592,18 @@ if __name__ == "__main__":
                         default=False,
                         help="Disables the scalable fallback configuration (using a hybrid-precise context configuration) that kicks off"
                         " if decompilation with the default (transactional) config takes up more than half of the total timeout.")
+    parser.add_argument("--custom_fact_generator",
+                        nargs="*",
+                        default=None,
+                        help="Adds custom scripts for non-default fact generation. Takes a list of paths for the custom fact generation scripts. "
+                        " Fact generation scripts can also be Datalog files. The default is the decompilation fact generation from bytecode files.")
+    parser.add_argument("--custom_file_pattern",
+                        nargs="?",
+                        default=".*.hex",
+                        help="Adds a custom file filtering RegEx. The default is .hex (bytecode) files.")
 
     args = parser.parse_args()
-    run_gigahorse(args, DecompilerFactGenerator)
+    if args.custom_fact_generator == None:
+        run_gigahorse(args, DecompilerFactGenerator)
+    else:
+        run_gigahorse(args, CustomFactGenerator)

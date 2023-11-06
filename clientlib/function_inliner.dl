@@ -27,6 +27,31 @@
     LocalFlows(sender, formalRet),
     In_FormalReturnArgs(fun, formalRet, _).
 
+.decl IsUtilFunc(fun: Function)
+IsUtilFunc(fun):-
+    (prefix = "abi_encode_";
+    prefix = "calldata_";
+    prefix = "checked_";
+    prefix = "extract_";
+    prefix = "getter_";
+    prefix = "mapping_index_";
+    prefix = "modifier_";
+    prefix = "read_from_storage_";
+    prefix = "require_helper_";
+    prefix = "update_storage_value_";
+    prefix = "abi_decode";
+    prefix = "increment_";
+    prefix = "panic_error_";
+    prefix = "revert_error_";
+    prefix = "store_literal_"
+    ),
+    HighLevelFunctionName(fun, funName),
+    prefix=substr(funName, 0, strlen(prefix)).
+
+  InlineCandidate(fun):-
+    IsUtilFunc(fun).
+
+
   /* To detect some storage constructs breaking through functions */
   InlineCandidate(fun):-
     (SHA3(_, _, _, var) ; Variable_Value(var, _)),

@@ -130,6 +130,13 @@
 IsPublicFunction(func) :- PublicFunctionSelector(func, _).
 
 /**
+  A subset of IsFunction, contains only functions that are the "inner" part of a high level function with a modifier.
+*/
+.decl FunctionIsInner(func: Function)
+.input FunctionIsInner(IO="file", filename="FunctionIsInner.csv", delimiter="\t")
+
+
+/**
   Helper for selectors
 */
 .decl NormalizeSelector(sigHash: symbol, sigHashNorm: symbol)
@@ -161,6 +168,7 @@ PublicFunctionId(fun, sigHashNorm, sigHashNorm):-
 
 DEBUG_OUTPUT(PublicFunctionId)
 
+
 /**
   Name given to each function. May contain public signature too.
   Useful for presentation purposes.
@@ -174,7 +182,40 @@ DEBUG_OUTPUT(PublicFunctionId)
 
 // Matching constants to public function signature hashes to recover sigs of external calls and errors
 .decl ConstantPossibleSigHash(constValSigHash: Value, normalizedSigHash: Value, sigText: symbol)
-.input ConstantPossibleSigHash(IO="file", filename="ConstantPossibleSigHash.csv", delimiter="\t")
+.output ConstantPossibleSigHash
+
+.decl PublicFunctionSignature(hex_signature: symbol, text_signature: symbol)
+.input PublicFunctionSignature
+
+.decl ErrorSignature(hex_signature: symbol, text_signature: symbol)
+.input ErrorSignature
+
+.decl PublicFunctionLikeSignature(hex_signature: symbol, text_signature: symbol)
+
+PublicFunctionLikeSignature(sigHash, sig):-
+  PublicFunctionSignature(sigHash, sig);
+  ErrorSignature(sigHash, sig).
+
+// Covers both small and big numbers
+ConstantPossibleSigHash(sigHash, as(sigHashForm, Value), name):-
+  Variable_Value(_, sigHash),
+  len = strlen(sigHash),
+  temp = min(10, len),
+  Helper_Zeros(zeroz, 10 - temp),
+  sigHashForm = cat("0x",cat(zeroz, substr(sigHash, 2, temp - 2))),
+  PublicFunctionLikeSignature(sigHashForm, name).
+
+// REVIEW (YS): I don't fully understand the above. Why truncate the
+// first two digits of the constant and prepend "0x"? If the two digits
+// were not relevant, they were "0x" to begin with. Anyway, I'm leaving
+// as-is to be safe, and adding more cases below.
+ConstantPossibleSigHash(sigHash, as(sigHashForm, Value), name):-
+  Variable_Value(_, sigHash),
+  len = strlen(sigHash),
+  ((len >= 9, sigHashForm = cat("0x0", substr(sigHash, 2, 7)));
+   (len >= 8, sigHashForm = cat("0x00", substr(sigHash, 2, 6)))),
+  PublicFunctionLikeSignature(sigHashForm, name).
+
 
 // Gas used per block
 .decl Block_Gas(block:Block, gas:number)
@@ -335,6 +376,23 @@ Block_Tail(block, stmt) :-
   !PHI(stmt, _, _),
   !Helper_NextStatementInSameBlock(stmt, _).
 
+Block_Tail(block, stmt):-
+  Statement_Block(stmt, block),
+  PHI(stmt, _, _),
+  !Helper_NextStatementInSameBlock(stmt, _), //doesn't have next statement
+  1 = count : Helper_NextStatementInSameBlock(_, stmt). // has previous statement
+
+Block_Tail(block, stmt):-
+  Statement_Block(stmt, block),
+  PHI(stmt, _, _),
+  !Helper_NextStatementInSameBlock(stmt, _), //doesn't have next statement
+  !Helper_NextStatementInSameBlock(_, stmt). // doesn't have previous statement
+
+Block_Head(block, stmt):-
+  Statement_Block(stmt, block),
+  PHI(stmt, _, _),
+  !Helper_NextStatementInSameBlock(_, stmt), // has no previous statements
+  1 = count : Helper_NextStatementInSameBlock(stmt, _). //has next statement
 
 .decl IsBlock(block: Block)
 
@@ -355,8 +413,6 @@ Statement_Function(s, f) :-
 ValidGlobalTerminalBlock(block) :-
    Block_Tail(block, tail),
    (STOP(tail) ; RETURN(tail, _, _)).
-
-
 
 .decl GlobalEntryBlock(block: Block)
 .input GlobalEntryBlock(IO="file", filename="GlobalEntryBlock.csv", delimiter="\t")
