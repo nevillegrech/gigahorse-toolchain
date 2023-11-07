@@ -95,7 +95,7 @@ class AnalysisExecutor:
             if any(s in souffle_err for s in ["Error", "core dumped", "Segmentation", "corrupted"]):
                 errors.append(os.path.basename(souffle_client))
                 log(souffle_err)
-        return timeouts, errors
+        return errors, timeouts
     
     def run_script_client(self, script_client: str, in_dir: str, out_dir: str, start_time: float):
         errors = []
