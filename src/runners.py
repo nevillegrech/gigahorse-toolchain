@@ -15,7 +15,6 @@ from abc import ABC, abstractmethod
 from .common import GIGAHORSE_DIR, SOUFFLE_COMPILED_SUFFIX, log
 from . import exporter
 from . import blockparse
-from src.common import public_function_signature_filename, event_signature_filename, error_signature_filename
 
 devnull = subprocess.DEVNULL
 
@@ -276,23 +275,10 @@ class DecompilerFactGenerator(AbstractFactGenerator):
 
         return datalog_files
 
-    def link_or_output_signature_file(self, signatures_filename_in: str, out_dir: str,  signatures_filename_out_simple: str):
-        signatures_filename_out = os.path.join(out_dir, signatures_filename_out_simple)
-        if os.path.isfile(signatures_filename_in):
-            try:
-                os.symlink(signatures_filename_in, signatures_filename_out)
-            except FileExistsError:
-                pass
-        else:
-            open(signatures_filename_out, 'w').close()
-
-
     def run_decomp(self, contract_filename: str, in_dir: str, out_dir: str, start_time: float) -> str:
         config = "default"
         def_timeouts, _ = self.analysis_executor.run_clients([DecompilerFactGenerator.decompiler_dl], [], in_dir, out_dir, start_time, not self.disable_scalable_fallback)
-        self.link_or_output_signature_file(public_function_signature_filename, out_dir, 'PublicFunctionSignature.facts')
-        self.link_or_output_signature_file(event_signature_filename, out_dir,  'EventSignature.facts')
-        self.link_or_output_signature_file(error_signature_filename, out_dir, 'ErrorSignature.facts')
+
         if def_timeouts or not self.decomp_out_produced(out_dir):
             if self.disable_scalable_fallback:
                 raise TimeoutException()
@@ -323,24 +309,9 @@ class CustomFactGenerator(AbstractFactGenerator):
         self.pattern = args.custom_file_pattern
         self.fact_generator_scripts = args.custom_fact_generator
 
-    def link_or_output_signature_file(self, signatures_filename_in: str, out_dir: str,  signatures_filename_out_simple: str):
-        signatures_filename_out = os.path.join(out_dir, signatures_filename_out_simple)
-        if os.path.isfile(signatures_filename_in):
-            try:
-                os.symlink(signatures_filename_in, signatures_filename_out)
-            except FileExistsError:
-                pass
-        else:
-            open(signatures_filename_out, 'w').close()
-
-
     def generate_facts(self, contract_filename: str, work_dir: str, out_dir: str) -> Tuple[float, float, str]:
         errors = []
         timeouts = []
-        self.link_or_output_signature_file(public_function_signature_filename, out_dir, 'PublicFunctionSignature.facts')
-        self.link_or_output_signature_file(event_signature_filename, out_dir,  'EventSignature.facts')
-        self.link_or_output_signature_file(error_signature_filename, out_dir, 'ErrorSignature.facts')
-
         fact_gen_time_start = time.time()
         for script in self.fact_generator_scripts:
             if script.endswith('dl'):
