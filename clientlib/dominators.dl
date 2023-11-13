@@ -309,6 +309,12 @@ DEBUG_OUTPUT(FunctionReachableFromPublic)
 .limitsize FunctionReachableFromPublic(n=50000)
 
 /**
+  Same as `FunctionReachableFromPublic` but only outputs one callstack per function, selector pair
+*/
+.decl FunctionReachableFromPublic_CallStack(function: Function, selector: symbol, callStack: CallStack) choice-domain (function, selector)
+DEBUG_OUTPUT(FunctionReachableFromPublic_CallStack)
+
+/**
   Converts a CallStack (list of call-blocks) to an OriginalStatementList (list of call-statements)
 */
 .decl CallStackToOriginalStatementList(callStack: CallStack, originals: OriginalStatementList)
