@@ -328,6 +328,9 @@ FunctionReachableFromPublic(callee, selector, [callerBlock, callerStack]):-
   InFunction(callerBlock, caller),
   CallGraphEdge(callerBlock, callee).
 
+FunctionReachableFromPublic_CallStack(caller, selector, callerStack):-
+  FunctionReachableFromPublic(caller, selector, callerStack).
+
 CallStackToOriginalStatementList(nil, nil).
 
 // Delta of this rule is unoptimized
