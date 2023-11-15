@@ -319,24 +319,6 @@ DEBUG_OUTPUT(FunctionReachableFromPublic)
 DEBUG_OUTPUT(FunctionReachableFromPublic_Metadata)
 
 
-
-/**
-  Same as `FunctionReachableFromPublic` but only outputs one callstack per function, selector pair
-*/
-// .decl FunctionReachableFromPublicFullLimited(function: Function, selector: symbol, callStack: CallStack, originalCallStack: OriginalStatementList, functionList: StringList) choice-domain (function, selector)
-// DEBUG_OUTPUT(FunctionReachableFromPublicFullLimited)
-
-/**
-  Converts a CallStack (list of call-blocks) to an OriginalStatementList (list of call-statements)
-*/
-.decl CallStackToOriginalStatementList(callStack: CallStack, originals: OriginalStatementList)
- DEBUG_OUTPUT(CallStackToOriginalStatementList)
-
-/**
-  Converts a CallStack (list of call-blocks) to an OriginalStatementList (list of call-statements)
-*/
-.decl CallStackToFunctionList(callStack: CallStack, originals: StringList)
-
 FunctionReachableFromPublic(function, selectorNorm, nil):-
   PublicFunctionId(function, selectorNorm, _).
 
@@ -355,16 +337,3 @@ FunctionReachableFromPublic_Metadata(caller, selector, callerStack, originalCall
   CallGraphEdge(callerBlock, callee),
   Block_Tail(callerBlock, callStmt),
   Statement_OriginalStatement(callStmt, original).
-
-// FunctionReachableFromPublicFullLimited(caller, selector, callerStack):-
-//   FunctionReachableFromPublic(caller, selector, callerStack).
-
-CallStackToOriginalStatementList(nil, nil).
-
-// Delta of this rule is unoptimized
-// will need to create a helper that unparses the list record to optimize it
-CallStackToOriginalStatementList([caller, rest], [original, restOriginal]):-
-  FunctionReachableFromPublic(_, _, [caller, rest]),
-  CallStackToOriginalStatementList(rest, restOriginal),
-  Block_Tail(caller, call),
-  Statement_OriginalStatement(call, original).
