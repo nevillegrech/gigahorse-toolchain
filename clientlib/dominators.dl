@@ -297,7 +297,10 @@ LocalStatementPathInBlock(stmt1, stmt3):-
     betweenToAfter.MayHappenBefore(between, after).
 }
 
-.type CallStack = [callerBlock: Block, rest: CallStack]
+// .type CallStack = [callerBlock: Block, rest: CallStack]
+
+.type CallStack = StringList
+
 
 /**
   Computes (all, most of the time) the different ways a private function can be reached for the different
@@ -309,27 +312,52 @@ DEBUG_OUTPUT(FunctionReachableFromPublic)
 .limitsize FunctionReachableFromPublic(n=50000)
 
 /**
+  Computes (all, most of the time) the different ways a private function can be reached for the different
+  public entry points.
+*/
+.decl FunctionReachableFromPublic_Metadata(function: Function, selector: symbol, callStack: CallStack, originalCallStack: OriginalStatementList, functionList: StringList) choice-domain (function, selector)
+DEBUG_OUTPUT(FunctionReachableFromPublic_Metadata)
+
+
+
+/**
   Same as `FunctionReachableFromPublic` but only outputs one callstack per function, selector pair
 */
-.decl FunctionReachableFromPublic_CallStack(function: Function, selector: symbol, callStack: CallStack) choice-domain (function, selector)
-DEBUG_OUTPUT(FunctionReachableFromPublic_CallStack)
+// .decl FunctionReachableFromPublicFullLimited(function: Function, selector: symbol, callStack: CallStack, originalCallStack: OriginalStatementList, functionList: StringList) choice-domain (function, selector)
+// DEBUG_OUTPUT(FunctionReachableFromPublicFullLimited)
 
 /**
   Converts a CallStack (list of call-blocks) to an OriginalStatementList (list of call-statements)
 */
 .decl CallStackToOriginalStatementList(callStack: CallStack, originals: OriginalStatementList)
-// DEBUG_OUTPUT(CallStackToOriginalStatementList)
+ DEBUG_OUTPUT(CallStackToOriginalStatementList)
+
+/**
+  Converts a CallStack (list of call-blocks) to an OriginalStatementList (list of call-statements)
+*/
+.decl CallStackToFunctionList(callStack: CallStack, originals: StringList)
 
 FunctionReachableFromPublic(function, selectorNorm, nil):-
   PublicFunctionId(function, selectorNorm, _).
 
-FunctionReachableFromPublic(callee, selector, [callerBlock, callerStack]):-
+// FunctionReachableFromPublic(callee, selector, [callerBlock, callerStack]):-
+FunctionReachableFromPublic(callee, selector, @list_append(callerStack, callerBlock)):-
   FunctionReachableFromPublic(caller, selector, callerStack),
   InFunction(callerBlock, caller),
   CallGraphEdge(callerBlock, callee).
 
-FunctionReachableFromPublic_CallStack(caller, selector, callerStack):-
-  FunctionReachableFromPublic(caller, selector, callerStack).
+FunctionReachableFromPublic_Metadata(function, selectorNorm, nil, nil, [function, nil]):-
+  PublicFunctionId(function, selectorNorm, _).
+
+FunctionReachableFromPublic_Metadata(callee, selector, @list_append(callerStack, callerBlock), @list_append(originalCalls, original), @list_append(functionsCalled, callee)):-
+FunctionReachableFromPublic_Metadata(caller, selector, callerStack, originalCalls, functionsCalled),
+  InFunction(callerBlock, caller),
+  CallGraphEdge(callerBlock, callee),
+  Block_Tail(callerBlock, callStmt),
+  Statement_OriginalStatement(callStmt, original).
+
+// FunctionReachableFromPublicFullLimited(caller, selector, callerStack):-
+//   FunctionReachableFromPublic(caller, selector, callerStack).
 
 CallStackToOriginalStatementList(nil, nil).
 
