@@ -246,6 +246,14 @@
     In_Statement_Opcode(callStmt, "CALLPRIVATE"),
     In_Statement_OriginalStatement(callStmt, originalCall).
 
+  Out_Statement_InlineInfo(outStmt, functionList):-
+    In_Statement_InlineInfo(inStmt, functionList),
+    InStatement_OutStatement(inStmt, "", outStmt).
+
+  Out_Statement_InlineInfo(outStmt, [inlinedFun, functionList]):-
+    In_Statement_InlineInfo(inStmt, functionList),
+    StatementToClone(inStmt, inlinedFun, _, _, outStmt).
+
   Out_OriginalStatement_Block(stmt, outBlock):-
     In_OriginalStatement_Block(stmt, inBlock),
     InBlock_OutBlock(inBlock, _, outBlock).

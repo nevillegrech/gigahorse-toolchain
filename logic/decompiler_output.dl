@@ -336,6 +336,14 @@ TAC_Statement_OriginalStatement(irstmt, stmt_nexthead) :-
 
 .output TAC_Statement_OriginalStatement, TAC_Statement_OriginalStatementList
 
+.type FunctionList = [function: Block, rest: FunctionList]
+
+.decl TAC_Statement_InlineInfo(irStmt: IRStatement, funList: FunctionList)
+.output TAC_Statement_InlineInfo
+
+TAC_Statement_InlineInfo(irStmt, nil):-
+  TAC_Stmt(irStmt).
+
 .decl TAC_OriginalStatement_Block(original_stmt: Statement, irblock: IRBlock)
 .output TAC_OriginalStatement_Block
 

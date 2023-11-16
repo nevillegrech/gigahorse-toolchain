@@ -312,27 +312,27 @@ DEBUG_OUTPUT(FunctionReachableFromPublic)
 .limitsize FunctionReachableFromPublic(n=50000)
 
 /**
-  Computes (all, most of the time) the different ways a private function can be reached for the different
-  public entry points.
+  Computes a single way a private function can be reached for each different public entry point.
+  Outputs the list of the call statements in their TAC and original bytecode representations,
+  as well as the list of the called functions
 */
-.decl FunctionReachableFromPublic_Metadata(function: Function, selector: symbol, callStack: CallStack, originalCallStack: OriginalStatementList, functionList: StringList) choice-domain (function, selector)
+.decl FunctionReachableFromPublic_Metadata(function: Function, selector: symbol, callStack: CallStack, originalCallStack: OriginalStatementList, functionList: FunctionList) choice-domain (function, selector)
 DEBUG_OUTPUT(FunctionReachableFromPublic_Metadata)
 
 
 FunctionReachableFromPublic(function, selectorNorm, nil):-
   PublicFunctionId(function, selectorNorm, _).
 
-// FunctionReachableFromPublic(callee, selector, [callerBlock, callerStack]):-
 FunctionReachableFromPublic(callee, selector, @list_append(callerStack, callerBlock)):-
   FunctionReachableFromPublic(caller, selector, callerStack),
   InFunction(callerBlock, caller),
   CallGraphEdge(callerBlock, callee).
 
-FunctionReachableFromPublic_Metadata(function, selectorNorm, nil, nil, [function, nil]):-
+FunctionReachableFromPublic_Metadata(function, selectorNorm, nil, nil, nil):-
   PublicFunctionId(function, selectorNorm, _).
 
 FunctionReachableFromPublic_Metadata(callee, selector, @list_append(callerStack, callerBlock), @list_append(originalCalls, original), @list_append(functionsCalled, callee)):-
-FunctionReachableFromPublic_Metadata(caller, selector, callerStack, originalCalls, functionsCalled),
+  FunctionReachableFromPublic_Metadata(caller, selector, callerStack, originalCalls, functionsCalled),
   InFunction(callerBlock, caller),
   CallGraphEdge(callerBlock, callee),
   Block_Tail(callerBlock, callStmt),
