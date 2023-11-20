@@ -16,6 +16,7 @@
   .decl In_Block_CodeChunkAccessed(block:Block, chunk:Chunk)
   .decl In_Statement_OriginalStatement(irstmt: Statement, stmt: symbol)
   .decl In_Statement_OriginalStatementList(irstmt: Statement, stmtList: OriginalStatementList)
+  .decl In_Statement_InlineInfo(irstmt: Statement, stmtList: FunctionList)
   .decl In_OriginalStatement_Block(stmt:symbol, block:Block)
   .decl In_FormalArgs(fn: Function, a: Variable, pos: number)
   .decl In_Statement_Uses(stmt: Statement, var: Variable, i: number)
@@ -39,6 +40,7 @@
   .decl Out_Block_CodeChunkAccessed(block:Block, chunk:Chunk)  //CHECK
   .decl Out_Statement_OriginalStatement(irstmt: Statement, stmt: symbol)
   .decl Out_Statement_OriginalStatementList(irstmt: Statement, stmtList: OriginalStatementList)
+  .decl Out_Statement_InlineInfo(irstmt: Statement, stmtList: FunctionList)
   .decl Out_OriginalStatement_Block(stmt:symbol, block:Block)
   .decl Out_FormalArgs(fn: Function, a: Variable, pos: number) //CHECK
   .decl Out_Statement_Uses(stmt: Statement, var: Variable, i: number)  //CHECK

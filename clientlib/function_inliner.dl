@@ -171,6 +171,7 @@ inliner.In_Block_Gas(block, gas):- Block_Gas(block, gas).
 inliner.In_Block_CodeChunkAccessed(block, chunk):- Block_CodeChunkAccessed(block, chunk).
 inliner.In_Statement_OriginalStatement(stmt, original):- Statement_OriginalStatement(stmt, original).
 inliner.In_Statement_OriginalStatementList(stmt, original):- Statement_OriginalStatementList(stmt, original).
+inliner.In_Statement_InlineInfo(stmt, funList):- Statement_InlineInfo(stmt, funList).
 inliner.In_OriginalStatement_Block(stmt, block):- OriginalStatement_Block(stmt, block).
 inliner.In_FormalArgs(fn, a, pos):- FormalArgs(fn, a, pos).
 inliner.In_Statement_Uses(stmt, var, i):- Statement_Uses(stmt, var, i).
@@ -198,6 +199,7 @@ inliner.In_ActualReturnArgs(caller, arg, pos):- ActualReturnArgs(caller, arg, po
 .output inliner.Out_Block_CodeChunkAccessed(IO="file", filename="TAC_Block_CodeChunkAccessed.csv", delimiter="\t")
 .output inliner.Out_Statement_OriginalStatement(IO="file", filename="TAC_Statement_OriginalStatement.csv", delimiter="\t")
 .output inliner.Out_Statement_OriginalStatementList(IO="file", filename="TAC_Statement_OriginalStatementList.csv", delimiter="\t")
+.output inliner.Out_Statement_InlineInfo(IO="file", filename="TAC_Statement_InlineInfo.csv", delimiter="\t")
 .output inliner.Out_OriginalStatement_Block(IO="file", filename="TAC_OriginalStatement_Block.csv", delimiter="\t")
 .output inliner.Out_FormalArgs(IO="file", filename="FormalArgs.csv", delimiter="\t")
 .output inliner.Out_Statement_Uses(IO="file", filename="TAC_Use.csv", delimiter="\t")

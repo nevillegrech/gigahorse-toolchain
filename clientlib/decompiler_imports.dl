@@ -23,6 +23,8 @@
 
 .type OriginalStatementList = StringList
 
+.type FunctionList = StringList
+
 
 #include "tac_instructions.dl"
 #include "util.dl"
@@ -207,6 +209,14 @@ DEBUG_OUTPUT(PublicFunctionId)
 */
 .decl Statement_OriginalStatementList(irstmt: Statement, stmtList: OriginalStatementList)
 .input Statement_OriginalStatementList(IO="file", filename="TAC_Statement_OriginalStatementList.csv", delimiter="\t")
+
+/**
+  Relation that links statements to a list of inlined private functions infered from the original bytecode.
+  Gives us better debug info/bytecode mapping for inlined statements.
+  Is a best effort that should cover most statements.
+*/
+.decl Statement_InlineInfo(irstmt: Statement, stmtList: FunctionList)
+.input Statement_InlineInfo(IO="file", filename="TAC_Statement_InlineInfo.csv", delimiter="\t")
 
 // Code chunks accessed
 .decl Block_CodeChunkAccessed(block: Block, chunk_id: Chunk)
