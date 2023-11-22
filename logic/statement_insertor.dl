@@ -281,7 +281,7 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
     Basic way to compute this would be to only inline blocks for direct jumps
   */
 
-  // Create a new instance of `blockToClone` for its definition in `pushBlock`
+  // Create a new instance of `blockToClone` for its definition in `pushStmt`
   .decl BlockToClone(pushStmt: Statement, blockToClone: Block)
 
   // For each fact of `BlockToClone` we create an identifier (`opID`) and order them based on it
@@ -293,7 +293,7 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
   */
   .decl BlockToCloneNewInstance(pushStmt: Statement, blockToClone: Block, generatedBlock: Block)
 
-  // `generatedStatement` will be the `stmt` of `blockToClone` when cloned in `pushBlock`
+  // `generatedStatement` will be the `stmt` of `blockToClone` when cloned in `pushStmt`
   .decl StatementToClonedStatement(pushStmt: Statement, blockToClone: Block, stmt: Statement, generatedStatement: Statement)
   DEBUG_OUTPUT(StatementToClonedStatement)
 
@@ -326,9 +326,7 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
   //Maybe change it to only consider direct block edges again?
   ClonedBlockAddressPushedBy(pushBlock, pushStmt, blockToClone):-
     BlockToClone(pushStmt, blockToClone),
-    BlockPushesBlockToStack(pushBlock, pushStmt, blockToClone),
-    BlockPushedToStack(pushStmt, _, blockToClone), // todo: simplify rule
-    analysis.Statement_Block(pushStmt, pushBlock).
+    BlockPushesBlockToStack(pushBlock, pushStmt, blockToClone).
 
   BlockPushesBlockToStack(block, pushStmt, pushedBlock):-
     BlockPushedToStack(pushStmt, _, pushedBlock),
