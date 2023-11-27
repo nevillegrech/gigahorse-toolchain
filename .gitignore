@@ -59,12 +59,3 @@ results.json
 
 # sqlite databases
 *.sqlite
-
-# local draco
-.*
-.test*/
-test*/
-*.profile
-*.txt
-*new.sh
-./symvalic_new
