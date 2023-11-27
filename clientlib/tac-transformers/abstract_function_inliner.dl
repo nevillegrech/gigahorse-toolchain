@@ -422,21 +422,29 @@
     In_Statement_Uses(retJump, jumpTargetVar, 0),
     InStatement_OutStatement(retJump, callerBlock, outRetJump),
     InVar_OutVar(jumpTargetVar, callerBlock, outJumpTargetVar).
-  
-  Out_Variable_BlockValue(outVar, outVal):-
-    In_Variable_BlockValue(inVar, inVal),
+
+  .decl In_VariableHoldsJumpdest(inVar: Variable)
+  In_VariableHoldsJumpdest(inVar):-
     In_Statement_Uses(inJump, inVar, 0),
     In_Statement_Opcode(inJump, opcode),
-    (opcode = "JUMP" ; opcode = "JUMPI"),
+    (opcode = "JUMP" ; opcode = "JUMPI").
+
+  // The last arg to a private call is the return address
+  In_VariableHoldsJumpdest(inVar):-
+    In_Statement_Uses(inCall, inVar, n),
+    In_Statement_Opcode(inCall, "CALLPRIVATE"),
+    !In_Statement_Uses(inCall, _, n + 1).
+
+  Out_Variable_BlockValue(outVar, outVal):-
+    In_Variable_BlockValue(inVar, inVal),
+    In_VariableHoldsJumpdest(inVar),
     InVar_OutVar(inVar, callerBlock, outVar),
     callerBlock != "",
     outVal = cat(cat(inVal, "B"), callerBlock).
-  
+
   Out_Variable_BlockValue(outVar, inVal):-
     In_Variable_BlockValue(inVar, inVal),
-    In_Statement_Uses(inJump, inVar, 0),
-    In_Statement_Opcode(inJump, opcode),
-    (opcode = "JUMP" ; opcode = "JUMPI"),
+    In_VariableHoldsJumpdest(inVar),
     InVar_OutVar(inVar, "", outVar).
  
 
