@@ -319,20 +319,22 @@ TAC_Block_Head(block, irstmt) :-
 
 
 // unmodified statements
-TAC_Statement_OriginalStatementList(irstmt, [stmt, nil]),
-TAC_Statement_OriginalStatement(irstmt, stmt) :-
+
+TAC_Statement_OriginalStatementList(irstmt, [ogStmt, nil]),
+TAC_Statement_OriginalStatement(irstmt, ogStmt) :-
   Statement_IRStatement(stmt, _, irstmt),
-  preTrans.Statement_Block(stmt, _).
+  preTrans.Statement_Block(stmt, _),
+  PreTransStatement_OriginalStatement(stmt, ogStmt). //this predicate takes care of block cloning as well
+
 
 // Inserted statements that didn't exist before
-TAC_Statement_OriginalStatementList(irstmt, [stmt_nexthead, nil]),
-TAC_Statement_OriginalStatement(irstmt, stmt_nexthead) :-
+// recover the insertion in the original bytecode (regardless of whether the original statement had been removed )
+TAC_Statement_OriginalStatementList(irstmt, [ogStmt, nil]),
+TAC_Statement_OriginalStatement(irstmt, ogStmt) :-
   Statement_IRStatement(stmt, _, irstmt),
   !preTrans.Statement_Block(stmt, _), // didn't exist
-  IRStatement_Block(irstmt, irblock),
-  LocalBlockEdge(irblock, irblock_next),
-  Block_IRBlock(block_next, _, irblock_next),
-  stmt_nexthead = as(block_next, Statement).
+  insertor.InsertedOpNewStatement(insertionBasisStmt, _, stmt),
+  PreTransStatement_OriginalStatement(insertionBasisStmt,ogStmt). //edge case: the insertion basis might have been cloned
 
 .output TAC_Statement_OriginalStatement, TAC_Statement_OriginalStatementList
 
