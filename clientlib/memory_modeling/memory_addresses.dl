@@ -211,6 +211,12 @@ FreePointerBasedValue(val, as(formal, Statement), 0, 0):-
   PossibleStructArg(_, _,formal),
   val = cat(cat(formal, "++"), "0").
 
+// SL: HACK here. casting arg to statement.
+Variable_SymbolicValue(actual, val),
+FreePointerBasedValue(val, as(actual, Statement), 0, 0):-
+  PossibleStructRet(_, actual,_),
+  val = cat(cat(actual, "++"), "0").
+
 /**
  The depth is not used to limit the new values being created but to count how
  many times a constant has been added to the value for arg inference.
@@ -227,6 +233,20 @@ FreePointerBasedValue(val, mload, newDepth, res):-
   (res = numVal2, newDepth = depth)
   ),
   val = cat(cat(mload, "++"), to_string(res)).
+
+Variable_SymbolicValue(to, val),
+FreePointerBasedValue(val, mload, newDepth, @hex_to_number(resVal)):-
+  ADDFix(_, numVar, freePtrBasedVar, to),
+  Variable_LargeValue(numVar, largeVal),
+  Variable_SymbolicValue(freePtrBasedVar, freePtrBasedVal),
+  FreePointerBasedValue(freePtrBasedVal, mload, depth, numVal2),
+  resVal = @add_256(largeVal, @number_to_hex(numVal2)),
+  @lt_256(resVal, "0x80000000") != "0x0",
+  (
+  (@hex_to_number(resVal) != numVal2, newDepth = depth);
+  (@hex_to_number(resVal) = numVal2, newDepth = depth)
+  ),
+  val = cat(cat(mload, "++"), to_string(@hex_to_number(resVal))).
 
 Variable_SymbolicValue(to, val),
 FreePointerBasedValue(val, mload, newDepth, res):-
@@ -335,3 +355,31 @@ FreePointerBasedValue_AliasRep(val, repVal):-
   maxordy = max ord(otherVal) : FreePointerBasedValuesEqual(val, otherVal),
   FreePointerBasedValuesEqual(val, repVal),
   maxordy = ord(repVal).
+
+
+/**
+  Initial work on calldata pointers
+*/
+.type CallDataPointer = InitialCallDataPointer{argHex: Value}
+                      | OffsetCallDataPointer {base: CallDataPointer, offset: Value}
+
+.decl Variable_CallDataPointer(var: Variable, callDataPtr: CallDataPointer)
+DEBUG_OUTPUT(Variable_CallDataPointer)
+
+.decl InitialCallDataPointerDefinition(var: Variable, argHex: Value)
+
+InitialCallDataPointerDefinition(callDataPtrVar, argHex):-
+  CALLDATALOAD(_, argIdVar, toVar),
+  BasicVariable_Value(argIdVar, argHex),
+  ADDFix(_, toVar, fourVar, callDataPtrVar),
+  BasicVariable_Value(fourVar, "0x4"),
+  LocalFlows(callDataPtrVar, cdlIndex),
+  CALLDATALOAD(_, cdlIndex, _).
+
+Variable_CallDataPointer(callDataPtrVar, $OffsetCallDataPointer($InitialCallDataPointer(argHex), "0x0")):-
+  InitialCallDataPointerDefinition(callDataPtrVar, argHex).
+
+Variable_CallDataPointer(res, $OffsetCallDataPointer($InitialCallDataPointer(argHex), as(@add_256(const, offset), Value))):-
+  Variable_CallDataPointer(a, $OffsetCallDataPointer($InitialCallDataPointer(argHex), offset)),
+  ADDFix(_, a, b, res),
+  Variable_Value(b, const).

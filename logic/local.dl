@@ -690,6 +690,19 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     Statement_Uses_Local(jumpiStmt, pred, 1),
     JUMPI(jumpiStmt).
 
+  // pattern in via-ir contracts, public function start is the block's fallthrough
+  .decl BlockComparesSigFallthroughSolidity(block: Block, sigHash: Value)
+  BlockComparesSigFallthroughSolidity(block, sigHash) :-
+    Statement_Block(pushStmt, block),
+    ImmediateBlockJumpTarget(block, _),
+    (PUSH4(pushStmt, sigHash) ; PUSH3(pushStmt, sigHash)),
+    Statement_Defines(pushStmt, sigHashVar),
+    SUB(subStmt),
+    Statement_Uses_Local(subStmt, sigHashVar, _),
+    Statement_Defines(subStmt, pred),
+    JUMPI(jumpiStmt),
+    Statement_Uses_Local(jumpiStmt, pred, 1).
+
   PublicFunctionJump(block, sigHash) :-   BlockComparesSig(block, sigHash).
 
   PublicFunction(as(targetValue, Block), sigHash) :-
@@ -766,6 +779,16 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
  ***********
  */
 
+// Map each pre-tranformed statement to the corresponding statement in the original bytecode 
+// (accounting for all of the early block-cloning rounds)
+.decl PreTransStatement_OriginalStatement(stmt: Statement, ogStmt: Statement)
+DEBUG_OUTPUT(PreTransStatement_OriginalStatement)
+PreTransStatement_OriginalStatement(ogStmt, ogStmt) :-
+  factReader.Statement_Opcode(ogStmt, _).
+
+PreTransStatement_OriginalStatement(rvtClStmt, ogStmt) :-
+  revertCloner.StatementToClonedStatement(_, _, ogStmt, rvtClStmt).
+
 .init preTrans = PreTransLocalAnalysis
 
 .init revertCloner = RevertBlockCloner
@@ -777,6 +800,14 @@ COPY_CODE(revertCloner, factReader)
 COPY_OUTPUT(blockCloner, revertCloner)
 blockCloner.Prev_Block_OriginalBlock(block, originalBlock):- revertCloner.Block_OriginalBlock(block, originalBlock).
 COPY_OUTPUT(preTrans, blockCloner)
+
+PreTransStatement_OriginalStatement(heurClStmt, ogStmt) :-
+  blockCloner.StatementToClonedStatement(_, _, rvtClStmt, heurClStmt),
+  revertCloner.StatementToClonedStatement(_, _, ogStmt, rvtClStmt).
+
+PreTransStatement_OriginalStatement(heurClStmt, ogStmt) :-
+  blockCloner.StatementToClonedStatement(_, _, ogStmt, heurClStmt),
+  !revertCloner.StatementToClonedStatement(_, _, _, ogStmt).
 
 #else
 
@@ -826,6 +857,19 @@ insertor.insertOps(functionStartStmt,
    preTrans.Statement_Next(tail, functionStartStmt),
    !preTrans.BlockComparesSig(_, _).
 
+// transformation for pattern in via-ir contracts
+insertor.insertOps(functionStartStmt,
+  LIST(
+    STMT(PUSH4, MAKE_LABEL_REFERENCE(hash)),
+    STMT(JUMP, cat("PublicFunctionJump:", hash)),
+    STMT(JUMPDEST, MAKE_LABEL_REFERENCE(hash))
+  )
+) :-
+   preTrans.BlockComparesSigFallthroughSolidity(block, hash),
+   preTrans.BasicBlock_Tail(block, tail),
+   preTrans.Statement_Next(tail, functionStartStmt),
+   !preTrans.BlockComparesSig(_, hash).
+
 // Receive transformation
 insertor.insertOps(functionStartStmt,
   LIST(
@@ -872,16 +916,18 @@ insertor.insertOps(jumpi,
   preTrans.JUMPI(jumpi),
   preTrans.FallthroughStmt(jumpi, fallthrough).
 
-// This one removes conditional jumps that "always" jump
-insertor.removeOp(jmpi),
-insertor.insertOps(jmpi,
-  LIST(
-    STMT(SWAP1, ""),
-    STMT(POP, ""),
-    STMT(JUMP, "")
-  )
-) :-
-  preTrans.AlwaysJumps(jmpi).
+// SL: Removed this to get more completeness, especially in cases
+// of non-deployed code with uninitialized immutables
+// // This one removes conditional jumps that "always" jump
+// insertor.removeOp(jmpi),
+// insertor.insertOps(jmpi,
+//   LIST(
+//     STMT(SWAP1, ""),
+//     STMT(POP, ""),
+//     STMT(JUMP, "")
+//   )
+// ) :-
+//   preTrans.AlwaysJumps(jmpi).
 
 insertor.removeOp(codeCopy),
 insertor.removeOp(mload),
@@ -927,6 +973,14 @@ postTrans.PublicFunction(block, hash) :-
    postTrans.Statement_Block(stmt, block),
    preTrans.BlockComparesSigVyper(_, hash),
    !preTrans.BlockComparesSig(_, _),
+   ISLABEL(meta), hash = GET_LABEL_REFERENCE(meta).
+
+postTrans.PublicFunction(block, hash) :-
+   insertor.MetaData(stmt, meta),
+   postTrans.JUMPDEST(stmt),
+   postTrans.Statement_Block(stmt, block),
+   preTrans.BlockComparesSigFallthroughSolidity(_, hash),
+   !preTrans.BlockComparesSig(_, hash),
    ISLABEL(meta), hash = GET_LABEL_REFERENCE(meta).
 
 // For receive functions

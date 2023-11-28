@@ -19,7 +19,17 @@ DEBUG_OUTPUT(Variable_NumericValue)
 
 .decl Variable_NumericValue(var: Variable, value: number)
 Variable_NumericValue(var, @hex_to_number(val)):-
-  Variable_Value(var, val).
+  Variable_Value(var, val),
+  @lt_256(val, "0x80000000") != "0x0".
+
+/**
+  Contains a subset of `Variable_Value` that cannot be modeled
+  correctly by `Variable_NumericValue`
+*/
+.decl Variable_LargeValue(var: Variable, value: Value)
+Variable_LargeValue(var, val):-
+  Variable_Value(var, val),
+  @gt_256(val, "0x7fffffff") != "0x0".
 
 .decl ADDFix(stmt:Statement, a:Variable, b:Variable, to:Variable)
 .decl ADDFixx(stmt:Statement, a:Variable, b:Variable, to:Variable)
@@ -41,6 +51,12 @@ DEBUG_OUTPUT(VarPlusThirtyTwo)
 
 .decl VarPlusConst(var:Variable, const:Value, varPlus:Variable)
 DEBUG_OUTPUT(VarPlusConst)
+
+/**
+  Same as `VarPlusConst` but without the identity case for every variable
+*/
+.decl VarPlusConstNoIdentity(var:Variable, constant:Value, varPlus:Variable)
+DEBUG_OUTPUT(VarPlusConstNoIdentity)
 
 .decl VarMinusConst(var:Variable, const:Value, varMinus:Variable)
 DEBUG_OUTPUT(VarMinusConst)
@@ -70,6 +86,7 @@ VarPlusThirtyTwo(var, varPlus):-
   ADDFix(_, var, thirtyTwo, varPlus),
   BasicVariable_Value(thirtyTwo, "0x20").
 
+VarPlusConstNoIdentity(var, const, varPlus),
 VarPlusConst(var, const, varPlus):-
   ADDFix(_, var, constVar, varPlus),
   BasicVariable_Value(constVar, const).
@@ -105,19 +122,19 @@ VarPlusThrirtyOneDivMulSixtyFour(var, result):-
 VarTimesConstantNoIdentity(var, constVal, result),
 VarTimesConstant(var, constVal, result):-
   (MUL(_, var, constVar, result); MUL(_, constVar, var, result)),
-  Variable_Value(constVar, constVal).
+  BasicVariable_Value(constVar, constVal).
 
 VarTimesConstantNoIdentity(var, as(@exp_256("0x2", shiftBits), Value), result),
 VarTimesConstant(var, as(@exp_256("0x2", shiftBits), Value), result):-
   SHL(_, shiftConst, var, result),
-  Variable_Value(shiftConst, shiftBits).
+  BasicVariable_Value(shiftConst, shiftBits).
 
 VarTimesConstant(var, "0x1", var):-
   Statement_Defines(_, var, _).
 
 VarDivByConstant(var, constVal, result):-
   DIV(_, var, constVar, result),
-  Variable_Value(constVar, constVal).  
+  BasicVariable_Value(constVar, constVal).
 
 VarDivByConstant(var, "0x1", var):-
   Statement_Defines(_, var, _).
@@ -128,3 +145,35 @@ CALLDATALOADOfConstant(cdl, constHex, constNum):-
   CALLDATALOAD(cdl, index, _),
   Variable_Value(index, constHex),
   Variable_NumericValue(index, constNum).
+
+/**
+  Helper predicate to resolve ambiguous const array patterns
+*/
+.decl MSTOREValueIsProbablyBytes1(mstore: Statement)
+
+MSTOREValueIsProbablyBytes1(mstore):-
+  MSTORE(mstore, _, storedVar),
+  (
+  HighBytesMaskOp(_, storedVar, 1);
+   (
+    Variable_Value(storedVar, storedVal),
+    storedVal = as(@and_256(storedVal, "0xff00000000000000000000000000000000000000000000000000000000000000"), Value)
+   )
+  ).
+
+/**
+  To be used to model the common pattern x = mem[64] + x - mem[64]
+  Unused for now
+*/
+.decl BasicAliasPattern(var: Variable, aliasVar: Variable)
+DEBUG_OUTPUT(BasicAliasPattern)
+
+BasicAliasPattern(var, aliasVar):-
+  ADDFix(_, var, memPtrA, varPlusMemPtr),
+  SUB(_, varPlusMemPtr, memPtrB, aliasVar),
+  MLOADFreePtr_To(mloadA, memPtrA),
+  MLOADSFreePtrUnchanged(mloadA, mloadB),
+  MLOADFreePtr_To(mloadB, memPtrB).
+
+BasicAliasPattern(var, var):-
+  isVariable(var).

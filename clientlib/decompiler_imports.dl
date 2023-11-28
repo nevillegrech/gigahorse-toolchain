@@ -23,6 +23,8 @@
 
 .type OriginalStatementList = StringList
 
+.type FunctionList = StringList
+
 
 #include "tac_instructions.dl"
 #include "util.dl"
@@ -130,6 +132,13 @@
 IsPublicFunction(func) :- PublicFunctionSelector(func, _).
 
 /**
+  A subset of IsFunction, contains only functions that are the "inner" part of a high level function with a modifier.
+*/
+.decl FunctionIsInner(func: Function)
+.input FunctionIsInner(IO="file", filename="FunctionIsInner.csv", delimiter="\t")
+
+
+/**
   Helper for selectors
 */
 .decl NormalizeSelector(sigHash: symbol, sigHashNorm: symbol)
@@ -160,6 +169,7 @@ PublicFunctionId(fun, sigHashNorm, sigHashNorm):-
   NormalizeSelector(pubsigHash, sigHashNorm).
 
 DEBUG_OUTPUT(PublicFunctionId)
+
 
 /**
   Name given to each function. May contain public signature too.
@@ -199,6 +209,14 @@ DEBUG_OUTPUT(PublicFunctionId)
 */
 .decl Statement_OriginalStatementList(irstmt: Statement, stmtList: OriginalStatementList)
 .input Statement_OriginalStatementList(IO="file", filename="TAC_Statement_OriginalStatementList.csv", delimiter="\t")
+
+/**
+  Relation that links statements to a list of inlined private functions infered from the original bytecode.
+  Gives us better debug info/bytecode mapping for inlined statements.
+  Is a best effort that should cover most statements.
+*/
+.decl Statement_InlineInfo(irstmt: Statement, stmtList: FunctionList)
+.input Statement_InlineInfo(IO="file", filename="TAC_Statement_InlineInfo.csv", delimiter="\t")
 
 // Code chunks accessed
 .decl Block_CodeChunkAccessed(block: Block, chunk_id: Chunk)
@@ -335,6 +353,23 @@ Block_Tail(block, stmt) :-
   !PHI(stmt, _, _),
   !Helper_NextStatementInSameBlock(stmt, _).
 
+Block_Tail(block, stmt):-
+  Statement_Block(stmt, block),
+  PHI(stmt, _, _),
+  !Helper_NextStatementInSameBlock(stmt, _), //doesn't have next statement
+  1 = count : Helper_NextStatementInSameBlock(_, stmt). // has previous statement
+
+Block_Tail(block, stmt):-
+  Statement_Block(stmt, block),
+  PHI(stmt, _, _),
+  !Helper_NextStatementInSameBlock(stmt, _), //doesn't have next statement
+  !Helper_NextStatementInSameBlock(_, stmt). // doesn't have previous statement
+
+Block_Head(block, stmt):-
+  Statement_Block(stmt, block),
+  PHI(stmt, _, _),
+  !Helper_NextStatementInSameBlock(_, stmt), // has no previous statements
+  1 = count : Helper_NextStatementInSameBlock(stmt, _). //has next statement
 
 .decl IsBlock(block: Block)
 
@@ -357,8 +392,8 @@ ValidGlobalTerminalBlock(block) :-
    (STOP(tail) ; RETURN(tail, _, _)).
 
 .decl GlobalEntryBlock(block: Block)
+.input GlobalEntryBlock(IO="file", filename="GlobalEntryBlock.csv", delimiter="\t")
 
-GlobalEntryBlock("0x0").
 
 .decl FallbackFunction(func: Function)
 

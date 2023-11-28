@@ -109,6 +109,13 @@ PHIStmtTwoUses(phi, var1, var2, def):-
   Statement_Uses(phi, var2, -1),
   var1 != var2.
 
+.decl PHIStmtOneUse(phi:Statement, var:Variable, def:Variable)
+PHIStmtOneUse(phi, var, def):-
+  PHI(phi, _, _),
+  1 = count: Statement_Uses(phi, _, _),
+  Statement_Defines(phi, def, 0),
+  Statement_Uses(phi, var, _).
+
 /**
   Simple loop induction variable. Identified by the two variables.
 */
@@ -156,24 +163,42 @@ InductionVariableStartsAtConst(loop, [beforeLoopVar, inLoopVar], const):-
   BasicVariable_Value(beforeLoopVar, const).
 
 InductionVariableLowerBoundVar(loop, [beforeLoopVar, inLoopVar], boundVar):-
-  LoopExitCond(condVar, loop),
+  LoopExitCondPredicateTrue(condVar, loop, _),
   WellFormedLoopInductionVariable(loop, _, [beforeLoopVar, inLoopVar]),
   PHIStmtTwoUses(_, beforeLoopVar, inLoopVar, phiVar),
   LT(_, phiVar, boundVar, condVar).
 
-InductionVariableUpperBoundVar(loop, [beforeLoopVar, inLoopVar], boundVar):-
-  LoopExitCond(condVar, loop),
+InductionVariableLowerBoundVar(loop, [beforeLoopVar, inLoopVar], boundVar):-
+  LoopExitCondPredicateFalse(condVar, loop, _),
   WellFormedLoopInductionVariable(loop, _, [beforeLoopVar, inLoopVar]),
   PHIStmtTwoUses(_, beforeLoopVar, inLoopVar, phiVar),
   GT(_, phiVar, boundVar, condVar).
 
 InductionVariableUpperBoundVar(loop, [beforeLoopVar, inLoopVar], boundVar):-
-  LoopExitCond(condVar, loop),
+  LoopExitCondPredicateTrue(condVar, loop, _),
+  WellFormedLoopInductionVariable(loop, _, [beforeLoopVar, inLoopVar]),
+  PHIStmtTwoUses(_, beforeLoopVar, inLoopVar, phiVar),
+  GT(_, phiVar, boundVar, condVar).
+
+InductionVariableUpperBoundVar(loop, [beforeLoopVar, inLoopVar], boundVar):-
+  LoopExitCondPredicateFalse(condVar, loop, _),
+  WellFormedLoopInductionVariable(loop, _, [beforeLoopVar, inLoopVar]),
+  PHIStmtTwoUses(_, beforeLoopVar, inLoopVar, phiVar),
+  LT(_, phiVar, boundVar, condVar).
+
+InductionVariableUpperBoundVar(loop, [beforeLoopVar, inLoopVar], boundVar):-
+  LoopExitCondPredicateTrue(condVar, loop, _),
   WellFormedLoopInductionVariable(loop, _, [beforeLoopVar, inLoopVar]),
   PHIStmtTwoUses(_, beforeLoopVar, inLoopVar, phiVar),
   LT(_, phiVar, boundVar, ltVar),
   ISZERO(_, ltVar, condVar).
 
+InductionVariableUpperBoundVar(loop, [beforeLoopVar, inLoopVar], boundVar):-
+  LoopExitCondPredicateFalse(condVar, loop, _),
+  WellFormedLoopInductionVariable(loop, _, [beforeLoopVar, inLoopVar]),
+  PHIStmtTwoUses(_, beforeLoopVar, inLoopVar, phiVar),
+  GT(_, phiVar, boundVar, gtVar),
+  ISZERO(_, gtVar, condVar).
 
 
 .decl VariableDefinedInLoopUsedAfter(loop: Block, variable: Variable, useStmt: Statement)
