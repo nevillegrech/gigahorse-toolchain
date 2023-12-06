@@ -40,7 +40,15 @@
 .type Statement <: symbol
 .type FunctionSignature <: symbol
 
-.init global = OptimizedGlobalAnalysis<CONTEXT_SENSITIVITY>
+.init incompleteGlobal = IncompleteOptimizedGlobalAnalysis<CONTEXT_SENSITIVITY>
+
+COPY_CODE(incompleteGlobal, postTrans)
+
+.init global = ExperimentalCompleteOptimizedGlobalAnalysis<CONTEXT_SENSITIVITY>
+
+global.StatementPushesUsedLabel(stmt):-
+  incompleteGlobal.VariableAlwaysUsedAsJumpTarget(pushedVar),
+  postTrans.Statement_Defines(stmt, pushedVar).
 
 COPY_CODE(global, postTrans)
 
@@ -83,12 +91,8 @@ PreMask_Length(cat(mask, "ff"), bytes+1) :-
 
   // Stack contents at end of a `block`, given its calling `context`.
   .decl BlockOutputContents(context: sens.Context, block: Block, index: StackIndex, var: Variable)
-  #ifdef ENABLE_LIMITSIZE
-  .limitsize BlockOutputContents(n=LIMITSIZE_BLOCK_OUTPUT_CONTENTS)
-  #endif
-
   DEBUG_OUTPUT(BlockOutputContents)
-  
+
   /**
     Stack contents at start of a `block`, given its calling `context`.
     Added overridable flag to override it in the optimized variant of the component
@@ -261,9 +265,42 @@ PreMask_Length(cat(mask, "ff"), bytes+1) :-
     .plan 1:(2,1)
 }
 
+
+/**
+  Used whenever a best effort is good enough
+*/
+.comp IncompleteOptimizedGlobalAnalysis <AbstractContextSensitivity> : OptimizedGlobalAnalysis <AbstractContextSensitivity> {
+  .limitsize BlockOutputContents(n=LIMITSIZE_BLOCK_OUTPUT_CONTENTS)
+}
+
+/**
+  Used for the main global analysis. Only has a limitsize if the `--enable_limitsize` flag is set.
+*/
+.comp CompleteOptimizedGlobalAnalysis <AbstractContextSensitivity> : OptimizedGlobalAnalysis <AbstractContextSensitivity> {
+  #ifdef ENABLE_LIMITSIZE
+  .limitsize BlockOutputContents(n=LIMITSIZE_BLOCK_OUTPUT_CONTENTS)
+  #endif
+}
+
+.comp ExperimentalCompleteOptimizedGlobalAnalysis <AbstractContextSensitivity> : CompleteOptimizedGlobalAnalysis <AbstractContextSensitivity> {
+
+  .decl StatementPushesUsedLabel(stmt: Statement)
+
+  .override BlockPushesLabel
+  BlockPushesLabel(block, val) :-
+    JUMPDEST(as(val, symbol)),
+    Variable_Value(var, val),
+    Statement_Defines(stmt, var),
+    StatementPushesUsedLabel(stmt),
+    Statement_Block(stmt, block),
+    BasicBlock_Tail(block, call),
+    LocalStackContents(call, _, var),
+    !BlockUsesLocal(block, var). 
+}
+
 /**
   Declared just so it can be used as a parameter in another component
 */
-.comp DefaultOptimizedGlobalAnalysis : OptimizedGlobalAnalysis <TransactionalWithShrinkingContext> {
+.comp DefaultIncompleteOptimizedGlobalAnalysis : IncompleteOptimizedGlobalAnalysis <TransactionalWithShrinkingContext> {
 
 }

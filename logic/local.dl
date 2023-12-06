@@ -555,7 +555,7 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     caller != caller2.
 
   // pushes a label for later use. A return addr?
-  .decl BlockPushesLabel(block: Block, val: Value)
+  .decl BlockPushesLabel(block: Block, val: Value) overridable
   BlockPushesLabel(block, val) :-
     JUMPDEST(as(val, symbol)),
     Variable_Value(var, val),
