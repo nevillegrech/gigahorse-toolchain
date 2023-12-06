@@ -568,6 +568,9 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     !BlockUsesLocal(block, var),
     !ExtBlockPushesLabel(_, _).
 
+  BlockPushesLabel(block, val):-
+    ExtBlockPushesLabel(block, val).
+
   // Same reasoning, with more detail. In very rare cases, the continuation will not be found,
   // even though BlockPushesLabel is true.
   .decl CallBlockPushesContinuation(caller: Block, callee: Block, cont: Block, index: number)
