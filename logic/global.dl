@@ -47,7 +47,7 @@ COPY_CODE(incompleteGlobal, postTrans)
 .init global = ExperimentalCompleteOptimizedGlobalAnalysis<CONTEXT_SENSITIVITY>
 
 global.StatementPushesUsedLabel(stmt):-
-  incompleteGlobal.VariableAlwaysUsedAsJumpTarget(pushedVar),
+  incompleteGlobal.VariableUsedInAsJumpdest(pushedVar),
   postTrans.Statement_Defines(stmt, pushedVar).
 
 COPY_CODE(global, postTrans)
@@ -232,6 +232,14 @@ PreMask_Length(cat(mask, "ff"), bytes+1) :-
     op != "JUMP",
     op != "JUMPI".
 
+  .decl VariableUsedInAsJumpdest(var: Variable)
+
+  VariableUsedInAsJumpdest(var):-
+    Statement_Uses(stmt, var, 0),
+    Statement_Opcode(stmt, op),
+    (op = "JUMP"; op = "JUMPI").
+
+
   VariableUsedInOperation(var):-
     Statement_Uses(stmt, var, 1),
     Statement_Opcode(stmt, "JUMPI").
@@ -285,8 +293,8 @@ PreMask_Length(cat(mask, "ff"), bytes+1) :-
 .comp ExperimentalCompleteOptimizedGlobalAnalysis <AbstractContextSensitivity> : CompleteOptimizedGlobalAnalysis <AbstractContextSensitivity> {
 
   .decl StatementPushesUsedLabel(stmt: Statement)
-  .output sens.local.BlockPushesLabel, StatementPushesUsedLabel, sens.local.PrivateFunctionCall
-  
+  // .output sens.local.BlockPushesLabel, StatementPushesUsedLabel, sens.local.PrivateFunctionCall
+  // .output BlockPushesLabel
   sens.local.ExtBlockPushesLabel(block, val) :-
     JUMPDEST(as(val, symbol)),
     Variable_Value(var, val),
