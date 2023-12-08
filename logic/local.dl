@@ -554,10 +554,8 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     StaticBlockJumpTarget(caller2, target),
     caller != caller2.
 
-  .decl ExtBlockPushesLabel(block: Block, val: Value)
-
   // pushes a label for later use. A return addr?
-  .decl BlockPushesLabel(block: Block, val: Value)
+  .decl BlockPushesLabel(block: Block, val: Value) overridable
   BlockPushesLabel(block, val) :-
     JUMPDEST(as(val, symbol)),
     Variable_Value(var, val),
@@ -565,11 +563,7 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     Statement_Block(stmt, block),
     BasicBlock_Tail(block, call),
     LocalStackContents(call, _, var),
-    !BlockUsesLocal(block, var),
-    !ExtBlockPushesLabel(_, _).
-
-  BlockPushesLabel(block, val):-
-    ExtBlockPushesLabel(block, val).
+    !BlockUsesLocal(block, var).
 
   // Same reasoning, with more detail. In very rare cases, the continuation will not be found,
   // even though BlockPushesLabel is true.
@@ -625,6 +619,20 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
  .output MultiplePrivateFunctionCall
  .output PrivateFunctionCall
 // .output CallBlockEarliestContinuation
+
+  .decl CODECOPYStatement(stmt: Statement, offset: Value, size: Value)
+
+  CODECOPYStatement(codeCopy, codeOffsetNumHex, smallNumHex) :-
+    Statement_Opcode(codeCopy, "CODECOPY"),
+    BeforeLocalStackContents(codeCopy, 2, lenVar),
+    CheckIsVariable(lenVar),
+    Statement_Defines(pushLen, lenVar),
+    PushValue(pushLen, smallNumHex),
+    BeforeLocalStackContents(codeCopy, 1, codeOffsetVar),
+    CheckIsVariable(codeOffsetVar),
+    Statement_Defines(pushCodeOffset, codeOffsetVar),
+    PushValue(pushCodeOffset, codeOffsetNumHex).
+
 }
 
 .comp PreTransLocalAnalysis : LocalAnalysis {
@@ -655,20 +663,6 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     codeOffsetNum = @hex_to_number(codeOffsetNumHex),
     ByteCodeHex(bytecodeStr),
     const = cat("0x", substr(bytecodeStr, 2*codeOffsetNum, 2*smallNum)).
-
-  .decl CODECOPYStatement(stmt: Statement, offset: Value, size: Value)
-
-  CODECOPYStatement(codeCopy, codeOffsetNumHex, smallNumHex) :-
-    Statement_Opcode(codeCopy, "CODECOPY"),
-    BeforeLocalStackContents(codeCopy, 2, lenVar),
-    CheckIsVariable(lenVar),
-    Statement_Defines(pushLen, lenVar),
-    PushValue(pushLen, smallNumHex),
-    BeforeLocalStackContents(codeCopy, 1, codeOffsetVar),
-    CheckIsVariable(codeOffsetVar),
-    Statement_Defines(pushCodeOffset, codeOffsetVar),
-    PushValue(pushCodeOffset, codeOffsetNumHex).
-
 
   .decl BlockComparesSigVyper(block: Block, sigHash: Value)
 
@@ -762,6 +756,14 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
                                              
 }
 
+.comp PostIncompleteGlobalLocalAnalysis : LocalAnalysis {
+  .decl ExtBlockPushesLabel(block: Block, val: Value)
+
+  .override BlockPushesLabel
+
+  BlockPushesLabel(block, val):-
+    ExtBlockPushesLabel(block, val).
+}
 
 /**
    Preprocessing of decompiler input, to yield convenient relations

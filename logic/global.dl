@@ -40,9 +40,9 @@
 .type Statement <: symbol
 .type FunctionSignature <: symbol
 
-.init incompleteGlobal = IncompleteOptimizedGlobalAnalysis<CONTEXT_SENSITIVITY>
+.init incompleteGlobal = IncompleteOptimizedGlobalAnalysis<CONTEXT_SENSITIVITY, LocalAnalysis>
 
-COPY_CODE(incompleteGlobal, postTrans)
+COPY_CODE_FULL(incompleteGlobal, postTrans)
 
 .init global = ExperimentalCompleteOptimizedGlobalAnalysis<CONTEXT_SENSITIVITY>
 
@@ -50,7 +50,7 @@ global.StatementPushesUsedLabel(stmt):-
   incompleteGlobal.VariableUsedInAsJumpdest(pushedVar),
   postTrans.Statement_Defines(stmt, pushedVar).
 
-COPY_CODE(global, postTrans)
+COPY_CODE_FULL(global, postTrans)
 
 // Masks with all 1s
 .decl Mask_Length(mask: Value, bytes: number)
@@ -73,18 +73,20 @@ PreMask_Length(cat(mask, "ff"), bytes+1) :-
   bytes < 32.
 
 
-.comp GlobalAnalysis <AbstractContextSensitivity> : PreTransLocalAnalysis {
+.comp GlobalAnalysis <AbstractContextSensitivity, LocalAnalysis> : LocalAnalysis {
   /*
   ***********
   * Key dataflow definitions
   ***********
   */
 
-  .init sens = AbstractContextSensitivity<PreTransLocalAnalysis>
+  .init sens = AbstractContextSensitivity<LocalAnalysis>
 
   sens.local.PushValue(push, val):- PushValue(push, val).
   sens.local.Statement_Opcode(stmt, op):- Statement_Opcode(stmt, op).
   sens.local.Statement_Next(stmt, stmtNext):- Statement_Next(stmt, stmtNext).
+  sens.local.PublicFunction(block, hex):- PublicFunction(block, hex).
+  sens.local.PublicFunctionJump(block, hex):- PublicFunctionJump(block, hex).
 
   // `block` is reachable under `context`
   .decl ReachableContext(context: sens.Context, block: Block)
@@ -254,7 +256,7 @@ PreMask_Length(cat(mask, "ff"), bytes+1) :-
 /**
   A global analysis component optimized by only modeling the stack locations containing jump targets
 */
-.comp OptimizedGlobalAnalysis <AbstractContextSensitivity> : GlobalAnalysis <AbstractContextSensitivity> {
+.comp OptimizedGlobalAnalysis <AbstractContextSensitivity, LocalAnalysis> : GlobalAnalysis <AbstractContextSensitivity, LocalAnalysis> {
 
   .override BlockInputContents
 
@@ -277,25 +279,26 @@ PreMask_Length(cat(mask, "ff"), bytes+1) :-
 /**
   Used whenever a best effort is good enough
 */
-.comp IncompleteOptimizedGlobalAnalysis <AbstractContextSensitivity> : OptimizedGlobalAnalysis <AbstractContextSensitivity> {
+.comp IncompleteOptimizedGlobalAnalysis <AbstractContextSensitivity, LocalAnalysis> : OptimizedGlobalAnalysis <AbstractContextSensitivity, LocalAnalysis> {
   .limitsize BlockOutputContents(n=LIMITSIZE_BLOCK_OUTPUT_CONTENTS)
 }
 
 /**
   Used for the main global analysis. Only has a limitsize if the `--enable_limitsize` flag is set.
 */
-.comp CompleteOptimizedGlobalAnalysis <AbstractContextSensitivity> : OptimizedGlobalAnalysis <AbstractContextSensitivity> {
+.comp CompleteOptimizedGlobalAnalysis <AbstractContextSensitivity, LocalAnalysis> : OptimizedGlobalAnalysis <AbstractContextSensitivity, LocalAnalysis> {
   #ifdef ENABLE_LIMITSIZE
   .limitsize BlockOutputContents(n=LIMITSIZE_BLOCK_OUTPUT_CONTENTS)
   #endif
 }
 
-.comp ExperimentalCompleteOptimizedGlobalAnalysis <AbstractContextSensitivity> : CompleteOptimizedGlobalAnalysis <AbstractContextSensitivity> {
+.comp ExperimentalCompleteOptimizedGlobalAnalysis <AbstractContextSensitivity> : CompleteOptimizedGlobalAnalysis <AbstractContextSensitivity, PostIncompleteGlobalLocalAnalysis> {
 
   .decl StatementPushesUsedLabel(stmt: Statement)
   // .output sens.local.BlockPushesLabel, StatementPushesUsedLabel, sens.local.PrivateFunctionCall
   // .output BlockPushesLabel
-  sens.local.ExtBlockPushesLabel(block, val) :-
+  ExtBlockPushesLabel(block, val),
+  sens.local.ExtBlockPushesLabel(block, val):-
     JUMPDEST(as(val, symbol)),
     Variable_Value(var, val),
     Statement_Defines(stmt, var),
@@ -307,8 +310,9 @@ PreMask_Length(cat(mask, "ff"), bytes+1) :-
 }
 
 /**
-  Declared just so it can be used as a parameter in another component
+  Declared just so it can be used as a parameter in another component.
+  Used by the SafeBlockCloner so it uses `PreTransLocalAnalysis`
 */
-.comp DefaultIncompleteOptimizedGlobalAnalysis : IncompleteOptimizedGlobalAnalysis <TransactionalWithShrinkingContext> {
+.comp DefaultIncompleteOptimizedGlobalAnalysis : IncompleteOptimizedGlobalAnalysis <TransactionalWithShrinkingContext, PreTransLocalAnalysis> {
 
 }

@@ -21,6 +21,12 @@ to.PushValue(stmt, value) :- _insertor.Out_PushValue(stmt, value).
 COPY_CODE(_insertor, from)\
 INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
 
+#define COPY_CODE_FULL(to, from)\
+COPY_CODE(to, from)\
+to.PublicFunctionJump(block, funHex):- from.PublicFunctionJump(block, funHex).\
+to.PublicFunction(block, funHex):- from.PublicFunction(block, funHex).
+
+
 #define ISLABEL(value) (substr(value, 0, 9) = "JUMPDEST:")
 #define MAKE_LABEL_REFERENCE(value) cat("JUMPDEST:", value)
 #define GET_LABEL_REFERENCE(value) substr(value, 9, 30)
