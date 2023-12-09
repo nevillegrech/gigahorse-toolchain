@@ -13,13 +13,13 @@
   .input InputMaxContextDepth(filename="MaxContextDepth.csv")
 
   MaxContextDepth(sigHash, d) :-
-    (local.PublicFunction(_, sigHash);
+    (local.PublicFunction(_, sigHash, _);
      sigHash = FALLBACK_FUNCTION_SIGHASH),
     InputMaxContextDepth(d).
 
   // HERE: much deeper
   MaxContextDepth(sigHash, 10) :-
-    (local.PublicFunction(_, sigHash);
+    (local.PublicFunction(_, sigHash, _);
      sigHash = FALLBACK_FUNCTION_SIGHASH),
     !InputMaxContextDepth(_).
 
@@ -97,14 +97,14 @@
   #ifndef NO_PUBLIC_CONTEXT
   MergeContext(ctx, caller, ctx) :-
     ReachableContext(ctx, caller),
-    local.PublicFunction(caller, sigHash),
+    local.PublicFunction(caller, sigHash, _),
     !MaxContextDepth(sigHash, -1),
     DecomposeContext(ctx, prevSigHash, _),
     prevSigHash != FALLBACK_FUNCTION_SIGHASH.
   .plan 1:(3,1,2)
   MergeContext(ctx, caller, newContext):-
     ReachableContext(ctx, caller),
-    local.PublicFunction(caller, sigHash),
+    local.PublicFunction(caller, sigHash, _),
     !MaxContextDepth(sigHash, -1),
     DecomposeContext(ctx, prevSigHash, pri),
     prevSigHash = FALLBACK_FUNCTION_SIGHASH,
@@ -123,12 +123,12 @@
   // Split into two rules to add plan.
   MergeContext(ctx, caller, ctx):-
     ReachableContext(ctx, caller),
-    !local.PublicFunction(caller, _),
+    !local.PublicFunction(caller, _, _),
     !local.PrivateFunctionCallOrReturn(caller).
 
   MergeContext(ctx, caller, ctx):-
     ReachableContext(ctx, caller),
-    !local.PublicFunction(caller, _),
+    !local.PublicFunction(caller, _, _),
     DecomposeContext(ctx, pub, _),
     MaxContextDepth(pub, 0).
     .plan 1:(2,3,1)
@@ -147,7 +147,7 @@
     ReachableContext(ctx, caller),
     local.PrivateFunctionCall(caller, _, _, _),
     DecomposeAndTruncateIfNeeded(ctx, pub, cutDownAtEndPri),
-    !local.PublicFunction(caller, _),
+    !local.PublicFunction(caller, _, _),
     newPrivateContext = [caller, cutDownAtEndPri].
     .plan 1:(3,1,2)
 
@@ -196,7 +196,7 @@
     MergeContextRequest(ctx, block, cont),
     PrivateFunctionReturn(block),
     DecomposeContext(ctx, pub, priCtx),
-    !local.PublicFunction(block, _),
+    !local.PublicFunction(block, _, _),
     CutToCaller(priCtx, cont, cutPri).
     .plan 1:(3,1,2,4), 2:(4,3,1,2)
 
@@ -207,7 +207,7 @@
     DecomposeContext(ctx, pub, priCtx),
     DecomposeAndTruncateIfNeeded(ctx, pub, cutDownAtEndPri),
     NoCutToCaller(priCtx, cont),
-    !local.PublicFunction(block, _),
+    !local.PublicFunction(block, _, _),
     newPrivateContext = [block, cutDownAtEndPri].
     .plan 1:(3,1,2,4,5), 2:(4,3,1,2,5), 3:(5,3,1,2,4)
 

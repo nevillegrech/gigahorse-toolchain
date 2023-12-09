@@ -7,7 +7,7 @@
 
 #define MAX_NUM_PRIVATE_FUNCTION_ARGS 50
 #define MAX_NUM_PRIVATE_FUNCTION_RETS 50
-// #define ENABLE_LIMITSIZE
+#define ENABLE_LIMITSIZE
 #define LIMITSIZE_BLOCK_OUTPUT_CONTENTS 1000000
 #define CheckIsVariable(v) ((v) < 0)
 #define CheckIsStackIndex(v) ((v) >= 0, (v) < MAX_STACK_HEIGHT)
@@ -40,6 +40,10 @@
 .type Statement <: symbol
 .type FunctionSignature <: symbol
 
+.type OptionalSelector = NoSelector{}
+                      | SelectorVariable{selector: Variable}
+                      | SelectorStackIndex{block: Block, selector: StackIndex}
+
 .init incompleteGlobal = IncompleteOptimizedGlobalAnalysis<CONTEXT_SENSITIVITY, LocalAnalysis>
 
 COPY_CODE_FULL(incompleteGlobal, postTrans)
@@ -50,7 +54,13 @@ global.StatementPushesUsedLabel(stmt):-
   incompleteGlobal.VariableUsedInAsJumpdest(pushedVar),
   postTrans.Statement_Defines(stmt, pushedVar).
 
-COPY_CODE_FULL(global, postTrans)
+COPY_CODE(global, postTrans)
+global.PublicFunctionJump(block, hex, selector):-
+  incompleteGlobal.ValidPublicFunctionJump(block, hex, selector).
+
+global.PublicFunction(block, hex, selector):-
+  incompleteGlobal.ValidPublicFunctionJump(_, hex, selector),
+  incompleteGlobal.PublicFunction(block, hex, selector).
 
 // Masks with all 1s
 .decl Mask_Length(mask: Value, bytes: number)
@@ -85,8 +95,8 @@ PreMask_Length(cat(mask, "ff"), bytes+1) :-
   sens.local.PushValue(push, val):- PushValue(push, val).
   sens.local.Statement_Opcode(stmt, op):- Statement_Opcode(stmt, op).
   sens.local.Statement_Next(stmt, stmtNext):- Statement_Next(stmt, stmtNext).
-  sens.local.PublicFunction(block, hex):- PublicFunction(block, hex).
-  sens.local.PublicFunctionJump(block, hex):- PublicFunctionJump(block, hex).
+  sens.local.PublicFunction(block, hex, selector):- PublicFunction(block, hex, selector).
+  sens.local.PublicFunctionJump(block, hex, selector):- PublicFunctionJump(block, hex, selector).
 
   // `block` is reachable under `context`
   .decl ReachableContext(context: sens.Context, block: Block)
@@ -251,6 +261,23 @@ PreMask_Length(cat(mask, "ff"), bytes+1) :-
   VariableAlwaysUsedAsJumpTarget(var):-
     VariableContainsJumpTarget(var),
     !VariableUsedInOperation(var).
+
+  .decl ValidPublicFunctionJump(jumpBlock: Block, hex: Value, selector: OptionalSelector)
+  .decl ValidPublicFunction(startBlock: Block, hex: Value, selector: OptionalSelector)
+  DEBUG_OUTPUT(ValidPublicFunctionJump)
+
+  ValidPublicFunctionJump(jumpBlock, hex, $SelectorStackIndex(block, selectorStackIndex)):-
+    PublicFunctionJump(jumpBlock, hex, $SelectorStackIndex(block, selectorStackIndex)),
+    BlockInputContents(_, block, selectorStackIndex, selectorVariable),
+    FunctionSelectorVariable(selectorVariable).
+
+  ValidPublicFunctionJump(jumpBlock, hex, $SelectorVariable(selectorVariable)):-
+    PublicFunctionJump(jumpBlock, hex, $SelectorVariable(selectorVariable)),
+    FunctionSelectorVariable(selectorVariable).
+
+  ValidPublicFunctionJump(jumpBlock, hex, $NoSelector()):-
+    PublicFunctionJump(jumpBlock, hex, $NoSelector()).
+
 }
 
 /**
@@ -261,13 +288,13 @@ PreMask_Length(cat(mask, "ff"), bytes+1) :-
   .override BlockInputContents
 
   /**
-    Cut down `BlockOutputContents`, only containing jump targets.
+    Cut down `BlockOutputContents`, only containing jump targets (and the function selector var).
     Stack contents at end of a `block`, given its calling `context`.
   */
   .decl AuxBlockOutputContentsJumpTarget(context:sens.Context, block:Block, index:StackIndex, var:Variable)
   AuxBlockOutputContentsJumpTarget(context, block, index, var) :-
     BlockOutputContents(context, block, index, var),
-    VariableContainsJumpTarget(var).
+    (VariableContainsJumpTarget(var); FunctionSelectorVariable(var)).
 
   BlockInputContents(calleeCtx, callee, index, variable) :-
     AuxBlockOutputContentsJumpTarget(callerCtx, caller, index, variable),
@@ -292,6 +319,8 @@ PreMask_Length(cat(mask, "ff"), bytes+1) :-
   #endif
 }
 
+// copying of PublicFunction from postTrans causes issues. Need to filter imprecision of the local function inference.
+// Perhaps post incomplete would be the best place to do that.
 .comp ExperimentalCompleteOptimizedGlobalAnalysis <AbstractContextSensitivity> : CompleteOptimizedGlobalAnalysis <AbstractContextSensitivity, PostIncompleteGlobalLocalAnalysis> {
 
   .decl StatementPushesUsedLabel(stmt: Statement)
