@@ -654,6 +654,17 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     SHR(shift),
     Statement_Defines(shift, selector).
 
+  FunctionSelectorVariable(selector):-
+    CALLDATALOAD(stmt),
+    Statement_Uses_Local(stmt, zeroVar, 0),
+    Variable_Value(zeroVar, "0x0"),
+    Statement_Defines(stmt, variable),
+    Statement_Uses_Local(shift, variable, 0),
+    Statement_Uses_Local(shift, shiftConst, 1),
+    Variable_Value(shiftConst, "0x100000000000000000000000000000000000000000000000000000000"),
+    DIV(shift),
+    Statement_Defines(shift, selector).
+
 }
 
 .comp PreTransLocalAnalysis : LocalAnalysis {
