@@ -466,26 +466,14 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
      Statement_Opcode(stmt, opcode),
      OpcodeGas(opcode, gas).
 
-  .decl PublicFunctionJump(block:Block, funHex: Value, optionalSelector: OptionalSelector)
-  .decl PublicFunction(block:Block, funHex: Value, optionalSelector: OptionalSelector)
+  .decl PublicFunctionJump(block: Block, funHex: Value, optionalSelector: OptionalSelector)
+  .decl PublicFunction(block: Block, funHex: Value, optionalSelector: OptionalSelector)
 
-  // Code inserted by compiler to compare function signature
-  .decl BlockComparesSig(block: Block, sigHash: Value, selectorVarOrIndex: OptionalSelector)
+  .decl IsOptionalSelector(optionalSelector: OptionalSelector)
 
-  // Compares label from stack to a constant: common public function dispatch pattern
-  BlockComparesSig(block, sigHash, selector) :-
-    Statement_Block(pushStmt, block),
-    ImmediateBlockJumpTarget(block, _),
-    (PUSH4(pushStmt, sigHash) ; PUSH3(pushStmt, sigHash)),
-    Statement_Defines(pushStmt, sigHashVar),
-    EQ(eqStmt),
-    Statement_Uses_Local(eqStmt, sigHashVar, n),
-    Statement_Uses_Local(eqStmt, selectorVarOrIndex, 1 - n),
-    ((CheckIsStackIndex(selectorVarOrIndex), selector = $SelectorStackIndex(block, selectorVarOrIndex));
-     (CheckIsVariable(selectorVarOrIndex), selector = $SelectorVariable(selectorVarOrIndex))),
-    Statement_Defines(eqStmt, pred),
-    JUMPI(jumpiStmt),
-    Statement_Uses_Local(jumpiStmt, pred, 1).
+  IsOptionalSelector(optionalSelector):-
+    PublicFunctionJump(_, _, optionalSelector);
+    PublicFunction(_, _, optionalSelector).
 
   .decl SWAPDUPPOPJUMPJUMPDESTOP(op: Opcode)
   SWAPDUPPOPJUMPJUMPDESTOP(opcode):-
@@ -695,6 +683,30 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     codeOffsetNum = @hex_to_number(codeOffsetNumHex),
     ByteCodeHex(bytecodeStr),
     const = cat("0x", substr(bytecodeStr, 2*codeOffsetNum, 2*smallNum)).
+
+  IsOptionalSelector(selectorVarOrIndex):-
+    BlockComparesSig(_, _, selectorVarOrIndex);
+    BlockComparesSigFallthroughSolidity(_, _, selectorVarOrIndex);
+    BlockComparesSigVyper(_, _, selectorVarOrIndex).
+
+    // Code inserted by compiler to compare function signature
+  .decl BlockComparesSig(block: Block, sigHash: Value, selectorVarOrIndex: OptionalSelector)
+
+  // Compares label from stack to a constant: common public function dispatch pattern
+  BlockComparesSig(block, sigHash, selector) :-
+    Statement_Block(pushStmt, block),
+    ImmediateBlockJumpTarget(block, _),
+    (PUSH4(pushStmt, sigHash) ; PUSH3(pushStmt, sigHash)),
+    Statement_Defines(pushStmt, sigHashVar),
+    EQ(eqStmt),
+    Statement_Uses_Local(eqStmt, sigHashVar, n),
+    Statement_Uses_Local(eqStmt, selectorVarOrIndex, 1 - n),
+    ((CheckIsStackIndex(selectorVarOrIndex), selector = $SelectorStackIndex(block, selectorVarOrIndex));
+     (CheckIsVariable(selectorVarOrIndex), selector = $SelectorVariable(selectorVarOrIndex))),
+    Statement_Defines(eqStmt, pred),
+    JUMPI(jumpiStmt),
+    Statement_Uses_Local(jumpiStmt, pred, 1).
+
 
   .decl BlockComparesSigVyper(block: Block, sigHash: Value, selectorVarOrIndex: OptionalSelector)
 
@@ -928,9 +940,9 @@ insertor.insertOps(functionStartStmt,
 // Receive transformation
 insertor.insertOps(functionStartStmt,
   LIST(
-    STMT(PUSH4, MAKE_LABEL_REFERENCE("0x00000000")),
-    STMT(JUMP, cat("PublicFunctionJump:", "0x00000000")),
-    STMT(JUMPDEST, MAKE_LABEL_REFERENCE("0x00000000"))
+    STMT(PUSH4, MAKE_LABEL_REFERENCE(RECEIVE_FUNCTION_SIGHASH)),
+    STMT(JUMP, cat("PublicFunctionJump:", RECEIVE_FUNCTION_SIGHASH)),
+    STMT(JUMPDEST, MAKE_LABEL_REFERENCE(RECEIVE_FUNCTION_SIGHASH))
   )
 ) :-
   preTrans.BlockHasReceiveAsFallThrough(_, _, functionStartStmt, _).
@@ -1024,7 +1036,7 @@ postTrans.PublicFunctionJump(block, hash, selector) :-
    (preTrans.PublicFunctionJump(_, hash, selector);
    preTrans.BlockComparesSigVyper(_, hash, selector);
    preTrans.BlockComparesSigFallthroughSolidity(_, hash, selector);
-   (preTrans.BlockHasReceiveAsFallThrough(_, _, _, _), hash = "0x00000000", selector = $NoSelector())
+   (preTrans.BlockHasReceiveAsFallThrough(_, _, _, _), hash = RECEIVE_FUNCTION_SIGHASH, selector = $NoSelector())
    ).
    // we may lose some precision here when two blocks have the same hex
 
@@ -1048,7 +1060,7 @@ postTrans.PublicFunction(block, hash, selector) :-
 // For receive functions
 postTrans.PublicFunction(block, hash, $NoSelector()) :-
    preTrans.BlockHasReceiveAsFallThrough(_, _, _, _),
-   hash = "0x00000000",
+   hash = RECEIVE_FUNCTION_SIGHASH,
    hash = GET_LABEL_REFERENCE(meta), ISLABEL(meta),
    insertor.MetaData(stmt, meta),
    postTrans.JUMPDEST(stmt),
