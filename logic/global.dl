@@ -58,9 +58,8 @@ COPY_CODE(global, postTrans)
 global.PublicFunctionJump(block, hex, selector):-
   incompleteGlobal.ValidPublicFunctionJump(block, hex, selector).
 
-global.PublicFunction(block, hex, selector):-
-  incompleteGlobal.ValidPublicFunctionJump(_, hex, selector),
-  incompleteGlobal.PublicFunction(block, hex, selector).
+global.PublicFunction(start, hex, selector):-
+  incompleteGlobal.ValidPublicFunction(start, hex, selector).
 
 // Masks with all 1s
 .decl Mask_Length(mask: Value, bytes: number)
@@ -277,6 +276,10 @@ PreMask_Length(cat(mask, "ff"), bytes+1) :-
 
   ValidPublicFunctionJump(jumpBlock, hex, $NoSelector()):-
     PublicFunctionJump(jumpBlock, hex, $NoSelector()).
+
+  ValidPublicFunction(startBlock, hex, selector):-
+    ValidPublicFunctionJump(_, hex, selector),
+    PublicFunction(startBlock, hex, selector).
 
 }
 
