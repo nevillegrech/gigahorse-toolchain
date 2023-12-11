@@ -54,12 +54,12 @@ global.StatementPushesUsedLabel(stmt):-
   incompleteGlobal.VariableUsedInAsJumpdest(pushedVar),
   postTrans.Statement_Defines(stmt, pushedVar).
 
-COPY_CODE(global, postTrans)
-global.PublicFunctionJump(block, hex, selector):-
-  incompleteGlobal.ValidPublicFunctionJump(block, hex, selector).
+COPY_CODE_FULL(global, postTrans)
+// global.PublicFunctionJump(block, hex, selector):-
+//   incompleteGlobal.ValidPublicFunctionJump(block, hex, selector).
 
-global.PublicFunction(start, hex, selector):-
-  incompleteGlobal.ValidPublicFunction(start, hex, selector).
+// global.PublicFunction(start, hex, selector):-
+//   incompleteGlobal.ValidPublicFunction(start, hex, selector).
 
 // Masks with all 1s
 .decl Mask_Length(mask: Value, bytes: number)
