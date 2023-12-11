@@ -771,43 +771,70 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     PushValue(push, targetValue),
     JUMPDEST(as(targetValue, symbol)).
 
-  .decl BlockComparesCallDataSizeToFour(block: Block, jumpi: Statement, target: Block)
-  .decl BlockJumpsOnCallDataSize(block: Block, jumpi: Statement, target: Block)
-  .decl BlockHasReceiveAsFallThrough(block: Block, jumpi: Statement, fallthrough:Statement, target: Block)
+  .decl BlockComparesCallDataSizeToFour(block: Block, jumpi: Statement, lessThanFourTarget: Block)
+  .decl BlockJumpsOnCallDataSize(block: Block, jumpi: Statement, noCallDataBranch: Block, callDataBranch: Block)
+  .decl BlockHasReceiveAsFallThrough(block: Block, jumpi: Statement, fallthrough: Block, target: Block)
 
-  BlockComparesCallDataSizeToFour(block, stmt5, as(fallthrough, Block)):-
+  BlockComparesCallDataSizeToFour(block, stmt5, as(target, Block)):-
     PushValue(stmt, "0x4"),
     Statement_Next(stmt, stmt2),
     CALLDATASIZE(stmt2),
     Statement_Next(stmt2, stmt3),
     LT(stmt3),
     Statement_Next(stmt3, stmt4),
-    PushValue(stmt4, fallthrough),
+    PushValue(stmt4, target),
     Statement_Next(stmt4, stmt5),
     JUMPI(stmt5),
     Statement_Block(stmt5, block),
-    JUMPDEST(as(fallthrough, Statement)).
+    JUMPDEST(as(target, Statement)).
 
-  BlockJumpsOnCallDataSize(block, jumpi, as(fallthrough, Block)):-
+  BlockComparesCallDataSizeToFour(block, stmt6, as(fallthrough, Block)):-
+    PushValue(stmt, "0x4"),
+    Statement_Next(stmt, stmt2),
+    CALLDATASIZE(stmt2),
+    Statement_Next(stmt2, stmt3),
+    LT(stmt3),
+    Statement_Next(stmt3, stmt4),
+    ISZERO(stmt4),
+    Statement_Next(stmt4, stmt5),
+    PushValue(stmt5, _),
+    Statement_Next(stmt5, stmt6),
+    JUMPI(stmt6),
+    Statement_Block(stmt6, block),
+    Statement_Next(stmt6, fallthrough).
+
+  BlockJumpsOnCallDataSize(block, jumpi, as(fallthrough, Block), as(callDataSizeBranch, Block)):-
     CALLDATASIZE(cds),
     Statement_Next(cds, push),
-    PushValue(push, fallthrough),
+    PushValue(push, callDataSizeBranch),
     Statement_Next(push, jumpi),
     JUMPI(jumpi),
     Statement_Block(jumpi, block),
-    JUMPDEST(as(fallthrough, Statement)).
+    Statement_Next(jumpi, fallthrough),
+    JUMPDEST(as(callDataSizeBranch, Statement)).
+
+  BlockJumpsOnCallDataSize(block, jumpi, as(noCallDataSizeBranch, Block), as(fallthrough, Block)):-
+    CALLDATASIZE(cds),
+    Statement_Next(cds, isZero),
+    ISZERO(isZero),
+    Statement_Next(isZero, push),
+    PushValue(push, noCallDataSizeBranch),
+    Statement_Next(push, jumpi),
+    JUMPI(jumpi),
+    Statement_Block(jumpi, block),
+    Statement_Next(jumpi, fallthrough),
+    JUMPDEST(as(noCallDataSizeBranch, Statement)).
 
   // Fallback functions
   PublicFunctionJump(block, FALLBACK_FUNCTION_SIGHASH, $NoSelector()),
   PublicFunction(fallbackStart, FALLBACK_FUNCTION_SIGHASH, $NoSelector()):-
     BlockComparesCallDataSizeToFour(block, _, fallbackStart),
     1 = count : BlockComparesCallDataSizeToFour(_, _, _),
-    !BlockJumpsOnCallDataSize(fallbackStart, _, _).
+    !BlockJumpsOnCallDataSize(fallbackStart, _, _, _).
 
-  BlockHasReceiveAsFallThrough(block, jumpi, fallthrough, target):-
+  BlockHasReceiveAsFallThrough(block, jumpi, noCallDataSizeBranch, callDataSizeBranch):-
     BlockComparesCallDataSizeToFour(_, _, block),
-    BlockJumpsOnCallDataSize(block, jumpi, target),
-    FallthroughStmt(jumpi, fallthrough).
+    BlockJumpsOnCallDataSize(block, jumpi, noCallDataSizeBranch, callDataSizeBranch).
 
 }
 
@@ -938,14 +965,18 @@ insertor.insertOps(functionStartStmt,
    !preTrans.BlockComparesSig(_, hash, _).
 
 // Receive transformation
-insertor.insertOps(functionStartStmt,
+insertor.insertOps(insertStmt,
   LIST(
     STMT(PUSH4, MAKE_LABEL_REFERENCE(RECEIVE_FUNCTION_SIGHASH)),
     STMT(JUMP, cat("PublicFunctionJump:", RECEIVE_FUNCTION_SIGHASH)),
     STMT(JUMPDEST, MAKE_LABEL_REFERENCE(RECEIVE_FUNCTION_SIGHASH))
   )
 ) :-
-  preTrans.BlockHasReceiveAsFallThrough(_, _, functionStartStmt, _).
+  preTrans.BlockHasReceiveAsFallThrough(_, _, functionStart, _),
+  preTrans.BasicBlock_Head(functionStart, functionStartStmt),
+  preTrans.Statement_Opcode(functionStartStmt, op),
+  ((op != "JUMPDEST", insertStmt = functionStartStmt);
+  (op = "JUMPDEST", preTrans.Statement_Next(functionStartStmt, insertStmt))).
 
 // This one removes "throw jumps"
 insertor.removeOp(jmp),
@@ -1030,9 +1061,8 @@ insertor.insertOps(codeCopy,
 // For Solidity, Vyper
 postTrans.PublicFunctionJump(block, hash, selector) :-
    insertor.MetaData(stmt, meta),
-   STARTSWITH(meta, "PublicFunctionJump:"),
+   insertor.PublicFunctionJumpMetadata(meta, hash),
    postTrans.Statement_Block(stmt, block),
-   hash = substr(meta, 19, 30),
    (preTrans.PublicFunctionJump(_, hash, selector);
    preTrans.BlockComparesSigVyper(_, hash, selector);
    preTrans.BlockComparesSigFallthroughSolidity(_, hash, selector);

@@ -60,7 +60,9 @@ to.PublicFunction(block, funHex, selector):- from.PublicFunction(block, funHex, 
   removeOp(stmt) :- removeOp(stmt). // suppress warning
 
   .decl MetaData(newStmt: Statement, value: Value)
-  
+
+  .decl PublicFunctionJumpMetadata(metadataValue: Value, publicFunctionHex: Value)
+
   // Simple translation
   .decl insertOp(stmt: Statement, op: Opcode, value: Value, order: number)
 
@@ -133,6 +135,9 @@ to.PublicFunction(block, funHex, selector):- from.PublicFunction(block, funHex, 
     insertOp(stmt, op, value, order),
     !OpcodeIsPush(op).
 
+  PublicFunctionJumpMetadata(meta, substr(meta, 19, 30)):-
+    MetaData(_, meta),
+    STARTSWITH(meta, "PublicFunctionJump:").
 
   Out_PushValue(newStmt, value) :-
     InsertedOpNewStatement(stmt, order, newStmt),
