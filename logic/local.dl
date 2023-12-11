@@ -888,6 +888,8 @@ PreTransStatement_OriginalStatement(rvtClStmt, ogStmt) :-
 .init revertCloner = RevertBlockCloner
 COPY_CODE(revertCloner, factReader)
 
+.decl ValidSelector(optionalSelector: OptionalSelector)
+
 #ifdef BLOCK_CLONING
 // Enable the early cloning of blocks to increase precision (sacrificing performance)
 .init blockCloner = BLOCK_CLONING
@@ -903,9 +905,15 @@ PreTransStatement_OriginalStatement(heurClStmt, ogStmt) :-
   blockCloner.StatementToClonedStatement(_, _, ogStmt, heurClStmt),
   !revertCloner.StatementToClonedStatement(_, _, _, ogStmt).
 
+ValidSelector(optionalSelector):-
+  blockCloner.analysis.ValidSelector(optionalSelector).
+
 #else
 
 COPY_OUTPUT(preTrans, revertCloner)
+
+ValidSelector(optionalSelector):-
+  preTrans.IsOptionalSelector(optionalSelector).
 
 #endif
 
@@ -930,6 +938,7 @@ insertor.insertOps(jumpDestStmt,
 ) :-
    preTrans.PublicFunctionJump(block, hash, selector),
    preTrans.PublicFunction(start, hash, selector),
+   ValidSelector(selector),
    preTrans.Statement_Block(jumpDestStmt, start),
    preTrans.JUMPDEST(jumpDestStmt),
    preTrans.PushValue(pushStmt, as(jumpDestStmt, symbol)),
@@ -946,7 +955,8 @@ insertor.insertOps(functionStartStmt,
     STMT(JUMPDEST, MAKE_LABEL_REFERENCE(hash))
   )
 ) :-
-   preTrans.BlockComparesSigVyper(block, hash, _),
+   preTrans.BlockComparesSigVyper(block, hash, selector),
+   ValidSelector(selector),
    preTrans.BasicBlock_Tail(block, tail),
    preTrans.Statement_Next(tail, functionStartStmt),
    !preTrans.BlockComparesSig(_, _, _).
@@ -959,7 +969,8 @@ insertor.insertOps(functionStartStmt,
     STMT(JUMPDEST, MAKE_LABEL_REFERENCE(hash))
   )
 ) :-
-   preTrans.BlockComparesSigFallthroughSolidity(block, hash, _),
+   preTrans.BlockComparesSigFallthroughSolidity(block, hash, selector),
+   ValidSelector(selector),
    preTrans.BasicBlock_Tail(block, tail),
    preTrans.Statement_Next(tail, functionStartStmt),
    !preTrans.BlockComparesSig(_, hash, _).
@@ -1063,6 +1074,7 @@ postTrans.PublicFunctionJump(block, hash, selector) :-
    insertor.MetaData(stmt, meta),
    insertor.PublicFunctionJumpMetadata(meta, hash),
    postTrans.Statement_Block(stmt, block),
+   ValidSelector(selector),
    (preTrans.PublicFunctionJump(_, hash, selector);
    preTrans.BlockComparesSigVyper(_, hash, selector);
    preTrans.BlockComparesSigFallthroughSolidity(_, hash, selector);
@@ -1076,6 +1088,7 @@ postTrans.PublicFunction(block, hash, selector):-
    postTrans.JUMPDEST(stmt),
    postTrans.Statement_Block(stmt, block),
    preTrans.BlockComparesSigVyper(_, hash, selector),
+   ValidSelector(selector),
    !preTrans.BlockComparesSig(_, _, _),
    ISLABEL(meta), hash = GET_LABEL_REFERENCE(meta).
 
@@ -1084,6 +1097,7 @@ postTrans.PublicFunction(block, hash, selector) :-
    postTrans.JUMPDEST(stmt),
    postTrans.Statement_Block(stmt, block),
    preTrans.BlockComparesSigFallthroughSolidity(_, hash, selector),
+   ValidSelector(selector),
    !preTrans.BlockComparesSig(_, hash, _),
    ISLABEL(meta), hash = GET_LABEL_REFERENCE(meta).
 
@@ -1096,7 +1110,8 @@ postTrans.PublicFunction(block, hash, $NoSelector()) :-
    postTrans.JUMPDEST(stmt),
    postTrans.Statement_Block(stmt, block).
 
-postTrans.PublicFunction(b, h, s) :- preTrans.PublicFunction(b, h, s).
+postTrans.PublicFunction(b, h, s) :- preTrans.PublicFunction(b, h, s), ValidSelector(s).
+
 .output postTrans.PublicFunction, preTrans.PublicFunction, preTrans.BlockComparesSigFallthroughSolidity, preTrans.BlockComparesSigVyper, insertor.MetaData
 .output postTrans.PublicFunctionJump
 // Code chunking logic reserved for future EIP

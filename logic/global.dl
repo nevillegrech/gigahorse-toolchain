@@ -281,6 +281,19 @@ PreMask_Length(cat(mask, "ff"), bytes+1) :-
     ValidPublicFunctionJump(_, hex, selector),
     PublicFunction(startBlock, hex, selector).
 
+  .decl ValidSelector(selector: OptionalSelector)
+
+  ValidSelector($NoSelector()).
+
+  ValidSelector($SelectorVariable(selectorVariable)):-
+    IsOptionalSelector($SelectorVariable(selectorVariable)),
+    FunctionSelectorVariable(selectorVariable).
+
+  ValidSelector($SelectorStackIndex(block, selectorStackIndex)):-
+    IsOptionalSelector($SelectorStackIndex(block, selectorStackIndex)),
+    BlockInputContents(_, block, selectorStackIndex, selectorVariable),
+    FunctionSelectorVariable(selectorVariable).
+
 }
 
 /**
@@ -290,6 +303,11 @@ PreMask_Length(cat(mask, "ff"), bytes+1) :-
 
   .override BlockInputContents
 
+  .decl VariableToModel(var: Variable)
+  VariableToModel(var):-
+    VariableContainsJumpTarget(var); FunctionSelectorVariable(var).
+
+
   /**
     Cut down `BlockOutputContents`, only containing jump targets (and the function selector var).
     Stack contents at end of a `block`, given its calling `context`.
@@ -297,7 +315,7 @@ PreMask_Length(cat(mask, "ff"), bytes+1) :-
   .decl AuxBlockOutputContentsJumpTarget(context:sens.Context, block:Block, index:StackIndex, var:Variable)
   AuxBlockOutputContentsJumpTarget(context, block, index, var) :-
     BlockOutputContents(context, block, index, var),
-    (VariableContainsJumpTarget(var); FunctionSelectorVariable(var)).
+    VariableToModel(var).
 
   BlockInputContents(calleeCtx, callee, index, variable) :-
     AuxBlockOutputContentsJumpTarget(callerCtx, caller, index, variable),
