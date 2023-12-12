@@ -34,6 +34,9 @@ DEBUG_OUTPUT(CallDataLoadReadsLength)
 .decl CallDataCopyArgInfo(callDataCopy: Statement, memArrayTo: Variable, callDataArrayFrom: Variable)
 DEBUG_OUTPUT(CallDataCopyArgInfo)
 
+.decl CallDataCopyOfArg(callDataCopy: Statement, memAddrTo: Variable, callDataArrayFrom: Variable, lenVar: Variable, sizeBytes: Variable, elemLen: symbol)
+DEBUG_OUTPUT(CallDataCopyOfArg)
+
 .decl Array_ElementLength(array:Variable, elementSize:symbol)
 DEBUG_OUTPUT(Array_ElementLength)
 
@@ -73,30 +76,47 @@ CallDataLoadReadsLength(cdl, callDataArrayVar, lenVar):-
 IsArgCallDataArrayVar(plusFourVar, argHex),
 CallDataLoadArrayLoadingPattern(cdl, cdl2, plusFourVar, lenVar, argHex):-
   CALLDATALOAD(cdl, argIdVar, toVar),
-  Variable_Value(argIdVar, argHex),
+  BasicVariable_Value(argIdVar, argHex),
   ADDFix(_, toVar, fourVar, plusFourVar),
-  Variable_NumericValue(fourVar, 4),
-  CALLDATALOAD(cdl2, plusFourVar, lenVar).
+  BasicVariable_Value(fourVar, "0x4"),
+  CALLDATALOAD(cdl2, plusFourVar, lenVar),
+  // Differentiate between arrays and structs here
+  // going for the easiest/most hacky way to do it for now
+  !ProbablyUsedAsCallDataStruct(plusFourVar).
 
 /**
+  TODO: Use it to capture calldata arrays of structs, encoded differently than
+  arrays of structs in calldata
   REVIEW at some point as it may be too loose.
   However we can't do much better right now.
 */
-Array_ElementLength(plusFourVar, elemSize):-
-  IsArgCallDataArrayVar(plusFourVar, argHex),
-  CallDataLoadArrayLoadingPattern(_, _, plusFourVar, lenVar, argHex),
-  VarTimesConstant(lenVar, elemSize, res),
-  // Hack to recover precision and avoid the identity case of VarTimesConstant
-  lenVar != res.
+.decl PossibleCallDataArrayElementLength(calldataArray: Variable, elemSize: number)
+DEBUG_OUTPUT(PossibleCallDataArrayElementLength)
+
+Array_ElementLength(callDataArrayVar, @number_to_hex(maxElementLength)):-
+  IsCallDataArrayVar(callDataArrayVar),
+  maxElementLength = max possibleElementSize : {
+    PossibleCallDataArrayElementLength(callDataArrayVar, possibleElementSize)
+  }.
+
+
+PossibleCallDataArrayElementLength(callDataArrayVar, @hex_to_number(elemSize)):-
+// Array_ElementLength(callDataArrayVar, elemSize):-
+  CallDataLoadReadsLength(_, callDataArrayVar, lenVar),
+  VarTimesConstantNoIdentity(lenVar, elemSize, _),
+  (elemSize = "0x1"; @mod_256(elemSize, "0x20") = "0x0").
 
 
 
 Array_ElementLength(array, elementSize):-
-  IsArgCallDataArrayVar(array, _),
+  IsCallDataArrayVar(array),1=0,
   ArrayDataStartVar(array, dataStartVar),
   ADDFix(_, dataStartVar, indexTimesCons, cdlIndex),
-  VarTimesConstant(_, elementSize, indexTimesCons),
-  CALLDATALOAD(_, cdlIndex, _).
+  VarTimesConstantNoIdentity(indexVar, elementSize, indexTimesCons),
+  // Avoid cases like 1*32 or 0*32, favor 32
+  !Variable_Value(indexVar, "0x20"),
+  CALLDATALOAD(_, cdlIndex, _),
+  (elementSize = "0x1"; @mod_256(elementSize, "0x20") = "0x0").
 
 
 ArrayDataStartVar(array, dataStartVar):-
@@ -105,8 +125,23 @@ ArrayDataStartVar(array, dataStartVar):-
   ADDFix(_, to, x24, dataStartVar),
   Variable_NumericValue(x24, 36).
 
+// TODO: use `CallDataCopyOfArg` in the rules below
+Array_ElementLength(cdlArrayVar, "0x1"),
+CallDataCopyOfArg(callDataCopy, memAddrTo, cdlArrayVar, lenVar, lenVar, "0x1"):-
+  CallDataLoadReadsLength(_, cdlArrayVar, lenVar),
+  VarPlusThirtyTwo(cdlArrayVar, cdlArrayDataStart),
+  CALLDATACOPY(callDataCopy, memAddrTo, cdlArrayDataStart, lenVar).
+
+Array_ElementLength(cdlArrayVar, elemSize),
+CallDataCopyOfArg(callDataCopy, memAddrTo, cdlArrayVar, lenVar, lenBytesVar, elemSize):-
+  CallDataLoadReadsLength(_, cdlArrayVar, lenVar),
+  VarPlusThirtyTwo(cdlArrayVar, cdlArrayDataStart),
+  VarTimesConstant(lenVar, elemSize, lenBytesVar),
+  CALLDATACOPY(callDataCopy, memAddrTo, cdlArrayDataStart, lenBytesVar).
+
 IsRegularArrayVar(memArrayTo),
 Array_ElementLength(memArrayTo, "0x1"),
+Array_ElementLength(callDataArrayFrom, "0x1"),
 CallDataCopyArgInfo(callDataCopy, memArrayTo, callDataArrayFrom):-
   CallDataLoadReadsLength(_, callDataArrayFrom, lenVar),
   CALLDATACOPY(callDataCopy, arrayDataStart, _, lenVar),
@@ -116,6 +151,7 @@ CallDataCopyArgInfo(callDataCopy, memArrayTo, callDataArrayFrom):-
 
 IsRegularArrayVar(memArrayTo),
 Array_ElementLength(memArrayTo, elemSize),
+Array_ElementLength(callDataArrayFrom, elemSize),
 CallDataCopyArgInfo(callDataCopy, memArrayTo, callDataArrayFrom):-
   CallDataLoadReadsLength(_, callDataArrayFrom, lenVar),
   VarTimesConstant(lenVar, elemSize, lenBytes),
@@ -259,6 +295,7 @@ ArrayIndexAccess(array, indexVar, actualIndexVar):-
   FreePointerBasedValuesNumDiffNoMemReuse(arrayVal, baseVal, @hex_to_number(const) - 32),
   Variable_SymbolicValue(array, arrayVal),
   IsRegularArrayVar(array),
+  Array_ElementLength(array, "0x1"),
   // Boilerplate but efficient code to ensure statement-level domination
   Statement_Defines(stmt2, indexVar, _),
   Statement_Block(stmt2, block2),
@@ -369,7 +406,7 @@ ArrayWriteToRelativeIndex(arrayVar, mstore, relativeIndex):-
 
 DEBUG_OUTPUT(ArrayHasConstantLength)
 ArrayStore(mstore, arrId, from):-
-  ArrayHasConstantLength(arrayVar, length),
+  ArrayHasConstantLength(arrId, length),
   VarIsArray(arrayVar, arrId),
   ArrayWriteToRelativeIndex(arrayVar, mstore, relativeIndex),
   MSTORE(mstore, _, from),
@@ -432,10 +469,10 @@ PossibleArrayLoose(array):-
   MSTORE(_, array, var),
   ArrayVarLengthVar(_, var).
 
-.decl ArrayHasConstantLength(arrayVar:Variable, length:number)
+.decl ArrayHasConstantLength(arrayVarRep: ArrayVariable, length: number)
 
-ArrayHasConstantLength(arrayVar, length):-
-  ArrayAllocationInternal(_, arrayVar, _, arrayLengthVar),
+ArrayHasConstantLength(arrId, length):-
+  ArrayAllocation(arrId, _, arrayLengthVar),
   Variable_Value(arrayLengthVar, arrLenHex),
   length = @hex_to_number(arrLenHex),
   length < 2 ^ 28. //Some very big number that should never be possible.
@@ -456,18 +493,43 @@ ArrayAllocation(arrId, elementSize, arrayLengthVar):-
   ArrayAllocationInternal(_, arrayVar, elementSize, arrayLengthVar),
   RegularArrayVar_ClassRep(arrayVar, arrId).
 
+ArrayAllocation(arrId, as(elementSize, Value), arrayLengthVar):-
+  IsRegularArrayVar(arrayVar),
+  MSTORE(_, arrayVar, arrayLengthVar),
+  RegularArrayVar_ClassRep(arrayVar, arrId),
+  Array_ElementLength(arrayVar, elementSize),
+  !ArrayAllocationInternal(_, arrayVar, _, _).
 
-//Allocations of arrays with unknown types.
-ArrayAllocationInternal(mstore, array, "??", arrayLengthVar):-
-  IsRegularArrayVar(array),
-  MSTORE(mstore, array, arrayLengthVar),
-  !Array_ElementLength(array, _).
+ArrayAllocation(arrId, "??", arrayLengthVar):-
+  IsRegularArrayVar(arrayVar),
+  MSTORE(_, arrayVar, arrayLengthVar),
+  RegularArrayVar_ClassRep(arrayVar, arrId),
+  !ArrayAllocationInternal(_, arrayVar, _, _),
+  !Array_ElementLength(arrayVar, _).
+
+// Allocations of arrays with unknown types.
+// Rule is commented out because we now add facts for `Array_ElementLength`
+// So the implicit invariant that No element length means no Allocation doesn't hold
+// ArrayAllocationInternal(mstore, array, "??", arrayLengthVar):-
+//   IsRegularArrayVar(array),
+//   MSTORE(mstore, array, arrayLengthVar),
+//   !Array_ElementLength(array, _).
 
 IsRegularArrayVar(array),
 ArrayFromArray(array, oldArray):-
   PossibleArray(array),
   MSTORE(_, array, arrayLength),
   ArrayVarLengthVar(oldArray, arrayLength).
+
+ArrayFromArray(array, oldArray):-
+  IsRegularArrayVar(array),
+  MSTORE(_, array, arrayLength),
+  ArrayVarLengthVar(oldArray, arrayLength).
+
+// Can be imprecise
+Array_ElementLength(array, elemLength):-
+  ArrayFromArray(array, oldArray),
+  Array_ElementLength(oldArray, elemLength).
 
 IsRegularArrayVar(array):-
   PossibleArray(array),
@@ -496,7 +558,8 @@ ArrayAllocationInternal(mstore, array, elementSize, arrayLengthVar):-
   VarPlusThirtyTwo(arraySizeBytes, arraySizeBytesPlusLength),
   ADDFix(_, arraySizeBytesPlusLength, array, updatedFMP),
   Statement_Uses(mstore, updatedFMP, 1),
-  MSTOREFreePtr(mstore).
+  MSTOREFreePtr(mstore),
+  (elementSize = "0x1"; elementSize = "0x20").
 
 /**
  Not proven to work so far
@@ -510,7 +573,8 @@ ArrayAllocationInternal(mstore, array, elementSize, arrayLengthVar):-
   VarTimesConstant(arrayLengthVar, elementSize, arraySizeBytes),
   ADDFix(_, arraySizeBytes, arrayStart, updatedFMP),
   Statement_Uses(mstore, updatedFMP, 1),
-  MSTOREFreePtr(mstore).
+  MSTOREFreePtr(mstore),
+  (elementSize = "0x1"; elementSize = "0x20").
 
 /**
   Covers patterns produced for calldata arrays copied to memory.
@@ -526,7 +590,25 @@ ArrayAllocationInternal(mstore, array, elementSize, arrayLengthVar):-
   VarPlusThrirtyOneAndNotThirtyOne(arrayTotalSizeBytes, arrayFinalSizeBytes),
   ADDFix(_, arrayFinalSizeBytes, array, updatedFMP),
   Statement_Uses(mstore, updatedFMP, 1),
-  MSTOREFreePtr(mstore).
+  MSTOREFreePtr(mstore),
+  (elementSize = "0x1"; elementSize = "0x20").
+
+
+/**
+  Covers patterns produced for calldata arrays copied to memory.
+  For solidity versions >= 0.8
+*/
+IsRegularArrayVar(array),
+Array_ElementLength(array, elementSize),
+ArrayAllocationInternal(mstore, array, elementSize, arrayLengthVar):-
+  PossibleArray(array),
+  MSTORE(_, array, arrayLengthVar),
+  VarTimesConstant(arrayLengthVar, elementSize, arraySizeBytes),
+  VarPlusSixtyThreeAndNotThirtyOne(arraySizeBytes, arrayFinalSizeBytes),
+  ADDFix(_, arrayFinalSizeBytes, array, updatedFMP),
+  Statement_Uses(mstore, updatedFMP, 1),
+  MSTOREFreePtr(mstore),
+  (elementSize = "0x1"; elementSize = "0x20").
 
 /**
   bytes or strings
@@ -583,6 +665,68 @@ ArrayAllocationInternal(mstore, array, "0x1", arrayLengthVar):-
 // REVIEW: This rule is maybe too imprecise and should be removed.
 IsRegularArrayVar(array),
 Array_ElementLength(array, elemLenVal),
+ArrayAllocationInternal(mstore, array, as(elemLenVal, Value), arrayLengthVar):-
+  PossibleArray(array),
+  MSTORE(_, array, arrayLengthVar),
+  Variable_Value(arrayLengthVar, constantLengthVal),
+  ADDFix(_, arraySizeBytes, array, arrayPlusSizeBytes),
+  Variable_Value(arraySizeBytes, sizeBytesVal),
+  dataSizeVal = @sub_256(sizeBytesVal, "0x20"),
+  constantLengthVal != "0x0",
+  constantLengthVal != "0x1",
+  dataSizeVal != "0x0",
+  elemLenVal = @div_256(dataSizeVal, constantLengthVal),
+  (elemLenVal = "0x1" ; elemLenVal = "0x20"),
+  Statement_Uses(mstore, arrayPlusSizeBytes, 1),
+  MSTOREFreePtr(mstore).
+
+/**
+  Because of the rounding up of the array size to 32 bytes
+  the pattern for constant length arrays with a size of 1 is ambiguous.
+  This creates the need to heuristically infer their element width
+*/
+.decl AmbiguousElemLenConstArrayAllocation(mstore: Statement, array: Variable, arrayLengthVar: Variable)
+DEBUG_OUTPUT(AmbiguousElemLenConstArrayAllocation)
+
+// Hack, to resolve the ambiguity of 1 element constant bytes arrays
+// Pattern will look like an 1 element constant uint array, but these are
+// more rare than 1 element constant bytes arrays
+IsRegularArrayVar(array),
+AmbiguousElemLenConstArrayAllocation(mstore, array, arrayLengthVar):-
+  PossibleArray(array),
+  MSTORE(_, array, arrayLengthVar),
+  Variable_Value(arrayLengthVar, "0x1"),
+  ADDFix(_, arraySizeBytes, array, arrayPlusSizeBytes),
+  Variable_Value(arraySizeBytes, "0x40"),
+  Statement_Uses(mstore, arrayPlusSizeBytes, 1),
+  MSTOREFreePtr(mstore).
+
+IsRegularArrayVar(array),
+Array_ElementLength(array, "0x1"),
+ArrayAllocationInternal(mstore, array, "0x1", arrayLengthVar):-
+  AmbiguousElemLenConstArrayAllocation(mstore, array, arrayLengthVar),
+  ArrayWriteToRelativeIndex(array, mstore2, 0),
+  MSTOREValueIsProbablyBytes1(mstore2).
+
+IsRegularArrayVar(array),
+Array_ElementLength(array, "0x20"),
+ArrayAllocationInternal(mstore, array, "0x20", arrayLengthVar):-
+  AmbiguousElemLenConstArrayAllocation(mstore, array, arrayLengthVar),
+  ArrayWriteToRelativeIndex(array, mstore2, 0),
+  MSTORE(mstore2, _, storedVar),
+  !MSTOREValueIsProbablyBytes1(mstore2),
+  (LowBytesMaskOp(_, storedVar, _);
+  (!LowBytesMaskOp(_, storedVar, _), !HighBytesMaskOp(_, storedVar, 1));
+   (
+    Variable_Value(storedVar, storedVal),
+    storedVal = as(@and_256(storedVal, "0x00ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"), Value)
+   )
+  ).
+
+
+
+IsRegularArrayVar(array),
+Array_ElementLength(array, "0x1"),
 ArrayAllocationInternal(mstore, array, "0x1", arrayLengthVar):-
   PossibleArray(array),
   MSTORE(_, array, arrayLengthVar),
@@ -594,6 +738,7 @@ ArrayAllocationInternal(mstore, array, "0x1", arrayLengthVar):-
   dataSizeVal != "0x0",
   elemLenVal = @div_256(dataSizeVal, constantLengthVal),
   elemLenVal != "0x0",
+  "0x1" = @lt_256(elemLenVal, "0x20"),
   Statement_Uses(mstore, arrayPlusSizeBytes, 1),
   MSTOREFreePtr(mstore).
 
@@ -749,19 +894,20 @@ IsRegularArrayVar(formal):-
   ArrayActualArg(_, function, pos, "Regular"),
   FormalArgs(function, formal, pos).
 
-IsCallDataArrayVar(formal):-
-  ArrayActualArg(_, function, pos, "CallData"),
-  FormalArgs(function, formal, pos).
-
 IsRegularArrayVar(actual):-
   ArrayFormalRet(fun, index, "Regular"),
   CallGraphEdge(caller, fun),
   ActualReturnArgs(caller, actual, index).
 
-IsCallDataArrayVar(actual):-
-  ArrayFormalRet(fun, index, "CallData"),
-  CallGraphEdge(caller, fun),
-  ActualReturnArgs(caller, actual, index).
+// Disabling this for now to avoid cyclic negation in Element_Length inferences!
+// IsCallDataArrayVar(formal):-
+//   ArrayActualArg(_, function, pos, "CallData"),
+//   FormalArgs(function, formal, pos).
+
+// IsCallDataArrayVar(actual):-
+//   ArrayFormalRet(fun, index, "CallData"),
+//   CallGraphEdge(caller, fun),
+//   ActualReturnArgs(caller, actual, index).
 
 Array_ElementLength(formal, elementSize):-
   ArrayActualArg(caller, function, pos, kind),
@@ -775,7 +921,8 @@ Array_ElementLength(actual, elementSize):-
   (kind = "Regular" ; kind = "CallData"),
   FormalReturnArgs(fun, formalRet, index),
   Array_ElementLength(formalRet, elementSize),
-  ActualReturnArgs(_, actual, index).
+  CallGraphEdge(caller, fun),
+  ActualReturnArgs(caller, actual, index).
 
 /**
   Constant arrays and their contents.
@@ -785,9 +932,10 @@ Array_ElementLength(actual, elementSize):-
 .decl ConstArray_Contents(arrayRep:ArrayVariable, hex:symbol)
 
 MemoryModelingTempStmt(mstore),
-ConstArray_Contents(arrayRep, val):-
-  ArrayHasConstantLength(arrayVar, length),
+ConstArray_Contents(arrayRep, substr(val, 0, strlen(val) + 2*(length - 32))):-
+  ArrayHasConstantLength(arrayRep, length),
   VarIsArray(arrayVar, arrayRep),
+  length > 0,
   length <= 32,
   ArrayWriteToRelativeIndex(arrayVar, mstore, 0),
   MSTORE(mstore, _, storedVar),
@@ -797,8 +945,9 @@ ConstArray_Contents(arrayRep, val):-
 MemoryModelingTempStmt(mstore1),
 MemoryModelingTempStmt(mstore2),
 ConstArray_Contents(arrayRep, val):-
-  ArrayHasConstantLength(arrayVar, length),
+  ArrayHasConstantLength(arrayRep, length),
   VarIsArray(arrayVar, arrayRep),
+  length > 0,
   length <= 64,
   ArrayWriteToRelativeIndex(arrayVar, mstore1, 0),
   MSTORE(mstore1, _, storedVar1),
@@ -806,14 +955,15 @@ ConstArray_Contents(arrayRep, val):-
   ArrayWriteToRelativeIndex(arrayVar, mstore2, 32),
   MSTORE(mstore2, _, storedVar2),
   Variable_Value(storedVar2, val2),
-  val = cat(val1 , substr(val2, 2, strlen(val2)-2)).
+  val = cat(val1 , substr(val2, 2, strlen(val2) - 2 + 2*(length - 64))).
 
 MemoryModelingTempStmt(mstore1),
 MemoryModelingTempStmt(mstore2),
 MemoryModelingTempStmt(mstore3),
 ConstArray_Contents(arrayRep, val):-
-  ArrayHasConstantLength(arrayVar, length),
+  ArrayHasConstantLength(arrayRep, length),
   VarIsArray(arrayVar, arrayRep),
+  length > 0,
   length <= 96,
   ArrayWriteToRelativeIndex(arrayVar, mstore1, 0),
   MSTORE(mstore1, _, storedVar1),
@@ -824,11 +974,11 @@ ConstArray_Contents(arrayRep, val):-
   ArrayWriteToRelativeIndex(arrayVar, mstore3, 64),
   MSTORE(mstore3, _, storedVar3),
   Variable_Value(storedVar3, val3),
-  val = cat(val1 , cat(substr(val2, 2, strlen(val2)-2), substr(val3, 2, strlen(val3)-2))).
+  val = cat(val1 , cat(substr(val2, 2, strlen(val2)-2), substr(val3, 2, strlen(val3) - 2 + 2*(length - 96)))).
 
 MemoryModelingTempStmt(codeCopy),
 ConstArray_Contents(arrayRep, const):-
-  ArrayHasConstantLength(arrayVar, _),
+  ArrayHasConstantLength(arrayRep, _),
   VarIsArray(arrayVar, arrayRep),
   ArrayDataStartVar(arrayVar, arrayDataStartVar),
   Statement_Opcode(codeCopy, "CODECOPY"),
@@ -971,3 +1121,68 @@ RawDataArrayVar_ClassRep(arrVar, as(classRep, ArrayVariable)):-
 VarIsArray(array, arrVarRep):-
   RegularArrayVar_ClassRep(array, arrVarRep);
   RawDataArrayVar_ClassRep(array, arrVarRep).
+
+
+.decl VarPointsToArray(ctx: clientCtx.ClientContext, var: Variable, heapCtx: clientCtx.ClientContext, arrayId: ArrayVariable)
+DEBUG_OUTPUT(VarPointsToArray)
+
+.decl InsVarPointsToArray(var: Variable, arrayId: ArrayVariable)
+DEBUG_OUTPUT(InsVarPointsToArray)
+
+VarPointsToArray(ctx, arrayVar, ctx, arrayId):-
+  clientCtx.ReachableClientContext(ctx, fun),
+  Variable_Function(arrayVar, fun),
+  VarIsArray(arrayVar, arrayId),
+  ArrayAllocation(arrayId, _, _).
+
+VarPointsToArray(newCtx, formal, heapCtx, arrayId):-
+  clientCtx.MergeClientContext(callerCtx, caller, newCtx),
+  VarPointsToArray(callerCtx, actual, heapCtx, arrayId),
+  ActualArgs(caller, actual, pos),
+  CallGraphEdge(caller, function),
+  FormalArgs(function, formal, pos).
+
+VarPointsToArray(callerCtx, actual, heapCtx, arrayId):-
+  clientCtx.MergeClientContext(callerCtx, caller, calleeCtx),
+  CallGraphEdge(caller, function),
+  FormalReturnArgs(function, formal, index),
+  VarPointsToArray(calleeCtx, formal, heapCtx, arrayId),
+  ActualReturnArgs(caller, actual, index).
+
+InsVarPointsToArray(var, arrayId):-
+  VarPointsToArray(_, var, _, arrayId).
+
+.decl Analytics_PolymorphicArrayVar(arrayVar: Variable, width: symbol)
+.output Analytics_PolymorphicArrayVar
+
+Analytics_PolymorphicArrayVar(arrayVar, width1):-
+  InsVarPointsToArray(arrayVar, arrayId1),
+  InsVarPointsToArray(arrayVar, arrayId2),
+  Array_ElementLength(arrayId1, width1),
+  Array_ElementLength(arrayId2, width2),
+  width1 != width2.
+
+.decl Analytics_PolymorphicArrayVarAlt(arrayVar: Variable, width: symbol)
+.output Analytics_PolymorphicArrayVarAlt
+
+Analytics_PolymorphicArrayVarAlt(array, width1):-
+  Array_ElementLength(array, width1),
+  Array_ElementLength(array, width2),
+  width1 != width2.
+
+.decl Analytics_PolymorphicArrayVarSameCtx(arrayVar: Variable, width: symbol)
+.output Analytics_PolymorphicArrayVarSameCtx
+
+Analytics_PolymorphicArrayVarSameCtx(arrayVar, width1):-
+  VarPointsToArray(ctx, arrayVar, _, arrayId1),
+  VarPointsToArray(ctx, arrayVar, _, arrayId2),
+  Array_ElementLength(arrayId1, width1),
+  Array_ElementLength(arrayId2, width2),
+  width1 != width2.
+
+.decl Analytics_ArrayVarHasNoElementSize(arrayVar: Variable)
+.output Analytics_ArrayVarHasNoElementSize
+
+Analytics_ArrayVarHasNoElementSize(array):-
+  (IsRegularArrayVar(array); IsCallDataArrayVar(array)),
+  !Array_ElementLength(array, _).

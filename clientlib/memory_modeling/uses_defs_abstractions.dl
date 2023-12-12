@@ -27,32 +27,45 @@
 
 .output PublicFunctionArg
 
-PublicFunctionArg(pubFun, arg, (constNum - 4) / 32):-
+PublicFunctionArg(pubFun, arg, index):-
   CALLDATALOADOfConstant(cdl, _, constNum),
   CALLDATALOAD(cdl, _, arg),
   Statement_Function(cdl, pubFun),
-  !CallDataLoadArrayLoadingPattern(cdl, _, _, _, _),
-  (constNum - 4) % 32 = 0.
+  IsPublicFunction(pubFun),
+  (((constNum - 4) % 32 = 0, index = (constNum - 4) / 32); ((constNum - 4) % 32 != 0, index = constNum)),
+  !PublicFunctionArrayArg(pubFun, _, index),
+  !PublicFunctionStructArg(pubFun, _, index).
 
-PublicFunctionArg(pubFun, arg, constNum):-
+PublicFunctionArg(pubFun, formalArg, constNum):-
+  IsPublicFunction(pubFun),
+  CallGraphEdge(caller_block, pubFun),
+  Statement_Block(stmt, caller_block),
+  CALLPRIVATE(stmt, _),
+  ActualArgs(caller_block, argVar, pos),
+  DataFlowsThroughConstOps(arg, argVar),
+  FormalArgs(pubFun, formalArg, pos),
   CALLDATALOADOfConstant(cdl, _, constNum),
-  CALLDATALOAD(cdl, _, arg),
-  Statement_Function(cdl, pubFun),
-  !CallDataLoadArrayLoadingPattern(cdl, _, _, _, _),
-  (constNum - 4) % 32 != 0.
+  CALLDATALOAD(cdl, _, arg).
 
 PublicFunctionArg(pubFun, arrayArg, index):-
   PublicFunctionArrayArg(pubFun, arrayArg, index).
 
-PublicFunctionArrayArg(pubFun, as(arrayArg, ArrayVariable), (@hex_to_number(constHex) - 4) / 32):-
-  IsArgCallDataArrayVar(arrayArg, constHex),
-  Variable_Function(arrayArg, pubFun),
-  (@hex_to_number(constHex) - 4) % 32 = 0.
+PublicFunctionArg(pubFun, structArg, index):-
+  PublicFunctionStructArg(pubFun, structArg, index).
 
-PublicFunctionArrayArg(pubFun, as(arrayArg, ArrayVariable), @hex_to_number(constHex)):-
+PublicFunctionArrayArg(pubFun, as(arrayArg, ArrayVariable), index):-
   IsArgCallDataArrayVar(arrayArg, constHex),
   Variable_Function(arrayArg, pubFun),
-  (@hex_to_number(constHex) - 4) % 32 != 0.
+  IsPublicFunction(pubFun),
+  num = @hex_to_number(constHex),
+  (((num - 4) % 32 = 0, index = (num - 4) / 32); ((num - 4) % 32 != 0, index = num)).
+
+PublicFunctionStructArg(pubFun, structArg, index):-
+  IsArgCallDataStruct(structArg, constHex),
+  Variable_Function(structArg, pubFun),
+  IsPublicFunction(pubFun),
+  num = @hex_to_number(constHex),
+  (((num - 4) % 32 = 0, index = (num - 4) / 32); ((num - 4) % 32 != 0, index = num)).
 
 // e.g., for a statement 
 // MEM[mem1] = a
@@ -139,7 +152,8 @@ MemoryStatement_ActualArgNew(memConsStmt, [WrapInQuotes(type), WrapInQuotes(info
   StatementUsesMemoryMemoryArgument(memConsStmt, _, index, [type, info, [indexv, length]]).
 
 MemoryModelingTempStmt(mstore):-
-  StatementUsesMemoryWriteAtRelativeIndex(_, _, mstore, _).
+  StatementUsesMemoryWriteAtRelativeIndex(_, _, mstore, _),
+  MSTORE(mstore, _, _).
 
 
 /***
@@ -294,6 +308,7 @@ ABIEncodedArrayIncludesArrayAtConcreteIndex(abiArr, memConsStmt, indexVar, array
 
 MemoryModelingTempStmt(memWriteStmt):-
   ABIEncodedArrayWriteTo(memWriteStmt, _, _, _),
+  MSTORE(memWriteStmt, _, _),
   !ArrayStore(memWriteStmt, _, _),
   !ArrayStoreAtIndex(memWriteStmt, _, _, _).
 
@@ -606,3 +621,36 @@ StatementUsesMemory_ActualMemoryArg(callDataCopy, "CALLDATACOPY", 0, arrVarRep):
   CALLDATACOPY_AllCalldata(callDataCopy),
   CALLDATACOPY(callDataCopy, array, _, _),
   VarIsArray(array, arrVarRep).
+
+
+.decl CREATE2WithInitCode(create2: Statement, initCode: symbol)
+.output CREATE2WithInitCode
+
+CREATE2WithInitCode(create2, initCode):-
+  CREATE2(create2, _, _, _, _, _),
+  MemWriteToMemConsStmtResolved(codeCopy, create2, _, _, _),
+  ByteCodeHex(bytecode),
+  Statement_Opcode(codeCopy, "CODECOPY"),
+  Statement_Uses(codeCopy, codeIndexVar, 1),
+  Statement_Uses(codeCopy, lenVar, 2),
+  Variable_Value(codeIndexVar, codeIndex),
+  Variable_Value(lenVar, len),
+  initCode = substr(bytecode, 2*@hex_to_number(codeIndex), 2*@hex_to_number(len)).
+
+// Fallback logic, less precise than the above, to handle code using create2 libraries
+// .decl CREATE2WithPossibleInitCode(create2: Statement, initCode: symbol)
+// .output CREATE2WithPossibleInitCode
+
+
+// CREATE2WithPossibleInitCode(create2, initCode):-
+//   CREATE2(create2, _, _, _, _, _),
+//   !CREATE2WithInitCode(create2, _),
+//   Statement_Opcode(codeCopy, "CODECOPY"),
+//   StatementDominates(codeCopy, create2),
+//   Statement_Uses(codeCopy, codeIndexVar, 1),
+//   Statement_Uses(codeCopy, lenVar, 2),
+//   Variable_Value(codeIndexVar, codeIndex),
+//   Variable_Value(lenVar, len),
+//   ByteCodeHex(bytecode),
+//   @hex_to_number(len) > 128, // maybe incomplete
+//   initCode = substr(bytecode, 2*@hex_to_number(codeIndex), 2*@hex_to_number(len)).

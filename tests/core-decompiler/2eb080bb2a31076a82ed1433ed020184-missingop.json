@@ -1,0 +1,6 @@
+{
+    "client_path": null,
+    "gigahorse_args": ["-i", "--disable_inline"],
+    "expected_analytics": [["Analytics_BlockHasNoTACBlock", 0, 0], ["Analytics_StmtMissingOperand", 0, 0],
+                           ["Analytics_MissingJumpTargetSomeCtx", 0, 0], ["Analytics_MissingJumpTargetAnyCtx", 0, 0]]
+}

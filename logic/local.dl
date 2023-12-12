@@ -234,10 +234,8 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
      Statement_Block(tail, block),
      !Statement_Next(tail, _).
   
-  .decl ValidStatement(stmt: Statement)
-  
+  .decl ValidStatement(stmt: Statement)  
   ValidStatement(stmt) :- Statement_Block(stmt, _).
-  
 
   /**
     A summary of all the effects of the basic block up to a statement. The
@@ -537,6 +535,90 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
 
   BlockHasTrivialControl(block):-
     ImmediateBlockJumpTarget(block, _).
+
+  // inverse-escape analysis: helpers for ctx sensitivity
+  .decl BlockUsesLocal(block: Block, var: VariableOrStackIndex)
+  BlockUsesLocal(block, var) :-
+    Statement_Block(stmt, block),
+    Statement_Uses_Local(stmt, var, _).
+
+  .decl StaticBlockJumpTarget(caller: Block, target: Value)
+  StaticBlockJumpTarget(caller, target) :-
+    ImmediateBlockJumpTarget(caller, targetVar),
+    Variable_Value(targetVar, target),
+    JUMPDEST(as(target, symbol)).
+
+  .decl StaticBlockJumpTargetNonUnique(caller: Block, target: Value)
+  StaticBlockJumpTargetNonUnique(caller, target) :-
+    StaticBlockJumpTarget(caller, target),
+    StaticBlockJumpTarget(caller2, target),
+    caller != caller2.
+
+  // pushes a label for later use. A return addr?
+  .decl BlockPushesLabel(block: Block, val: Value)
+  BlockPushesLabel(block, val) :-
+    JUMPDEST(as(val, symbol)),
+    Variable_Value(var, val),
+    Statement_Defines(stmt, var),
+    Statement_Block(stmt, block),
+    BasicBlock_Tail(block, call),
+    LocalStackContents(call, _, var),
+    !BlockUsesLocal(block, var).
+
+  // Same reasoning, with more detail. In very rare cases, the continuation will not be found,
+  // even though BlockPushesLabel is true.
+  .decl CallBlockPushesContinuation(caller: Block, callee: Block, cont: Block, index: number)
+  CallBlockPushesContinuation(caller, as(calleeValue, Block), as(contVal, Block), index) :-
+    StaticBlockJumpTarget(caller, calleeValue),  // looks like a call
+    BasicBlock_Tail(caller, call),
+    BeforeLocalStackContents(call, index, var),
+    CheckIsVariable(var), // unnecessary?
+    Variable_Value(var, contVal),
+    JUMPDEST(as(contVal, symbol)), // unnecessary?
+    index > 0,
+    !BlockUsesLocal(caller, var). 
+ 
+  .decl CallBlockNotEarliestContinuation(caller: Block, callee: Block, cont: Block)
+  CallBlockNotEarliestContinuation(caller, callee, cont) :-
+    CallBlockPushesContinuation(caller, callee, cont, index1),
+    CallBlockPushesContinuation(caller, _, _, index2),
+    index2 > index1.
+
+  .decl CallBlockEarliestContinuation(caller: Block, callee: Block, cont: Block)
+  CallBlockEarliestContinuation(caller, callee, cont) :-
+    CallBlockPushesContinuation(caller, callee, cont, _),
+    !CallBlockNotEarliestContinuation(caller, callee, cont).
+
+  // If the earliest continuation is not unique, or if we have not been able to find the
+  // continuations on the stack at call time, fall back to an "undefined".
+  .decl PrivateFunctionCall(caller: Block, callee: Block, continuation: Block, firstContinuation: Block)
+  PrivateFunctionCall(caller, callee, as(contVal, Block), firstCont) :-
+    StaticBlockJumpTarget(caller, calleeValue),  // looks like a call
+    BlockPushesLabel(caller, contVal),  // continuation pushed
+    callee = as(calleeValue, Block),
+    (CallBlockEarliestContinuation(caller, callee, firstCont);
+     (!CallBlockEarliestContinuation(caller, callee, _), firstCont = "undefined")).
+ 
+  .decl MultiplePrivateFunctionCall(caller: Block)
+  MultiplePrivateFunctionCall(caller) :-
+    PrivateFunctionCall(caller, callee, cont1, _),
+    PrivateFunctionCall(caller, callee, cont2, _),
+    cont1 != cont2.
+
+  .decl PrivateFunctionReturn(returnBlock: Block)
+  PrivateFunctionReturn(returnBlock) :-
+    Statement_Block(stmt, returnBlock),
+    JUMP(stmt),
+    !ImmediateBlockJumpTarget(returnBlock, _).
+
+  .decl PrivateFunctionCallOrReturn(block: Block)
+  PrivateFunctionCallOrReturn(block) :-
+    PrivateFunctionCall(block, _, _, _);
+    PrivateFunctionReturn(block).
+
+ .output MultiplePrivateFunctionCall
+ .output PrivateFunctionCall
+// .output CallBlockEarliestContinuation
 }
 
 .comp PreTransLocalAnalysis : LocalAnalysis {
@@ -607,6 +689,19 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     Statement_Defines(xorStmt, pred),
     Statement_Uses_Local(jumpiStmt, pred, 1),
     JUMPI(jumpiStmt).
+
+  // pattern in via-ir contracts, public function start is the block's fallthrough
+  .decl BlockComparesSigFallthroughSolidity(block: Block, sigHash: Value)
+  BlockComparesSigFallthroughSolidity(block, sigHash) :-
+    Statement_Block(pushStmt, block),
+    ImmediateBlockJumpTarget(block, _),
+    (PUSH4(pushStmt, sigHash) ; PUSH3(pushStmt, sigHash)),
+    Statement_Defines(pushStmt, sigHashVar),
+    SUB(subStmt),
+    Statement_Uses_Local(subStmt, sigHashVar, _),
+    Statement_Defines(subStmt, pred),
+    JUMPI(jumpiStmt),
+    Statement_Uses_Local(jumpiStmt, pred, 1).
 
   PublicFunctionJump(block, sigHash) :-   BlockComparesSig(block, sigHash).
 
@@ -684,6 +779,16 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
  ***********
  */
 
+// Map each pre-tranformed statement to the corresponding statement in the original bytecode 
+// (accounting for all of the early block-cloning rounds)
+.decl PreTransStatement_OriginalStatement(stmt: Statement, ogStmt: Statement)
+DEBUG_OUTPUT(PreTransStatement_OriginalStatement)
+PreTransStatement_OriginalStatement(ogStmt, ogStmt) :-
+  factReader.Statement_Opcode(ogStmt, _).
+
+PreTransStatement_OriginalStatement(rvtClStmt, ogStmt) :-
+  revertCloner.StatementToClonedStatement(_, _, ogStmt, rvtClStmt).
+
 .init preTrans = PreTransLocalAnalysis
 
 .init revertCloner = RevertBlockCloner
@@ -695,6 +800,14 @@ COPY_CODE(revertCloner, factReader)
 COPY_OUTPUT(blockCloner, revertCloner)
 blockCloner.Prev_Block_OriginalBlock(block, originalBlock):- revertCloner.Block_OriginalBlock(block, originalBlock).
 COPY_OUTPUT(preTrans, blockCloner)
+
+PreTransStatement_OriginalStatement(heurClStmt, ogStmt) :-
+  blockCloner.StatementToClonedStatement(_, _, rvtClStmt, heurClStmt),
+  revertCloner.StatementToClonedStatement(_, _, ogStmt, rvtClStmt).
+
+PreTransStatement_OriginalStatement(heurClStmt, ogStmt) :-
+  blockCloner.StatementToClonedStatement(_, _, ogStmt, heurClStmt),
+  !revertCloner.StatementToClonedStatement(_, _, _, ogStmt).
 
 #else
 
@@ -744,6 +857,19 @@ insertor.insertOps(functionStartStmt,
    preTrans.Statement_Next(tail, functionStartStmt),
    !preTrans.BlockComparesSig(_, _).
 
+// transformation for pattern in via-ir contracts
+insertor.insertOps(functionStartStmt,
+  LIST(
+    STMT(PUSH4, MAKE_LABEL_REFERENCE(hash)),
+    STMT(JUMP, cat("PublicFunctionJump:", hash)),
+    STMT(JUMPDEST, MAKE_LABEL_REFERENCE(hash))
+  )
+) :-
+   preTrans.BlockComparesSigFallthroughSolidity(block, hash),
+   preTrans.BasicBlock_Tail(block, tail),
+   preTrans.Statement_Next(tail, functionStartStmt),
+   !preTrans.BlockComparesSig(_, hash).
+
 // Receive transformation
 insertor.insertOps(functionStartStmt,
   LIST(
@@ -790,16 +916,18 @@ insertor.insertOps(jumpi,
   preTrans.JUMPI(jumpi),
   preTrans.FallthroughStmt(jumpi, fallthrough).
 
-// This one removes conditional jumps that "always" jump
-insertor.removeOp(jmpi),
-insertor.insertOps(jmpi,
-  LIST(
-    STMT(SWAP1, ""),
-    STMT(POP, ""),
-    STMT(JUMP, "")
-  )
-) :-
-  preTrans.AlwaysJumps(jmpi).
+// SL: Removed this to get more completeness, especially in cases
+// of non-deployed code with uninitialized immutables
+// // This one removes conditional jumps that "always" jump
+// insertor.removeOp(jmpi),
+// insertor.insertOps(jmpi,
+//   LIST(
+//     STMT(SWAP1, ""),
+//     STMT(POP, ""),
+//     STMT(JUMP, "")
+//   )
+// ) :-
+//   preTrans.AlwaysJumps(jmpi).
 
 insertor.removeOp(codeCopy),
 insertor.removeOp(mload),
@@ -845,6 +973,14 @@ postTrans.PublicFunction(block, hash) :-
    postTrans.Statement_Block(stmt, block),
    preTrans.BlockComparesSigVyper(_, hash),
    !preTrans.BlockComparesSig(_, _),
+   ISLABEL(meta), hash = GET_LABEL_REFERENCE(meta).
+
+postTrans.PublicFunction(block, hash) :-
+   insertor.MetaData(stmt, meta),
+   postTrans.JUMPDEST(stmt),
+   postTrans.Statement_Block(stmt, block),
+   preTrans.BlockComparesSigFallthroughSolidity(_, hash),
+   !preTrans.BlockComparesSig(_, hash),
    ISLABEL(meta), hash = GET_LABEL_REFERENCE(meta).
 
 // For receive functions

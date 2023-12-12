@@ -191,6 +191,18 @@ Analytics_EventSignature(sigHashVal) :-
   Statement_Uses(log, actual, 2),
   Variable_Value(actual, sigHashVal).
 
+.decl Analytics_CREATE2WithInitCode(create2: Statement, initCode: symbol)
+.output Analytics_CREATE2WithInitCode
+
+Analytics_CREATE2WithInitCode(create2, initCode):-
+  CREATE2WithInitCode(create2, initCode).
+
+.decl Analytics_ConstArrayContents(contents: symbol)
+.output Analytics_ConstArrayContents
+
+Analytics_ConstArrayContents(contents):-
+  ConstArray_Contents(_, contents).
+
 /**
  * Guards
  */

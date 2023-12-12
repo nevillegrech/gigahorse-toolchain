@@ -1,13 +1,29 @@
 // The core of the decompiler logic. Most complex reasoning for value
 // flow and detecting CFG edges (much like the Vandal decompiler) is here.
 
-#define MAX_STACK_HEIGHT 50
+#ifndef MAX_STACK_HEIGHT
+#define MAX_STACK_HEIGHT 70
+#endif
+
+#define MAX_NUM_PRIVATE_FUNCTION_ARGS 50
+#define MAX_NUM_PRIVATE_FUNCTION_RETS 50
+
 #define LIMITSIZE_BLOCK_OUTPUT_CONTENTS 5000000
 #define CheckIsVariable(v) ((v) < 0)
 #define CheckIsStackIndex(v) ((v) >= 0, (v) < MAX_STACK_HEIGHT)
+
+// Unused currently. The optimized version is used.
 #define CheckIsPopDelta(v) ((v) >= 0, (v) < MAX_STACK_HEIGHT)
+// The way this is used, the arg is always a max where one side is guaranteed to be >=0
+#define CheckIsPopDeltaOpt(v) ((v) < MAX_STACK_HEIGHT)
+
 #define CheckIsStackDelta(n) ((n) < MAX_STACK_HEIGHT, (n) > -MAX_STACK_HEIGHT)
+
+#define CheckIsNumArgs(n) ((n) < MAX_NUM_PRIVATE_FUNCTION_ARGS)
+#define CheckIsNumRets(n) ((n) < MAX_NUM_PRIVATE_FUNCTION_RETS)
+
 #define FUNCTION_SELECTOR "0x0"
+
 
 #include "../clientlib/util.dl"
 #include "local.dl"
@@ -44,7 +60,7 @@ PreMask_Length("3f", 1).
 PreMask_Length("7f", 1).
 PreMask_Length("ff", 1).
 
-PreMask_Length(cat("ff", mask), bytes+1) :-
+PreMask_Length(cat(mask, "ff"), bytes+1) :-
   PreMask_Length(mask, bytes),
   bytes < 32.
 
@@ -171,11 +187,20 @@ PreMask_Length(cat("ff", mask), bytes+1) :-
     FallthroughStmt(stmt, fallthrough),
     IsBasicBlockHead(fallthrough).
 
+  // There may be an unconditional context computed by the algorithm. Use it.
   BlockEdge(callerCtx, caller, calleeCtx, callee) :-
     BlockJumpValidTarget(callerCtx, caller, _, callee),
     sens.MergeContext(callerCtx, caller, calleeCtx).
     .plan 1:(2,1)
 
+  // Also check if there is a conditional (on-request) context for this case
+  sens.MergeContextRequest(callerCtx, block, continuation) :-
+    BlockJumpValidTarget(callerCtx, block, _, continuation).
+
+  BlockEdge(callerCtx, caller, calleeCtx, callee) :-
+    BlockJumpValidTarget(callerCtx, caller, _, callee),
+    sens.MergeContextResponse(callerCtx, caller, callee, calleeCtx).
+    .plan 1:(2,1)
 
   .decl Statement_Uses(stmt: Statement, var: Variable, n: StackIndex)
 
@@ -240,7 +265,7 @@ PreMask_Length(cat("ff", mask), bytes+1) :-
 /**
   Declared just so it can be used as a parameter in another component
 */
-.comp DefaultOptimizedGlobalAnalysis : OptimizedGlobalAnalysis <TransactionalContext> {
+.comp DefaultOptimizedGlobalAnalysis : OptimizedGlobalAnalysis <TransactionalWithShrinkingContext> {
 
 }
 

@@ -10,27 +10,30 @@
  *****/
 
 
-/******
-         Generic basic block Reachable-from implementation
-******/
+/**
+  This relation is used in two places to ensure the precision of possible calls.
+  We start from the facts of `PossibleReturnAddressWithRank` and keep both `retBlock` and `retTarget`
+  in order to be general enough and support complex calls with shared `retBlock`s or `retTarget`s.
+*/
 
-// Created because its faster to iterate it than to iterate BlockEdge
-// when we only care about contexts
-.decl ContextEdge(ctxFrom:global.sens.Context, ctxTo:global.sens.Context)
-ContextEdge(ctxFrom, ctxTo):-
-  global.BlockEdge(ctxFrom, _, ctxTo, _).
-
-.decl ContextCanReach(fromCtx: global.sens.Context, ctx: global.sens.Context)
+.decl ContextCanReachFromCallerToReturn(fromCtx: global.sens.Context, caller: Block, ctx: global.sens.Context, toBlock: Block, retBlock: Block, targetBlock: Block)
 #ifdef ENABLE_LIMITSIZE
-.limitsize ContextCanReach(n=LIMITSIZE_CAN_REACH_UNDER_CONTEXT)
+.limitsize ContextCanReachFromCallerToReturn(n=LIMITSIZE_CAN_REACH_UNDER_CONTEXT)
 #endif
 
-ContextCanReach(ctx, ctx) :-
-  global.ReachableContext(ctx, _).
+ContextCanReachFromCallerToReturn(callCtx, caller, ctxTo, toBlock, retBlock, retTarget) :-
+  PossibleReturnAddressWithRank(callCtx, caller, _, retBlock, retTarget, _),
+  global.BlockEdge(callCtx, caller, ctxTo, toBlock).
 
-ContextCanReach(ctxFrom, ctxTo) :-
-  ContextCanReach(ctxFrom, ctxOther),
-  ContextEdge(ctxOther, ctxTo).
+ContextCanReachFromCallerToReturn(ctxFrom, caller, ctxTo, toBlock, retBlock, retTarget) :-
+  ContextCanReachFromCallerToReturn(ctxFrom, caller, ctxOther, otherBlock, retBlock, retTarget),
+  global.BlockEdge(ctxOther, otherBlock, ctxTo, toBlock),
+  retBlock != otherBlock.
+
+ContextCanReachFromCallerToReturn(ctxFrom, caller, ctxTo, toBlock, retBlock, retTarget) :-
+  ContextCanReachFromCallerToReturn(ctxFrom, caller, ctxOther, retBlock, retBlock, retTarget),
+  global.BlockEdge(ctxOther, retBlock, ctxTo, toBlock),
+  toBlock != retTarget.
 
 
 
@@ -128,8 +131,9 @@ MaybeFunctionCallReturn(ctx, caller, func, retCtx, retBlock, retTarget) :-
   postTrans.Statement_Block(jump, caller),
   postTrans.Statement_Opcode(jump, "JUMP"), //Added to invalidate JUMPIs we will need to deal with them though
   global.BlockJumpValidTarget(ctx, caller, targetVar, func),
-  ContextCanReach(ctx, retCtx),
+  ContextCanReachFromCallerToReturn(ctx, caller, retCtx, retBlock, retBlock, retTarget),
   global.BlockJumpValidTarget(retCtx, retBlock, _, retTarget).
+ .plan 1:(6,1,2,3,4,5,7)
 
 /**
   Introduced to use in many rules that don't use the context of the context-sensitive version
@@ -144,10 +148,11 @@ MaybeFunctionCallReturn_Ins(caller, func, retBlock, retTarget):-
 .decl PossibleReturnAddressWithPositiveRank(callCtx:global.sens.Context, targetSetter:Block, retCtx:global.sens.Context, retBlock:Block, retTarget:Block, rank:number)
 PossibleReturnAddressWithPositiveRank(callCtx, caller, retCtx, retBlock, retTarget, n) :-
   PossibleReturnAddressWithRank(callCtx, caller, retCtx, retBlock, retTarget, n),
-  ContextCanReach(callCtx, retCtx),
+  ContextCanReachFromCallerToReturn(callCtx, caller, retCtx, retBlock, retBlock, retTarget),
   global.BlockJumpValidTarget(retCtx, retBlock, _, retTarget),
   n > 0,
   n < RETURN_ADDRESS_RANK_THRESHOLD.
+ .plan 1:(2,1,3)
 
 .decl MaybeFunctionCallReturnNewContext(ctx:global.sens.Context, caller:Block, retTargetCtx:global.sens.Context, retTarget:Block)
 MaybeFunctionCallReturnNewContext(ctx, caller, retTargetCtx, retTarget) :-
@@ -738,7 +743,7 @@ FunctionalBlockPopDelta(from, newPopDelta) :-
   PossibleImpreciseNumberOfFunctionArguments(func, n_args),
   IRBlockStackDelta(from, stackDelta),
   newPopDelta = max(n_args - stackDelta, popDelta),
-  CheckIsPopDelta(newPopDelta).
+  CheckIsPopDeltaOpt(n_args - stackDelta). // equivalent to CheckIsPopDelta(newPopDelta)
 
 
 // What is the total difference in stack level during this block ?
@@ -809,7 +814,8 @@ PossibleFunctionalBlockPopAndStackDelta(func, to, newPath, newPopDelta, newStack
   FunctionalBlockPopAndStackDelta(from, popDelta, stackDelta),
   newStackDelta = stackDelta + prevStackDelta,
   newPopDelta = max(popDelta - prevStackDelta, prevPopDelta),
-  CheckIsPopDelta(newPopDelta), CheckIsStackDelta(newStackDelta).
+  CheckIsPopDeltaOpt(popDelta - prevStackDelta), // equivalent to CheckIsPopDelta(newPopDelta)
+  CheckIsStackDelta(newStackDelta).
   .plan 1:(3,2,1)
 
 // Basic blocks that need to be checked for cycles in path sensitive algorithms
@@ -838,9 +844,11 @@ PossibleCombinedNumberOfFunctionReturnsAndArguments(func, terminal, as(numArg, S
   PossibleFunctionalBlockPopAndStackDelta(func, terminal, _, prevPopDelta, prevStackDelta),
   FunctionalBlockPopAndStackDelta(terminal, popDelta, stackDelta),
   numArg = max(popDelta - prevStackDelta, prevPopDelta),
-  CheckIsPopDelta(numArg),
+  CheckIsNumArgs(numArg),
+//  CheckIsPopDeltaOpt(popDelta - prevStackDelta), // equivalent to CheckIsPopDelta(numArg),
   numRet = prevStackDelta + stackDelta + numArg,
-  CheckIsStackIndex(numRet).
+  CheckIsNumRets(numRet).
+//  CheckIsStackIndex(numRet).
     // When leaving the stack with d more items but it originally
     // contained a args, the total number of returned values is d+a.
  .plan 1:(2,1)
@@ -1057,6 +1065,9 @@ FunctionalStatement_Uses(stmt, var, n) :-
 .decl PublicFunctionSignature(hex_signature: symbol, text_signature: symbol)
 .input PublicFunctionSignature
 
+.decl HighLevelFunctionInfo(id: symbol, entry_point: Block, numOfArgs: number, numOfRets: number)
+.input HighLevelFunctionInfo
+
 .decl HighLevelFunctionName(func: IRFunction, name: symbol)
 
 // Standardize public function signature length
@@ -1088,9 +1099,18 @@ HighLevelFunctionName(func, name) :-
    PublicFunction_HighLevel(func, name),
    !PublicFunctionSignature(name, _).
 
-HighLevelFunctionName(func, func) :-
-   IRFunctionEntry(func),
+HighLevelFunctionName(irFunc, irFunc) :-
+   IRFunctionEntry(irFunc),
+   Function_IRFunction(func, irFunc),
+   irFunc != "0x0",
+   !HighLevelFunctionInfo(_, func, _, _),
+   !IRPublicFunction(irFunc, _).
+
+HighLevelFunctionName(irFunc, id) :-
+   IRFunctionEntry(irFunc),
    func != "0x0",
-   !IRPublicFunction(func, _).
+   Function_IRFunction(func, irFunc),
+   HighLevelFunctionInfo(id, func, _, _),
+   !IRPublicFunction(irFunc, _).
 
 HighLevelFunctionName(FUNCTION_SELECTOR, "__function_selector__").
