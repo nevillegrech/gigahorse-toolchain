@@ -55,11 +55,6 @@ global.StatementPushesUsedLabel(stmt):-
   postTrans.Statement_Defines(stmt, pushedVar).
 
 COPY_CODE_FULL(global, postTrans)
-// global.PublicFunctionJump(block, hex, selector):-
-//   incompleteGlobal.ValidPublicFunctionJump(block, hex, selector).
-
-// global.PublicFunction(start, hex, selector):-
-//   incompleteGlobal.ValidPublicFunction(start, hex, selector).
 
 // Masks with all 1s
 .decl Mask_Length(mask: Value, bytes: number)
@@ -260,26 +255,6 @@ PreMask_Length(cat(mask, "ff"), bytes+1) :-
   VariableAlwaysUsedAsJumpTarget(var):-
     VariableContainsJumpTarget(var),
     !VariableUsedInOperation(var).
-
-  .decl ValidPublicFunctionJump(jumpBlock: Block, hex: Value, selector: OptionalSelector)
-  .decl ValidPublicFunction(startBlock: Block, hex: Value, selector: OptionalSelector)
-  DEBUG_OUTPUT(ValidPublicFunctionJump)
-
-  ValidPublicFunctionJump(jumpBlock, hex, $SelectorStackIndex(block, selectorStackIndex)):-
-    PublicFunctionJump(jumpBlock, hex, $SelectorStackIndex(block, selectorStackIndex)),
-    BlockInputContents(_, block, selectorStackIndex, selectorVariable),
-    FunctionSelectorVariable(selectorVariable).
-
-  ValidPublicFunctionJump(jumpBlock, hex, $SelectorVariable(selectorVariable)):-
-    PublicFunctionJump(jumpBlock, hex, $SelectorVariable(selectorVariable)),
-    FunctionSelectorVariable(selectorVariable).
-
-  ValidPublicFunctionJump(jumpBlock, hex, $NoSelector()):-
-    PublicFunctionJump(jumpBlock, hex, $NoSelector()).
-
-  ValidPublicFunction(startBlock, hex, selector):-
-    ValidPublicFunctionJump(_, hex, selector),
-    PublicFunction(startBlock, hex, selector).
 
   .decl ValidSelector(selector: OptionalSelector)
 
