@@ -131,6 +131,9 @@ class InstructionTsvExporter(TsvExporter):
         def process_immutable_refs(immutable_refs: Dict[str, List[Dict[str, int]]]) -> List[Tuple[str, int]]:
             res = []
             for id, accesses in immutable_refs.items():
+                # TODO: skipping this for now
+                if id == "library_deploy_address":
+                    continue
                 for access in accesses:
                     res.append((hex(access['start']), int(id)))
             return res
