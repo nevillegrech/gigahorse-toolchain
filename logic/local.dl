@@ -689,6 +689,14 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     BlockComparesSigFallthroughSolidity(_, _, selectorVarOrIndex);
     BlockComparesSigVyper(_, _, selectorVarOrIndex).
 
+  // All pushes of values up to 4 bytes, can be used as selectors
+  .decl SmallValuePush(pushStmt: Statement, value: Value)
+  SmallValuePush(pushStmt, value):-
+    PUSH4(pushStmt, value);
+    PUSH3(pushStmt, value);
+    PUSH2(pushStmt, value);
+    PUSH1(pushStmt, value).
+
     // Code inserted by compiler to compare function signature
   .decl BlockComparesSig(block: Block, sigHash: Value, selectorVarOrIndex: OptionalSelector)
 
@@ -696,7 +704,7 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
   BlockComparesSig(block, sigHash, selector) :-
     Statement_Block(pushStmt, block),
     ImmediateBlockJumpTarget(block, _),
-    (PUSH4(pushStmt, sigHash) ; PUSH3(pushStmt, sigHash)),
+    SmallValuePush(pushStmt, sigHash),
     Statement_Defines(pushStmt, sigHashVar),
     EQ(eqStmt),
     Statement_Uses_Local(eqStmt, sigHashVar, n),
