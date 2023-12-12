@@ -262,9 +262,8 @@ IsFunctionCallReturn(ctx, caller, func, retCtx, retBlock, retTarget) :-
 .decl PublicFunctionFiltered(block: Block, sigHash: Value)
 
 PublicFunctionFiltered(func, sigHash):-
-   postTrans.PublicFunctionJump(prev, sigHash, selector),
+   postTrans.PublicFunctionJump(prev, sigHash, _),
    postTrans.PublicFunction(func, sigHash, _),
-   global.ValidPublicFunctionJump(prev, sigHash, selector),
    global.BlockEdge(_, prev, _, func).
 
 // NOTE the philosophy!  MaybeFunctionCallReturn intends to be
