@@ -311,6 +311,7 @@
     !MaxContextDepth(sigHash, -1),
     DecomposeContext(ctx, FALLBACK_FUNCTION_SIGHASH, pri),
     newContext = [sigHash, pri].
+  .plan 1:(4,1,2,3)
   MergeContextResponse(ctx, caller, funcStart, ctx) :-
     MergeContextRequest(ctx, caller, funcStart),
     local.PublicFunctionJump(caller, sigHash, _),
