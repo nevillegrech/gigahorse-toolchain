@@ -115,11 +115,16 @@ PreMask_Length(cat(mask, "ff"), bytes+1) :-
   .decl BlockJumpValidTarget(ctx: sens.Context, block: Block, var: Variable, target: Block)
 
   /**
+    Under `ctx`, `next` can follow the execution of `block`.
+    Includes both fallthrough edges and jumps.
+  */
+  .decl BlockValidNext(ctx: sens.Context, block: Block, next: Block)
+
+  /**
     When `block` is analyzed under `callerCtx`, there will be a CFG edge
     from `block` to `callee`, causing it to be reachable under `calleeCtx`
   */
   .decl BlockEdge(callerCtx: sens.Context, caller: Block, calleeCtx: sens.Context, callee: Block)
-  
 
 
   /*
@@ -183,31 +188,34 @@ PreMask_Length(cat(mask, "ff"), bytes+1) :-
 
   ReachableContext(calleeCtx, callee) :-
     BlockEdge(_, _, calleeCtx, callee).
-    
+
   ReachableContext(initCtx, FUNCTION_SELECTOR) :-
     sens.InitialContext(initCtx).
 
-  .decl FallthroughEdge(caller: Block, fallthroughBlock: Block)
+  BlockValidNext(ctx, block, next):-
+    BlockJumpValidTarget(ctx, block, _, next).
 
-  FallthroughEdge(caller, as(fallthrough, Block)),
-  BlockEdge(callerCtx, caller, calleeCtx, as(fallthrough, Block)) :-
-    sens.MergeContext(callerCtx, caller, calleeCtx),  // implies reachable
-    Statement_Block(stmt, caller),
-    FallthroughStmt(stmt, fallthrough),
-    IsBasicBlockHead(fallthrough).
+  BlockValidNext(ctx, block, fallthrough):-
+    ReachableContext(ctx, block),
+    FallthroughEdge(block, fallthrough).
+
+  // BlockEdge(callerCtx, caller, calleeCtx, fallthrough) :-
+  //   sens.MergeContext(callerCtx, caller, calleeCtx),  // implies reachable
+  //   FallthroughEdge(caller, fallthrough).
 
   // There may be an unconditional context computed by the algorithm. Use it.
   BlockEdge(callerCtx, caller, calleeCtx, callee) :-
-    BlockJumpValidTarget(callerCtx, caller, _, callee),
+    // BlockJumpValidTarget(callerCtx, caller, _, callee),
+    BlockValidNext(callerCtx, caller, callee),
     sens.MergeContext(callerCtx, caller, calleeCtx).
     .plan 1:(2,1)
 
   // Also check if there is a conditional (on-request) context for this case
-  sens.MergeContextRequest(callerCtx, block, continuation) :-
-    BlockJumpValidTarget(callerCtx, block, _, continuation).
+  sens.MergeContextRequest(callerCtx, block, next) :-
+    BlockValidNext(callerCtx, block, next).
 
   BlockEdge(callerCtx, caller, calleeCtx, callee) :-
-    BlockJumpValidTarget(callerCtx, caller, _, callee),
+    BlockValidNext(callerCtx, caller, callee),
     sens.MergeContextResponse(callerCtx, caller, callee, calleeCtx).
     .plan 1:(2,1)
 
@@ -256,6 +264,9 @@ PreMask_Length(cat(mask, "ff"), bytes+1) :-
     VariableContainsJumpTarget(var),
     !VariableUsedInOperation(var).
 
+  /**
+    Used to verify which variables/stack indexes that seem to be used as selectors, are actually selectors
+  */
   .decl ValidSelector(selector: OptionalSelector)
 
   ValidSelector($NoSelector()).

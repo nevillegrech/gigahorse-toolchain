@@ -288,7 +288,6 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
 
   // Covers JUMPIs and other fallthrough cases
   .decl FallthroughStmt(stmt: Statement, next: Statement)
-
   FallthroughStmt(stmt, next) :-
     BasicBlock_Tail(_, stmt),
     !JUMP(stmt),
@@ -296,9 +295,13 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     !OpcodePossiblyHalts(opcode),
     Statement_Next(stmt, next).
 
+  .decl FallthroughEdge(caller: Block, fallthroughBlock: Block)
+  FallthroughEdge(caller, as(fallthrough, Block)):-
+    Statement_Block(stmt, caller),
+    FallthroughStmt(stmt, fallthrough),
+    IsBasicBlockHead(fallthrough).
 
-  .decl ThrowJump(stmt: Statement)
-  
+  .decl ThrowJump(stmt: Statement)  
   ThrowJump(jmp) :-
      ImmediateBlockJumpTarget(block, variable),
      Variable_Value(variable, targetValue),
@@ -722,7 +725,7 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
 
   BlockComparesSigVyperBase(block, sigHash, selectorVarOrIndex) :-
     Statement_Block(pushStmt, block),
-    (PUSH4(pushStmt, sigHash) ; PUSH3(pushStmt, sigHash)),
+    SmallValuePush(pushStmt, sigHash),
     Statement_Defines(pushStmt, sigHashVar),
     Statement_Uses_Local(eqStmt, sigHashVar, n),
     Statement_Uses_Local(eqStmt, selectorVarOrIndex, 1 - n),
@@ -737,7 +740,7 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
   // New vyper pattern
   BlockComparesSigVyperBase(block, sigHash, selectorVarOrIndex):-
     Statement_Block(pushStmt, block),
-    (PUSH4(pushStmt, sigHash) ; PUSH3(pushStmt, sigHash)),
+    SmallValuePush(pushStmt, sigHash),
     Statement_Defines(pushStmt, sigHashVar),
     Statement_Uses_Local(xorStmt, sigHashVar, n),
     Statement_Uses_Local(xorStmt, selectorVarOrIndex, 1 - n),
@@ -759,7 +762,7 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
   BlockComparesSigFallthroughSolidity(block, sigHash, selector) :-
     Statement_Block(pushStmt, block),
     ImmediateBlockJumpTarget(block, _),
-    (PUSH4(pushStmt, sigHash) ; PUSH3(pushStmt, sigHash)),
+    SmallValuePush(pushStmt, sigHash),
     Statement_Defines(pushStmt, sigHashVar),
     SUB(subStmt),
     Statement_Uses_Local(subStmt, sigHashVar, n),
