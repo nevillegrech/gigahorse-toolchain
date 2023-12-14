@@ -773,7 +773,11 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     JUMPI(jumpiStmt),
     Statement_Uses_Local(jumpiStmt, pred, 1).
 
-  PublicFunctionJump(block, sigHash, selectorVarOrIndex) :-   BlockComparesSig(block, sigHash, selectorVarOrIndex).
+  PublicFunctionJump(block, sigHash, selectorVarOrIndex) :-
+    BlockComparesSig(block, sigHash, selectorVarOrIndex);
+    BlockComparesSigVyper(block, sigHash, selectorVarOrIndex);
+    BlockComparesSigFallthroughSolidity(block, sigHash, selectorVarOrIndex).
+
 
   PublicFunction(as(targetValue, Block), sigHash, selectorVarOrIndex) :-
     BlockComparesSig(block, sigHash, selectorVarOrIndex),
@@ -781,6 +785,11 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     Statement_Defines(push, var),
     PushValue(push, targetValue),
     JUMPDEST(as(targetValue, symbol)).
+
+  PublicFunction(fallthrough, sigHash, selectorVarOrIndex) :-
+    (BlockComparesSigVyper(block, sigHash, selectorVarOrIndex);
+    BlockComparesSigFallthroughSolidity(block, sigHash, selectorVarOrIndex)),
+    FallthroughEdge(block, fallthrough).
 
   .decl BlockComparesCallDataSizeToFour(block: Block, jumpi: Statement, lessThanFourTarget: Block)
   .decl BlockJumpsOnCallDataSize(block: Block, jumpi: Statement, noCallDataBranch: Block, callDataBranch: Block)
@@ -947,7 +956,7 @@ insertor.insertOps(jumpDestStmt,
     STMT(JUMP, cat("PublicFunctionJump:", hash))
   )
 ) :-
-   preTrans.PublicFunctionJump(block, hash, selector),
+   preTrans.BlockComparesSig(block, hash, selector),
    preTrans.PublicFunction(start, hash, selector),
    ValidSelector(selector),
    preTrans.Statement_Block(jumpDestStmt, start),
@@ -1086,7 +1095,7 @@ postTrans.PublicFunctionJump(block, hash, selector) :-
    insertor.PublicFunctionJumpMetadata(meta, hash),
    postTrans.Statement_Block(stmt, block),
    ValidSelector(selector),
-   (preTrans.PublicFunctionJump(_, hash, selector);
+   (preTrans.BlockComparesSig(_, hash, selector);
    preTrans.BlockComparesSigVyper(_, hash, selector);
    preTrans.BlockComparesSigFallthroughSolidity(_, hash, selector);
    (preTrans.BlockHasReceiveAsFallThrough(_, _, _, _), hash = RECEIVE_FUNCTION_SIGHASH, selector = $NoSelector())
