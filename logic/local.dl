@@ -1130,7 +1130,10 @@ postTrans.PublicFunction(block, hash, $NoSelector()) :-
    postTrans.JUMPDEST(stmt),
    postTrans.Statement_Block(stmt, block).
 
-postTrans.PublicFunction(b, h, s) :- preTrans.PublicFunction(b, h, s), ValidSelector(s).
+postTrans.PublicFunction(block , hash, selector):- 
+  preTrans.BlockComparesSig(_, hash, selector),
+  preTrans.PublicFunction(block, hash, selector),
+  ValidSelector(selector).
 
 .output postTrans.PublicFunction, preTrans.PublicFunction, preTrans.BlockComparesSigFallthroughSolidity, preTrans.BlockComparesSigVyper, insertor.MetaData
 .output postTrans.PublicFunctionJump
