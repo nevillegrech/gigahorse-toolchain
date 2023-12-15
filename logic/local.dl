@@ -794,6 +794,7 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
   .decl BlockComparesCallDataSizeToFour(block: Block, jumpi: Statement, lessThanFourTarget: Block)
   .decl BlockJumpsOnCallDataSize(block: Block, jumpi: Statement, noCallDataBranch: Block, callDataBranch: Block)
   .decl BlockHasReceiveAsFallThrough(block: Block, jumpi: Statement, fallthrough: Block, target: Block)
+  .decl FallBackFunctionInfo(caller: Block, startBlock: Block, sigHash: Value, selector: OptionalSelector)
 
   BlockComparesCallDataSizeToFour(block, stmt5, as(target, Block)):-
     PushValue(stmt, "0x4"),
@@ -846,11 +847,14 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     JUMPDEST(as(noCallDataSizeBranch, Statement)).
 
   // Fallback functions
-  PublicFunctionJump(block, FALLBACK_FUNCTION_SIGHASH, $NoSelector()),
-  PublicFunction(fallbackStart, FALLBACK_FUNCTION_SIGHASH, $NoSelector()):-
+  FallBackFunctionInfo(block, fallbackStart, FALLBACK_FUNCTION_SIGHASH, $NoSelector()):-
     BlockComparesCallDataSizeToFour(block, _, fallbackStart),
     1 = count : BlockComparesCallDataSizeToFour(_, _, _),
     !BlockJumpsOnCallDataSize(fallbackStart, _, _, _).
+
+  PublicFunctionJump(block, sigHash, selector),
+  PublicFunction(fallbackStart, sigHash, selector):-
+    FallBackFunctionInfo(block, fallbackStart, sigHash, selector).
 
   BlockHasReceiveAsFallThrough(block, jumpi, noCallDataSizeBranch, callDataSizeBranch):-
     BlockComparesCallDataSizeToFour(_, _, block),
@@ -956,7 +960,8 @@ insertor.insertOps(jumpDestStmt,
     STMT(JUMP, cat("PublicFunctionJump:", hash))
   )
 ) :-
-   preTrans.BlockComparesSig(block, hash, selector),
+   (preTrans.BlockComparesSig(block, hash, selector);
+   preTrans.FallBackFunctionInfo(block, start, hash, selector)),
    preTrans.PublicFunction(start, hash, selector),
    ValidSelector(selector),
    preTrans.Statement_Block(jumpDestStmt, start),
@@ -1096,6 +1101,7 @@ postTrans.PublicFunctionJump(block, hash, selector) :-
    postTrans.Statement_Block(stmt, block),
    ValidSelector(selector),
    (preTrans.BlockComparesSig(_, hash, selector);
+   preTrans.FallBackFunctionInfo(_, _, hash, selector);
    preTrans.BlockComparesSigVyper(_, hash, selector);
    preTrans.BlockComparesSigFallthroughSolidity(_, hash, selector);
    (preTrans.BlockHasReceiveAsFallThrough(_, _, _, _), hash = RECEIVE_FUNCTION_SIGHASH, selector = $NoSelector())
@@ -1131,7 +1137,8 @@ postTrans.PublicFunction(block, hash, $NoSelector()) :-
    postTrans.Statement_Block(stmt, block).
 
 postTrans.PublicFunction(block , hash, selector):- 
-  preTrans.BlockComparesSig(_, hash, selector),
+  (preTrans.BlockComparesSig(_, hash, selector);
+  preTrans.FallBackFunctionInfo(_, _, hash, selector)),
   preTrans.PublicFunction(block, hash, selector),
   ValidSelector(selector).
 
