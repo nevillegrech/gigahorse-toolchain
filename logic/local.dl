@@ -693,7 +693,7 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     BlockComparesSigVyper(_, _, selectorVarOrIndex).
 
   // All pushes of values up to 4 bytes, can be used as selectors
-  .decl SmallValuePush(pushStmt: Statement, value: Value)
+  .decl SmallValuePush(pushStmt: Statement, value: Value) overridable
   SmallValuePush(pushStmt, value):-
     PUSH4(pushStmt, value);
     PUSH3(pushStmt, value);
@@ -862,6 +862,17 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
 
 }
 
+/**
+  Same as PreTransLocalAnalysis but less complete public function identification.
+  Used when we don't verify/filter public functions based via the `OptionalSelector` mechanism
+*/
+.comp PreTransLocalAnalysisAlt: PreTransLocalAnalysis{
+  .override SmallValuePush
+  SmallValuePush(pushStmt, value):-
+    PUSH4(pushStmt, value);
+    PUSH3(pushStmt, value).
+}
+
 .comp PostTransLocalAnalysis : LocalAnalysis {
                                              
 }
@@ -907,7 +918,6 @@ PreTransStatement_OriginalStatement(ogStmt, ogStmt) :-
 PreTransStatement_OriginalStatement(rvtClStmt, ogStmt) :-
   revertCloner.StatementToClonedStatement(_, _, ogStmt, rvtClStmt).
 
-.init preTrans = PreTransLocalAnalysis
 
 .init revertCloner = RevertBlockCloner
 COPY_CODE(revertCloner, factReader)
@@ -919,6 +929,8 @@ COPY_CODE(revertCloner, factReader)
 .init blockCloner = BLOCK_CLONING
 COPY_OUTPUT(blockCloner, revertCloner)
 blockCloner.Prev_Block_OriginalBlock(block, originalBlock):- revertCloner.Block_OriginalBlock(block, originalBlock).
+
+.init preTrans = PreTransLocalAnalysis
 COPY_OUTPUT(preTrans, blockCloner)
 
 PreTransStatement_OriginalStatement(heurClStmt, ogStmt) :-
@@ -934,6 +946,7 @@ ValidSelector(optionalSelector):-
 
 #else
 
+.init preTrans = PreTransLocalAnalysisAlt
 COPY_OUTPUT(preTrans, revertCloner)
 
 ValidSelector(optionalSelector):-
