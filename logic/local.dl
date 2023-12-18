@@ -288,7 +288,6 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
 
   // Covers JUMPIs and other fallthrough cases
   .decl FallthroughStmt(stmt: Statement, next: Statement)
-
   FallthroughStmt(stmt, next) :-
     BasicBlock_Tail(_, stmt),
     !JUMP(stmt),
@@ -296,9 +295,13 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     !OpcodePossiblyHalts(opcode),
     Statement_Next(stmt, next).
 
+  .decl FallthroughEdge(caller: Block, fallthroughBlock: Block)
+  FallthroughEdge(caller, as(fallthrough, Block)):-
+    Statement_Block(stmt, caller),
+    FallthroughStmt(stmt, fallthrough),
+    IsBasicBlockHead(fallthrough).
 
-  .decl ThrowJump(stmt: Statement)
-  
+  .decl ThrowJump(stmt: Statement)  
   ThrowJump(jmp) :-
      ImmediateBlockJumpTarget(block, variable),
      Variable_Value(variable, targetValue),
@@ -466,23 +469,14 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
      Statement_Opcode(stmt, opcode),
      OpcodeGas(opcode, gas).
 
-  .decl PublicFunctionJump(block:Block, funHex: Value)
-  .decl PublicFunction(block:Block, funHex: Value)
+  .decl PublicFunctionJump(block: Block, funHex: Value, optionalSelector: OptionalSelector)
+  .decl PublicFunction(block: Block, funHex: Value, optionalSelector: OptionalSelector)
 
-  // Code inserted by compiler to compare function signature
-  .decl BlockComparesSig(block: Block, sigHash: Value)
+  .decl IsOptionalSelector(optionalSelector: OptionalSelector)
 
-  // Compares label from stack to a constant: common public function dispatch pattern
-  BlockComparesSig(block, sigHash) :-
-    Statement_Block(pushStmt, block),
-    ImmediateBlockJumpTarget(block, _),
-    (PUSH4(pushStmt, sigHash) ; PUSH3(pushStmt, sigHash)),
-    Statement_Defines(pushStmt, sigHashVar),
-    EQ(eqStmt),
-    Statement_Uses_Local(eqStmt, sigHashVar, _),
-    Statement_Defines(eqStmt, pred),
-    JUMPI(jumpiStmt),
-    Statement_Uses_Local(jumpiStmt, pred, 1).
+  IsOptionalSelector(optionalSelector):-
+    PublicFunctionJump(_, _, optionalSelector);
+    PublicFunction(_, _, optionalSelector).
 
   .decl SWAPDUPPOPJUMPJUMPDESTOP(op: Opcode)
   SWAPDUPPOPJUMPJUMPDESTOP(opcode):-
@@ -555,7 +549,7 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     caller != caller2.
 
   // pushes a label for later use. A return addr?
-  .decl BlockPushesLabel(block: Block, val: Value)
+  .decl BlockPushesLabel(block: Block, val: Value) overridable
   BlockPushesLabel(block, val) :-
     JUMPDEST(as(val, symbol)),
     Variable_Value(var, val),
@@ -619,6 +613,49 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
  .output MultiplePrivateFunctionCall
  .output PrivateFunctionCall
 // .output CallBlockEarliestContinuation
+
+  .decl CODECOPYStatement(stmt: Statement, offset: Value, size: Value)
+
+  CODECOPYStatement(codeCopy, codeOffsetNumHex, smallNumHex) :-
+    Statement_Opcode(codeCopy, "CODECOPY"),
+    BeforeLocalStackContents(codeCopy, 2, lenVar),
+    CheckIsVariable(lenVar),
+    Statement_Defines(pushLen, lenVar),
+    PushValue(pushLen, smallNumHex),
+    BeforeLocalStackContents(codeCopy, 1, codeOffsetVar),
+    CheckIsVariable(codeOffsetVar),
+    Statement_Defines(pushCodeOffset, codeOffsetVar),
+    PushValue(pushCodeOffset, codeOffsetNumHex).
+
+  .decl FunctionSelectorVariable(variable: Variable)
+  FunctionSelectorVariable(selector):-
+    CALLDATALOAD(stmt),
+    Statement_Uses_Local(stmt, zeroVar, 0),
+    Variable_Value(zeroVar, "0x0"),
+    Statement_Defines(stmt, selector).
+
+  FunctionSelectorVariable(selector):-
+    CALLDATALOAD(stmt),
+    Statement_Uses_Local(stmt, zeroVar, 0),
+    Variable_Value(zeroVar, "0x0"),
+    Statement_Defines(stmt, variable),
+    Statement_Uses_Local(shift, variable, 1),
+    Statement_Uses_Local(shift, shiftConst, 0),
+    Variable_Value(shiftConst, "0xe0"),
+    SHR(shift),
+    Statement_Defines(shift, selector).
+
+  FunctionSelectorVariable(selector):-
+    CALLDATALOAD(stmt),
+    Statement_Uses_Local(stmt, zeroVar, 0),
+    Variable_Value(zeroVar, "0x0"),
+    Statement_Defines(stmt, variable),
+    Statement_Uses_Local(shift, variable, 0),
+    Statement_Uses_Local(shift, shiftConst, 1),
+    Variable_Value(shiftConst, "0x100000000000000000000000000000000000000000000000000000000"),
+    DIV(shift),
+    Statement_Defines(shift, selector).
+
 }
 
 .comp PreTransLocalAnalysis : LocalAnalysis {
@@ -650,27 +687,48 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     ByteCodeHex(bytecodeStr),
     const = cat("0x", substr(bytecodeStr, 2*codeOffsetNum, 2*smallNum)).
 
-  .decl CODECOPYStatement(stmt: Statement, offset: Value, size: Value)
+  IsOptionalSelector(selectorVarOrIndex):-
+    BlockComparesSig(_, _, selectorVarOrIndex);
+    BlockComparesSigFallthroughSolidity(_, _, selectorVarOrIndex);
+    BlockComparesSigVyper(_, _, selectorVarOrIndex).
 
-  CODECOPYStatement(codeCopy, codeOffsetNumHex, smallNumHex) :-
-    Statement_Opcode(codeCopy, "CODECOPY"),
-    BeforeLocalStackContents(codeCopy, 2, lenVar),
-    CheckIsVariable(lenVar),
-    Statement_Defines(pushLen, lenVar),
-    PushValue(pushLen, smallNumHex),
-    BeforeLocalStackContents(codeCopy, 1, codeOffsetVar),
-    CheckIsVariable(codeOffsetVar),
-    Statement_Defines(pushCodeOffset, codeOffsetVar),
-    PushValue(pushCodeOffset, codeOffsetNumHex).
+  // All pushes of values up to 4 bytes, can be used as selectors
+  .decl SmallValuePush(pushStmt: Statement, value: Value) overridable
+  SmallValuePush(pushStmt, value):-
+    PUSH4(pushStmt, value);
+    PUSH3(pushStmt, value);
+    PUSH2(pushStmt, value);
+    PUSH1(pushStmt, value).
 
+    // Code inserted by compiler to compare function signature
+  .decl BlockComparesSig(block: Block, sigHash: Value, selectorVarOrIndex: OptionalSelector)
 
-  .decl BlockComparesSigVyper(block: Block, sigHash: Value)
-
-  BlockComparesSigVyper(block, sigHash) :-
+  // Compares label from stack to a constant: common public function dispatch pattern
+  BlockComparesSig(block, sigHash, selector) :-
     Statement_Block(pushStmt, block),
-    (PUSH4(pushStmt, sigHash) ; PUSH3(pushStmt, sigHash)),
+    ImmediateBlockJumpTarget(block, _),
+    SmallValuePush(pushStmt, sigHash),
     Statement_Defines(pushStmt, sigHashVar),
-    Statement_Uses_Local(eqStmt, sigHashVar, _),
+    EQ(eqStmt),
+    Statement_Uses_Local(eqStmt, sigHashVar, n),
+    Statement_Uses_Local(eqStmt, selectorVarOrIndex, 1 - n),
+    ((CheckIsStackIndex(selectorVarOrIndex), selector = $SelectorStackIndex(block, selectorVarOrIndex));
+     (CheckIsVariable(selectorVarOrIndex), selector = $SelectorVariable(selectorVarOrIndex))),
+    Statement_Defines(eqStmt, pred),
+    JUMPI(jumpiStmt),
+    Statement_Uses_Local(jumpiStmt, pred, 1).
+
+
+  .decl BlockComparesSigVyper(block: Block, sigHash: Value, selectorVarOrIndex: OptionalSelector)
+
+  .decl BlockComparesSigVyperBase(block: Block, sigHash: Value, selectorVarOrIndex: VariableOrStackIndex)
+
+  BlockComparesSigVyperBase(block, sigHash, selectorVarOrIndex) :-
+    Statement_Block(pushStmt, block),
+    SmallValuePush(pushStmt, sigHash),
+    Statement_Defines(pushStmt, sigHashVar),
+    Statement_Uses_Local(eqStmt, sigHashVar, n),
+    Statement_Uses_Local(eqStmt, selectorVarOrIndex, 1 - n),
     EQ(eqStmt),
     Statement_Defines(eqStmt, pred),
     Statement_Uses_Local(isZeroStmt, pred, 0),
@@ -680,82 +738,153 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     JUMPI(jumpiStmt).
 
   // New vyper pattern
-  BlockComparesSigVyper(block, sigHash) :-
+  BlockComparesSigVyperBase(block, sigHash, selectorVarOrIndex):-
     Statement_Block(pushStmt, block),
-    (PUSH4(pushStmt, sigHash) ; PUSH3(pushStmt, sigHash)),
+    SmallValuePush(pushStmt, sigHash),
     Statement_Defines(pushStmt, sigHashVar),
-    Statement_Uses_Local(xorStmt, sigHashVar, _),
+    Statement_Uses_Local(xorStmt, sigHashVar, n),
+    Statement_Uses_Local(xorStmt, selectorVarOrIndex, 1 - n),
     XOR(xorStmt),
     Statement_Defines(xorStmt, pred),
     Statement_Uses_Local(jumpiStmt, pred, 1),
     JUMPI(jumpiStmt).
 
+  BlockComparesSigVyper(block, sigHash, $SelectorVariable(selectorVar)):-
+    BlockComparesSigVyperBase(block, sigHash, selectorVar),
+    CheckIsVariable(selectorVar).
+
+  BlockComparesSigVyper(block, sigHash, $SelectorStackIndex(block, selectorIndex)):-
+    BlockComparesSigVyperBase(block, sigHash, selectorIndex),
+    CheckIsStackIndex(selectorIndex).
+
   // pattern in via-ir contracts, public function start is the block's fallthrough
-  .decl BlockComparesSigFallthroughSolidity(block: Block, sigHash: Value)
-  BlockComparesSigFallthroughSolidity(block, sigHash) :-
+  .decl BlockComparesSigFallthroughSolidity(block: Block, sigHash: Value, selectorVarOrIndex: OptionalSelector)
+  BlockComparesSigFallthroughSolidity(block, sigHash, selector) :-
     Statement_Block(pushStmt, block),
     ImmediateBlockJumpTarget(block, _),
-    (PUSH4(pushStmt, sigHash) ; PUSH3(pushStmt, sigHash)),
+    SmallValuePush(pushStmt, sigHash),
     Statement_Defines(pushStmt, sigHashVar),
     SUB(subStmt),
-    Statement_Uses_Local(subStmt, sigHashVar, _),
+    Statement_Uses_Local(subStmt, sigHashVar, n),
+    Statement_Uses_Local(subStmt, selectorVarOrIndex, 1 - n),
+    ((CheckIsStackIndex(selectorVarOrIndex), selector = $SelectorStackIndex(block, selectorVarOrIndex));
+     (CheckIsVariable(selectorVarOrIndex), selector = $SelectorVariable(selectorVarOrIndex))),
     Statement_Defines(subStmt, pred),
     JUMPI(jumpiStmt),
     Statement_Uses_Local(jumpiStmt, pred, 1).
 
-  PublicFunctionJump(block, sigHash) :-   BlockComparesSig(block, sigHash).
+  PublicFunctionJump(block, sigHash, selectorVarOrIndex) :-
+    BlockComparesSig(block, sigHash, selectorVarOrIndex);
+    BlockComparesSigVyper(block, sigHash, selectorVarOrIndex);
+    BlockComparesSigFallthroughSolidity(block, sigHash, selectorVarOrIndex).
 
-  PublicFunction(as(targetValue, Block), sigHash) :-
-    BlockComparesSig(block, sigHash),
+
+  PublicFunction(as(targetValue, Block), sigHash, selectorVarOrIndex) :-
+    BlockComparesSig(block, sigHash, selectorVarOrIndex),
     ImmediateBlockJumpTarget(block, var),
     Statement_Defines(push, var),
     PushValue(push, targetValue),
     JUMPDEST(as(targetValue, symbol)).
 
-  .decl BlockComparesCallDataSizeToFour(block: Block, jumpi: Statement, target: Block)
-  .decl BlockJumpsOnCallDataSize(block: Block, jumpi: Statement, target: Block)
-  .decl BlockHasReceiveAsFallThrough(block: Block, jumpi: Statement, fallthrough:Statement, target: Block)
+  PublicFunction(fallthrough, sigHash, selectorVarOrIndex) :-
+    (BlockComparesSigVyper(block, sigHash, selectorVarOrIndex);
+    BlockComparesSigFallthroughSolidity(block, sigHash, selectorVarOrIndex)),
+    FallthroughEdge(block, fallthrough).
 
-  BlockComparesCallDataSizeToFour(block, stmt5, as(fallthrough, Block)):-
+  .decl BlockComparesCallDataSizeToFour(block: Block, jumpi: Statement, lessThanFourTarget: Block)
+  .decl BlockJumpsOnCallDataSize(block: Block, jumpi: Statement, noCallDataBranch: Block, callDataBranch: Block)
+  .decl BlockHasReceiveAsFallThrough(block: Block, jumpi: Statement, fallthrough: Block, target: Block)
+  .decl FallBackFunctionInfo(caller: Block, startBlock: Block, sigHash: Value, selector: OptionalSelector)
+
+  BlockComparesCallDataSizeToFour(block, stmt5, as(target, Block)):-
     PushValue(stmt, "0x4"),
     Statement_Next(stmt, stmt2),
     CALLDATASIZE(stmt2),
     Statement_Next(stmt2, stmt3),
     LT(stmt3),
     Statement_Next(stmt3, stmt4),
-    PushValue(stmt4, fallthrough),
+    PushValue(stmt4, target),
     Statement_Next(stmt4, stmt5),
     JUMPI(stmt5),
     Statement_Block(stmt5, block),
-    JUMPDEST(as(fallthrough, Statement)).
+    JUMPDEST(as(target, Statement)).
 
-  BlockJumpsOnCallDataSize(block, jumpi, as(fallthrough, Block)):-
+  BlockComparesCallDataSizeToFour(block, stmt6, as(fallthrough, Block)):-
+    PushValue(stmt, "0x4"),
+    Statement_Next(stmt, stmt2),
+    CALLDATASIZE(stmt2),
+    Statement_Next(stmt2, stmt3),
+    LT(stmt3),
+    Statement_Next(stmt3, stmt4),
+    ISZERO(stmt4),
+    Statement_Next(stmt4, stmt5),
+    PushValue(stmt5, _),
+    Statement_Next(stmt5, stmt6),
+    JUMPI(stmt6),
+    Statement_Block(stmt6, block),
+    Statement_Next(stmt6, fallthrough).
+
+  BlockJumpsOnCallDataSize(block, jumpi, as(fallthrough, Block), as(callDataSizeBranch, Block)):-
     CALLDATASIZE(cds),
     Statement_Next(cds, push),
-    PushValue(push, fallthrough),
+    PushValue(push, callDataSizeBranch),
     Statement_Next(push, jumpi),
     JUMPI(jumpi),
     Statement_Block(jumpi, block),
-    JUMPDEST(as(fallthrough, Statement)).
+    Statement_Next(jumpi, fallthrough),
+    JUMPDEST(as(callDataSizeBranch, Statement)).
+
+  BlockJumpsOnCallDataSize(block, jumpi, as(noCallDataSizeBranch, Block), as(fallthrough, Block)):-
+    CALLDATASIZE(cds),
+    Statement_Next(cds, isZero),
+    ISZERO(isZero),
+    Statement_Next(isZero, push),
+    PushValue(push, noCallDataSizeBranch),
+    Statement_Next(push, jumpi),
+    JUMPI(jumpi),
+    Statement_Block(jumpi, block),
+    Statement_Next(jumpi, fallthrough),
+    JUMPDEST(as(noCallDataSizeBranch, Statement)).
 
   // Fallback functions
-  PublicFunctionJump(block, FALLBACK_FUNCTION_SIGHASH),
-  PublicFunction(fallbackStart, FALLBACK_FUNCTION_SIGHASH):-
+  FallBackFunctionInfo(block, fallbackStart, FALLBACK_FUNCTION_SIGHASH, $NoSelector()):-
     BlockComparesCallDataSizeToFour(block, _, fallbackStart),
     1 = count : BlockComparesCallDataSizeToFour(_, _, _),
-    !BlockJumpsOnCallDataSize(fallbackStart, _, _).
+    !BlockJumpsOnCallDataSize(fallbackStart, _, _, _).
 
-  BlockHasReceiveAsFallThrough(block, jumpi, fallthrough, target):-
+  PublicFunctionJump(block, sigHash, selector),
+  PublicFunction(fallbackStart, sigHash, selector):-
+    FallBackFunctionInfo(block, fallbackStart, sigHash, selector).
+
+  BlockHasReceiveAsFallThrough(block, jumpi, noCallDataSizeBranch, callDataSizeBranch):-
     BlockComparesCallDataSizeToFour(_, _, block),
-    BlockJumpsOnCallDataSize(block, jumpi, target),
-    FallthroughStmt(jumpi, fallthrough).
+    BlockJumpsOnCallDataSize(block, jumpi, noCallDataSizeBranch, callDataSizeBranch).
 
+}
+
+/**
+  Same as PreTransLocalAnalysis but less complete public function identification.
+  Used when we don't verify/filter public functions based via the `OptionalSelector` mechanism
+*/
+.comp PreTransLocalAnalysisAlt: PreTransLocalAnalysis{
+  .override SmallValuePush
+  SmallValuePush(pushStmt, value):-
+    PUSH4(pushStmt, value);
+    PUSH3(pushStmt, value).
 }
 
 .comp PostTransLocalAnalysis : LocalAnalysis {
                                              
 }
 
+.comp PostIncompleteGlobalLocalAnalysis : LocalAnalysis {
+  .decl ExtBlockPushesLabel(block: Block, val: Value)
+
+  .override BlockPushesLabel
+
+  BlockPushesLabel(block, val):-
+    ExtBlockPushesLabel(block, val).
+}
 
 /**
    Preprocessing of decompiler input, to yield convenient relations
@@ -789,16 +918,19 @@ PreTransStatement_OriginalStatement(ogStmt, ogStmt) :-
 PreTransStatement_OriginalStatement(rvtClStmt, ogStmt) :-
   revertCloner.StatementToClonedStatement(_, _, ogStmt, rvtClStmt).
 
-.init preTrans = PreTransLocalAnalysis
 
 .init revertCloner = RevertBlockCloner
 COPY_CODE(revertCloner, factReader)
+
+.decl ValidSelector(optionalSelector: OptionalSelector)
 
 #ifdef BLOCK_CLONING
 // Enable the early cloning of blocks to increase precision (sacrificing performance)
 .init blockCloner = BLOCK_CLONING
 COPY_OUTPUT(blockCloner, revertCloner)
 blockCloner.Prev_Block_OriginalBlock(block, originalBlock):- revertCloner.Block_OriginalBlock(block, originalBlock).
+
+.init preTrans = PreTransLocalAnalysis
 COPY_OUTPUT(preTrans, blockCloner)
 
 PreTransStatement_OriginalStatement(heurClStmt, ogStmt) :-
@@ -809,9 +941,16 @@ PreTransStatement_OriginalStatement(heurClStmt, ogStmt) :-
   blockCloner.StatementToClonedStatement(_, _, ogStmt, heurClStmt),
   !revertCloner.StatementToClonedStatement(_, _, _, ogStmt).
 
+ValidSelector(optionalSelector):-
+  blockCloner.analysis.ValidSelector(optionalSelector).
+
 #else
 
+.init preTrans = PreTransLocalAnalysisAlt
 COPY_OUTPUT(preTrans, revertCloner)
+
+ValidSelector(optionalSelector):-
+  preTrans.IsOptionalSelector(optionalSelector).
 
 #endif
 
@@ -834,8 +973,10 @@ insertor.insertOps(jumpDestStmt,
     STMT(JUMP, cat("PublicFunctionJump:", hash))
   )
 ) :-
-   preTrans.PublicFunctionJump(block, hash),
-   preTrans.PublicFunction(start, hash),
+   (preTrans.BlockComparesSig(block, hash, selector);
+   preTrans.FallBackFunctionInfo(block, start, hash, selector)),
+   preTrans.PublicFunction(start, hash, selector),
+   ValidSelector(selector),
    preTrans.Statement_Block(jumpDestStmt, start),
    preTrans.JUMPDEST(jumpDestStmt),
    preTrans.PushValue(pushStmt, as(jumpDestStmt, symbol)),
@@ -852,10 +993,11 @@ insertor.insertOps(functionStartStmt,
     STMT(JUMPDEST, MAKE_LABEL_REFERENCE(hash))
   )
 ) :-
-   preTrans.BlockComparesSigVyper(block, hash),
+   preTrans.BlockComparesSigVyper(block, hash, selector),
+   ValidSelector(selector),
    preTrans.BasicBlock_Tail(block, tail),
    preTrans.Statement_Next(tail, functionStartStmt),
-   !preTrans.BlockComparesSig(_, _).
+   !preTrans.BlockComparesSig(_, _, _).
 
 // transformation for pattern in via-ir contracts
 insertor.insertOps(functionStartStmt,
@@ -865,20 +1007,25 @@ insertor.insertOps(functionStartStmt,
     STMT(JUMPDEST, MAKE_LABEL_REFERENCE(hash))
   )
 ) :-
-   preTrans.BlockComparesSigFallthroughSolidity(block, hash),
+   preTrans.BlockComparesSigFallthroughSolidity(block, hash, selector),
+   ValidSelector(selector),
    preTrans.BasicBlock_Tail(block, tail),
    preTrans.Statement_Next(tail, functionStartStmt),
-   !preTrans.BlockComparesSig(_, hash).
+   !preTrans.BlockComparesSig(_, hash, _).
 
 // Receive transformation
-insertor.insertOps(functionStartStmt,
+insertor.insertOps(insertStmt,
   LIST(
-    STMT(PUSH4, MAKE_LABEL_REFERENCE("0x00000000")),
-    STMT(JUMP, cat("PublicFunctionJump:", "0x00000000")),
-    STMT(JUMPDEST, MAKE_LABEL_REFERENCE("0x00000000"))
+    STMT(PUSH4, MAKE_LABEL_REFERENCE(RECEIVE_FUNCTION_SIGHASH)),
+    STMT(JUMP, cat("PublicFunctionJump:", RECEIVE_FUNCTION_SIGHASH)),
+    STMT(JUMPDEST, MAKE_LABEL_REFERENCE(RECEIVE_FUNCTION_SIGHASH))
   )
 ) :-
-  preTrans.BlockHasReceiveAsFallThrough(_, _, functionStartStmt, _).
+  preTrans.BlockHasReceiveAsFallThrough(_, _, functionStart, _),
+  preTrans.BasicBlock_Head(functionStart, functionStartStmt),
+  preTrans.Statement_Opcode(functionStartStmt, op),
+  ((op != "JUMPDEST", insertStmt = functionStartStmt);
+  (op = "JUMPDEST", preTrans.Statement_Next(functionStartStmt, insertStmt))).
 
 // This one removes "throw jumps"
 insertor.removeOp(jmp),
@@ -961,39 +1108,55 @@ insertor.insertOps(codeCopy,
 .init postTrans = PostTransLocalAnalysis
 
 // For Solidity, Vyper
-postTrans.PublicFunctionJump(block, substr(meta, 19, 30)) :-
+postTrans.PublicFunctionJump(block, hash, selector) :-
    insertor.MetaData(stmt, meta),
-   STARTSWITH(meta, "PublicFunctionJump:"),
-   postTrans.Statement_Block(stmt, block).
+   insertor.PublicFunctionJumpMetadata(meta, hash),
+   postTrans.Statement_Block(stmt, block),
+   ValidSelector(selector),
+   (preTrans.BlockComparesSig(_, hash, selector);
+   preTrans.FallBackFunctionInfo(_, _, hash, selector);
+   preTrans.BlockComparesSigVyper(_, hash, selector);
+   preTrans.BlockComparesSigFallthroughSolidity(_, hash, selector);
+   (preTrans.BlockHasReceiveAsFallThrough(_, _, _, _), hash = RECEIVE_FUNCTION_SIGHASH, selector = $NoSelector())
+   ).
+   // we may lose some precision here when two blocks have the same hex
 
 // For Vyper
-postTrans.PublicFunction(block, hash) :-
+postTrans.PublicFunction(block, hash, selector):-
    insertor.MetaData(stmt, meta),
    postTrans.JUMPDEST(stmt),
    postTrans.Statement_Block(stmt, block),
-   preTrans.BlockComparesSigVyper(_, hash),
-   !preTrans.BlockComparesSig(_, _),
+   preTrans.BlockComparesSigVyper(_, hash, selector),
+   ValidSelector(selector),
+   !preTrans.BlockComparesSig(_, _, _),
    ISLABEL(meta), hash = GET_LABEL_REFERENCE(meta).
 
-postTrans.PublicFunction(block, hash) :-
+postTrans.PublicFunction(block, hash, selector) :-
    insertor.MetaData(stmt, meta),
    postTrans.JUMPDEST(stmt),
    postTrans.Statement_Block(stmt, block),
-   preTrans.BlockComparesSigFallthroughSolidity(_, hash),
-   !preTrans.BlockComparesSig(_, hash),
+   preTrans.BlockComparesSigFallthroughSolidity(_, hash, selector),
+   ValidSelector(selector),
+   !preTrans.BlockComparesSig(_, hash, _),
    ISLABEL(meta), hash = GET_LABEL_REFERENCE(meta).
 
 // For receive functions
-postTrans.PublicFunction(block, hash) :-
+postTrans.PublicFunction(block, hash, $NoSelector()) :-
    preTrans.BlockHasReceiveAsFallThrough(_, _, _, _),
-   hash = "0x00000000",
+   hash = RECEIVE_FUNCTION_SIGHASH,
    hash = GET_LABEL_REFERENCE(meta), ISLABEL(meta),
    insertor.MetaData(stmt, meta),
    postTrans.JUMPDEST(stmt),
    postTrans.Statement_Block(stmt, block).
 
-postTrans.PublicFunction(b, h) :- preTrans.PublicFunction(b, h).
+postTrans.PublicFunction(block , hash, selector):- 
+  (preTrans.BlockComparesSig(_, hash, selector);
+  preTrans.FallBackFunctionInfo(_, _, hash, selector)),
+  preTrans.PublicFunction(block, hash, selector),
+  ValidSelector(selector).
 
+.output postTrans.PublicFunction, preTrans.PublicFunction, preTrans.BlockComparesSigFallthroughSolidity, preTrans.BlockComparesSigVyper, insertor.MetaData
+.output postTrans.PublicFunctionJump
 // Code chunking logic reserved for future EIP
 
 #define CHUNK_SIZE 31

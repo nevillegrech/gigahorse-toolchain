@@ -16,19 +16,19 @@
   .input InputMaxImpreciseContextDepth(filename="MaxContextDepth.csv")
 
   MaxImpreciseContextDepth(sigHash, d) :-
-    (local.PublicFunction(_, sigHash);
+    (local.PublicFunction(_, sigHash, _);
      sigHash = FALLBACK_FUNCTION_SIGHASH),
     InputMaxImpreciseContextDepth(d).
 
   MaxImpreciseContextDepth(sigHash, 7) :-
-    (local.PublicFunction(_, sigHash);
+    (local.PublicFunction(_, sigHash, _);
      sigHash = FALLBACK_FUNCTION_SIGHASH),
     !InputMaxImpreciseContextDepth(_).
 
   // Not yet configurable via input file
   .decl MaxPreciseContextDepth(sigHash: symbol, d: number)
   MaxPreciseContextDepth(sigHash, 27) :-
-    (local.PublicFunction(_, sigHash);
+    (local.PublicFunction(_, sigHash, _);
      sigHash = FALLBACK_FUNCTION_SIGHASH).
 
   //
@@ -253,14 +253,14 @@
   #ifndef NO_PUBLIC_CONTEXT
   MergeContext(ctx, caller, ctx) :-
     ReachableContext(ctx, caller),
-    local.PublicFunction(caller, sigHash),
+    local.PublicFunction(caller, sigHash, _),
     !MaxImpreciseContextDepth(sigHash, -1),
     DecomposeContext(ctx, prevSigHash, _),
     prevSigHash != FALLBACK_FUNCTION_SIGHASH.
   .plan 1:(3,1,2)
   MergeContext(ctx, caller, newContext) :-
     ReachableContext(ctx, caller),
-    local.PublicFunction(caller, sigHash),
+    local.PublicFunction(caller, sigHash, _),
     !MaxImpreciseContextDepth(sigHash, -1),
     DecomposeContext(ctx, prevSigHash, pri),
     prevSigHash = FALLBACK_FUNCTION_SIGHASH,
@@ -280,14 +280,14 @@
   MergeContext(ctx, caller, ctx) :-
     ReachableContext(ctx, caller),
     #ifndef NO_PUBLIC_CONTEXT
-    !local.PublicFunction(caller, _),
+    !local.PublicFunction(caller, _, _),
     #endif
     !local.PrivateFunctionCallOrReturn(caller).
 
   MergeContext(ctx, caller, ctx) :-
     ReachableContext(ctx, caller),
     #ifndef NO_PUBLIC_CONTEXT
-    !local.PublicFunction(caller, _),
+    !local.PublicFunction(caller, _, _),
     #endif
     DecomposeContext(ctx, pub, _),
     MaxImpreciseContextDepth(pub, 0).
@@ -301,7 +301,7 @@
     DecomposeContext(ctx, pub, pri),
     TruncateContextIfNeeded(pub, pri, cutDownPri),
     #ifndef NO_PUBLIC_CONTEXT
-    !local.PublicFunction(caller, _),
+    !local.PublicFunction(caller, _, _),
     #endif
     newPrivateContext = [caller, cutDownPri].
     .plan 1:(3,1,2,4), 2:(4,3,1,2)
