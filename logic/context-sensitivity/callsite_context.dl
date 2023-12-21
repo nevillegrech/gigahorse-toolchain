@@ -20,7 +20,7 @@
     ReachableContext(ctx, caller),
     DecomposeContext(ctx, pub, pri),
     TruncateContextIfNeeded(pub, pri, cutDownPri),
-    !local.PublicFunction(caller, _),
+    !local.PublicFunctionJump(caller, _, _),
     newPrivateContext = [caller, cutDownPri].
     .plan 1:(2,1,3), 2:(3,2,1)
 }

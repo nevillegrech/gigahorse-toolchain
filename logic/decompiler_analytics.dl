@@ -159,6 +159,12 @@ Analytics_Block_TimesInContexts(block, timesInContext):-
   GloballyReachableBlocks(block),
   timesInContext = count : { global.sens.ContextContainsBlock(_, block, _) }.
 
+.decl Analytics_PublicFunction_Contexts(pubFun: symbol, contexts: number)
+.output Analytics_PublicFunction_Contexts
+
+Analytics_PublicFunction_Contexts(pubFun, contexts):-
+  global.sens.Context_PublicFunction(_, pubFun),
+  contexts = count: global.sens.Context_PublicFunction(_, pubFun).
 
 .decl Verbatim_BlocksReachabilityMetric(blocks: number, totalReach: number, avg: float)
 .output Verbatim_BlocksReachabilityMetric

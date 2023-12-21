@@ -21,6 +21,12 @@ to.PushValue(stmt, value) :- _insertor.Out_PushValue(stmt, value).
 COPY_CODE(_insertor, from)\
 INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
 
+#define COPY_CODE_FULL(to, from)\
+COPY_CODE(to, from)\
+to.PublicFunctionJump(block, funHex, selector):- from.PublicFunctionJump(block, funHex, selector).\
+to.PublicFunction(block, funHex, selector):- from.PublicFunction(block, funHex, selector).
+
+
 #define ISLABEL(value) (substr(value, 0, 9) = "JUMPDEST:")
 #define MAKE_LABEL_REFERENCE(value) cat("JUMPDEST:", value)
 #define GET_LABEL_REFERENCE(value) substr(value, 9, 30)
@@ -54,7 +60,9 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
   removeOp(stmt) :- removeOp(stmt). // suppress warning
 
   .decl MetaData(newStmt: Statement, value: Value)
-  
+
+  .decl PublicFunctionJumpMetadata(metadataValue: Value, publicFunctionHex: Value)
+
   // Simple translation
   .decl insertOp(stmt: Statement, op: Opcode, value: Value, order: number)
 
@@ -127,6 +135,9 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
     insertOp(stmt, op, value, order),
     !OpcodeIsPush(op).
 
+  PublicFunctionJumpMetadata(meta, substr(meta, 19, 30)):-
+    MetaData(_, meta),
+    STARTSWITH(meta, "PublicFunctionJump:").
 
   Out_PushValue(newStmt, value) :-
     InsertedOpNewStatement(stmt, order, newStmt),
@@ -449,12 +460,7 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
   BlockCloner using an underlying global analysis to ensure that the
   program's semantics will not break. To be used in most cases.
 */
-.comp SafeBlockCloner : AbstractBlockCloner <DefaultOptimizedGlobalAnalysis> {
-
-  // We want this enabled all the time. This ifndef is just to avoid double limitsize definition
-  #ifndef ENABLE_LIMITSIZE
-  .limitsize analysis.BlockOutputContents(n=LIMITSIZE_BLOCK_OUTPUT_CONTENTS)
-  #endif
+.comp SafeBlockCloner : AbstractBlockCloner <DefaultIncompleteOptimizedGlobalAnalysis> {
 
   BlockPushedToStack(pushStmt, pushedVar, as(pushedBlock, Block)):-
     analysis.Variable_Value(pushedVar, pushedBlock),

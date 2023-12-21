@@ -5,14 +5,14 @@
   MergeContext(ctx, caller, ctx):-
     ReachableContext(ctx, caller),
     #ifndef NO_PUBLIC_CONTEXT
-    !local.PublicFunction(caller, _),
+    !local.PublicFunctionJump(caller, _, _),
     #endif
     !local.PrivateFunctionCallOrReturn(caller).
 
   MergeContext(ctx, caller, ctx):-
     ReachableContext(ctx, caller),
     #ifndef NO_PUBLIC_CONTEXT
-    !local.PublicFunction(caller, _),
+    !local.PublicFunctionJump(caller, _, _),
     #endif
     DecomposeContext(ctx, pub, _),
     MaxContextDepth(pub, 0).
@@ -26,7 +26,7 @@
     DecomposeContext(ctx, pub, pri),
     TruncateContextIfNeeded(pub, pri, cutDownPri),
     #ifndef NO_PUBLIC_CONTEXT
-    !local.PublicFunction(caller, _),
+    !local.PublicFunctionJump(caller, _, _),
     #endif
     newPrivateContext = [caller, cutDownPri].
     .plan 1:(3,1,2,4), 2:(4,3,1,2)
