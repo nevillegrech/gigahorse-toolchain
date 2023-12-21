@@ -7,13 +7,13 @@
   // Split into two rules to add plan.
   MergeContext(ctx, caller, ctx):-
     ReachableContext(ctx, caller),
-    !local.PublicFunction(caller, _),
+    !local.PublicFunctionJump(caller, _, _),
     !local.ImportantExitPoint(_, caller, _),
     !local.EntryPoint(caller).
 
   MergeContext(ctx, caller, ctx):-
     ReachableContext(ctx, caller),
-    !local.PublicFunction(caller, _),
+    !local.PublicFunctionJump(caller, _, _),
     DecomposeContext(ctx, pub, _),
     MaxContextDepth(pub, 0).
     .plan 1:(2,3,1)
@@ -25,7 +25,7 @@
     local.EntryPoint(caller),
     DecomposeContext(ctx, pub, pri),
     TruncateContextIfNeeded(pub, pri, cutDownPri),
-    !local.PublicFunction(caller, _),
+    !local.PublicFunctionJump(caller, _, _),
     newPrivateContext = [caller, cutDownPri].
     .plan 1:(3,1,2,4), 2:(4,3,1,2)
 
@@ -35,7 +35,7 @@
     DecomposeContext(ctx, pub, pri),
     DecomposePrivateContext(pri, entry, _), // peek
     TruncateContextIfNeeded(pub, pri, cutDownPri),
-    !local.PublicFunction(caller, _),
+    !local.PublicFunctionJump(caller, _, _),
     newPrivateContext = [callerRep, cutDownPri].
     .plan 1:(3,1,2,4,5), 2:(4,3,1,2,5), 3:(5,4,3,1,2)
 

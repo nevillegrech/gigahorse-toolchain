@@ -45,15 +45,14 @@
                       | SelectorVariable{selector: Variable}
                       | SelectorStackIndex{block: Block, selector: StackIndex}
 
-.init incompleteGlobal = IncompleteOptimizedGlobalAnalysis<CONTEXT_SENSITIVITY, LocalAnalysis>
+// .init incompleteGlobal = IncompleteOptimizedGlobalAnalysis<CONTEXT_SENSITIVITY, LocalAnalysis>
 
-COPY_CODE_FULL(incompleteGlobal, postTrans)
+// COPY_CODE_FULL(incompleteGlobal, postTrans)
 
-.init global = ExperimentalCompleteOptimizedGlobalAnalysis<CONTEXT_SENSITIVITY>
-
-global.StatementPushesUsedLabel(stmt):-
-  incompleteGlobal.VariableUsedInAsJumpdest(pushedVar),
-  postTrans.Statement_Defines(stmt, pushedVar).
+.init global = CompleteOptimizedGlobalAnalysis <CONTEXT_SENSITIVITY, StaticOnlyGlobalAnalysis>
+// global.StatementPushesUsedLabel(stmt):-
+//   incompleteGlobal.VariableUsedInAsJumpdest(pushedVar),
+//   postTrans.Statement_Defines(stmt, pushedVar).
 
 COPY_CODE_FULL(global, postTrans)
 
@@ -355,7 +354,7 @@ PreMask_Length(cat(mask, "ff"), bytes+1) :-
 }
 
 
-.comp StaticOnlyGlobalAnalysis : PreTransLocalAnalysis {
+.comp StaticOnlyGlobalAnalysis : LocalAnalysis {
 
   /**
     An `entry` point is:
