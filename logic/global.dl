@@ -9,6 +9,7 @@
 #define MAX_NUM_PRIVATE_FUNCTION_RETS 50
 
 #define LIMITSIZE_BLOCK_OUTPUT_CONTENTS 1000000
+#define LIMITSIZE_BIG_BLOCK_OUTPUT_CONTENTS 5000000
 #define CheckIsVariable(v) ((v) < 0)
 #define CheckIsStackIndex(v) ((v) >= 0, (v) < MAX_STACK_HEIGHT)
 
@@ -322,7 +323,7 @@ PreMask_Length(cat(mask, "ff"), bytes+1) :-
 */
 .comp CompleteOptimizedGlobalAnalysis <AbstractContextSensitivity, LocalAnalysis> : OptimizedGlobalAnalysis <AbstractContextSensitivity, LocalAnalysis> {
   #ifdef ENABLE_LIMITSIZE
-  .limitsize BlockOutputContents(n=LIMITSIZE_BLOCK_OUTPUT_CONTENTS)
+  .limitsize BlockOutputContents(n=LIMITSIZE_BIG_BLOCK_OUTPUT_CONTENTS)
   #endif
 }
 

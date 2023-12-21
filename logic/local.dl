@@ -610,10 +610,6 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     PrivateFunctionCall(block, _, _, _);
     PrivateFunctionReturn(block).
 
- .output MultiplePrivateFunctionCall
- .output PrivateFunctionCall
-// .output CallBlockEarliestContinuation
-
   .decl CODECOPYStatement(stmt: Statement, offset: Value, size: Value)
 
   CODECOPYStatement(codeCopy, codeOffsetNumHex, smallNumHex) :-
@@ -1155,8 +1151,6 @@ postTrans.PublicFunction(block , hash, selector):-
   preTrans.PublicFunction(block, hash, selector),
   ValidSelector(selector).
 
-.output postTrans.PublicFunction, preTrans.PublicFunction, preTrans.BlockComparesSigFallthroughSolidity, preTrans.BlockComparesSigVyper, insertor.MetaData
-.output postTrans.PublicFunctionJump
 // Code chunking logic reserved for future EIP
 
 #define CHUNK_SIZE 31

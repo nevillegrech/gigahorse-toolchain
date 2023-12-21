@@ -1,6 +1,7 @@
 
 .output global.BlockEdge, global.FallthroughEdge, global.BlockJumpValidTarget, global.BlockJumpTarget, MaybeInFunctionUnderContext
 .output MaybeFunctionCallReturn // DEBUG
+.output global.PrivateFunctionCall
 .output PotentialCall // DEBUG
 .output PossibleReturnAddressWithPos // DEBUG
 .output IsFunctionCallReturn // DEBUG
@@ -56,6 +57,11 @@ BlockJumpValidTargetOrd(ord(context), block, var, target):-
 MergeContextOrd(ord(ctx), caller, ord(newContext)):-
   global.sens.MergeContext(ctx, caller, newContext).
 
+.decl MergeContextResponseOrd(ctx: number, caller: Block, nextBlock: Block, newContext: number)
+.output MergeContextResponseOrd
+MergeContextResponseOrd(ord(ctx), caller, otherBlock, ord(newContext)):-
+  global.sens.MergeContextResponse(ctx, caller, otherBlock, newContext).
+
 .decl ReachableContextOrd(ctx: number, block: Block)
 .output ReachableContextOrd
 ReachableContextOrd(ord(ctx), block):-
@@ -81,6 +87,8 @@ PossibleReturnAddressWithRankOrd(ord(callCtx), targetSetter, ord(retCtx), retBlo
 MaybeInFunctionUnderContextOrd(ord(ctx), block, func):-
   MaybeInFunctionUnderContext(ctx, block, func).
 
+
+.output global.sens.CutToCaller
 
 // .decl CFGImprecisionPersists(srcCtx: global.sens.Context, srcBlk: Block, currCtx: global.sens.Context, currBlk: Block, targetVar1: Variable, targetVar2: Variable, pathLen: number)
 // .output CFGImprecisionPersists
