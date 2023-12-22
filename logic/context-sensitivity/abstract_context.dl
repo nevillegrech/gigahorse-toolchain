@@ -16,6 +16,7 @@
   .decl IsContext(ctx: Context)
   .decl InitialContext(ctx: Context)
 
+  .decl SpecialBlock(block: Block)
   /**
     Context is reachable under PublicFunction identified by its sighash.
     Only useful for contexts with a public function component
