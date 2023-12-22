@@ -55,7 +55,7 @@ global.StatementPushesUsedLabel(stmt):-
   incompleteGlobal.VariableUsedInAsJumpdest(pushedVar),
   postTrans.Statement_Defines(stmt, pushedVar).
 
-global.sens.SpecialBlock(block):- incompleteGlobal.NeedToAddCtxAtEdge(block, _).
+global.sens.SpecialBlockEdge(block, next):- incompleteGlobal.NeedToAddCtxAtEdge(block, next).
 
 COPY_CODE_FULL(global, postTrans)
 
