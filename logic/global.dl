@@ -323,6 +323,13 @@ PreMask_Length(cat(mask, "ff"), bytes+1) :-
   NeedToAddCtxAtEdge(fromBlock, toBlock):-
     ImprecisionIntroducedAtEdge(ctx, fromBlock, ctx, toBlock, _).
 
+    .decl NeedToNotCut(fromBlock: Block, toBlock: Block)
+  DEBUG_OUTPUT(NeedToNotCut)
+  NeedToNotCut(fromBlock, toBlock):-
+    ImprecisionIntroducedAtEdge(ctx, fromBlock, otherCtx, toBlock, _),
+    PrivateFunctionCallOrReturn(fromBlock),
+    ctx != otherCtx.
+
 }
 
 /**
