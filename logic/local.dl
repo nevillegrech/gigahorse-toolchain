@@ -602,7 +602,7 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
   .decl PrivateFunctionReturn(returnBlock: Block)
   PrivateFunctionReturn(returnBlock) :-
     Statement_Block(stmt, returnBlock),
-    JUMP(stmt),
+    (JUMP(stmt); JUMPI(stmt)), // temp: handle conditional returns
     !ImmediateBlockJumpTarget(returnBlock, _).
 
   .decl PrivateFunctionCallOrReturn(block: Block)
