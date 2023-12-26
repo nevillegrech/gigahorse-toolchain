@@ -17,6 +17,7 @@
   .decl InitialContext(ctx: Context)
 
   .decl SpecialBlockEdge(block: Block, next: Block)
+  .decl OtherSpecialBlockEdge(block: Block, next: Block)
   /**
     Context is reachable under PublicFunction identified by its sighash.
     Only useful for contexts with a public function component

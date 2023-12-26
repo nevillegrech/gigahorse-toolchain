@@ -56,6 +56,7 @@ global.StatementPushesUsedLabel(stmt):-
   postTrans.Statement_Defines(stmt, pushedVar).
 
 global.sens.SpecialBlockEdge(block, next):- incompleteGlobal.NeedToAddCtxAtEdge(block, next).
+global.sens.OtherSpecialBlockEdge(block, next):- incompleteGlobal.NeedToNotCut(block, next).
 
 COPY_CODE_FULL(global, postTrans)
 
@@ -323,7 +324,7 @@ PreMask_Length(cat(mask, "ff"), bytes+1) :-
   NeedToAddCtxAtEdge(fromBlock, toBlock):-
     ImprecisionIntroducedAtEdge(ctx, fromBlock, ctx, toBlock, _).
 
-    .decl NeedToNotCut(fromBlock: Block, toBlock: Block)
+  .decl NeedToNotCut(fromBlock: Block, toBlock: Block)
   DEBUG_OUTPUT(NeedToNotCut)
   NeedToNotCut(fromBlock, toBlock):-
     ImprecisionIntroducedAtEdge(ctx, fromBlock, otherCtx, toBlock, _),

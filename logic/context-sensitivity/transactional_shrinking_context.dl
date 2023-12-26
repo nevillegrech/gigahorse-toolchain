@@ -34,15 +34,6 @@
     newPrivateContext = [caller, cutDownAtEndPri].
     .plan 1:(3,1,2)
 
-  // MergeContext(ctx, caller, [pub, newPrivateContext]):-
-  //   ReachableContext(ctx, caller),
-  //   SpecialBlockEdge(caller, _),
-  //   DecomposeAndTruncateIfNeeded(ctx, pub, cutDownAtEndPri),
-  //   !local.PublicFunctionJump(caller, _, _),
-  //   !local.PrivateFunctionCallOrReturn(caller),
-  //   newPrivateContext = [caller, cutDownAtEndPri].
-  //   .plan 1:(3,1,2)
-
 
   /// "NEW" variant
   // For a matching context element, the call needs to have pushed deepest in the stack
@@ -54,6 +45,18 @@
 
   CutToCaller(priCtx, cont, newPriCtx) :-
     CutToCaller(nextPriCtx, cont, newPriCtx),
+    DecomposePrivateContext(priCtx, head, nextPriCtx),
+    !local.PrivateFunctionCall(head, _, cont, _).
+    .plan 1:(2,1)
+
+  // Added to experiment with less cutting when we know a cut can lead to a loss of precision
+  .decl CutToIncludeCaller(priCtx: PrivateContext, continuation: Block, newPriCtx: PrivateContext) overridable
+  CutToIncludeCaller(priCtx, cont, priCtx) :-
+    DecomposePrivateContext(priCtx, head, _),
+    local.PrivateFunctionCall(head, _, cont, cont).
+
+  CutToIncludeCaller(priCtx, cont, newPriCtx) :-
+    CutToIncludeCaller(nextPriCtx, cont, newPriCtx),
     DecomposePrivateContext(priCtx, head, nextPriCtx),
     !local.PrivateFunctionCall(head, _, cont, _).
     .plan 1:(2,1)
@@ -89,9 +92,31 @@
     PrivateFunctionReturn(block),
     DecomposeContext(ctx, pub, priCtx),
     !FallthroughEdge(block, cont), // temp: handle conditional returns
+    // !OtherSpecialBlockEdge(block, cont),
     !local.PublicFunctionJump(block, _, _),
     CutToCaller(priCtx, cont, cutPri).
     .plan 1:(3,1,2,4), 2:(4,3,1,2)
+
+  // // OPTION A: Cut as little as possible
+  // MergeContextResponse(ctx, block, cont, [pub, cutPri]):-
+  //   MergeContextRequest(ctx, block, cont),
+  //   PrivateFunctionReturn(block),
+  //   DecomposeContext(ctx, pub, priCtx),
+  //   OtherSpecialBlockEdge(block, cont),
+  //   !FallthroughEdge(block, cont), // temp: handle conditional returns
+  //   !local.PublicFunctionJump(block, _, _),
+  //   CutToIncludeCaller(priCtx, cont, cutPri).
+  //   .plan 1:(3,1,2,5,4), 2:(5,3,1,2,4)
+
+  // OPTION B: Don't cut
+  // MergeContextResponse(ctx, block, cont, [pub, [block, cutDownAtEndPri]]):-
+  //   MergeContextRequest(ctx, block, cont),
+  //   PrivateFunctionReturn(block),
+  //   DecomposeAndTruncateIfNeeded(ctx, pub, cutDownAtEndPri),
+  //   OtherSpecialBlockEdge(block, cont),
+  //   !FallthroughEdge(block, cont), // temp: handle conditional returns
+  //   !local.PublicFunctionJump(block, _, _).
+  //   .plan 1:(3,1,2,4)
 
   // if return and matching call doesn't exist -> push return
   MergeContextResponse(ctx, block, cont, [pub, newPrivateContext]):-
