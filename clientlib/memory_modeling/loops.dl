@@ -15,6 +15,12 @@ DEBUG_OUTPUT(MemoryCopyLoopConstLength)
 */
 .decl CallDataCopyLoop(loop: Block, callDataAddrFrom: Variable, memAddrTo: Variable)
 
+/**
+  Pattern produced to copy constant-length arrays from calldata to memory
+*/
+.decl CallDataCopyLoopConstantLength(loop: Block, callDataAddrFrom: Variable, memAddrTo: Variable, length: number)
+DEBUG_OUTPUT(CallDataCopyLoopConstantLength)
+
 MemoryCopyLoop(loop, memAddrFrom, memAddrTo):-
   InductionVariableIncreasesByConst(loop, [beforeLoopVar, inLoopVar], 32),
   PHIStmtTwoUses(_, beforeLoopVar, inLoopVar, phiVar),
@@ -30,6 +36,17 @@ MemoryCopyLoop(loop, beforeLoopVarFrom, beforeLoopVarTo):-
   MLOAD(_, fromIndexVar, fromVar),
   InductionVariableIncreasesByConst(loop, [beforeLoopVarTo, inLoopVarTo], 32),
   PHIStmtTwoUses(_, beforeLoopVarTo, inLoopVarTo, toIndexVar),
+  MSTORE(_, toIndexVar, toVar),
+  VarsEqualOrMasked(fromVar, toVar).
+
+// rule by YB, targetting copies from regular array to raw data ones
+MemoryCopyLoop(loop, memAddrFrom, memAddrTo):-
+  InductionVariableIncreasesByConst(loop, [beforeLoopVar, inLoopVar], 32),
+  PHIStmtTwoUses(_, beforeLoopVar, inLoopVar, phiVar),
+  ADDFix(_, phiVar, memAddrFrom, arrayIndexFrom),
+  VarPlusThirtyTwo(arrayIndexFrom, arrayDataIndexFrom),
+  MLOAD(_, arrayDataIndexFrom, fromVar),
+  ADDFix(_, phiVar, memAddrTo, toIndexVar),
   MSTORE(_, toIndexVar, toVar),
   VarsEqualOrMasked(fromVar, toVar).
 
@@ -51,6 +68,14 @@ CallDataCopyLoop(loop, beforeLoopVarFrom, beforeLoopVarTo):-
   MSTORE(_, toIndexVar, toVar),
   VarsEqualOrMasked(fromVar, toVar).
 
+CallDataCopyLoopConstantLength(loop, callDataAddrFrom, memAddrTo, boundVal - startCallDataAddr):-
+  CallDataCopyLoop(loop, callDataAddrFrom, memAddrTo),
+  InductionVariableUpperBoundVar(loop, [callDataAddrFrom, inLoopCallDataVar], boundVar),
+  InductionVariableIncreasesByConst(loop, [callDataAddrFrom, inLoopCallDataVar], 32),
+  Variable_NumericValue(boundVar, boundVal),
+  Variable_NumericValue(callDataAddrFrom, startCallDataAddr).
+
+
 MemoryCopyLoopConstLength(loop, memAddrFrom, memAddrTo, length):-
   MemoryCopyLoop(loop, memAddrFrom, memAddrTo),
   InductionVariableLowerBoundVar(loop, [beforeLoopVar, inLoopVar], boundVar),
@@ -65,11 +90,18 @@ MemoryCopyLoopConstLength(loop, memAddrFrom, memAddrTo, length):-
   Variable_NumericValue(beforeLoopVar, 0),
   Variable_NumericValue(boundVar, length).
 
+// HACK: When an array is copied over to a memory region that houses the ABI encoded args of a memory op
+// we consider it a RawDataArray to get some inferences more easily.
 IsRawDataArrayVar(toRawArray):-
   MemoryCopyLoop(_, fromArrayData, toRawArray),
   ArrayDataStartVar(_, fromArrayData),
   IsABIEncodedArrayVar(toRawArray).
 
+// HACK: When an array is copied over to a memory region that houses the ABI encoded args of a memory op
+// we consider it a RawDataArray to get some inferences more easily.
+IsRawDataArrayVar(toRawArray):-
+  CallDataCopyOfArg(_, toRawArray, _, _, _, _),
+  IsABIEncodedArrayVar(toRawArray).
 
 .decl StatementWritesMemoryCopiedFromLoop(memWriteStmt:Statement, newIndexVar:Variable, memAddrTo:Variable, numDiff:number, writeLength:number)
 DEBUG_OUTPUT(StatementWritesMemoryCopiedFromLoop)

@@ -1,6 +1,7 @@
 
 .output global.BlockEdge, global.FallthroughEdge, global.BlockJumpValidTarget, global.BlockJumpTarget, MaybeInFunctionUnderContext
 .output MaybeFunctionCallReturn // DEBUG
+.output global.PrivateFunctionCall
 .output PotentialCall // DEBUG
 .output PossibleReturnAddressWithPos // DEBUG
 .output IsFunctionCallReturn // DEBUG
@@ -56,6 +57,11 @@ BlockJumpValidTargetOrd(ord(context), block, var, target):-
 MergeContextOrd(ord(ctx), caller, ord(newContext)):-
   global.sens.MergeContext(ctx, caller, newContext).
 
+.decl MergeContextResponseOrd(ctx: number, caller: Block, nextBlock: Block, newContext: number)
+.output MergeContextResponseOrd
+MergeContextResponseOrd(ord(ctx), caller, otherBlock, ord(newContext)):-
+  global.sens.MergeContextResponse(ctx, caller, otherBlock, newContext).
+
 .decl ReachableContextOrd(ctx: number, block: Block)
 .output ReachableContextOrd
 ReachableContextOrd(ord(ctx), block):-
@@ -82,55 +88,57 @@ MaybeInFunctionUnderContextOrd(ord(ctx), block, func):-
   MaybeInFunctionUnderContext(ctx, block, func).
 
 
-.decl CFGImprecisionPersists(srcCtx: global.sens.Context, srcBlk: Block, currCtx: global.sens.Context, currBlk: Block, targetVar1: Variable, targetVar2: Variable, pathLen: number)
-.output CFGImprecisionPersists
+.output global.sens.CutToCaller
 
-.decl CFGImprecisionInstance(ctx: global.sens.Context, blk: Block, targetVar1: Variable, targetVar2: Variable)
+// .decl CFGImprecisionPersists(srcCtx: global.sens.Context, srcBlk: Block, currCtx: global.sens.Context, currBlk: Block, targetVar1: Variable, targetVar2: Variable, pathLen: number)
+// .output CFGImprecisionPersists
 
-CFGImprecisionPersists(ctx, block, ctx, block, targetVar1, targetVar2, 0),
-CFGImprecisionInstance(ctx, block, targetVar1, targetVar2):-
-  global.BlockJumpValidTarget(ctx, block, targetVar1, _),
-  global.BlockJumpValidTarget(ctx, block, targetVar2, _),
-  targetVar1 < targetVar2.
+// .decl CFGImprecisionInstance(ctx: global.sens.Context, blk: Block, targetVar1: Variable, targetVar2: Variable)
 
-CFGImprecisionPersists(srcCtx, srcBlock, prevCtx, prevBlock, targetVar1, targetVar2, pathLen + 1):-
-  CFGImprecisionPersists(srcCtx, srcBlock, ctx, block, targetVar1, targetVar2, pathLen),
-  global.BlockEdge(prevCtx, prevBlock, ctx, block),
-  global.BlockInputContents(prevCtx, prevBlock, someIndex, targetVar1),
-  global.BlockInputContents(prevCtx, prevBlock, someIndex, targetVar2),
-  pathLen < 30.
+// CFGImprecisionPersists(ctx, block, ctx, block, targetVar1, targetVar2, 0),
+// CFGImprecisionInstance(ctx, block, targetVar1, targetVar2):-
+//   global.BlockJumpValidTarget(ctx, block, targetVar1, _),
+//   global.BlockJumpValidTarget(ctx, block, targetVar2, _),
+//   targetVar1 < targetVar2.
 
-.decl CFGImprecisionPersistsOrd(srcCtx: number, srcBlk: Block, currCtx: number, currBlk: Block, targetVar1: Variable, targetVar2: Variable, pathLen: number)
-.output CFGImprecisionPersistsOrd
+// CFGImprecisionPersists(srcCtx, srcBlock, prevCtx, prevBlock, targetVar1, targetVar2, pathLen + 1):-
+//   CFGImprecisionPersists(srcCtx, srcBlock, ctx, block, targetVar1, targetVar2, pathLen),
+//   global.BlockEdge(prevCtx, prevBlock, ctx, block),
+//   global.BlockInputContents(prevCtx, prevBlock, someIndex, targetVar1),
+//   global.BlockInputContents(prevCtx, prevBlock, someIndex, targetVar2),
+//   pathLen < 30.
 
-CFGImprecisionPersistsOrd(ord(srcCtx), srcBlock, ord(ctx), block, targetVar1, targetVar2, pathLen):-
-  CFGImprecisionPersists(srcCtx, srcBlock, ctx, block, targetVar1, targetVar2, pathLen).
+// .decl CFGImprecisionPersistsOrd(srcCtx: number, srcBlk: Block, currCtx: number, currBlk: Block, targetVar1: Variable, targetVar2: Variable, pathLen: number)
+// .output CFGImprecisionPersistsOrd
 
-.decl CFGImprecisionIntroducedOrd(srcCtx: number, srcBlk: Block, prevCtx: number, prevBlock: Block, currCtx: number, currBlk: Block, targetVar1: Variable, targetVar2: Variable, pathLen: number)
-.output CFGImprecisionIntroducedOrd
+// CFGImprecisionPersistsOrd(ord(srcCtx), srcBlock, ord(ctx), block, targetVar1, targetVar2, pathLen):-
+//   CFGImprecisionPersists(srcCtx, srcBlock, ctx, block, targetVar1, targetVar2, pathLen).
 
-CFGImprecisionIntroducedOrd(ord(srcCtx), srcBlock, ord(prevCtx), prevBlock, ord(ctx), block, targetVar1, targetVar2, pathLen):-
-  CFGImprecisionPersists(srcCtx, srcBlock, ctx, block, targetVar1, targetVar2, pathLen),
-  global.BlockEdge(prevCtx, prevBlock, ctx, block),
-  pathLen != 30,
-  !CFGImprecisionPersists(srcCtx, srcBlock, prevCtx, prevBlock, targetVar1, targetVar2, _).
+// .decl CFGImprecisionIntroducedOrd(srcCtx: number, srcBlk: Block, prevCtx: number, prevBlock: Block, currCtx: number, currBlk: Block, targetVar1: Variable, targetVar2: Variable, pathLen: number)
+// .output CFGImprecisionIntroducedOrd
 
-.decl CFGImprecisionIntroducedForwardOrd(ctx: number, block: Block, targetVar1: Variable, targetVar2: Variable)
-.output CFGImprecisionIntroducedForwardOrd
+// CFGImprecisionIntroducedOrd(ord(srcCtx), srcBlock, ord(prevCtx), prevBlock, ord(ctx), block, targetVar1, targetVar2, pathLen):-
+//   CFGImprecisionPersists(srcCtx, srcBlock, ctx, block, targetVar1, targetVar2, pathLen),
+//   global.BlockEdge(prevCtx, prevBlock, ctx, block),
+//   pathLen != 30,
+//   !CFGImprecisionPersists(srcCtx, srcBlock, prevCtx, prevBlock, targetVar1, targetVar2, _).
 
-.decl CFGImprecisionExists(ctx: global.sens.Context, block: Block, targetVar1: Variable, targetVar2: Variable)
+// .decl CFGImprecisionIntroducedForwardOrd(ctx: number, block: Block, targetVar1: Variable, targetVar2: Variable)
+// .output CFGImprecisionIntroducedForwardOrd
 
-CFGImprecisionExists(ctx, block, targetVar1, targetVar2):-
-  CFGImprecisionInstance(_, _, targetVar1, targetVar2),
-  global.BlockInputContents(ctx, block, someIndex, targetVar1),
-  global.BlockInputContents(ctx, block, someIndex, targetVar2).
+// .decl CFGImprecisionExists(ctx: global.sens.Context, block: Block, targetVar1: Variable, targetVar2: Variable)
 
-.decl CFGImprecisionExistsInPrev(ctx: global.sens.Context, block: Block, prevCtx: global.sens.Context, prevBlock: Block, targetVar1: Variable, targetVar2: Variable)
+// CFGImprecisionExists(ctx, block, targetVar1, targetVar2):-
+//   CFGImprecisionInstance(_, _, targetVar1, targetVar2),
+//   global.BlockInputContents(ctx, block, someIndex, targetVar1),
+//   global.BlockInputContents(ctx, block, someIndex, targetVar2).
 
-CFGImprecisionExistsInPrev(ctx, block, prevCtx, prevBlock, targetVar1, targetVar2):-
-  CFGImprecisionExists(prevCtx, prevBlock, targetVar1, targetVar2),
-  global.BlockEdge(prevCtx, prevBlock, ctx, block).
+// .decl CFGImprecisionExistsInPrev(ctx: global.sens.Context, block: Block, prevCtx: global.sens.Context, prevBlock: Block, targetVar1: Variable, targetVar2: Variable)
 
-CFGImprecisionIntroducedForwardOrd(ord(ctx), block, targetVar1, targetVar2):-
-  CFGImprecisionExists(ctx, block, targetVar1, targetVar2),
-  !CFGImprecisionExistsInPrev(ctx, block, _, _, targetVar1, targetVar2).
+// CFGImprecisionExistsInPrev(ctx, block, prevCtx, prevBlock, targetVar1, targetVar2):-
+//   CFGImprecisionExists(prevCtx, prevBlock, targetVar1, targetVar2),
+//   global.BlockEdge(prevCtx, prevBlock, ctx, block).
+
+// CFGImprecisionIntroducedForwardOrd(ord(ctx), block, targetVar1, targetVar2):-
+//   CFGImprecisionExists(ctx, block, targetVar1, targetVar2),
+//   !CFGImprecisionExistsInPrev(ctx, block, _, _, targetVar1, targetVar2).

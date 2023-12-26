@@ -262,8 +262,8 @@ IsFunctionCallReturn(ctx, caller, func, retCtx, retBlock, retTarget) :-
 .decl PublicFunctionFiltered(block: Block, sigHash: Value)
 
 PublicFunctionFiltered(func, sigHash):-
-   postTrans.PublicFunctionJump(prev, sigHash),
-   postTrans.PublicFunction(func, sigHash),
+   postTrans.PublicFunctionJump(prev, sigHash, _),
+   postTrans.PublicFunction(func, sigHash, _),
    global.BlockEdge(_, prev, _, func).
 
 // NOTE the philosophy!  MaybeFunctionCallReturn intends to be
@@ -284,7 +284,7 @@ IsFunctionEntry(func) :- IsFunctionCallReturn(_, _, func, _, _, _).
 
 IsFunctionCall(prev, func),
 IsPublicFunctionCall(prev, func) :-
-   postTrans.PublicFunctionJump(prev, sigHash),
+   postTrans.PublicFunctionJump(prev, sigHash, _),
    PublicFunctionFiltered(func, sigHash),
    global.BlockEdge(_, prev, _, func).
 
@@ -1065,6 +1065,9 @@ FunctionalStatement_Uses(stmt, var, n) :-
 .decl PublicFunctionSignature(hex_signature: symbol, text_signature: symbol)
 .input PublicFunctionSignature
 
+.decl HighLevelFunctionInfo(id: symbol, entry_point: Block, numOfArgs: number, numOfRets: number)
+.input HighLevelFunctionInfo
+
 .decl HighLevelFunctionName(func: IRFunction, name: symbol)
 
 // Standardize public function signature length
@@ -1075,7 +1078,7 @@ SighashIntermediate(sigIn, cat("0x0",substr(sigOut,2,8))) :-
    strlen(sigOut) < 10.
 
 SighashIntermediate(sig, sig) :-
-   postTrans.PublicFunction(_, sig).
+   postTrans.PublicFunction(_, sig, _).
 
 .decl IRPublicFunction(irfunc: IRFunction, sigHash: Value)
 IRPublicFunction(irfunc, sigHash) :-
@@ -1096,9 +1099,18 @@ HighLevelFunctionName(func, name) :-
    PublicFunction_HighLevel(func, name),
    !PublicFunctionSignature(name, _).
 
-HighLevelFunctionName(func, func) :-
-   IRFunctionEntry(func),
+HighLevelFunctionName(irFunc, irFunc) :-
+   IRFunctionEntry(irFunc),
+   Function_IRFunction(func, irFunc),
+   irFunc != "0x0",
+   !HighLevelFunctionInfo(_, func, _, _),
+   !IRPublicFunction(irFunc, _).
+
+HighLevelFunctionName(irFunc, id) :-
+   IRFunctionEntry(irFunc),
    func != "0x0",
-   !IRPublicFunction(func, _).
+   Function_IRFunction(func, irFunc),
+   HighLevelFunctionInfo(id, func, _, _),
+   !IRPublicFunction(irFunc, _).
 
 HighLevelFunctionName(FUNCTION_SELECTOR, "__function_selector__").

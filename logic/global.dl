@@ -8,7 +8,8 @@
 #define MAX_NUM_PRIVATE_FUNCTION_ARGS 50
 #define MAX_NUM_PRIVATE_FUNCTION_RETS 50
 
-#define LIMITSIZE_BLOCK_OUTPUT_CONTENTS 5000000
+#define LIMITSIZE_BLOCK_OUTPUT_CONTENTS 1000000
+#define LIMITSIZE_BIG_BLOCK_OUTPUT_CONTENTS 5000000
 #define CheckIsVariable(v) ((v) < 0)
 #define CheckIsStackIndex(v) ((v) >= 0, (v) < MAX_STACK_HEIGHT)
 
@@ -40,9 +41,21 @@
 .type Statement <: symbol
 .type FunctionSignature <: symbol
 
-.init global = OptimizedGlobalAnalysis<CONTEXT_SENSITIVITY>
+.type OptionalSelector = NoSelector{}
+                      | SelectorVariable{selector: Variable}
+                      | SelectorStackIndex{block: Block, selector: StackIndex}
 
-COPY_CODE(global, postTrans)
+.init incompleteGlobal = IncompleteOptimizedGlobalAnalysis<CONTEXT_SENSITIVITY, LocalAnalysis>
+
+COPY_CODE_FULL(incompleteGlobal, postTrans)
+
+.init global = ExperimentalCompleteOptimizedGlobalAnalysis<CONTEXT_SENSITIVITY>
+
+global.StatementPushesUsedLabel(stmt):-
+  incompleteGlobal.VariableUsedInAsJumpdest(pushedVar),
+  postTrans.Statement_Defines(stmt, pushedVar).
+
+COPY_CODE_FULL(global, postTrans)
 
 // Masks with all 1s
 .decl Mask_Length(mask: Value, bytes: number)
@@ -65,30 +78,28 @@ PreMask_Length(cat(mask, "ff"), bytes+1) :-
   bytes < 32.
 
 
-.comp GlobalAnalysis <AbstractContextSensitivity> : PreTransLocalAnalysis {
+.comp GlobalAnalysis <AbstractContextSensitivity, LocalAnalysis> : LocalAnalysis {
   /*
   ***********
   * Key dataflow definitions
   ***********
   */
 
-  .init sens = AbstractContextSensitivity<PreTransLocalAnalysis>
+  .init sens = AbstractContextSensitivity<LocalAnalysis>
 
   sens.local.PushValue(push, val):- PushValue(push, val).
   sens.local.Statement_Opcode(stmt, op):- Statement_Opcode(stmt, op).
   sens.local.Statement_Next(stmt, stmtNext):- Statement_Next(stmt, stmtNext).
+  sens.local.PublicFunction(block, hex, selector):- PublicFunction(block, hex, selector).
+  sens.local.PublicFunctionJump(block, hex, selector):- PublicFunctionJump(block, hex, selector).
 
   // `block` is reachable under `context`
   .decl ReachableContext(context: sens.Context, block: Block)
 
   // Stack contents at end of a `block`, given its calling `context`.
   .decl BlockOutputContents(context: sens.Context, block: Block, index: StackIndex, var: Variable)
-  #ifdef ENABLE_LIMITSIZE
-  .limitsize BlockOutputContents(n=LIMITSIZE_BLOCK_OUTPUT_CONTENTS)
-  #endif
-
   DEBUG_OUTPUT(BlockOutputContents)
-  
+
   /**
     Stack contents at start of a `block`, given its calling `context`.
     Added overridable flag to override it in the optimized variant of the component
@@ -105,11 +116,16 @@ PreMask_Length(cat(mask, "ff"), bytes+1) :-
   .decl BlockJumpValidTarget(ctx: sens.Context, block: Block, var: Variable, target: Block)
 
   /**
+    Under `ctx`, `next` can follow the execution of `block`.
+    Includes both fallthrough edges and jumps.
+  */
+  .decl BlockValidNext(ctx: sens.Context, block: Block, next: Block)
+
+  /**
     When `block` is analyzed under `callerCtx`, there will be a CFG edge
     from `block` to `callee`, causing it to be reachable under `calleeCtx`
   */
   .decl BlockEdge(callerCtx: sens.Context, caller: Block, calleeCtx: sens.Context, callee: Block)
-  
 
 
   /*
@@ -173,31 +189,34 @@ PreMask_Length(cat(mask, "ff"), bytes+1) :-
 
   ReachableContext(calleeCtx, callee) :-
     BlockEdge(_, _, calleeCtx, callee).
-    
+
   ReachableContext(initCtx, FUNCTION_SELECTOR) :-
     sens.InitialContext(initCtx).
 
-  .decl FallthroughEdge(caller: Block, fallthroughBlock: Block)
+  BlockValidNext(ctx, block, next):-
+    BlockJumpValidTarget(ctx, block, _, next).
 
-  FallthroughEdge(caller, as(fallthrough, Block)),
-  BlockEdge(callerCtx, caller, calleeCtx, as(fallthrough, Block)) :-
-    sens.MergeContext(callerCtx, caller, calleeCtx),  // implies reachable
-    Statement_Block(stmt, caller),
-    FallthroughStmt(stmt, fallthrough),
-    IsBasicBlockHead(fallthrough).
+  BlockValidNext(ctx, block, fallthrough):-
+    ReachableContext(ctx, block),
+    FallthroughEdge(block, fallthrough).
+
+  // BlockEdge(callerCtx, caller, calleeCtx, fallthrough) :-
+  //   sens.MergeContext(callerCtx, caller, calleeCtx),  // implies reachable
+  //   FallthroughEdge(caller, fallthrough).
 
   // There may be an unconditional context computed by the algorithm. Use it.
   BlockEdge(callerCtx, caller, calleeCtx, callee) :-
-    BlockJumpValidTarget(callerCtx, caller, _, callee),
+    // BlockJumpValidTarget(callerCtx, caller, _, callee),
+    BlockValidNext(callerCtx, caller, callee),
     sens.MergeContext(callerCtx, caller, calleeCtx).
     .plan 1:(2,1)
 
   // Also check if there is a conditional (on-request) context for this case
-  sens.MergeContextRequest(callerCtx, block, continuation) :-
-    BlockJumpValidTarget(callerCtx, block, _, continuation).
+  sens.MergeContextRequest(callerCtx, block, next) :-
+    BlockValidNext(callerCtx, block, next).
 
   BlockEdge(callerCtx, caller, calleeCtx, callee) :-
-    BlockJumpValidTarget(callerCtx, caller, _, callee),
+    BlockValidNext(callerCtx, caller, callee),
     sens.MergeContextResponse(callerCtx, caller, callee, calleeCtx).
     .plan 1:(2,1)
 
@@ -228,6 +247,14 @@ PreMask_Length(cat(mask, "ff"), bytes+1) :-
     op != "JUMP",
     op != "JUMPI".
 
+  .decl VariableUsedInAsJumpdest(var: Variable)
+
+  VariableUsedInAsJumpdest(var):-
+    Statement_Uses(stmt, var, 0),
+    Statement_Opcode(stmt, op),
+    (op = "JUMP"; op = "JUMPI").
+
+
   VariableUsedInOperation(var):-
     Statement_Uses(stmt, var, 1),
     Statement_Opcode(stmt, "JUMPI").
@@ -237,23 +264,45 @@ PreMask_Length(cat(mask, "ff"), bytes+1) :-
   VariableAlwaysUsedAsJumpTarget(var):-
     VariableContainsJumpTarget(var),
     !VariableUsedInOperation(var).
+
+  /**
+    Used to verify which variables/stack indexes that seem to be used as selectors, are actually selectors
+  */
+  .decl ValidSelector(selector: OptionalSelector)
+
+  ValidSelector($NoSelector()).
+
+  ValidSelector($SelectorVariable(selectorVariable)):-
+    IsOptionalSelector($SelectorVariable(selectorVariable)),
+    FunctionSelectorVariable(selectorVariable).
+
+  ValidSelector($SelectorStackIndex(block, selectorStackIndex)):-
+    IsOptionalSelector($SelectorStackIndex(block, selectorStackIndex)),
+    BlockInputContents(_, block, selectorStackIndex, selectorVariable),
+    FunctionSelectorVariable(selectorVariable).
+
 }
 
 /**
   A global analysis component optimized by only modeling the stack locations containing jump targets
 */
-.comp OptimizedGlobalAnalysis <AbstractContextSensitivity> : GlobalAnalysis <AbstractContextSensitivity> {
+.comp OptimizedGlobalAnalysis <AbstractContextSensitivity, LocalAnalysis> : GlobalAnalysis <AbstractContextSensitivity, LocalAnalysis> {
 
   .override BlockInputContents
 
+  .decl VariableToModel(var: Variable)
+  VariableToModel(var):-
+    VariableContainsJumpTarget(var); FunctionSelectorVariable(var).
+
+
   /**
-    Cut down `BlockOutputContents`, only containing jump targets.
+    Cut down `BlockOutputContents`, only containing jump targets (and the function selector var).
     Stack contents at end of a `block`, given its calling `context`.
   */
   .decl AuxBlockOutputContentsJumpTarget(context:sens.Context, block:Block, index:StackIndex, var:Variable)
   AuxBlockOutputContentsJumpTarget(context, block, index, var) :-
     BlockOutputContents(context, block, index, var),
-    VariableContainsJumpTarget(var).
+    VariableToModel(var).
 
   BlockInputContents(calleeCtx, callee, index, variable) :-
     AuxBlockOutputContentsJumpTarget(callerCtx, caller, index, variable),
@@ -261,9 +310,46 @@ PreMask_Length(cat(mask, "ff"), bytes+1) :-
     .plan 1:(2,1)
 }
 
+
 /**
-  Declared just so it can be used as a parameter in another component
+  Used whenever a best effort is good enough
 */
-.comp DefaultOptimizedGlobalAnalysis : OptimizedGlobalAnalysis <TransactionalWithShrinkingContext> {
+.comp IncompleteOptimizedGlobalAnalysis <AbstractContextSensitivity, LocalAnalysis> : OptimizedGlobalAnalysis <AbstractContextSensitivity, LocalAnalysis> {
+  .limitsize BlockOutputContents(n=LIMITSIZE_BLOCK_OUTPUT_CONTENTS)
+}
+
+/**
+  Used for the main global analysis. Only has a limitsize if the `--enable_limitsize` flag is set.
+*/
+.comp CompleteOptimizedGlobalAnalysis <AbstractContextSensitivity, LocalAnalysis> : OptimizedGlobalAnalysis <AbstractContextSensitivity, LocalAnalysis> {
+  #ifdef ENABLE_LIMITSIZE
+  .limitsize BlockOutputContents(n=LIMITSIZE_BIG_BLOCK_OUTPUT_CONTENTS)
+  #endif
+}
+
+// copying of PublicFunction from postTrans causes issues. Need to filter imprecision of the local function inference.
+// Perhaps post incomplete would be the best place to do that.
+.comp ExperimentalCompleteOptimizedGlobalAnalysis <AbstractContextSensitivity> : CompleteOptimizedGlobalAnalysis <AbstractContextSensitivity, PostIncompleteGlobalLocalAnalysis> {
+
+  .decl StatementPushesUsedLabel(stmt: Statement)
+  // .output sens.local.BlockPushesLabel, StatementPushesUsedLabel, sens.local.PrivateFunctionCall
+  // .output BlockPushesLabel
+  ExtBlockPushesLabel(block, val),
+  sens.local.ExtBlockPushesLabel(block, val):-
+    JUMPDEST(as(val, symbol)),
+    Variable_Value(var, val),
+    Statement_Defines(stmt, var),
+    StatementPushesUsedLabel(stmt),
+    Statement_Block(stmt, block),
+    BasicBlock_Tail(block, call),
+    LocalStackContents(call, _, var),
+    !BlockUsesLocal(block, var). 
+}
+
+/**
+  Declared just so it can be used as a parameter in another component.
+  Used by the SafeBlockCloner so it uses `PreTransLocalAnalysis`
+*/
+.comp DefaultIncompleteOptimizedGlobalAnalysis : IncompleteOptimizedGlobalAnalysis <TransactionalWithShrinkingContext, PreTransLocalAnalysis> {
 
 }

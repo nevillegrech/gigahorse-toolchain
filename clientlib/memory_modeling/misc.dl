@@ -58,6 +58,11 @@ ValueIsPossibleSigHash(sigHashVal, sigHashVal):-
   (9 = strlen(sigHashVal);
   10 = strlen(sigHashVal)).
 
+// ValueIsPossibleSigHash(sigHashVal, cat(sigHashVal, "00")):-
+//   Variable_Value(_, sigHashVal),
+//   (7 = strlen(sigHashVal);
+//   8 = strlen(sigHashVal)).
+
 Helper_BigValueFilter(val, len):-
   Variable_Value(_, val),
   len = strlen(val),
@@ -79,7 +84,7 @@ ValueIsPossibleSigHash(sigHashVal, sigHash):-
   sigHash = cat(pre, post).
 
 .decl CALLWithPossibleSigHash(call:Statement, possibleSigHash:symbol)
-
+DEBUG_OUTPUT(CALLWithPossibleSigHash)
 .decl CALLWithPossibleSigHashFromSHA3(call:Statement, sha3:Statement)
 
 .decl CALLWithNoPossibleSigHash(call:Statement)
@@ -153,6 +158,7 @@ Variable_Value(to, val):-
   Statement_Block(store, storeBlock),
   Statement_Block(load, loadBlock),
   Dominates(storeBlock, loadBlock),
+  storeBlock != loadBlock,
   Variable_Value(from, val).
 
 /**

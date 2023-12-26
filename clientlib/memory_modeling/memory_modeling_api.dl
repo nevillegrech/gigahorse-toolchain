@@ -110,6 +110,14 @@ DEBUG_OUTPUT(StructStore)
 */
 .decl PublicFunctionArrayArg(pubFun: Function, arrayArg: ArrayVariable, index: number)
 
+/**
+  Calldata `structArg` is the `index`'th formal argument of public function `pubFun`
+  These are only infered for struct containing dynamic arrays as per the
+  [ABI spec](https://docs.soliditylang.org/en/latest/abi-spec.html#formal-specification-of-the-encoding)
+*/
+.decl PublicFunctionStructArg(pubFun: Function, structArg: Variable, index: number)
+
+
 .type StatementOrLoop = Statement | Block
 
 /**
