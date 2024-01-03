@@ -547,7 +547,9 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     BasicBlock_Tail(block, stmt),
     Statement_Next(stmt, fallthrough),
     !JUMP(stmt),
-    !JUMPI(stmt).
+    !JUMPI(stmt),
+    Statement_Opcode(stmt, opcode),
+    !OpcodePossiblyHalts(opcode).
 
   .decl StaticBlockJumpTargetNonUnique(caller: Block, target: Value)
   StaticBlockJumpTargetNonUnique(caller, target) :-
