@@ -619,8 +619,18 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     PrivateFunctionCall(block, _, _, _);
     PrivateFunctionReturn(block).
 
-  .decl CODECOPYStatement(stmt: Statement, offset: Value, size: Value)
+    .decl FallthroughBlockPushesContinuation(block: Block, fallthrough: Statement)
+  DEBUG_OUTPUT(FallthroughBlockPushesContinuation)
+  FallthroughBlockPushesContinuation(block, fallthrough):-
+    BlockPushesLabel(block, _),
+    BasicBlock_Tail(block, stmt),
+    Statement_Next(stmt, fallthrough),
+    !JUMP(stmt),
+    !JUMPI(stmt),
+    Statement_Opcode(stmt, opcode),
+    !OpcodePossiblyHalts(opcode).
 
+  .decl CODECOPYStatement(stmt: Statement, offset: Value, size: Value)
   CODECOPYStatement(codeCopy, codeOffsetNumHex, smallNumHex) :-
     Statement_Opcode(codeCopy, "CODECOPY"),
     BeforeLocalStackContents(codeCopy, 2, lenVar),
@@ -1031,6 +1041,17 @@ insertor.insertOps(insertStmt,
   preTrans.Statement_Opcode(functionStartStmt, op),
   ((op != "JUMPDEST", insertStmt = functionStartStmt);
   (op = "JUMPDEST", preTrans.Statement_Next(functionStartStmt, insertStmt))).
+
+// Add a jump to fallthrough blocks (excluding JUMPI blocks) that look like function calls
+// In other places (functions.dl, function_inliner.dl) we require the JUMP to exist
+insertor.insertOps(fallthrough,
+  LIST(
+    STMT(PUSH4, as(fallthrough, symbol)),
+    STMT(JUMP, "")
+  )
+):-
+  preTrans.FallthroughBlockPushesContinuation(_, fallthrough),
+  preTrans.JUMPDEST(fallthrough).
 
 // This one removes "throw jumps"
 insertor.removeOp(jmp),
