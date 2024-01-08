@@ -70,7 +70,7 @@ jobs:
           files: test-results.xml
           check_name: "Test Results (Souffle 2.3)"
 
-  test_souffle24:
+  test_souffle241:
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -98,7 +98,7 @@ jobs:
         run: |
           sudo wget https://souffle-lang.github.io/ppa/souffle-key.public -O /usr/share/keyrings/souffle-archive-keyring.gpg
           echo "deb [signed-by=/usr/share/keyrings/souffle-archive-keyring.gpg] https://souffle-lang.github.io/ppa/ubuntu/ stable main" | sudo tee /etc/apt/sources.list.d/souffle.list
-          sudo apt update && sudo apt install souffle=2.4
+          sudo apt update && sudo apt install souffle=2.4.1
 
       - name: Test Souffle
         run: souffle --version
@@ -123,7 +123,7 @@ jobs:
         if: always()
         with:
           files: test-results.xml
-          check_name: "Test Results (Souffle 2.4)"
+          check_name: "Test Results (Souffle 2.4.1)"
   mypy:
     runs-on: ubuntu-latest
     name: Mypy
