@@ -550,10 +550,10 @@ to.PublicFunction(block, funHex, selector):- from.PublicFunction(block, funHex, 
     PossibleCallerWithReturn(from2, _, candidate),
     from != from2.
 
-  // BlockCloningCandidate(candidate):-
-  //   PossibleCallerWithReturn(_, var, candidate),
-  //   PossibleCallerWithReturn(_, var2, candidate),
-  //   var != var2.
+  BlockCloningCandidate(candidate):-
+    PossibleCallerWithReturn(_, var, candidate),
+    PossibleCallerWithReturn(_, var2, candidate),
+    var != var2.
 
 }
 
