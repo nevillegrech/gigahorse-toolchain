@@ -26,6 +26,7 @@ analytics = {
 }
 
 decomp_analytics = {
+  'Analytics_PublicFunction': 'completeness',
   'Analytics_ReachableBlocks': 'completeness',
   'Analytics_UnreachableBlock': 'incompleteness',
   'Analytics_ReachableBlocksInTAC': 'completeness',
@@ -48,6 +49,8 @@ decomp_analytics = {
 mem_analytics = {
   'Analytics_NonModeledMSTORE': 'incompleteness',
   'Analytics_NonModeledMLOAD': 'incompleteness',
+  'Analytics_CallToSignature': 'completeness',
+  'Analytics_EventSignature': 'completeness',
   'Analytics_PublicFunctionArg': 'completeness',
   'Analytics_PublicFunctionArrayArg': 'completeness'
 }
