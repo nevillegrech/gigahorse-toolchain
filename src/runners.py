@@ -18,8 +18,8 @@ from . import blockparse
 
 devnull = subprocess.DEVNULL
 
-DEFAULT_MEMORY_LIMIT = 45 * 1_000_000_000
-"""Hard capped memory limit for analyses processes (30 GB)"""
+DEFAULT_MEMORY_LIMIT = 50 * 1_000_000_000
+"""Hard capped memory limit for analyses processes (50 GB)"""
 
 
 souffle_env = os.environ.copy()
