@@ -243,7 +243,7 @@ class MixedFactGenerator(AbstractFactGenerator):
             if pattern.match(contract_filename):
                 self.out_dir_to_gen[out_dir] = self.fact_generators[pattern]
                 return self.fact_generators[pattern].generate_facts(contract_filename, work_dir, out_dir)
-        return
+        return 0.0, 0.0, ""
 
     def get_datalog_files(self) -> List[str]:
         datalog_files = []
