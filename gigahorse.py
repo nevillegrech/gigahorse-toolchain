@@ -601,7 +601,8 @@ if __name__ == "__main__":
     with open(tac_gen_config_json, 'r') as config:
         tac_gen_config = json.loads(config.read())
         if len(tac_gen_config["handlers"]) == 0: #if no handlers defined, default to classic decompilation
-            run_gigahorse(args, DecompilerFactGenerator(args))
+            tac_gen = tac_gen_config["handlers"][0]
+            run_gigahorse(args, DecompilerFactGenerator(args, tac_gen["fileRegex"]))
         elif len(tac_gen_config["handlers"]) == 1: # if one handler defined, can be either classic decompilation, or custom script
             tac_gen = tac_gen_config["handlers"][0]
             if tac_gen["tacGenScripts"]["defaultDecomp"] == "true":

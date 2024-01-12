@@ -221,8 +221,6 @@ class AbstractFactGenerator(ABC):
 
 
 class MixedFactGenerator(AbstractFactGenerator):
-    analysis_executor: AnalysisExecutor
-    pattern: str
 
     def __init__(self, args):
         self.fact_generators = {}
@@ -251,7 +249,6 @@ class MixedFactGenerator(AbstractFactGenerator):
         for fact_gen in self.fact_generators.values():
             datalog_files += fact_gen.get_datalog_files()
         return datalog_files
-
 
     def decomp_out_produced(self, out_dir: str) -> bool:
         return self.out_dir_to_gen[out_dir].decomp_out_produced(out_dir)
