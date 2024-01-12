@@ -7,6 +7,7 @@ import resource
 import time
 import shutil
 import json
+import re
 
 from typing import Tuple, List, Any, Optional
 
@@ -95,7 +96,7 @@ class AnalysisExecutor:
                 errors.append(os.path.basename(souffle_client))
                 log(souffle_err)
         return errors, timeouts
-    
+
     def run_script_client(self, script_client: str, in_dir: str, out_dir: str, start_time: float):
         errors = []
         timeouts = []
@@ -103,7 +104,7 @@ class AnalysisExecutor:
         client_split[0] = join(os.getcwd(), client_split[0])
         client_name = client_split[0].split('/')[-1]
         err_filename = join(out_dir, client_name+'.err')
-        
+
         runtime = run_process(
             client_split,
             self.calc_timeout(start_time),
@@ -219,15 +220,65 @@ class AbstractFactGenerator(ABC):
         pass
 
 
+class MixedFactGenerator(AbstractFactGenerator):
+    analysis_executor: AnalysisExecutor
+    pattern: str
+
+    def __init__(self, args):
+        self.fact_generators = {}
+        self.out_dir_to_gen = {}
+        self.pattern = None
+        self._analysis_executor = None
+
+    @property
+    def analysis_executor(self):
+        return self._analysis_executor
+
+    @analysis_executor.setter
+    def analysis_executor(self, analysis_executor):
+        self._analysis_executor = analysis_executor
+        for fact_gen in self.fact_generators.values():
+            fact_gen.analysis_executor = self.analysis_executor
+
+    def generate_facts(self, contract_filename: str, work_dir: str, out_dir: str) -> Tuple[float, float, str]:
+        for pattern in self.fact_generators.keys():
+            if pattern.match(contract_filename):
+                self.out_dir_to_gen[out_dir] = self.fact_generators[pattern]
+                return self.fact_generators[pattern].generate_facts(contract_filename, work_dir, out_dir)
+
+    def get_datalog_files(self) -> List[str]:
+        datalog_files = []
+        for fact_gen in self.fact_generators.values():
+            datalog_files += fact_gen.get_datalog_files()
+        return datalog_files
+
+
+    def decomp_out_produced(self, out_dir: str) -> bool:
+        return self.out_dir_to_gen[out_dir].decomp_out_produced(out_dir)
+
+    def extend_pattern(self, pattern):
+        if self.pattern == None:
+            self.pattern = pattern
+        else:
+            self.pattern += "|"+pattern
+
+    def add_fact_generator(self, pattern, scripts, is_default, args):
+        self.extend_pattern(pattern)
+        if is_default:
+            self.fact_generators[re.compile(pattern)] = DecompilerFactGenerator(args, pattern)
+        else:
+            self.fact_generators[re.compile(pattern)] = CustomFactGenerator(pattern, scripts)
+
+
 class DecompilerFactGenerator(AbstractFactGenerator):
     decompiler_dl = join(GIGAHORSE_DIR, 'logic/main.dl')
     fallback_scalable_decompiler_dl = join(GIGAHORSE_DIR, 'logic/fallback_scalable.dl')
 
-    def __init__(self, args, analysis_executor: AnalysisExecutor):
+    def __init__(self, args, pattern):
         self.context_depth = args.context_depth
         self.disable_scalable_fallback = args.disable_scalable_fallback
-        self.analysis_executor = analysis_executor
-        self.pattern = args.custom_file_pattern
+        self.analysis_executor = None
+        self.pattern = pattern
 
         pre_clients_split = [a.strip() for a in args.pre_client.split(',')]
         self.souffle_pre_clients = [a for a in pre_clients_split if a.endswith('.dl')]
@@ -239,7 +290,7 @@ class DecompilerFactGenerator(AbstractFactGenerator):
     def generate_facts(self, contract_filename: str, work_dir: str, out_dir: str) -> Tuple[float, float, str]:
         with open(contract_filename) as file:
             bytecode = file.read().strip()
-        
+
             if os.path.exists(metad:= f"{contract_filename[:-4]}_metadata.json"):
                 metadata = json.load(open(metad))
             else:
@@ -267,7 +318,7 @@ class DecompilerFactGenerator(AbstractFactGenerator):
         decompiler_config = self.run_decomp(contract_filename, work_dir, out_dir, disassemble_start)
 
         return decomp_start - disassemble_start, time.time() - decomp_start, decompiler_config
-    
+
     def get_datalog_files(self) -> List[str]:
         datalog_files = self.souffle_pre_clients + [DecompilerFactGenerator.decompiler_dl]
         if not self.disable_scalable_fallback:
@@ -294,20 +345,20 @@ class DecompilerFactGenerator(AbstractFactGenerator):
                     raise TimeoutException()
 
         return config
-    
+
     def decomp_out_produced(self, out_dir: str) -> bool:
         """Hacky. Needed to ensure process was not killed due to exceeding the memory limit."""
         return os.path.exists(join(out_dir, 'Analytics_JumpToMany.csv')) and os.path.exists(join(out_dir, 'TAC_Def.csv'))
-    
+
 
 class CustomFactGenerator(AbstractFactGenerator):
     analysis_executor: AnalysisExecutor
     pattern: str
 
-    def __init__(self, args, analysis_executor: AnalysisExecutor):
-        self.analysis_executor = analysis_executor
-        self.pattern = args.custom_file_pattern
-        self.fact_generator_scripts = args.custom_fact_generator
+    def __init__(self, custom_file_pattern, custom_fact_gen_scripts):
+        self.analysis_executor = None
+        self.pattern = custom_file_pattern
+        self.fact_generator_scripts = custom_fact_gen_scripts
 
     def generate_facts(self, contract_filename: str, work_dir: str, out_dir: str) -> Tuple[float, float, str]:
         errors = []

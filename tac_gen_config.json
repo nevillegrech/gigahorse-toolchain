@@ -1,0 +1,11 @@
+{
+    "handlers":[
+        {
+            "fileRegex": ".*.hex",
+            "tacGenScripts": {
+                "defaultDecomp": "true",
+                "customScripts": []
+            }
+        }
+    ]
+}

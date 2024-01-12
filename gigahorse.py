@@ -17,9 +17,11 @@ import os
 
 # Local project imports
 from src.common import GIGAHORSE_DIR, DEFAULT_SOUFFLE_BIN, log
-from src.runners import get_souffle_executable_path, compile_datalog, AbstractFactGenerator, DecompilerFactGenerator, CustomFactGenerator, AnalysisExecutor, TimeoutException
+from src.runners import get_souffle_executable_path, compile_datalog, AbstractFactGenerator, DecompilerFactGenerator, CustomFactGenerator, MixedFactGenerator, AnalysisExecutor, TimeoutException
 
 ## Constants
+
+TAC_GEN_CONFIG_FILE = 'tac_gen_config.json'
 
 DEFAULT_RESULTS_FILE = 'results.json'
 """File to write results to by default."""
@@ -100,7 +102,7 @@ parser.add_argument('--cache_dir',
                     const=DEFAULT_CACHE_DIR,
                     metavar="DIR",
                     help="the location to were temporary files are placed.")
-                    
+
 
 parser.add_argument("-j",
                     "--jobs",
@@ -220,7 +222,7 @@ def get_souffle_macros() -> str:
 
     return souffle_macros
 
-def analyze_contract(index: int, contract_filename: str, result_queue, fact_generator: AbstractFactGenerator, souffle_clients: List[str], other_clients: List[str]) -> None:   
+def analyze_contract(index: int, contract_filename: str, result_queue, fact_generator: AbstractFactGenerator, souffle_clients: List[str], other_clients: List[str]) -> None:
     """
     Perform static analysis on a contract, storing the result in the queue.
     This is a worker function to be passed to a subprocess.
@@ -355,7 +357,7 @@ def flush_queue(run_sig: Any, result_queue: SimpleQueue, result_list: Any) -> No
 def write_results(res_list: Any, results_file: str) -> None:
     """
     Filters the results in res_list, logging the appropriate messages
-    and writting them to the results_file json file 
+    and writting them to the results_file json file
     """
     total = len(res_list)
     vulnerability_counts: DefaultDict[str, int] = defaultdict(int)
@@ -384,13 +386,13 @@ def write_results(res_list: Any, results_file: str) -> None:
         for res, sums in analytics_sums_sorted:
             log("  {}: {}".format(res, sums))
         log('\n')
-        
+
     vulnerability_counts_sorted = sorted(list(vulnerability_counts.items()), key = lambda a: a[0])
     if vulnerability_counts_sorted:
         log('-'*80)
         log('Summary (flagged contracts)')
         log('-'*80)
-    
+
         for res, count in vulnerability_counts_sorted:
             log("  {}: {:.2f}%".format(res, 100 * count / total))
 
@@ -401,7 +403,7 @@ def write_results(res_list: Any, results_file: str) -> None:
         for k, v in meta_counts.items():
             log(f"  {k}: {v} of {total} contracts")
         log('\n')
-            
+
     log("\nWriting results to {}".format(results_file))
     with open(results_file, 'w') as f:
         f.write(json.dumps(list(res_list), indent=1))
@@ -493,7 +495,7 @@ def batch_analysis(fact_generator: AbstractFactGenerator, souffle_clients: List[
         sys.exit(1)
 
 
-def run_gigahorse(args, fact_gen_class: Type[AbstractFactGenerator]) -> None:
+def run_gigahorse(args, fact_generator: AbstractFactGenerator) -> None:
     """
     Run gigahorse, passing the cmd line args and fact generator type as arguments
     """
@@ -502,8 +504,8 @@ def run_gigahorse(args, fact_gen_class: Type[AbstractFactGenerator]) -> None:
 
     analysis_executor = AnalysisExecutor(args.timeout_secs, args.interpreted, args.minimum_client_time, args.debug, args.souffle_bin, args.cache_dir, get_souffle_macros())
 
-    fact_generator = fact_gen_class(args, analysis_executor)
-
+    # fact_generator = fact_gen_class(args, analysis_executor)
+    fact_generator.analysis_executor = analysis_executor
 
     clients_split = [a.strip() for a in args.client.split(',')]
     souffle_clients = [a for a in clients_split if a.endswith('.dl')]
@@ -527,7 +529,7 @@ def run_gigahorse(args, fact_gen_class: Type[AbstractFactGenerator]) -> None:
 
     if args.restart:
         log("Removing working directory {}".format(args.working_dir))
-        shutil.rmtree(args.working_dir, ignore_errors = True)    
+        shutil.rmtree(args.working_dir, ignore_errors = True)
 
     if not args.interpreted:
         for p in running_processes:
@@ -558,7 +560,7 @@ def run_gigahorse(args, fact_gen_class: Type[AbstractFactGenerator]) -> None:
             unfiltered = [join(filepath, f) for f in os.listdir(filepath)]
         else:
             unfiltered = [filepath]
-            
+
         contracts += [u for u in unfiltered if pattern.match(u) is not None]
 
     contracts = contracts[args.skip:]
@@ -592,18 +594,25 @@ if __name__ == "__main__":
                         default=False,
                         help="Disables the scalable fallback configuration (using a hybrid-precise context configuration) that kicks off"
                         " if decompilation with the default (transactional) config takes up more than half of the total timeout.")
-    parser.add_argument("--custom_fact_generator",
-                        nargs="*",
-                        default=None,
-                        help="Adds custom scripts for non-default fact generation. Takes a list of paths for the custom fact generation scripts. "
-                        " Fact generation scripts can also be Datalog files. The default is the decompilation fact generation from bytecode files.")
-    parser.add_argument("--custom_file_pattern",
-                        nargs="?",
-                        default=".*.hex",
-                        help="Adds a custom file filtering RegEx. The default is .hex (bytecode) files.")
 
     args = parser.parse_args()
-    if args.custom_fact_generator == None:
-        run_gigahorse(args, DecompilerFactGenerator)
-    else:
-        run_gigahorse(args, CustomFactGenerator)
+
+    tac_gen_config_json = os.path.join(os.path.dirname(os.path.abspath(__file__)),TAC_GEN_CONFIG_FILE)
+    with open(tac_gen_config_json, 'r') as config:
+        tac_gen_config = json.loads(config.read())
+        if len(tac_gen_config["handlers"]) == 0: #if no handlers defined, default to classic decompilation
+            run_gigahorse(args, DecompilerFactGenerator(args))
+        elif len(tac_gen_config["handlers"]) == 1: # if one handler defined, can be either classic decompilation, or custom script
+            tac_gen = tac_gen_config["handlers"][0]
+            if tac_gen["tacGenScripts"]["defaultDecomp"] == "true":
+                run_gigahorse(args, DecompilerFactGenerator(args, tac_gen["fileRegex"]))
+            else:
+                run_gigahorse(args, CustomFactGenerator(tac_gen["fileRegex"], tac_gen["tacGenScripts"]["customScripts"]))
+        elif len(tac_gen_config["handlers"]) > 1: # if multiple handlers have been defined, they will be selected based on the file regex
+            fact_generator = MixedFactGenerator(args)
+            for tac_gen in tac_gen_config["handlers"]:
+                pattern = tac_gen["fileRegex"]
+                scripts = tac_gen["tacGenScripts"]["customScripts"]
+                is_default = tac_gen["tacGenScripts"]["defaultDecomp"] == "true"
+                fact_generator.add_fact_generator(pattern, scripts, is_default, args)
+            run_gigahorse(args, fact_generator)
