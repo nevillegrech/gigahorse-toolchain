@@ -504,7 +504,6 @@ def run_gigahorse(args, fact_generator: AbstractFactGenerator) -> None:
 
     analysis_executor = AnalysisExecutor(args.timeout_secs, args.interpreted, args.minimum_client_time, args.debug, args.souffle_bin, args.cache_dir, get_souffle_macros())
 
-    # fact_generator = fact_gen_class(args, analysis_executor)
     fact_generator.analysis_executor = analysis_executor
 
     clients_split = [a.strip() for a in args.client.split(',')]
@@ -601,8 +600,7 @@ if __name__ == "__main__":
     with open(tac_gen_config_json, 'r') as config:
         tac_gen_config = json.loads(config.read())
         if len(tac_gen_config["handlers"]) == 0: #if no handlers defined, default to classic decompilation
-            tac_gen = tac_gen_config["handlers"][0]
-            run_gigahorse(args, DecompilerFactGenerator(args, tac_gen["fileRegex"]))
+            run_gigahorse(args, DecompilerFactGenerator(args, ".*.hex"))
         elif len(tac_gen_config["handlers"]) == 1: # if one handler defined, can be either classic decompilation, or custom script
             tac_gen = tac_gen_config["handlers"][0]
             if tac_gen["tacGenScripts"]["defaultDecomp"] == "true":

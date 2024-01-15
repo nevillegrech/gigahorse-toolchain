@@ -252,7 +252,9 @@ class MixedFactGenerator(AbstractFactGenerator):
         return datalog_files
 
     def decomp_out_produced(self, out_dir: str) -> bool:
-        return self.out_dir_to_gen[out_dir].decomp_out_produced(out_dir)
+        result = self.out_dir_to_gen[out_dir].decomp_out_produced(out_dir)
+        del self.out_dir_to_gen[out_dir]
+        return result
 
     def extend_pattern(self, pattern):
         if self.pattern == None:
