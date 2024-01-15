@@ -553,7 +553,7 @@ def run_gigahorse(args, fact_generator: AbstractFactGenerator) -> None:
         else:
             unfiltered = [filepath]
 
-        contracts += [u for u in unfiltered if fact_generator.match_pattern(u) is not None]
+        contracts += [u for u in unfiltered if fact_generator.match_pattern(u)]
 
     contracts = contracts[args.skip:]
 

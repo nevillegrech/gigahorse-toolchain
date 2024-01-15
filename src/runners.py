@@ -261,9 +261,9 @@ class MixedFactGenerator(AbstractFactGenerator):
         return result
 
     def match_pattern(self, contract_filename) -> bool:
-        for pattern in self.fact_generators.keys():
-            if pattern.match(contract_filename):
-                self.contract_filename_to_gen[contract_filename] = self.fact_generators[pattern]
+        for gen in self.fact_generators.values():
+            if gen.match_pattern(contract_filename):
+                self.contract_filename_to_gen[contract_filename] = gen
                 return True
         return False
 
@@ -355,7 +355,7 @@ class DecompilerFactGenerator(AbstractFactGenerator):
         return config
 
     def match_pattern(self, contract_filename: str) -> bool:
-        return self.pattern.match(contract_filename)
+        return self.pattern.match(contract_filename) is not None
 
     def decomp_out_produced(self, out_dir: str) -> bool:
         """Hacky. Needed to ensure process was not killed due to exceeding the memory limit."""
@@ -393,7 +393,7 @@ class CustomFactGenerator(AbstractFactGenerator):
         return [a for a in self.fact_generator_scripts if a.endswith('.dl')]
 
     def match_pattern(self, contract_filename: str) -> bool:
-        return self.pattern.match(contract_filename)
+        return self.pattern.match(contract_filename) is not None
 
     def decomp_out_produced(self, out_dir: str) -> bool:
         return os.path.exists(join(out_dir, 'TAC_Def.csv'))
