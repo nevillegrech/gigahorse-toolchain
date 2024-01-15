@@ -364,7 +364,6 @@ class DecompilerFactGenerator(AbstractFactGenerator):
 
 class CustomFactGenerator(AbstractFactGenerator):
     analysis_executor: AnalysisExecutor
-    pattern: str
 
     def __init__(self, pattern, custom_fact_gen_scripts):
         self.analysis_executor = None
