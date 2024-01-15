@@ -545,13 +545,6 @@ def run_gigahorse(args, fact_generator: AbstractFactGenerator) -> None:
 
     contracts = []
 
-    # Filter according to the given pattern.
-    re_string = fact_generator.pattern
-    if not re_string.endswith("$"):
-        re_string = re_string + "$"
-    pattern = re.compile(re_string)
-
-
     for filepath in args.filepath:
         if os.path.isdir(filepath):
             if args.interpreted:
@@ -560,7 +553,7 @@ def run_gigahorse(args, fact_generator: AbstractFactGenerator) -> None:
         else:
             unfiltered = [filepath]
 
-        contracts += [u for u in unfiltered if pattern.match(u) is not None]
+        contracts += [u for u in unfiltered if fact_generator.match_pattern(u) is not None]
 
     contracts = contracts[args.skip:]
 

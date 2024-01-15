@@ -202,7 +202,7 @@ def imprecise_decomp_out(out_dir: str) -> bool:
 
 class AbstractFactGenerator(ABC):
     analysis_executor: AnalysisExecutor
-    pattern: str
+    pattern: re.Pattern
 
     def __init__(self, args, analysis_executor: AnalysisExecutor):
         pass
@@ -219,12 +219,17 @@ class AbstractFactGenerator(ABC):
     def decomp_out_produced(self, out_dir: str) -> bool:
         pass
 
+    @abstractmethod
+    def match_pattern(self, contract_filename: str) -> bool:
+        pass
+
 
 class MixedFactGenerator(AbstractFactGenerator):
 
     def __init__(self, args):
         self.fact_generators = {}
         self.out_dir_to_gen = {}
+        self.contract_filename_to_gen = {}
         self.pattern = None
         self._analysis_executor = None
 
@@ -239,11 +244,10 @@ class MixedFactGenerator(AbstractFactGenerator):
             fact_gen.analysis_executor = self.analysis_executor
 
     def generate_facts(self, contract_filename: str, work_dir: str, out_dir: str) -> Tuple[float, float, str]:
-        for pattern in self.fact_generators.keys():
-            if pattern.match(contract_filename):
-                self.out_dir_to_gen[out_dir] = self.fact_generators[pattern]
-                return self.fact_generators[pattern].generate_facts(contract_filename, work_dir, out_dir)
-        return 0.0, 0.0, ""
+        generator = self.contract_filename_to_gen[contract_filename]
+        del self.contract_filename_to_gen[contract_filename]
+        self.out_dir_to_gen[out_dir] = generator
+        return generator.generate_facts(contract_filename, work_dir, out_dir)
 
     def get_datalog_files(self) -> List[str]:
         datalog_files = []
@@ -256,14 +260,16 @@ class MixedFactGenerator(AbstractFactGenerator):
         del self.out_dir_to_gen[out_dir]
         return result
 
-    def extend_pattern(self, pattern):
-        if self.pattern == None:
-            self.pattern = pattern
-        else:
-            self.pattern += "|"+pattern
+    def match_pattern(self, contract_filename) -> bool:
+        for pattern in self.fact_generators.keys():
+            if pattern.match(contract_filename):
+                self.contract_filename_to_gen[contract_filename] = self.fact_generators[pattern]
+                return True
+        return False
 
     def add_fact_generator(self, pattern, scripts, is_default, args):
-        self.extend_pattern(pattern)
+        if not pattern.endswith("$"):
+            pattern = pattern + "$"
         if is_default:
             self.fact_generators[re.compile(pattern)] = DecompilerFactGenerator(args, pattern)
         else:
@@ -278,7 +284,9 @@ class DecompilerFactGenerator(AbstractFactGenerator):
         self.context_depth = args.context_depth
         self.disable_scalable_fallback = args.disable_scalable_fallback
         self.analysis_executor = None
-        self.pattern = pattern
+        if not pattern.endswith("$"):
+            pattern = pattern + "$"
+        self.pattern = re.compile(pattern)
 
         pre_clients_split = [a.strip() for a in args.pre_client.split(',')]
         self.souffle_pre_clients = [a for a in pre_clients_split if a.endswith('.dl')]
@@ -346,6 +354,9 @@ class DecompilerFactGenerator(AbstractFactGenerator):
 
         return config
 
+    def match_pattern(self, contract_filename: str) -> bool:
+        return self.pattern.match(contract_filename)
+
     def decomp_out_produced(self, out_dir: str) -> bool:
         """Hacky. Needed to ensure process was not killed due to exceeding the memory limit."""
         return os.path.exists(join(out_dir, 'Analytics_JumpToMany.csv')) and os.path.exists(join(out_dir, 'TAC_Def.csv'))
@@ -355,9 +366,11 @@ class CustomFactGenerator(AbstractFactGenerator):
     analysis_executor: AnalysisExecutor
     pattern: str
 
-    def __init__(self, custom_file_pattern, custom_fact_gen_scripts):
+    def __init__(self, pattern, custom_fact_gen_scripts):
         self.analysis_executor = None
-        self.pattern = custom_file_pattern
+        if not pattern.endswith("$"):
+            pattern = pattern + "$"
+        self.pattern = re.compile(pattern)
         self.fact_generator_scripts = custom_fact_gen_scripts
 
     def generate_facts(self, contract_filename: str, work_dir: str, out_dir: str) -> Tuple[float, float, str]:
@@ -378,6 +391,9 @@ class CustomFactGenerator(AbstractFactGenerator):
 
     def get_datalog_files(self) -> List[str]:
         return [a for a in self.fact_generator_scripts if a.endswith('.dl')]
+
+    def match_pattern(self, contract_filename: str) -> bool:
+        return self.pattern.match(contract_filename)
 
     def decomp_out_produced(self, out_dir: str) -> bool:
         return os.path.exists(join(out_dir, 'TAC_Def.csv'))
