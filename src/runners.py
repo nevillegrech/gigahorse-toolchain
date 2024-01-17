@@ -201,11 +201,19 @@ def imprecise_decomp_out(out_dir: str) -> bool:
 
 
 class AbstractFactGenerator(ABC):
-    analysis_executor: AnalysisExecutor
+    _analysis_executor: AnalysisExecutor
     pattern: re.Pattern
 
     def __init__(self, args, analysis_executor: AnalysisExecutor):
         pass
+
+    @property
+    def analysis_executor(self) -> AnalysisExecutor:
+        return self._analysis_executor
+
+    @analysis_executor.setter
+    def analysis_executor(self, analysis_executor: AnalysisExecutor):
+        self._analysis_executor = analysis_executor
 
     @abstractmethod
     def generate_facts(self, contract_filename: str, work_dir: str, out_dir: str) -> Tuple[float, float, str]:
@@ -225,13 +233,14 @@ class AbstractFactGenerator(ABC):
 
 
 class MixedFactGenerator(AbstractFactGenerator):
+    fact_generators: dict[re.Pattern, AbstractFactGenerator]
+    out_dir_to_gen = dict[str, AbstractFactGenerator]
+    contract_filename_to_gen: dict[str, AbstractFactGenerator]
 
     def __init__(self, args):
-        self.fact_generators: dict = {}
-        self.out_dir_to_gen: dict = {}
-        self.contract_filename_to_gen: dict = {}
-        self.pattern = None
-        self._analysis_executor = None
+        self.fact_generators = {}
+        self.out_dir_to_gen = {}
+        self.contract_filename_to_gen = {}
 
     @property
     def analysis_executor(self) -> AnalysisExecutor:
@@ -241,7 +250,7 @@ class MixedFactGenerator(AbstractFactGenerator):
     def analysis_executor(self, analysis_executor: AnalysisExecutor):
         self._analysis_executor = analysis_executor
         for fact_gen in self.fact_generators.values():
-            fact_gen.analysis_executor = self.analysis_executor
+            fact_gen.analysis_executor = analysis_executor
 
     def generate_facts(self, contract_filename: str, work_dir: str, out_dir: str) -> Tuple[float, float, str]:
         generator = self.contract_filename_to_gen[contract_filename]
@@ -280,7 +289,7 @@ class DecompilerFactGenerator(AbstractFactGenerator):
     decompiler_dl = join(GIGAHORSE_DIR, 'logic/main.dl')
     fallback_scalable_decompiler_dl = join(GIGAHORSE_DIR, 'logic/fallback_scalable.dl')
 
-    def __init__(self, args, pattern):
+    def __init__(self, args, pattern: str):
         self.context_depth = args.context_depth
         self.disable_scalable_fallback = args.disable_scalable_fallback
         self.analysis_executor = None
@@ -366,7 +375,6 @@ class CustomFactGenerator(AbstractFactGenerator):
     analysis_executor: AnalysisExecutor
 
     def __init__(self, pattern: str, custom_fact_gen_scripts: List[str]):
-        self.analysis_executor = None
         if not pattern.endswith("$"):
             pattern = pattern + "$"
         self.pattern = re.compile(pattern)
