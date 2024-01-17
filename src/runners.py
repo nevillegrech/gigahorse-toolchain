@@ -227,18 +227,18 @@ class AbstractFactGenerator(ABC):
 class MixedFactGenerator(AbstractFactGenerator):
 
     def __init__(self, args):
-        self.fact_generators = {}
-        self.out_dir_to_gen = {}
-        self.contract_filename_to_gen = {}
+        self.fact_generators: dict = {}
+        self.out_dir_to_gen: dict = {}
+        self.contract_filename_to_gen: dict = {}
         self.pattern = None
         self._analysis_executor = None
 
     @property
-    def analysis_executor(self):
+    def analysis_executor(self) -> AnalysisExecutor:
         return self._analysis_executor
 
     @analysis_executor.setter
-    def analysis_executor(self, analysis_executor):
+    def analysis_executor(self, analysis_executor: AnalysisExecutor):
         self._analysis_executor = analysis_executor
         for fact_gen in self.fact_generators.values():
             fact_gen.analysis_executor = self.analysis_executor
@@ -260,14 +260,14 @@ class MixedFactGenerator(AbstractFactGenerator):
         del self.out_dir_to_gen[out_dir]
         return result
 
-    def match_pattern(self, contract_filename) -> bool:
+    def match_pattern(self, contract_filename: str) -> bool:
         for gen in self.fact_generators.values():
             if gen.match_pattern(contract_filename):
                 self.contract_filename_to_gen[contract_filename] = gen
                 return True
         return False
 
-    def add_fact_generator(self, pattern, scripts, is_default, args):
+    def add_fact_generator(self, pattern: str, scripts: List[str], is_default: bool, args):
         if not pattern.endswith("$"):
             pattern = pattern + "$"
         if is_default:
@@ -365,7 +365,7 @@ class DecompilerFactGenerator(AbstractFactGenerator):
 class CustomFactGenerator(AbstractFactGenerator):
     analysis_executor: AnalysisExecutor
 
-    def __init__(self, pattern, custom_fact_gen_scripts):
+    def __init__(self, pattern: str, custom_fact_gen_scripts: List[str]):
         self.analysis_executor = None
         if not pattern.endswith("$"):
             pattern = pattern + "$"
