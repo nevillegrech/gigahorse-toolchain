@@ -6,6 +6,15 @@
 
 .output ByteCodeHex(IO="file", filename="bytecode.hex")
 
+.decl DecompilerConfig(config: symbol) btree_delete
+.output DecompilerConfig
+
+DecompilerConfig("default").
+
+DecompilerConfig(default) <= DecompilerConfig(other):-
+  default = "default",
+  other != default.
+
 .decl GlobalEntryBlock(block: IRBlock)
 .output GlobalEntryBlock
 

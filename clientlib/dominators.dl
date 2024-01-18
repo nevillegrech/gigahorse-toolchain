@@ -331,9 +331,10 @@ FunctionReachableFromPublic(callee, selector, @list_append(callerStack, callerBl
 FunctionReachableFromPublic_Metadata(function, selectorNorm, nil, nil, nil):-
   PublicFunctionId(function, selectorNorm, _).
 
-FunctionReachableFromPublic_Metadata(callee, selector, @list_append(callerStack, callerBlock), @list_append(originalCalls, original), @list_append(functionsCalled, callee)):-
+FunctionReachableFromPublic_Metadata(callee, selector, @list_append(callerStack, callerBlock), @list_concat(originalCalls, originalList), @list_append(@list_concat(functionsCalled, inlinedFuns), callee)):-
   FunctionReachableFromPublic_Metadata(caller, selector, callerStack, originalCalls, functionsCalled),
   InFunction(callerBlock, caller),
   CallGraphEdge(callerBlock, callee),
   Block_Tail(callerBlock, callStmt),
-  Statement_OriginalStatement(callStmt, original).
+  Statement_OriginalStatementList(callStmt, originalList),
+  Statement_InlineInfo(callStmt, inlinedFuns).

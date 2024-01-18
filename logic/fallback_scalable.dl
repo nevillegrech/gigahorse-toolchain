@@ -4,3 +4,5 @@
 #define MAX_STACK_HEIGHT 30
 
 #include "main.dl"
+
+DecompilerConfig("scalable").
