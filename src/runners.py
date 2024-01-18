@@ -9,7 +9,7 @@ import shutil
 import json
 import re
 
-from typing import Tuple, List, Any, Optional
+from typing import Tuple, List, Any, Optional, Dict
 
 from abc import ABC, abstractmethod
 
@@ -233,9 +233,9 @@ class AbstractFactGenerator(ABC):
 
 
 class MixedFactGenerator(AbstractFactGenerator):
-    fact_generators: dict[re.Pattern, AbstractFactGenerator]
-    out_dir_to_gen = dict[str, AbstractFactGenerator]
-    contract_filename_to_gen: dict[str, AbstractFactGenerator]
+    fact_generators: Dict[re.Pattern, AbstractFactGenerator]
+    out_dir_to_gen: Dict[str, AbstractFactGenerator]
+    contract_filename_to_gen: Dict[str, AbstractFactGenerator]
 
     def __init__(self, args):
         self.fact_generators = {}
@@ -292,7 +292,6 @@ class DecompilerFactGenerator(AbstractFactGenerator):
     def __init__(self, args, pattern: str):
         self.context_depth = args.context_depth
         self.disable_scalable_fallback = args.disable_scalable_fallback
-        self.analysis_executor = None
         if not pattern.endswith("$"):
             pattern = pattern + "$"
         self.pattern = re.compile(pattern)
@@ -372,8 +371,6 @@ class DecompilerFactGenerator(AbstractFactGenerator):
 
 
 class CustomFactGenerator(AbstractFactGenerator):
-    analysis_executor: AnalysisExecutor
-
     def __init__(self, pattern: str, custom_fact_gen_scripts: List[str]):
         if not pattern.endswith("$"):
             pattern = pattern + "$"
