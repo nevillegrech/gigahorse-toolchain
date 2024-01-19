@@ -55,8 +55,7 @@ global.StatementPushesUsedLabel(stmt):-
   incompleteGlobal.VariableUsedInAsJumpdest(pushedVar),
   postTrans.Statement_Defines(stmt, pushedVar).
 
-global.sens.SpecialBlockEdge(block, next):- incompleteGlobal.NeedToAddCtxAtEdge(block, next).
-global.sens.OtherSpecialBlockEdge(block, next):- incompleteGlobal.NeedToNotCut(block, next).
+global.sens.ImportantBlockEdge(block, next):- incompleteGlobal.NeedToAddCtxAtEdge(block, next).
 
 COPY_CODE_FULL(global, postTrans)
 
@@ -328,14 +327,6 @@ PreMask_Length(cat(mask, "ff"), bytes+1) :-
   DEBUG_OUTPUT(NeedToAddCtxAtEdge)
   NeedToAddCtxAtEdge(fromBlock, toBlock):-
     ImprecisionIntroducedAtEdge(ctx, fromBlock, ctx, toBlock, _).
-
-  .decl NeedToNotCut(fromBlock: Block, toBlock: Block)
-  DEBUG_OUTPUT(NeedToNotCut)
-  NeedToNotCut(fromBlock, toBlock):-
-    ImprecisionIntroducedAtEdge(ctx, fromBlock, otherCtx, toBlock, _),
-    PrivateFunctionCallOrReturn(fromBlock),
-    ctx != otherCtx.
-
 }
 
 /**

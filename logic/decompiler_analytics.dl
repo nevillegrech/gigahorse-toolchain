@@ -502,10 +502,3 @@ Analytics_BlocksLocalOrNot(block1, block2) :-
 
 Analytics_NeedToAddCtxAtEdge(from, to):-
   global.NeedToAddCtxAtEdge(from, to).
-
-.decl Analytics_NeedToNotCut(from: Block, to: Block)
-.output Analytics_NeedToNotCut
-
-Analytics_NeedToNotCut(from, to):-
-  global.NeedToNotCut(from, to).
-
