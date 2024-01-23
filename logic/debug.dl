@@ -16,7 +16,7 @@
 .output FunctionalBlockInputContents, FunctionalBlockOutputContents, FunctionalStatement_Uses_Local
 .output NumberOfFunctionArguments
 .output NumberOfFunctionReturnArguments
-
+.output Block_IRBlock
 .output Variable_String
 
 // The following relations print a number instead of a context in record form to help debugging

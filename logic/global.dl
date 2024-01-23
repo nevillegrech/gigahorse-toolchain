@@ -55,6 +55,8 @@ global.StatementPushesUsedLabel(stmt):-
   incompleteGlobal.VariableUsedInAsJumpdest(pushedVar),
   postTrans.Statement_Defines(stmt, pushedVar).
 
+global.sens.ImportantBlockEdge(block, next):- incompleteGlobal.NeedToAddCtxAtEdge(block, next).
+
 COPY_CODE_FULL(global, postTrans)
 
 // Masks with all 1s
@@ -281,6 +283,50 @@ PreMask_Length(cat(mask, "ff"), bytes+1) :-
     BlockInputContents(_, block, selectorStackIndex, selectorVariable),
     FunctionSelectorVariable(selectorVariable).
 
+
+  .decl ImpreciseBlockInputContentsIndex(ctx: sens.Context, block: Block, index: StackIndex)
+  DEBUG_OUTPUT(ImpreciseBlockInputContentsIndex)
+  .decl ImpreciseBlockOutputContentsIndex(ctx: sens.Context, block: Block, index: StackIndex)
+  DEBUG_OUTPUT(ImpreciseBlockOutputContentsIndex)
+  .decl ImpreciseBlockInputContentsIndexFromPrev(ctx: sens.Context, block: Block, index: StackIndex)
+  DEBUG_OUTPUT(ImpreciseBlockInputContentsIndexFromPrev)
+  .decl ImprecisionIntroducedAtEdge(fromCtx: sens.Context, fromBlock: Block, toCtx: sens.Context, to: Block, index: StackIndex)
+  DEBUG_OUTPUT(ImprecisionIntroducedAtEdge)
+
+
+  /**
+    __Note__: Plans are commented out, they were needed at some point so I added them.
+    Right now adding them breaks souffle 2.4 so I removed them. Didn't make a difference
+  */
+  ImpreciseBlockInputContentsIndex(ctx, block, index):-
+    BlockInputContents(ctx, block, index, var1),
+    BlockInputContents(ctx, block, index, var2),
+    var1 != var2.
+  //  .plan 1:(2,1)
+
+  ImpreciseBlockOutputContentsIndex(ctx, block, index):-
+    BlockOutputContents(ctx, block, index, var1),
+    BlockOutputContents(ctx, block, index, var2),
+    var1 != var2.
+  //  .plan 1:(2,1)
+
+  ImpreciseBlockInputContentsIndexFromPrev(ctx, block, index):-
+    ImpreciseBlockInputContentsIndex(ctx, block, index),
+    BlockEdge(prevCtx, prevBlock, ctx, block),
+    ImpreciseBlockOutputContentsIndex(prevCtx, prevBlock, index).
+    // .plan 1:(2,1,3), 2:(3,2,1)
+
+  ImprecisionIntroducedAtEdge(fromCtx, fromBlock, toCtx, to, index):-
+    BlockEdge(fromCtx, fromBlock, toCtx, to),
+    ImpreciseBlockInputContentsIndex(toCtx, to, index),
+    !ImpreciseBlockInputContentsIndexFromPrev(toCtx, to, index),
+    !ImpreciseBlockOutputContentsIndex(fromCtx, fromBlock, index).
+  //  .plan 1:(2,1)
+
+  .decl NeedToAddCtxAtEdge(fromBlock: Block, toBlock: Block)
+  DEBUG_OUTPUT(NeedToAddCtxAtEdge)
+  NeedToAddCtxAtEdge(fromBlock, toBlock):-
+    ImprecisionIntroducedAtEdge(ctx, fromBlock, ctx, toBlock, _).
 }
 
 /**

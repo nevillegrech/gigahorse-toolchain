@@ -568,7 +568,7 @@ if __name__ == "__main__":
                         type=int,
                         nargs="?",
                         metavar="NUM",
-                        help="Override the maximum context depth for decompilation (default is 8).")
+                        help="Override the maximum context depth for decompilation (default is 20).")
 
     parser.add_argument("--early_cloning",
                         action="store_true",
