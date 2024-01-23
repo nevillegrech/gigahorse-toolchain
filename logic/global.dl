@@ -142,11 +142,10 @@ PreMask_Length(cat(mask, "ff"), bytes+1) :-
     Variable_Value(variable, value).
 
   GlobalVariable_Value(ctx, stackIndex, value):-
-    ReachableContext(ctx, block),
+    BlockInputContents(ctx, block, stackIndex, variable),
     Statement_Block(statement, block),
     Statement_Uses_Local(statement, stackIndex, _),
     CheckIsStackIndex(stackIndex),
-    BlockInputContents(ctx, block, stackIndex, variable),
     Variable_Value(variable, value).
 
   // Auxiliary relations for constant folding
@@ -157,7 +156,7 @@ PreMask_Length(cat(mask, "ff"), bytes+1) :-
     Statement_Uses_Local(stmt, b, 1),
     GlobalVariable_Value(ctx, a, aval),
     GlobalVariable_Value(ctx, b, bval).
-
+   .plan 0:(4,2,3,5,1),1:(5,3,2,4,1)
 
   // .decl UnopStatementOpAndArgs(stmt: Statement, op: Opcode, a: Variable)
   // UnopStatementOpAndArgs(stmt, op, as(a, Variable)) :-
