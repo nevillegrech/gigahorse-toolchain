@@ -104,3 +104,24 @@ DEBUG_OUTPUT(StructStore)
   `arg` is the `index`'th formal argument of public function `pubFun`
 */
 .decl PublicFunctionArg(pubFun: Function, arg: Variable, index: number)
+
+/**
+  Calldata `arrayArg` is the `index`'th formal argument of public function `pubFun`
+*/
+.decl PublicFunctionArrayArg(pubFun: Function, arrayArg: ArrayVariable, index: number)
+
+/**
+  Calldata `structArg` is the `index`'th formal argument of public function `pubFun`
+  These are only infered for struct containing dynamic arrays as per the
+  [ABI spec](https://docs.soliditylang.org/en/latest/abi-spec.html#formal-specification-of-the-encoding)
+*/
+.decl PublicFunctionStructArg(pubFun: Function, structArg: Variable, index: number)
+
+
+.type StatementOrLoop = Statement | Block
+
+/**
+  Statement or loop `loc` copies the value of array `from` to array `to`.  
+  __Note__: `to` can be `RawDataArray` right now. Perhaps not the best way to go.
+*/
+.decl ArrayCopy(loc: StatementOrLoop, from: ArrayVariable, to: ArrayVariable)

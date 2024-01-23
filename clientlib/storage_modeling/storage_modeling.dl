@@ -1,0 +1,11 @@
+#pragma once
+#define DATA_STRUCTURE_SUPPORT
+
+#include "../dominators.dl"
+#include "../flows.dl"
+#include "../casts_shifts.dl"
+
+#include "data_structures.dl"
+#include "tight_packing.dl"
+#include "legacy_data_structures.dl"
+#include "metrics.dl"

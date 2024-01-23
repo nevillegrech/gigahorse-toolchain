@@ -10,27 +10,30 @@
  *****/
 
 
-/******
-         Generic basic block Reachable-from implementation
-******/
+/**
+  This relation is used in two places to ensure the precision of possible calls.
+  We start from the facts of `PossibleReturnAddressWithRank` and keep both `retBlock` and `retTarget`
+  in order to be general enough and support complex calls with shared `retBlock`s or `retTarget`s.
+*/
 
-// Created because its faster to iterate it than to iterate BlockEdge
-// when we only care about contexts
-.decl ContextEdge(ctxFrom:global.sens.Context, ctxTo:global.sens.Context)
-ContextEdge(ctxFrom, ctxTo):-
-  global.BlockEdge(ctxFrom, _, ctxTo, _).
-
-.decl ContextCanReach(fromCtx: global.sens.Context, ctx: global.sens.Context)
+.decl ContextCanReachFromCallerToReturn(fromCtx: global.sens.Context, caller: Block, ctx: global.sens.Context, toBlock: Block, retBlock: Block, targetBlock: Block)
 #ifdef ENABLE_LIMITSIZE
-.limitsize ContextCanReach(n=LIMITSIZE_CAN_REACH_UNDER_CONTEXT)
+.limitsize ContextCanReachFromCallerToReturn(n=LIMITSIZE_CAN_REACH_UNDER_CONTEXT)
 #endif
 
-ContextCanReach(ctx, ctx) :-
-  global.ReachableContext(ctx, _).
+ContextCanReachFromCallerToReturn(callCtx, caller, ctxTo, toBlock, retBlock, retTarget) :-
+  PossibleReturnAddressWithRank(callCtx, caller, _, retBlock, retTarget, _),
+  global.BlockEdge(callCtx, caller, ctxTo, toBlock).
 
-ContextCanReach(ctxFrom, ctxTo) :-
-  ContextCanReach(ctxFrom, ctxOther),
-  ContextEdge(ctxOther, ctxTo).
+ContextCanReachFromCallerToReturn(ctxFrom, caller, ctxTo, toBlock, retBlock, retTarget) :-
+  ContextCanReachFromCallerToReturn(ctxFrom, caller, ctxOther, otherBlock, retBlock, retTarget),
+  global.BlockEdge(ctxOther, otherBlock, ctxTo, toBlock),
+  retBlock != otherBlock.
+
+ContextCanReachFromCallerToReturn(ctxFrom, caller, ctxTo, toBlock, retBlock, retTarget) :-
+  ContextCanReachFromCallerToReturn(ctxFrom, caller, ctxOther, retBlock, retBlock, retTarget),
+  global.BlockEdge(ctxOther, retBlock, ctxTo, toBlock),
+  toBlock != retTarget.
 
 
 
@@ -72,16 +75,21 @@ PossibleReturnAddressWithPos(targetSetter, retCtx, retBlock, retTarget, pos) :-
   postTrans.JUMP(jumpStmt),
   postTrans.BeforeLocalStackContents(jumpStmt, pos, targetVariable).
 
+.decl OptPossibleReturnAddressWithPos(targetSetter:Block, retBlock:Block, retTarget:Block, pos:number)
+OptPossibleReturnAddressWithPos(targetSetter, retBlock, retTarget, pos) :-
+  PossibleReturnAddressWithPos(targetSetter, _, retBlock, retTarget, pos).
+  
 .decl PossibleReturnAddressWithLowerPos(targetSetter:Block, retBlock:Block, retTarget:Block, pos:number, otherPos:number)
 PossibleReturnAddressWithLowerPos(targetSetter, retBlock, retTarget, pos, otherPos) :-
-  PossibleReturnAddressWithPos(targetSetter, _, retBlock, retTarget, pos),
-  PossibleReturnAddressWithPos(targetSetter, _, _, _, otherPos),
+  OptPossibleReturnAddressWithPos(targetSetter, retBlock, retTarget, pos),
+  OptPossibleReturnAddressWithPos(targetSetter, _, _, otherPos),
   otherPos < pos.
 
 .decl InitialPossibleReturnAddressWithRank(targetSetter:Block, retCtx:global.sens.Context, retBlock:Block, retTarget:Block, rank:number)
 InitialPossibleReturnAddressWithRank(targetSetter, retCtx, retBlock, retTarget, rank) :-
   PossibleReturnAddressWithPos(targetSetter, retCtx, retBlock, retTarget, pos),
-  rank = count : PossibleReturnAddressWithLowerPos(targetSetter, retBlock, retTarget, pos, _).
+  rank = count : PossibleReturnAddressWithLowerPos(targetSetter, retBlock, retTarget, pos, _),
+  rank < RETURN_ADDRESS_RANK_THRESHOLD.  
 
 .decl OptBlockJumpContext(callCtx:global.sens.Context, targetSetter:Block)
 OptBlockJumpContext(callCtx, targetSetter) :-
@@ -94,8 +102,8 @@ PossibleReturnAddressWithRank(callCtx, targetSetter, retCtx, retBlock, retTarget
 
 .decl MaxRankForPossibleReturnAddressSetter(targetSetter:Block, rank:number)
 MaxRankForPossibleReturnAddressSetter(targetSetter, rank) :-
-  InitialPossibleReturnAddressWithRank(targetSetter, _, retBlock, retTarget, rank),
-  PossibleReturnAddressWithPos(targetSetter, _, retBlock, retTarget, pos),
+  InitialPossibleReturnAddressWithRank(targetSetter, retCtx, retBlock, retTarget, rank),
+  PossibleReturnAddressWithPos(targetSetter, retCtx, retBlock, retTarget, pos),
   !PossibleReturnAddressWithLowerPos(targetSetter, _, _, _, pos).
 
 
@@ -123,8 +131,9 @@ MaybeFunctionCallReturn(ctx, caller, func, retCtx, retBlock, retTarget) :-
   postTrans.Statement_Block(jump, caller),
   postTrans.Statement_Opcode(jump, "JUMP"), //Added to invalidate JUMPIs we will need to deal with them though
   global.BlockJumpValidTarget(ctx, caller, targetVar, func),
-  ContextCanReach(ctx, retCtx),
+  ContextCanReachFromCallerToReturn(ctx, caller, retCtx, retBlock, retBlock, retTarget),
   global.BlockJumpValidTarget(retCtx, retBlock, _, retTarget).
+ .plan 1:(6,1,2,3,4,5,7)
 
 /**
   Introduced to use in many rules that don't use the context of the context-sensitive version
@@ -139,10 +148,11 @@ MaybeFunctionCallReturn_Ins(caller, func, retBlock, retTarget):-
 .decl PossibleReturnAddressWithPositiveRank(callCtx:global.sens.Context, targetSetter:Block, retCtx:global.sens.Context, retBlock:Block, retTarget:Block, rank:number)
 PossibleReturnAddressWithPositiveRank(callCtx, caller, retCtx, retBlock, retTarget, n) :-
   PossibleReturnAddressWithRank(callCtx, caller, retCtx, retBlock, retTarget, n),
-  ContextCanReach(callCtx, retCtx),
+  ContextCanReachFromCallerToReturn(callCtx, caller, retCtx, retBlock, retBlock, retTarget),
   global.BlockJumpValidTarget(retCtx, retBlock, _, retTarget),
   n > 0,
   n < RETURN_ADDRESS_RANK_THRESHOLD.
+ .plan 1:(2,1,3)
 
 .decl MaybeFunctionCallReturnNewContext(ctx:global.sens.Context, caller:Block, retTargetCtx:global.sens.Context, retTarget:Block)
 MaybeFunctionCallReturnNewContext(ctx, caller, retTargetCtx, retTarget) :-
@@ -252,8 +262,8 @@ IsFunctionCallReturn(ctx, caller, func, retCtx, retBlock, retTarget) :-
 .decl PublicFunctionFiltered(block: Block, sigHash: Value)
 
 PublicFunctionFiltered(func, sigHash):-
-   postTrans.PublicFunctionJump(prev, sigHash),
-   postTrans.PublicFunction(func, sigHash),
+   postTrans.PublicFunctionJump(prev, sigHash, _),
+   postTrans.PublicFunction(func, sigHash, _),
    global.BlockEdge(_, prev, _, func).
 
 // NOTE the philosophy!  MaybeFunctionCallReturn intends to be
@@ -274,7 +284,7 @@ IsFunctionEntry(func) :- IsFunctionCallReturn(_, _, func, _, _, _).
 
 IsFunctionCall(prev, func),
 IsPublicFunctionCall(prev, func) :-
-   postTrans.PublicFunctionJump(prev, sigHash),
+   postTrans.PublicFunctionJump(prev, sigHash, _),
    PublicFunctionFiltered(func, sigHash),
    global.BlockEdge(_, prev, _, func).
 
@@ -419,14 +429,21 @@ IRInFunction(irblock, irFunc) :-
 // Now let's settle the edges of the graph: which
 // block is connected to which next one.
 
-.decl IRFunction_Return_Edge(block: IRBlock, next: IRBlock)
+
+/**
+  Contains the (callee-side) return block `ret` of __private__ function `fn`
+*/
 .decl IRFunction_Return(fn: IRFunction, ret: IRBlock)
+
+/**
+  Block `caller` makes a call to __private__ function `func`, with control-flow resuming to
+  the caller-side block `retcaller`.
+*/
 .decl IRFunctionCallReturn(caller: IRBlock, func: IRFunction, retcaller: IRBlock)
 
 // Be strict in our precision demands for recognizing a call
 IRFunction_Return(irfunc, retir),
-IRFunctionCallReturn(callerir, irfunc, callerretir),
-IRFunction_Return_Edge(retir, callerretir) :-
+IRFunctionCallReturn(callerir, irfunc, callerretir):-
   IsFunctionCallReturn(ctx, caller, func, _, ret, callerret), //REVIEW: take advantage of retCtx
   MaybeInFunctionUnderContext(ctx, caller, prevfunc),
   Block_IRBlock(ret, func, retir),
@@ -436,10 +453,10 @@ IRFunction_Return_Edge(retir, callerretir) :-
   //!BlockToClone(func, prevfunc).
 
 
-// REVIEW: IRFunctionCall will include the IRFunctionCallReturn
-// edges, i.e., the fully resolved calls, all the way to returns
-// to the same caller function. Seems later stages can handle this?
-
+/**
+  `IRFunctionCall` includes the results of `IRFunctionCallReturn` (__private__ function calls).  
+  In addition it includes the "calls" to the contract's own __public__ functions inside the function selector.
+*/
 .decl IRFunctionCall(from: IRBlock, func: IRFunction)
 
 IRFunctionCall(callerir, irfunc) :-
@@ -726,7 +743,7 @@ FunctionalBlockPopDelta(from, newPopDelta) :-
   PossibleImpreciseNumberOfFunctionArguments(func, n_args),
   IRBlockStackDelta(from, stackDelta),
   newPopDelta = max(n_args - stackDelta, popDelta),
-  CheckIsPopDelta(newPopDelta).
+  CheckIsPopDeltaOpt(n_args - stackDelta). // equivalent to CheckIsPopDelta(newPopDelta)
 
 
 // What is the total difference in stack level during this block ?
@@ -797,7 +814,8 @@ PossibleFunctionalBlockPopAndStackDelta(func, to, newPath, newPopDelta, newStack
   FunctionalBlockPopAndStackDelta(from, popDelta, stackDelta),
   newStackDelta = stackDelta + prevStackDelta,
   newPopDelta = max(popDelta - prevStackDelta, prevPopDelta),
-  CheckIsPopDelta(newPopDelta), CheckIsStackDelta(newStackDelta).
+  CheckIsPopDeltaOpt(popDelta - prevStackDelta), // equivalent to CheckIsPopDelta(newPopDelta)
+  CheckIsStackDelta(newStackDelta).
   .plan 1:(3,2,1)
 
 // Basic blocks that need to be checked for cycles in path sensitive algorithms
@@ -826,9 +844,11 @@ PossibleCombinedNumberOfFunctionReturnsAndArguments(func, terminal, as(numArg, S
   PossibleFunctionalBlockPopAndStackDelta(func, terminal, _, prevPopDelta, prevStackDelta),
   FunctionalBlockPopAndStackDelta(terminal, popDelta, stackDelta),
   numArg = max(popDelta - prevStackDelta, prevPopDelta),
-  CheckIsPopDelta(numArg),
+  CheckIsNumArgs(numArg),
+//  CheckIsPopDeltaOpt(popDelta - prevStackDelta), // equivalent to CheckIsPopDelta(numArg),
   numRet = prevStackDelta + stackDelta + numArg,
-  CheckIsStackIndex(numRet).
+  CheckIsNumRets(numRet).
+//  CheckIsStackIndex(numRet).
     // When leaving the stack with d more items but it originally
     // contained a args, the total number of returned values is d+a.
  .plan 1:(2,1)
@@ -1045,6 +1065,9 @@ FunctionalStatement_Uses(stmt, var, n) :-
 .decl PublicFunctionSignature(hex_signature: symbol, text_signature: symbol)
 .input PublicFunctionSignature
 
+.decl HighLevelFunctionInfo(id: symbol, entry_point: Block, numOfArgs: number, numOfRets: number)
+.input HighLevelFunctionInfo
+
 .decl HighLevelFunctionName(func: IRFunction, name: symbol)
 
 // Standardize public function signature length
@@ -1055,7 +1078,7 @@ SighashIntermediate(sigIn, cat("0x0",substr(sigOut,2,8))) :-
    strlen(sigOut) < 10.
 
 SighashIntermediate(sig, sig) :-
-   postTrans.PublicFunction(_, sig).
+   postTrans.PublicFunction(_, sig, _).
 
 .decl IRPublicFunction(irfunc: IRFunction, sigHash: Value)
 IRPublicFunction(irfunc, sigHash) :-
@@ -1076,9 +1099,18 @@ HighLevelFunctionName(func, name) :-
    PublicFunction_HighLevel(func, name),
    !PublicFunctionSignature(name, _).
 
-HighLevelFunctionName(func, func) :-
-   IRFunctionEntry(func),
+HighLevelFunctionName(irFunc, irFunc) :-
+   IRFunctionEntry(irFunc),
+   Function_IRFunction(func, irFunc),
+   irFunc != "0x0",
+   !HighLevelFunctionInfo(_, func, _, _),
+   !IRPublicFunction(irFunc, _).
+
+HighLevelFunctionName(irFunc, id) :-
+   IRFunctionEntry(irFunc),
    func != "0x0",
-   !IRPublicFunction(func, _).
+   Function_IRFunction(func, irFunc),
+   HighLevelFunctionInfo(id, func, _, _),
+   !IRPublicFunction(irFunc, _).
 
 HighLevelFunctionName(FUNCTION_SELECTOR, "__function_selector__").

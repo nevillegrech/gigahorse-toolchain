@@ -15,6 +15,15 @@
 .type Chunk <: number
 .type OriginalStatement <: symbol
 
+// Defined in souffle-addon/functor_includes.dl
+// .type StringList = [x: symbol, y: StringList]
+
+// Removed the definition in order to use the stateless functor on lists
+// .type OriginalStatementList = [stmt: OriginalStatement, rest: OriginalStatementList]
+
+.type OriginalStatementList = StringList
+
+.type FunctionList = StringList
 
 
 #include "tac_instructions.dl"
@@ -123,6 +132,46 @@
 IsPublicFunction(func) :- PublicFunctionSelector(func, _).
 
 /**
+  A subset of IsFunction, contains only functions that are the "inner" part of a high level function with a modifier.
+*/
+.decl FunctionIsInner(func: Function)
+.input FunctionIsInner(IO="file", filename="FunctionIsInner.csv", delimiter="\t")
+
+
+/**
+  Helper for selectors
+*/
+.decl NormalizeSelector(sigHash: symbol, sigHashNorm: symbol)
+NormalizeSelector(sigHash, sigHashNorm):-
+  ConstantPossibleSigHash(sigHash, sigHashNorm, _).
+
+NormalizeSelector(sigHash, sigHashNorm):-
+  Variable_Value(_, sigHash),
+  substr(sigHash, 0, 2) = "0x",
+  ((strlen(sigHash) = 10, sigHashNorm = sigHash) ;
+   (strlen(sigHash) = 9, sigHashNorm = cat("0x", cat("0"), substr(sigHash, 2, 7)));
+   (strlen(sigHash) = 8, sigHashNorm = cat("0x", cat("00"), substr(sigHash, 2, 6)));
+   (strlen(sigHash) = 7, sigHashNorm = cat("0x", cat("000"), substr(sigHash, 2, 5)))).
+
+
+/**
+  Spec: if there is a known name, list that, otherwise the text of the sig hash
+  This is the complement of CallToSignature, on the declaration side
+*/
+.decl PublicFunctionId(fun: Function, sigHashNorm: symbol, sigText: symbol)
+PublicFunctionId(fun, sigHashNorm, sigText) :-
+  PublicFunctionSelector(fun, pubsigHash),
+  ConstantPossibleSigHash(pubsigHash, sigHashNorm, sigText).
+
+PublicFunctionId(fun, sigHashNorm, sigHashNorm):-
+  PublicFunctionSelector(fun, pubsigHash),
+  !ConstantPossibleSigHash(pubsigHash, _, _),
+  NormalizeSelector(pubsigHash, sigHashNorm).
+
+DEBUG_OUTPUT(PublicFunctionId)
+
+
+/**
   Name given to each function. May contain public signature too.
   Useful for presentation purposes.
 */
@@ -151,6 +200,23 @@ IsPublicFunction(func) :- PublicFunctionSelector(func, _).
 */
 .decl Statement_OriginalStatement(stmt: Statement, originalStatement: OriginalStatement)
 .input Statement_OriginalStatement(IO="file", filename="TAC_Statement_OriginalStatement.csv", delimiter="\t")
+
+
+/**
+  Relation that links statements to a list of statements in the original bytecode.
+  Gives us better bytecode mapping for inlined statements.
+  Is a best effort that should cover most statements.
+*/
+.decl Statement_OriginalStatementList(irstmt: Statement, stmtList: OriginalStatementList)
+.input Statement_OriginalStatementList(IO="file", filename="TAC_Statement_OriginalStatementList.csv", delimiter="\t")
+
+/**
+  Relation that links statements to a list of inlined private functions infered from the original bytecode.
+  Gives us better debug info/bytecode mapping for inlined statements.
+  Is a best effort that should cover most statements.
+*/
+.decl Statement_InlineInfo(irstmt: Statement, stmtList: FunctionList)
+.input Statement_InlineInfo(IO="file", filename="TAC_Statement_InlineInfo.csv", delimiter="\t")
 
 // Code chunks accessed
 .decl Block_CodeChunkAccessed(block: Block, chunk_id: Chunk)
@@ -287,6 +353,23 @@ Block_Tail(block, stmt) :-
   !PHI(stmt, _, _),
   !Helper_NextStatementInSameBlock(stmt, _).
 
+// Block_Tail(block, stmt):-
+//   Statement_Block(stmt, block),
+//   PHI(stmt, _, _),
+//   !Helper_NextStatementInSameBlock(stmt, _), //doesn't have next statement
+//   1 = count : Helper_NextStatementInSameBlock(_, stmt). // has previous statement
+
+// Block_Tail(block, stmt):-
+//   Statement_Block(stmt, block),
+//   PHI(stmt, _, _),
+//   !Helper_NextStatementInSameBlock(stmt, _), //doesn't have next statement
+//   !Helper_NextStatementInSameBlock(_, stmt). // doesn't have previous statement
+
+// Block_Head(block, stmt):-
+//   Statement_Block(stmt, block),
+//   PHI(stmt, _, _),
+//   !Helper_NextStatementInSameBlock(_, stmt), // has no previous statements
+//   1 = count : Helper_NextStatementInSameBlock(stmt, _). //has next statement
 
 .decl IsBlock(block: Block)
 
@@ -309,13 +392,16 @@ ValidGlobalTerminalBlock(block) :-
    (STOP(tail) ; RETURN(tail, _, _)).
 
 .decl GlobalEntryBlock(block: Block)
+.input GlobalEntryBlock(IO="file", filename="GlobalEntryBlock.csv", delimiter="\t")
 
-GlobalEntryBlock("0x0").
 
 .decl FallbackFunction(func: Function)
 
 FallbackFunction(func) :- PublicFunctionSelector(func, "0x00000000").
 
+// Can be "default" or "scalable"
+.decl DecompilerConfig(config: symbol)
+.input DecompilerConfig
 
 
 // Dynamic Information

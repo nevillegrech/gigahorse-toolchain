@@ -2,12 +2,13 @@
 
 import abc
 import csv
-import logging
 import os
-from collections import defaultdict
 import src.opcodes as opcodes
+import src.basicblock as basicblock
 from src.common import public_function_signature_filename, event_signature_filename, error_signature_filename
 
+
+from typing import List, Tuple, Dict, Any, Optional
 
 opcode_output = {'alters_flow':bool, 'halts':bool, 'is_arithmetic':bool,
                  'is_call':bool, 'is_dup':bool, 'is_invalid':bool,
@@ -71,12 +72,12 @@ def get_disassembly(statement_opcode, push_value):
 
 
 class Exporter(abc.ABC):
-    def __init__(self, source: object):
+    def __init__(self, output_dir: str):
         """
         Args:
-          source: object instance to be exported
+          output_dir: directory to store facts
         """
-        self.source = source
+        self.output_dir = output_dir
 
     @abc.abstractmethod
     def export(self):
@@ -84,50 +85,89 @@ class Exporter(abc.ABC):
         Exports the source object to an implementation-specific format.
         """
 
+class TsvExporter(Exporter):
+    def __init__(self, output_dir: str):
+        super().__init__(output_dir)
 
-class InstructionTsvExporter(Exporter):
+    def get_out_file_path(self, filename):
+        return os.path.join(self.output_dir, filename)
+
+    def generate(self, filename: str, entries: List[Any]):
+        with open(self.get_out_file_path(filename), 'w') as f:
+            writer = csv.writer(f, delimiter='\t', lineterminator='\n')
+            writer.writerows(entries)
+
+
+class InstructionTsvExporter(TsvExporter):
     """
     Prints a textual representation of the given CFG to stdout.
 
     Args:
-      cfg: source CFG to be printed.
-      ordered: if True (default), print BasicBlocks in order of entry.
+      blocks: low-level evm block representation to be output
+      ordered: if True (default), print BasicBlocks in order of entry
+      bytecode_hex: bytecode in hexadecimal form, used to export the compiler metadata
+      metadata: dict containing metadata output by the solidity compiler
     """
 
-    def __init__(self, blocks, ordered: bool = True):
-        self.ordered = ordered
-        self.blocks = []
+    def __init__(self, output_dir: str, blocks: List[basicblock.EVMBasicBlock], ordered: bool = True,
+                 bytecode_hex: Optional[str] = None, metadata: Optional[Dict[Any, Any]] = None):
+        super().__init__(output_dir)
         self.blocks = blocks
+        self.ordered = ordered
+        self.bytecode_hex = bytecode_hex
+        self.process_metadata(metadata)
 
-    def visit_ControlFlowGraph(self, cfg):
+    def process_metadata(self, metadata: Optional[Dict[Any, Any]] = None) -> None:
         """
-        Visit the CFG root
+        Processes metadata dicts are produced by solc, to lists of facts we can output
         """
-        pass
+        def process_function_debug_data(function_debug_data: Dict[str, Dict[str, Optional[int]]]) -> List[Tuple[str, str, int, int]]:
+            return [(function_id,
+                    hex(debug_info["entryPoint"]) if debug_info["entryPoint"] else "0x0",
+                    debug_info["parameterSlots"] if debug_info["parameterSlots"] else 0,
+                    debug_info["returnSlots"]if debug_info["returnSlots"] else 0)
+                for function_id, debug_info in function_debug_data.items()]
 
-    def visit_BasicBlock(self, block):
-        """
-        Visit a BasicBlock in the CFG
-        """
-        self.blocks.append((block.entry, str(block)))
-    
-    def export(self, output_dir = "", bytecode_hex = None):
+        def process_immutable_refs(immutable_refs: Dict[str, List[Dict[str, int]]]) -> List[Tuple[str, int]]:
+            res = []
+            for id, accesses in immutable_refs.items():
+                # TODO: skipping this for now
+                if id == "library_deploy_address":
+                    continue
+                for access in accesses:
+                    res.append((hex(access['start']), int(id)))
+            return res
+
+        self.function_debug_data = process_function_debug_data(metadata.get('function_debug_info', {})) if metadata is not None else []
+        self.immutable_references = process_immutable_refs(metadata.get('immutable_references', {})) if metadata is not None else []
+
+    def export(self):
         """
         Print basic block info to tsv.
         """
 
         def get_version_str(metadata_prefix):
-            index = bytecode_hex.rindex(metadata_prefix) + len(metadata_prefix)
-            version_bytes = bytecode_hex[index : index + 6]
+            index = self.bytecode_hex.rindex(metadata_prefix) + len(metadata_prefix)
+            version_bytes = self.bytecode_hex[index : index + 6]
             return f"{int(version_bytes[0:2], 16)}.{int(version_bytes[2:4], 16)}.{int(version_bytes[4:6], 16)}"
 
-        if output_dir != "":
-            os.makedirs(output_dir, exist_ok=True)
+        def link_or_output_signature_file(signatures_filename_in: str, signatures_filename_out_simple: str):
+            signatures_filename_out = self.get_out_file_path(signatures_filename_out_simple)
+            if os.path.isfile(signatures_filename_in):
+                try:
+                    os.symlink(signatures_filename_in, signatures_filename_out)
+                except FileExistsError:
+                    pass
+            else:
+                open(signatures_filename_out, 'w').close()
+
+        if self.output_dir != "":
+            os.makedirs(self.output_dir, exist_ok=True)
         
-        if bytecode_hex:
-            with open(output_dir + "/bytecode.hex", "w") as f:
-                assert '\n' not in bytecode_hex
-                f.write(bytecode_hex)
+        if self.bytecode_hex:
+            with open(self.output_dir + "/bytecode.hex", "w") as f:
+                assert '\n' not in self.bytecode_hex
+                f.write(self.bytecode_hex)
 
             # 0x64 + "solc" + 0x43 which is followed by the solc version
             # only exists in solidity bytecode compiled using solc >= 0.5.9 when it is not explicitly removed
@@ -142,58 +182,23 @@ class InstructionTsvExporter(Exporter):
             language = "unknown"
             compiler_version = "unknown"
 
-            if solidity_metadata_prefix in bytecode_hex:
+            if solidity_metadata_prefix in self.bytecode_hex:
                 language = "solidity"
                 compiler_version = get_version_str(solidity_metadata_prefix)
-            elif solidity_metadata_prefix_old in bytecode_hex:
+            elif solidity_metadata_prefix_old in self.bytecode_hex:
                 language = "solidity"
                 compiler_version = "0.4.7<=v<0.5.9"
-            elif vyper_metadata_prefix in bytecode_hex:
+            elif vyper_metadata_prefix in self.bytecode_hex:
                 language = "vyper"
                 compiler_version = get_version_str(vyper_metadata_prefix)
 
-            with open(output_dir + "/compiler_info.csv", "w") as f:
+            with open(self.output_dir + "/compiler_info.csv", "w") as f:
                 f.write(f"{language}\t{compiler_version}")
 
-        signatures_filename_in = public_function_signature_filename
-        signatures_filename_out = os.path.join(output_dir, 'PublicFunctionSignature.facts')
-        if os.path.isfile(signatures_filename_in):
-            try:
-                os.symlink(signatures_filename_in, signatures_filename_out)
-            except FileExistsError:
-                pass
-        else:
-            open(signatures_filename_out, 'w').close()
+        link_or_output_signature_file(public_function_signature_filename, 'PublicFunctionSignature.facts')
+        link_or_output_signature_file(event_signature_filename, 'EventSignature.facts')
+        link_or_output_signature_file(error_signature_filename, 'ErrorSignature.facts')
         
-        events_filename_in = event_signature_filename
-        events_filename_out = os.path.join(output_dir, 'EventSignature.facts')
-        if os.path.isfile(events_filename_in):
-            try:
-                os.symlink(events_filename_in, events_filename_out)
-            except FileExistsError:
-                pass
-        else:
-            open(events_filename_out, 'w').close()
-
-        errors_filename_in = error_signature_filename
-        errors_filename_out = os.path.join(output_dir, 'ErrorSignature.facts')
-        if os.path.isfile(errors_filename_in):
-            try:
-                os.symlink(errors_filename_in, errors_filename_out)
-            except FileExistsError:
-                pass
-        else:
-            open(errors_filename_out, 'w').close()
-
-        def join(filename):
-            return os.path.join(output_dir, filename)
-
-        def generate(filename, entries):
-            with open(join(filename), 'w') as f:
-                writer = csv.writer(f, delimiter='\t', lineterminator='\n')
-                writer.writerows(entries)
-
-
         instructions = []
         instructions_order = []
         push_value = []
@@ -205,13 +210,14 @@ class InstructionTsvExporter(Exporter):
                     push_value.append((hex(op.pc), hex(op.value)))
 
         instructions_order = list(map(hex, sorted(instructions_order)))
-        generate('Statement_Next.facts', zip(instructions_order, instructions_order[1:]))
+        self.generate('Statement_Next.facts', zip(instructions_order, instructions_order[1:]))
 
-        generate('Statement_Opcode.facts', instructions)
+        self.generate('Statement_Opcode.facts', instructions)
                     
-        generate('PushValue.facts', push_value)
+        self.generate('PushValue.facts', push_value)
         dasm = get_disassembly(instructions, dict(push_value))
-        with open(join('contract.dasm'), 'w') as f:
+        with open(self.get_out_file_path('contract.dasm'), 'w') as f:
             f.write(dasm)
-        
-        
+
+        self.generate('HighLevelFunctionInfo.facts', self.function_debug_data)
+        self.generate('ImmutableLoads.facts', self.immutable_references)

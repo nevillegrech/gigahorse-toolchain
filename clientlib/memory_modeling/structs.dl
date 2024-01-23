@@ -31,6 +31,14 @@ DEBUG_OUTPUT(Struct_WordWidth)
 .decl InitialStoreToPossibleStruct(mstore: Statement, structBase: Variable, storedVar: Variable, wordOffset: number)
 DEBUG_OUTPUT(InitialStoreToPossibleStruct)
 
+/**
+  Helper to disqualify memory constructs that fit the patterns for both structs and constant arrays.
+  This is an issue because array and struct inference are mutually recursive and we cannot
+  use recursion.
+*/
+.decl ProbablyConstantArray(structBase: Variable)
+DEBUG_OUTPUT(ProbablyConstantArray)
+
 .decl StructIndex(structBase: Variable, indexVar: Variable, wordOffset: number)
 DEBUG_OUTPUT(StructIndex)
 
@@ -46,6 +54,7 @@ PossibleStructAllocation(mload, freePtrUpdStore, structBase, memDiff / 32):-
   MLOADFreePtr_To(mload, structBase),
   FreePointerBasedValue(updateVal, mload, _, memDiff),
   memDiff % 32 = 0,
+  memDiff / 32 > 0,
   Variable_SymbolicValue(updatedFMP, updateVal),
   MSTORE(freePtrUpdStore, _, updatedFMP),
   MSTOREFreePtr(freePtrUpdStore).
@@ -60,6 +69,33 @@ InitialStoreToPossibleStruct(mstore, structBaseVar, storedVar, memOffset / 32):-
   StatementDominates(mload, mstore),
   StatementDominates(mstore, freePtrUpdStore).
 
+ProbablyConstantArray(probablyArrayVar):-
+  PossibleStructAllocation(_, _, probablyArrayVar, _),
+  stores =  count : InitialStoreToPossibleStruct(_, probablyArrayVar, _, _),
+  stores > 0,
+  stores =  count : {
+    InitialStoreToPossibleStruct(_, probablyArrayVar, storedVar, _),
+    BasicVariable_Value(storedVar, _)
+  }.
+
+/**
+  Memory bounds check for struct allocations
+  Present in code produced by the viaIR pipeline
+*/
+.decl StructAllocationCheck(structBase: Variable)
+DEBUG_OUTPUT(StructAllocationCheck)
+
+StructAllocationCheck(structBase):-
+  PossibleStructAllocation(_, freePtrUpdStore, structBase, _),
+  MSTORE(freePtrUpdStore, _, storedVar),
+  LT(_, storedVar, structBase, pt1),
+  GT(_, storedVar, memLimitVar, pt2),
+  Variable_Value(memLimitVar, "0xffffffffffffffff"),
+  (OR(_, pt1, pt2, condVar); OR(_, pt2, pt1, condVar)),
+  JUMPI(jmpi, _, condVar),
+  ControlsWith(jmpi, throwBlock, condVar),
+  ThrowBlock(throwBlock).
+
 // REVIEW: it requires at least as many InitialStoreToPossibleStruct as the struct's words
 // it may possibly not be the case in optimized code
 // REVIEW: only infers the structs in cases where it escapes the current method
@@ -67,11 +103,104 @@ InitialStoreToPossibleStruct(mstore, structBaseVar, storedVar, memOffset / 32):-
 StructAllocation(freePtrUpdStore, structBaseVar, wordWidth):-
   PossibleStructAllocation(_, freePtrUpdStore, structBaseVar, wordWidth),
   wordWidth >= count : InitialStoreToPossibleStruct(_, structBaseVar, _, _),
-  DataFlows(structBaseVar, argOrRet),
-  (ActualArgs(_, argOrRet, _) ; ActualReturnArgs(_, argOrRet, _)).
+  LocalFlows(structBaseVar, argOrRet),
+  (ActualArgs(_, argOrRet, _) ; FormalReturnArgs(_, argOrRet, _)),
+  !ProbablyConstantArray(structBaseVar).
+
+StructAllocation(freePtrUpdStore, structBaseVar, wordWidth):-
+  PossibleStructAllocation(_, freePtrUpdStore, structBaseVar, wordWidth),
+  StructAllocationCheck(structBaseVar),
+  LocalFlows(structBaseVar, argOrRet),
+  (ActualArgs(_, argOrRet, _) ; FormalReturnArgs(_, argOrRet, _)),
+  !ProbablyConstantArray(structBaseVar).
+
+/**
+  If something that may be an array is stored to a memory addr derived from `structBaseVar`
+  of a `PossibleStructAllocation`, consider it a valid allocation.
+*/
+StructAllocation(freePtrUpdStore, structBaseVar, wordWidth):-
+  PossibleStructAllocation(mload, freePtrUpdStore, structBaseVar, wordWidth),
+  FreePointerBasedValue(storeIndexVal, mload, _, memOffset),
+  memOffset % 32 = 0,
+  memOffset / 32 < wordWidth,
+  Variable_SymbolicValue(memIndex, storeIndexVal),
+  MSTORE(_, memIndex, storedVar),
+  PossibleArray(storedVar).
+
+/**
+  If a `PossibleStructAllocation`, structBaseVar is written to an address derived from a possible array,
+  consider it a valid allocation.
+*/
+StructAllocation(freePtrUpdStore, structBaseVar, wordWidth):-
+  PossibleStructAllocation(_, freePtrUpdStore, structBaseVar, wordWidth),
+  MSTORE(_, memIndex, structBaseVar),
+  LocalFlows(posibleArray, memIndex),
+  PossibleArray(posibleArray).
+
+/**
+  Actually a pattern for constant-length arrays rather than structs
+  May differentiate the two at some point
+*/
+StructAllocation(freePtrUpdStore, structBaseVar, wordWidth):-
+  PossibleStructAllocation(_, freePtrUpdStore, structBaseVar, wordWidth),
+  CallDataCopyLoopConstantLength(_, _, structBaseVar, wordWidth*32).
 
 Struct_WordWidth(structBase, wordWidth):-
   StructAllocation(_, structBase, wordWidth).
+
+/**
+  Initial model of struct arguments in the calldata.
+  This is only supposed to model structs that include an array.
+  (see https://docs.soliditylang.org/en/latest/abi-spec.html#formal-specification-of-the-encoding)
+  If all of the struct's members are statically sized it's as if they are normal args.
+*/
+.decl IsArgCallDataStruct(structBaseVar: Variable, argHex: symbol)
+DEBUG_OUTPUT(IsArgCallDataStruct)
+
+.decl CallDataStructLoadingPattern(load: Statement, structBase: Variable, index: number, loadedVar: Variable, argHex: symbol)
+DEBUG_OUTPUT(CallDataStructLoadingPattern)
+
+.decl IntermediateStructLoad(cdl: Statement, structBase: Variable)
+/**
+  Resolve ambiguous patterns between calldata structs and arrays
+  Will improve
+*/
+.decl ProbablyUsedAsCallDataStruct(probablyStruct: Variable)
+ProbablyUsedAsCallDataStruct(probablyStruct):-
+  VarPlusConstNoIdentity(probablyStruct, const, loadVar),
+  @hex_to_number(const) % 32 = 0,
+  CALLDATALOAD(_, loadVar, _).
+
+IsArgCallDataStruct(structBaseVar, argHex),
+CallDataStructLoadingPattern(cdl, structBaseVar, @hex_to_number(offset)/32, loadedVar, argHex):-
+  InitialCallDataPointerDefinition(structBaseVar, argHex),
+  Variable_CallDataPointer(structBaseVar, $OffsetCallDataPointer($InitialCallDataPointer(argHex), "0x0")),
+  Variable_CallDataPointer(indexVar, $OffsetCallDataPointer($InitialCallDataPointer(argHex), offset)),
+  Variable_Function(structBaseVar, fun),
+  Variable_Function(indexVar, fun),
+  @hex_to_number(offset) % 32 = 0,
+  CALLDATALOAD(cdl, indexVar, loadedVar),
+  ProbablyUsedAsCallDataStruct(structBaseVar),
+  !ADDFix(_, loadedVar, structBaseVar, _).
+
+IsArgCallDataStruct(structBaseVar, argHex),
+IsCallDataArrayVar(structArrayVar),
+// StructContainsArray(structBaseVar, @hex_to_number(offset)/32, "??"),
+IntermediateStructLoad(cdl, structBaseVar),
+CallDataStructLoadingPattern(addStmt, structBaseVar, @hex_to_number(offset)/32, structArrayVar, argHex):-
+  InitialCallDataPointerDefinition(structBaseVar, argHex),
+  Variable_CallDataPointer(structBaseVar, $OffsetCallDataPointer($InitialCallDataPointer(argHex), "0x0")),
+  Variable_CallDataPointer(indexVar, $OffsetCallDataPointer($InitialCallDataPointer(argHex), offset)),
+  Variable_Function(structBaseVar, fun),
+  Variable_Function(indexVar, fun),
+  @hex_to_number(offset) % 32 = 0,
+  CALLDATALOAD(cdl, indexVar, loadedVar),
+  ProbablyUsedAsCallDataStruct(structBaseVar),
+  ADDFix(addStmt, loadedVar, structBaseVar, structArrayVar).
+
+Struct_WordWidth(structBaseVar, maxIndex + 1):-
+  IsArgCallDataStruct(structBaseVar, _),
+  maxIndex = max index : {CallDataStructLoadingPattern(_, structBaseVar, index, _, _)}.
 
 StructIndex(structBaseVar, indexVar, memOffset / 32):-
   Struct_WordWidth(structBaseVar, wordWidth),
@@ -111,20 +240,46 @@ MemoryModelingTempStmt(mstore):-
   StructAllocation(mstore, _, _).
 
 /**
-  PossibleStructArg is used to add new symbolic values for memory addresses to the formal variables
-  TODO: Add the same for returns
+  Hack to model structs passed through function args/rets
+*/
+.decl PossibleStruct(structVar: Variable)
+DEBUG_OUTPUT(PossibleStruct)
+
+/**
+  PossibleStructArg is used to add new symbolic values for memory addresses to the formal argument variables
 */
 .decl PossibleStructArg(function: Function, actual: Variable, formal: Variable)
 DEBUG_OUTPUT(PossibleStructArg)
 
+/**
+  PossibleStructRet is used to add new symbolic values for memory addresses to the actual return variables
+*/
+.decl PossibleStructRet(function: Function, actual: Variable, formal: Variable)
+DEBUG_OUTPUT(PossibleStructRet)
+
+PossibleStruct(possibleStruct):-
+  PossibleStructAllocation(_, _, possibleStruct, _);
+  PossibleStructRet(_, possibleStruct, _);
+  PossibleStructArg(_, _, possibleStruct).
+
 PossibleStructArg(function, actual, formal):-
   ActualArgs(caller, actual, pos),
-  PossibleStructAllocation(_, _, actual, _),
+  PossibleStruct(actual),
   CallGraphEdge(caller, function),
   FormalArgs(function, formal, pos).
 
+PossibleStructRet(function, actual, formal):-
+  FormalReturnArgs(function, formal, pos),
+  PossibleStruct(formal),
+  CallGraphEdge(caller, function),
+  ActualReturnArgs(caller, actual, pos).
+
+
 .decl StructArg(caller: Block, function: Function, pos: number, actual: Variable, formal: Variable)
 DEBUG_OUTPUT(StructArg)
+
+.decl StructRet(caller: Block, function: Function, pos: number, actual: Variable, formal: Variable)
+DEBUG_OUTPUT(StructRet)
 
 StructArg(caller, function, pos, actual, formal):-
   ActualArgs(caller, actual, pos),
@@ -132,9 +287,19 @@ StructArg(caller, function, pos, actual, formal):-
   CallGraphEdge(caller, function),
   FormalArgs(function, formal, pos).
 
+StructRet(caller, function, pos, actual, formal):-
+  FormalReturnArgs(function, formal, pos),
+  Struct_WordWidth(formal, _),
+  CallGraphEdge(caller, function),
+  ActualReturnArgs(caller, actual, pos).
+
 Struct_WordWidth(formal, wordWidth):-
   StructArg(_, _, _, actual, formal),
   Struct_WordWidth(actual, wordWidth).
+
+Struct_WordWidth(actual, wordWidth):-
+  StructRet(_, _, _, actual, formal),
+  Struct_WordWidth(formal, wordWidth).
 
 StructContainsArray(formal, wordOffset, elementSize):-
   StructArg(_, _, _, actual, formal),
@@ -143,5 +308,62 @@ StructContainsArray(formal, wordOffset, elementSize):-
 IsRegularArrayVar(loadedVar),
 Array_ElementLength(loadedVar, @number_to_hex(elementSize)):-
   StructContainsArray(formal, wordOffset, elementSize),
-  StructArg(_, _, _, _, formal),
   StructLoad(_, formal, wordOffset, loadedVar).
+
+
+.decl VarPointsToStruct(ctx: clientCtx.ClientContext, var: Variable, heapCtx: clientCtx.ClientContext, structId: Variable)
+DEBUG_OUTPUT(VarPointsToStruct)
+
+.decl InsVarPointsToStruct(var: Variable, structId: Variable)
+DEBUG_OUTPUT(InsVarPointsToStruct)
+
+
+VarPointsToStruct(ctx, structBase, ctx, structBase):-
+  clientCtx.ReachableClientContext(ctx, fun),
+  Variable_Function(structBase, fun),
+  StructAllocation(_, structBase, _).
+
+VarPointsToStruct(newCtx, formal, heapCtx, structId):-
+  clientCtx.MergeClientContext(callerCtx, caller, newCtx),
+  VarPointsToStruct(callerCtx, actual, heapCtx, structId),
+  ActualArgs(caller, actual, pos),
+  CallGraphEdge(caller, function),
+  FormalArgs(function, formal, pos).
+
+VarPointsToStruct(callerCtx, actual, heapCtx, structId):-
+  clientCtx.MergeClientContext(callerCtx, caller, calleeCtx),
+  CallGraphEdge(caller, function),
+  FormalReturnArgs(function, formal, index),
+  VarPointsToStruct(calleeCtx, formal, heapCtx, structId),
+  ActualReturnArgs(caller, actual, index).
+
+InsVarPointsToStruct(var, structId):-
+  VarPointsToStruct(_, var, _, structId).
+
+.decl Analytics_PolymorphicStruct(struct: Variable, width: number)
+.output Analytics_PolymorphicStruct
+
+Analytics_PolymorphicStruct(structVar, width1):-
+  InsVarPointsToStruct(structVar, structId1),
+  InsVarPointsToStruct(structVar, structId2),
+  Struct_WordWidth(structId1, width1),
+  Struct_WordWidth(structId2, width2),
+  width1 != width2.
+
+.decl Analytics_PolymorphicStructAlt(structId: Variable, width: number)
+.output Analytics_PolymorphicStructAlt
+
+Analytics_PolymorphicStructAlt(structId, width1):-
+  Struct_WordWidth(structId, width1),
+  Struct_WordWidth(structId, width2),
+  width1 != width2.
+
+.decl Analytics_PolymorphicStructSameCtx(arrayVar: Variable, width: number)
+.output Analytics_PolymorphicStructSameCtx
+
+Analytics_PolymorphicStructSameCtx(structVar, width1):-
+  VarPointsToStruct(ctx, structVar, _, structId1),
+  VarPointsToStruct(ctx, structVar, _, structId2),
+  Struct_WordWidth(structId1, width1),
+  Struct_WordWidth(structId2, width2),
+  width1 != width2.

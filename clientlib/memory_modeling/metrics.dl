@@ -1,23 +1,5 @@
 #pragma once
 
-/*
- * Analytics
- */
-
-.decl Analytics_ERC20TransferCall(call:Statement)
-.output Analytics_ERC20TransferCall
-
-.decl Analytics_ERC20TransferFromCall(call:Statement)
-.output Analytics_ERC20TransferFromCall
-
-.decl Analytics_ERC20ApproveCall(call:Statement)
-.output Analytics_ERC20ApproveCall
-
-.decl Analytics_CallWithSig(call:Statement)
-.output Analytics_CallWithSig
-
-.decl Analytics_RevertSigUsed(sig: symbol)
-.output Analytics_RevertSigUsed
 
 /**
   Approximation to 'reused' memory reading statements.
@@ -25,35 +7,29 @@
   using the same revert statement in the compiled bytecode.
   Seen it in optimized 0.8.x code.
 */
-.decl Analytics_MemConsStmtUsesFromDistinctPaths(memConsStmt:Statement)
+.decl Analytics_MemConsStmtUsesFromDistinctPaths(memConsStmt: Statement)
 .output Analytics_MemConsStmtUsesFromDistinctPaths
 
-.decl Analytics_NonModeledMSTORE(mstore:Statement)
+.decl Analytics_NonModeledMSTORE(mstore: Statement)
 .output Analytics_NonModeledMSTORE
 
-.decl Analytics_NonModeledMLOAD(mload:Statement)
+.decl Analytics_NonModeledMLOAD(mload: Statement)
 .output Analytics_NonModeledMLOAD
 
-.decl Analytics_PublicFunctionArg(arg:Variable)
+.decl Analytics_PublicFunctionArg(arg: Variable)
 .output Analytics_PublicFunctionArg
 
-.decl Analytics_PublicFunctionArrayArg(arg:Variable)
+.decl Analytics_PublicFunctionArrayArg(arg: Variable)
 .output Analytics_PublicFunctionArrayArg
 
-Analytics_ERC20TransferCall(call):-
-  ERC20TransferCall(call, _, _).
+.decl Analytics_PublicFunctionStructArg(arg: Variable)
+.output Analytics_PublicFunctionStructArg
 
-Analytics_ERC20TransferFromCall(call):-
-  ERC20TransferFromCall(call, _, _, _).
+.decl Analytics_NonModeledCALLDATALOAD(cdl: Statement)
+.output Analytics_NonModeledCALLDATALOAD
 
-Analytics_ERC20ApproveCall(call):-
-  ERC20ApproveCall(call, _, _).
-
-Analytics_CallWithSig(call):-
-  CallToSignature(call, _).
-
-Analytics_RevertSigUsed(sig):-
-  RevertToSignature(_, sig).
+.decl Analytics_ArrayCopy(loc: symbol, from: ArrayVariable, to: ArrayVariable)
+.output Analytics_ArrayCopy
 
 Analytics_MemConsStmtUsesFromDistinctPaths(memConsStmt):-
   StatementUsesMemory_LengthVar(memConsStmt, _, lenVar),
@@ -70,8 +46,19 @@ Analytics_PublicFunctionArg(arg):-
   PublicFunctionArg(_, arg, _).
 
 Analytics_PublicFunctionArrayArg(arrayArg):-
-  PublicFunctionArg(_, arrayArg, _),
-  IsCallDataArrayVar(arrayArg, _).
+  PublicFunctionArrayArg(_, arrayArg, _).
+
+Analytics_PublicFunctionStructArg(structArg):-
+  PublicFunctionStructArg(_, structArg, _).
+
+Analytics_NonModeledCALLDATALOAD(cdl):-
+  CALLDATALOAD(cdl, _, _),
+  !CALLDATALOADOfStaticAddr(cdl),
+  !CALLDATALOADStructRelated(cdl),
+  !CALLDATALOADArrayRelated(cdl).
+
+Analytics_ArrayCopy(loc, from, to):-
+  ArrayCopy(loc, from, to).
 
 /*
  * Other metrics
@@ -237,17 +224,44 @@ Verbatim_AllVsModeledMLOADs(all, freeptr, retRead, arrLen, arrloadi, arrload, st
 
 .decl CALLDATALOADOfStaticAddr(stmt:Statement)
 .decl CALLDATALOADArrayRelated(stmt:Statement)
+.decl CALLDATALOADStructRelated(stmt:Statement)
 
 CALLDATALOADOfStaticAddr(stmt):-
   CALLDATALOAD(stmt, index, _),
   Variable_Value(index, _).
 
 CALLDATALOADArrayRelated(stmt):-
-  CallDataLoadReadsLength(_, stmt, _, _, _);
+  CallDataLoadReadsLength(stmt, _, _);
   CallDataArrayGet(stmt, _, _, _).
 
+CALLDATALOADArrayRelated(cdl):-
+  CallDataCopyLoop(loop, _, _),
+  BlockInStructuredLoop(block, loop),
+  Statement_Block(cdl, block),
+  CALLDATALOAD(cdl, _, _).
+
+CALLDATALOADStructRelated(cdl):-
+  (CallDataStructLoadingPattern(cdl, _, _, _, _);
+  IntermediateStructLoad(cdl, _)),
+  CALLDATALOAD(cdl, _, _).
 
 Verbatim_CDLAllVSStaticVSArr(allnum, staticAddr, arrGet):-
   allnum = count : CALLDATALOAD(_, _, _),
   staticAddr = count : CALLDATALOADOfStaticAddr(_),
   arrGet = count : CALLDATALOADArrayRelated(_).
+
+.decl Analytics_ArrayHasTwoElementLengths(array: Variable)
+.output Analytics_ArrayHasTwoElementLengths
+
+Analytics_ArrayHasTwoElementLengths(array):-
+  Array_ElementLength(array, elementSize1),
+  Array_ElementLength(array, elementSize2),
+  elementSize1 != elementSize2.
+
+.decl Analytics_StructHasTwoWidths(struct: Variable)
+.output Analytics_StructHasTwoWidths
+
+Analytics_StructHasTwoWidths(struct):-
+  Struct_WordWidth(struct, width1),
+  Struct_WordWidth(struct, width2),
+  width1 != width2.

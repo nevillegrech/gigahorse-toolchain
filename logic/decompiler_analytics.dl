@@ -30,75 +30,86 @@ Analytics_Jumps(block) :-
 .decl Analytics_ReachableBlocksInTAC(block: Block)
 .output Analytics_ReachableBlocksInTAC
 
+// `originalBlock` is reachable because `postTransformBlock` CFG block is
+.decl ReachableBlocksHelper(originalBlock: Block, postTransformBlock: Block)
 // Incompleteness metric: this can happen due to our precision-favoring heuristics
 // or incompleteness due to the use of limitsize for scalability
 .decl Analytics_BlockHasNoTACBlock(block: Block)
 .output Analytics_BlockHasNoTACBlock
 
+// Blocks that are data
+.decl BlockIsData(block: Block)
+
+// Blocks with MISSING opcode are data
+BlockIsData(block):-
+  revertCloner.analysis.Statement_Block(stmt, block),
+  revertCloner.analysis.Statement_Opcode(stmt, "MISSING").
+
+BlockIsData(block):-
+  revertCloner.analysis.CODECOPYStatement(_, codeOffsetNumHex, smallNumHex),
+  revertCloner.analysis.Statement_Block(_, block),
+  @lt_256(codeOffsetNumHex, block) = "0x1",
+  @lt_256(block, @add_256(codeOffsetNumHex, smallNumHex)) = "0x1".
+
+.decl Analytics_JUMPDESTNeverPushed(block: Block)
+.output Analytics_JUMPDESTNeverPushed
+
+Analytics_JUMPDESTNeverPushed(block):-
+  revertCloner.analysis.Statement_Opcode(stmt, "JUMPDEST"),
+  revertCloner.analysis.Statement_Block(stmt, block),
+  !revertCloner.BlockPushedToStack(_, _, block),
+  !BlockIsData(block).
+
 #ifdef BLOCK_CLONING
 
-Analytics_ReachableBlocks(originalBlock):-
+ReachableBlocksHelper(originalBlock, block):-
   global.ReachableContext(_, block),
   postTrans.Statement_Block(_, block),
   blockCloner.Block_OriginalBlock(block, originalBlock).
 
+ReachableBlocksHelper(originalBlock, block):-
+  blockCloner.Block_OriginalBlock(transformedBlock, originalBlock),
+  postTrans.Statement_Block(as(transformedBlock, Statement), block),
+  global.ReachableContext(_, block).
+
+
 Analytics_UnreachableBlock(originalBlock):-
   postTrans.Statement_Block(_, block),
   blockCloner.Block_OriginalBlock(block, originalBlock),
+  !BlockIsData(originalBlock),
   !Analytics_ReachableBlocks(originalBlock).
-
-Analytics_ReachableBlocksInTAC(originalBlock):-
-  Analytics_ReachableBlocks(originalBlock),
-  blockCloner.Block_OriginalBlock(block, originalBlock),
-  Block_IRBlock(block, _, irblock),
-  (
-    LocalBlockEdge(irblock, _);
-    LocalBlockEdge(_, irblock);
-    TAC_Block(_, irblock)
-  ).
 
 #else
 
-Analytics_ReachableBlocks(originalBlock):-
+ReachableBlocksHelper(originalBlock, block):-
   global.ReachableContext(_, block),
   postTrans.Statement_Block(_, block),
   revertCloner.Block_OriginalBlock(block, originalBlock).
 
+ReachableBlocksHelper(originalBlock, block):-
+  revertCloner.Block_OriginalBlock(transformedBlock, originalBlock),
+  postTrans.Statement_Block(as(transformedBlock, Statement), block),
+  global.ReachableContext(_, block).
+
 Analytics_UnreachableBlock(originalBlock):-
   postTrans.Statement_Block(_, block),
   revertCloner.Block_OriginalBlock(block, originalBlock),
+  !BlockIsData(originalBlock),
   !Analytics_ReachableBlocks(originalBlock).
 
+#endif
+
+Analytics_ReachableBlocks(originalBlock):-
+  ReachableBlocksHelper(originalBlock, _).
+
 Analytics_ReachableBlocksInTAC(originalBlock):-
-  Analytics_ReachableBlocks(originalBlock),
-  revertCloner.Block_OriginalBlock(block, originalBlock),
+  ReachableBlocksHelper(originalBlock, block),
   Block_IRBlock(block, _, irblock),
   (
     LocalBlockEdge(irblock, _);
     LocalBlockEdge(_, irblock);
     TAC_Block(_, irblock)
   ).
-
-// Analytics_ReachableBlocks(block):-
-//   preTrans.Statement_Block(_, block),
-//   global.ReachableContext(_, block).
-
-// Analytics_UnreachableBlock(block):-
-//   preTrans.Statement_Block(_, block),
-//   postTrans.Statement_Block(_, block),
-//   !global.ReachableContext(_, block).
-
-// Analytics_ReachableBlocksInTAC(block):-
-//   Analytics_ReachableBlocks(block),
-//   Block_IRBlock(block, _, irblock),
-//   (
-//     LocalBlockEdge(irblock, _);
-//     LocalBlockEdge(_, irblock);
-//     TAC_Block(_, irblock)
-//   ).
-
-#endif
-
 
 Analytics_BlockHasNoTACBlock(block):-
   Analytics_ReachableBlocks(block),
@@ -148,6 +159,12 @@ Analytics_Block_TimesInContexts(block, timesInContext):-
   GloballyReachableBlocks(block),
   timesInContext = count : { global.sens.ContextContainsBlock(_, block, _) }.
 
+.decl Analytics_PublicFunction_Contexts(pubFun: symbol, contexts: number)
+.output Analytics_PublicFunction_Contexts
+
+Analytics_PublicFunction_Contexts(pubFun, contexts):-
+  global.sens.Context_PublicFunction(_, pubFun),
+  contexts = count: global.sens.Context_PublicFunction(_, pubFun).
 
 .decl Verbatim_BlocksReachabilityMetric(blocks: number, totalReach: number, avg: float)
 .output Verbatim_BlocksReachabilityMetric
@@ -290,6 +307,35 @@ Analytics_PublicFunctionNameResolved(func) :-
    IRPublicFunction(func, sigHash),
    PublicFunctionSignature(sigHash, _).
 
+.decl Analytics_PrivateFunctionMatchesMetadata(func: Block)
+.output Analytics_PrivateFunctionMatchesMetadata
+
+Analytics_PrivateFunctionMatchesMetadata(func):-
+  IRFunctionEntry(irFunc),
+  Function_IRFunction(func, irFunc),
+  func != "0x0",
+  HighLevelFunctionInfo(_, func, _, _),
+  !IRPublicFunction(irFunc, _).
+
+.decl Analytics_PrivateFunctionMatchesMetadataIncorrectArgs(func: Block)
+.output Analytics_PrivateFunctionMatchesMetadataIncorrectArgs
+
+Analytics_PrivateFunctionMatchesMetadataIncorrectArgs(func):-
+  Analytics_PrivateFunctionMatchesMetadata(func),
+  Function_IRFunction(func, irFunc),
+  NumberOfFunctionArguments(irFunc, inferredArgs),
+  numArgs != inferredArgs - 1,
+  HighLevelFunctionInfo(_, func, numArgs, _).
+
+.decl Analytics_PrivateFunctionMatchesMetadataIncorrectReturnArgs(func: Block)
+.output Analytics_PrivateFunctionMatchesMetadataIncorrectReturnArgs
+
+Analytics_PrivateFunctionMatchesMetadataIncorrectReturnArgs(func):-
+  Analytics_PrivateFunctionMatchesMetadata(func),
+  Function_IRFunction(func, irFunc),
+  NumberOfFunctionReturnArguments(irFunc, inferredArgs),
+  numArgs != inferredArgs,
+  HighLevelFunctionInfo(_, func, _, numArgs).
 
 /**
   JUMP TO MANY
@@ -449,3 +495,10 @@ Analytics_BlocksLocalOrNot(block1, block2) :-
    IRInFunction(block1, fun1),
    IRInFunction(block2, fun2),
    fun1 != fun2.
+
+
+.decl Analytics_NeedToAddCtxAtEdge(from: Block, to: Block)
+.output Analytics_NeedToAddCtxAtEdge
+
+Analytics_NeedToAddCtxAtEdge(from, to):-
+  global.NeedToAddCtxAtEdge(from, to).

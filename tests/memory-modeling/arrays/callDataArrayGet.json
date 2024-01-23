@@ -1,0 +1,7 @@
+{
+    "client_path": null,
+    "gigahorse_args": ["-i", "--disable_scalable_fallback"],
+    "expected_analytics": [["Analytics_JumpToMany", 0, 0], ["Analytics_BlockHasNoTACBlock", 0, 0],
+    ["Analytics_StmtMissingOperand", 0, 0], ["Analytics_NonModeledCALLDATALOAD", 0, 0],
+    ["Analytics_NonModeledMLOAD", 0, 0],["Analytics_NonModeledMSTORE", 0, 0]]
+}

@@ -43,6 +43,8 @@ InnermostStructuredLoop(loophead) :-
 
 // condVar determines whether a loop is exited
 .decl LoopExitCond(condVar: Variable, loop: Block)
+.decl LoopExitCondPredicateTrue(condVar: Variable, loop: Block, if_head: Block)
+.decl LoopExitCondPredicateFalse(condVar: Variable, loop: Block, if_head: Block)
 
 // control flows to other block within the same function
 // TODO: need more info on consequent and alternative branches
@@ -54,6 +56,26 @@ LoopExitCond(condVar, loop) :-
    !BlockInStructuredLoop(out, loop),
    LocalBlockEdge(jmpiBlock, in),
    BlockInStructuredLoop(in, loop).
+
+
+LoopExitCondPredicateTrue(condVar, loop, jmpiBlock) :-
+   BlockInStructuredLoop(jmpiBlock, loop),
+   Block_Tail(jmpiBlock, jmpi),
+   JUMPI(jmpi, _, condVar),
+   LocalBlockEdge(jmpiBlock, out),
+   !BlockInStructuredLoop(out, loop),
+   FallthroughEdge(jmpiBlock, in),
+   BlockInStructuredLoop(in, loop).
+
+LoopExitCondPredicateFalse(condVar, loop, jmpiBlock) :-
+   BlockInStructuredLoop(jmpiBlock, loop),
+   Block_Tail(jmpiBlock, jmpi),
+   JUMPI(jmpi, _, condVar),
+   FallthroughEdge(jmpiBlock, out),
+   !BlockInStructuredLoop(out, loop),
+   LocalBlockEdge(jmpiBlock, in),
+   BlockInStructuredLoop(in, loop).
+
 
 .decl CanReachBlock(s:Block, t:Block)
 

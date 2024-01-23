@@ -1,12 +1,9 @@
 #pragma once
 
-/*
 
- */
-
-/*
-  Describing statements that bulk copy continuous data from memory
-  CALLDATACOPY, RETURNDATACOPY, CODECOPY, EXTCODECOPY
+/**
+  Describing statements that bulk copy continuous data from memory:
+  `CALLDATACOPY`, `RETURNDATACOPY`, `CODECOPY`, `EXTCODECOPY`
 */
 .decl VariableLengthMemoryCopyStatement(stmt:Statement, memAddrVar:Variable, lenVar:Variable)
 DEBUG_OUTPUT(VariableLengthMemoryCopyStatement)
@@ -24,10 +21,10 @@ VariableLengthMemoryCopyStatement(stmt, memAddrVar, lenVar):-
   Statement_Uses(stmt, lenVar, 3).
 
 /**
-  MSTORE that is guranteed to only write less than a whole word
+  `MSTORE` that is guranteed to only write less than a whole word
   with the rest being just previously read from memory.  
   Patterns are syntactic and can break with newer compiler versions.
-  Produced by the abiencodeWithSelector primitive.
+  Produced by the `abiencodeWithSelector` primitive.
 */
 
 .decl PartialMSTORE(mstore:Statement, mload:Statement, storedVar:Variable, updateBytes:number)
@@ -93,7 +90,9 @@ StatementUsesMemory_StartVar(stmt, kind, startVar):-
   (RETURN(stmt, startVar, _),kind = "RETURN");
   (STATICCALL(stmt, _, _, startVar, _, _, _, _), kind = "STATICCALL");
   (DELEGATECALL(stmt, _, _, startVar, _, _, _, _), kind = "DELEGATECALL");
-  (CALL(stmt, _, _, _, startVar, _, _, _, _), kind = "CALL").
+  (CALL(stmt, _, _, _, startVar, _, _, _, _), kind = "CALL");
+  (CREATE(stmt, _, startVar, _, _), kind = "CREATE");
+  (CREATE2(stmt, _, startVar, _, _, _), kind = "CREATE2").
 
 StatementUsesMemory_LengthVar(stmt, kind, lenvar):-
   (SHA3(stmt, _, lenvar, _), kind = "SHA3");
@@ -102,7 +101,9 @@ StatementUsesMemory_LengthVar(stmt, kind, lenvar):-
   (RETURN(stmt, _, lenvar),kind = "RETURN");
   (CALL(stmt, _, _, _, _, lenvar, _, _, _), kind = "CALL");
   (STATICCALL(stmt, _, _, _, lenvar, _, _, _), kind = "STATICCALL");
-  (DELEGATECALL(stmt, _, _, _, lenvar, _, _, _), kind = "DELEGATECALL").
+  (DELEGATECALL(stmt, _, _, _, lenvar, _, _, _), kind = "DELEGATECALL");
+  (CREATE(stmt, _, _, lenvar, _), kind = "CREATE");
+  (CREATE2(stmt, _, _, lenvar, _, _), kind = "CREATE2").
 
 StatementUsesMemoryReadsABIEnc(stmt, kind):-
   StatementUsesMemory(stmt, kind),
@@ -114,7 +115,7 @@ StatementUsesMemoryReadsABIEncWSelector(stmt, kind):-
 
 StatementUsesMemoryReadsRawData(stmt, kind):-
   StatementUsesMemory(stmt, kind),
-  (kind = "SHA3").
+  (kind = "SHA3"; kind = "CREATE"; kind = "CREATE2").
 
 
 // For metrics
@@ -132,17 +133,14 @@ StatementUsesMemoryOfNonComputableLength(stmt, kind, lenvar):-
   StatementUsesMemory_LengthVar(stmt, kind, lenvar),
   !Variable_Value(lenvar, _).
 
-/*
- *  StatementWritesMemoryOfConstantLength:
- *    contains all statements that write memory of a length we can compute
- *
- *  StatementWritesMemoryOfLength:
- *    contains the above and uses an approximation for the rest.
- */
-
+// Contains all statements that write memory of a length we can compute
 .decl StatementWritesMemoryOfConstantLength(stmt:Statement, addrVar:Variable, length:number)
 DEBUG_OUTPUT(StatementWritesMemoryOfConstantLength)
 
+/**
+  Contains the definite results of `StatementWritesMemoryOfConstantLength`
+  and an approximation for statements where we can't compute the length
+*/
 .decl StatementWritesMemoryOfLength(stmt:Statement, addrVar:Variable, length:number)
 DEBUG_OUTPUT(StatementWritesMemoryOfLength)
 

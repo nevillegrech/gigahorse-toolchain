@@ -6,12 +6,19 @@
 
 .output ByteCodeHex(IO="file", filename="bytecode.hex")
 
-// useful intermediate outputs
-.output OpcodePossiblyHalts
-.output IRBlockEdge
-.output IRPublicFunction(IO="file", filename = "PublicFunction.csv", delimiter = "\t")
-.output Statement_IRStatement
-.output CycleEntry
+.decl DecompilerConfig(config: symbol) btree_delete
+.output DecompilerConfig
+
+DecompilerConfig("default").
+
+DecompilerConfig(default) <= DecompilerConfig(other):-
+  default = "default",
+  other != default.
+
+.decl GlobalEntryBlock(block: IRBlock)
+.output GlobalEntryBlock
+
+GlobalEntryBlock("0x0").
 
 .decl FunctionalBlock_Uses_Local(block: IRBlock, stackIndex: StackIndex)
 
@@ -28,11 +35,11 @@ PolymorphicStackIndex(block, stackIndex) :-
   FunctionalBlockInputContents(block, stackIndex, var2),
   var1 != var2.
 
+/**
+  Find all polymorphic stackIndexes
+  These need phi instructions introduced at the dominance frontier
+*/
 .decl PHILocation(block: IRBlock, stackIndex: StackIndex, newVarSymbol: IRStatement)
-
-// Find all polymorphic stackIndexes
-// These need phi instructions introduced at the dominance frontier
-.output PHILocation
 PHILocation(block, stackIndex, cat(cat(block, "_"), stackIndexHex)) :-
    PolymorphicStackIndex(block, stackIndex),
    stackIndexHex = @number_to_hex(stackIndex).
@@ -96,6 +103,25 @@ TAC_Variable_Value(as(tacvar, TACVariable), value) :-
    postTrans.Variable_Value(var, value),
    STARTSWITH(value, "0x").
 
+/**
+  __HACK__ to get around the patterns produced by the new `--via-ir` compilation pipeline.
+  These patterns will pass arguments to public functions (in the function selector code) the same way
+  they are passed to private functions. These are often constants used all over the place.
+*/
+.decl PublicFunctionFormalIsConstant(irFunc: IRFunction, formal: TACVariable, value: symbol)
+
+PublicFunctionFormalIsConstant(publicFunc, formalArg, value):-
+  IRPublicFunction(publicFunc, _),
+  FormalArgs(publicFunc, formalArg, n),
+  IRFunctionCall(fromIrBlock, publicFunc),
+  IRBasicBlock_Tail(fromIrBlock, callStmt),
+  TAC_Use(callStmt, actualArg, n + 1),
+  TAC_Variable_Value(actualArg, value),
+  1 = count : IRFunctionCall(_, publicFunc).
+
+TAC_Variable_Value(formalArg, value):-
+  PublicFunctionFormalIsConstant(_, formalArg, value).
+
 // New Instructions
 // *returnArgs = CALLPRIVATE(stmt, function, *args)
 // RETURNPRIVATE(stmt, *args)
@@ -115,11 +141,16 @@ TAC_Op(irstmt, op) :-
    !IRTACNOP(irstmt),
    !postTrans.PushValue(stmt, _),
    !postTrans.PC(stmt),
+   !postTrans.PUSH0(stmt),
    !postTrans.INVALID(stmt).
 
 TAC_Op(irstmt, "CONST") :-
    Statement_IRStatement(stmt, _, irstmt),
-   (postTrans.PushValue(stmt, _) ; postTrans.PC(stmt)).
+   (
+    postTrans.PushValue(stmt, _);
+    postTrans.PC(stmt);
+    postTrans.PUSH0(stmt)
+  ).
 
 TAC_Op(irstmt, "THROW") :-
    Statement_IRStatement(stmt, _, irstmt),
@@ -217,10 +248,13 @@ TAC_Block(phiStmt, block) :-
 /***********
  *  Function-discovery outputs to visualization scripts
  ***********/
-
+// The following contain "Dead" results
 .output IRFunctionCall
 .output IRFunctionCallReturn
 .output IRFunction_Return
+.output IRFunctionEntry
+.output HighLevelFunctionName
+.output IRPublicFunction(IO="file", filename = "PublicFunction.csv", delimiter = "\t")
 .output IsFunctionEntry(IO="file", filename="Function.csv", delimiter="\t")
 
 .decl FormalArgs(func:IRFunction, var:TACVariable, n:number)
@@ -238,12 +272,19 @@ ActualReturnArgs(caller, var_rep, n) :-
    Variable_Block_String(var, caller, var_rep).
 
 .output LocalBlockEdge
-.output HighLevelFunctionName
 .output IRFallthroughEdge
 
+.decl IRInFunctionFiltered(block: IRBlock, func: IRFunction)
+
+IRInFunctionFiltered(block, func):-
+  IRInFunction(block, func),
+  ReachableFromFunHead(block).
+
 .output Mask_Length
-.output IRInFunction(IO="file", filename="InFunction.csv", delimiter="\t")
-.output IRFunctionEntry
+.output IRInFunctionFiltered(IO="file", filename="InFunction.csv", delimiter="\t")
+
+.decl FunctionIsInner(func: IRFunction)
+.output FunctionIsInner(IO="file", filename="FunctionIsInner.csv", delimiter="\t")
 
 /*****
  *  Statement Ordering
@@ -278,23 +319,41 @@ TAC_Block_Head(block, irstmt) :-
    Statement_IRStatement(stmt, _, irstmt),
    postTrans.IsBasicBlockHead(stmt).
 
+// TODO: Account for cloning. Shouldn't matter as it's all low-level stuff
 .decl TAC_Statement_OriginalStatement(irstmt: IRStatement, stmt: Statement)
 
+.type StatementList = [stmt: Statement, rest: StatementList]
+
+.decl TAC_Statement_OriginalStatementList(irstmt: IRStatement, stmtList: StatementList)
+
+
 // unmodified statements
-TAC_Statement_OriginalStatement(irstmt, stmt) :-
+
+TAC_Statement_OriginalStatementList(irstmt, [ogStmt, nil]),
+TAC_Statement_OriginalStatement(irstmt, ogStmt) :-
   Statement_IRStatement(stmt, _, irstmt),
-  preTrans.Statement_Block(stmt, _).
+  preTrans.Statement_Block(stmt, _),
+  PreTransStatement_OriginalStatement(stmt, ogStmt). //this predicate takes care of block cloning as well
+
 
 // Inserted statements that didn't exist before
-TAC_Statement_OriginalStatement(irstmt, stmt_nexthead) :-
+// recover the insertion in the original bytecode (regardless of whether the original statement had been removed )
+TAC_Statement_OriginalStatementList(irstmt, [ogStmt, nil]),
+TAC_Statement_OriginalStatement(irstmt, ogStmt) :-
   Statement_IRStatement(stmt, _, irstmt),
   !preTrans.Statement_Block(stmt, _), // didn't exist
-  IRStatement_Block(irstmt, irblock),
-  LocalBlockEdge(irblock, irblock_next),
-  Block_IRBlock(block_next, _, irblock_next),
-  stmt_nexthead = as(block_next, Statement).
+  insertor.InsertedOpNewStatement(insertionBasisStmt, _, stmt),
+  PreTransStatement_OriginalStatement(insertionBasisStmt,ogStmt). //edge case: the insertion basis might have been cloned
 
-.output TAC_Statement_OriginalStatement
+.output TAC_Statement_OriginalStatement, TAC_Statement_OriginalStatementList
+
+.type FunctionList = [function: Block, rest: FunctionList]
+
+.decl TAC_Statement_InlineInfo(irStmt: IRStatement, funList: FunctionList)
+.output TAC_Statement_InlineInfo
+
+TAC_Statement_InlineInfo(irStmt, nil):-
+  TAC_Stmt(irStmt).
 
 .decl TAC_OriginalStatement_Block(original_stmt: Statement, irblock: IRBlock)
 .output TAC_OriginalStatement_Block
@@ -342,12 +401,12 @@ TAC_Block_Gas(block, totalgas) :-
    totalgas = sum gas : IRBlock_PartialGas(block, _, gas).
 
 
+// SL: Not used anywhere
 .decl UnmappedStatements(stmt: Statement)
-.output UnmappedStatements
-
 UnmappedStatements(stmt) :-
   preTrans.Statement_Block(stmt, _),
   !TAC_OriginalStatement_Block(stmt, _).
+
 /******
  * Event signatures
  *****/
@@ -359,7 +418,7 @@ UnmappedStatements(stmt) :-
 .output EventSignatureInContract
 
 .decl LOGStmt_SigHash(log:IRStatement, sigHash:symbol)
-//.output LOGStmt_SigHash
+
 
 LOGStmt_SigHash(stmt, sigHash):-
   (TAC_Op(stmt, "LOG0");

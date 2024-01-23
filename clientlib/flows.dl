@@ -6,11 +6,23 @@
 //
 
 .comp GlobalFlowAnalysis {
-  .decl TransferOpcode(op: Opcode)
+  // inputs
+  .decl TransferStmt(stmt: Statement)
   .decl InitialFlowVar(var: Variable)
-  .decl Flows(from:Variable, to:Variable)
   .decl TransferBoundary(block: Block)
-      
+
+  .decl Uses(stmt: Statement, use: Variable) overridable
+  .decl Defines(stmt: Statement, def: Variable) overridable
+
+  // Outputs
+  .decl Flows(from: Variable, to: Variable)
+
+  Uses(stmt, use):-
+    Statement_Uses(stmt, use, _).
+
+  Defines(stmt, def):-
+    Statement_Defines(stmt, def, _).
+
    // Maps formals args (or locals) to formal return args
    Flows(x, x) :- InitialFlowVar(x).
 
@@ -22,10 +34,9 @@
 
    Flows(x, y) :-
      Flows(_, x),
-     Statement_Uses(stmt, x, _),
-     Statement_Defines(stmt, y, _),
-     Statement_Opcode(stmt, op),
-     TransferOpcode(op),
+     Uses(stmt, x),
+     Defines(stmt, y),
+     TransferStmt(stmt),
      Statement_Block(stmt, block),
      TransferBoundary(block).
 
@@ -47,7 +58,10 @@
       TransferBoundary(block).
    
    // Recursive Case
-   Flows(x, z) :- Flows(x, y), Flows(y, z).
+   Flows(x, z) :-
+      Flows(x, y),
+      Flows(y, z).
+     .plan 1:(2,1)
       
    
    // Flows from variable to return argument
@@ -80,39 +94,71 @@
 }
 
 .init standardflowanalysis = GlobalFlowAnalysis
-standardflowanalysis.TransferOpcode(op) :- FlowOp(op).
+standardflowanalysis.TransferStmt(stmt) :- FlowOp(op), Statement_Opcode(stmt, op).
 standardflowanalysis.InitialFlowVar(v) :- isVariable(v).
 standardflowanalysis.TransferBoundary(b) :- IsBlock(b).
 
 #define DataFlows standardflowanalysis.GlobalFlows
 
+.init constantOpFlows = GlobalFlowAnalysis
+constantOpFlows.TransferStmt(stmt):-
+  UnaryArith(op),
+  Statement_Opcode(stmt, op).
+
+constantOpFlows.TransferStmt(stmt):-
+  BinArith(op),
+  Statement_Opcode(stmt, op),
+  Statement_Uses(stmt, var, _),
+  Variable_Value(var, _). // Maybe replace with BasicVariable_Value
+
+constantOpFlows.TransferStmt(stmt):-
+  Statement_Opcode(stmt, "PHI").
+
+constantOpFlows.InitialFlowVar(v):- isVariable(v).
+constantOpFlows.TransferBoundary(b):- IsBlock(b).
+
+#define DataFlowsThroughConstOps constantOpFlows.GlobalFlows
+
 // Need a custom data flow analysis? Of course you do!
 // Initialise this component and indicate with opcodes to use as transfer functions.
 // Also indicate the transfer boundary (e.g. Loop blocks for induction variables)
 .comp LocalFlowAnalysis {
+  .decl TransferStmt(stmt: Statement)
+  .decl TransferBoundary(block: Block)
+
+  .decl Uses(stmt: Statement, use: Variable) overridable
+  .decl Defines(stmt: Statement, def: Variable) overridable
+
+  // Output
   .decl Flows(x: Variable, y: Variable)
   .decl NonTransitiveFlows(x: Variable, y: Variable)
+
+  Uses(stmt, use):-
+    Statement_Uses(stmt, use, _).
+
+  Defines(stmt, def):-
+    Statement_Defines(stmt, def, _).
+
 
   NonTransitiveFlows(x, x),
   Flows(x, x) :- isVariable(x).
 
-  NonTransitiveFlows(x, y),
-  Flows(x, y) :-
-    TransferOpcodeArgument(op, n),
-    Statement_Opcode(stmt, op),
-    Statement_Block(stmt, block),
-    TransferBoundary(block),
-    Statement_Defines(stmt, y, _),
-    Statement_Uses(stmt, x, n).
+  // NonTransitiveFlows(x, y),
+  // Flows(x, y) :-
+  //   TransferOpcodeArgument(op, n),
+  //   Statement_Opcode(stmt, op),
+  //   Statement_Block(stmt, block),
+  //   TransferBoundary(block),
+  //   Defines(stmt, y, _),
+  //   Uses(stmt, x, n).
   
   NonTransitiveFlows(x, y),
   Flows(x, y) :-
-    TransferOpcode(op),
-    Statement_Opcode(stmt, op),
+    TransferStmt(stmt),
     Statement_Block(stmt, block),
     TransferBoundary(block),
-    Statement_Defines(stmt, y, _),
-    Statement_Uses(stmt, x, _).
+    Defines(stmt, y),
+    Uses(stmt, x).
 
   // Case: Flows from formal to formal return
   NonTransitiveFlows(actual, actualReturn),
@@ -137,13 +183,9 @@ standardflowanalysis.TransferBoundary(b) :- IsBlock(b).
     Flows(y, z).
     .plan 1:(2,1)
 
+  // SL: Why is this here? remove it?
   .decl TransferOpcodeArgument(op: Opcode, argument: number)
   TransferOpcodeArgument(op, n) :- TransferOpcodeArgument(op, n). // suppress warning
-
-  .decl TransferOpcode(op: Opcode)
-  TransferOpcode("PHI"). // PHI instructions should always transfer
-
-  .decl TransferBoundary(block: Block)
 }
 
 // Note that this is an inter-procedural analysis with no context sensitivity
@@ -152,14 +194,14 @@ standardflowanalysis.TransferBoundary(b) :- IsBlock(b).
 // that defined x, or transitively.
 .init dependencyAnalysis = LocalFlowAnalysis
 
-dependencyAnalysis.TransferOpcode(op) :- Statement_Opcode(_, op).
+dependencyAnalysis.TransferStmt(stmt) :- Statement_Opcode(stmt, _).
 dependencyAnalysis.TransferBoundary(block) :- IsBlock(block).
 
 #define DependsOn dependencyAnalysis.Flows
 
 .init localFlowAnalysis = LocalFlowAnalysis
 
-localFlowAnalysis.TransferOpcode(op) :- FlowOp(op).
+localFlowAnalysis.TransferStmt(stmt) :- FlowOp(op), Statement_Opcode(stmt, op).
 localFlowAnalysis.TransferBoundary(block) :- IsBlock(block).
 
 #define LocalFlows localFlowAnalysis.Flows

@@ -212,19 +212,37 @@ DELEGATECALL(stmt, gas, target, data_start, data_length, return_start, return_le
   Statement_Uses(stmt, return_start, 4),
   Statement_Uses(stmt, return_length, 5).
 
-.decl CALLCODE(stmt:Statement, gas:Variable, target:Variable, data_start:Variable,
+.decl CALLCODE(stmt:Statement, gas:Variable, target:Variable, value:Variable, data_start:Variable,
            data_length:Variable, return_start:Variable, return_length:Variable, success: Variable)
 
 
-CALLCODE(stmt, gas, target, data_start, data_length, return_start, return_length, success) :-
+CALLCODE(stmt, gas, target, value, data_start, data_length, return_start, return_length, success) :-
   Statement_Opcode(stmt, "CALLCODE"),
   Statement_Defines(stmt, success, _),
   Statement_Uses(stmt, gas, 0),
   Statement_Uses(stmt, target, 1),
-  Statement_Uses(stmt, data_start, 2),
-  Statement_Uses(stmt, data_length, 3),
-  Statement_Uses(stmt, return_start, 4),
-  Statement_Uses(stmt, return_length, 5).
+  Statement_Uses(stmt, value, 2),
+  Statement_Uses(stmt, data_start, 3),
+  Statement_Uses(stmt, data_length, 4),
+  Statement_Uses(stmt, return_start, 5),
+  Statement_Uses(stmt, return_length, 6).
+
+.decl CREATE(stmt:Statement, val:Variable, data_start:Variable, data_length:Variable, addr: Variable)
+CREATE(stmt, val, data_start, data_length, addr) :-
+  Statement_Opcode(stmt, "CREATE"),
+  Statement_Defines(stmt, addr, _),
+  Statement_Uses(stmt, val, 0),
+  Statement_Uses(stmt, data_start, 1),
+  Statement_Uses(stmt, data_length, 2).
+
+.decl CREATE2(stmt:Statement, val:Variable, data_start:Variable, data_length:Variable, salt:Variable, addr: Variable)
+CREATE2(stmt, val, data_start, data_length, salt, addr) :-
+  Statement_Opcode(stmt, "CREATE2"),
+  Statement_Defines(stmt, addr, _),
+  Statement_Uses(stmt, val, 0),
+  Statement_Uses(stmt, data_start, 1),
+  Statement_Uses(stmt, data_length, 2),
+  Statement_Uses(stmt, salt, 3).
 
 .decl RETURNDATASIZE(s: Statement, f: Variable)
 RETURNDATASIZE(stmt, f) :-
@@ -344,8 +362,8 @@ CALLStatement(call, 2):-
 CALLStatement(call, 2):-
   DELEGATECALL(call, _, _, _, _, _, _, _).
 
-CALLStatement(call, 2):-
-  CALLCODE(call, _, _, _, _, _, _, _).
+CALLStatement(call, 3):-
+  CALLCODE(call, _, _, _, _, _, _, _, _).
 
 
 // var is the result of a CALL operation, stmt

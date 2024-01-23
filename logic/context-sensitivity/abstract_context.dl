@@ -1,4 +1,3 @@
-
 /**
   Base, Abstract context sensitivity component.
   Is configured using an instantiation of LocalAnalysis.
@@ -11,9 +10,13 @@
     Blocks directly following `caller` under `ctx` will be reachable under `newContext`
   */
   .decl MergeContext(ctx: Context, caller: Block, newContext: Context)
+  .decl MergeContextRequest(ctx: Context, block: Block, otherBlock: Block)
+  .decl MergeContextResponse(ctx: Context, block: Block, otherBlock: Block, newContext: Context)
 
   .decl IsContext(ctx: Context)
   .decl InitialContext(ctx: Context)
+
+  .decl ImportantBlockEdge(block: Block, next: Block)
 
   /**
     Context is reachable under PublicFunction identified by its sighash.
@@ -49,13 +52,13 @@
   .input InputMaxContextDepth(filename="MaxContextDepth.csv")
 
   MaxContextDepth(sigHash, d) :-
-    (local.PublicFunction(_, sigHash);
+    (local.PublicFunction(_, sigHash, _);
      sigHash = FALLBACK_FUNCTION_SIGHASH),
     InputMaxContextDepth(d).
 
 
-  MaxContextDepth(sigHash, 8) :-
-    (local.PublicFunction(_, sigHash);
+  MaxContextDepth(sigHash, 20) :-
+    (local.PublicFunction(_, sigHash, _);
      sigHash = FALLBACK_FUNCTION_SIGHASH),
     !InputMaxContextDepth(_).
 }
@@ -198,7 +201,7 @@
   /// WARN: These can be expensive!
   // .decl PrivateContextContainsElementNTimes(ctx: PrivateContext, block: Block, n: number)
   // PrivateContextContainsElementNTimes(nil, block, 0) :-
-  //   PrivateFunctionCallOrReturn(block).
+  //   local.PrivateFunctionCallOrReturn(block).
   // PrivateContextContainsElementNTimes(ctx, block, n) :-
   //   PrivateContextContainsElementNTimes(rest, block, n),
   //   DecomposePrivateContext(ctx, head, rest),
@@ -240,13 +243,14 @@
     PrivateContextDepth(ctx, maxDepth),
     MaxContextDepth(pubFun, maxDepth),
     DropLast(ctx, newCtx).
-    .plan 1:(4,1,2,3)
+    .plan 1:(2,1,3,4),2:(4,1,2,3)
 
   TruncateContextIfNeeded(pubFun, ctx, ctx):-
     DecomposeContext(_, pubFun, ctx),
     PrivateContextDepth(ctx, depth),
     MaxContextDepth(pubFun, maxDepth),
     depth < maxDepth.
+    .plan 1:(2,1,3)
 
   Context_PublicFunction(ctx, pubFun):-
     ReachableContext(ctx, _),
@@ -278,20 +282,44 @@
   */
 
   #ifndef NO_PUBLIC_CONTEXT
-  MergeContext(ctx, caller, ctx) :-
-    ReachableContext(ctx, caller),
-    local.PublicFunction(caller, sigHash),
+  // MergeContext(ctx, caller, ctx) :-
+  //   ReachableContext(ctx, caller),
+  //   local.PublicFunctionJump(caller, sigHash, _),
+  //   !MaxContextDepth(sigHash, -1),
+  //   DecomposeContext(ctx, prevSigHash, _),
+  //   prevSigHash != FALLBACK_FUNCTION_SIGHASH.
+  // .plan 1:(3,1,2)
+  // MergeContext(ctx, caller, newContext):-
+  //   ReachableContext(ctx, caller),
+  //   local.PublicFunctionJump(caller, sigHash, _),
+  //   !MaxContextDepth(sigHash, -1),
+  //   DecomposeContext(ctx, prevSigHash, pri),
+  //   prevSigHash = FALLBACK_FUNCTION_SIGHASH,
+  //   newContext = [sigHash, pri].
+  // .plan 1:(3,1,2)
+
+  MergeContextResponse(ctx, caller, funcStart, ctx) :-
+    MergeContextRequest(ctx, caller, funcStart),
+    local.PublicFunctionJump(caller, sigHash, _),
+    local.PublicFunction(funcStart, sigHash, _),
     !MaxContextDepth(sigHash, -1),
     DecomposeContext(ctx, prevSigHash, _),
     prevSigHash != FALLBACK_FUNCTION_SIGHASH.
-  .plan 1:(3,1,2)
-  MergeContext(ctx, caller, newContext):-
-    ReachableContext(ctx, caller),
-    local.PublicFunction(caller, sigHash),
+  .plan 1:(4,1,2,3)
+  MergeContextResponse(ctx, caller, funcStart, newContext) :-
+    MergeContextRequest(ctx, caller, funcStart),
+    local.PublicFunctionJump(caller, sigHash, _),
+    local.PublicFunction(funcStart, sigHash, _),
     !MaxContextDepth(sigHash, -1),
-    DecomposeContext(ctx, prevSigHash, pri),
-    prevSigHash = FALLBACK_FUNCTION_SIGHASH,
+    DecomposeContext(ctx, FALLBACK_FUNCTION_SIGHASH, pri),
     newContext = [sigHash, pri].
-  .plan 1:(3,1,2)
+  .plan 1:(4,1,2,3)
+  MergeContextResponse(ctx, caller, funcStart, ctx) :-
+    MergeContextRequest(ctx, caller, funcStart),
+    local.PublicFunctionJump(caller, sigHash, _),
+    !local.PublicFunction(funcStart, sigHash, _),
+    !MaxContextDepth(sigHash, -1).
+
 #endif
 }
+

@@ -5,30 +5,43 @@ A binary lifter (and related framework) from low-level EVM code to a higher-leve
 
 ## Quickstart
 
+### Running/Installing Gigahorse from local clone (requires `souffle`)
 First make sure you have the following things installed on your system:
 
 - Boost libraries (Can be installed on Debian with `apt install libboost-all-dev`)
 
 - Python 3.8 (Refer to standard documentation)
 
-- Souffle 2.3 (We only test using the release versions, later development versions may work but are untested by us. Refer to Souffle documentation. The easiest way to install this is to use the release from https://github.com/souffle-lang/souffle/releases/tag/2.3)
+- Souffle 2.3 or 2.4 (We only test using the release versions, later development versions may work but are untested by us. Refer to Souffle documentation. The easiest way to install this is to use the release from https://github.com/souffle-lang/souffle/releases/tag/2.3)
 
-Now install the Souffle custom functors. Just navigate to the `souffle-addon` folder:
+Now install the Souffle custom functors:
 
 ```
-cd souffle-addon
+cd souffle-addon && make            # builds all, sets libfunctors.so as a link to libsoufflenum.so
 ```
-
-And run make to install:
-
-    $ make                          # builds all, sets libfunctors.so as a link to libsoufflenum.so
 
 You should now be ready to run Gigahorse.
+
+### Installing Gigahorse via docker
+
+Alternatively, you can use Gigahorse via our pre-built docker images using the following instructions:
+1. For amd64:
+   ```
+   curl -s -L https://raw.githubusercontent.com/nevillegrech/gigahorse-toolchain/master/scripts/docker/install/install_amd64 | bash
+   ```
+
+   For arm64/m1 (not actively tested):
+   ```
+   curl -s -L https://raw.githubusercontent.com/nevillegrech/gigahorse-toolchain/master/scripts/docker/install/install_arm64 | bash
+   ```
+2. Then ```source ~/.bashrc```
+
+3. Check if gigahorse is available using ```gigahorse --help```
 
 ## Running Gigahorse
 The `gigahorse.py` script can be run on a contract individually or on a collection of contract bytecode files in specified directory, and it will run the binary lifter implemented in `logic/main.dl` on each contract, optionally followed by any additional client analyses specified by the user using the `-C` flag.
 
-The default pipeline first attempts to decompile a contract using a **transactional** context-sensitivity configuration. If that times out it performs a second attempt with the _scalable-fallback_ configuration (using a **hybrid-precise** context sensitivity algorithm, tuned for scalability). In addition, if the default configuration succeeds but produces imprecise output, the _precise-fallback_ configuration (currently the same as the `--early_cloning` config) is used to attempt to remove that imprecision. Both fallback configurations can be disabled if needed using the `--disable_scalable_fallback` and `--disable_precise_fallback` flags respectivelly.
+The default pipeline first attempts to decompile a contract using a **transactional** context-sensitivity configuration. If that times out it performs a second attempt with the _scalable-fallback_ configuration (using a **hybrid-precise** context sensitivity algorithm, tuned for scalability). In addition, if the default configuration succeeds but produces imprecise output, the _precise-fallback_ configuration (currently the same as the `--early_cloning` config) is used to attempt to remove that imprecision. Both fallback configurations can be disabled if needed using the `--disable_scalable_fallback` and `--disable_precise_fallback` flags respectively.
 
 The Gigahorse pipeline also includes a few rounds of inlining of small functions in order to help the subsequent client libraries get more high-level inferences. The inlining functionality can be disabled with `--disable_inline`.
 
@@ -44,7 +57,7 @@ Example (individual contract):
 
 Contracts that take too long to analyse will be skipped after a configurable timeout.
 
-The decompilation results are placed in the directory `.temp`, whereas metadate about the execution, e.g., metrics are placed in a `results.json` file, as a list of triples in the form:
+The decompilation results are placed in the directory `.temp`, whereas metadata about the execution, e.g., metrics are placed in a `results.json` file, as a list of triples in the form:
 
 ```[filename, properties, flags]```
 
@@ -67,7 +80,7 @@ Example (with client analysis):
 
 Gigahorse can also be used in "bulk analysis" mode, by replacing <contracts> by a directory filled with contracts.
 
-For additional instructions in tuning the Gigahorse framework see [Tuning.md](Tuning.md).
+For additional instructions in tuning the Gigahorse framework see [Advanced.md](Advanced.md).
 
 
 ## Textual representation of the lifted IR
@@ -87,29 +100,6 @@ A block visualized in `contract.tac` looks like:
 ```
 
 Keep in mind that the pretty-printed variable identifiers do not correspond to their identifiers in the underlying datalog facts.
-
-## Running Gigahorse Manually (for development purposes)
-To use this framework for development purposes (e.g., writing security analyses), an understanding of the analysis pipeline will be helpful. This section describes one common use case --- that of visualizing the CFG of the lifted IR. The pipeline will consist of the manual execution of following three steps:
-
-1. Fact generation
-2. Run main.dl using Souffle
-3. Visualize results
-
-In order to proceed, make sure that `LD_LIBRARY_PATH` and `LIBRARY_PATH` are set:
-
-    $ cd souffle-addon
-    $ export LD_LIBRARY_PATH=`pwd`  # or wherever you want to put the resulting libfunctors.so
-    $ export LIBRARY_PATH=`pwd`  # or wherever you want to put the resulting libfunctors.so
-
-We suggest adding `LD_LIBRARY_PATH` and `LIBRARY_PATH` to your `.bashrc` file
-
-
-Now let's manually execute the pipeline above:
-
-
-    $ ./generatefacts <contract> facts      # fact generation (translates EVM bytecode into relational format)
-    $ souffle -F facts logic/main.dl  # runs the main decompilation step (written as a Datalog program)
-    $ clients/visualizeout.py               # visualizes the IR and outputs (all outputs of Datalog programs are in a relational format)
 
 
 ## Writing client analyses

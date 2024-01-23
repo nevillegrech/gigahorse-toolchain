@@ -160,6 +160,9 @@ LocalStatementPathInBlock(stmt1, stmt3):-
   // Output relation 'before' can happen before 'after'
   .decl MayHappenBefore(before: Statement, after: Statement, arg: symbol)
 
+  // Output relation 'before' will happen before 'after'
+  .decl WillHappenBefore(before: Statement, after: Statement, arg: symbol)
+
   // Intermediate relations. These start before the original `before` and `after` statements populating the input relations
   // and transitively go back through function calls to work inter-procedurally
   // originalBefore/After are kept because to report the original statements, before/after is what changes when going through private calls
@@ -195,6 +198,7 @@ LocalStatementPathInBlock(stmt1, stmt3):-
     Statement_Block(callStmt, calleeBlock),
     Statement_Opcode(callStmt, "CALLPRIVATE").
 
+  WillHappenBefore(originalBefore, originalAfter, arg),
   MayHappenBefore(originalBefore, originalAfter, arg):-
     BeforeInfo(originalBefore, before, block, fun, arg),
     AfterInfo(originalAfter, after, block, fun, arg),
@@ -204,6 +208,11 @@ LocalStatementPathInBlock(stmt1, stmt3):-
     BeforeInfo(originalBefore, _, beforeBlock, fun, arg),
     AfterInfo(originalAfter, _, afterBlock, fun, arg), // REVIEW: maybe inverted order is faster.
     LocalBlockPath(beforeBlock, afterBlock).
+
+  WillHappenBefore(originalBefore, originalAfter, arg):-
+    BeforeInfo(originalBefore, _, beforeBlock, fun, arg),
+    AfterInfo(originalAfter, _, afterBlock, fun, arg), // REVIEW: maybe inverted order is faster.
+    Dominates(beforeBlock, afterBlock), beforeBlock != afterBlock.
 }
 
 /**
@@ -237,12 +246,17 @@ LocalStatementPathInBlock(stmt1, stmt3):-
   // Output relation 'before' can happen before 'after'
   .decl MayHappenBefore(before: Statement, after: Statement)
 
+  // Output relation 'before' will happen before 'after'
+  .decl WillHappenBefore(before: Statement, after: Statement)
+
   .init mayHappenBeforeInternal = MayHappenBeforeGlobalWithArg
 
   mayHappenBeforeInternal.Before(before, "NULL"):- Before(before).
   mayHappenBeforeInternal.After(after, "NULL"):- After(after).
 
   MayHappenBefore(before, after):- mayHappenBeforeInternal.MayHappenBefore(before, after, "NULL").
+
+  WillHappenBefore(before, after):- mayHappenBeforeInternal.WillHappenBefore(before, after, "NULL").
 }
 
 /**
@@ -282,3 +296,45 @@ LocalStatementPathInBlock(stmt1, stmt3):-
     beforeToBetween.MayHappenBefore(before, between),
     betweenToAfter.MayHappenBefore(between, after).
 }
+
+// .type CallStack = [callerBlock: Block, rest: CallStack]
+
+.type CallStack = StringList
+
+
+/**
+  Computes (all, most of the time) the different ways a private function can be reached for the different
+  public entry points.
+*/
+.decl FunctionReachableFromPublic(function: Function, selector: symbol, callStack: CallStack)
+DEBUG_OUTPUT(FunctionReachableFromPublic)
+// Can we ever have recursion? Deal with it the lazy way
+.limitsize FunctionReachableFromPublic(n=50000)
+
+/**
+  Computes a single way a private function can be reached for each different public entry point.
+  Outputs the list of the call statements in their TAC and original bytecode representations,
+  as well as the list of the called functions
+*/
+.decl FunctionReachableFromPublic_Metadata(function: Function, selector: symbol, callStack: CallStack, originalCallStack: OriginalStatementList, functionList: FunctionList) choice-domain (function, selector)
+DEBUG_OUTPUT(FunctionReachableFromPublic_Metadata)
+
+
+FunctionReachableFromPublic(function, selectorNorm, nil):-
+  PublicFunctionId(function, selectorNorm, _).
+
+FunctionReachableFromPublic(callee, selector, @list_append(callerStack, callerBlock)):-
+  FunctionReachableFromPublic(caller, selector, callerStack),
+  InFunction(callerBlock, caller),
+  CallGraphEdge(callerBlock, callee).
+
+FunctionReachableFromPublic_Metadata(function, selectorNorm, nil, nil, nil):-
+  PublicFunctionId(function, selectorNorm, _).
+
+FunctionReachableFromPublic_Metadata(callee, selector, @list_append(callerStack, callerBlock), @list_concat(originalCalls, originalList), @list_append(@list_concat(functionsCalled, inlinedFuns), callee)):-
+  FunctionReachableFromPublic_Metadata(caller, selector, callerStack, originalCalls, functionsCalled),
+  InFunction(callerBlock, caller),
+  CallGraphEdge(callerBlock, callee),
+  Block_Tail(callerBlock, callStmt),
+  Statement_OriginalStatementList(callStmt, originalList),
+  Statement_InlineInfo(callStmt, inlinedFuns).
