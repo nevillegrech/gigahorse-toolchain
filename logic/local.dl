@@ -967,6 +967,14 @@ PreTransStatement_OriginalStatement(heurClStmt, ogStmt) :-
 ValidSelector(optionalSelector):-
   blockCloner.analysis.ValidSelector(optionalSelector).
 
+/**
+  When we don't manage to find any ValidSelectors (other than $NoSelector())
+  we should just propagate everything `preTrans` gives us.
+*/
+ValidSelector(optionalSelector):-
+  1 = count : blockCloner.analysis.ValidSelector(_),
+  preTrans.IsOptionalSelector(optionalSelector).
+
 #else
 
 .init preTrans = PreTransLocalAnalysisAlt
