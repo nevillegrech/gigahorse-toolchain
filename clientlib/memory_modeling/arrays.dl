@@ -925,10 +925,9 @@ Array_ElementLength(actual, elementSize):-
   ActualReturnArgs(caller, actual, index).
 
 /**
-  Constant arrays and their contents.
+  Constant arrays and their contents. This is mainly useful to find debug messages.
+  Note that such bytearrays are right padded.
 **/
-
-
 .decl ConstArray_Contents(arrayRep:ArrayVariable, hex:symbol)
 
 MemoryModelingTempStmt(mstore),
@@ -937,6 +936,7 @@ ConstArray_Contents(arrayRep, substr(val, 0, strlen(val) + 2*(length - 32))):-
   VarIsArray(arrayVar, arrayRep),
   length > 0,
   length <= 32,
+  strlen(val) + 2*(length - 32) > 2,
   ArrayWriteToRelativeIndex(arrayVar, mstore, 0),
   MSTORE(mstore, _, storedVar),
   Variable_Value(storedVar, val).
@@ -947,7 +947,7 @@ MemoryModelingTempStmt(mstore2),
 ConstArray_Contents(arrayRep, val):-
   ArrayHasConstantLength(arrayRep, length),
   VarIsArray(arrayVar, arrayRep),
-  length > 0,
+  length > 32,
   length <= 64,
   ArrayWriteToRelativeIndex(arrayVar, mstore1, 0),
   MSTORE(mstore1, _, storedVar1),
@@ -963,7 +963,7 @@ MemoryModelingTempStmt(mstore3),
 ConstArray_Contents(arrayRep, val):-
   ArrayHasConstantLength(arrayRep, length),
   VarIsArray(arrayVar, arrayRep),
-  length > 0,
+  length > 64,
   length <= 96,
   ArrayWriteToRelativeIndex(arrayVar, mstore1, 0),
   MSTORE(mstore1, _, storedVar1),
