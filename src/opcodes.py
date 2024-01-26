@@ -211,6 +211,12 @@ DIFFICULTY = OpCode("DIFFICULTY", 0x44, 0, 1, 2)
 GASLIMIT   = OpCode("GASLIMIT",   0x45, 0, 1, 2)
 BASEFEE    = OpCode("BASEFEE",  0x48, 0, 1, 2)
 
+# EIP-4844
+BLOBHASH    = OpCode("BLOBHASH",  0x49, 1, 1, 3)
+
+# EIP-7516
+BLOBBASEFEE    = OpCode("BLOBBASEFEE",  0x4a, 0, 1, 2)
+
 # Stack, Memory, Storage, Flow
 POP      = OpCode("POP",      0x50, 1, 0, 2)
 MLOAD    = OpCode("MLOAD",    0x51, 1, 1, 3)
@@ -224,6 +230,13 @@ PC       = OpCode("PC",       0x58, 0, 1, 2)
 MSIZE    = OpCode("MSIZE",    0x59, 0, 1, 2)
 GAS      = OpCode("GAS",      0x5a, 0, 1, 2)
 JUMPDEST = OpCode("JUMPDEST", 0x5b, 0, 0, 1)
+
+# EIP-1153
+TLOAD    = OpCode("TLOAD",    0x5c, 1, 1, 100)
+TSTORE   = OpCode("TSTORE",   0x5d, 2, 0, 100)
+
+# EIP-5656
+MCOPY   = OpCode("MCOPY",   0x5e, 3, 0, 3)
 
 PUSH0  = OpCode("PUSH0",  0x5f, 0, 1, 2)
 PUSH1  = OpCode("PUSH1",  0x60, 0, 1, 3)
