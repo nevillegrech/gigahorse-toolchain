@@ -75,6 +75,21 @@ PossibleReturnAddressWithPos(targetSetter, retCtx, retBlock, retTarget, pos) :-
   postTrans.JUMP(jumpStmt),
   postTrans.BeforeLocalStackContents(jumpStmt, pos, targetVariable).
 
+PossibleReturnAddressWithPos(as(next, Block), retCtx, retBlock, retTarget, pos) :-
+  OptNotImmediateBlockJumpTarget(retCtx, retBlock, targetVariable, retTarget),
+  postTrans.Statement_Defines(targetSetStatement, targetVariable),
+  postTrans.Statement_Block(targetSetStatement, targetSetter),
+  postTrans.BasicBlock_Tail(targetSetter, jumpiStmt),
+  postTrans.JUMPI(jumpiStmt),
+  postTrans.LocalStackContents(jumpiStmt, stackIndex, targetVariable),
+  postTrans.FallthroughEdge(targetSetter, revertBlock),
+  postTrans.Statement_Block(revert, revertBlock),
+  postTrans.Statement_Opcode(revert, "REVERT"),
+  postTrans.StaticBlockJumpTarget(targetSetter, next),
+  postTrans.BasicBlock_Tail(as(next, Block), jumpStmt),
+  postTrans.JUMP(jumpStmt),
+  postTrans.BeforeLocalStackContents(jumpStmt, pos, stackIndex).
+
 .decl OptPossibleReturnAddressWithPos(targetSetter:Block, retBlock:Block, retTarget:Block, pos:number)
 OptPossibleReturnAddressWithPos(targetSetter, retBlock, retTarget, pos) :-
   PossibleReturnAddressWithPos(targetSetter, _, retBlock, retTarget, pos).
