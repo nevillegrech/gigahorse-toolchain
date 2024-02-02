@@ -964,26 +964,32 @@ COPY_CODE(revertCloner, factReader)
 #ifdef BLOCK_CLONING
 // Enable the early cloning of blocks to increase precision (sacrificing performance)
 .init blockCloner = BLOCK_CLONING
+// Old logic: Copy the output of revertCloner to the blockCloner
 //COPY_OUTPUT(blockCloner, revertCloner)
 
-// Try something to help the cloner
-.init preInsertor = StatementInsertor
-COPY_OUTPUT(preInsertor, revertCloner)
-.init prePreTrans = PreTransLocalAnalysis
-COPY_OUTPUT(prePreTrans, revertCloner)
-blockCloner.Statement_Next(stmt, next) :- preInsertor.Out_Statement_Next(stmt, next).
-blockCloner.Statement_Opcode(stmt, op) :- preInsertor.Out_Statement_Opcode(stmt, op).
-blockCloner.PushValue(stmt, value) :- preInsertor.Out_PushValue(stmt, value).
+/**
+  Transformation that helps the HeuristicBlockCloner
+*/
+.init clonerHelperInsertor = StatementInsertor
+COPY_OUTPUT(clonerHelperInsertor, revertCloner)
+.init beforeClonerLocal = PreTransLocalAnalysis
+COPY_OUTPUT(beforeClonerLocal, revertCloner)
 
-preInsertor.removeOp(dup),
-preInsertor.insertOps(dup,
+/**
+  If a `DUPx` statement copies an escaping jumpdest, replace the `DUP` with a `PUSH` of the same constant.
+  This helps the `HeuristicBlockCloner` (which clones blocks on a per-push basis) differentiate the two uses
+  of the same continuation, and clone if needed.
+*/
+clonerHelperInsertor.removeOp(dup),
+clonerHelperInsertor.insertOps(dup,
   LIST(
     STMT(PUSH4, label)
   )
 ) :-
-  prePreTrans.DUPStatementCopiesPushedLabelVar(dup, label).
+  beforeClonerLocal.DUPStatementCopiesPushedLabelVar(dup, label).
 
-
+COPY_OUTPUT(blockCloner, clonerHelperInsertor)
+// Transformation doesn't introduce new blocks, we can use revertCloner for the original block info
 blockCloner.Prev_Block_OriginalBlock(block, originalBlock):- revertCloner.Block_OriginalBlock(block, originalBlock).
 
 .init preTrans = PreTransLocalAnalysis
