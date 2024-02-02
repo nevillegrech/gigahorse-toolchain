@@ -317,7 +317,7 @@ to.PublicFunction(block, funHex, selector):- from.PublicFunction(block, funHex, 
 
   MaxOriginalStatement(as(maxStmt, Statement)):-
     maxStmtNumber = max stmtNumber : { Statement_Opcode(stmt, _), stmtNumber = @hex_to_number(stmt)},
-    maxStmt = @number_to_hex(maxStmtNumber).
+    maxStmt = @number_to_hex(2*maxStmtNumber).
 
   BlockSize(block, @hex_to_number(tail) - @hex_to_number(block)):-
     analysis.BasicBlock_Tail(block, tail).
