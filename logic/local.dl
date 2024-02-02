@@ -347,7 +347,7 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     BeforeLocalStackContents(stmt, n-1, duplicated),
     Statement_Opcode(stmt, opcode),
     DUPN(opcode, n).
-  
+
   LocalStackContents(stmt, m+1, other) :-
     BeforeLocalStackContents(stmt, m, other),
     Statement_Opcode(stmt, opcode),
@@ -702,6 +702,28 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     ByteCodeHex(bytecodeStr),
     const = cat("0x", substr(bytecodeStr, 2*codeOffsetNum, 2*smallNum)).
 
+  .decl PushedLabelOccupiesMultipleIndexes(block: Block, var: Variable)
+  PushedLabelOccupiesMultipleIndexes(block, var):-
+    JUMPDEST(as(val, symbol)),
+    Variable_Value(var, val),
+    Statement_Defines(stmt, var),
+    Statement_Block(stmt, block),
+    BasicBlock_Tail(block, call),
+    LocalStackContents(call, index1, var),
+    LocalStackContents(call, index2, var),
+    index1 != index2,
+    !BlockUsesLocal(block, var).
+
+  .decl DUPStatementCopiesPushedLabelVar(dup: Statement, label: Value)
+  DEBUG_OUTPUT(DUPStatementCopiesPushedLabelVar)
+  DUPStatementCopiesPushedLabelVar(dup, label):-
+    PushedLabelOccupiesMultipleIndexes(block, var),
+    Statement_Block(dup, block),
+    Statement_Opcode(dup, opcode),
+    DUPN(opcode, n),
+    BeforeLocalStackContents(dup, n-1, var),
+    Variable_Value(var, label).
+
   IsOptionalSelector(selectorVarOrIndex):-
     BlockComparesSig(_, _, selectorVarOrIndex);
     BlockComparesSigFallthroughSolidity(_, _, selectorVarOrIndex);
@@ -942,7 +964,26 @@ COPY_CODE(revertCloner, factReader)
 #ifdef BLOCK_CLONING
 // Enable the early cloning of blocks to increase precision (sacrificing performance)
 .init blockCloner = BLOCK_CLONING
-COPY_OUTPUT(blockCloner, revertCloner)
+//COPY_OUTPUT(blockCloner, revertCloner)
+
+// Try something to help the cloner
+.init preInsertor = StatementInsertor
+COPY_OUTPUT(preInsertor, revertCloner)
+.init prePreTrans = PreTransLocalAnalysis
+COPY_OUTPUT(prePreTrans, revertCloner)
+blockCloner.Statement_Next(stmt, next) :- preInsertor.Out_Statement_Next(stmt, next).
+blockCloner.Statement_Opcode(stmt, op) :- preInsertor.Out_Statement_Opcode(stmt, op).
+blockCloner.PushValue(stmt, value) :- preInsertor.Out_PushValue(stmt, value).
+
+preInsertor.removeOp(dup),
+preInsertor.insertOps(dup,
+  LIST(
+    STMT(PUSH4, label)
+  )
+) :-
+  prePreTrans.DUPStatementCopiesPushedLabelVar(dup, label).
+
+
 blockCloner.Prev_Block_OriginalBlock(block, originalBlock):- revertCloner.Block_OriginalBlock(block, originalBlock).
 
 .init preTrans = PreTransLocalAnalysis
