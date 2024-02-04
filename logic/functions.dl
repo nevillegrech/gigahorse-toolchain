@@ -55,8 +55,8 @@ OptNotImmediateBlockJumpTarget(retCtx, retBlock, targetVariable, retTarget) :-
   global.BlockJumpValidTarget(retCtx, retBlock, targetVariable, retTarget),
   !postTrans.ImmediateBlockJumpTarget(retBlock, targetVariable).
 
-
-
+.decl DEBUGNEWPATTERN(targetSetter:Block, retCtx:global.sens.Context, retBlock:Block, retTarget:Block, pos:number)
+// .output DEBUGNEWPATTERN
 /**
   Call-return pattern:
   a) basic block jumps to a valid "non-locally-derived" address
@@ -74,7 +74,7 @@ PossibleReturnAddressWithPos(targetSetter, retCtx, retBlock, retTarget, pos) :-
   postTrans.BasicBlock_Tail(targetSetter, jumpStmt),
   postTrans.JUMP(jumpStmt),
   postTrans.BeforeLocalStackContents(jumpStmt, pos, targetVariable).
-
+// DEBUGNEWPATTERN(as(next, Block), retCtx, retBlock, retTarget, pos),
 PossibleReturnAddressWithPos(as(next, Block), retCtx, retBlock, retTarget, pos) :-
   OptNotImmediateBlockJumpTarget(retCtx, retBlock, targetVariable, retTarget),
   postTrans.Statement_Defines(targetSetStatement, targetVariable),
@@ -87,7 +87,8 @@ PossibleReturnAddressWithPos(as(next, Block), retCtx, retBlock, retTarget, pos) 
   postTrans.StaticBlockJumpTarget(targetSetter, next),
   postTrans.BasicBlock_Tail(as(next, Block), jumpStmt),
   postTrans.JUMP(jumpStmt),
-  postTrans.BeforeLocalStackContents(jumpStmt, pos, stackIndex).
+  postTrans.BeforeLocalStackContents(jumpStmt, pos, stackIndex),
+  !postTrans.PrivateFunctionCall(_, as(next, Block), _, _). // filter out cases that start from 
 
 .decl OptPossibleReturnAddressWithPos(targetSetter:Block, retBlock:Block, retTarget:Block, pos:number)
 OptPossibleReturnAddressWithPos(targetSetter, retBlock, retTarget, pos) :-
