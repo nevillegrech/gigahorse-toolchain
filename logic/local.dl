@@ -609,7 +609,13 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     callee = as(calleeValue, Block),
     (CallBlockEarliestContinuation(caller, callee, firstCont);
      (!CallBlockEarliestContinuation(caller, callee, _), firstCont = "undefined")).
- 
+
+  .decl IsJumpBlockPrivateFunctionCall(caller: Block, callee: Block)
+  IsJumpBlockPrivateFunctionCall(caller, callee):-
+    PrivateFunctionCall(caller, callee, _, _),
+    Statement_Block(call, caller),
+    JUMP(call).
+
   .decl MultiplePrivateFunctionCall(caller: Block)
   MultiplePrivateFunctionCall(caller) :-
     PrivateFunctionCall(caller, callee, cont1, _),

@@ -88,7 +88,8 @@ PossibleReturnAddressWithPos(as(next, Block), retCtx, retBlock, retTarget, pos) 
   postTrans.BasicBlock_Tail(as(next, Block), jumpStmt),
   postTrans.JUMP(jumpStmt),
   postTrans.BeforeLocalStackContents(jumpStmt, pos, stackIndex),
-  !postTrans.PrivateFunctionCall(_, as(next, Block), _, _). // filter out cases that start from 
+  // filter out cases that are definite function calls
+  !postTrans.IsJumpBlockPrivateFunctionCall(_, as(next, Block)).
 
 .decl OptPossibleReturnAddressWithPos(targetSetter:Block, retBlock:Block, retTarget:Block, pos:number)
 OptPossibleReturnAddressWithPos(targetSetter, retBlock, retTarget, pos) :-
