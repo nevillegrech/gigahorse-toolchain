@@ -453,8 +453,16 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
      IsStackIndexLessThan(n, m),
      BeforeLocalStackContents(stmt, n, varOrStackIndex).
 
+  .decl BlockWillRevert(revertBlock: Block)
+  BlockWillRevert(revertBlock):-
+    Statement_Block(revert, revertBlock),
+    REVERT(revert).
 
-
+  BlockWillRevert(indirectRevertBlock):-
+    BlockWillRevert(revertBlock),
+    StaticBlockJumpTarget(indirectRevertBlock, as(revertBlock, Value)),
+    Statement_Block(jump, indirectRevertBlock),
+    JUMP(jump).
 
   .decl IsJump(stmt:Statement)
 
