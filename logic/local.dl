@@ -730,8 +730,11 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     index1 != index2,
     !BlockUsesLocal(block, var).
 
+  /**
+    Identify cases where the same continuation is pushed once but DUPed
+    into multiple stack indexes
+  */
   .decl DUPStatementCopiesPushedLabelVar(dup: Statement, label: Value)
-  DEBUG_OUTPUT(DUPStatementCopiesPushedLabelVar)
   DUPStatementCopiesPushedLabelVar(dup, label):-
     PushedLabelOccupiesMultipleIndexes(block, var),
     Statement_Block(dup, block),

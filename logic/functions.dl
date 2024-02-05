@@ -55,8 +55,7 @@ OptNotImmediateBlockJumpTarget(retCtx, retBlock, targetVariable, retTarget) :-
   global.BlockJumpValidTarget(retCtx, retBlock, targetVariable, retTarget),
   !postTrans.ImmediateBlockJumpTarget(retBlock, targetVariable).
 
-.decl DEBUGNEWPATTERN(targetSetter:Block, retCtx:global.sens.Context, retBlock:Block, retTarget:Block, pos:number)
-// .output DEBUGNEWPATTERN
+
 /**
   Call-return pattern:
   a) basic block jumps to a valid "non-locally-derived" address
