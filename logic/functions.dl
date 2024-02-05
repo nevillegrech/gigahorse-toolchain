@@ -86,7 +86,7 @@ PossibleReturnAddressWithPos(targetSetter, retCtx, retBlock, retTarget, pos) :-
       revert
     Block label_b:
       push func_start
-      call
+      jump
 
   We handle it by treating the return address as if it was pushed by label_b.
 
