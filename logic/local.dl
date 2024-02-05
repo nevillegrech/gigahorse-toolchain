@@ -453,6 +453,7 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
      IsStackIndexLessThan(n, m),
      BeforeLocalStackContents(stmt, n, varOrStackIndex).
 
+  // Identify low-level blocks that will always REVERT
   .decl BlockWillRevert(revertBlock: Block)
   BlockWillRevert(revertBlock):-
     Statement_Block(revert, revertBlock),
@@ -610,6 +611,7 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     (CallBlockEarliestContinuation(caller, callee, firstCont);
      (!CallBlockEarliestContinuation(caller, callee, _), firstCont = "undefined")).
 
+  // Helper to identify blocks that are very likely function entries
   .decl IsJumpBlockPrivateFunctionCall(caller: Block, callee: Block)
   IsJumpBlockPrivateFunctionCall(caller, callee):-
     PrivateFunctionCall(caller, callee, _, _),
