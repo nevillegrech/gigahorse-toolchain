@@ -56,7 +56,6 @@ OptNotImmediateBlockJumpTarget(retCtx, retBlock, targetVariable, retTarget) :-
   !postTrans.ImmediateBlockJumpTarget(retBlock, targetVariable).
 
 
-
 /**
   Call-return pattern:
   a) basic block jumps to a valid "non-locally-derived" address
@@ -74,6 +73,41 @@ PossibleReturnAddressWithPos(targetSetter, retCtx, retBlock, retTarget, pos) :-
   postTrans.BasicBlock_Tail(targetSetter, jumpStmt),
   postTrans.JUMP(jumpStmt),
   postTrans.BeforeLocalStackContents(jumpStmt, pos, targetVariable).
+
+/**
+  This pattern is prominent in 0.8.x code:
+    Block label_a:
+      push continuation
+      ...
+      push label_b
+      jumpi
+    fallthrough:
+      ...
+      revert
+    Block label_b:
+      push func_start
+      jump
+
+  We handle it by treating the return address as if it was pushed by label_b.
+
+  Code older than 0.8.x would call the function directly with a jumpi.
+  We try to filter this out and will need to handle it separately.
+*/
+PossibleReturnAddressWithPos(as(next, Block), retCtx, retBlock, retTarget, pos) :-
+  OptNotImmediateBlockJumpTarget(retCtx, retBlock, targetVariable, retTarget),
+  postTrans.Statement_Defines(targetSetStatement, targetVariable),
+  postTrans.Statement_Block(targetSetStatement, targetSetter),
+  postTrans.BasicBlock_Tail(targetSetter, jumpiStmt),
+  postTrans.JUMPI(jumpiStmt),
+  postTrans.LocalStackContents(jumpiStmt, stackIndex, targetVariable),
+  postTrans.FallthroughEdge(targetSetter, revertBlock),
+  postTrans.BlockWillRevert(revertBlock),
+  postTrans.StaticBlockJumpTarget(targetSetter, next),
+  postTrans.BasicBlock_Tail(as(next, Block), jumpStmt),
+  postTrans.JUMP(jumpStmt),
+  postTrans.BeforeLocalStackContents(jumpStmt, pos, stackIndex),
+  // filter out cases where the function is called directly
+  !postTrans.IsJumpBlockPrivateFunctionCall(_, as(next, Block)).
 
 .decl OptPossibleReturnAddressWithPos(targetSetter:Block, retBlock:Block, retTarget:Block, pos:number)
 OptPossibleReturnAddressWithPos(targetSetter, retBlock, retTarget, pos) :-
