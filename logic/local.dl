@@ -664,6 +664,22 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     Statement_Opcode(stmt, opcode),
     !OpcodePossiblyHalts(opcode).
 
+  .decl FallthroughBlockUsedMultipleTimes(block: Block, fallthrough: Statement)
+  DEBUG_OUTPUT(FallthroughBlockUsedMultipleTimes)
+  FallthroughBlockUsedMultipleTimes(block, fallthrough):-
+    FallthroughEdge(block, next),
+    StackBalanceBlock(next),
+    BlockPushesLabel(pushBlock1, as(block, Value)),
+    BlockPushesLabel(pushBlock2, as(block, Value)),
+    BasicBlock_Tail(block, stmt),
+    Statement_Next(stmt, fallthrough),
+    JUMPDEST(fallthrough),
+    !JUMP(stmt),
+    !JUMPI(stmt),
+    Statement_Opcode(stmt, opcode),
+    !OpcodePossiblyHalts(opcode),
+    pushBlock1 != pushBlock2.
+
   .decl CODECOPYStatement(stmt: Statement, offset: Value, size: Value)
   CODECOPYStatement(codeCopy, codeOffsetNumHex, smallNumHex) :-
     Statement_Opcode(codeCopy, "CODECOPY"),
@@ -1024,6 +1040,16 @@ clonerHelperInsertor.insertOps(dup,
   )
 ) :-
   beforeClonerLocal.DUPStatementCopiesPushedLabelVar(dup, label).
+
+// We can't clone fallthrough blocks, add a jump in that case
+clonerHelperInsertor.insertOps(fallthrough,
+  LIST(
+    STMT(PUSH4, as(fallthrough, symbol)),
+    STMT(JUMP, "")
+  )
+):-
+  beforeClonerLocal.FallthroughBlockUsedMultipleTimes(_, fallthrough),
+  beforeClonerLocal.JUMPDEST(fallthrough).
 
 COPY_OUTPUT(blockCloner, clonerHelperInsertor)
 // Transformation doesn't introduce new blocks, we can use revertCloner for the original block info
