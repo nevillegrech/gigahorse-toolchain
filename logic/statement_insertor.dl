@@ -355,7 +355,8 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
     BlockPushesBlockToStack(_, otherFrom, to),
     BlockCloningCandidate(to),
     from != otherFrom,
-    !BlockPushesCloningCandidate(to, _, _),
+    // Don't think we need it after all.
+    // !BlockPushesCloningCandidate(to, _, _),
     !FallthroughBlock(to),
     // Make sure we don't break any CODECOPY stmts
     !analysis.CODECOPYStatement(_, as(to,Value), _).

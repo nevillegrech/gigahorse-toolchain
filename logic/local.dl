@@ -59,6 +59,16 @@ clonerHelperInsertor.insertOps(dup,
 ) :-
   beforeClonerLocal.DUPStatementCopiesPushedLabelVar(dup, label).
 
+// We can't clone fallthrough blocks, add a jump in that case
+clonerHelperInsertor.insertOps(fallthrough,
+  LIST(
+    STMT(PUSH4, as(fallthrough, symbol)),
+    STMT(JUMP, "")
+  )
+):-
+  beforeClonerLocal.FallthroughBlockUsedMultipleTimes(_, fallthrough),
+  beforeClonerLocal.JUMPDEST(fallthrough).
+
 COPY_OUTPUT(blockCloner, clonerHelperInsertor)
 // Transformation doesn't introduce new blocks, we can use revertCloner for the original block info
 blockCloner.Prev_Block_OriginalBlock(block, originalBlock):- revertCloner.Block_OriginalBlock(block, originalBlock).
