@@ -618,6 +618,24 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     Statement_Block(call, caller),
     JUMP(call).
 
+    // Helper to identify blocks that are very likely function entries
+  .decl IsConditionalJumpBlockPrivateFunctionCall(caller: Block, callee: Block)
+  DEBUG_OUTPUT(IsConditionalJumpBlockPrivateFunctionCall)
+  IsConditionalJumpBlockPrivateFunctionCall(caller, callee):-
+    PrivateFunctionCall(caller, callee, _, _),
+    Statement_Block(call, caller),
+    JUMPI(call).
+
+  .decl ConditionalCallCanBeTransformed(caller: Block, callee: Block, continuation: Block)
+  DEBUG_OUTPUT(ConditionalCallCanBeTransformed)
+  ConditionalCallCanBeTransformed(caller, callee, cont):-
+    IsConditionalJumpBlockPrivateFunctionCall(caller, callee),
+    PrivateFunctionCall(caller, callee, cont, cont),
+    PrivateFunctionCall(caller2, callee, _, _),
+    caller2 != caller,
+    1 = count : PrivateFunctionCall(_, _, cont, _).
+
+
   .decl MultiplePrivateFunctionCall(caller: Block)
   MultiplePrivateFunctionCall(caller) :-
     PrivateFunctionCall(caller, callee, cont1, _),
@@ -1036,6 +1054,28 @@ ValidSelector(optionalSelector):-
 #endif
 
 INITIALIZE_STATEMENT_INSERTOR_FROM(insertor, preTrans, postTrans)
+
+
+insertor.removeOp(jumpi),
+insertor.removeOp(pushStmt),
+insertor.insertOps(pushStmt,
+  LIST(
+    STMT(PUSH4, MAKE_LABEL_REFERENCE(cont)),
+    STMT(JUMPI, "")
+  )
+),
+insertor.insertOps(as(cont, Statement),
+  LIST(
+    STMT(JUMPDEST, MAKE_LABEL_REFERENCE(cont)),
+    STMT(PUSH4, as(callee, symbol)),
+    STMT(JUMP, "")
+  )
+) :-
+  preTrans.ConditionalCallCanBeTransformed(caller, callee, cont),
+  preTrans.Statement_Block(jumpi, caller),
+  preTrans.JUMPI(jumpi),
+  preTrans.Statement_Next(pushStmt, jumpi),
+  preTrans.PushValue(pushStmt, as(callee, Value)).
 
 
 // This one removes conditional calls
