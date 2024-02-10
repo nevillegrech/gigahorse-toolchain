@@ -721,6 +721,13 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     DIV(shift),
     Statement_Defines(shift, selector).
 
+  FunctionSelectorVariable(selector):-
+    FunctionSelectorVariable(preCastSelector),
+    Statement_Uses_Local(cast, preCastSelector, n),
+    Statement_Uses_Local(cast, maskVar, 1 - n),
+    Variable_Value(maskVar, "0xffffffff"),
+    Statement_Defines(cast, selector).
+
 }
 
 .comp PreTransLocalAnalysis : LocalAnalysis {
