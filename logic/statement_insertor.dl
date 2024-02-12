@@ -346,10 +346,10 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
   BlockToCloneRecursive([pushStmt, blockToClone, nil]):-
     BlockToClone(pushStmt, blockToClone).
 
-  // BlockToCloneRecursive([pushStmt, blockToClone, [prevPushStmt, prevBlockToClone, rest]]):-
-  //   BlockToCloneRecursive([prevPushStmt, prevBlockToClone, rest]),
-  //   BlockPushesBlockToStack(prevBlockToClone, pushStmt, blockToClone),
-  //   BlockToClone(pushStmt, blockToClone).
+  BlockToCloneRecursive([pushStmt, blockToClone, [prevPushStmt, prevBlockToClone, rest]]):-
+    BlockToCloneRecursive([prevPushStmt, prevBlockToClone, rest]),
+    BlockPushesBlockToStack(prevBlockToClone, pushStmt, blockToClone),
+    BlockToClone(pushStmt, blockToClone).
 
   .decl FallthroughBlock(block: Block)
   FallthroughBlock(block):-
@@ -454,10 +454,17 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
     PushValue(pushStmt, as(blockToClone, Value)),
     ClonedBlockAddressPushedBy(_, pushStmt, blockToClone).
 
+  Out_PushValue(clonedStmt, as(newVal, Value)):-
+    BlockToCloneNewInstance([pushStmt, blockToClone, rest], newVal),
+    StatementToClonedStatement(rest, pushStmt, clonedStmt),
+    PushValue(pushStmt, as(blockToClone, Value)),
+    ClonedBlockAddressPushedBy(_, pushStmt, blockToClone).
+
   // Note: For now the cloned blocks should have no pushes
   Out_PushValue(clonedStmt, val):-
     PushValue(oldStmt, val),
-    StatementToClonedStatement(_, oldStmt, clonedStmt).
+    StatementToClonedStatement(_, oldStmt, clonedStmt),
+    !ClonedBlockAddressPushedBy(_, oldStmt, _).
 
   In_Block_OriginalBlock(block, block):-
     analysis.Statement_Block(_, block),
