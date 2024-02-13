@@ -457,7 +457,7 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
   .decl BlockWillRevert(revertBlock: Block)
   BlockWillRevert(revertBlock):-
     Statement_Block(revert, revertBlock),
-    REVERT(revert).
+    (REVERT(revert); INVALID(revert)).
 
   BlockWillRevert(indirectRevertBlock):-
     BlockWillRevert(revertBlock),
