@@ -193,6 +193,12 @@ MaybeFunctionCallReturnNewContext(ctx, caller, retTargetCtx, retTarget) :-
   MaybeFunctionCallReturn(ctx, caller, _, retCtx, ret, retTarget),
   global.BlockEdge(retCtx, ret, retTargetCtx, retTarget).
 
+// support for jumpi calls
+MaybeFunctionCallReturnNewContext(ctx, caller, retTargetCtx2, nextCaller) :-
+  MaybeFunctionCallReturn(ctx, caller, _, retCtx, ret, jumpiBlock),
+  postTrans.NormalizedConditionalCallPattern(jumpiBlock, nextCaller, _),
+  global.BlockEdge(retCtx, ret, retTargetCtx, jumpiBlock),
+  global.BlockEdge(retTargetCtx, jumpiBlock, retTargetCtx2, nextCaller).
 /**
   If we have found a likely call-return pattern, we propagate to the return
   block the extra pushed return values of the former caller. Stacking return
