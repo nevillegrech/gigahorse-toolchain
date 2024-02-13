@@ -662,6 +662,8 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     PrivateFunctionCall(_, _, jumpiBlock, lastCont),
     Statement_Block(jumpi, jumpiBlock),
     JUMPI(jumpi),
+    FallthroughEdge(jumpiBlock, revertBlock),
+    BlockWillRevert(revertBlock),
     StaticBlockJumpTarget(jumpiBlock, caller),
     StaticBlockJumpTarget(as(caller, Block), calleeValue),
     Statement_Block(call, as(caller, Block)),
