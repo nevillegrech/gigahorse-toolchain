@@ -634,13 +634,26 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     StaticBlockJumpTarget(cont, calleeValue),
     cont != lastCont.
 
+  // Kind of hacky. make ConditionalCallCanBeTransformed a bit more complete
+  .decl MaybeConditionalJumpBlockPrivateFunctionCall(caller: Block, callee: Block)
+  DEBUG_OUTPUT(MaybeConditionalJumpBlockPrivateFunctionCall)
+  MaybeConditionalJumpBlockPrivateFunctionCall(caller, as(calleeValue, Block)):-
+    IsConditionalJumpBlockPrivateFunctionCall(prevCaller, caller),
+    StaticBlockJumpTarget(caller, calleeValue),
+    Statement_Block(call, caller),
+    JUMPI(call).
+
 
   .decl ConditionalCallCanBeTransformed(caller: Block, callee: Block, continuation: symbol)
   DEBUG_OUTPUT(ConditionalCallCanBeTransformed)
   ConditionalCallCanBeTransformed(caller, callee, cont):-
     IsConditionalJumpBlockPrivateFunctionCall(caller, callee),
     PrivateFunctionCall(caller, callee, cont, cont),
-    PrivateFunctionCall(caller2, callee, _, _),
+    (
+      PrivateFunctionCall(caller2, callee, _, _);
+      IsConditionalJumpBlockPrivateFunctionCall(caller2, callee);
+      MaybeConditionalJumpBlockPrivateFunctionCall(caller2, callee)
+    ),
     caller2 != caller,
     1 = count : PrivateFunctionCall(_, _, cont, _).
 
