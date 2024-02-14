@@ -655,7 +655,8 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
       MaybeConditionalJumpBlockPrivateFunctionCall(caller2, callee)
     ),
     caller2 != caller,
-    1 = count : PrivateFunctionCall(_, _, cont, _).
+    1 = count : PrivateFunctionCall(_, _, cont, _),
+    !FallthroughEdge(_, cont).
 
   ConditionalCallCanBeTransformed(caller, callee, caller):-
     IsConditionalJumpBlockPrivateFunctionCall(caller, callee),
@@ -664,6 +665,7 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
       PrivateFunctionCall(caller2, callee, _, _)
     ),
     caller != caller2,
+    !FallthroughEdge(_, caller),
     !PrivateFunctionCall(caller, _, _, _).
 
   .decl NormalizedConditionalCallPattern(jumpiBlock: Block, caller: Block, callee: Block)
