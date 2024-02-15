@@ -613,10 +613,28 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
 
   // Helper to identify blocks that are very likely function entries
   .decl IsJumpBlockPrivateFunctionCall(caller: Block, callee: Block)
+  DEBUG_OUTPUT(IsJumpBlockPrivateFunctionCall)
   IsJumpBlockPrivateFunctionCall(caller, callee):-
     PrivateFunctionCall(caller, callee, _, _),
     Statement_Block(call, caller),
     JUMP(call).
+
+  IsJumpBlockPrivateFunctionCall(caller, callee):-
+    IsJumpBlockPrivateFunctionCall(_, callee),
+    PrivateFunctionCall(_, _, cont, lastCont),
+    cont != lastCont,
+    StaticBlockJumpTarget(caller, as(callee, Value)),
+    Statement_Block(call, caller),
+    JUMP(call).
+
+  .decl JumpToFunctionStartDoesntPushContinuation(caller: Block, callee: Block)
+  DEBUG_OUTPUT(JumpToFunctionStartDoesntPushContinuation)
+  JumpToFunctionStartDoesntPushContinuation(caller, callee):-
+    IsJumpBlockPrivateFunctionCall(_, callee),
+    StaticBlockJumpTarget(caller, as(callee, Value)),
+    Statement_Block(call, caller),
+    JUMP(call),
+    !PrivateFunctionCall(caller, callee, _, _).
 
     // Helper to identify blocks that are very likely function entries
   .decl IsConditionalJumpBlockPrivateFunctionCall(caller: Block, callee: Block)
@@ -656,6 +674,7 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     ),
     caller2 != caller,
     1 = count : PrivateFunctionCall(_, _, cont, _),
+    !JumpToFunctionStartDoesntPushContinuation(callee, _),
     !FallthroughEdge(_, cont).
 
   ConditionalCallCanBeTransformed(caller, callee, caller):-
@@ -666,7 +685,22 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     ),
     caller != caller2,
     !FallthroughEdge(_, caller),
+    !JumpToFunctionStartDoesntPushContinuation(callee, _),
     !PrivateFunctionCall(caller, _, _, _).
+
+  .decl ConditionalCallTargetNotUnique(caller: Block, callee: Block)
+  DEBUG_OUTPUT(ConditionalCallTargetNotUnique)
+  ConditionalCallTargetNotUnique(caller, callee):-
+    IsConditionalJumpBlockPrivateFunctionCall(caller, callee),
+    PrivateFunctionCall(caller, callee, cont, cont),
+    JumpToFunctionStartDoesntPushContinuation(callee, _),
+    (
+      PrivateFunctionCall(caller2, callee, _, _);
+      IsConditionalJumpBlockPrivateFunctionCall(caller2, callee);
+      MaybeConditionalJumpBlockPrivateFunctionCall(caller2, callee)
+    ),
+    caller2 != caller,
+    !FallthroughEdge(_, cont).
 
   .decl NormalizedConditionalCallPattern(jumpiBlock: Block, caller: Block, callee: Block)
   DEBUG_OUTPUT(NormalizedConditionalCallPattern)

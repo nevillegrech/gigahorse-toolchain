@@ -590,6 +590,9 @@ to.PublicFunction(block, funHex, selector):- from.PublicFunction(block, funHex, 
     PossibleCallerWithReturn(_, var2, candidate),
     var != var2.
 
+  BlockCloningCandidate(candidate):-
+    analysis.ConditionalCallTargetNotUnique(_, candidate).
+
 }
 
 /**
