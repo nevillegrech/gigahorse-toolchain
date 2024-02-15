@@ -622,7 +622,7 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
   IsJumpBlockPrivateFunctionCall(caller, callee):-
     IsJumpBlockPrivateFunctionCall(_, callee),
     PrivateFunctionCall(_, _, cont, lastCont),
-    cont != lastCont,
+    // cont != lastCont,
     StaticBlockJumpTarget(caller, as(callee, Value)),
     Statement_Block(call, caller),
     JUMP(call).
@@ -649,8 +649,8 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     PrivateFunctionCall(_, _, cont, lastCont),
     Statement_Block(call, cont),
     JUMPI(call),
-    StaticBlockJumpTarget(cont, calleeValue),
-    cont != lastCont.
+    StaticBlockJumpTarget(cont, calleeValue).
+    // cont != lastCont.
 
   // Kind of hacky. make ConditionalCallCanBeTransformed a bit more complete
   .decl MaybeConditionalJumpBlockPrivateFunctionCall(caller: Block, callee: Block)
@@ -702,6 +702,17 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     caller2 != caller,
     !FallthroughEdge(_, cont).
 
+  ConditionalCallTargetNotUnique(caller, callee):-
+    IsConditionalJumpBlockPrivateFunctionCall(caller, callee),
+    JumpToFunctionStartDoesntPushContinuation(callee, _),
+    (
+      IsConditionalJumpBlockPrivateFunctionCall(caller2, callee);
+      PrivateFunctionCall(caller2, callee, _, _)
+    ),
+    caller != caller2,
+    !FallthroughEdge(_, caller),
+    !PrivateFunctionCall(caller, _, _, _).
+
   .decl NormalizedConditionalCallPattern(jumpiBlock: Block, caller: Block, callee: Block)
   DEBUG_OUTPUT(NormalizedConditionalCallPattern)
   
@@ -716,8 +727,8 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     StaticBlockJumpTarget(jumpiBlock, caller),
     StaticBlockJumpTarget(as(caller, Block), calleeValue),
     Statement_Block(call, as(caller, Block)),
-    JUMP(call),
-    jumpiBlock != lastCont.
+    JUMP(call).
+    // jumpiBlock != lastCont.
 
   NormalizedConditionalCallPattern(jumpiBlock, caller, callee):-
     NormalizedConditionalCallPatternBase(jumpiBlock, caller, callee),
