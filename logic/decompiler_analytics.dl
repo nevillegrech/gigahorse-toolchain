@@ -510,3 +510,11 @@ Analytics_BlocksLocalOrNot(block1, block2) :-
 
 Analytics_NeedToAddCtxAtEdge(from, to):-
   global.NeedToAddCtxAtEdge(from, to).
+
+.decl Analytics_MissingEdgeInTAC(irBlock: IRBlock)
+.output Analytics_MissingEdgeInTAC
+Analytics_MissingEdgeInTAC(irBlock):-
+  Block_IRBlock(_, _, irBlock),
+  TAC_Block(jump, irBlock),
+  TAC_Op(jump, "JUMP"),
+  !LocalBlockEdge(irBlock, _).

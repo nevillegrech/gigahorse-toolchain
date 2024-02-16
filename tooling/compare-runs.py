@@ -34,6 +34,7 @@ decomp_analytics = {
   'Analytics_DeadBlocks': 'imprecision',
   'Analytics_PolymorphicTargetSameCtx': 'imprecision',
   'Analytics_LocalBlockEdge': 'completeness',
+  'Analytics_MissingEdgeInTAC': 'completeness',
   'Analytics_StmtMissingOperand': 'incompleteness',
   'Analytics_PrivateFunctionMatchesMetadata': 'completeness',
   'Analytics_PrivateFunctionMatchesMetadataIncorrectArgs': 'imprecision',
