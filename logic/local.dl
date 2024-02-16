@@ -634,6 +634,11 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     (StaticBlockJumpTarget(jumpiBlock, caller); FallthroughEdge(jumpiBlock, caller)),
     (StaticBlockJumpTarget(as(caller, Block), callee); FallthroughEdge(as(caller, Block), callee)).
 
+  IsLikelyPrivateFunctionCall(jumpiBlock, callee):-
+    IsLikelyPrivateFunctionCall(_, callee),
+    FallthroughEdge(jumpiBlock, callee),
+    IsConditionalJumpBlockPrivateFunctionCall(jumpiBlock, _).
+
   .decl JumpToFunctionStartDoesntPushContinuation(caller: Block, callee: Block)
   DEBUG_OUTPUT(JumpToFunctionStartDoesntPushContinuation)
   JumpToFunctionStartDoesntPushContinuation(caller, callee):-
@@ -781,7 +786,7 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     BasicBlock_Tail(block, stmt),
     Statement_Next(stmt, fallthrough),
     !JUMP(stmt),
-    !JUMPI(stmt),
+    // !JUMPI(stmt),
     Statement_Opcode(stmt, opcode),
     !OpcodePossiblyHalts(opcode).
 
