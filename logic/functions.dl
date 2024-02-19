@@ -246,6 +246,37 @@ PossibleReturnAddressWithRank(newCallCtx, caller, retCtx, retBlock, retTarget, n
   !PossibleReturnAddressWithPos(caller, _, _, _, _).
  .plan 1:(2,3,1)
 
+.decl DEBUGReturn(prevCaller: Block, intermCaller: Block, caller: Block, retTarget: Block)
+.output DEBUGReturn
+DEBUGReturn(targetSetter, intermCaller, caller, retTarget),
+PossibleReturnAddressWithRank(newCallCtx, caller, retCtx, retBlock, retTarget, n-2) :-
+  PossibleReturnAddressWithRank(prevCallCtx, targetSetter, _, _, intermCaller, 0),
+  PossibleReturnAddressWithRank(prevCallCtx, targetSetter, _, _, caller, 1),
+  PossibleReturnAddressWithPositiveRank(prevCallCtx, targetSetter, retCtx, retBlock, retTarget, n),
+  MaybeFunctionCallReturnNewContext(prevCallCtx, targetSetter, intermCallCtx, intermCaller),
+  postTrans.PrivateFunctionReturn(intermCaller),
+  global.BlockEdge(intermCallCtx, intermCaller, newCallCtx, caller), n > 1,
+  postTrans.BasicBlock_Tail(caller, jump),
+  postTrans.Statement_Opcode(jump, "JUMP"),
+  !PossibleReturnAddressWithPos(caller, _, _, _, _),
+  !PossibleReturnAddressWithPos(intermCaller, _, _, _, _).
+  .plan 1:(2,1,5,4,3,6,7,8), 2:(3,2,1,4,5,6,7,8), 3:(4,3,2,1,5,6,7,8)
+
+PossibleReturnAddressWithRank(newCallCtx, caller, retCtx, retBlock, retTarget, n - 1 + maxrank) :-
+  PossibleReturnAddressWithRank(prevCallCtx, targetSetter, _, _, intermCaller, 0),
+  PossibleReturnAddressWithRank(prevCallCtx, targetSetter, _, _, caller, 1),
+  PossibleReturnAddressWithPositiveRank(prevCallCtx, targetSetter, retCtx, retBlock, retTarget, n),
+  MaybeFunctionCallReturnNewContext(prevCallCtx, targetSetter, intermCallCtx, intermCaller),
+  postTrans.PrivateFunctionReturn(intermCaller),
+  global.BlockEdge(intermCallCtx, intermCaller, newCallCtx, caller), n > 1,
+  postTrans.BasicBlock_Tail(caller, jump),
+  postTrans.Statement_Opcode(jump, "JUMP"),
+  MaxRankForPossibleReturnAddressSetter(caller, maxrank),
+  !PossibleReturnAddressWithPos(intermCaller, _, _, _, _).
+  .plan 1:(2,1,5,4,3,6,7,8,9), 2:(3,2,1,4,5,6,7,8,9), 3:(4,3,2,1,5,6,7,8,9)
+
+//  .plan 1:(2,3,4,1)
+
 /**
   Seems pretty certain we found a return. In fact, at this point,
   with the above logic, we have detected all original return
@@ -314,7 +345,7 @@ NotValidReturnEdge(retBlock, retTarget) :-
 IsFunctionCallReturn(ctx, caller, func, retCtx, retBlock, retTarget) :-
   MaybeFunctionCallReturn(ctx, caller, func, retCtx, retBlock, retTarget),
   //FunctionCalledMultipleTimes(func),
-  (FunctionCalledMultipleTimes(func) ; FunctionSharesReturnBlock(func) ; FunctionReturnIsStackBalanceBlock(func)),
+  // (FunctionCalledMultipleTimes(func) ; FunctionSharesReturnBlock(func) ; FunctionReturnIsStackBalanceBlock(func)),
   !NotValidReturnEdge(retBlock, retTarget).
 
 
