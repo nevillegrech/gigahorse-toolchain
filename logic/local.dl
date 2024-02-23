@@ -611,6 +611,20 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     (CallBlockEarliestContinuation(caller, callee, firstCont);
      (!CallBlockEarliestContinuation(caller, callee, _), firstCont = "undefined")).
 
+  .decl PrivateFunctionCallAlt(caller: Block, callee: Block, continuation: Block, firstContinuation: Block)
+  PrivateFunctionCallAlt(caller, callee, continuation, firstContinuation):-
+    PrivateFunctionCall(caller, callee, continuation, firstContinuation),
+    BasicBlock_Tail(caller, call),
+    JUMP(call).
+
+  PrivateFunctionCallAlt(as(caller, Block), as(callee, Block), continuation, firstContinuation):-
+    PrivateFunctionCall(jumpiBlock, _, continuation, firstContinuation),
+    BasicBlock_Tail(jumpiBlock, call),
+    JUMPI(call),
+    (StaticBlockJumpTarget(jumpiBlock, caller); FallthroughEdge(jumpiBlock, caller)),
+    (StaticBlockJumpTarget(as(caller, Block), callee); FallthroughEdge(as(caller, Block), callee)).
+
+
   // Helper to identify blocks that are very likely function entries
   .decl IsJumpBlockPrivateFunctionCall(caller: Block, callee: Block)
   DEBUG_OUTPUT(IsJumpBlockPrivateFunctionCall)
@@ -704,6 +718,7 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     !JumpToFunctionStartDoesntPushContinuation(callee, _),
     !PrivateFunctionCall(caller, _, _, _).
 
+  // Used for cloning
   .decl ConditionalCallTargetNotUnique(caller: Block, callee: Block)
   DEBUG_OUTPUT(ConditionalCallTargetNotUnique)
   ConditionalCallTargetNotUnique(caller, callee):-
@@ -766,11 +781,11 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
   PrivateFunctionReturn(returnBlock) :-
     Statement_Block(stmt, returnBlock),
     (JUMP(stmt); JUMPI(stmt)), // temp: handle conditional returns
-    !ImmediateBlockJumpTarget(returnBlock, _).
+    !StaticBlockJumpTarget(returnBlock, _).
 
   .decl PrivateFunctionCallOrReturn(block: Block)
   PrivateFunctionCallOrReturn(block) :-
-    PrivateFunctionCall(block, _, _, _);
+    PrivateFunctionCallAlt(block, _, _, _);
     PrivateFunctionReturn(block).
 
     .decl FallthroughBlockPushesContinuation(block: Block, fallthrough: Statement)
