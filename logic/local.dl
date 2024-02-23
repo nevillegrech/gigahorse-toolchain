@@ -611,47 +611,47 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     (CallBlockEarliestContinuation(caller, callee, firstCont);
      (!CallBlockEarliestContinuation(caller, callee, _), firstCont = "undefined")).
 
-  .decl DEBUGDIFF(jumpi: Block)
-  .output DEBUGDIFF, PrivateFunctionCallAlt, PrivateFunctionCall
-  DEBUGDIFF(jumpiBlock):-
-    PrivateFunctionCall(jumpiBlock, _, continuation, firstContinuation),
-    BasicBlock_Tail(jumpiBlock, call),
-    JUMPI(call),
-    !PrivateFunctionCallAlt(jumpiBlock, _, _, _).
+  // .decl DEBUGDIFF(jumpi: Block)
+  // .output DEBUGDIFF, PrivateFunctionCallAlt, PrivateFunctionCall
+  // DEBUGDIFF(jumpiBlock):-
+  //   PrivateFunctionCall(jumpiBlock, _, continuation, firstContinuation),
+  //   BasicBlock_Tail(jumpiBlock, call),
+  //   JUMPI(call),
+  //   !PrivateFunctionCallAlt(jumpiBlock, _, _, _).
 
-  .decl PrivateFunctionCallAlt(caller: Block, callee: Block, continuation: Block, firstContinuation: Block)
-  PrivateFunctionCallAlt(caller, callee, continuation, firstContinuation):-
-    PrivateFunctionCall(caller, callee, continuation, firstContinuation),
-    BasicBlock_Tail(caller, call),
-    JUMP(call).
+  // .decl PrivateFunctionCallAlt(caller: Block, callee: Block, continuation: Block, firstContinuation: Block)
+  // PrivateFunctionCallAlt(caller, callee, continuation, firstContinuation):-
+  //   PrivateFunctionCall(caller, callee, continuation, firstContinuation),
+  //   BasicBlock_Tail(caller, call),
+  //   JUMP(call).
 
-  PrivateFunctionCallAlt(caller, callee, continuation, firstContinuation):-
-    PrivateFunctionCall(caller, callee, continuation, firstContinuation),
-    BasicBlock_Tail(caller, call),
-    !JUMP(call),
-    !JUMPI(call).
+  // PrivateFunctionCallAlt(caller, callee, continuation, firstContinuation):-
+  //   PrivateFunctionCall(caller, callee, continuation, firstContinuation),
+  //   BasicBlock_Tail(caller, call),
+  //   !JUMP(call),
+  //   !JUMPI(call).
 
-  PrivateFunctionCallAlt(as(caller, Block), as(callee, Block), continuation, firstContinuation):-
-    PrivateFunctionCall(jumpiBlock, _, continuation, firstContinuation),
-    BasicBlock_Tail(jumpiBlock, call),
-    JUMPI(call),
-    (StaticBlockJumpTarget(jumpiBlock, caller); FallthroughEdge(jumpiBlock, caller)),
-    !PrivateFunctionCall(as(caller, Block), _, _, _),
-    (StaticBlockJumpTarget(as(caller, Block), callee); FallthroughEdge(as(caller, Block), callee)).
+  // PrivateFunctionCallAlt(as(caller, Block), as(callee, Block), continuation, firstContinuation):-
+  //   PrivateFunctionCall(jumpiBlock, _, continuation, firstContinuation),
+  //   BasicBlock_Tail(jumpiBlock, call),
+  //   JUMPI(call),
+  //   (StaticBlockJumpTarget(jumpiBlock, caller); FallthroughEdge(jumpiBlock, caller)),
+  //   !PrivateFunctionCall(as(caller, Block), _, _, _),
+  //   (StaticBlockJumpTarget(as(caller, Block), callee); FallthroughEdge(as(caller, Block), callee)).
 
-  PrivateFunctionCallAlt(jumpiBlock, as(callee, Block), continuation, firstContinuation):-
-    PrivateFunctionCall(jumpiBlock, _, continuation, firstContinuation),
-    BasicBlock_Tail(jumpiBlock, call),
-    JUMPI(call),
-    (StaticBlockJumpTarget(jumpiBlock, callee); FallthroughEdge(jumpiBlock, callee)),
-    PrivateFunctionCall(as(callee, Block), _, _, _).
+  // PrivateFunctionCallAlt(jumpiBlock, as(callee, Block), continuation, firstContinuation):-
+  //   PrivateFunctionCall(jumpiBlock, _, continuation, firstContinuation),
+  //   BasicBlock_Tail(jumpiBlock, call),
+  //   JUMPI(call),
+  //   (StaticBlockJumpTarget(jumpiBlock, callee); FallthroughEdge(jumpiBlock, callee)),
+  //   PrivateFunctionCall(as(callee, Block), _, _, _).
 
-  PrivateFunctionCallAlt(jumpiBlock, as(callee, Block), continuation, firstContinuation):-
-    PrivateFunctionCall(jumpiBlock, _, continuation, firstContinuation),
-    BasicBlock_Tail(jumpiBlock, call),
-    JUMPI(call),
-    (StaticBlockJumpTarget(jumpiBlock, callee); FallthroughEdge(jumpiBlock, callee)),
-    !StaticBlockJumpTarget(as(callee, Block), _).
+  // PrivateFunctionCallAlt(jumpiBlock, as(callee, Block), continuation, firstContinuation):-
+  //   PrivateFunctionCall(jumpiBlock, _, continuation, firstContinuation),
+  //   BasicBlock_Tail(jumpiBlock, call),
+  //   JUMPI(call),
+  //   (StaticBlockJumpTarget(jumpiBlock, callee); FallthroughEdge(jumpiBlock, callee)),
+  //   !StaticBlockJumpTarget(as(callee, Block), _).
 
 
   // Helper to identify blocks that are very likely function entries
@@ -820,7 +820,8 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
 
   .decl PrivateFunctionCallOrReturn(block: Block)
   PrivateFunctionCallOrReturn(block) :-
-    PrivateFunctionCallAlt(block, _, _, _);
+    //PrivateFunctionCallAlt(block, _, _, _);
+    PrivateFunctionCall(block, _, _, _);
     PrivateFunctionReturn(block).
 
     .decl FallthroughBlockPushesContinuation(block: Block, fallthrough: Statement)
