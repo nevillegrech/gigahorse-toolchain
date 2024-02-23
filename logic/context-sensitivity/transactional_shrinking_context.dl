@@ -144,8 +144,8 @@
   MergeContextResponse(ctx, caller, next, ctx):-
     MergeContextRequest(ctx, caller, next),
     local.PrivateFunctionCallAlt(caller, callee, _, _),
-    next != callee,
-    !local.PrivateFunctionCallAlt(caller, _, _, _),
+    // next != callee,
+    !local.PrivateFunctionCallAlt(caller, next, _, _),
     !local.PublicFunctionJump(caller, _, _).
 
 }
