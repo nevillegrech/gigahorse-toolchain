@@ -725,7 +725,8 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     JUMPI(call).
 
 
-  .decl ConditionalCallCanBeTransformed(caller: Block, callee: Block, continuation: symbol)
+  // Added a choice domain to ensure we don't try to insert twice at the same location
+  .decl ConditionalCallCanBeTransformed(caller: Block, callee: Block, insertAt: symbol) choice-domain(insertAt)
   DEBUG_OUTPUT(ConditionalCallCanBeTransformed)
   ConditionalCallCanBeTransformed(caller, callee, cont):-
     IsConditionalJumpBlockPrivateFunctionCall(caller, callee),
