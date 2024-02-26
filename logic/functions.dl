@@ -198,6 +198,7 @@ MaybeFunctionCallReturn(ctx, caller, func, retCtx, retBlock, retTarget) :-
   global.BlockJumpValidTarget(ctx, caller, targetVar, func),
   ContextCanReachFromCallerToReturn(ctx, caller, retCtx, retBlock, retTarget),
   global.BlockJumpValidTarget(retCtx, retBlock, _, retTarget).
+  // PossibleCallReturn(ctx, caller, _, retTarget).
  .plan 1:(6,1,2,3,4,5,7)
 
 /**
@@ -222,6 +223,7 @@ PossibleReturnAddressWithPositiveRank(callCtx, caller, retCtx, retBlock, retTarg
 .decl MaybeFunctionCallReturnNewContext(ctx:global.sens.Context, caller:Block, retTargetCtx:global.sens.Context, retTarget:Block)
 MaybeFunctionCallReturnNewContext(ctx, caller, retTargetCtx, retTarget) :-
   MaybeFunctionCallReturn(ctx, caller, _, retCtx, ret, retTarget),
+  !postTrans.NormalizedConditionalCallPattern(retTarget, _, _),
   global.BlockEdge(retCtx, ret, retTargetCtx, retTarget).
 
 /**
@@ -243,13 +245,88 @@ PossibleReturnAddressWithRank(newCallCtx, caller, retCtx, retBlock, retTarget, n
   n + maxrank < RETURN_ADDRESS_RANK_THRESHOLD.
  .plan 1:(2,3,1,4)
 
+.decl PossibleCallReturnOrd(callCtx: number, caller: Block, index: number, target: Block)
+DEBUG_OUTPUT(PossibleCallReturnOrd)
+PossibleCallReturnOrd(ord(callCtx), caller, minIndex, retTarget):-
+  PossibleCallReturn(callCtx, caller, minIndex, retTarget).
+.decl PossibleCallReturn(callCtx: global.sens.Context, caller: Block, index: number, target: Block)
+DEBUG_OUTPUT(PossibleCallReturn)
+
+PossibleCallReturn(callCtx, caller, minIndex, as(retTarget, Block)):-
+  (global.PrivateFunctionCall(_, _, caller, _); global.PrivateFunctionCall(caller, _, _, _)),
+  global.ReachableContext(callCtx, caller),
+  minIndex = min outIndex: global.AuxBlockOutputContentsJumpTarget(callCtx, caller, outIndex, _),
+  global.BlockOutputContents(callCtx, caller, minIndex, retBlockVar),
+  global.Variable_Value(retBlockVar, retTarget).
+
+// .decl Match(newCallCtx: number, caller: Block, retTarget: Block, prevRank: number, inIndex: number, outIndex: number)
+// .output Match
+
+// Match(ord(newCallCtx), caller, retTarget, n, inIndex, outIndex):-
+//   PossibleReturnAddressWithPositiveRank(prevCallCtx, targetSetter, retCtx, retBlock, retTarget, n),
+//   MaybeFunctionCallReturnNewContext(prevCallCtx, targetSetter, newCallCtx, caller),
+//   OptBlockImmediateJump(newCallCtx, caller),
+//   global.BlockInputContents(newCallCtx, caller, inIndex, retBlockVar),
+//   global.Variable_Value(retBlockVar, as(retTarget, Value)),
+//   global.BlockOutputContents(newCallCtx, caller, outIndex, retBlockVar),
+//   postTrans.BlockStackDelta(caller, stackDelta),
+//   inIndex + stackDelta != outIndex,
+//   !PossibleReturnAddressWithPos(caller, _, _, _, _).
+
+
 // Case where the caller doesn't push new return targets to the stack
-PossibleReturnAddressWithRank(newCallCtx, caller, retCtx, retBlock, retTarget, n-1) :-
+PossibleReturnAddressWithRank(newCallCtx, caller, retCtx, retBlock, retTarget, 0) :-
+  PossibleReturnAddressWithPositiveRank(prevCallCtx, targetSetter, retCtx, retBlock, retTarget, _),
+  MaybeFunctionCallReturnNewContext(prevCallCtx, targetSetter, newCallCtx, caller),
+  OptBlockImmediateJump(newCallCtx, caller),
+  // global.BlockInputContents(newCallCtx, caller, inIndex, retBlockVar),
+  // global.Variable_Value(retBlockVar, as(retTarget, Value)),
+  PossibleCallReturn(newCallCtx, caller, _, retTarget),
+  !PossibleReturnAddressWithPos(caller, _, _, _, _).
+ .plan 1:(2,3,1,4)
+
+// Case where the caller doesn't push new return targets to the stack
+PossibleReturnAddressWithRank(newCallCtx, caller, retCtx, retBlock, retTarget, n) :-
   PossibleReturnAddressWithPositiveRank(prevCallCtx, targetSetter, retCtx, retBlock, retTarget, n),
   MaybeFunctionCallReturnNewContext(prevCallCtx, targetSetter, newCallCtx, caller),
   OptBlockImmediateJump(newCallCtx, caller),
+  // global.BlockInputContents(newCallCtx, caller, inIndex, retBlockVar),
+  // global.Variable_Value(retBlockVar, as(retTarget, Value)),
+  PossibleCallReturn(newCallCtx, caller, minIndex, actualReturnTarget), // minIndex != inIndex,
+  actualReturnTarget != retTarget,
   !PossibleReturnAddressWithPos(caller, _, _, _, _).
- .plan 1:(2,3,1)
+ .plan 1:(2,3,1,4)
+
+// .decl DEBUGReturn(prevCaller: Block, intermCaller: Block, caller: Block, retTarget: Block)
+// .output DEBUGReturn
+// DEBUGReturn(targetSetter, intermCaller, caller, retTarget),
+// PossibleReturnAddressWithRank(newCallCtx, caller, retCtx, retBlock, retTarget, n-2) :-
+//   PossibleReturnAddressWithRank(prevCallCtx, targetSetter, _, _, intermCaller, 0),
+//   PossibleReturnAddressWithRank(prevCallCtx, targetSetter, _, _, caller, 1),
+//   PossibleReturnAddressWithPositiveRank(prevCallCtx, targetSetter, retCtx, retBlock, retTarget, n),
+//   MaybeFunctionCallReturnNewContext(prevCallCtx, targetSetter, intermCallCtx, intermCaller),
+//   postTrans.PrivateFunctionReturn(intermCaller),
+//   global.BlockEdge(intermCallCtx, intermCaller, newCallCtx, caller), n > 1,
+//   postTrans.BasicBlock_Tail(caller, jump),
+//   postTrans.Statement_Opcode(jump, "JUMP"),
+//   !PossibleReturnAddressWithPos(caller, _, _, _, _),
+//   !PossibleReturnAddressWithPos(intermCaller, _, _, _, _).
+//   .plan 1:(2,1,5,4,3,6,7,8), 2:(3,2,1,4,5,6,7,8), 3:(4,3,2,1,5,6,7,8)
+
+// PossibleReturnAddressWithRank(newCallCtx, caller, retCtx, retBlock, retTarget, n - 1 + maxrank) :-
+//   PossibleReturnAddressWithRank(prevCallCtx, targetSetter, _, _, intermCaller, 0),
+//   PossibleReturnAddressWithRank(prevCallCtx, targetSetter, _, _, caller, 1),
+//   PossibleReturnAddressWithPositiveRank(prevCallCtx, targetSetter, retCtx, retBlock, retTarget, n),
+//   MaybeFunctionCallReturnNewContext(prevCallCtx, targetSetter, intermCallCtx, intermCaller),
+//   postTrans.PrivateFunctionReturn(intermCaller),
+//   global.BlockEdge(intermCallCtx, intermCaller, newCallCtx, caller), n > 1,
+//   postTrans.BasicBlock_Tail(caller, jump),
+//   postTrans.Statement_Opcode(jump, "JUMP"),
+//   MaxRankForPossibleReturnAddressSetter(caller, maxrank),
+//   !PossibleReturnAddressWithPos(intermCaller, _, _, _, _).
+//   .plan 1:(2,1,5,4,3,6,7,8,9), 2:(3,2,1,4,5,6,7,8,9), 3:(4,3,2,1,5,6,7,8,9)
+
+//  .plan 1:(2,3,4,1)
 
 /**
   Seems pretty certain we found a return. In fact, at this point,
