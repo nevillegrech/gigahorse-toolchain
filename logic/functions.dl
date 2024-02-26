@@ -248,7 +248,7 @@ PossibleCallReturnOrd(ord(callCtx), caller, minIndex, retTarget):-
 DEBUG_OUTPUT(PossibleCallReturn)
 
 PossibleCallReturn(callCtx, caller, minIndex, as(retTarget, Block)):-
-  (global.PrivateFunctionCall(_, _, caller, _); global.PrivateFunctionCall(caller, _, _, _)),
+  (global.PrivateFunctionCall(_, _, caller, _); global.PrivateFunctionCall(caller, _, _, _); postTrans.NormalizedConditionalCallPattern(_, caller, _)),
   global.ReachableContext(callCtx, caller),
   minIndex = min outIndex: global.AuxBlockOutputContentsJumpTarget(callCtx, caller, outIndex, _),
   global.BlockOutputContents(callCtx, caller, minIndex, retBlockVar),
