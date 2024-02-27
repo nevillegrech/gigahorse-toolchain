@@ -847,6 +847,26 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     Statement_Opcode(stmt, opcode),
     !OpcodePossiblyHalts(opcode).
 
+  FallthroughBlockLikelyFunctionCall(block, fallthrough):-
+    PrivateFunctionCall(_, _, block, _),
+    BasicBlock_Tail(block, stmt),
+    Statement_Next(stmt, fallthrough),
+    !JUMP(stmt),
+    !JUMPI(stmt),
+    Statement_Opcode(stmt, opcode),
+    !OpcodePossiblyHalts(opcode).
+
+  .decl FunctionStartIsAlsoContinuation(pushStmt: Statement, funcStart: Block)
+  DEBUG_OUTPUT(FunctionStartIsAlsoContinuation)
+  FunctionStartIsAlsoContinuation(pushStmt, funcStart):-
+    PrivateFunctionCall(pushBlock, _, funcStart, _),
+    IsLikelyPrivateFunctionCall(_, funcStart),
+    Statement_Block(pushStmt, pushBlock),
+    PushValue(pushStmt, as(funcStart, Value)),
+    BasicBlock_Tail(pushBlock, jump),
+    JUMP(jump),
+    !FallthroughEdge(_, funcStart). // So that we can insert right before
+
   .decl FallthroughBlockUsedMultipleTimes(block: Block, fallthrough: Statement)
   DEBUG_OUTPUT(FallthroughBlockUsedMultipleTimes)
   FallthroughBlockUsedMultipleTimes(block, fallthrough):-
@@ -1240,6 +1260,23 @@ clonerHelperInsertor.insertOps(fallthrough,
 ):-
   beforeClonerLocal.FallthroughBlockUsedMultipleTimes(_, fallthrough),
   beforeClonerLocal.JUMPDEST(fallthrough).
+
+
+clonerHelperInsertor.removeOp(pushStmt),
+clonerHelperInsertor.insertOps(pushStmt,
+  LIST(
+    STMT(PUSH4, MAKE_LABEL_REFERENCE(funcStart))
+  )
+),
+clonerHelperInsertor.insertOps(as(funcStart, Statement),
+  LIST(
+    STMT(JUMPDEST, MAKE_LABEL_REFERENCE(funcStart)),
+    STMT(PUSH4, as(funcStart, symbol)),
+    STMT(JUMP, "")
+  )
+) :-
+  beforeClonerLocal.FunctionStartIsAlsoContinuation(pushStmt, funcStart),
+  beforeClonerLocal.JUMPDEST(as(funcStart, Statement)).
 
 COPY_OUTPUT(blockCloner, clonerHelperInsertor)
 // Transformation doesn't introduce new blocks, we can use revertCloner for the original block info
