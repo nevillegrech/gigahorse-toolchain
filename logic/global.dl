@@ -335,6 +335,16 @@ PreMask_Length(cat(mask, "ff"), bytes+1) :-
     (StaticBlockJumpTarget(jumpiBlock, caller); FallthroughEdge(jumpiBlock, caller)),
     (StaticBlockJumpTarget(as(caller, Block), callee); FallthroughEdge(as(caller, Block), callee)).
 
+  sens.ImportantBlockEdge(caller, as(callee, Block)):-
+    PrivateFunctionCall(prevCaller, _, caller, _),
+    PrivateFunctionCall(prevCaller, _, caller2, _),
+    BasicBlock_Tail(caller, call),
+    JUMP(call),
+    StaticBlockJumpTarget(caller, callee),
+    StaticBlockJumpTarget(caller2, callee),
+    caller != caller2,
+    PrivateFunctionCall(_, as(callee, Block), _, _).
+
 }
 
 /**
@@ -348,6 +358,11 @@ PreMask_Length(cat(mask, "ff"), bytes+1) :-
   VariableToModel(var):-
     VariableContainsJumpTarget(var); FunctionSelectorVariable(var).
 
+
+  .decl BlockOutputContentsJumpTarget(context:sens.Context, block:Block, index:StackIndex, var:Variable)
+  BlockOutputContentsJumpTarget(context, block, index, var):-
+    AuxBlockOutputContentsJumpTarget(context, block, index, var),
+    VariableUsedInAsJumpdest(var).
 
   /**
     Cut down `BlockOutputContents`, only containing jump targets (and the function selector var).
