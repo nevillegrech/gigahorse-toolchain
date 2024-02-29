@@ -787,10 +787,11 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     PrivateFunctionCall(_, _, jumpiBlock, _),
     Statement_Block(jumpi, jumpiBlock),
     JUMPI(jumpi),
-    // FallthroughEdge(jumpiBlock, revertBlock),
-    // BlockWillRevert(revertBlock),
+    (FallthroughEdge(jumpiBlock, revertBlock); StaticBlockJumpTarget(jumpiBlock, revertBlock)),
+    // BlockWillRevert(as(revertBlock, Block)),
     // StaticBlockJumpTarget(jumpiBlock, caller),
     (StaticBlockJumpTarget(jumpiBlock, caller); FallthroughEdge(jumpiBlock, caller)),
+    as(caller, Block) != as(revertBlock, Block),
     StaticBlockJumpTarget(as(caller, Block), calleeValue),
     Statement_Block(call, as(caller, Block)),
     JUMP(call).
