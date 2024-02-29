@@ -6,12 +6,11 @@ import argparse
 import json
 import logging
 import shutil
-import re
 import sys
 import time
 from collections import defaultdict
 from multiprocessing import Process, SimpleQueue, Manager, Event, cpu_count
-from typing import List, Tuple, Type, Any, Dict, DefaultDict
+from typing import List, Tuple, Any, Dict, DefaultDict
 from os.path import join, getsize
 import os
 
@@ -21,7 +20,7 @@ from src.runners import get_souffle_executable_path, compile_datalog, AbstractFa
 
 ## Constants
 
-TAC_GEN_CONFIG_FILE = 'tac_gen_config.json'
+DEFAULT_TAC_GEN_CONFIG_FILE = join(GIGAHORSE_DIR, 'tac_gen_config.json')
 
 DEFAULT_RESULTS_FILE = 'results.json'
 """File to write results to by default."""
@@ -192,6 +191,13 @@ parser.add_argument("-i",
                     default=False,
                     help="Run souffle in interpreted mode.")
 
+parser.add_argument(
+    "--tac_gen_config",
+    nargs="?",
+    default=DEFAULT_TAC_GEN_CONFIG_FILE,
+    metavar="TAC_GEN_CONFIG",
+    help="the location of the TAC generation configuration file",
+)
 
 def get_working_dir(contract_name: str) -> str:
     return join(os.path.abspath(args.working_dir), os.path.split(contract_name)[1].split('.')[0])
@@ -589,7 +595,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    tac_gen_config_json = os.path.join(os.path.dirname(os.path.abspath(__file__)),TAC_GEN_CONFIG_FILE)
+    tac_gen_config_json = args.tac_gen_config
     with open(tac_gen_config_json, 'r') as config:
         tac_gen_config = json.loads(config.read())
         if len(tac_gen_config["handlers"]) == 0: #if no handlers defined, default to classic decompilation
