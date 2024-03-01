@@ -400,7 +400,7 @@ to.PublicFunction(block, funHex, selector):- from.PublicFunction(block, funHex, 
     BlockToCloneNewInstance([prevPushStmt, prevBlockToClone, rest], prevCloneInstance),
     cloneOpSorter.Input_Next([prevPushStmt, prevBlockToClone, rest], opID),
     BlockSize(prevBlockToClone, prevCloneBlockSize),
-    generatedBlock = @add_256(prevCloneInstance, @number_to_hex(prevCloneBlockSize + 32)).
+    generatedBlock = @add_256(prevCloneInstance, @number_to_hex(prevCloneBlockSize + 320)).
 
   StatementToClonedStatement([pushStmt, blockToClone, rest], stmt, as(generatedStatement, Statement)):-
     BlockToCloneNewInstance([pushStmt, blockToClone, rest], generatedBlock),
