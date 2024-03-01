@@ -50,12 +50,13 @@ ContextCanReachFromCallerToReturn_Intermediate(callCtx, caller, ctxTo, toBlock, 
 ContextCanReachFromCallerToReturn_Intermediate(ctxFrom, caller, ctxTo, toBlock, retBlock, retTarget) :-
   ContextCanReachFromCallerToReturn_Intermediate(ctxFrom, caller, ctxOther, otherBlock, retBlock, retTarget),
   global.BlockEdge(ctxOther, otherBlock, ctxTo, toBlock),
+  // retBlock != otherBlock.
   retBlock != otherBlock, toBlock != retTarget.
 
-// ContextCanReachFromCallerToReturn_Intermediate(ctxFrom, caller, ctxTo, toBlock, retBlock, retTarget) :-
-//   ContextCanReachFromCallerToReturn_Intermediate(ctxFrom, caller, ctxOther, retBlock, retBlock, retTarget),
-//   global.BlockEdge(ctxOther, retBlock, ctxTo, toBlock),
-//   toBlock != retTarget.
+ContextCanReachFromCallerToReturn_Intermediate(ctxFrom, caller, ctxTo, toBlock, retBlock, retTarget) :-
+  ContextCanReachFromCallerToReturn_Intermediate(ctxFrom, caller, ctxOther, retBlock, retBlock, retTarget),
+  global.BlockEdge(ctxOther, retBlock, ctxTo, toBlock),
+  toBlock != retTarget.
 
 
 
@@ -129,6 +130,7 @@ PossibleReturnAddressWithPos(as(next, Block), retCtx, retBlock, retTarget, pos) 
   postTrans.BasicBlock_Tail(as(next, Block), jumpStmt),
   postTrans.JUMP(jumpStmt),
   postTrans.BeforeLocalStackContents(jumpStmt, pos, stackIndex),
+  // postTrans.ImmediateBlockJumpTarget(next, _), // if you return straight away we probably don't want to infer a call
   !postTrans.ConditionalCallControlFlowConvergesQuickly(targetSetter, _),
   // filter out cases where the function is called directly
   !postTrans.IsJumpBlockPrivateFunctionCall(_, as(next, Block)).
