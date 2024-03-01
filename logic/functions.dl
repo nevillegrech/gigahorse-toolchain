@@ -62,12 +62,13 @@ ContextCanReachFromCallerToReturn_Intermediate(callCtx, caller, ctxTo, toBlock, 
 ContextCanReachFromCallerToReturn_Intermediate(ctxFrom, caller, ctxTo, toBlock, retBlock, retTarget) :-
   ContextCanReachFromCallerToReturn_Intermediate(ctxFrom, caller, ctxOther, otherBlock, retBlock, retTarget),
   global.BlockEdge(ctxOther, otherBlock, ctxTo, toBlock),
+  // retBlock != otherBlock.
   retBlock != otherBlock, toBlock != retTarget.
 
-// ContextCanReachFromCallerToReturn_Intermediate(ctxFrom, caller, ctxTo, toBlock, retBlock, retTarget) :-
-//   ContextCanReachFromCallerToReturn_Intermediate(ctxFrom, caller, ctxOther, retBlock, retBlock, retTarget),
-//   global.BlockEdge(ctxOther, retBlock, ctxTo, toBlock),
-//   toBlock != retTarget.
+ContextCanReachFromCallerToReturn_Intermediate(ctxFrom, caller, ctxTo, toBlock, retBlock, retTarget) :-
+  ContextCanReachFromCallerToReturn_Intermediate(ctxFrom, caller, ctxOther, retBlock, retBlock, retTarget),
+  global.BlockEdge(ctxOther, retBlock, ctxTo, toBlock),
+  toBlock != retTarget.
 
 
 
