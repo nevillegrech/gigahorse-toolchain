@@ -50,12 +50,12 @@ ContextCanReachFromCallerToReturn_Intermediate(callCtx, caller, ctxTo, toBlock, 
 ContextCanReachFromCallerToReturn_Intermediate(ctxFrom, caller, ctxTo, toBlock, retBlock, retTarget) :-
   ContextCanReachFromCallerToReturn_Intermediate(ctxFrom, caller, ctxOther, otherBlock, retBlock, retTarget),
   global.BlockEdge(ctxOther, otherBlock, ctxTo, toBlock),
-  retBlock != otherBlock.
+  retBlock != otherBlock, toBlock != retTarget.
 
-ContextCanReachFromCallerToReturn_Intermediate(ctxFrom, caller, ctxTo, toBlock, retBlock, retTarget) :-
-  ContextCanReachFromCallerToReturn_Intermediate(ctxFrom, caller, ctxOther, retBlock, retBlock, retTarget),
-  global.BlockEdge(ctxOther, retBlock, ctxTo, toBlock),
-  toBlock != retTarget.
+// ContextCanReachFromCallerToReturn_Intermediate(ctxFrom, caller, ctxTo, toBlock, retBlock, retTarget) :-
+//   ContextCanReachFromCallerToReturn_Intermediate(ctxFrom, caller, ctxOther, retBlock, retBlock, retTarget),
+//   global.BlockEdge(ctxOther, retBlock, ctxTo, toBlock),
+//   toBlock != retTarget.
 
 
 
@@ -116,7 +116,7 @@ PossibleReturnAddressWithPos(targetSetter, retCtx, retBlock, retTarget, pos) :-
   We try to filter this out and will need to handle it separately.
 */
 PossibleReturnAddressWithPos(as(next, Block), retCtx, retBlock, retTarget, pos) :-
-  OptNotImmediateBlockJumpTarget(retCtx, retBlock, targetVariable, retTarget),
+  OptNotImmediateBlockJumpTarget(retCtx, retBlock, targetVariable, retTarget), // SL: Source of imprecision, can inlude blocks that do not pass through caller
   postTrans.Statement_Defines(targetSetStatement, targetVariable),
   postTrans.Statement_Block(targetSetStatement, targetSetter),
   postTrans.BasicBlock_Tail(targetSetter, jumpiStmt),
