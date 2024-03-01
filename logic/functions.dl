@@ -129,6 +129,25 @@ PossibleReturnAddressWithPos(as(next, Block), retCtx, retBlock, retTarget, pos) 
   postTrans.BasicBlock_Tail(as(next, Block), jumpStmt),
   postTrans.JUMP(jumpStmt),
   postTrans.BeforeLocalStackContents(jumpStmt, pos, stackIndex),
+  !postTrans.ConditionalCallControlFlowConvergesQuickly(targetSetter, _),
+  // filter out cases where the function is called directly
+  !postTrans.IsJumpBlockPrivateFunctionCall(_, as(next, Block)).
+
+PossibleReturnAddressWithPos(as(next, Block), retCtx, retBlock, retTarget, pos) :-
+  OptNotImmediateBlockJumpTarget(retCtx, retBlock, targetVariable, retTarget),
+  postTrans.Statement_Defines(targetSetStatement, targetVariable),
+  postTrans.Statement_Block(targetSetStatement, targetSetter),
+  postTrans.BasicBlock_Tail(targetSetter, jumpiStmt),
+  postTrans.JUMPI(jumpiStmt),
+  postTrans.LocalStackContents(jumpiStmt, stackIndex, targetVariable),
+  // (postTrans.FallthroughEdge(targetSetter, revertBlock); postTrans.StaticBlockJumpTarget(targetSetter, revertBlock)),
+  // postTrans.BlockWillRevert(as(revertBlock, Block)),
+  // postTrans.StaticBlockJumpTarget(targetSetter, next),
+  (postTrans.StaticBlockJumpTarget(targetSetter, next); postTrans.FallthroughEdge(targetSetter, next)),
+  postTrans.BasicBlock_Tail(as(next, Block), jumpStmt),
+  postTrans.JUMP(jumpStmt),
+  postTrans.BeforeLocalStackContents(jumpStmt, pos, stackIndex),
+  postTrans.ConditionalCallControlFlowConvergesQuickly(targetSetter, next),
   // filter out cases where the function is called directly
   !postTrans.IsJumpBlockPrivateFunctionCall(_, as(next, Block)).
 

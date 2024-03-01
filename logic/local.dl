@@ -461,7 +461,7 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
 
   BlockWillRevert(indirectRevertBlock):-
     BlockWillRevert(revertBlock),
-    StaticBlockJumpTarget(indirectRevertBlock, as(revertBlock, Value)),
+    StaticBlockJumpTarget(indirectRevertBlock, revertBlock),
     Statement_Block(jump, indirectRevertBlock),
     JUMP(jump).
 
@@ -545,14 +545,14 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     Statement_Block(stmt, block),
     Statement_Uses_Local(stmt, var, _).
 
-  .decl StaticBlockJumpTarget(caller: Block, target: Value)
-  StaticBlockJumpTarget(caller, target) :-
+  .decl StaticBlockJumpTarget(caller: Block, target: Block)
+  StaticBlockJumpTarget(caller, as(target, Block)) :-
     ImmediateBlockJumpTarget(caller, targetVar),
     Variable_Value(targetVar, target),
-    JUMPDEST(as(target, symbol)).
+    JUMPDEST(as(target, Statement)).
 
   // SL: Added so that fallthrough blocks can populate PrivateFunctionCall
-  StaticBlockJumpTarget(block, as(fallthrough, Value)) :-
+  StaticBlockJumpTarget(block, as(fallthrough, Block)) :-
     BasicBlock_Tail(block, stmt),
     Statement_Next(stmt, fallthrough),
     !JUMP(stmt),
@@ -560,11 +560,9 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     Statement_Opcode(stmt, opcode),
     !OpcodePossiblyHalts(opcode).
 
-  .decl StaticBlockJumpTargetNonUnique(caller: Block, target: Value)
-  StaticBlockJumpTargetNonUnique(caller, target) :-
-    StaticBlockJumpTarget(caller, target),
-    StaticBlockJumpTarget(caller2, target),
-    caller != caller2.
+  .decl LocalBlockEdge(block: Block, next: Block)
+  LocalBlockEdge(block, next):-
+    StaticBlockJumpTarget(block, next); FallthroughEdge(block, next).
 
   // pushes a label for later use. A return addr?
   .decl BlockPushesLabel(block: Block, val: Value) overridable
@@ -580,8 +578,8 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
   // Same reasoning, with more detail. In very rare cases, the continuation will not be found,
   // even though BlockPushesLabel is true.
   .decl CallBlockPushesContinuation(caller: Block, callee: Block, cont: Block, index: number)
-  CallBlockPushesContinuation(caller, as(calleeValue, Block), as(contVal, Block), index) :-
-    StaticBlockJumpTarget(caller, calleeValue),  // looks like a call
+  CallBlockPushesContinuation(caller, callee, as(contVal, Block), index) :-
+    StaticBlockJumpTarget(caller, callee),  // looks like a call
     BasicBlock_Tail(caller, call),
     BeforeLocalStackContents(call, index, var),
     CheckIsVariable(var), // unnecessary?
@@ -605,9 +603,8 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
   // continuations on the stack at call time, fall back to an "undefined".
   .decl PrivateFunctionCall(caller: Block, callee: Block, continuation: Block, firstContinuation: Block)
   PrivateFunctionCall(caller, callee, as(contVal, Block), firstCont) :-
-    StaticBlockJumpTarget(caller, calleeValue),  // looks like a call
+    StaticBlockJumpTarget(caller, callee),  // looks like a call
     BlockPushesLabel(caller, contVal),  // continuation pushed
-    callee = as(calleeValue, Block),
     (CallBlockEarliestContinuation(caller, callee, firstCont);
      (!CallBlockEarliestContinuation(caller, callee, _), firstCont = "undefined")).
 
@@ -665,23 +662,23 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
   IsJumpBlockPrivateFunctionCall(caller, callee):-
     IsJumpBlockPrivateFunctionCall(_, callee),
     PrivateFunctionCall(_, _, caller, _),
-    StaticBlockJumpTarget(caller, as(callee, Value)),
+    StaticBlockJumpTarget(caller, callee),
     Statement_Block(call, caller),
     JUMP(call).
 
   .decl IsLikelyPrivateFunctionCall(caller: Block, callee: Block)
   DEBUG_OUTPUT(IsLikelyPrivateFunctionCall)
-  IsLikelyPrivateFunctionCall(as(caller, Block), as(callee, Block)):-
+  IsLikelyPrivateFunctionCall(caller, callee):-
     IsConditionalJumpBlockPrivateFunctionCall(jumpiBlock, _),
     (StaticBlockJumpTarget(jumpiBlock, caller); FallthroughEdge(jumpiBlock, caller)),
-    (StaticBlockJumpTarget(as(caller, Block), callee); FallthroughEdge(as(caller, Block), callee)).
+    (StaticBlockJumpTarget(caller, callee); FallthroughEdge(caller, callee)).
 
   IsLikelyPrivateFunctionCall(jumpiBlock, callee):-
     IsLikelyPrivateFunctionCall(_, callee),
     FallthroughEdge(jumpiBlock, callee),
     IsConditionalJumpBlockPrivateFunctionCall(jumpiBlock, _).
 
-  IsLikelyPrivateFunctionCall(caller, as(callee, Block)):-
+  IsLikelyPrivateFunctionCall(caller, callee):-
     PrivateFunctionCall(_, _, caller, _),
     StaticBlockJumpTarget(caller, callee),
     Statement_Block(call, caller),
@@ -691,12 +688,13 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
   DEBUG_OUTPUT(JumpToFunctionStartDoesntPushContinuation)
   JumpToFunctionStartDoesntPushContinuation(caller, callee):-
     IsJumpBlockPrivateFunctionCall(_, callee),
-    StaticBlockJumpTarget(caller, as(callee, Value)),
+    StaticBlockJumpTarget(caller, callee),
     Statement_Block(call, caller),
     JUMP(call),
     !PrivateFunctionCall(caller, callee, _, _).
 
     // Helper to identify blocks that are very likely function entries
+  // Also add the fallthrough here!!!
   .decl IsConditionalJumpBlockPrivateFunctionCall(caller: Block, callee: Block)
   DEBUG_OUTPUT(IsConditionalJumpBlockPrivateFunctionCall)
   IsConditionalJumpBlockPrivateFunctionCall(caller, callee):-
@@ -705,22 +703,33 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     JUMPI(call).
 
 
-  IsConditionalJumpBlockPrivateFunctionCall(cont, as(calleeValue, Block)):-
+  IsConditionalJumpBlockPrivateFunctionCall(cont, callee):-
     PrivateFunctionCall(_, _, cont, _),
     Statement_Block(call, cont),
     JUMPI(call),
-    StaticBlockJumpTarget(cont, calleeValue).
+    StaticBlockJumpTarget(cont, callee).
 
   // IsConditionalJumpBlockPrivateFunctionCall(caller, fallthrough):-
   //   IsConditionalJumpBlockPrivateFunctionCall(caller, _),
   //   FallthroughEdge(caller, fallthrough).
 
+  .decl ConditionalCallControlFlowConvergesQuickly(caller: Block, converganceBlock: Block)
+  DEBUG_OUTPUT(ConditionalCallControlFlowConvergesQuickly)
+  ConditionalCallControlFlowConvergesQuickly(caller, actualCaller):-
+    IsConditionalJumpBlockPrivateFunctionCall(caller, _),
+    LocalBlockEdge(caller, actualCaller),
+    LocalBlockEdge(caller, otherNext),
+    LocalBlockEdge(otherNext, temp1),
+    LocalBlockEdge(temp1, actualCaller),
+    otherNext != actualCaller.
+
+
   // Kind of hacky. make ConditionalCallCanBeTransformed a bit more complete
   .decl MaybeConditionalJumpBlockPrivateFunctionCall(caller: Block, callee: Block)
   DEBUG_OUTPUT(MaybeConditionalJumpBlockPrivateFunctionCall)
-  MaybeConditionalJumpBlockPrivateFunctionCall(caller, as(calleeValue, Block)):-
+  MaybeConditionalJumpBlockPrivateFunctionCall(caller, callee):-
     IsConditionalJumpBlockPrivateFunctionCall(prevCaller, caller),
-    StaticBlockJumpTarget(caller, calleeValue),
+    StaticBlockJumpTarget(caller, callee),
     Statement_Block(call, caller),
     JUMPI(call).
 
@@ -783,7 +792,7 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
   
   .decl NormalizedConditionalCallPatternBase(jumpiBlock: Block, caller: Block, callee: Block)
   DEBUG_OUTPUT(NormalizedConditionalCallPatternBase)
-  NormalizedConditionalCallPatternBase(jumpiBlock, as(caller, Block), as(calleeValue, Block)):-
+  NormalizedConditionalCallPatternBase(jumpiBlock, as(caller, Block), callee):-
     PrivateFunctionCall(_, _, jumpiBlock, _),
     Statement_Block(jumpi, jumpiBlock),
     JUMPI(jumpi),
@@ -791,9 +800,9 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     // BlockWillRevert(as(revertBlock, Block)),
     // StaticBlockJumpTarget(jumpiBlock, caller),
     (StaticBlockJumpTarget(jumpiBlock, caller); FallthroughEdge(jumpiBlock, caller)),
-    as(caller, Block) != as(revertBlock, Block),
-    StaticBlockJumpTarget(as(caller, Block), calleeValue),
-    Statement_Block(call, as(caller, Block)),
+    caller != revertBlock,
+    StaticBlockJumpTarget(caller, callee),
+    Statement_Block(call, caller),
     JUMP(call).
 
   NormalizedConditionalCallPattern(jumpiBlock, caller, callee):-
