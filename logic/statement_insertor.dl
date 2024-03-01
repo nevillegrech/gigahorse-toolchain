@@ -318,8 +318,13 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
     maxStmtNumber = max stmtNumber : { Statement_Opcode(stmt, _), stmtNumber = @hex_to_number(stmt)},
     maxStmt = @number_to_hex(2*maxStmtNumber).
 
-  BlockSize(block, @hex_to_number(tail) - @hex_to_number(block)):-
-    analysis.BasicBlock_Tail(block, tail).
+  // BlockSize(block, @hex_to_number(tail) - @hex_to_number(block)):-
+  //   analysis.BasicBlock_Tail(block, tail).
+
+  // New definition, makes it pre cloning insertion safe
+  BlockSize(block, maxStmt - @hex_to_number(block)):-
+    analysis.Statement_Block(_, block),
+    maxStmt = max @hex_to_number(stmt) : analysis.Statement_Block(stmt, block).
 
   Statement_BlockOffset(stmt, block, @hex_to_number(stmt) - @hex_to_number(block)):-
     analysis.Statement_Block(stmt, block).
@@ -400,6 +405,14 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
     analysis.Statement_Block(stmt, blockToClone),
     generatedStatement = @add_256(generatedBlock, @sub_256(stmt, blockToClone)).
 
+  // SL: Keeping for debug, should be fixed now
+  .decl StatementToClonedStatementCollision(cloneOp: CloneList, stmt: Statement, generatedStatement: Statement)
+  DEBUG_OUTPUT(StatementToClonedStatementCollision)
+  StatementToClonedStatementCollision(opID, oldHead, clonedHead):-
+    StatementToClonedStatement(opID, oldHead, clonedHead),
+    StatementToClonedStatement(opID2, oldHead2, clonedHead),
+    opID2 != opID,
+    oldHead2 != oldHead.
 
   // Keep order for all original statements.
   Out_Statement_Next(stmt, nextStmt):-
