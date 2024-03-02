@@ -767,24 +767,26 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
   ConditionalCallTargetNotUnique(caller, callee):-
     IsConditionalJumpBlockPrivateFunctionCall(caller, callee),
     PrivateFunctionCall(caller, callee, cont, cont),
-    JumpToFunctionStartDoesntPushContinuation(callee, _),
     (
       PrivateFunctionCall(caller2, callee, _, _);
       IsConditionalJumpBlockPrivateFunctionCall(caller2, callee);
       MaybeConditionalJumpBlockPrivateFunctionCall(caller2, callee)
     ),
-    caller2 != caller,
-    !FallthroughEdge(_, cont).
+    (!PrivateFunctionCall(callee, _, _, _) ; JumpToFunctionStartDoesntPushContinuation(callee, _)),
+    caller2 != caller.
+    // negation was needed probably for it to be an insertion, don't think its needed anymore
+    // !FallthroughEdge(_, cont).
 
   ConditionalCallTargetNotUnique(caller, callee):-
     IsConditionalJumpBlockPrivateFunctionCall(caller, callee),
-    JumpToFunctionStartDoesntPushContinuation(callee, _),
     (
       IsConditionalJumpBlockPrivateFunctionCall(caller2, callee);
       PrivateFunctionCall(caller2, callee, _, _)
     ),
+    (!PrivateFunctionCall(callee, _, _, _) ; JumpToFunctionStartDoesntPushContinuation(callee, _)),
     caller != caller2,
-    !FallthroughEdge(_, caller),
+    // negation was needed probably for it to be an insertion, don't think its needed anymore
+    // !FallthroughEdge(_, caller),
     !PrivateFunctionCall(caller, _, _, _).
 
   .decl NormalizedConditionalCallPattern(jumpiBlock: Block, caller: Block, callee: Block)
