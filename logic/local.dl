@@ -608,48 +608,6 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     (CallBlockEarliestContinuation(caller, callee, firstCont);
      (!CallBlockEarliestContinuation(caller, callee, _), firstCont = "undefined")).
 
-  // .decl DEBUGDIFF(jumpi: Block)
-  // .output DEBUGDIFF, PrivateFunctionCallAlt, PrivateFunctionCall
-  // DEBUGDIFF(jumpiBlock):-
-  //   PrivateFunctionCall(jumpiBlock, _, continuation, firstContinuation),
-  //   BasicBlock_Tail(jumpiBlock, call),
-  //   JUMPI(call),
-  //   !PrivateFunctionCallAlt(jumpiBlock, _, _, _).
-
-  // .decl PrivateFunctionCallAlt(caller: Block, callee: Block, continuation: Block, firstContinuation: Block)
-  // PrivateFunctionCallAlt(caller, callee, continuation, firstContinuation):-
-  //   PrivateFunctionCall(caller, callee, continuation, firstContinuation),
-  //   BasicBlock_Tail(caller, call),
-  //   JUMP(call).
-
-  // PrivateFunctionCallAlt(caller, callee, continuation, firstContinuation):-
-  //   PrivateFunctionCall(caller, callee, continuation, firstContinuation),
-  //   BasicBlock_Tail(caller, call),
-  //   !JUMP(call),
-  //   !JUMPI(call).
-
-  // PrivateFunctionCallAlt(as(caller, Block), as(callee, Block), continuation, firstContinuation):-
-  //   PrivateFunctionCall(jumpiBlock, _, continuation, firstContinuation),
-  //   BasicBlock_Tail(jumpiBlock, call),
-  //   JUMPI(call),
-  //   (StaticBlockJumpTarget(jumpiBlock, caller); FallthroughEdge(jumpiBlock, caller)),
-  //   !PrivateFunctionCall(as(caller, Block), _, _, _),
-  //   (StaticBlockJumpTarget(as(caller, Block), callee); FallthroughEdge(as(caller, Block), callee)).
-
-  // PrivateFunctionCallAlt(jumpiBlock, as(callee, Block), continuation, firstContinuation):-
-  //   PrivateFunctionCall(jumpiBlock, _, continuation, firstContinuation),
-  //   BasicBlock_Tail(jumpiBlock, call),
-  //   JUMPI(call),
-  //   (StaticBlockJumpTarget(jumpiBlock, callee); FallthroughEdge(jumpiBlock, callee)),
-  //   PrivateFunctionCall(as(callee, Block), _, _, _).
-
-  // PrivateFunctionCallAlt(jumpiBlock, as(callee, Block), continuation, firstContinuation):-
-  //   PrivateFunctionCall(jumpiBlock, _, continuation, firstContinuation),
-  //   BasicBlock_Tail(jumpiBlock, call),
-  //   JUMPI(call),
-  //   (StaticBlockJumpTarget(jumpiBlock, callee); FallthroughEdge(jumpiBlock, callee)),
-  //   !StaticBlockJumpTarget(as(callee, Block), _).
-
 
   // Helper to identify blocks that are very likely function entries
   .decl IsJumpBlockPrivateFunctionCall(caller: Block, callee: Block)
@@ -670,8 +628,8 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
   DEBUG_OUTPUT(IsLikelyPrivateFunctionCall)
   IsLikelyPrivateFunctionCall(caller, callee):-
     IsConditionalJumpBlockPrivateFunctionCall(jumpiBlock, _),
-    (StaticBlockJumpTarget(jumpiBlock, caller); FallthroughEdge(jumpiBlock, caller)),
-    (StaticBlockJumpTarget(caller, callee); FallthroughEdge(caller, callee)).
+    LocalBlockEdge(jumpiBlock, caller),
+    LocalBlockEdge(caller, callee).
 
   IsLikelyPrivateFunctionCall(jumpiBlock, callee):-
     IsLikelyPrivateFunctionCall(_, callee),
@@ -693,7 +651,7 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     JUMP(call),
     !PrivateFunctionCall(caller, callee, _, _).
 
-    // Helper to identify blocks that are very likely function entries
+  // Helper to identify blocks that are very likely function entries
   // Also add the fallthrough here!!!
   .decl IsConditionalJumpBlockPrivateFunctionCall(caller: Block, callee: Block)
   DEBUG_OUTPUT(IsConditionalJumpBlockPrivateFunctionCall)
@@ -713,6 +671,9 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
   //   IsConditionalJumpBlockPrivateFunctionCall(caller, _),
   //   FallthroughEdge(caller, fallthrough).
 
+  /**
+    Handle this case of conditional call differently, only consider as a call-site
+  */
   .decl ConditionalCallControlFlowConvergesQuickly(caller: Block, converganceBlock: Block)
   DEBUG_OUTPUT(ConditionalCallControlFlowConvergesQuickly)
   ConditionalCallControlFlowConvergesQuickly(caller, actualCaller):-
@@ -734,7 +695,12 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     JUMPI(call).
 
 
-  // Added a choice domain to ensure we don't try to insert twice at the same location
+  /**
+    We try to normalize conditional calls:
+      If the target of a conditional call is also called directly in another call we normalize it
+      by adding an intermediate block that just jumps to that target
+    Added a choice domain to ensure we don't try to insert twice at the same location
+  */
   .decl ConditionalCallCanBeTransformed(caller: Block, callee: Block, insertAt: symbol) choice-domain(insertAt)
   DEBUG_OUTPUT(ConditionalCallCanBeTransformed)
   ConditionalCallCanBeTransformed(caller, callee, cont):-
@@ -761,7 +727,9 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     !JumpToFunctionStartDoesntPushContinuation(callee, _),
     !PrivateFunctionCall(caller, _, _, _).
 
-  // Used for cloning
+  /**
+    Used for cloning, if the same target of a conditional jumpi doesn't make a call and is used more than once, clone it
+  */
   .decl ConditionalCallTargetNotUnique(caller: Block, callee: Block)
   DEBUG_OUTPUT(ConditionalCallTargetNotUnique)
   ConditionalCallTargetNotUnique(caller, callee):-

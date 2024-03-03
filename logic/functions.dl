@@ -38,6 +38,9 @@ PotentialCallerReturnAndTarget(caller, retBlock, retTarget) :-
 PotentialCallerReturnAndTargetWithContext(callCtx, caller, retBlock, targetBlock) :-
   PossibleReturnAddressWithRank(callCtx, caller, _, retBlock, targetBlock, _).
 
+PotentialCallerReturnAndTargetWithContext(callCtx, caller, retBlock, targetBlock) :-
+  PossibleCallReturnWithCtx(callCtx, caller, _, _, retBlock, targetBlock).
+
 // When we don't, consider all
 PotentialCallerReturnAndTargetWithContext(callCtx, caller, retBlock, targetBlock) :-
   PotentialCallerReturnAndTarget(caller, retBlock, targetBlock),
@@ -123,17 +126,17 @@ PossibleReturnAddressWithPos(as(next, Block), retCtx, retBlock, retTarget, pos) 
   postTrans.BasicBlock_Tail(targetSetter, jumpiStmt),
   postTrans.JUMPI(jumpiStmt),
   postTrans.LocalStackContents(jumpiStmt, stackIndex, targetVariable),
-  (postTrans.FallthroughEdge(targetSetter, revertBlock); postTrans.StaticBlockJumpTarget(targetSetter, revertBlock)),
+  // (postTrans.FallthroughEdge(targetSetter, revertBlock); postTrans.StaticBlockJumpTarget(targetSetter, revertBlock)),
   // postTrans.BlockWillRevert(as(revertBlock, Block)),
   // postTrans.StaticBlockJumpTarget(targetSetter, next),
-  (postTrans.StaticBlockJumpTarget(targetSetter, next); postTrans.FallthroughEdge(targetSetter, next)),
-  postTrans.BasicBlock_Tail(as(next, Block), jumpStmt),
+  postTrans.LocalBlockEdge(targetSetter, next),
+  postTrans.BasicBlock_Tail(next, jumpStmt),
   postTrans.JUMP(jumpStmt),
   postTrans.BeforeLocalStackContents(jumpStmt, pos, stackIndex),
   // postTrans.ImmediateBlockJumpTarget(next, _), // if you return straight away we probably don't want to infer a call
   !postTrans.ConditionalCallControlFlowConvergesQuickly(targetSetter, _),
   // filter out cases where the function is called directly
-  !postTrans.IsJumpBlockPrivateFunctionCall(_, as(next, Block)).
+  !postTrans.IsJumpBlockPrivateFunctionCall(_, next).
 
 PossibleReturnAddressWithPos(as(next, Block), retCtx, retBlock, retTarget, pos) :-
   OptNotImmediateBlockJumpTarget(retCtx, retBlock, targetVariable, retTarget),
@@ -145,13 +148,13 @@ PossibleReturnAddressWithPos(as(next, Block), retCtx, retBlock, retTarget, pos) 
   // (postTrans.FallthroughEdge(targetSetter, revertBlock); postTrans.StaticBlockJumpTarget(targetSetter, revertBlock)),
   // postTrans.BlockWillRevert(as(revertBlock, Block)),
   // postTrans.StaticBlockJumpTarget(targetSetter, next),
-  (postTrans.StaticBlockJumpTarget(targetSetter, next); postTrans.FallthroughEdge(targetSetter, next)),
-  postTrans.BasicBlock_Tail(as(next, Block), jumpStmt),
+  postTrans.LocalBlockEdge(targetSetter, next),
+  postTrans.BasicBlock_Tail(next, jumpStmt),
   postTrans.JUMP(jumpStmt),
   postTrans.BeforeLocalStackContents(jumpStmt, pos, stackIndex),
   postTrans.ConditionalCallControlFlowConvergesQuickly(targetSetter, next),
   // filter out cases where the function is called directly
-  !postTrans.IsJumpBlockPrivateFunctionCall(_, as(next, Block)).
+  !postTrans.IsJumpBlockPrivateFunctionCall(_, next).
 
 .decl OptPossibleReturnAddressWithPos(targetSetter:Block, retBlock:Block, retTarget:Block, pos:number)
 OptPossibleReturnAddressWithPos(targetSetter, retBlock, retTarget, pos) :-
@@ -169,10 +172,29 @@ InitialPossibleReturnAddressWithRank(targetSetter, retCtx, retBlock, retTarget, 
   rank = count : PossibleReturnAddressWithLowerPos(targetSetter, retBlock, retTarget, pos, _),
   rank < RETURN_ADDRESS_RANK_THRESHOLD.  
 
+.decl InitialPossibleReturnAddressZeroIsNotEarliestContinuation(callCtx: global.sens.Context, caller: Block)
+InitialPossibleReturnAddressZeroIsNotEarliestContinuation(callCtx, targetSetter):-
+  // ContextCanReachFromCallerToReturn(callCtx, targetSetter, actualRetCtx, actualRetBlock, retTarget),
+  PossibleCallReturnWithCtx(callCtx, targetSetter, _, _, _, actualRetTarget),
+  InitialPossibleReturnAddressWithRank(targetSetter, _, _, retTarget, 0),
+  actualRetTarget != retTarget.
+
 .decl PossibleReturnAddressWithRank(callCtx:global.sens.Context, targetSetter:Block, retCtx:global.sens.Context, retBlock:Block, retTarget:Block, rank:number)
 PossibleReturnAddressWithRank(callCtx, targetSetter, retCtx, retBlock, retTarget, rank) :-
   ContextCanReachFromCallerToReturn(callCtx, targetSetter, retCtx, retBlock, retTarget),
+  InitialPossibleReturnAddressWithRank(targetSetter, retCtx, retBlock, retTarget, rank),
+  !InitialPossibleReturnAddressZeroIsNotEarliestContinuation(callCtx, targetSetter).
+
+PossibleReturnAddressWithRank(callCtx, targetSetter, retCtx, retBlock, retTarget, rank + 1) :-
+  ContextCanReachFromCallerToReturn(callCtx, targetSetter, retCtx, retBlock, retTarget),
+  InitialPossibleReturnAddressZeroIsNotEarliestContinuation(callCtx, targetSetter),
   InitialPossibleReturnAddressWithRank(targetSetter, retCtx, retBlock, retTarget, rank).
+
+
+PossibleReturnAddressWithRank(callCtx, targetSetter, retCtx, retBlock, retTarget, 0) :-
+  ContextCanReachFromCallerToReturn(callCtx, targetSetter, retCtx, retBlock, retTarget),
+  InitialPossibleReturnAddressZeroIsNotEarliestContinuation(callCtx, targetSetter),
+  PossibleCallReturnWithCtx(callCtx, targetSetter, _, retCtx, retBlock, retTarget).
 
 
 .decl MaxRankForPossibleReturnAddressSetter(targetSetter:Block, rank:number)
@@ -261,10 +283,6 @@ PossibleReturnAddressWithRank(newCallCtx, caller, retCtx, retBlock, retTarget, n
   n + maxrank < RETURN_ADDRESS_RANK_THRESHOLD.
  .plan 1:(2,3,1,4)
 
-.decl PossibleCallReturnOrd(callCtx: number, caller: Block, index: number, target: Block)
-DEBUG_OUTPUT(PossibleCallReturnOrd)
-PossibleCallReturnOrd(ord(callCtx), caller, minIndex, retTarget):-
-  PossibleCallReturn(callCtx, caller, minIndex, retTarget).
 .decl PossibleCallReturn(callCtx: global.sens.Context, caller: Block, index: number, target: Block)
 DEBUG_OUTPUT(PossibleCallReturn)
 
@@ -273,8 +291,15 @@ PossibleCallReturn(callCtx, caller, minIndex, as(retTarget, Block)):-
   global.ReachableContext(callCtx, caller),
   minIndex = min outIndex: global.BlockOutputContentsJumpTarget(callCtx, caller, outIndex, _),
   global.BlockOutputContents(callCtx, caller, minIndex, retBlockVar),
-  global.Variable_Value(retBlockVar, retTarget).
+  global.Variable_Value(retBlockVar, retTarget),
+  global.BlockJumpValidTarget(_, _, retBlockVar, as(retTarget, Block)). // ensure it's jumped to
 
+.decl PossibleCallReturnWithCtx(callCtx: global.sens.Context, caller: Block, index: number, retCtx: global.sens.Context, retBlock: Block, target: Block)
+DEBUG_OUTPUT(PossibleCallReturnWithCtx)
+PossibleCallReturnWithCtx(callCtx, caller, minIndex, retCtx, retBlock, targetBlock):-
+  PossibleCallReturn(callCtx, caller, minIndex, targetBlock),
+  global.BlockOutputContents(callCtx, caller, minIndex, targetVariable),
+  global.BlockJumpValidTarget(retCtx, retBlock, targetVariable, targetBlock).
 // .decl Match(newCallCtx: number, caller: Block, retTarget: Block, prevRank: number, inIndex: number, outIndex: number)
 // .output Match
 
