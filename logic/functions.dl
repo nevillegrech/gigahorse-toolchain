@@ -172,29 +172,33 @@ InitialPossibleReturnAddressWithRank(targetSetter, retCtx, retBlock, retTarget, 
   rank = count : PossibleReturnAddressWithLowerPos(targetSetter, retBlock, retTarget, pos, _),
   rank < RETURN_ADDRESS_RANK_THRESHOLD.  
 
-.decl InitialPossibleReturnAddressZeroIsNotEarliestContinuation(callCtx: global.sens.Context, caller: Block)
-InitialPossibleReturnAddressZeroIsNotEarliestContinuation(callCtx, targetSetter):-
-  // ContextCanReachFromCallerToReturn(callCtx, targetSetter, actualRetCtx, actualRetBlock, retTarget),
-  PossibleCallReturnWithCtx(callCtx, targetSetter, _, _, _, actualRetTarget),
-  InitialPossibleReturnAddressWithRank(targetSetter, _, _, retTarget, 0),
-  actualRetTarget != retTarget.
+/**
+  Commenting out this logic for now, works for ir contracts but not legacy.
+  example: 0ba6254070d12456a85bbbb37a15fcb2 block 0x1ef4
+  Will need a preanalysis for that, to find the index that has the return index.
+*/
+// .decl InitialPossibleReturnAddressZeroIsNotEarliestContinuation(callCtx: global.sens.Context, caller: Block)
+// InitialPossibleReturnAddressZeroIsNotEarliestContinuation(callCtx, targetSetter):-
+//   PossibleCallReturnWithCtx(callCtx, targetSetter, _, _, _, actualRetTarget),
+//   InitialPossibleReturnAddressWithRank(targetSetter, _, _, retTarget, 0),
+//   actualRetTarget != retTarget.
 
 .decl PossibleReturnAddressWithRank(callCtx:global.sens.Context, targetSetter:Block, retCtx:global.sens.Context, retBlock:Block, retTarget:Block, rank:number)
 PossibleReturnAddressWithRank(callCtx, targetSetter, retCtx, retBlock, retTarget, rank) :-
   ContextCanReachFromCallerToReturn(callCtx, targetSetter, retCtx, retBlock, retTarget),
-  InitialPossibleReturnAddressWithRank(targetSetter, retCtx, retBlock, retTarget, rank),
-  !InitialPossibleReturnAddressZeroIsNotEarliestContinuation(callCtx, targetSetter).
-
-PossibleReturnAddressWithRank(callCtx, targetSetter, retCtx, retBlock, retTarget, rank + 1) :-
-  ContextCanReachFromCallerToReturn(callCtx, targetSetter, retCtx, retBlock, retTarget),
-  InitialPossibleReturnAddressZeroIsNotEarliestContinuation(callCtx, targetSetter),
   InitialPossibleReturnAddressWithRank(targetSetter, retCtx, retBlock, retTarget, rank).
+  // !InitialPossibleReturnAddressZeroIsNotEarliestContinuation(callCtx, targetSetter).
+
+// PossibleReturnAddressWithRank(callCtx, targetSetter, retCtx, retBlock, retTarget, rank + 1) :-
+//   ContextCanReachFromCallerToReturn(callCtx, targetSetter, retCtx, retBlock, retTarget),
+//   InitialPossibleReturnAddressZeroIsNotEarliestContinuation(callCtx, targetSetter),
+//   InitialPossibleReturnAddressWithRank(targetSetter, retCtx, retBlock, retTarget, rank).
 
 
-PossibleReturnAddressWithRank(callCtx, targetSetter, retCtx, retBlock, retTarget, 0) :-
-  ContextCanReachFromCallerToReturn(callCtx, targetSetter, retCtx, retBlock, retTarget),
-  InitialPossibleReturnAddressZeroIsNotEarliestContinuation(callCtx, targetSetter),
-  PossibleCallReturnWithCtx(callCtx, targetSetter, _, retCtx, retBlock, retTarget).
+// PossibleReturnAddressWithRank(callCtx, targetSetter, retCtx, retBlock, retTarget, 0) :-
+//   ContextCanReachFromCallerToReturn(callCtx, targetSetter, retCtx, retBlock, retTarget),
+//   InitialPossibleReturnAddressZeroIsNotEarliestContinuation(callCtx, targetSetter),
+//   PossibleCallReturnWithCtx(callCtx, targetSetter, _, retCtx, retBlock, retTarget).
 
 
 .decl MaxRankForPossibleReturnAddressSetter(targetSetter:Block, rank:number)
