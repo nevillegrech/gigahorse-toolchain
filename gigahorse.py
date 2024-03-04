@@ -322,7 +322,7 @@ def get_gigahorse_analytics(out_dir: str, analytics: dict) -> None:
 
     for fname in os.listdir(out_dir):
         fpath = join(out_dir, fname)
-        if not fname.startswith('Verbatim_'):
+        if not (fname.startswith('Verbatim_') or fname == "DecompilerConfig"):
             continue
         stat_name = fname.split(".")[0]
         analytics[stat_name] = open(join(out_dir, fname)).read()
