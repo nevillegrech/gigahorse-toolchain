@@ -20,6 +20,8 @@
 .output Block_IRBlock
 .output Variable_String
 
+.output postTrans.LocalStackContents, beforeClonerLocal.LocalStackContents, beforeClonerLocal.BlockStackDelta, beforeClonerLocal.BlockPopDelta
+
 // The following relations print a number instead of a context in record form to help debugging
 // Without them looking (via grep) for a block using its id will return many contexts as well.
 
@@ -88,6 +90,21 @@ PossibleReturnAddressWithRankOrd(ord(callCtx), targetSetter, ord(retCtx), retBlo
 MaybeInFunctionUnderContextOrd(ord(ctx), block, func):-
   MaybeInFunctionUnderContext(ctx, block, func).
 
+
+.decl ContextCanReachFromCallerToReturnOrd(fromCtx: number, caller: Block, retCtx: number, retBlock: Block, targetBlock: Block)
+.output ContextCanReachFromCallerToReturnOrd
+ContextCanReachFromCallerToReturnOrd(ord(fromCtx), caller, ord(retCtx), retBlock, targetBlock):-
+  ContextCanReachFromCallerToReturn(fromCtx, caller, retCtx, retBlock, targetBlock).
+
+.decl PotentialCallerReturnAndTargetWithContextOrd(callCtx: number, caller: Block, retBlock: Block, targetBlock: Block)
+.output PotentialCallerReturnAndTargetWithContextOrd
+PotentialCallerReturnAndTargetWithContextOrd(ord(callCtx), caller, retBlock, targetBlock):-
+  PotentialCallerReturnAndTargetWithContext(callCtx, caller, retBlock, targetBlock).
+
+.decl PossibleCallReturnOrd(callCtx: number, caller: Block, index: number, target: Block)
+.output PossibleCallReturnOrd
+PossibleCallReturnOrd(ord(callCtx), caller, minIndex, retTarget):-
+  PossibleCallReturn(callCtx, caller, minIndex, retTarget).
 
 .output global.sens.CutToCaller
 
