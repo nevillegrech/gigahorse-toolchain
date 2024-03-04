@@ -895,7 +895,7 @@ FunctionalBlockStackDelta(from, stackDelta) :-
 FunctionalBlockStackDelta(from, newStackDelta) :-
   IRFunctionCallReturn(from, func, _),
   IRFunction_Return(func, ret),
-  PossibleCombinedNumberOfFunctionReturnsAndArguments(func, ret, n_args, n_ret),
+  PossibleCombinedNumberOfFunctionReturnsAndArguments(func, ret, _,  n_args, n_ret),
   IRBlockStackDelta(from, stackDelta),
   newStackDelta = stackDelta - n_args + n_ret,
   CheckIsStackDelta(newStackDelta).
@@ -975,10 +975,10 @@ CycleEntry(func, block) :-
   (return, call-with-no-return, or throw, possibly conditionally),
   then add the delta again. Tedious.
 */
-.decl PossibleCombinedNumberOfFunctionReturnsAndArguments(func: IRFunction, terminal: IRBlock, numArg: StackIndex, numRet: StackIndex)
+.decl PossibleCombinedNumberOfFunctionReturnsAndArguments(func: IRFunction, terminal: IRBlock, path: Path, numArg: StackIndex, numRet: StackIndex)
 
-PossibleCombinedNumberOfFunctionReturnsAndArguments(func, terminal, as(numArg, StackIndex), numRet) :-
-  PossibleFunctionalBlockPopAndStackDelta(func, terminal, _, prevPopDelta, prevStackDelta),
+PossibleCombinedNumberOfFunctionReturnsAndArguments(func, terminal, path, as(numArg, StackIndex), numRet) :-
+  PossibleFunctionalBlockPopAndStackDelta(func, terminal, path, prevPopDelta, prevStackDelta),
   FunctionalBlockPopAndStackDelta(terminal, popDelta, stackDelta),
   numArg = max(popDelta - prevStackDelta, prevPopDelta),
   CheckIsNumArgs(numArg),
@@ -998,7 +998,7 @@ PossibleCombinedNumberOfFunctionReturnsAndArguments(func, terminal, as(numArg, S
 */
 .decl PossibleImpreciseNumberOfFunctionArguments(func: IRFunction, num: StackIndex)
 PossibleImpreciseNumberOfFunctionArguments(func, numArg) :-
-  PossibleCombinedNumberOfFunctionReturnsAndArguments(func, _, numArg, _).
+  PossibleCombinedNumberOfFunctionReturnsAndArguments(func, _, _, numArg, _).
 
 
 // Our more precise inferences
@@ -1011,11 +1011,13 @@ PossibleNumberOfFunctionArguments(func, n) :-
   // Having no local block edge from it should be enough,
   // but we can now having edges from return blocks for completeness REVIEW at some point
   (!LocalBlockEdge(block, _) ; IRFunction_Return(func, block); IRFunctionCallReturn(block, _, _)),
-  n = min numArg: PossibleCombinedNumberOfFunctionReturnsAndArguments(func, block, numArg, _).
+  PossibleCombinedNumberOfFunctionReturnsAndArguments(func, block, path, _, _),
+  n = min numArg: PossibleCombinedNumberOfFunctionReturnsAndArguments(func, block, path, numArg, _).
 
 PossibleNumberOfFunctionReturnArguments(func, n) :-
   IRFunction_Return(func, ret),
-  n = min numRet: PossibleCombinedNumberOfFunctionReturnsAndArguments(func, ret, _, numRet).
+  PossibleCombinedNumberOfFunctionReturnsAndArguments(func, ret, path, _, _),
+  n = min numRet: PossibleCombinedNumberOfFunctionReturnsAndArguments(func, ret, path, _, numRet).
   
   
 // REVIEW: do we need defaults of 0? I don't see why. But it won't hurt as
