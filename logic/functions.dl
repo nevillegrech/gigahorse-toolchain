@@ -1011,7 +1011,7 @@ PossibleNumberOfFunctionArguments(func, n) :-
   // Having no local block edge from it should be enough,
   // but we can now having edges from return blocks for completeness REVIEW at some point
   (!LocalBlockEdge(block, _) ; IRFunction_Return(func, block)),
-  n = min numArg: PossibleCombinedNumberOfFunctionReturnsAndArguments(func, block, numArg, _).
+  n = max numArg: PossibleCombinedNumberOfFunctionReturnsAndArguments(func, block, numArg, _).
 
 PossibleNumberOfFunctionReturnArguments(func, n) :-
   IRFunction_Return(func, ret),
