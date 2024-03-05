@@ -602,6 +602,7 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
   // If the earliest continuation is not unique, or if we have not been able to find the
   // continuations on the stack at call time, fall back to an "undefined".
   .decl PrivateFunctionCall(caller: Block, callee: Block, continuation: Block, firstContinuation: Block)
+  DEBUG_OUTPUT(PrivateFunctionCall)
   PrivateFunctionCall(caller, callee, as(contVal, Block), firstCont) :-
     StaticBlockJumpTarget(caller, callee),  // looks like a call
     BlockPushesLabel(caller, contVal),  // continuation pushed
@@ -651,6 +652,16 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     JUMP(call),
     !PrivateFunctionCall(caller, callee, _, _).
 
+  .decl ContinuationLikelyNotLatest(continuation: Block)
+  DEBUG_OUTPUT(ContinuationLikelyNotLatest)
+  ContinuationLikelyNotLatest(cont):-
+    PrivateFunctionCall(_, _, cont, latestCont),
+    cont != latestCont.
+
+  ContinuationLikelyNotLatest(cont):-
+    ContinuationLikelyNotLatest(prevCont),
+    PrivateFunctionCall(prevCont, _, cont, _).
+
   // Helper to identify blocks that are very likely function entries
   // Also add the fallthrough here!!!
   .decl IsConditionalJumpBlockPrivateFunctionCall(caller: Block, callee: Block)
@@ -662,7 +673,8 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
 
 
   IsConditionalJumpBlockPrivateFunctionCall(cont, callee):-
-    PrivateFunctionCall(_, _, cont, _),
+    ContinuationLikelyNotLatest(cont),
+    //PrivateFunctionCall(_, _, cont, _),
     Statement_Block(call, cont),
     JUMPI(call),
     StaticBlockJumpTarget(cont, callee).
@@ -763,14 +775,15 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
   .decl NormalizedConditionalCallPatternBase(jumpiBlock: Block, caller: Block, callee: Block)
   DEBUG_OUTPUT(NormalizedConditionalCallPatternBase)
   NormalizedConditionalCallPatternBase(jumpiBlock, as(caller, Block), callee):-
-    PrivateFunctionCall(_, _, jumpiBlock, _),
+    // PrivateFunctionCall(_, _, jumpiBlock, _),
+    ContinuationLikelyNotLatest(jumpiBlock),
     Statement_Block(jumpi, jumpiBlock),
     JUMPI(jumpi),
-    (FallthroughEdge(jumpiBlock, revertBlock); StaticBlockJumpTarget(jumpiBlock, revertBlock)),
+    // LocalBlockEdge(jumpiBlock, revertBlock),
     // BlockWillRevert(as(revertBlock, Block)),
     // StaticBlockJumpTarget(jumpiBlock, caller),
-    (StaticBlockJumpTarget(jumpiBlock, caller); FallthroughEdge(jumpiBlock, caller)),
-    caller != revertBlock,
+    LocalBlockEdge(jumpiBlock, caller),
+    // caller != revertBlock,
     StaticBlockJumpTarget(caller, callee),
     Statement_Block(call, caller),
     JUMP(call).

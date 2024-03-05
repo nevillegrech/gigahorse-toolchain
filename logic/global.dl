@@ -411,6 +411,9 @@ PreMask_Length(cat(mask, "ff"), bytes+1) :-
     (StaticBlockJumpTarget(jumpiBlock, caller); FallthroughEdge(jumpiBlock, caller)),
     (StaticBlockJumpTarget(caller, callee); FallthroughEdge(caller, callee)).
 
+  sens.ImportantBlockEdge(caller, callee):-
+    NormalizedConditionalCallPattern(_, caller, callee).
+
   /**
     This sometimes helps the global analysis gain precision
   */
