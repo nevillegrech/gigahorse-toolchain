@@ -38,8 +38,9 @@ PotentialCallerReturnAndTarget(caller, retBlock, retTarget) :-
 PotentialCallerReturnAndTargetWithContext(callCtx, caller, retBlock, targetBlock) :-
   PossibleReturnAddressWithRank(callCtx, caller, _, retBlock, targetBlock, _).
 
-PotentialCallerReturnAndTargetWithContext(callCtx, caller, retBlock, targetBlock) :-
-  PossibleCallReturnWithCtx(callCtx, caller, _, _, retBlock, targetBlock).
+
+// PotentialCallerReturnAndTargetWithContext(callCtx, caller, retBlock, targetBlock) :-
+//   PossibleCallReturnWithCtx(callCtx, caller, _, _, retBlock, targetBlock).
 
 // When we don't, consider all
 PotentialCallerReturnAndTargetWithContext(callCtx, caller, retBlock, targetBlock) :-
@@ -298,12 +299,18 @@ PossibleCallReturn(callCtx, caller, minIndex, as(retTarget, Block)):-
   global.Variable_Value(retBlockVar, retTarget),
   global.BlockJumpValidTarget(_, _, retBlockVar, as(retTarget, Block)). // ensure it's jumped to
 
-.decl PossibleCallReturnWithCtx(callCtx: global.sens.Context, caller: Block, index: number, retCtx: global.sens.Context, retBlock: Block, target: Block)
-DEBUG_OUTPUT(PossibleCallReturnWithCtx)
-PossibleCallReturnWithCtx(callCtx, caller, minIndex, retCtx, retBlock, targetBlock):-
-  PossibleCallReturn(callCtx, caller, minIndex, targetBlock),
-  global.BlockOutputContents(callCtx, caller, minIndex, targetVariable),
-  global.BlockJumpValidTarget(retCtx, retBlock, targetVariable, targetBlock).
+
+/**
+  Commenting this out as it wasn't useful at this point.
+  Right now it is a product of call-sites and return jumps.
+  Would need something better.
+*/
+// .decl PossibleCallReturnWithCtx(callCtx: global.sens.Context, caller: Block, index: number, retCtx: global.sens.Context, retBlock: Block, target: Block)
+// DEBUG_OUTPUT(PossibleCallReturnWithCtx)
+// PossibleCallReturnWithCtx(callCtx, caller, minIndex, retCtx, retBlock, targetBlock):-
+//   PossibleCallReturn(callCtx, caller, minIndex, targetBlock),
+//   global.BlockOutputContents(callCtx, caller, minIndex, targetVariable),
+//   OptNotImmediateBlockJumpTarget(retCtx, retBlock, targetVariable, targetBlock).
 // .decl Match(newCallCtx: number, caller: Block, retTarget: Block, prevRank: number, inIndex: number, outIndex: number)
 // .output Match
 
