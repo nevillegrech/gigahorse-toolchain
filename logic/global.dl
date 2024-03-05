@@ -328,23 +328,6 @@ PreMask_Length(cat(mask, "ff"), bytes+1) :-
   NeedToAddCtxAtEdge(fromBlock, toBlock):-
     ImprecisionIntroducedAtEdge(ctx, fromBlock, ctx, toBlock, _).
 
-  sens.ImportantBlockEdge(caller, callee):-
-    PrivateFunctionCall(jumpiBlock, _, _, _),
-    BasicBlock_Tail(jumpiBlock, call),
-    JUMPI(call),
-    (StaticBlockJumpTarget(jumpiBlock, caller); FallthroughEdge(jumpiBlock, caller)),
-    (StaticBlockJumpTarget(caller, callee); FallthroughEdge(caller, callee)).
-
-  sens.ImportantBlockEdge(caller, callee):-
-    PrivateFunctionCall(prevCaller, _, caller, _),
-    PrivateFunctionCall(prevCaller, _, caller2, _),
-    BasicBlock_Tail(caller, call),
-    JUMP(call),
-    StaticBlockJumpTarget(caller, callee),
-    StaticBlockJumpTarget(caller2, callee),
-    caller != caller2,
-    PrivateFunctionCall(_, callee, _, _).
-
 }
 
 /**
@@ -413,6 +396,34 @@ PreMask_Length(cat(mask, "ff"), bytes+1) :-
     BasicBlock_Tail(block, call),
     LocalStackContents(call, _, var),
     !BlockUsesLocal(block, var). 
+
+  /**
+    This is added to aid the function inference with the recognition
+    of "conditional" calls. We introduce more contexts so that
+    we can treat the calls at the different branches differently
+    i.e. so that the return jump can be a return in one case and not in the other
+    if we are not 100% successful
+  */
+  sens.ImportantBlockEdge(caller, callee):-
+    PrivateFunctionCall(jumpiBlock, _, _, _),
+    BasicBlock_Tail(jumpiBlock, call),
+    JUMPI(call),
+    (StaticBlockJumpTarget(jumpiBlock, caller); FallthroughEdge(jumpiBlock, caller)),
+    (StaticBlockJumpTarget(caller, callee); FallthroughEdge(caller, callee)).
+
+  /**
+    This sometimes helps the global analysis gain precision
+  */
+  sens.ImportantBlockEdge(caller, callee):-
+    PrivateFunctionCall(prevCaller, _, caller, _),
+    PrivateFunctionCall(prevCaller, _, caller2, _),
+    BasicBlock_Tail(caller, call),
+    JUMP(call),
+    StaticBlockJumpTarget(caller, callee),
+    StaticBlockJumpTarget(caller2, callee),
+    caller != caller2,
+    PrivateFunctionCall(_, callee, _, _).
+
 }
 
 /**
