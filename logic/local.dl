@@ -696,6 +696,100 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     LocalBlockEdge(temp1, actualCaller),
     otherNext != actualCaller.
 
+  .decl ConditionalCallToJump(jumpiBlock: Block, caller: Block, contVar: Variable, outStackPos: number)
+  DEBUG_OUTPUT(ConditionalCallToJump)
+  .decl ConditionalCallToJumpi(jumpiBlock: Block, caller: Block, contVar: Variable, outStackPos: number)
+  DEBUG_OUTPUT(ConditionalCallToJumpi)
+  .decl ConditionalCallToPotentialCallJump(jumpiBlock: Block, caller: Block, callee: Block, contVar: Variable, outStackPos: number)
+  DEBUG_OUTPUT(ConditionalCallToPotentialCallJump)
+
+  // ConditionalCallToJump(jumpiBlock, caller, contVar, pos):-
+  //   PrivateFunctionCall(jumpiBlock, _, cont, _),
+  //   Statement_Block(jumpi, jumpiBlock),
+  //   JUMPI(jumpi),
+  //   Variable_Value(contVar, as(cont, Value)),
+  //   LocalStackContents(jumpi, stackIndex, contVar),
+  //   LocalBlockEdge(jumpiBlock, revertBlock),
+  //   BlockWillRevert(revertBlock),
+  //   LocalBlockEdge(jumpiBlock, caller),
+  //   caller != revertBlock,
+  //   StaticBlockJumpTarget(caller, _),
+  //   Statement_Block(call, caller),
+  //   JUMP(call),
+  //   BeforeLocalStackContents(call, pos, stackIndex).
+
+  // ConditionalCallToJumpi(jumpiBlock, caller, contVar, pos):-
+  //   PrivateFunctionCall(jumpiBlock, _, cont, _),
+  //   Statement_Block(jumpi, jumpiBlock),
+  //   JUMPI(jumpi),
+  //   Variable_Value(contVar, as(cont, Value)),
+  //   LocalStackContents(jumpi, stackIndex, contVar),
+  //   LocalBlockEdge(jumpiBlock, revertBlock),
+  //   BlockWillRevert(revertBlock),
+  //   LocalBlockEdge(jumpiBlock, caller),
+  //   caller != revertBlock,
+  //   StaticBlockJumpTarget(caller, _),
+  //   Statement_Block(call, caller),
+  //   JUMPI(call),
+  //   LocalStackContents(call, pos, stackIndex).
+
+  ConditionalCallToJumpi(jumpiBlock, jumpiBlock, contVar, stackIndex):-
+    PrivateFunctionCall(jumpiBlock, _, cont, _),
+    Statement_Block(jumpi, jumpiBlock),
+    JUMPI(jumpi),
+    Variable_Value(contVar, as(cont, Value)),
+    LocalStackContents(jumpi, stackIndex, contVar).
+
+  ConditionalCallToJumpi(jumpiBlock, caller, contVar, pos):-
+    ConditionalCallToJumpi(jumpiBlock, jumpiBlock2, contVar, intermPos),
+    LocalBlockEdge(jumpiBlock2, revertBlock),
+    BlockWillRevert(revertBlock),
+    LocalBlockEdge(jumpiBlock2, caller),
+    caller != revertBlock,
+    StaticBlockJumpTarget(caller, _),
+    Statement_Block(call, caller),
+    JUMPI(call),
+    LocalStackContents(call, pos, intermPos).
+
+  ConditionalCallToJump(jumpiBlock, caller, contVar, pos):-
+    ConditionalCallToJumpi(jumpiBlock, jumpiBlock2, contVar, intermPos),
+    LocalBlockEdge(jumpiBlock2, revertBlock),
+    BlockWillRevert(revertBlock),
+    LocalBlockEdge(jumpiBlock2, caller),
+    caller != revertBlock,
+    StaticBlockJumpTarget(caller, _),
+    Statement_Block(call, caller),
+    JUMP(call),
+    BeforeLocalStackContents(call, pos, intermPos).
+
+  ConditionalCallToJump(jumpiBlock, potentialCaller, contVar, pos):-
+    ConditionalCallToPotentialCallJump(jumpiBlock, potentialCaller, potentialCallee, contVar, pos),
+    (IsJumpBlockPrivateFunctionCall(otherCaller, potentialCallee); ConditionalCallToPotentialCallJump(_, otherCaller, potentialCallee, _, _)),
+    otherCaller != potentialCaller.
+
+  ConditionalCallToJump(jumpiBlock, converganceBlock, contVar, pos):-
+    ConditionalCallToJumpi(jumpiBlock, jumpiBlock, contVar, intermPos),
+    ConditionalCallControlFlowConvergesQuickly(jumpiBlock, converganceBlock),
+    StaticBlockJumpTarget(converganceBlock, potentialCallee),
+    Statement_Block(call, converganceBlock),
+    JUMP(call),
+    BeforeLocalStackContents(call, pos, intermPos).
+
+  NormalizedConditionalCallPattern(jumpiBlock, caller, callee):-
+    ConditionalCallToJump(jumpiBlock, caller, contVar, pos),
+    StaticBlockJumpTarget(caller, callee).
+
+  ConditionalCallToPotentialCallJump(jumpiBlock, potentialCaller, potentialCallee, contVar, pos):-
+    ConditionalCallToJumpi(jumpiBlock, jumpiBlock2, contVar, intermPos),
+    LocalBlockEdge(jumpiBlock2, potentialCaller),
+    LocalBlockEdge(jumpiBlock2, otherCaller),
+    StaticBlockJumpTarget(potentialCaller, potentialCallee),
+    Statement_Block(call, potentialCaller),
+    JUMP(call),
+    BeforeLocalStackContents(call, pos, intermPos),
+    !BlockWillRevert(potentialCaller),
+    !BlockWillRevert(otherCaller),
+    potentialCaller != otherCaller.
 
   // Kind of hacky. make ConditionalCallCanBeTransformed a bit more complete
   .decl MaybeConditionalJumpBlockPrivateFunctionCall(caller: Block, callee: Block)
@@ -774,6 +868,39 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
   
   .decl NormalizedConditionalCallPatternBase(jumpiBlock: Block, caller: Block, callee: Block)
   DEBUG_OUTPUT(NormalizedConditionalCallPatternBase)
+
+  NormalizedConditionalCallPatternBase(jumpiBlock, as(caller, Block), callee):-
+    // PrivateFunctionCall(_, _, jumpiBlock, _),
+    ContinuationLikelyNotLatest(jumpiBlock),
+    Statement_Block(jumpi, jumpiBlock),
+    JUMPI(jumpi),
+    LocalBlockEdge(jumpiBlock, revertBlock),
+    BlockWillRevert(revertBlock),
+    LocalBlockEdge(jumpiBlock, caller),
+    caller != revertBlock,
+    StaticBlockJumpTarget(caller, callee),
+    Statement_Block(call, caller),
+    JUMP(call).
+
+  NormalizedConditionalCallPatternBase(jumpiBlock, caller, callee):-
+    // PrivateFunctionCall(_, _, jumpiBlock, _),
+    (ContinuationLikelyNotLatest(jumpiBlock); PrivateFunctionCall(jumpiBlock, _, _, _)),
+    Statement_Block(jumpi, jumpiBlock),
+    JUMPI(jumpi),
+    LocalBlockEdge(jumpiBlock, revertBlock),
+    BlockWillRevert(revertBlock),
+    LocalBlockEdge(jumpiBlock, jumpiBlock2),
+    jumpiBlock2 != revertBlock,
+    Statement_Block(jumpi2, jumpiBlock2),
+    JUMPI(jumpi2),
+    LocalBlockEdge(jumpiBlock2, revertBlock2),
+    BlockWillRevert(revertBlock2),
+    LocalBlockEdge(jumpiBlock2, caller),
+    caller != revertBlock2,
+    StaticBlockJumpTarget(caller, callee),
+    Statement_Block(call, caller),
+    JUMP(call).
+
   NormalizedConditionalCallPatternBase(jumpiBlock, as(caller, Block), callee):-
     // PrivateFunctionCall(_, _, jumpiBlock, _),
     ContinuationLikelyNotLatest(jumpiBlock),
