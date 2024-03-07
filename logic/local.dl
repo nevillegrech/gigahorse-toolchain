@@ -892,8 +892,8 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     ),
     caller2 != caller,
     1 = count : PrivateFunctionCall(_, _, cont, _),
-    !JumpToFunctionStartDoesntPushContinuation(callee, _),
-    !FallthroughEdge(_, cont).
+    !JumpToFunctionStartDoesntPushContinuation(callee, _), // in that case we try to clone the `callee`
+    !FallthroughEdge(_, cont). // for safe insertion
 
   ConditionalCallCanBeTransformed(caller, callee, caller):-
     IsConditionalJumpBlockPrivateFunctionCall(caller, callee),
@@ -902,8 +902,8 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
       PrivateFunctionCall(caller2, callee, _, _)
     ),
     caller != caller2,
-    !FallthroughEdge(_, caller),
-    !JumpToFunctionStartDoesntPushContinuation(callee, _),
+    !FallthroughEdge(_, caller), // for safe insertion
+    !JumpToFunctionStartDoesntPushContinuation(callee, _), // in that case we try to clone the `callee`
     !PrivateFunctionCall(caller, _, _, _).
 
   /**
