@@ -771,6 +771,10 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     ),
     otherCaller != potentialCaller.
 
+  ConditionalCallToJump(jumpiBlock, potentialCaller, contVar, pos):-
+    ConditionalCallToPotentialCallJump(jumpiBlock, potentialCaller, potentialCallee, contVar, pos),
+    PrivateFunctionCall(potentialCaller, potentialCallee, _, _).
+
   ConditionalCallToJump(jumpiBlock, converganceBlock, contVar, pos):-
     ConditionalCallToJumpi(jumpiBlock, jumpiBlock, contVar, intermPos),
     ConditionalCallControlFlowConvergesQuickly(jumpiBlock, converganceBlock),
