@@ -400,7 +400,7 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     IsBasicBlockHead(stmt),
     Statement_Block(stmt, block),
     BlockPopDelta(block, delta),
-    IsStackIndexLessThan(stackIndex, delta + 10).
+    IsStackIndexLessThan(stackIndex, delta + 15).
   
    /*
    ***********
