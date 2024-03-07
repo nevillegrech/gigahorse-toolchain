@@ -2,6 +2,7 @@
 .output global.BlockEdge, global.FallthroughEdge, global.BlockJumpValidTarget, global.BlockJumpTarget, MaybeInFunctionUnderContext
 .output MaybeFunctionCallReturn // DEBUG
 .output global.PrivateFunctionCall, preTrans.PrivateFunctionCall, beforeClonerLocal.PrivateFunctionCall
+.output global.sens.ImportantBlockEdge
 .output PotentialCall // DEBUG
 .output PossibleReturnAddressWithPos // DEBUG
 .output IsFunctionCallReturn // DEBUG

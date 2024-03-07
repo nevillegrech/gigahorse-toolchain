@@ -57,6 +57,10 @@ global.StatementPushesUsedLabel(stmt):-
 
 global.sens.ImportantBlockEdge(block, next):- incompleteGlobal.NeedToAddCtxAtEdge(block, next).
 
+global.sens.ImportantBlockEdge(caller, callee):-
+  global.NormalizedConditionalCallPattern(jumpi, caller, callee),
+  !incompleteGlobal.PotentiallyRecursiveBlock(jumpi).
+
 COPY_CODE_FULL(global, postTrans)
 
 // Masks with all 1s
@@ -328,6 +332,15 @@ PreMask_Length(cat(mask, "ff"), bytes+1) :-
   NeedToAddCtxAtEdge(fromBlock, toBlock):-
     ImprecisionIntroducedAtEdge(ctx, fromBlock, ctx, toBlock, _).
 
+  .decl PotentiallyRecursiveBlock(block: Block)
+  DEBUG_OUTPUT(PotentiallyRecursiveBlock)
+  PotentiallyRecursiveBlock(block):-
+    (PrivateFunctionCall(block, _, _, _) ; sens.ImportantBlockEdge(block, _)),
+    sens.DecomposePrivateContext(_, block, rest),
+    sens.DecomposePrivateContext(rest, block, rest2),
+    sens.DecomposePrivateContext(rest2, block, rest3),
+    sens.DecomposePrivateContext(rest3, block, _).
+
 }
 
 /**
@@ -404,17 +417,18 @@ PreMask_Length(cat(mask, "ff"), bytes+1) :-
     i.e. so that the return jump can be a return in one case and not in the other
     if we are not 100% successful
   */
-  sens.ImportantBlockEdge(caller, callee):-
-    PrivateFunctionCall(jumpiBlock, _, _, _),
-    BasicBlock_Tail(jumpiBlock, call),
-    JUMPI(call),
-    (StaticBlockJumpTarget(jumpiBlock, caller); FallthroughEdge(jumpiBlock, caller)),
-    BasicBlock_Tail(caller, call2),
-    JUMP(call2),
-    (StaticBlockJumpTarget(caller, callee); FallthroughEdge(caller, callee)).
+  // sens.ImportantBlockEdge(caller, callee):-
+  //   PrivateFunctionCall(jumpiBlock, _, _, _),
+  //   BasicBlock_Tail(jumpiBlock, call),
+  //   JUMPI(call),
+  //   (StaticBlockJumpTarget(jumpiBlock, caller); FallthroughEdge(jumpiBlock, caller)),
+  //   BasicBlock_Tail(caller, call2),
+  //   JUMP(call2),
+  //   (StaticBlockJumpTarget(caller, callee); FallthroughEdge(caller, callee)).
 
-  sens.ImportantBlockEdge(caller, callee):-
-    NormalizedConditionalCallPattern(_, caller, callee).
+  // sens.ImportantBlockEdge(caller, callee):-
+  //   NormalizedConditionalCallPattern(jumpi, caller, callee).
+  //   // !sens.PotentiallyRecursiveBlock(jumpi).
 
   /**
     This sometimes helps the global analysis gain precision
