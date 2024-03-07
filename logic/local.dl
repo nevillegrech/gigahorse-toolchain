@@ -877,7 +877,8 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     ConditionalCallToJump(jumpiBlock, callee, _, _),
     LocalBlockEdge(caller, callee),
     (
-      ConditionalCallToJump(jumpiBlock2, callee, _, _)
+      ConditionalCallToJump(jumpiBlock2, callee, _, _);
+      IsConditionalJumpBlockPrivateFunctionCall(jumpiBlock2, callee)
     ),
     jumpiBlock != jumpiBlock2,
     (!PrivateFunctionCall(callee, _, _, _) ; JumpToFunctionStartDoesntPushContinuation(callee, _)).
