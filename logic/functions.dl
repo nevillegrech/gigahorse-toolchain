@@ -349,7 +349,7 @@ PossibleReturnAddressWithRank(newCallCtx, caller, retCtx, retBlock, retTarget, n
   OptBlockImmediateJump(newCallCtx, caller),
   // global.BlockInputContents(newCallCtx, caller, inIndex, retBlockVar),
   // global.Variable_Value(retBlockVar, as(retTarget, Value)),
-  PossibleCallReturn(newCallCtx, caller, minIndex, actualReturnTarget), // minIndex != inIndex,
+  PossibleCallReturn(newCallCtx, caller, /*minIndex*/ _, actualReturnTarget), // minIndex != inIndex,
   actualReturnTarget != retTarget,
   !PossibleReturnAddressWithPos(caller, _, _, _, _).
  .plan 1:(2,3,1,4)

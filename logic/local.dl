@@ -770,13 +770,14 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
   ConditionalCallToJump(jumpiBlock, converganceBlock, contVar, pos):-
     ConditionalCallToJumpi(jumpiBlock, jumpiBlock, contVar, intermPos),
     ConditionalCallControlFlowConvergesQuickly(jumpiBlock, converganceBlock),
-    StaticBlockJumpTarget(converganceBlock, potentialCallee),
+    LocalBlockEdge(jumpiBlock, converganceBlock),
+    StaticBlockJumpTarget(converganceBlock, _),
     Statement_Block(call, converganceBlock),
     JUMP(call),
     BeforeLocalStackContents(call, pos, intermPos).
 
   NormalizedConditionalCallPattern(jumpiBlock, caller, callee):-
-    ConditionalCallToJump(jumpiBlock, caller, contVar, pos),
+    ConditionalCallToJump(jumpiBlock, caller, _, _),
     StaticBlockJumpTarget(caller, callee).
 
   ConditionalCallToPotentialCallJump(jumpiBlock, potentialCaller, potentialCallee, contVar, pos):-
@@ -795,7 +796,7 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
   .decl MaybeConditionalJumpBlockPrivateFunctionCall(caller: Block, callee: Block)
   DEBUG_OUTPUT(MaybeConditionalJumpBlockPrivateFunctionCall)
   MaybeConditionalJumpBlockPrivateFunctionCall(caller, callee):-
-    IsConditionalJumpBlockPrivateFunctionCall(prevCaller, caller),
+    IsConditionalJumpBlockPrivateFunctionCall(_, caller),
     StaticBlockJumpTarget(caller, callee),
     Statement_Block(call, caller),
     JUMPI(call).
