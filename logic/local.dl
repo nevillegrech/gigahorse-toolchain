@@ -1008,8 +1008,6 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     ),
     caller != caller2.
 
-  // .decl ConditionalPrivateFunctionCallStart(jumpi: Block, caller: Block, callee: Block)
-  // ConditionalPrivateFunctionCallStart(jumpi, caller, callee):-
 
   .decl MultiplePrivateFunctionCall(caller: Block)
   MultiplePrivateFunctionCall(caller) :-
@@ -1025,7 +1023,6 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
 
   .decl PrivateFunctionCallOrReturn(block: Block)
   PrivateFunctionCallOrReturn(block) :-
-    //PrivateFunctionCallAlt(block, _, _, _);
     PrivateFunctionCall(block, _, _, _);
     PrivateFunctionReturn(block).
 
@@ -1060,6 +1057,11 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     Statement_Opcode(stmt, opcode),
     !OpcodePossiblyHalts(opcode).
 
+  /**
+    If a known function start stmt is used a continuation in optimized code
+    we use a transformation to introduce a call-site to which the previous call
+    will return.
+  */
   .decl FunctionStartIsAlsoContinuation(pushStmt: Statement, funcStart: Block)
   DEBUG_OUTPUT(FunctionStartIsAlsoContinuation)
   FunctionStartIsAlsoContinuation(pushStmt, funcStart):-
@@ -1071,6 +1073,10 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     JUMP(jump),
     !FallthroughEdge(_, funcStart). // So that we can insert right before
 
+  /**
+    If a fallthrough block is pushed multiple times (i.e. is likely used as a continuation)
+    we add a jump to its end, in order to allow our logic to consider it a call
+  */
   .decl FallthroughBlockUsedMultipleTimes(block: Block, fallthrough: Statement)
   DEBUG_OUTPUT(FallthroughBlockUsedMultipleTimes)
   FallthroughBlockUsedMultipleTimes(block, fallthrough):-
