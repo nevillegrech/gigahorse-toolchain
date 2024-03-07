@@ -764,7 +764,11 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
 
   ConditionalCallToJump(jumpiBlock, potentialCaller, contVar, pos):-
     ConditionalCallToPotentialCallJump(jumpiBlock, potentialCaller, potentialCallee, contVar, pos),
-    (IsJumpBlockPrivateFunctionCall(otherCaller, potentialCallee); ConditionalCallToPotentialCallJump(_, otherCaller, potentialCallee, _, _)),
+    (
+      IsJumpBlockPrivateFunctionCall(otherCaller, potentialCallee);
+      ConditionalCallToPotentialCallJump(_, otherCaller, potentialCallee, _, _);
+      IsLikelyPrivateFunctionCall(otherCaller, potentialCallee)
+    ),
     otherCaller != potentialCaller.
 
   ConditionalCallToJump(jumpiBlock, converganceBlock, contVar, pos):-
