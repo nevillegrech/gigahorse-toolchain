@@ -1023,6 +1023,10 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     ),
     caller != caller2.
 
+  NormalizedConditionalCallPattern(jumpiBlock, caller, callee):-
+    NormalizedConditionalCallPatternBase(jumpiBlock, caller, callee),
+    IsJumpBlockPrivateFunctionCall(caller, callee).
+
 
   .decl MultiplePrivateFunctionCall(caller: Block)
   MultiplePrivateFunctionCall(caller) :-
