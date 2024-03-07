@@ -16,6 +16,8 @@
   .decl IsContext(ctx: Context)
   .decl InitialContext(ctx: Context)
 
+  .decl PotentiallyRecursiveCallSite(block: Block)
+
   .decl ImportantBlockEdge(block: Block, next: Block)
 
   /**
@@ -256,6 +258,14 @@
     ReachableContext(ctx, _),
     ctx = [pubFun, callCtx],
     callCtx = callCtx.
+
+  PotentiallyRecursiveCallSite(block):-
+    (local.PrivateFunctionCall(block, _, _, _); ImportantBlockEdge(block, _)),
+    DecomposePrivateContext(_, block, rest),
+    DecomposePrivateContext(rest, block, rest2),
+    DecomposePrivateContext(rest2, block, rest3),
+    DecomposePrivateContext(rest3, block, _).
+
 
   // Helpers
   .decl PrivateContextContainsBlock(ctx: PrivateContext, blk: Block, index: number)

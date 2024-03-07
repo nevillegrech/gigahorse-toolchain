@@ -59,7 +59,7 @@ global.sens.ImportantBlockEdge(block, next):- incompleteGlobal.NeedToAddCtxAtEdg
 
 global.sens.ImportantBlockEdge(caller, callee):-
   global.NormalizedConditionalCallPattern(jumpi, caller, callee),
-  !incompleteGlobal.PotentiallyRecursiveBlock(jumpi).
+  !incompleteGlobal.sens.PotentiallyRecursiveCallSite(jumpi).
 
 COPY_CODE_FULL(global, postTrans)
 
@@ -331,15 +331,6 @@ PreMask_Length(cat(mask, "ff"), bytes+1) :-
   DEBUG_OUTPUT(NeedToAddCtxAtEdge)
   NeedToAddCtxAtEdge(fromBlock, toBlock):-
     ImprecisionIntroducedAtEdge(ctx, fromBlock, ctx, toBlock, _).
-
-  .decl PotentiallyRecursiveBlock(block: Block)
-  DEBUG_OUTPUT(PotentiallyRecursiveBlock)
-  PotentiallyRecursiveBlock(block):-
-    (PrivateFunctionCall(block, _, _, _) ; sens.ImportantBlockEdge(block, _)),
-    sens.DecomposePrivateContext(_, block, rest),
-    sens.DecomposePrivateContext(rest, block, rest2),
-    sens.DecomposePrivateContext(rest2, block, rest3),
-    sens.DecomposePrivateContext(rest3, block, _).
 
 }
 
