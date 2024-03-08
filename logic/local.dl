@@ -863,6 +863,22 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     JUMPI(call).
 
 
+  .decl ConditionalCallStraightToFunctionStart(rootJumpi: Block, prevJumpi: Block, functionStart: Block)
+  DEBUG_OUTPUT(ConditionalCallStraightToFunctionStart)
+  ConditionalCallStraightToFunctionStart(rootJumpiBlock, prevJumpi, functionStart):-
+    UnifiedConditionalCallToJump(rootJumpiBlock, functionStart),
+    IsJumpBlockPrivateFunctionCall(_, functionStart),
+    LocalBlockEdge(prevJumpi, functionStart),
+    UnifiedConditionalCallToJumpi(rootJumpiBlock, prevJumpi).
+
+  ConditionalCallStraightToFunctionStart(rootJumpiBlock, jumpiBlock, jumpiFunctionStart):-
+    UnifiedConditionalCallToJumpi(rootJumpiBlock, jumpiBlock),
+    LocalBlockEdge(jumpiBlock, jumpiFunctionStart),
+    BasicBlock_Tail(jumpiFunctionStart, jumpi),
+    JUMPI(jumpi),
+    IsJumpBlockPrivateFunctionCall(_, jumpiFunctionStart),
+    !UnifiedConditionalCallToJumpi(rootJumpiBlock, jumpiFunctionStart).
+
   /**
     We try to normalize conditional calls:
       If the target of a conditional call is also called directly in another call we normalize it
@@ -875,7 +891,8 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     IsConditionalJumpBlockPrivateFunctionCall(caller, callee),
     PrivateFunctionCall(caller, callee, cont, cont),
     (
-      PrivateFunctionCall(caller2, callee, _, _);
+      // PrivateFunctionCall(caller2, callee, _, _);
+      IsJumpBlockPrivateFunctionCall(caller2, callee);
       IsConditionalJumpBlockPrivateFunctionCall(caller2, callee);
       MaybeConditionalJumpBlockPrivateFunctionCall(caller2, callee)
     ),
@@ -888,12 +905,26 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     IsConditionalJumpBlockPrivateFunctionCall(caller, callee),
     (
       IsConditionalJumpBlockPrivateFunctionCall(caller2, callee);
-      PrivateFunctionCall(caller2, callee, _, _)
+      IsJumpBlockPrivateFunctionCall(caller2, callee)
+      // PrivateFunctionCall(caller2, callee, _, _)
     ),
     caller != caller2,
     !FallthroughEdge(_, caller), // for safe insertion
     !JumpToFunctionStartDoesntPushContinuation(callee, _), // in that case we try to clone the `callee`
     !PrivateFunctionCall(caller, _, _, _).
+
+  ConditionalCallCanBeTransformed(caller, callee, cont):-
+    ConditionalCallStraightToFunctionStart(rootJumpiBlock, caller, callee),
+    PrivateFunctionCall(rootJumpiBlock, _, cont, cont),
+    1 = count : PrivateFunctionCall(_, _, cont, _),
+    !JumpToFunctionStartDoesntPushContinuation(callee, _), // in that case we try to clone the `callee`
+    !FallthroughEdge(_, cont). // for safe insertion
+
+  ConditionalCallCanBeTransformed(caller, callee, caller):-
+    ConditionalCallStraightToFunctionStart(rootJumpiBlock, caller, callee),
+    !PrivateFunctionCall(rootJumpiBlock, _, _, _),
+    !JumpToFunctionStartDoesntPushContinuation(callee, _), // in that case we try to clone the `callee`
+    !FallthroughEdge(_, caller). // for safe insertion
 
   /**
     Used for cloning, if the same target of a conditional jumpi doesn't make a call and is used more than once, clone it
