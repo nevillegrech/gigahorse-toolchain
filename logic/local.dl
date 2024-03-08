@@ -924,40 +924,52 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
   */
   .decl ConditionalCallTargetNotUnique(caller: Block, callee: Block)
   DEBUG_OUTPUT(ConditionalCallTargetNotUnique)
-  ConditionalCallTargetNotUnique(caller, callee):-
-    IsConditionalJumpBlockPrivateFunctionCall(caller, callee),
-    PrivateFunctionCall(caller, callee, cont, cont),
-    (
-      PrivateFunctionCall(caller2, callee, _, _);
-      IsConditionalJumpBlockPrivateFunctionCall(caller2, callee);
-      MaybeConditionalJumpBlockPrivateFunctionCall(caller2, callee)
-    ),
-    (!PrivateFunctionCall(callee, _, _, _) ; JumpToFunctionStartDoesntPushContinuation(callee, _)),
-    caller2 != caller.
-    // negation was needed probably for it to be an insertion, don't think its needed anymore
-    // !FallthroughEdge(_, cont).
+  // ConditionalCallTargetNotUnique(caller, callee):-
+  //   IsConditionalJumpBlockPrivateFunctionCall(caller, callee),
+  //   PrivateFunctionCall(caller, callee, cont, cont),
+  //   (
+  //     PrivateFunctionCall(caller2, callee, _, _);
+  //     IsConditionalJumpBlockPrivateFunctionCall(caller2, callee);
+  //     MaybeConditionalJumpBlockPrivateFunctionCall(caller2, callee)
+  //   ),
+  //   !IsJumpBlockPrivateFunctionCall(_, callee), // ensure its not a function start (i.e. its not a direct jumpi call)
+  //   (!PrivateFunctionCall(callee, _, _, _) ; JumpToFunctionStartDoesntPushContinuation(callee, _)),
+  //   caller2 != caller.
+  //   // negation was needed probably for it to be an insertion, don't think its needed anymore
+  //   // !FallthroughEdge(_, cont).
+
+  // ConditionalCallTargetNotUnique(caller, callee):-
+  //   IsConditionalJumpBlockPrivateFunctionCall(caller, callee),
+  //   (
+  //     IsConditionalJumpBlockPrivateFunctionCall(caller2, callee);
+  //     PrivateFunctionCall(caller2, callee, _, _)
+  //   ),
+  //   (!PrivateFunctionCall(callee, _, _, _) ; JumpToFunctionStartDoesntPushContinuation(callee, _)),
+  //   caller != caller2,
+  //   !IsJumpBlockPrivateFunctionCall(_, callee), // ensure its not a function start (i.e. its not a direct jumpi call)
+  //   // negation was needed probably for it to be an insertion, don't think its needed anymore
+  //   // !FallthroughEdge(_, caller),
+  //   !PrivateFunctionCall(caller, _, _, _).
 
   ConditionalCallTargetNotUnique(caller, callee):-
-    IsConditionalJumpBlockPrivateFunctionCall(caller, callee),
     (
-      IsConditionalJumpBlockPrivateFunctionCall(caller2, callee);
-      PrivateFunctionCall(caller2, callee, _, _)
+      (
+        ConditionalCallToJumpi(jumpiBlock, caller, _, _),
+        ConditionalCallToJump(jumpiBlock, callee, _, _)
+      );
+      (
+        AltConditionalCallToJumpi(jumpiBlock, caller),
+        AltConditionalCallToJump(jumpiBlock, callee)
+      )
     ),
-    (!PrivateFunctionCall(callee, _, _, _) ; JumpToFunctionStartDoesntPushContinuation(callee, _)),
-    caller != caller2,
-    // negation was needed probably for it to be an insertion, don't think its needed anymore
-    // !FallthroughEdge(_, caller),
-    !PrivateFunctionCall(caller, _, _, _).
-
-  ConditionalCallTargetNotUnique(caller, callee):-
-    ConditionalCallToJumpi(jumpiBlock, caller, _, _),
-    ConditionalCallToJump(jumpiBlock, callee, _, _),
     LocalBlockEdge(caller, callee),
     (
       ConditionalCallToJump(jumpiBlock2, callee, _, _);
+      AltConditionalCallToJump(jumpiBlock2, callee);
       IsConditionalJumpBlockPrivateFunctionCall(jumpiBlock2, callee)
     ),
     jumpiBlock != jumpiBlock2,
+    !IsJumpBlockPrivateFunctionCall(_, callee), // ensure its not a function start (i.e. its not a direct jumpi call)
     (!PrivateFunctionCall(callee, _, _, _) ; JumpToFunctionStartDoesntPushContinuation(callee, _)).
 
   .decl NormalizedConditionalCallPattern(jumpiBlock: Block, caller: Block, callee: Block)
