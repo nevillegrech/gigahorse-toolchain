@@ -625,6 +625,13 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     Statement_Block(call, caller),
     JUMP(call).
 
+  // can have FPs
+  IsJumpBlockPrivateFunctionCall(caller, callee):-
+    ContinuationLikelyNotLatest(caller),
+    StaticBlockJumpTarget(caller, callee),
+    Statement_Block(call, caller),
+    JUMP(call).
+
   .decl IsLikelyPrivateFunctionCall(caller: Block, callee: Block)
   DEBUG_OUTPUT(IsLikelyPrivateFunctionCall)
   IsLikelyPrivateFunctionCall(caller, callee):-
