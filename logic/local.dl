@@ -722,36 +722,6 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
   .decl ConditionalCallToPotentialCallJump(jumpiBlock: Block, caller: Block, callee: Block, contVar: Variable, outStackPos: number)
   DEBUG_OUTPUT(ConditionalCallToPotentialCallJump)
 
-  // ConditionalCallToJump(jumpiBlock, caller, contVar, pos):-
-  //   PrivateFunctionCall(jumpiBlock, _, cont, _),
-  //   Statement_Block(jumpi, jumpiBlock),
-  //   JUMPI(jumpi),
-  //   Variable_Value(contVar, as(cont, Value)),
-  //   LocalStackContents(jumpi, stackIndex, contVar),
-  //   LocalBlockEdge(jumpiBlock, revertBlock),
-  //   BlockWillRevert(revertBlock),
-  //   LocalBlockEdge(jumpiBlock, caller),
-  //   caller != revertBlock,
-  //   StaticBlockJumpTarget(caller, _),
-  //   Statement_Block(call, caller),
-  //   JUMP(call),
-  //   BeforeLocalStackContents(call, pos, stackIndex).
-
-  // ConditionalCallToJumpi(jumpiBlock, caller, contVar, pos):-
-  //   PrivateFunctionCall(jumpiBlock, _, cont, _),
-  //   Statement_Block(jumpi, jumpiBlock),
-  //   JUMPI(jumpi),
-  //   Variable_Value(contVar, as(cont, Value)),
-  //   LocalStackContents(jumpi, stackIndex, contVar),
-  //   LocalBlockEdge(jumpiBlock, revertBlock),
-  //   BlockWillRevert(revertBlock),
-  //   LocalBlockEdge(jumpiBlock, caller),
-  //   caller != revertBlock,
-  //   StaticBlockJumpTarget(caller, _),
-  //   Statement_Block(call, caller),
-  //   JUMPI(call),
-  //   LocalStackContents(call, pos, stackIndex).
-
   ConditionalCallToJumpi(jumpiBlock, jumpiBlock, contVar, stackIndex):-
     PrivateFunctionCall(jumpiBlock, _, cont, _),
     Statement_Block(jumpi, jumpiBlock),
