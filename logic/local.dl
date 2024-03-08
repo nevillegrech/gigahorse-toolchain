@@ -715,6 +715,9 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     LocalBlockEdge(temp1, actualCaller),
     otherNext != actualCaller.
 
+  /**
+
+  */
   .decl ConditionalCallToJump(jumpiBlock: Block, caller: Block, contVar: Variable, outStackPos: number)
   DEBUG_OUTPUT(ConditionalCallToJump)
   .decl ConditionalCallToJumpi(jumpiBlock: Block, caller: Block, contVar: Variable, outStackPos: number)
@@ -826,6 +829,30 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
   NormalizedConditionalCallPatternBase(jumpiBlock, potentialCaller, potentialCallee):-
     AltConditionalCallToPotentialCallJump(jumpiBlock, potentialCaller, potentialCallee).
 
+
+  /**
+    Contains facts for both cases, to be consumed in a unified way later on
+  */
+  .decl UnifiedConditionalCallToJump(rootJumpiBlock: Block, caller: Block)
+  DEBUG_OUTPUT(UnifiedConditionalCallToJump)
+  .decl UnifiedConditionalCallToJumpi(rootJumpiBlock: Block, jumpiBlock: Block)
+  DEBUG_OUTPUT(UnifiedConditionalCallToJumpi)
+  .decl UnifiedConditionalCallToPotentialCallJump(rootJumpiBlock: Block, caller: Block, callee: Block)
+  DEBUG_OUTPUT(UnifiedConditionalCallToPotentialCallJump)
+
+  UnifiedConditionalCallToJump(rootJumpiBlock, caller):-
+    ConditionalCallToJump(rootJumpiBlock, caller, _, _);
+    AltConditionalCallToJump(rootJumpiBlock, caller).
+
+  UnifiedConditionalCallToJumpi(rootJumpiBlock, jumpiBlock):-
+    ConditionalCallToJumpi(rootJumpiBlock, jumpiBlock, _, _);
+    AltConditionalCallToJumpi(rootJumpiBlock, jumpiBlock).
+
+  UnifiedConditionalCallToPotentialCallJump(rootJumpiBlock, potentialCaller, potentialCallee):-
+    ConditionalCallToPotentialCallJump(rootJumpiBlock, potentialCaller, potentialCallee, _, _);
+    AltConditionalCallToPotentialCallJump(rootJumpiBlock, potentialCaller, potentialCallee).
+
+
   // Kind of hacky. make ConditionalCallCanBeTransformed a bit more complete
   .decl MaybeConditionalJumpBlockPrivateFunctionCall(caller: Block, callee: Block)
   DEBUG_OUTPUT(MaybeConditionalJumpBlockPrivateFunctionCall)
@@ -874,22 +901,14 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
   .decl ConditionalCallTargetNotUnique(caller: Block, callee: Block)
   DEBUG_OUTPUT(ConditionalCallTargetNotUnique)
   ConditionalCallTargetNotUnique(caller, callee):-
-    (
-      (
-        ConditionalCallToJumpi(jumpiBlock, caller, _, _),
-        ConditionalCallToJump(jumpiBlock, callee, _, _)
-      );
-      (
-        AltConditionalCallToJumpi(jumpiBlock, caller),
-        AltConditionalCallToJump(jumpiBlock, callee)
-      )
-    ),
+    UnifiedConditionalCallToJumpi(jumpiBlock, caller),
+    UnifiedConditionalCallToJump(jumpiBlock, callee),
     LocalBlockEdge(caller, callee),
-    (
-      ConditionalCallToJump(jumpiBlock2, callee, _, _);
-      AltConditionalCallToJump(jumpiBlock2, callee);
-      IsConditionalJumpBlockPrivateFunctionCall(jumpiBlock2, callee)
-    ),
+    UnifiedConditionalCallToJump(jumpiBlock2, callee),
+    // (
+    //   UnifiedConditionalCallToJump(jumpiBlock2, callee);
+    //   IsConditionalJumpBlockPrivateFunctionCall(jumpiBlock2, callee) // todo: remove
+    // ),
     jumpiBlock != jumpiBlock2,
     !IsJumpBlockPrivateFunctionCall(_, callee), // ensure its not a function start (i.e. its not a direct jumpi call)
     (!PrivateFunctionCall(callee, _, _, _) ; JumpToFunctionStartDoesntPushContinuation(callee, _)).
