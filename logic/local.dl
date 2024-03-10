@@ -715,6 +715,16 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     LocalBlockEdge(temp1, actualCaller),
     otherNext != actualCaller.
 
+  ConditionalCallControlFlowConvergesQuickly(jumpiBlock, actualCaller):-
+    UnifiedConditionalCallToJumpi(jumpiBlock, jumpiBlock),
+    LocalBlockEdge(jumpiBlock, nextA),
+    LocalBlockEdge(jumpiBlock, nextB),
+    LocalBlockEdge(nextA, actualCaller),
+    LocalBlockEdge(nextB, actualCaller),
+    JumpToFunctionStartDoesntPushContinuation(actualCaller, _),
+    nextA != nextB.
+
+
   /**
 
   */
@@ -759,6 +769,16 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     StaticBlockJumpTarget(converganceBlock, _),
     Statement_Block(call, converganceBlock),
     JUMP(call),
+    BeforeLocalStackContents(call, pos, intermPos).
+
+  ConditionalCallToJump(jumpiBlock, converganceBlock, contVar, pos):-
+    ConditionalCallToJumpi(jumpiBlock, jumpiBlock, contVar, initPos),
+    ConditionalCallControlFlowConvergesQuickly(jumpiBlock, converganceBlock),
+    LocalBlockEdge(jumpiBlock, interm),
+    LocalBlockEdge(interm, converganceBlock),
+    BasicBlock_Tail(interm, tail),
+    LocalStackContents(tail, intermPos, initPos),
+    BasicBlock_Tail(converganceBlock, call),
     BeforeLocalStackContents(call, pos, intermPos).
 
   NormalizedConditionalCallPattern(jumpiBlock, caller, callee):-
@@ -808,6 +828,13 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     JUMPIBlockCanRevert(tmpJumpiBlock, jumpBlock),
     StaticBlockJumpTarget(jumpBlock, _),
     BasicBlock_Tail(jumpBlock, jump),
+    JUMP(jump).
+
+  AltConditionalCallToJump(rootJumpiBlock, converganceBlock):-
+    AltConditionalCallToJumpi(rootJumpiBlock, rootJumpiBlock),
+    ConditionalCallControlFlowConvergesQuickly(rootJumpiBlock, converganceBlock),
+    StaticBlockJumpTarget(converganceBlock, _),
+    BasicBlock_Tail(converganceBlock, jump),
     JUMP(jump).
 
   AltConditionalCallToPotentialCallJump(rootJumpiBlock, caller, callee):-
