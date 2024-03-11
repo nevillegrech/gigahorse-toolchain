@@ -908,6 +908,15 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     IsJumpBlockPrivateFunctionCall(_, jumpiFunctionStart),
     !UnifiedConditionalCallToJumpi(rootJumpiBlock, jumpiFunctionStart).
 
+  // Added it here to test how it works
+  ConditionalCallStraightToFunctionStart(rootJumpiBlock, prevJumpiBlock, jumpiBlock):-
+    UnifiedConditionalCallToJumpi(rootJumpiBlock, jumpiBlock),
+    UnifiedConditionalCallToJumpi(rootJumpiBlock2, jumpiBlock),
+    rootJumpiBlock2 != rootJumpiBlock,
+    LocalBlockEdge(prevJumpiBlock, jumpiBlock),
+    UnifiedConditionalCallToJumpi(rootJumpiBlock, prevJumpiBlock),
+    !UnifiedConditionalCallToJumpi(rootJumpiBlock2, prevJumpiBlock).
+
   /**
     We try to normalize conditional calls:
       If the target of a conditional call is also called directly in another call we normalize it
