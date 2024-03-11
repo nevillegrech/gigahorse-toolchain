@@ -715,14 +715,14 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     LocalBlockEdge(temp1, actualCaller),
     otherNext != actualCaller.
 
-  ConditionalCallControlFlowConvergesQuickly(jumpiBlock, actualCaller):-
-    UnifiedConditionalCallToJumpi(jumpiBlock, jumpiBlock),
-    LocalBlockEdge(jumpiBlock, nextA),
-    LocalBlockEdge(jumpiBlock, nextB),
-    LocalBlockEdge(nextA, actualCaller),
-    LocalBlockEdge(nextB, actualCaller),
-    JumpToFunctionStartDoesntPushContinuation(actualCaller, _),
-    nextA != nextB.
+  // ConditionalCallControlFlowConvergesQuickly(jumpiBlock, actualCaller):-
+  //   UnifiedConditionalCallToJumpi(jumpiBlock, jumpiBlock),
+  //   LocalBlockEdge(jumpiBlock, nextA),
+  //   LocalBlockEdge(jumpiBlock, nextB),
+  //   LocalBlockEdge(nextA, actualCaller),
+  //   LocalBlockEdge(nextB, actualCaller),
+  //   JumpToFunctionStartDoesntPushContinuation(actualCaller, _),
+  //   nextA != nextB.
 
 
   /**
@@ -771,15 +771,15 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     JUMP(call),
     BeforeLocalStackContents(call, pos, intermPos).
 
-  ConditionalCallToJump(jumpiBlock, converganceBlock, contVar, pos):-
-    ConditionalCallToJumpi(jumpiBlock, jumpiBlock, contVar, initPos),
-    ConditionalCallControlFlowConvergesQuickly(jumpiBlock, converganceBlock),
-    LocalBlockEdge(jumpiBlock, interm),
-    LocalBlockEdge(interm, converganceBlock),
-    BasicBlock_Tail(interm, tail),
-    LocalStackContents(tail, intermPos, initPos),
-    BasicBlock_Tail(converganceBlock, call),
-    BeforeLocalStackContents(call, pos, intermPos).
+  // ConditionalCallToJump(jumpiBlock, converganceBlock, contVar, pos):-
+  //   ConditionalCallToJumpi(jumpiBlock, jumpiBlock, contVar, initPos),
+  //   ConditionalCallControlFlowConvergesQuickly(jumpiBlock, converganceBlock),
+  //   LocalBlockEdge(jumpiBlock, interm),
+  //   LocalBlockEdge(interm, converganceBlock),
+  //   BasicBlock_Tail(interm, tail),
+  //   LocalStackContents(tail, intermPos, initPos),
+  //   BasicBlock_Tail(converganceBlock, call),
+  //   BeforeLocalStackContents(call, pos, intermPos).
 
   NormalizedConditionalCallPattern(jumpiBlock, caller, callee):-
     ConditionalCallToJump(jumpiBlock, caller, _, _),
@@ -790,6 +790,7 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
 
   ConditionalCallToPotentialCallJump(jumpiBlock, potentialCaller, potentialCallee, contVar, pos):-
     ConditionalCallToJumpi(jumpiBlock, jumpiBlock2, contVar, intermPos),
+    // !ConditionalCallControlFlowConvergesQuickly(jumpiBlock, _),
     LocalBlockEdge(jumpiBlock2, potentialCaller),
     LocalBlockEdge(jumpiBlock2, otherCaller),
     StaticBlockJumpTarget(potentialCaller, potentialCallee),
@@ -839,6 +840,7 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
 
   AltConditionalCallToPotentialCallJump(rootJumpiBlock, caller, callee):-
     AltConditionalCallToJumpi(rootJumpiBlock, tmpJumpiBlock),
+    // !ConditionalCallControlFlowConvergesQuickly(rootJumpiBlock, _),
     LocalBlockEdge(tmpJumpiBlock, caller),
     StaticBlockJumpTarget(caller, callee),
     BasicBlock_Tail(caller, jump),
@@ -1451,7 +1453,7 @@ clonerHelperInsertor.insertOps(fallthrough,
     STMT(JUMP, "")
   )
 ):-
-  beforeClonerLocal.FallthroughBlockUsedMultipleTimes(_, fallthrough),
+  (beforeClonerLocal.FallthroughBlockUsedMultipleTimes(_, fallthrough); beforeClonerLocal.FallthroughBlockLikelyFunctionCall(_, fallthrough)),
   beforeClonerLocal.JUMPDEST(fallthrough).
 
 
