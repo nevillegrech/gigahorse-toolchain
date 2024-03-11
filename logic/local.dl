@@ -913,9 +913,17 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     UnifiedConditionalCallToJumpi(rootJumpiBlock, jumpiBlock),
     UnifiedConditionalCallToJumpi(rootJumpiBlock2, jumpiBlock),
     rootJumpiBlock2 != rootJumpiBlock,
+    1=0, // disable for now
     LocalBlockEdge(prevJumpiBlock, jumpiBlock),
     UnifiedConditionalCallToJumpi(rootJumpiBlock, prevJumpiBlock),
     !UnifiedConditionalCallToJumpi(rootJumpiBlock2, prevJumpiBlock).
+
+  // Simpler version, still hacky
+  ConditionalCallStraightToFunctionStart(rootJumpiBlock, rootJumpiBlock, jumpiBlock):-
+    UnifiedConditionalCallToJumpi(rootJumpiBlock, jumpiBlock),
+    UnifiedConditionalCallToJumpi(rootJumpiBlock2, jumpiBlock),
+    rootJumpiBlock2 != rootJumpiBlock,
+    LocalBlockEdge(rootJumpiBlock, jumpiBlock).
 
   /**
     We try to normalize conditional calls:
