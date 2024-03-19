@@ -347,7 +347,7 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     BeforeLocalStackContents(stmt, n-1, duplicated),
     Statement_Opcode(stmt, opcode),
     DUPN(opcode, n).
-  
+
   LocalStackContents(stmt, m+1, other) :-
     BeforeLocalStackContents(stmt, m, other),
     Statement_Opcode(stmt, opcode),
@@ -453,8 +453,17 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
      IsStackIndexLessThan(n, m),
      BeforeLocalStackContents(stmt, n, varOrStackIndex).
 
+  // Identify low-level blocks that will always REVERT
+  .decl BlockWillRevert(revertBlock: Block)
+  BlockWillRevert(revertBlock):-
+    Statement_Block(revert, revertBlock),
+    REVERT(revert).
 
-
+  BlockWillRevert(indirectRevertBlock):-
+    BlockWillRevert(revertBlock),
+    StaticBlockJumpTarget(indirectRevertBlock, as(revertBlock, Value)),
+    Statement_Block(jump, indirectRevertBlock),
+    JUMP(jump).
 
   .decl IsJump(stmt:Statement)
 
@@ -601,7 +610,14 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     callee = as(calleeValue, Block),
     (CallBlockEarliestContinuation(caller, callee, firstCont);
      (!CallBlockEarliestContinuation(caller, callee, _), firstCont = "undefined")).
- 
+
+  // Helper to identify blocks that are very likely function entries
+  .decl IsJumpBlockPrivateFunctionCall(caller: Block, callee: Block)
+  IsJumpBlockPrivateFunctionCall(caller, callee):-
+    PrivateFunctionCall(caller, callee, _, _),
+    Statement_Block(call, caller),
+    JUMP(call).
+
   .decl MultiplePrivateFunctionCall(caller: Block)
   MultiplePrivateFunctionCall(caller) :-
     PrivateFunctionCall(caller, callee, cont1, _),
@@ -709,6 +725,31 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     codeOffsetNum = @hex_to_number(codeOffsetNumHex),
     ByteCodeHex(bytecodeStr),
     const = cat("0x", substr(bytecodeStr, 2*codeOffsetNum, 2*smallNum)).
+
+  .decl PushedLabelOccupiesMultipleIndexes(block: Block, var: Variable)
+  PushedLabelOccupiesMultipleIndexes(block, var):-
+    JUMPDEST(as(val, symbol)),
+    Variable_Value(var, val),
+    Statement_Defines(stmt, var),
+    Statement_Block(stmt, block),
+    BasicBlock_Tail(block, call),
+    LocalStackContents(call, index1, var),
+    LocalStackContents(call, index2, var),
+    index1 != index2,
+    !BlockUsesLocal(block, var).
+
+  /**
+    Identify cases where the same continuation is pushed once but DUPed
+    into multiple stack indexes
+  */
+  .decl DUPStatementCopiesPushedLabelVar(dup: Statement, label: Value)
+  DUPStatementCopiesPushedLabelVar(dup, label):-
+    PushedLabelOccupiesMultipleIndexes(block, var),
+    Statement_Block(dup, block),
+    Statement_Opcode(dup, opcode),
+    DUPN(opcode, n),
+    BeforeLocalStackContents(dup, n-1, var),
+    Variable_Value(var, label).
 
   IsOptionalSelector(selectorVarOrIndex):-
     BlockComparesSig(_, _, selectorVarOrIndex);
@@ -950,7 +991,32 @@ COPY_CODE(revertCloner, factReader)
 #ifdef BLOCK_CLONING
 // Enable the early cloning of blocks to increase precision (sacrificing performance)
 .init blockCloner = BLOCK_CLONING
-COPY_OUTPUT(blockCloner, revertCloner)
+// Old logic: Copy the output of revertCloner to the blockCloner
+//COPY_OUTPUT(blockCloner, revertCloner)
+
+/**
+  Transformation that helps the HeuristicBlockCloner
+*/
+.init clonerHelperInsertor = StatementInsertor
+COPY_OUTPUT(clonerHelperInsertor, revertCloner)
+.init beforeClonerLocal = PreTransLocalAnalysis
+COPY_OUTPUT(beforeClonerLocal, revertCloner)
+
+/**
+  If a `DUPx` statement copies an escaping jumpdest, replace the `DUP` with a `PUSH` of the same constant.
+  This helps the `HeuristicBlockCloner` (which clones blocks on a per-push basis) differentiate the two uses
+  of the same continuation, and clone if needed.
+*/
+clonerHelperInsertor.removeOp(dup),
+clonerHelperInsertor.insertOps(dup,
+  LIST(
+    STMT(PUSH4, label)
+  )
+) :-
+  beforeClonerLocal.DUPStatementCopiesPushedLabelVar(dup, label).
+
+COPY_OUTPUT(blockCloner, clonerHelperInsertor)
+// Transformation doesn't introduce new blocks, we can use revertCloner for the original block info
 blockCloner.Prev_Block_OriginalBlock(block, originalBlock):- revertCloner.Block_OriginalBlock(block, originalBlock).
 
 .init preTrans = PreTransLocalAnalysis

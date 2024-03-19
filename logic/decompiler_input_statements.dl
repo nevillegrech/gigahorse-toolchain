@@ -141,6 +141,12 @@ GASLIMIT(stmt) :- Statement_Opcode(stmt, "GASLIMIT").
 .decl BASEFEE(stmt: Statement)
 BASEFEE(stmt) :- Statement_Opcode(stmt, "BASEFEE").
 
+.decl BLOBHASH(stmt: Statement)
+BLOBHASH(stmt) :- Statement_Opcode(stmt, "BLOBHASH").
+
+.decl BLOBBASEFEE(stmt: Statement)
+BLOBBASEFEE(stmt) :- Statement_Opcode(stmt, "BLOBBASEFEE").
+
 .decl POP(stmt: Statement)
 POP(stmt) :- Statement_Opcode(stmt, "POP").
 
@@ -176,6 +182,15 @@ GAS(stmt) :- Statement_Opcode(stmt, "GAS").
 
 .decl JUMPDEST(stmt: Statement)
 JUMPDEST(stmt) :- Statement_Opcode(stmt, "JUMPDEST").
+
+.decl TLOAD(stmt: Statement)
+TLOAD(stmt) :- Statement_Opcode(stmt, "TLOAD").
+
+.decl TSTORE(stmt: Statement)
+TSTORE(stmt) :- Statement_Opcode(stmt, "TSTORE").
+
+.decl MCOPY(stmt: Statement)
+MCOPY(stmt) :- Statement_Opcode(stmt, "MCOPY").
 
 .decl PUSH0(stmt: Statement)
 PUSH0(stmt) :- Statement_Opcode(stmt, "PUSH0").
