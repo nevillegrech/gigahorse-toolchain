@@ -49,6 +49,7 @@
 
 COPY_CODE_FULL(incompleteGlobal, postTrans)
 
+// .init global = CompleteOptimizedGlobalAnalysis<CONTEXT_SENSITIVITY, PostTransLocalAnalysis>
 .init global = ExperimentalCompleteOptimizedGlobalAnalysis<CONTEXT_SENSITIVITY>
 
 global.StatementPushesUsedLabel(stmt):-
@@ -301,12 +302,16 @@ PreMask_Length(cat(mask, "ff"), bytes+1) :-
   ImpreciseBlockInputContentsIndex(ctx, block, index):-
     BlockInputContents(ctx, block, index, var1),
     BlockInputContents(ctx, block, index, var2),
+    VariableUsedInAsJumpdest(var1),
+    VariableUsedInAsJumpdest(var2),
     var1 != var2.
   //  .plan 1:(2,1)
 
   ImpreciseBlockOutputContentsIndex(ctx, block, index):-
     BlockOutputContents(ctx, block, index, var1),
     BlockOutputContents(ctx, block, index, var2),
+    VariableUsedInAsJumpdest(var1),
+    VariableUsedInAsJumpdest(var2),
     var1 != var2.
   //  .plan 1:(2,1)
 

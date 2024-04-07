@@ -264,6 +264,13 @@ FormalArgs(func, as(var_rep, TACVariable), n) :-
    FunctionArgument(func, n, var),
    Variable_String(var, var_rep).
 
+.decl FunctionInfo(func: IRFunction, numOfArgs: number, numOfRets: number)
+.output FunctionInfo
+FunctionInfo(func, numOfArgs, numOfRets):-
+  FunctionArgument(func, _, _),
+  numOfArgs = max n : FunctionArgument(func, n, _),
+  numOfRets = max m :{IRFunction_Return(func, b), TAC_Block(s, b), TAC_Op(s, "RETURNPRIVATE"), TAC_Use(s, _, m)}.
+
 .decl ActualReturnArgs(caller:IRBlock, var_rep:symbol, n:number)
 .output ActualReturnArgs
 
