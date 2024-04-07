@@ -401,6 +401,6 @@ PreMask_Length(cat(mask, "ff"), bytes+1) :-
   Declared just so it can be used as a parameter in another component.
   Used by the SafeBlockCloner so it uses `PreTransLocalAnalysis`
 */
-.comp DefaultIncompleteOptimizedGlobalAnalysis : IncompleteOptimizedGlobalAnalysis <TransactionalWithShrinkingContext, PreTransLocalAnalysis> {
+.comp DefaultIncompleteOptimizedGlobalAnalysis : IncompleteOptimizedGlobalAnalysis <CONTEXT_SENSITIVITY, PreTransLocalAnalysis> {
 
 }
