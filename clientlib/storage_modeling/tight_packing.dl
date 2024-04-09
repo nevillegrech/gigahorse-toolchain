@@ -332,7 +332,8 @@ VarWrittenToBytesOfStorVar(as(writtenVar, Variable), store, construct, byteLow, 
 
 ConstWrittenToBytesOfStorVar("0xlala", as(writtenConst, Value), store, "lolo", construct, byteLow, byteHigh):-
   SSTOREToConstruct(store, construct, storedVar),
-  ProbablyPartialStorageUpdateSequenceWrite(storedVar, "CONST", writtenConst, byteLow, byteHigh).
+  ProbablyPartialStorageUpdateSequenceWrite(storedVar, "CONST", writtenConst, byteLow, byteHigh),
+  !ProbablyPartialStorageUpdateSequenceWrite(storedVar, "VAR", _, byteLow, _).  // prefer var inference if they start from the same byte
 
 .decl BytesOfStorVarKept(store: Statement, load: Statement, construct: StorageConstruct, keepByteLow: number, keepByteHigh: number)
 
@@ -500,7 +501,7 @@ StorageVariableInfo(storVar, storVar, 0, 31):-
   ProcessedStorageVariable(construct, construct),
   construct = $Variable($Constant(storVar)).
 
-StorageVariableInfo(storVar, storVar, byteLow, byteHigh):-
+StorageVariableInfo(MERGED_STORAGE_VAR(storVar, byteLow, byteHigh), storVar, byteLow, byteHigh):-
   ProcessedStorageVariable($Variable($Constant(storVar)), $TighlyPackedVariable($Constant(storVar), byteLow, byteHigh)).
 
 ProcessedStorageVariable(storageVar, storageVar):-
