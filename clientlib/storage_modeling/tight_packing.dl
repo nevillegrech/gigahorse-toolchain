@@ -103,9 +103,18 @@ VarHoldsBytesOfStorVarPlus(to, load, storVar, max(startByte - bytes, 0), low + b
   VarHoldsBytesOfStorVarPlus(shiftedVar, load, storVar, startByte, low, high),
   RShiftBytes(shiftedVar, to, bytes).
 
-VarHoldsBytesOfStorVarPlus(to, load, storVar, startByte + bytes, low, high + low - bytes - startByte):-
+VarHoldsBytesOfStorVarPlus(to, load, storVar, startByte + bytes, low, high):-
   VarHoldsBytesOfStorVarPlus(shiftedVar, load, storVar, startByte, low, high),
-  LShiftBytes(shiftedVar, to, bytes).
+  LShiftBytes(shiftedVar, to, bytes),
+  width = 1 + high - low,
+  startByte + bytes + width <= 32.
+
+VarHoldsBytesOfStorVarPlus(to, load, storVar, startByte + bytes, low, high - extraBytes):-
+  VarHoldsBytesOfStorVarPlus(shiftedVar, load, storVar, startByte, low, high),
+  LShiftBytes(shiftedVar, to, bytes),
+  width = 1 + high - low,
+  startByte + bytes + width > 32,
+  extraBytes = startByte + bytes + width - 32.
 
 VarHoldsBytesOfStorVarPlus(to, load, storVar, startByte, low, newHigh):-
   VarHoldsBytesOfStorVarPlus(var, load, storVar, startByte, low, high),

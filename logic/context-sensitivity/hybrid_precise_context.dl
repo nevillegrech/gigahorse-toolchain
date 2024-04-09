@@ -16,19 +16,19 @@
   .input InputMaxImpreciseContextDepth(filename="MaxContextDepth.csv")
 
   MaxImpreciseContextDepth(sigHash, d) :-
-    (local.PublicFunction(_, sigHash);
+    (local.PublicFunction(_, sigHash, _);
      sigHash = FALLBACK_FUNCTION_SIGHASH),
     InputMaxImpreciseContextDepth(d).
 
   MaxImpreciseContextDepth(sigHash, 7) :-
-    (local.PublicFunction(_, sigHash);
+    (local.PublicFunction(_, sigHash, _);
      sigHash = FALLBACK_FUNCTION_SIGHASH),
     !InputMaxImpreciseContextDepth(_).
 
   // Not yet configurable via input file
   .decl MaxPreciseContextDepth(sigHash: symbol, d: number)
   MaxPreciseContextDepth(sigHash, 27) :-
-    (local.PublicFunction(_, sigHash);
+    (local.PublicFunction(_, sigHash, _);
      sigHash = FALLBACK_FUNCTION_SIGHASH).
 
   //
@@ -225,7 +225,7 @@
 
   // .decl NotPrivateContextContainsElement(ctx: PrivateContext, block: Block)
   // NotPrivateContextContainsElement(initCtx, block) :-
-  //   PrivateFunctionCallOrReturn(block),
+  //   local.PrivateFunctionCallOrReturn(block),
   //   InitialImprecisePrivateContext(initCtx).
   // NotPrivateContextContainsElement(ctx, block) :-
   //   DecomposePrivateContext(ctx, head, rest),
@@ -253,14 +253,14 @@
   #ifndef NO_PUBLIC_CONTEXT
   MergeContext(ctx, caller, ctx) :-
     ReachableContext(ctx, caller),
-    local.PublicFunction(caller, sigHash),
+    local.PublicFunction(caller, sigHash, _),
     !MaxImpreciseContextDepth(sigHash, -1),
     DecomposeContext(ctx, prevSigHash, _),
     prevSigHash != FALLBACK_FUNCTION_SIGHASH.
   .plan 1:(3,1,2)
   MergeContext(ctx, caller, newContext) :-
     ReachableContext(ctx, caller),
-    local.PublicFunction(caller, sigHash),
+    local.PublicFunction(caller, sigHash, _),
     !MaxImpreciseContextDepth(sigHash, -1),
     DecomposeContext(ctx, prevSigHash, pri),
     prevSigHash = FALLBACK_FUNCTION_SIGHASH,
@@ -274,60 +274,20 @@
   // instead redefines them as above.
   //
 
-  // inverse-escape analysis
-  .decl BlockUsesLocal(block: Block, var: VariableOrStackIndex)
-  BlockUsesLocal(block, var) :-
-    local.Statement_Block(stmt, block),
-    local.Statement_Uses_Local(stmt, var, _).
-
-  .decl StaticBlockJumpTarget(caller: Block, target: Value)
-  StaticBlockJumpTarget(caller, target) :-
-    local.ImmediateBlockJumpTarget(caller, targetVar),
-    local.Variable_Value(targetVar, target),
-    local.JUMPDEST(as(target, symbol)).
-
-  .decl StaticBlockJumpTargetNonUnique(caller: Block, target: Value)
-  StaticBlockJumpTargetNonUnique(caller, target) :-
-    StaticBlockJumpTarget(caller, target),
-    StaticBlockJumpTarget(caller2, target),
-    caller != caller2.
-
-  // pushes a label for later use. A return addr?
-  .decl BlockPushesLabel(block: Block, val: Value)
-  BlockPushesLabel(block, val) :-
-    local.JUMPDEST(as(val, symbol)),
-    local.Variable_Value(var, val),
-    local.Statement_Defines(stmt, var),
-    local.Statement_Block(stmt, block),
-    !BlockUsesLocal(block, var).
-
-  // We're only interested in private functions
-  // No ambiguity for public functions
-  .decl PrivateFunctionCallOrReturn(caller: Block)
-  PrivateFunctionCallOrReturn(caller) :-
-//    StaticBlockJumpTargetNonUnique(caller, _),  // looks like a call
-    StaticBlockJumpTarget(caller, _),  // looks like a call
-    BlockPushesLabel(caller, _).       // looks like pushing a return
-
-  PrivateFunctionCallOrReturn(caller) :-
-    local.Statement_Block(stmt, caller),
-    local.JUMP(stmt),
-    !local.ImmediateBlockJumpTarget(caller, _).
-
   // Trivial control flow case for when there is no function call
   // OR max context depth is zero
   // Split into two rules to add plan.
   MergeContext(ctx, caller, ctx) :-
     ReachableContext(ctx, caller),
     #ifndef NO_PUBLIC_CONTEXT
-    !local.PublicFunction(caller, _),
+    !local.PublicFunction(caller, _, _),
     #endif
-    !PrivateFunctionCallOrReturn(caller).
+    !local.PrivateFunctionCallOrReturn(caller).
 
   MergeContext(ctx, caller, ctx) :-
     ReachableContext(ctx, caller),
     #ifndef NO_PUBLIC_CONTEXT
-    !local.PublicFunction(caller, _),
+    !local.PublicFunction(caller, _, _),
     #endif
     DecomposeContext(ctx, pub, _),
     MaxImpreciseContextDepth(pub, 0).
@@ -337,11 +297,11 @@
   //// Default variant
   MergeContext(ctx, caller, [pub, newPrivateContext]) :-
     ReachableContext(ctx, caller),
-    PrivateFunctionCallOrReturn(caller),
+    local.PrivateFunctionCallOrReturn(caller),
     DecomposeContext(ctx, pub, pri),
     TruncateContextIfNeeded(pub, pri, cutDownPri),
     #ifndef NO_PUBLIC_CONTEXT
-    !local.PublicFunction(caller, _),
+    !local.PublicFunction(caller, _, _),
     #endif
     newPrivateContext = [caller, cutDownPri].
     .plan 1:(3,1,2,4), 2:(4,3,1,2)
@@ -372,7 +332,7 @@
   // //// Precise context: do default
   // MergeContext(ctx, caller, [pub, newPrivateContext]) :-
   //   ReachableContext(ctx, caller),
-  //   PrivateFunctionCallOrReturn(caller),
+  //   local.PrivateFunctionCallOrReturn(caller),
   //   DecomposeContext(ctx, pub, pri),
   //   TruncatePreciseContextIfNeeded(pub, pri, cutDownPri),
   //   #ifndef NO_PUBLIC_CONTEXT
@@ -385,7 +345,7 @@
   // //// If the imprecise context doesn't contain the block:
   // MergeContext(ctx, caller, [pub, newPrivateContext]) :-
   //   ReachableContext(ctx, caller),
-  //   PrivateFunctionCallOrReturn(caller),
+  //   local.PrivateFunctionCallOrReturn(caller),
   //   DecomposeContext(ctx, pub, pri),
   //   TruncateImpreciseContextIfNeeded(pub, pri, cutDownPri),
   //   #ifndef NO_PUBLIC_CONTEXT
@@ -398,7 +358,7 @@
   // //// If it does:
   // MergeContext(ctx, caller, ctx) :-
   //   ReachableContext(ctx, caller),
-  //   PrivateFunctionCallOrReturn(caller),
+  //   local.PrivateFunctionCallOrReturn(caller),
   //   DecomposeContext(ctx, _, pri),
   //   #ifndef NO_PUBLIC_CONTEXT
   //   !local.PublicFunction(caller, _),

@@ -90,7 +90,9 @@ StatementUsesMemory_StartVar(stmt, kind, startVar):-
   (RETURN(stmt, startVar, _),kind = "RETURN");
   (STATICCALL(stmt, _, _, startVar, _, _, _, _), kind = "STATICCALL");
   (DELEGATECALL(stmt, _, _, startVar, _, _, _, _), kind = "DELEGATECALL");
-  (CALL(stmt, _, _, _, startVar, _, _, _, _), kind = "CALL").
+  (CALL(stmt, _, _, _, startVar, _, _, _, _), kind = "CALL");
+  (CREATE(stmt, _, startVar, _, _), kind = "CREATE");
+  (CREATE2(stmt, _, startVar, _, _, _), kind = "CREATE2").
 
 StatementUsesMemory_LengthVar(stmt, kind, lenvar):-
   (SHA3(stmt, _, lenvar, _), kind = "SHA3");
@@ -99,7 +101,9 @@ StatementUsesMemory_LengthVar(stmt, kind, lenvar):-
   (RETURN(stmt, _, lenvar),kind = "RETURN");
   (CALL(stmt, _, _, _, _, lenvar, _, _, _), kind = "CALL");
   (STATICCALL(stmt, _, _, _, lenvar, _, _, _), kind = "STATICCALL");
-  (DELEGATECALL(stmt, _, _, _, lenvar, _, _, _), kind = "DELEGATECALL").
+  (DELEGATECALL(stmt, _, _, _, lenvar, _, _, _), kind = "DELEGATECALL");
+  (CREATE(stmt, _, _, lenvar, _), kind = "CREATE");
+  (CREATE2(stmt, _, _, lenvar, _, _), kind = "CREATE2").
 
 StatementUsesMemoryReadsABIEnc(stmt, kind):-
   StatementUsesMemory(stmt, kind),
@@ -111,7 +115,7 @@ StatementUsesMemoryReadsABIEncWSelector(stmt, kind):-
 
 StatementUsesMemoryReadsRawData(stmt, kind):-
   StatementUsesMemory(stmt, kind),
-  (kind = "SHA3").
+  (kind = "SHA3"; kind = "CREATE"; kind = "CREATE2").
 
 
 // For metrics

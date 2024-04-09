@@ -58,7 +58,10 @@
       TransferBoundary(block).
    
    // Recursive Case
-   Flows(x, z) :- Flows(x, y), Flows(y, z).
+   Flows(x, z) :-
+      Flows(x, y),
+      Flows(y, z).
+     .plan 1:(2,1)
       
    
    // Flows from variable to return argument
@@ -86,8 +89,8 @@
    
    // Case: forward inter-procedural assignment only
    GlobalFlows(from, to) :-
-      InterFunctionActualArgFlow(actual, to),
-      GlobalFlows(from, actual).
+      GlobalFlows(from, actual),
+      InterFunctionActualArgFlow(actual, to).
 }
 
 .init standardflowanalysis = GlobalFlowAnalysis

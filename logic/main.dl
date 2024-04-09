@@ -1,5 +1,5 @@
 #define FALLBACK_FUNCTION_SIGHASH "0x00000000"
-
+#define RECEIVE_FUNCTION_SIGHASH "0xeeeeeeee"
 
 
 /*
@@ -8,9 +8,12 @@
 
 #ifndef CONTEXT_SENSITIVITY
   // TransactionalContext is default
-  #define CONTEXT_SENSITIVITY TransactionalContext
+//  #define CONTEXT_SENSITIVITY TransactionalContext
 //  #define CONTEXT_SENSITIVITY FinitePreciseContext
 //  #define CONTEXT_SENSITIVITY HybridPreciseContext
+//  #define CONTEXT_SENSITIVITY TransactionalWithResidualContext
+  #define CONTEXT_SENSITIVITY TransactionalWithShrinkingContext
+  #define BLOCK_CLONING HeuristicBlockCloner
 #endif
 
 #include "context-sensitivity/context_sensitivity.dl"

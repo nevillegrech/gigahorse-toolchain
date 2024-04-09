@@ -1,0 +1,144 @@
+name: CI-Tests
+
+on: 
+  workflow_dispatch:
+  workflow_call:
+  pull_request:
+  push:
+    branches:
+      - 'master'
+
+env:
+  REGISTRY: ghcr.io
+  # github.repository as nevillegrech/gigahorse-toolchain
+  IMAGE_NAME: ${{ github.repository }}
+
+
+jobs:
+  test_souffle23:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      checks: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          submodules: recursive
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.8
+
+      - name: Install pytest
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest
+
+      - name: Install Souffle
+        run: |
+          sudo wget https://souffle-lang.github.io/ppa/souffle-key.public -O /usr/share/keyrings/souffle-archive-keyring.gpg
+          echo "deb [signed-by=/usr/share/keyrings/souffle-archive-keyring.gpg] https://souffle-lang.github.io/ppa/ubuntu/ stable main" | sudo tee /etc/apt/sources.list.d/souffle.list
+          sudo apt update && sudo apt install souffle=2.3
+
+      - name: Test Souffle
+        run: souffle --version
+
+      - name: Install Boost
+        run: sudo apt install libboost-all-dev
+
+      - name: Build Souffle addon
+        run: cd $GITHUB_WORKSPACE/souffle-addon && make && cd $GITHUB_WORKSPACE
+
+      - name: Run gigahorse help
+        run: ./gigahorse.py --help
+
+      - name: Run gigahorse example
+        run: ./gigahorse.py examples/long_running.hex -i --disable_inline
+
+      - name: Run tests
+        run: pytest -v test_gigahorse.py --junitxml=test-results.xml
+
+      - name: Publish Test Results
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        if: always()
+        with:
+          files: test-results.xml
+          check_name: "Test Results (Souffle 2.3)"
+
+  test_souffle24:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      checks: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          submodules: recursive
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.8
+
+      - name: Install pytest
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest
+
+      - name: Install Souffle
+        run: |
+          sudo wget https://souffle-lang.github.io/ppa/souffle-key.public -O /usr/share/keyrings/souffle-archive-keyring.gpg
+          echo "deb [signed-by=/usr/share/keyrings/souffle-archive-keyring.gpg] https://souffle-lang.github.io/ppa/ubuntu/ stable main" | sudo tee /etc/apt/sources.list.d/souffle.list
+          sudo apt update && sudo apt install souffle=2.4
+
+      - name: Test Souffle
+        run: souffle --version
+
+      - name: Install Boost
+        run: sudo apt install libboost-all-dev
+
+      - name: Build Souffle addon
+        run: cd $GITHUB_WORKSPACE/souffle-addon && make && cd $GITHUB_WORKSPACE
+
+      - name: Run gigahorse help
+        run: ./gigahorse.py --help
+
+      - name: Run gigahorse example
+        run: ./gigahorse.py examples/long_running.hex -i --disable_inline
+
+      - name: Run tests
+        run: pytest -v test_gigahorse.py --junitxml=test-results.xml
+
+      - name: Publish Test Results
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        if: always()
+        with:
+          files: test-results.xml
+          check_name: "Test Results (Souffle 2.4)"
+  mypy:
+    runs-on: ubuntu-latest
+    name: Mypy
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        submodules: recursive
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: 3.8
+    - name: Install Dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install mypy
+    - name: mypy
+      run: |
+        mypy gigahorse.py

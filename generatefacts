@@ -4,7 +4,8 @@
 import argparse
 import logging
 import sys
-from os.path import abspath, dirname, join
+import os
+import json
 
 
 # Local project imports
@@ -20,13 +21,18 @@ def main(args):
         return
     if args.disassembly:
         blocks = blockparse.EVMDasmParser(args.infile).parse()
+        metadata = {}
     else:
         bytecode = args.infile.read().strip()
+        if os.path.exists(metad:= f"{args.infile.name[:-4]}_metadata.json"):
+            metadata = json.load(open(metad))
+        else:
+            metadata = {}
         blocks = blockparse.EVMBytecodeParser(bytecode).parse()
     logging.info("Initial parsing completed.")
 
     logging.info("Writing facts to disk.")
-    exporter.InstructionTsvExporter(blocks).export(output_dir=args.outdir, bytecode_hex=bytecode)
+    exporter.InstructionTsvExporter(args.outdir, blocks, bytecode_hex=bytecode, metadata=metadata).export()
 
 if __name__ == '__main__':
     # Configure argparse
