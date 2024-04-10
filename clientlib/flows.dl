@@ -89,8 +89,8 @@
    
    // Case: forward inter-procedural assignment only
    GlobalFlows(from, to) :-
-      InterFunctionActualArgFlow(actual, to),
-      GlobalFlows(from, actual).
+      GlobalFlows(from, actual),
+      InterFunctionActualArgFlow(actual, to).
 }
 
 .init standardflowanalysis = GlobalFlowAnalysis

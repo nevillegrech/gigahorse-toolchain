@@ -318,6 +318,9 @@ class DecompilerFactGenerator(AbstractFactGenerator):
 
         os.symlink(join(work_dir, 'bytecode.hex'), join(out_dir, 'bytecode.hex'))
 
+        open(join(out_dir, 'proto_vulnerability.csv'), 'w').close()
+        open(join(out_dir, 'vulnerability.csv'), 'w').close()
+
         if os.path.exists(join(work_dir, 'compiler_info.csv')):
             # Create a symlink with a name starting with 'Verbatim_' to be added to results json
             os.symlink(join(work_dir, 'compiler_info.csv'), join(out_dir, 'Verbatim_compiler_info.csv'))
