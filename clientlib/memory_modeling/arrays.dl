@@ -369,6 +369,18 @@ MLOADReadsArrayLength(mload):-
   IsRegularArrayVar(array),
   MLOAD(mload, array, _).
 
+ArrayCopy(mcopy, fromArray, toArray):-
+  MCOPY(mcopy, toAddr, fromAddr, len),
+  ArrayDataStartVar(fromArrayVar, fromAddr),
+  VarIsArray(fromArrayVar, fromArray),
+  ArrayDataStartVar(toArrayVar, toAddr),
+  VarIsArray(toArrayVar, toArray),
+  ArrayLengthVar(fromArray, arrLen),
+  Array_ElementLength(fromArrayVar, elemLength),
+  VarTimesConstant(arrLen, elemLength, len),
+  ArrayLengthVar(fromArray, arrLen2),
+  MSTORE(_, toArrayVar2, arrLen2),
+  VarIsArray(toArrayVar2, toArray).
 
 /**
   Points somewhere in an array's data 
