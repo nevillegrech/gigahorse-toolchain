@@ -72,6 +72,7 @@
 // Note: Can probably be unified with `DataStructure_Type`
 .decl StorageVariable_Type(cons: StorageConstruct, type: symbol)
 
+// Doesn't contain TightlyPackedVariable, maybe revisit
 .decl StorageConstruct_ParentAndOffset(cons: StorageConstruct, parentCons: StorageConstruct, offset: number)
 
 /**
@@ -204,8 +205,9 @@ StorageIndex_ParentIndexExclOffset(index, parentIndex):-
   (
     (index = $ArrayAccessIndex(parentIndex, indexVar), indexVar = indexVar); // suppress warning
     (index = $ArrayDataStartIndex(parentIndex));
-    (index = $MappingAccessIndex(parentIndex, indexVar), indexVar = indexVar); // suppress warning
-    (index = $OffsetIndex(parentIndex, offset), offset > 0) // suppress warning
+    (index = $MappingAccessIndex(parentIndex, indexVar), indexVar = indexVar) // suppress warning
+    // commenting this out for now, helps some cases but is not right
+    // ;(index = $OffsetIndex(parentIndex, offset), offset > 0) // suppress warning
   ).
 
 
