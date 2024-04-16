@@ -64,6 +64,9 @@
 .decl StructToString(structID: symbol, stringStruct: symbol)
 .decl StructToStringUpTo(structID: symbol, stringStruct: symbol, upTo: number)
 
+.decl PackedStructWordToString(structID: symbol, offset: number, stringRep: symbol)
+.decl PackedStructWordToStringUpTo(structID: symbol, offset: number, stringRep: symbol, upToByte: number, upToIndex: number)
+
 // Note: Can probably be unified with `StorageVariable_Type`
 .decl DataStructure_Type(cons: StorageConstruct, type: symbol)
 // Note: Can probably be unified with `DataStructure_Type`
@@ -78,6 +81,9 @@
   - `construct` is the data structure that is being accessed/written to
 */
 .decl StorageStmtToIndexAndConstruct(stmt: Statement, kind: symbol, index: StorageIndex, construct: StorageConstruct)
+
+// Same as `StorageStmtToIndexAndConstruct`, populated before the tight packing component
+.decl InitialStorageStmtToIndexAndConstruct(stmt: Statement, kind: symbol, index: StorageIndex, construct: StorageConstruct)
 
 /**
   Information is containted in the previous relation (`StorageStmtToIndexAndConstruct`).
@@ -99,8 +105,10 @@ DEBUG_OUTPUT(StorageVariable_Type)
 DEBUG_OUTPUT(StorageIndex_HighLevelUses)
 DEBUG_OUTPUT(StorageIndex_ParentIndex)
 DEBUG_OUTPUT(StorageStmtToIndexAndConstruct)
+DEBUG_OUTPUT(InitialStorageStmtToIndexAndConstruct)
 DEBUG_OUTPUT(ArrayLengthStatement)
 DEBUG_OUTPUT(StructToStringUpTo)
+DEBUG_OUTPUT(PackedStructWordToStringUpTo)
 
 Variable_StorageIndex(var, $ConstantIndex(val)):-
   Variable_Value(var, val),
@@ -288,24 +296,61 @@ DataStructureValueIsStruct(cons, cat("struct_", to_string(ord(cons))), elemNum):
   DataStructure_ElemNum(cons, elemNum),
   elemNum > 1.
 
+DataStructureValueIsStruct(cons, cat("struct_", to_string(ord(cons))), 1):-
+  DataStructure_ElemNum(cons, 1),
+  StorageVariablePacksNVars($Variable(cons), _).
+
 StructToStringUpTo(structID, cat("struct ", cat(structID, cat(" { ", decl))), 0):-
   DataStructureValueIsStruct(cons, structID, _),
   StorageConstruct_ParentAndOffset(child, cons, 0),
-  (StorageVariable_Type(child, type); DataStructure_Type(child, type)),
-  name = "field0",
-  decl = cat(type, cat(" ", cat(name, ";"))).
+  (
+    (
+      (StorageVariable_Type(child, type); DataStructure_Type(child, type)),
+      decl = cat(type, " field0;")
+    )
+  ;
+  PackedStructWordToString(structID, 0, decl)).
 
 StructToStringUpTo(structID, cat(prev, cat(" ", decl)), i + 1):-
   DataStructureValueIsStruct(cons, structID, _),
   StructToStringUpTo(structID, prev, i),
   StorageConstruct_ParentAndOffset(child, cons, i + 1),
-  (StorageVariable_Type(child, type); DataStructure_Type(child, type)),
-  name = cat("field", to_string(i + 1)),
-  decl = cat(type, cat(" ", cat(name, ";"))).
+  (
+    (
+      (StorageVariable_Type(child, type); DataStructure_Type(child, type)),
+      name = SIMPLE_FIELD(i + 1),
+      decl = cat(type, cat(" ", cat(name, ";")))
+    )
+  ;
+  PackedStructWordToString(structID, i + 1, decl)).
 
 StructToString(structID, cat(prev, " }")):-
   DataStructureValueIsStruct(_, structID, elemNum),
   StructToStringUpTo(structID, prev, elemNum - 1).
+
+PackedStructWordToStringUpTo(structID, offset, cat(type, cat(" ", cat(varName, ";"))), byteHigh, 0):-
+  DataStructureValueIsStruct(cons, structID, _),
+  StorageConstruct_ParentAndOffset(child, cons, offset),
+  StorageVariablePacksNVars(child, _),
+  ProcessedStorageVariable(child, $TighlyPackedVariable(para, 0, byteHigh)),
+  varName = PACKED_FIELD(offset, 0, byteHigh),
+  type = cat("uint", to_string((1 + byteHigh) * 8)).
+
+PackedStructWordToStringUpTo(structID, offset, cat(prevStr, cat(" ", decl)), byteHigh, i + 1):-
+  DataStructureValueIsStruct(cons, structID, _),
+  StorageConstruct_ParentAndOffset(child, cons, offset),
+  PackedStructWordToStringUpTo(structID, offset, prevStr, prevByteHigh, i),
+  StorageVariablePacksNVars(child, _),
+  ProcessedStorageVariable(child, $TighlyPackedVariable(para, prevByteHigh + 1, byteHigh)),
+  varName = PACKED_FIELD(offset, prevByteHigh + 1, byteHigh),
+  type = cat("uint", to_string((1 + byteHigh - (prevByteHigh + 1)) * 8)),
+  decl = cat(type, cat(" ", cat(varName, ";"))).
+
+PackedStructWordToString(structID, offset, stringRep):-
+  DataStructureValueIsStruct(cons, structID, _),
+  StorageConstruct_ParentAndOffset(child, cons, offset),
+  StorageVariablePacksNVars(child, n),
+  PackedStructWordToStringUpTo(structID, offset, stringRep, _, n - 1).
 
 DataStructure_Type(cons, cat("mapping (uint256 => ", cat(type, ")"))):-
   DataStructure_ElemNum(cons, 1),
@@ -323,9 +368,10 @@ DataStructure_Type(cons, cat("mapping (uint256 => ", cat(type, ")"))):-
   DataStructure_Type(child, type),
   cons = $Mapping(parentCons), parentCons = parentCons.
 
-DataStructure_Type(cons, "uint256[]"):-
+DataStructure_Type(cons, cat(varType, "[]")):-
   DataStructure_ElemNum(cons, 1),
   StorageConstruct_ParentAndOffset($Variable(cons1), cons, 0), cons1 = cons1,
+  StorageVariable_Type($Variable(cons1), varType),
   cons = $Array(parentCons), parentCons = parentCons.
 
 DataStructure_Type(cons, cat(structID, "[]")):-
@@ -340,7 +386,17 @@ DataStructure_Type(cons, cat(type, "[]")):-
 
 StorageVariable_Type(var, "uint256"):-
   IsStorageConstruct(var),
-  var = $Variable(cons), cons = cons.
+  var = $Variable(cons), cons = cons,
+  ProcessedStorageVariable(var, var).
+
+StorageVariable_Type(var, type):-
+  IsStorageConstruct(var),
+  var = $Variable(cons),
+  1 = count: ProcessedStorageVariable(var, _),
+  ProcessedStorageVariable($Variable(cons), $TighlyPackedVariable(cons, byteLow, byteHigh)),
+  widthBytes = 1 + byteHigh - byteLow,
+  type = cat("uint", to_string(widthBytes * 8)).
+
 
 // // Disable general rule for now
 // StorageStmtToIndexAndConstruct(stmt, "ACCESS", index, $Variable(cons)):-
@@ -350,7 +406,7 @@ StorageVariable_Type(var, "uint256"):-
 //   Variable_StorageIndex(var, index),
 //   StorageAccessOp(stmt, phiVar).
 
-StorageStmtToIndexAndConstruct(stmt, "GETDATASTART", $ArrayDataStartIndex(parIndex), cons):-
+InitialStorageStmtToIndexAndConstruct(stmt, "GETDATASTART", $ArrayDataStartIndex(parIndex), cons):-
   UsedStorageIndex($ArrayDataStartIndex(parIndex)),
   StorageIndex_StorageConstruct($ArrayDataStartIndex(parIndex), cons),
   Variable_StorageIndex(var, $ArrayDataStartIndex(parIndex)),
@@ -358,11 +414,52 @@ StorageStmtToIndexAndConstruct(stmt, "GETDATASTART", $ArrayDataStartIndex(parInd
   StorageAccessOp(_, phiVar),
   Statement_Defines(stmt, var, _).
 
-StorageStmtToIndexAndConstruct(stmt, "ACCESS", index, $Variable(cons)):-
+InitialStorageStmtToIndexAndConstruct(stmt, "ACCESS", index, $Variable(cons)):-
   UsedStorageIndex(index),
   StorageIndex_StorageConstruct(index, cons),
   Variable_StorageIndex(var, index),
   StorageAccessOp(stmt, var).
+
+InitialStorageStmtToIndexAndConstruct(stmt, "LENGTH", index, $Array(cons)),
+ArrayLengthStatement(stmt, index, $Array(cons)):-
+  StorageAccessOp(stmt, var),
+  Variable_StorageIndex(var, index),
+  ActualStorageIndex(index),
+  StorageIndex_StorageConstruct(index, cons),
+  IsStorageConstruct($Array(cons)).
+
+// Compute `StorageStmtToIndexAndConstruct` after we infer packed variables
+
+StorageStmtToIndexAndConstruct(stmt, "GETDATASTART", $ArrayDataStartIndex(parIndex), cons):-
+  InitialStorageStmtToIndexAndConstruct(stmt, "GETDATASTART", $ArrayDataStartIndex(parIndex), cons).
+
+StorageStmtToIndexAndConstruct(stmt, "LENGTH", index, $Array(cons)):-
+  InitialStorageStmtToIndexAndConstruct(stmt, "LENGTH", index, $Array(cons)).
+
+StorageStmtToIndexAndConstruct(stmt, "ACCESS", index, $Variable(cons)):-
+  UsedStorageIndex(index),
+  StorageIndex_StorageConstruct(index, cons),
+  Variable_StorageIndex(var, index),
+  StorageAccessOp(stmt, var),
+  ProcessedStorageVariable($Variable(cons), $Variable(cons)).
+
+StorageStmtToIndexAndConstruct(stmt, "ACCESS", index, $TighlyPackedVariable(cons, low, high)):-
+  UsedStorageIndex(index),
+  StorageIndex_StorageConstruct(index, cons),
+  Variable_StorageIndex(indexVar, index),
+  StorageAccessOp(srcLoad, indexVar),
+  VarHoldsBytesOfStorVarFinal(_, _, $Variable(cons), low, high),
+  VarHoldsBytesOfStorVar(var, srcLoad, $Variable(cons), low, high),
+  Statement_Defines(stmt, var, _),
+  ProcessedStorageVariable($Variable(cons), $TighlyPackedVariable(cons, low, high)).
+
+StorageStmtToIndexAndConstruct(store, "ACCESS", index, $TighlyPackedVariable(cons, low, high)):-
+  UsedStorageIndex(index),
+  StorageIndex_StorageConstruct(index, cons),
+  Variable_StorageIndex(indexVar, index),
+  StorageAccessOp(store, indexVar),
+  (VarWrittenToBytesOfStorVarFinal(_, store, $Variable(cons), low, high); ConstWrittenToBytesOfStorVar(_, _, store, _, $Variable(cons), low, high)),
+  ProcessedStorageVariable($Variable(cons), $TighlyPackedVariable(cons, low, high)).
 
 .decl StorageOffset_Type(offset: Value, type: symbol)
 
@@ -371,13 +468,6 @@ StorageOffset_Type(offset, type):-
   (cons = $Array(parentCons); cons = $Mapping(parentCons)),
   parentCons = $Constant(offset).
 
-StorageStmtToIndexAndConstruct(stmt, "LENGTH", index, $Array(cons)),
-ArrayLengthStatement(stmt, index, $Array(cons)):-
-  StorageAccessOp(stmt, var),
-  Variable_StorageIndex(var, index),
-  ActualStorageIndex(index),
-  StorageIndex_StorageConstruct(index, cons),
-  IsStorageConstruct($Array(cons)).
 
 .decl BytesOrStringLength(storVar:symbol, lenVar:Variable)
 

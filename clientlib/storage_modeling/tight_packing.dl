@@ -21,12 +21,12 @@ DEBUG_OUTPUT(SLOADFlowsToSSTORE)
 DEBUG_OUTPUT(VarFlowsFromSLOADToSSTORE)
 
 SLOADFlowsToSSTORE(sload, sstore, construct):-
-  StorageStmtToIndexAndConstruct(sload, "ACCESS", _, construct),
+  InitialStorageStmtToIndexAndConstruct(sload, "ACCESS", _, construct),
   SLOAD(sload, _, loadedVar),
   //LocalFlows(loadedVar, storedVar),
   castsAndShiftsFlows.Flows(loadedVar, storedVar),
   SSTORE(sstore, _, storedVar),
-  StorageStmtToIndexAndConstruct(sstore, "ACCESS", _, construct).
+  InitialStorageStmtToIndexAndConstruct(sstore, "ACCESS", _, construct).
 
 VarFlowsFromSLOADToSSTORE(var, construct):-
   SLOADFlowsToSSTORE(sload, sstore, construct),
@@ -36,7 +36,7 @@ VarFlowsFromSLOADToSSTORE(var, construct):-
   SSTORE(sstore, _, storedVar).
 
 FlowsToSSTOREOfConstruct(var, construct):-
-  StorageStmtToIndexAndConstruct(sstore, "ACCESS", _, construct),
+  InitialStorageStmtToIndexAndConstruct(sstore, "ACCESS", _, construct),
   SSTORE(sstore, _, storedVar),
   LocalFlows(var, storedVar).
 
@@ -56,11 +56,11 @@ SSTOREToConst(sstore, const, var):-
 
 SLOADOfConstruct(sload, construct, var):-
   SLOAD(sload, _, var),
-  StorageStmtToIndexAndConstruct(sload, "ACCESS", _, construct).
+  InitialStorageStmtToIndexAndConstruct(sload, "ACCESS", _, construct).
 
 SSTOREToConstruct(sstore, construct, var):-
   SSTORE(sstore, _, var),
-  StorageStmtToIndexAndConstruct(sstore, "ACCESS", _, construct).
+  InitialStorageStmtToIndexAndConstruct(sstore, "ACCESS", _, construct).
 
 
 /**
@@ -94,7 +94,7 @@ DEBUG_OUTPUT(VarHoldsBytesOfStorVarFinal)
 
 VarHoldsBytesOfStorVarPlus(to, load, construct, 0, 0, 31):-
   SLOAD(load, _, to),
-  StorageStmtToIndexAndConstruct(load, "ACCESS", _, construct).
+  InitialStorageStmtToIndexAndConstruct(load, "ACCESS", _, construct).
 
 VarHoldsBytesOfStorVar(var, load, storVar, low, high):-
   VarHoldsBytesOfStorVarPlus(var, load, storVar, _, low, high).
@@ -175,7 +175,7 @@ FailedMergedStorageModeling(storVar):-
   ( (low < otherLow , otherLow < high) ; (low < otherHigh, otherHigh < high) ).
 
 LoadOrStoreToStoreVar(stmt, construct):-
-  StorageStmtToIndexAndConstruct(stmt, "ACCESS", _, construct).
+  InitialStorageStmtToIndexAndConstruct(stmt, "ACCESS", _, construct).
 
 FailedMergedStorageModelingReason(storVar, stmt, stmt, nil, nil),
 FailedMergedStorageModeling(storVar):-
@@ -430,8 +430,6 @@ VarHoldsBytesOfStorVar(to, store, storVar, 0, maskLen - 1):-
   Top-Level Global Variables
  */
 
-#define MERGED_STORAGE_VAR(storVar,byteLow,byteHigh) cat(storVar, cat("_", cat(to_string(byteLow), cat("_", to_string(byteHigh)))))
-
 .decl GlobalVariable(v: Value)
 
 .decl LoadGlobalVariable(stmt: Statement, val: Value, var: Variable)
@@ -444,6 +442,9 @@ VarHoldsBytesOfStorVar(to, store, storVar, 0, maskLen - 1):-
 // Processing of storage variables, accounting for tightly packed words
 .decl ProcessedStorageVariable(storageVar: StorageConstruct, storageVarProcessed: StorageConstruct)
 DEBUG_OUTPUT(ProcessedStorageVariable)
+
+.decl StorageVariablePacksNVars(storageVar: StorageConstruct, numberOfVars: number)
+DEBUG_OUTPUT(StorageVariablePacksNVars)
 
 /* Old logic
 GlobalVariable(v) :-
@@ -524,6 +525,11 @@ ProcessedStorageVariable(storageVar, $TighlyPackedVariable(parentCons, byteLow, 
     VarHoldsBytesOfStorVarFinal(_, _, storageVar, byteLow, byteHigh)
   ),
   byteHigh - byteLow != 31.
+
+StorageVariablePacksNVars(storageVar, numberOfVars):-
+  ProcessedStorageVariable(storageVar, _),
+  numberOfVars = count : ProcessedStorageVariable(storageVar, _),
+  numberOfVars > 1.
 
 /**
   Basic type inference
