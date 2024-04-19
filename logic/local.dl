@@ -659,11 +659,11 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     PushValue(pushCodeOffset, codeOffsetNumHex).
 
   .decl FunctionSelectorVariable(variable: Variable)
-  FunctionSelectorVariable(selector):-
-    CALLDATALOAD(stmt),
-    Statement_Uses_Local(stmt, zeroVar, 0),
-    Variable_Value(zeroVar, "0x0"),
-    Statement_Defines(stmt, selector).
+  // FunctionSelectorVariable(selector):-
+  //   CALLDATALOAD(stmt),
+  //   Statement_Uses_Local(stmt, zeroVar, 0),
+  //   Variable_Value(zeroVar, "0x0"),
+  //   Statement_Defines(stmt, selector).
 
   FunctionSelectorVariable(selector):-
     CALLDATALOAD(stmt),
