@@ -1036,10 +1036,11 @@ ValidSelector(optionalSelector):-
 /**
   When we don't manage to find any ValidSelectors (other than $NoSelector())
   we should just propagate everything `preTrans` gives us.
+  REVISIT: Disabling this for now
 */
-ValidSelector(optionalSelector):-
-  1 = count : blockCloner.analysis.ValidSelector(_),
-  preTrans.IsOptionalSelector(optionalSelector).
+// ValidSelector(optionalSelector):-
+//   1 = count : blockCloner.analysis.ValidSelector(_),
+//   preTrans.IsOptionalSelector(optionalSelector).
 
 #else
 
