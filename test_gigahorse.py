@@ -2,6 +2,7 @@
 
 import subprocess
 import pytest
+import re
 import json
 from os.path import abspath, dirname, join, isdir, isfile
 from os import listdir, makedirs
@@ -95,7 +96,11 @@ class LogicTestCase():
             assert within_margin(analytics[metric], expected, margin), f"Value for {metric} ({analytics[metric]}) not within margin of expected value ({expected})."
 
         for metric, expected in self.expected_verbatim:
-            assert analytics[metric] == expected, f"Value for {metric} ({analytics[metric]}) not the expected value ({expected})."
+            if '*' not in expected:
+                assert analytics[metric] == expected, f"Value for {metric} ({analytics[metric]}) not the expected value ({expected})."
+            else:
+                regex = re.compile(expected)
+                assert regex.match(analytics[metric]), f"Value for {metric} ({analytics[metric]}) not the expected value ({expected})."
 
 
 def discover_logic_tests(current_config: MutableMapping[str, Any], directory: str) -> Iterator[Tuple[Mapping[str, Any], str]]:
