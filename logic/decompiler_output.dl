@@ -401,8 +401,9 @@ TAC_Block_Gas(block, totalgas) :-
    totalgas = sum gas : IRBlock_PartialGas(block, _, gas).
 
 
-// SL: Not used anywhere
+// SL: Not sure what this is meant to be, outputting it as it is needed
 .decl UnmappedStatements(stmt: Statement)
+.output UnmappedStatements
 UnmappedStatements(stmt) :-
   preTrans.Statement_Block(stmt, _),
   !TAC_OriginalStatement_Block(stmt, _).
