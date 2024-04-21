@@ -46,7 +46,12 @@
 .decl StorageIndexPredecesor(index: StorageIndex, predIndex: StorageIndex)
 
 // "Final" storage index: used in an `SSTORE`/`SLOAD` op and not to construct a more complex index
-.decl UsedStorageIndex(index: StorageIndex)
+// Indexes in this relation can only be used directly to construct offset indexes
+.decl LikelyVariableLoadingStorageIndex(index: StorageIndex)
+
+// Construct is not used as a variable (i.e. is used as an array or mapping)
+// Used to find the ones that are end-level variables
+.decl NonVariableConstruct(cons: StorageConstruct)
 
 .decl StorageIndex_HighLevelUses(index: StorageIndex, accessVar: Variable, offset: number, i: number, nestedness: number)
 
@@ -95,7 +100,8 @@
 
 DEBUG_OUTPUT(StorageIndex_StorageConstruct)
 DEBUG_OUTPUT(ActualStorageIndex)
-DEBUG_OUTPUT(UsedStorageIndex)
+DEBUG_OUTPUT(LikelyVariableLoadingStorageIndex)
+DEBUG_OUTPUT(NonVariableConstruct)
 DEBUG_OUTPUT(Variable_StorageIndex)
 DEBUG_OUTPUT(IsStorageConstruct)
 DEBUG_OUTPUT(StorageConstruct_ParentAndOffset)
@@ -224,12 +230,12 @@ StorageIndexPredecesor(index, predIndex):-
 
 // Ensure an index is not used as a parent for anything other than an offset
 // REVISIT
-UsedStorageIndex(index):-
+LikelyVariableLoadingStorageIndex(index):-
   ActualStorageIndex(index),
   !StorageIndex_ParentIndexExclOffset(_, index).
 
 // Goes against our logic, allows conflicts due to bad decompilation
-// UsedStorageIndex(index):-
+// LikelyVariableLoadingStorageIndex(index):-
 //   ActualStorageIndex(index),
 //   StorageIndex_ParentIndexExclOffset($MappingAccessIndex(index, _), index).
 
@@ -267,9 +273,15 @@ StorageIndex_HighLevelUses($ArrayDataStartIndex(parentIndex), accessVar, prevOff
 //   StorageIndex_ParentIndex(index, parentIndex),
 //   StorageIndex_HighLevelUses(parentIndex, accessVar, i, prevNestedness).
 
+NonVariableConstruct(parentCons):-
+  ActualStorageIndex(index),
+  StorageIndex_StorageConstruct(index, cons),
+  (cons = $Array(parentCons); cons = $Mapping(parentCons)).
+
 IsStorageConstruct($Variable(cons)):-
-  UsedStorageIndex(index),
-  StorageIndex_StorageConstruct(index, cons).
+  LikelyVariableLoadingStorageIndex(index),
+  StorageIndex_StorageConstruct(index, cons),
+  !NonVariableConstruct(cons).
 
 IsStorageConstruct(cons),
 IsDataStructureConstruct(cons):-
@@ -402,14 +414,14 @@ StorageVariable_Type(var, type):-
 
 // // Disable general rule for now
 // StorageStmtToIndexAndConstruct(stmt, "ACCESS", index, $Variable(cons)):-
-//   UsedStorageIndex(index),
+//   LikelyVariableLoadingStorageIndex(index),
 //   StorageIndex_StorageConstruct(index, cons),
 //   PHITrans(var, phiVar),
 //   Variable_StorageIndex(var, index),
 //   StorageAccessOp(stmt, phiVar).
 
 InitialStorageStmtToIndexAndConstruct(stmt, "GETDATASTART", $ArrayDataStartIndex(parIndex), cons):-
-  UsedStorageIndex($ArrayDataStartIndex(parIndex)),
+  LikelyVariableLoadingStorageIndex($ArrayDataStartIndex(parIndex)),
   StorageIndex_StorageConstruct($ArrayDataStartIndex(parIndex), cons),
   Variable_StorageIndex(var, $ArrayDataStartIndex(parIndex)),
   PHITrans(var, phiVar),
@@ -417,7 +429,7 @@ InitialStorageStmtToIndexAndConstruct(stmt, "GETDATASTART", $ArrayDataStartIndex
   Statement_Defines(stmt, var, _).
 
 InitialStorageStmtToIndexAndConstruct(stmt, "ACCESS", index, $Variable(cons)):-
-  UsedStorageIndex(index),
+  LikelyVariableLoadingStorageIndex(index),
   StorageIndex_StorageConstruct(index, cons),
   Variable_StorageIndex(var, index),
   StorageAccessOp(stmt, var).
@@ -439,14 +451,14 @@ StorageStmtToIndexAndConstruct(stmt, "LENGTH", index, $Array(cons)):-
   InitialStorageStmtToIndexAndConstruct(stmt, "LENGTH", index, $Array(cons)).
 
 StorageStmtToIndexAndConstruct(stmt, "ACCESS", index, $Variable(cons)):-
-  UsedStorageIndex(index),
+  LikelyVariableLoadingStorageIndex(index),
   StorageIndex_StorageConstruct(index, cons),
   Variable_StorageIndex(var, index),
   StorageAccessOp(stmt, var),
   ProcessedStorageVariable($Variable(cons), $Variable(cons)).
 
 StorageStmtToIndexAndConstruct(stmt, "ACCESS", index, $TighlyPackedVariable(cons, low, high)):-
-  UsedStorageIndex(index),
+  LikelyVariableLoadingStorageIndex(index),
   StorageIndex_StorageConstruct(index, cons),
   Variable_StorageIndex(indexVar, index),
   StorageAccessOp(srcLoad, indexVar),
@@ -456,7 +468,7 @@ StorageStmtToIndexAndConstruct(stmt, "ACCESS", index, $TighlyPackedVariable(cons
   ProcessedStorageVariable($Variable(cons), $TighlyPackedVariable(cons, low, high)).
 
 StorageStmtToIndexAndConstruct(store, "ACCESS", index, $TighlyPackedVariable(cons, low, high)):-
-  UsedStorageIndex(index),
+  LikelyVariableLoadingStorageIndex(index),
   StorageIndex_StorageConstruct(index, cons),
   Variable_StorageIndex(indexVar, index),
   StorageAccessOp(store, indexVar),
