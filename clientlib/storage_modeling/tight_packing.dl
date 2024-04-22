@@ -138,7 +138,7 @@ VarHoldsBytesOfStorVarFinal(var, load, storVar, low, high):-
   !LShiftBytes(var, _, _),
   !RShiftBytes(var, _, _),
   !LowBytesMaskOp(var, _, _),
-  !BooleanCast(var, _),
+  // !BooleanCast(var, _),
   !HighBytesMaskOp(var, _, _),
   !AntiMaskOp(var, _, _, _).
 
