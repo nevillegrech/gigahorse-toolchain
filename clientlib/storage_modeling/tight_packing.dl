@@ -526,6 +526,12 @@ ProcessedStorageVariable(storageVar, $TighlyPackedVariable(parentCons, byteLow, 
   ),
   byteHigh - byteLow != 31.
 
+// If an array element is never loaded or stored directly (i.e. it is only copied via loops)
+// We consider it non merged. Maybe this isn't the right aproach, review.
+ProcessedStorageVariable($Variable($Array(cons)), $Variable($Array(cons))):-
+  StorageStmtToIndexAndConstruct(_, "LENGTH", _, $Array(cons)),
+  !AnyLoadStoreStorVarBytes(_, $Variable($Array(cons)), _, _).
+
 StorageVariablePacksNVars(storageVar, numberOfVars):-
   ProcessedStorageVariable(storageVar, _),
   numberOfVars = count : ProcessedStorageVariable(storageVar, _),
