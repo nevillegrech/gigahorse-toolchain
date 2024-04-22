@@ -66,8 +66,10 @@ LowBytesMaskOp(from, to, castedTo):-
   BasicVariable_Value(maskVar, mask),
   (AND(_, from, maskVar, to) ; AND(_, maskVar, from, to)).
 
-LowBytesMaskOp(from, to, 1):-
-  BooleanCast(from, to).
+// SL: Commenting this out for now.
+// A Variable actually casted as a boolean would need to be masked a single byte first
+// LowBytesMaskOp(from, to, 1):-
+//   BooleanCast(from, to).
 
 LowBytesMaskOp(from, to, width):-
   SignedIntCast(from, to, width).
