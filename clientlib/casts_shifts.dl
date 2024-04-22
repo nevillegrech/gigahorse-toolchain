@@ -136,6 +136,10 @@ CastedAndShiftedVar(originVar, toVar, shiftedBy, castedTo):-
   LowBytesMaskOp(originVar, castedVar, castedTo),
   LShiftBytes(castedVar, toVar, shiftedBy).
 
+CastedAndShiftedVar(originVar, toVar, shiftedBy, 1):-
+  BooleanCast(originVar, castedVar),
+  LShiftBytes(castedVar, toVar, shiftedBy).
+
 HighBytesCastedAndRightShiftedVar(originVar, toVar, shiftedBy, castedTo):-
   HighBytesMaskOp(originVar, castedVar, castedTo),
   RShiftBytes(castedVar, toVar, shiftedBy).

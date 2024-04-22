@@ -122,6 +122,10 @@ VarHoldsBytesOfStorVarPlus(to, load, storVar, startByte, low, newHigh):-
   newHigh =  minKeptByte - startByte,
   LowBytesMaskOp(var, to, maskLen).
 
+VarHoldsBytesOfStorVarPlus(to, load, storVar, 0, low, low):-
+  VarHoldsBytesOfStorVarPlus(from, load, storVar, 0, low, low),
+  BooleanCast(from, to).
+
 VarHoldsBytesOfStorVarPlus(to, load, storVar, startByte, newLow, high):-
   VarHoldsBytesOfStorVarPlus(var, load, storVar, startByte, low, high),
   maxKeptByte = max(startByte + low, startByte + high - maskLen + 1),
@@ -134,6 +138,7 @@ VarHoldsBytesOfStorVarFinal(var, load, storVar, low, high):-
   !LShiftBytes(var, _, _),
   !RShiftBytes(var, _, _),
   !LowBytesMaskOp(var, _, _),
+  !BooleanCast(var, _),
   !HighBytesMaskOp(var, _, _),
   !AntiMaskOp(var, _, _, _).
 
@@ -239,6 +244,12 @@ ProbablyPartialStorageUpdatePattern(fromVar, toVar, "VAR", writtenVar, byteLow, 
 
 ProbablyPartialStorageUpdatePattern(fromVar, toVar, "VAR", writtenVar, 0, byteHigh - 1):-
   LowBytesMaskOp(writtenVar, castedVar, byteHigh),
+  (OR(_, castedVar, fromVar, toVar) ; OR(_, fromVar, castedVar, toVar)),
+  FlowsToSSTOREOfConstruct(writtenVar, construct),
+  !VarFlowsFromSLOADToSSTORE(writtenVar, construct).
+
+ProbablyPartialStorageUpdatePattern(fromVar, toVar, "VAR", writtenVar, 0, 0):-
+  BooleanCast(writtenVar, castedVar),
   (OR(_, castedVar, fromVar, toVar) ; OR(_, fromVar, castedVar, toVar)),
   FlowsToSSTOREOfConstruct(writtenVar, construct),
   !VarFlowsFromSLOADToSSTORE(writtenVar, construct).
@@ -425,6 +436,11 @@ VarHoldsBytesOfStorVar(to, store, storVar, 0, maskLen - 1):-
   VarWrittenToBytesOfStorVar(_, store, storVar, _, _),
   Statement_Uses(store, storedVar, 1),
   LowBytesMaskOp(storedVar, to, maskLen).
+
+VarHoldsBytesOfStorVar(to, store, storVar, 0, 0):-
+  VarWrittenToBytesOfStorVar(_, store, storVar, _, _),
+  Statement_Uses(store, storedVar, 1),
+  BooleanCast(storedVar, to).
 
 /**
   Top-Level Global Variables
