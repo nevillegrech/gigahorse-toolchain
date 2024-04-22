@@ -139,7 +139,9 @@ Variable_StorageIndex(def, $OffsetIndex(index, @hex_to_number(const))):-
 Variable_StorageIndex(def, $OffsetIndex(parentIndex, @hex_to_number(const) + oldOffset)):-
   Variable_StorageIndex(var, $OffsetIndex(parentIndex, oldOffset)),
   ADDFix(_, var, constVar, def),
-  Variable_Value(constVar, const).
+  Variable_Value(constVar, const),
+  // ensure its a small integer
+  "0x1" = @lt_256(const, "0xffff").
 
 Variable_StorageIndex(def, $MappingAccessIndex(parentIndex, arg1)):-
   Variable_StorageIndex(arg2, parentIndex),
@@ -162,6 +164,20 @@ Variable_StorageIndex(def, $ArrayAccessIndex(parentIndex, indexVar)):-
   Variable_StorageIndex(var, $ArrayDataStartIndex(parentIndex)),
   ADDFix(_, var, indexVar, def),
   !VarTimesConstantNoIdentity(_, _, indexVar).
+
+/**
+  Hacky way to model optimize .pop() pattern:
+  indexVar will point to the array length although I don't enforce it currently
+  `arrayAccess[index] + uint.max` ==== `arrayAccess[index + uint.max]`
+  if `index + uint.max` is already computed
+*/
+Variable_StorageIndex(def, $ArrayAccessIndex(parentIndex, newIndexVar)):-
+  Variable_StorageIndex(preAdd, $ArrayAccessIndex(parentIndex, indexVar)),
+  ADDFix(_, preAdd, minusOneConstVar1, def),
+  Variable_Value(minusOneConstVar1, "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"),
+  ADDFix(_, indexVar, minusOneConstVar2, newIndexVar),
+  Variable_Value(minusOneConstVar2, "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff").
+
 
 StorageIndex_StorageConstruct($ConstantIndex(val), $Constant(val)):-
   ActualStorageIndex($ConstantIndex(val)).
