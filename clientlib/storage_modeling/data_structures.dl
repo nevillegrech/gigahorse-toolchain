@@ -132,7 +132,9 @@ Variable_StorageIndex(def, $OffsetIndex(index, @hex_to_number(const))):-
   (index = $ArrayAccessIndex(parentIndex, indexVar); index = $MappingAccessIndex(parentIndex, indexVar)),
   parentIndex = parentIndex, indexVar = indexVar, // suppress warning
   ADDFix(_, var, constVar, def),
-  Variable_Value(constVar, const).
+  Variable_Value(constVar, const),
+  // ensure its a small integer
+  "0x1" = @lt_256(const, "0xffff").
 
 Variable_StorageIndex(def, $OffsetIndex(parentIndex, @hex_to_number(const) + oldOffset)):-
   Variable_StorageIndex(var, $OffsetIndex(parentIndex, oldOffset)),
