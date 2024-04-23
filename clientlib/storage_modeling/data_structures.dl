@@ -69,6 +69,7 @@
 .decl StructToString(structID: symbol, stringStruct: symbol)
 .decl StructToStringUpTo(structID: symbol, stringStruct: symbol, upTo: number)
 
+// Map tightly packed field in storage struct to solidity-like def used by `StructToString`
 .decl PackedStructWordToString(structID: symbol, offset: number, stringRep: symbol)
 .decl PackedStructWordToStringUpTo(structID: symbol, offset: number, stringRep: symbol, upToByte: number, upToIndex: number)
 
@@ -365,9 +366,8 @@ PackedStructWordToStringUpTo(structID, offset, cat(type, cat(" ", cat(varName, "
   StorageConstruct_ParentAndOffset(child, cons, offset),
   StorageVariablePacksNVars(child, _),
   ProcessedStorageVariable(child, $TighlyPackedVariable(para, 0, byteHigh)),
-  para=para, // silence warning
-  varName = PACKED_FIELD(offset, 0, byteHigh),
-  type = cat("uint", to_string((1 + byteHigh) * 8)).
+  StorageVariable_Type($TighlyPackedVariable(para, 0, byteHigh), type),
+  varName = PACKED_FIELD(offset, 0, byteHigh).
 
 PackedStructWordToStringUpTo(structID, offset, cat(prevStr, cat(" ", decl)), byteHigh, i + 1):-
   DataStructureValueIsStruct(cons, structID, _),
@@ -375,9 +375,8 @@ PackedStructWordToStringUpTo(structID, offset, cat(prevStr, cat(" ", decl)), byt
   PackedStructWordToStringUpTo(structID, offset, prevStr, prevByteHigh, i),
   StorageVariablePacksNVars(child, _),
   ProcessedStorageVariable(child, $TighlyPackedVariable(para, prevByteHigh + 1, byteHigh)),
-  para=para, // silence warning
+  StorageVariable_Type($TighlyPackedVariable(para, prevByteHigh + 1, byteHigh), type),
   varName = PACKED_FIELD(offset, prevByteHigh + 1, byteHigh),
-  type = cat("uint", to_string((1 + byteHigh - (prevByteHigh + 1)) * 8)),
   decl = cat(type, cat(" ", cat(varName, ";"))).
 
 PackedStructWordToString(structID, offset, stringRep):-
@@ -423,13 +422,21 @@ StorageVariable_Type(var, "uint256"):-
   var = $Variable(cons), cons = cons,
   ProcessedStorageVariable(var, var).
 
-StorageVariable_Type(var, type):-
-  IsStorageConstruct(var),
-  var = $Variable(cons),
-  1 = count: ProcessedStorageVariable(var, _),
-  ProcessedStorageVariable($Variable(cons), $TighlyPackedVariable(cons, byteLow, byteHigh)),
+StorageVariable_Type($TighlyPackedVariable(cons, byteLow, byteHigh), type):-
+  ProcessedStorageVariable(_, $TighlyPackedVariable(cons, byteLow, byteHigh)),
+  !SpecialStorageVariableType($TighlyPackedVariable(cons, byteLow, byteHigh), _),
   widthBytes = 1 + byteHigh - byteLow,
   type = cat("uint", to_string(widthBytes * 8)).
+
+StorageVariable_Type($TighlyPackedVariable(cons, byteLow, byteHigh), type):-
+  ProcessedStorageVariable(_, $TighlyPackedVariable(cons, byteLow, byteHigh)),
+  SpecialStorageVariableType($TighlyPackedVariable(cons, byteLow, byteHigh), type).
+
+StorageVariable_Type(var, type):-
+  StorageVariable_Type(packedVar, type),
+  ProcessedStorageVariable(var, packedVar),
+  IsStorageConstruct(var),
+  1 = count: ProcessedStorageVariable(var, _).
 
 
 // // Disable general rule for now
