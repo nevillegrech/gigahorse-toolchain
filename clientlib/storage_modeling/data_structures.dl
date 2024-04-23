@@ -22,7 +22,7 @@
                         | Mapping {parConstruct: StorageConstruct}
                         | Offset {parConstruct: StorageConstruct, offset: number}
                         | Variable {construct: StorageConstruct}
-                        | TighlyPackedVariable {construct: StorageConstruct, byteLow: number, byteHigh: number}
+                        | TightlyPackedVariable {construct: StorageConstruct, byteLow: number, byteHigh: number}
 
 /**
   Syntactic translation of `StorageIndex` to `StorageConstruct`
@@ -365,8 +365,8 @@ PackedStructWordToStringUpTo(structID, offset, cat(type, cat(" ", cat(varName, "
   DataStructureValueIsStruct(cons, structID, _),
   StorageConstruct_ParentAndOffset(child, cons, offset),
   StorageVariablePacksNVars(child, _),
-  ProcessedStorageVariable(child, $TighlyPackedVariable(para, 0, byteHigh)),
-  StorageVariable_Type($TighlyPackedVariable(para, 0, byteHigh), type),
+  ProcessedStorageVariable(child, $TightlyPackedVariable(para, 0, byteHigh)),
+  StorageVariable_Type($TightlyPackedVariable(para, 0, byteHigh), type),
   varName = PACKED_FIELD(offset, 0, byteHigh).
 
 PackedStructWordToStringUpTo(structID, offset, cat(prevStr, cat(" ", decl)), byteHigh, i + 1):-
@@ -374,8 +374,8 @@ PackedStructWordToStringUpTo(structID, offset, cat(prevStr, cat(" ", decl)), byt
   StorageConstruct_ParentAndOffset(child, cons, offset),
   PackedStructWordToStringUpTo(structID, offset, prevStr, prevByteHigh, i),
   StorageVariablePacksNVars(child, _),
-  ProcessedStorageVariable(child, $TighlyPackedVariable(para, prevByteHigh + 1, byteHigh)),
-  StorageVariable_Type($TighlyPackedVariable(para, prevByteHigh + 1, byteHigh), type),
+  ProcessedStorageVariable(child, $TightlyPackedVariable(para, prevByteHigh + 1, byteHigh)),
+  StorageVariable_Type($TightlyPackedVariable(para, prevByteHigh + 1, byteHigh), type),
   varName = PACKED_FIELD(offset, prevByteHigh + 1, byteHigh),
   decl = cat(type, cat(" ", cat(varName, ";"))).
 
@@ -422,15 +422,15 @@ StorageVariable_Type(var, "uint256"):-
   var = $Variable(cons), cons = cons,
   ProcessedStorageVariable(var, var).
 
-StorageVariable_Type($TighlyPackedVariable(cons, byteLow, byteHigh), type):-
-  ProcessedStorageVariable(_, $TighlyPackedVariable(cons, byteLow, byteHigh)),
-  !SpecialStorageVariableType($TighlyPackedVariable(cons, byteLow, byteHigh), _),
+StorageVariable_Type($TightlyPackedVariable(cons, byteLow, byteHigh), type):-
+  ProcessedStorageVariable(_, $TightlyPackedVariable(cons, byteLow, byteHigh)),
+  !SpecialStorageVariableType($TightlyPackedVariable(cons, byteLow, byteHigh), _),
   widthBytes = 1 + byteHigh - byteLow,
   type = cat("uint", to_string(widthBytes * 8)).
 
-StorageVariable_Type($TighlyPackedVariable(cons, byteLow, byteHigh), type):-
-  ProcessedStorageVariable(_, $TighlyPackedVariable(cons, byteLow, byteHigh)),
-  SpecialStorageVariableType($TighlyPackedVariable(cons, byteLow, byteHigh), type).
+StorageVariable_Type($TightlyPackedVariable(cons, byteLow, byteHigh), type):-
+  ProcessedStorageVariable(_, $TightlyPackedVariable(cons, byteLow, byteHigh)),
+  SpecialStorageVariableType($TightlyPackedVariable(cons, byteLow, byteHigh), type).
 
 StorageVariable_Type(var, type):-
   StorageVariable_Type(packedVar, type),
@@ -484,7 +484,7 @@ StorageStmtToIndexAndConstruct(stmt, "ACCESS", index, $Variable(cons)):-
   StorageAccessOp(stmt, var),
   ProcessedStorageVariable($Variable(cons), $Variable(cons)).
 
-StorageStmtToIndexAndConstruct(stmt, "ACCESS", index, $TighlyPackedVariable(cons, low, high)):-
+StorageStmtToIndexAndConstruct(stmt, "ACCESS", index, $TightlyPackedVariable(cons, low, high)):-
   LikelyVariableLoadingStorageIndex(index),
   StorageIndex_StorageConstruct(index, cons),
   Variable_StorageIndex(indexVar, index),
@@ -492,15 +492,15 @@ StorageStmtToIndexAndConstruct(stmt, "ACCESS", index, $TighlyPackedVariable(cons
   VarHoldsBytesOfStorVarFinal(_, _, $Variable(cons), low, high),
   VarHoldsBytesOfStorVar(var, srcLoad, $Variable(cons), low, high),
   Statement_Defines(stmt, var, _),
-  ProcessedStorageVariable($Variable(cons), $TighlyPackedVariable(cons, low, high)).
+  ProcessedStorageVariable($Variable(cons), $TightlyPackedVariable(cons, low, high)).
 
-StorageStmtToIndexAndConstruct(store, "ACCESS", index, $TighlyPackedVariable(cons, low, high)):-
+StorageStmtToIndexAndConstruct(store, "ACCESS", index, $TightlyPackedVariable(cons, low, high)):-
   LikelyVariableLoadingStorageIndex(index),
   StorageIndex_StorageConstruct(index, cons),
   Variable_StorageIndex(indexVar, index),
   StorageAccessOp(store, indexVar),
   (VarWrittenToBytesOfStorVarFinal(_, store, $Variable(cons), low, high); ConstWrittenToBytesOfStorVar(_, _, store, _, $Variable(cons), low, high)),
-  ProcessedStorageVariable($Variable(cons), $TighlyPackedVariable(cons, low, high)).
+  ProcessedStorageVariable($Variable(cons), $TightlyPackedVariable(cons, low, high)).
 
 .decl StorageOffset_Type(offset: Value, type: symbol)
 
