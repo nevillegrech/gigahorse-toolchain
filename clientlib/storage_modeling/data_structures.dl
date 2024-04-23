@@ -365,6 +365,7 @@ PackedStructWordToStringUpTo(structID, offset, cat(type, cat(" ", cat(varName, "
   StorageConstruct_ParentAndOffset(child, cons, offset),
   StorageVariablePacksNVars(child, _),
   ProcessedStorageVariable(child, $TighlyPackedVariable(para, 0, byteHigh)),
+  para=para, // silence warning
   varName = PACKED_FIELD(offset, 0, byteHigh),
   type = cat("uint", to_string((1 + byteHigh) * 8)).
 
@@ -374,6 +375,7 @@ PackedStructWordToStringUpTo(structID, offset, cat(prevStr, cat(" ", decl)), byt
   PackedStructWordToStringUpTo(structID, offset, prevStr, prevByteHigh, i),
   StorageVariablePacksNVars(child, _),
   ProcessedStorageVariable(child, $TighlyPackedVariable(para, prevByteHigh + 1, byteHigh)),
+  para=para, // silence warning
   varName = PACKED_FIELD(offset, prevByteHigh + 1, byteHigh),
   type = cat("uint", to_string((1 + byteHigh - (prevByteHigh + 1)) * 8)),
   decl = cat(type, cat(" ", cat(varName, ";"))).
