@@ -401,7 +401,7 @@ FallbackFunction(func) :- PublicFunctionSelector(func, "0x00000000").
 
 // Can be "default" or "scalable"
 .decl DecompilerConfig(config: symbol)
-.input DecompilerConfig
+.input DecompilerConfig(IO="file", filename="DecompilerConfig.csv", delimiter="\t")
 
 
 // Dynamic Information

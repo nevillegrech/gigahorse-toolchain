@@ -235,6 +235,8 @@ OpcodeLogLen("NUMBER", 0).
 OpcodeLogLen("DIFFICULTY", 0).
 OpcodeLogLen("GASLIMIT", 0).
 OpcodeLogLen("BASEFEE", 0).
+OpcodeLogLen("BLOBHASH", 0).
+OpcodeLogLen("BLOBBASEFEE", 0).
 OpcodeLogLen("POP", 0).
 OpcodeLogLen("MLOAD", 0).
 OpcodeLogLen("MSTORE", 0).
@@ -247,6 +249,9 @@ OpcodeLogLen("PC", 0).
 OpcodeLogLen("MSIZE", 0).
 OpcodeLogLen("GAS", 0).
 OpcodeLogLen("JUMPDEST", 0).
+OpcodeLogLen("TLOAD", 0).
+OpcodeLogLen("TSTORE", 0).
+OpcodeLogLen("MCOPY", 0).
 OpcodeLogLen("PUSH0", 0).
 OpcodeLogLen("PUSH1", 0).
 OpcodeLogLen("PUSH2", 0).
@@ -387,6 +392,8 @@ OpcodePushLen("NUMBER", 0).
 OpcodePushLen("DIFFICULTY", 0).
 OpcodePushLen("GASLIMIT", 0).
 OpcodePushLen("BASEFEE", 0).
+OpcodePushLen("BLOBHASH", 0).
+OpcodePushLen("BLOBBASEFEE", 0).
 OpcodePushLen("POP", 0).
 OpcodePushLen("MLOAD", 0).
 OpcodePushLen("MSTORE", 0).
@@ -399,6 +406,9 @@ OpcodePushLen("PC", 0).
 OpcodePushLen("MSIZE", 0).
 OpcodePushLen("GAS", 0).
 OpcodePushLen("JUMPDEST", 0).
+OpcodePushLen("TLOAD", 0).
+OpcodePushLen("TSTORE", 0).
+OpcodePushLen("MCOPY", 0).
 OpcodePushLen("PUSH0", 0).
 OpcodePushLen("PUSH1", 1).
 OpcodePushLen("PUSH2", 2).
@@ -533,6 +543,8 @@ OpcodeStackDelta("NUMBER", 1).
 OpcodeStackDelta("DIFFICULTY", 1).
 OpcodeStackDelta("GASLIMIT", 1).
 OpcodeStackDelta("BASEFEE", 1).
+OpcodeStackDelta("BLOBHASH", 0).
+OpcodeStackDelta("BLOBBASEFEE", 1).
 OpcodeStackDelta("POP", -1).
 OpcodeStackDelta("MLOAD", 0).
 OpcodeStackDelta("MSTORE", -2).
@@ -545,6 +557,9 @@ OpcodeStackDelta("PC", 1).
 OpcodeStackDelta("MSIZE", 1).
 OpcodeStackDelta("GAS", 1).
 OpcodeStackDelta("JUMPDEST", 0).
+OpcodeStackDelta("TLOAD", 0).
+OpcodeStackDelta("TSTORE", -2).
+OpcodeStackDelta("MCOPY", -3).
 OpcodeStackDelta("PUSH0", 1).
 OpcodeStackDelta("PUSH1", 1).
 OpcodeStackDelta("PUSH2", 1).
@@ -679,6 +694,8 @@ OpcodePopWords("NUMBER", 0).
 OpcodePopWords("DIFFICULTY", 0).
 OpcodePopWords("GASLIMIT", 0).
 OpcodePopWords("BASEFEE", 0).
+OpcodePopWords("BLOBHASH", 1).
+OpcodePopWords("BLOBBASEFEE", 0).
 OpcodePopWords("POP", 1).
 OpcodePopWords("MLOAD", 1).
 OpcodePopWords("MSTORE", 2).
@@ -691,6 +708,9 @@ OpcodePopWords("PC", 0).
 OpcodePopWords("MSIZE", 0).
 OpcodePopWords("GAS", 0).
 OpcodePopWords("JUMPDEST", 0).
+OpcodePopWords("TLOAD", 1).
+OpcodePopWords("TSTORE", 2).
+OpcodePopWords("MCOPY", 3).
 OpcodePopWords("PUSH0", 0).
 OpcodePopWords("PUSH1", 0).
 OpcodePopWords("PUSH2", 0).
@@ -825,6 +845,8 @@ OpcodePushWords("NUMBER", 1).
 OpcodePushWords("DIFFICULTY", 1).
 OpcodePushWords("GASLIMIT", 1).
 OpcodePushWords("BASEFEE", 1).
+OpcodePushWords("BLOBHASH", 1).
+OpcodePushWords("BLOBBASEFEE", 1).
 OpcodePushWords("POP", 0).
 OpcodePushWords("MLOAD", 1).
 OpcodePushWords("MSTORE", 0).
@@ -837,6 +859,9 @@ OpcodePushWords("PC", 1).
 OpcodePushWords("MSIZE", 1).
 OpcodePushWords("GAS", 1).
 OpcodePushWords("JUMPDEST", 0).
+OpcodePushWords("TLOAD", 1).
+OpcodePushWords("TSTORE", 0).
+OpcodePushWords("MCOPY", 0).
 OpcodePushWords("PUSH0", 1).
 OpcodePushWords("PUSH1", 1).
 OpcodePushWords("PUSH2", 1).
@@ -971,6 +996,8 @@ OpcodeGas("NUMBER", 2).
 OpcodeGas("DIFFICULTY", 2).
 OpcodeGas("GASLIMIT", 2).
 OpcodeGas("BASEFEE", 2).
+OpcodeGas("BLOBHASH", 3).
+OpcodeGas("BLOBBASEFEE", 2).
 OpcodeGas("POP", 2).
 OpcodeGas("MLOAD", 3).
 OpcodeGas("MSTORE", 3).
@@ -983,6 +1010,9 @@ OpcodeGas("PC", 2).
 OpcodeGas("MSIZE", 2).
 OpcodeGas("GAS", 2).
 OpcodeGas("JUMPDEST", 1).
+OpcodeGas("TLOAD", 100).
+OpcodeGas("TSTORE", 100).
+OpcodeGas("MCOPY", 3).
 OpcodeGas("PUSH0", 2).
 OpcodeGas("PUSH1", 3).
 OpcodeGas("PUSH2", 3).
@@ -1117,6 +1147,8 @@ OpcodeOrd("NUMBER", 67).
 OpcodeOrd("DIFFICULTY", 68).
 OpcodeOrd("GASLIMIT", 69).
 OpcodeOrd("BASEFEE", 72).
+OpcodeOrd("BLOBHASH", 73).
+OpcodeOrd("BLOBBASEFEE", 74).
 OpcodeOrd("POP", 80).
 OpcodeOrd("MLOAD", 81).
 OpcodeOrd("MSTORE", 82).
@@ -1129,6 +1161,9 @@ OpcodeOrd("PC", 88).
 OpcodeOrd("MSIZE", 89).
 OpcodeOrd("GAS", 90).
 OpcodeOrd("JUMPDEST", 91).
+OpcodeOrd("TLOAD", 92).
+OpcodeOrd("TSTORE", 93).
+OpcodeOrd("MCOPY", 94).
 OpcodeOrd("PUSH0", 95).
 OpcodeOrd("PUSH1", 96).
 OpcodeOrd("PUSH2", 97).

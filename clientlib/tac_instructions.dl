@@ -82,6 +82,7 @@ MAKEUNOP(BALANCE).
 MAKEUNOP(CALLDATALOAD).
 MAKEUNOP(MLOAD).
 MAKEUNOP(SLOAD).
+MAKEUNOP(TLOAD).
 
 MAKEUNARITHOP(ISZERO).
 MAKEUNARITHOP(NOT).
@@ -161,9 +162,14 @@ MSIZE(stmt, to):-
   Statement_Defines(stmt, to, 0).
 
 .decl SSTORE(stmt: Statement, index: Variable, var: Variable)
-
 SSTORE(stmt, index, var) :-
   Statement_Opcode(stmt,"SSTORE"),
+  Statement_Uses(stmt, index, 0),
+  Statement_Uses(stmt, var, 1).
+
+.decl TSTORE(stmt: Statement, index: Variable, var: Variable)
+TSTORE(stmt, index, var) :-
+  Statement_Opcode(stmt,"TSTORE"),
   Statement_Uses(stmt, index, 0),
   Statement_Uses(stmt, var, 1).
 
@@ -270,6 +276,13 @@ EXTCODECOPY(stmt, target, mem_start, extcode_start, length):-
   Statement_Uses(stmt, mem_start, 1),
   Statement_Uses(stmt, extcode_start, 2),
   Statement_Uses(stmt, length, 3).
+
+.decl MCOPY(s: Statement, to_address: Variable, from_address: Variable, length: Variable)
+MCOPY(stmt, to_address, from_address, length) :-
+   Statement_Opcode(stmt, "MCOPY"),
+   Statement_Uses(stmt, to_address, 0),
+   Statement_Uses(stmt, from_address, 1),
+   Statement_Uses(stmt, length, 2).
 
 .decl JUMP(stmt:Statement, dest:Variable)
 JUMP(stmt, dest) :-

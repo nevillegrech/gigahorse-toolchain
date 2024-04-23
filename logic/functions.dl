@@ -11,27 +11,49 @@
 
 
 /**
-  This relation is used in two places to ensure the precision of possible calls.
-  We start from the facts of `PossibleReturnAddressWithRank` and keep both `retBlock` and `retTarget`
-  in order to be general enough and support complex calls with shared `retBlock`s or `retTarget`s.
+  This filter relation is used in three places to ensure the precision of possible calls.
+  We start from the facts of `PossibleReturnAddressWithRank` or `InitialPossibleReturnAddressWithRank` 
+  and keep both `retBlock` and `retTarget` in order to be general enough and support complex calls
+  with shared `retBlock`s or `retTarget`s.
 */
 
-.decl ContextCanReachFromCallerToReturn(fromCtx: global.sens.Context, caller: Block, ctx: global.sens.Context, toBlock: Block, retBlock: Block, targetBlock: Block)
+.decl ContextCanReachFromCallerToReturn(fromCtx: global.sens.Context, caller: Block, retCtx: global.sens.Context, retBlock: Block, targetBlock: Block)
+ContextCanReachFromCallerToReturn(callCtx, caller, retCtx, retBlock, retTarget) :-
+  ContextCanReachFromCallerToReturn_Intermediate(callCtx, caller, retCtx, retBlock, retBlock, retTarget),
+  global.BlockEdge(retCtx, retBlock, _, retTarget).
+
+.decl ContextCanReachFromCallerToReturn_Intermediate(fromCtx: global.sens.Context, caller: Block, ctx: global.sens.Context, toBlock: Block, retBlock: Block, targetBlock: Block)
 #ifdef ENABLE_LIMITSIZE
-.limitsize ContextCanReachFromCallerToReturn(n=LIMITSIZE_CAN_REACH_UNDER_CONTEXT)
+.limitsize ContextCanReachFromCallerToReturn_Intermediate(n=LIMITSIZE_CAN_REACH_UNDER_CONTEXT)
 #endif
 
-ContextCanReachFromCallerToReturn(callCtx, caller, ctxTo, toBlock, retBlock, retTarget) :-
-  PossibleReturnAddressWithRank(callCtx, caller, _, retBlock, retTarget, _),
+// Combinations of candidate "caller" block, return block, and continuation after return
+.decl PotentialCallerReturnAndTarget(caller: Block, retBlock: Block, targetBlock: Block)
+PotentialCallerReturnAndTarget(caller, retBlock, retTarget) :-
+  InitialPossibleReturnAddressWithRank(caller, _, retBlock, retTarget, _).
+
+.decl PotentialCallerReturnAndTargetWithContext(callCtx: global.sens.Context, caller: Block, retBlock: Block, targetBlock: Block)
+
+// When we have a context, use it
+PotentialCallerReturnAndTargetWithContext(callCtx, caller, retBlock, targetBlock) :-
+  PossibleReturnAddressWithRank(callCtx, caller, _, retBlock, targetBlock, _).
+
+// When we don't, consider all
+PotentialCallerReturnAndTargetWithContext(callCtx, caller, retBlock, targetBlock) :-
+  PotentialCallerReturnAndTarget(caller, retBlock, targetBlock),
+  global.BlockJumpValidTarget(callCtx, caller, _, _).
+  
+ContextCanReachFromCallerToReturn_Intermediate(callCtx, caller, ctxTo, toBlock, retBlock, retTarget) :-
+  PotentialCallerReturnAndTargetWithContext(callCtx, caller, retBlock, retTarget),
   global.BlockEdge(callCtx, caller, ctxTo, toBlock).
 
-ContextCanReachFromCallerToReturn(ctxFrom, caller, ctxTo, toBlock, retBlock, retTarget) :-
-  ContextCanReachFromCallerToReturn(ctxFrom, caller, ctxOther, otherBlock, retBlock, retTarget),
+ContextCanReachFromCallerToReturn_Intermediate(ctxFrom, caller, ctxTo, toBlock, retBlock, retTarget) :-
+  ContextCanReachFromCallerToReturn_Intermediate(ctxFrom, caller, ctxOther, otherBlock, retBlock, retTarget),
   global.BlockEdge(ctxOther, otherBlock, ctxTo, toBlock),
   retBlock != otherBlock.
 
-ContextCanReachFromCallerToReturn(ctxFrom, caller, ctxTo, toBlock, retBlock, retTarget) :-
-  ContextCanReachFromCallerToReturn(ctxFrom, caller, ctxOther, retBlock, retBlock, retTarget),
+ContextCanReachFromCallerToReturn_Intermediate(ctxFrom, caller, ctxTo, toBlock, retBlock, retTarget) :-
+  ContextCanReachFromCallerToReturn_Intermediate(ctxFrom, caller, ctxOther, retBlock, retBlock, retTarget),
   global.BlockEdge(ctxOther, retBlock, ctxTo, toBlock),
   toBlock != retTarget.
 
@@ -56,7 +78,6 @@ OptNotImmediateBlockJumpTarget(retCtx, retBlock, targetVariable, retTarget) :-
   !postTrans.ImmediateBlockJumpTarget(retBlock, targetVariable).
 
 
-
 /**
   Call-return pattern:
   a) basic block jumps to a valid "non-locally-derived" address
@@ -75,6 +96,41 @@ PossibleReturnAddressWithPos(targetSetter, retCtx, retBlock, retTarget, pos) :-
   postTrans.JUMP(jumpStmt),
   postTrans.BeforeLocalStackContents(jumpStmt, pos, targetVariable).
 
+/**
+  This pattern is prominent in 0.8.x code:
+    Block label_a:
+      push continuation
+      ...
+      push label_b
+      jumpi
+    fallthrough:
+      ...
+      revert
+    Block label_b:
+      push func_start
+      jump
+
+  We handle it by treating the return address as if it was pushed by label_b.
+
+  Code older than 0.8.x would call the function directly with a jumpi.
+  We try to filter this out and will need to handle it separately.
+*/
+PossibleReturnAddressWithPos(as(next, Block), retCtx, retBlock, retTarget, pos) :-
+  OptNotImmediateBlockJumpTarget(retCtx, retBlock, targetVariable, retTarget),
+  postTrans.Statement_Defines(targetSetStatement, targetVariable),
+  postTrans.Statement_Block(targetSetStatement, targetSetter),
+  postTrans.BasicBlock_Tail(targetSetter, jumpiStmt),
+  postTrans.JUMPI(jumpiStmt),
+  postTrans.LocalStackContents(jumpiStmt, stackIndex, targetVariable),
+  postTrans.FallthroughEdge(targetSetter, revertBlock),
+  postTrans.BlockWillRevert(revertBlock),
+  postTrans.StaticBlockJumpTarget(targetSetter, next),
+  postTrans.BasicBlock_Tail(as(next, Block), jumpStmt),
+  postTrans.JUMP(jumpStmt),
+  postTrans.BeforeLocalStackContents(jumpStmt, pos, stackIndex),
+  // filter out cases where the function is called directly
+  !postTrans.IsJumpBlockPrivateFunctionCall(_, as(next, Block)).
+
 .decl OptPossibleReturnAddressWithPos(targetSetter:Block, retBlock:Block, retTarget:Block, pos:number)
 OptPossibleReturnAddressWithPos(targetSetter, retBlock, retTarget, pos) :-
   PossibleReturnAddressWithPos(targetSetter, _, retBlock, retTarget, pos).
@@ -91,14 +147,11 @@ InitialPossibleReturnAddressWithRank(targetSetter, retCtx, retBlock, retTarget, 
   rank = count : PossibleReturnAddressWithLowerPos(targetSetter, retBlock, retTarget, pos, _),
   rank < RETURN_ADDRESS_RANK_THRESHOLD.  
 
-.decl OptBlockJumpContext(callCtx:global.sens.Context, targetSetter:Block)
-OptBlockJumpContext(callCtx, targetSetter) :-
-  global.BlockJumpValidTarget(callCtx, targetSetter, _, _). // REVIEW: maybe bad?
-
 .decl PossibleReturnAddressWithRank(callCtx:global.sens.Context, targetSetter:Block, retCtx:global.sens.Context, retBlock:Block, retTarget:Block, rank:number)
 PossibleReturnAddressWithRank(callCtx, targetSetter, retCtx, retBlock, retTarget, rank) :-
-  InitialPossibleReturnAddressWithRank(targetSetter, retCtx, retBlock, retTarget, rank),
-  OptBlockJumpContext(callCtx, targetSetter).
+  ContextCanReachFromCallerToReturn(callCtx, targetSetter, retCtx, retBlock, retTarget),
+  InitialPossibleReturnAddressWithRank(targetSetter, retCtx, retBlock, retTarget, rank).
+
 
 .decl MaxRankForPossibleReturnAddressSetter(targetSetter:Block, rank:number)
 MaxRankForPossibleReturnAddressSetter(targetSetter, rank) :-
@@ -128,10 +181,10 @@ MaxRankForPossibleReturnAddressSetter(targetSetter, rank) :-
 MaybeFunctionCallReturn(ctx, caller, func, retCtx, retBlock, retTarget) :-
   PossibleReturnAddressWithRank(ctx, caller, retCtx, retBlock, retTarget, 0),
   postTrans.ImmediateBlockJumpTarget(caller, targetVar),
-  postTrans.Statement_Block(jump, caller),
+  postTrans.BasicBlock_Tail(caller, jump),
   postTrans.Statement_Opcode(jump, "JUMP"), //Added to invalidate JUMPIs we will need to deal with them though
   global.BlockJumpValidTarget(ctx, caller, targetVar, func),
-  ContextCanReachFromCallerToReturn(ctx, caller, retCtx, retBlock, retBlock, retTarget),
+  ContextCanReachFromCallerToReturn(ctx, caller, retCtx, retBlock, retTarget),
   global.BlockJumpValidTarget(retCtx, retBlock, _, retTarget).
  .plan 1:(6,1,2,3,4,5,7)
 
@@ -148,7 +201,7 @@ MaybeFunctionCallReturn_Ins(caller, func, retBlock, retTarget):-
 .decl PossibleReturnAddressWithPositiveRank(callCtx:global.sens.Context, targetSetter:Block, retCtx:global.sens.Context, retBlock:Block, retTarget:Block, rank:number)
 PossibleReturnAddressWithPositiveRank(callCtx, caller, retCtx, retBlock, retTarget, n) :-
   PossibleReturnAddressWithRank(callCtx, caller, retCtx, retBlock, retTarget, n),
-  ContextCanReachFromCallerToReturn(callCtx, caller, retCtx, retBlock, retBlock, retTarget),
+  ContextCanReachFromCallerToReturn(callCtx, caller, retCtx, retBlock, retTarget),
   global.BlockJumpValidTarget(retCtx, retBlock, _, retTarget),
   n > 0,
   n < RETURN_ADDRESS_RANK_THRESHOLD.
