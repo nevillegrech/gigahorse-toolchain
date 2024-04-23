@@ -4,7 +4,6 @@
 
 .init variableValueConstantFolding = ConstantFolding
 
-.output variableValueConstantFolding.RequestConstantFold1
 
 .decl AuxStatementOpAndArgs(stmt:Statement, op:Opcode, a:Variable, b_val:Variable)
 AuxStatementOpAndArgs(stmt, op, a, b) :-
