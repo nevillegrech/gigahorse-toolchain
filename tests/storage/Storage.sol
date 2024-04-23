@@ -1,4 +1,4 @@
-pragma solidity 0.8.19;
+pragma solidity 0.8.24;
 
 contract MergedVars {
     address public owner;
@@ -65,6 +65,18 @@ contract SimpleArray {
     function addOwner(address newOwner) external {
         owners.push(newOwner);
     }
+
+    function removeOwner(address owner) external returns (bool){
+        for (uint i=0; i < owners.length; i++) {
+            if (owners[i] == owner){
+                owners[i] = owners[owners.length - 1];
+                owners.pop();
+                return true;
+            }
+        }
+        return false;
+    }
+
 }
 
 contract SimpleMapping {
