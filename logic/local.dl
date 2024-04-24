@@ -1108,11 +1108,11 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     PushValue(pushCodeOffset, codeOffsetNumHex).
 
   .decl FunctionSelectorVariable(variable: Variable)
-  FunctionSelectorVariable(selector):-
-    CALLDATALOAD(stmt),
-    Statement_Uses_Local(stmt, zeroVar, 0),
-    Variable_Value(zeroVar, "0x0"),
-    Statement_Defines(stmt, selector).
+  // FunctionSelectorVariable(selector):-
+  //   CALLDATALOAD(stmt),
+  //   Statement_Uses_Local(stmt, zeroVar, 0),
+  //   Variable_Value(zeroVar, "0x0"),
+  //   Statement_Defines(stmt, selector).
 
   FunctionSelectorVariable(selector):-
     CALLDATALOAD(stmt),
@@ -1142,6 +1142,14 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
     Statement_Uses_Local(cast, maskVar, 1 - n),
     Variable_Value(maskVar, "0xffffffff"),
     Statement_Defines(cast, selector).
+
+  FunctionSelectorVariable(castedSelector):-
+    FunctionSelectorVariable(selector),
+    Statement_Uses_Local(cast, selector, n),
+    Statement_Uses_Local(cast, castConst, 1 - n),
+    Statement_Opcode(cast, "AND"),
+    Variable_Value(castConst, "0xffffffff"),
+    Statement_Defines(cast, castedSelector).
 
 }
 
@@ -1507,6 +1515,15 @@ PreTransStatement_OriginalStatement(heurClStmt, ogStmt) :-
 
 ValidSelector(optionalSelector):-
   blockCloner.analysis.ValidSelector(optionalSelector).
+
+/**
+  When we don't manage to find any ValidSelectors (other than $NoSelector())
+  we should just propagate everything `preTrans` gives us.
+  REVISIT: Disabling this for now
+*/
+// ValidSelector(optionalSelector):-
+//   1 = count : blockCloner.analysis.ValidSelector(_),
+//   preTrans.IsOptionalSelector(optionalSelector).
 
 #else
 

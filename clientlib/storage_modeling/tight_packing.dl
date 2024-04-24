@@ -21,12 +21,12 @@ DEBUG_OUTPUT(SLOADFlowsToSSTORE)
 DEBUG_OUTPUT(VarFlowsFromSLOADToSSTORE)
 
 SLOADFlowsToSSTORE(sload, sstore, construct):-
-  StorageStmtToIndexAndConstruct(sload, "ACCESS", _, construct),
+  InitialStorageStmtToIndexAndConstruct(sload, "ACCESS", _, construct),
   SLOAD(sload, _, loadedVar),
   //LocalFlows(loadedVar, storedVar),
   castsAndShiftsFlows.Flows(loadedVar, storedVar),
   SSTORE(sstore, _, storedVar),
-  StorageStmtToIndexAndConstruct(sstore, "ACCESS", _, construct).
+  InitialStorageStmtToIndexAndConstruct(sstore, "ACCESS", _, construct).
 
 VarFlowsFromSLOADToSSTORE(var, construct):-
   SLOADFlowsToSSTORE(sload, sstore, construct),
@@ -36,7 +36,7 @@ VarFlowsFromSLOADToSSTORE(var, construct):-
   SSTORE(sstore, _, storedVar).
 
 FlowsToSSTOREOfConstruct(var, construct):-
-  StorageStmtToIndexAndConstruct(sstore, "ACCESS", _, construct),
+  InitialStorageStmtToIndexAndConstruct(sstore, "ACCESS", _, construct),
   SSTORE(sstore, _, storedVar),
   LocalFlows(var, storedVar).
 
@@ -56,11 +56,11 @@ SSTOREToConst(sstore, const, var):-
 
 SLOADOfConstruct(sload, construct, var):-
   SLOAD(sload, _, var),
-  StorageStmtToIndexAndConstruct(sload, "ACCESS", _, construct).
+  InitialStorageStmtToIndexAndConstruct(sload, "ACCESS", _, construct).
 
 SSTOREToConstruct(sstore, construct, var):-
   SSTORE(sstore, _, var),
-  StorageStmtToIndexAndConstruct(sstore, "ACCESS", _, construct).
+  InitialStorageStmtToIndexAndConstruct(sstore, "ACCESS", _, construct).
 
 
 /**
@@ -94,7 +94,7 @@ DEBUG_OUTPUT(VarHoldsBytesOfStorVarFinal)
 
 VarHoldsBytesOfStorVarPlus(to, load, construct, 0, 0, 31):-
   SLOAD(load, _, to),
-  StorageStmtToIndexAndConstruct(load, "ACCESS", _, construct).
+  InitialStorageStmtToIndexAndConstruct(load, "ACCESS", _, construct).
 
 VarHoldsBytesOfStorVar(var, load, storVar, low, high):-
   VarHoldsBytesOfStorVarPlus(var, load, storVar, _, low, high).
@@ -122,6 +122,10 @@ VarHoldsBytesOfStorVarPlus(to, load, storVar, startByte, low, newHigh):-
   newHigh =  minKeptByte - startByte,
   LowBytesMaskOp(var, to, maskLen).
 
+VarHoldsBytesOfStorVarPlus(to, load, storVar, 0, low, low):-
+  VarHoldsBytesOfStorVarPlus(from, load, storVar, 0, low, low),
+  BooleanCast(from, to).
+
 VarHoldsBytesOfStorVarPlus(to, load, storVar, startByte, newLow, high):-
   VarHoldsBytesOfStorVarPlus(var, load, storVar, startByte, low, high),
   maxKeptByte = max(startByte + low, startByte + high - maskLen + 1),
@@ -134,6 +138,7 @@ VarHoldsBytesOfStorVarFinal(var, load, storVar, low, high):-
   !LShiftBytes(var, _, _),
   !RShiftBytes(var, _, _),
   !LowBytesMaskOp(var, _, _),
+  // !BooleanCast(var, _),
   !HighBytesMaskOp(var, _, _),
   !AntiMaskOp(var, _, _, _).
 
@@ -175,7 +180,7 @@ FailedMergedStorageModeling(storVar):-
   ( (low < otherLow , otherLow < high) ; (low < otherHigh, otherHigh < high) ).
 
 LoadOrStoreToStoreVar(stmt, construct):-
-  StorageStmtToIndexAndConstruct(stmt, "ACCESS", _, construct).
+  InitialStorageStmtToIndexAndConstruct(stmt, "ACCESS", _, construct).
 
 FailedMergedStorageModelingReason(storVar, stmt, stmt, nil, nil),
 FailedMergedStorageModeling(storVar):-
@@ -239,6 +244,12 @@ ProbablyPartialStorageUpdatePattern(fromVar, toVar, "VAR", writtenVar, byteLow, 
 
 ProbablyPartialStorageUpdatePattern(fromVar, toVar, "VAR", writtenVar, 0, byteHigh - 1):-
   LowBytesMaskOp(writtenVar, castedVar, byteHigh),
+  (OR(_, castedVar, fromVar, toVar) ; OR(_, fromVar, castedVar, toVar)),
+  FlowsToSSTOREOfConstruct(writtenVar, construct),
+  !VarFlowsFromSLOADToSSTORE(writtenVar, construct).
+
+ProbablyPartialStorageUpdatePattern(fromVar, toVar, "VAR", writtenVar, 0, 0):-
+  BooleanCast(writtenVar, castedVar),
   (OR(_, castedVar, fromVar, toVar) ; OR(_, fromVar, castedVar, toVar)),
   FlowsToSSTOREOfConstruct(writtenVar, construct),
   !VarFlowsFromSLOADToSSTORE(writtenVar, construct).
@@ -426,11 +437,14 @@ VarHoldsBytesOfStorVar(to, store, storVar, 0, maskLen - 1):-
   Statement_Uses(store, storedVar, 1),
   LowBytesMaskOp(storedVar, to, maskLen).
 
+VarHoldsBytesOfStorVar(to, store, storVar, 0, 0):-
+  VarWrittenToBytesOfStorVar(_, store, storVar, _, _),
+  Statement_Uses(store, storedVar, 1),
+  BooleanCast(storedVar, to).
+
 /**
   Top-Level Global Variables
  */
-
-#define MERGED_STORAGE_VAR(storVar,byteLow,byteHigh) cat(storVar, cat("_", cat(to_string(byteLow), cat("_", to_string(byteHigh)))))
 
 .decl GlobalVariable(v: Value)
 
@@ -444,6 +458,9 @@ VarHoldsBytesOfStorVar(to, store, storVar, 0, maskLen - 1):-
 // Processing of storage variables, accounting for tightly packed words
 .decl ProcessedStorageVariable(storageVar: StorageConstruct, storageVarProcessed: StorageConstruct)
 DEBUG_OUTPUT(ProcessedStorageVariable)
+
+.decl StorageVariablePacksNVars(storageVar: StorageConstruct, numberOfVars: number)
+DEBUG_OUTPUT(StorageVariablePacksNVars)
 
 /* Old logic
 GlobalVariable(v) :-
@@ -502,7 +519,7 @@ StorageVariableInfo(storVar, storVar, 0, 31):-
   construct = $Variable($Constant(storVar)).
 
 StorageVariableInfo(MERGED_STORAGE_VAR(storVar, byteLow, byteHigh), storVar, byteLow, byteHigh):-
-  ProcessedStorageVariable($Variable($Constant(storVar)), $TighlyPackedVariable($Constant(storVar), byteLow, byteHigh)).
+  ProcessedStorageVariable($Variable($Constant(storVar)), $TightlyPackedVariable($Constant(storVar), byteLow, byteHigh)).
 
 ProcessedStorageVariable(storageVar, storageVar):-
   FailedMergedStorageModeling(storageVar).
@@ -515,7 +532,7 @@ ProcessedStorageVariable(construct, construct):-
     VarHoldsBytesOfStorVarFinal(_, _, construct, 0, 31)
   ).
 
-ProcessedStorageVariable(storageVar, $TighlyPackedVariable(parentCons, byteLow, byteHigh)):-
+ProcessedStorageVariable(storageVar, $TightlyPackedVariable(parentCons, byteLow, byteHigh)):-
   SuccessfulMergedStorageModeling(storageVar),
   storageVar = $Variable(parentCons),
   (
@@ -525,6 +542,17 @@ ProcessedStorageVariable(storageVar, $TighlyPackedVariable(parentCons, byteLow, 
   ),
   byteHigh - byteLow != 31.
 
+// If an array element is never loaded or stored directly (i.e. it is only copied via loops)
+// We consider it non merged. Maybe this isn't the right aproach, review.
+ProcessedStorageVariable($Variable($Array(cons)), $Variable($Array(cons))):-
+  StorageStmtToIndexAndConstruct(_, "LENGTH", _, $Array(cons)),
+  !AnyLoadStoreStorVarBytes(_, $Variable($Array(cons)), _, _).
+
+StorageVariablePacksNVars(storageVar, numberOfVars):-
+  ProcessedStorageVariable(storageVar, _),
+  numberOfVars = count : ProcessedStorageVariable(storageVar, _),
+  numberOfVars > 1.
+
 /**
   Basic type inference
   Hacky for now just to print the correct uintX or address if nessesary.
@@ -532,42 +560,42 @@ ProcessedStorageVariable(storageVar, $TighlyPackedVariable(parentCons, byteLow, 
 
 .decl StorageVariableType(storVar:symbol, type:symbol)
 
-.decl SpecialStorageVariableType(storVar:symbol, type:symbol)
+.decl SpecialStorageVariableType(storVar:StorageConstruct, type:symbol)
 
 StorageVariableType(storVar, type):-
-  StorageVariableInfo(storVar, _, byteLow, byteHigh),
+  StorageVariableInfo(storVar, slot, byteLow, byteHigh),
   widthBytes = 1 + byteHigh - byteLow,
-  !SpecialStorageVariableType(storVar, _),
+  !SpecialStorageVariableType($TightlyPackedVariable($Constant(slot), byteLow, byteHigh), _),
   type = cat("uint", to_string(widthBytes * 8)).
 
 StorageVariableType(storVar, type):-
-  StorageVariableInfo(storVar, _, _, _),
-  SpecialStorageVariableType(storVar, type).
+  StorageVariableInfo(storVar, slot, byteLow, byteHigh),
+  SpecialStorageVariableType($TightlyPackedVariable($Constant(slot), byteLow, byteHigh), type).
 
-SpecialStorageVariableType(storVar, "address"):-
-  StorageVariableInfo(storVar, originStorVar, byteLow, byteHigh),
-  VarHoldsBytesOfStorVarFinal(var, _, $Variable($Constant(originStorVar)), byteLow, byteHigh),
+SpecialStorageVariableType($TightlyPackedVariable(cons, byteLow, byteHigh), "address"):-
+  ProcessedStorageVariable(_, $TightlyPackedVariable(cons, byteLow, byteHigh)),
+  VarHoldsBytesOfStorVarFinal(var, _, $Variable(cons), byteLow, byteHigh),
   widthBytes = 1 + byteHigh - byteLow,
   widthBytes = 20,
   DataFlows(var, addr),
   AddressTypedVar(addr).
 
-SpecialStorageVariableType(storVar, "address"):-
-  StorageVariableInfo(storVar, originStorVar, byteLow, byteHigh),
-  VarWrittenToBytesOfStorVarFinal(var, _, $Variable($Constant(originStorVar)), byteLow, byteHigh),
+SpecialStorageVariableType($TightlyPackedVariable(cons, byteLow, byteHigh), "address"):-
+  ProcessedStorageVariable(_, $TightlyPackedVariable(cons, byteLow, byteHigh)),
+  VarWrittenToBytesOfStorVarFinal(var, _, $Variable(cons), byteLow, byteHigh),
   widthBytes = 1 + byteHigh - byteLow,
   widthBytes = 20,
   DataFlows(addr, var),
   AddressTypedVar(addr).
 
 // Hack to cover msg.sender == var and other similar things
-SpecialStorageVariableType(storVar, "address"):-
+SpecialStorageVariableType($TightlyPackedVariable(cons, byteLow, byteHigh), "address"):-
   AddressTypedVar(addrFrom),
   DataFlows(addrFrom, addr),
   (EQ(_, otherAddr, addr, _) ; EQ(_, addr, otherAddr, _)),
   DataFlows(var, otherAddr),
-  VarHoldsBytesOfStorVarFinal(var, _, $Variable($Constant(originStorVar)), byteLow, byteHigh),
-  StorageVariableInfo(storVar, originStorVar, byteLow, byteHigh),
+  VarHoldsBytesOfStorVarFinal(var, _, $Variable(cons), byteLow, byteHigh),
+  ProcessedStorageVariable(_, $TightlyPackedVariable(cons, byteLow, byteHigh)),
   widthBytes = 1 + byteHigh - byteLow,
   widthBytes = 20.
 

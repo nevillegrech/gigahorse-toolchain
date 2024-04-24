@@ -1,6 +1,12 @@
 #pragma once
 #define DATA_STRUCTURE_SUPPORT
 
+#define MERGED_STORAGE_VAR(storVar,byteLow,byteHigh) cat(storVar, cat("_", cat(to_string(byteLow), cat("_", to_string(byteHigh)))))
+
+#define SIMPLE_FIELD(fieldNum) cat("field", to_string(fieldNum))
+
+#define PACKED_FIELD(fieldNum,byteLow,byteHigh) MERGED_STORAGE_VAR(cat("field", to_string(fieldNum)),byteLow,byteHigh)
+
 #include "../dominators.dl"
 #include "../flows.dl"
 #include "../casts_shifts.dl"
