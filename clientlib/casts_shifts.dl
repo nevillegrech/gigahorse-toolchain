@@ -323,3 +323,24 @@ ConstantProbablyShifted(val, baseVal, shiftBytes):-
   j = count : {ValueMasksOrKeepsByteAtIndex(val, 0, k), k < j},
   shiftBytes = j + 1,
   baseVal = substr(val, 0, len - 2*shiftBytes).
+
+// Masks with all 1s
+.decl Mask_Length(mask: Value, bytes: number)
+.decl PreMask_Length(mask: symbol, bytes: number)
+
+Mask_Length(cat("0x", mask), bytes) :-
+   PreMask_Length(mask, bytes).
+
+PreMask_Length("1", 1).
+PreMask_Length("3", 1).
+PreMask_Length("7", 1).
+PreMask_Length("f", 1).
+PreMask_Length("1f", 1).
+PreMask_Length("3f", 1).
+PreMask_Length("7f", 1).
+PreMask_Length("ff", 1).
+
+PreMask_Length(cat(mask, "ff"), bytes+1) :-
+  PreMask_Length(mask, bytes),
+  bytes < 32.
+

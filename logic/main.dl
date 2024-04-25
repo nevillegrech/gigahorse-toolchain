@@ -1,6 +1,3 @@
-#define FALLBACK_FUNCTION_SIGHASH "0x00000000"
-#define RECEIVE_FUNCTION_SIGHASH "0xeeeeeeee"
-
 
 /*
  * Context sensitivity selection needs a little bit of macro expansion for generality
@@ -16,6 +13,7 @@
   #define BLOCK_CLONING HeuristicBlockCloner
 #endif
 
+#include "types_defs.dl"
 #include "context-sensitivity/context_sensitivity.dl"
 
 #include "global.dl"
