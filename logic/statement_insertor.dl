@@ -1,3 +1,4 @@
+#include "global_components.dl"
 #define MAX_INSERTS 5
 
 

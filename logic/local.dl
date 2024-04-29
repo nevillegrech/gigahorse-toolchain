@@ -1,30 +1,6 @@
 #include "statement_insertor.dl"
 #include "local_components.dl"
-
-// Convenience predicate. Folds together bounds checking on valid
-// indices and less-than.
-.decl IsStackIndexLessThan(n:StackIndex, maximum:StackIndex) inline
-                                                               
-IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
-
-// All sorts of different outputs of the decompiler, including
-// three-address code representation (which is later input and
-// re-formatted for use by clients), statistics, debugging relations.
-.decl ByteCodeHex(bytecode:symbol)
-
-.decl _ByteCodeHex(bytecode:symbol)
-.input _ByteCodeHex(IO="file", filename="bytecode.hex")
-
-// strip '0x' from the start of the bytecode if present
-// keeping it would have all the uses of the bytecode wrong (handling codecopies)
-ByteCodeHex(bytecode):-
-  _ByteCodeHex(bytecode),
-  !contains("0x", bytecode).
-
-ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
-  _ByteCodeHex(bytecode),
-  contains("0x", bytecode).
- 
+#include "decompiler_input.dl"
 
 .init factReader = StatementFactReader
 

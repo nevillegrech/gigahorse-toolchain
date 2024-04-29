@@ -1,5 +1,12 @@
+#pragma once
 #include "../clientlib/constants.dl"
 #include "decompiler_input_opcodes.dl"
+
+// Convenience predicate. Folds together bounds checking on valid
+// indices and less-than.
+.decl IsStackIndexLessThan(n:StackIndex, maximum:StackIndex) inline
+IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
+
 
 // Local means within the same basic block
 .comp LocalAnalysis {
@@ -924,19 +931,4 @@
 
   BlockPushesLabel(block, val):-
     ExtBlockPushesLabel(block, val).
-}
-
-
-/**
-   Preprocessing of decompiler input, to yield convenient relations
- */
-.comp StatementFactReader {                                         
-  .decl PushValue(stmt: Statement, v: Value)
-  .decl Statement_Opcode(statement: Statement, opcode: Opcode)
-  .decl Statement_Next(statement: Statement, statementNext: Statement)
-
-  .input PushValue(IO="file", filename="PushValue.facts")
-  .input Statement_Opcode(IO="file", filename="Statement_Opcode.facts")
-  .input Statement_Next(IO="file", filename="Statement_Next.facts")
-  
 }
