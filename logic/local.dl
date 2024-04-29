@@ -1,5 +1,5 @@
-#include "statement_insertor.dl"
 #include "local_components.dl"
+#include "statement_insertor.dl"
 #include "decompiler_input.dl"
 
 .init factReader = StatementFactReader
