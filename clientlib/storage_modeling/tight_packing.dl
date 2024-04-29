@@ -314,7 +314,7 @@ ProbablyPartialStorageUpdateSequenceWrite(toVar, kind, writtenVarOrConst, byteLo
 ProbablyPartialStorageUpdateSequenceWrite(toVar, kind, writtenVarOrConst, byteLow, byteHigh):-
   ProbablyPartialStorageUpdateSequenceWrite(originVar, kind, writtenVarOrConst, byteLow, byteHigh),
   ByteMaskOpKeepRange(originVar, toVar, [keepByteLow, keepByteHigh]),
-  byteLow >= keepByteLow, keepByteLow < byteHigh, byteHigh <= keepByteHigh.
+  byteLow >= keepByteLow, keepByteLow <= byteHigh, byteHigh <= keepByteHigh.
 
 ProbablyPartialStorageUpdateSequenceWrite(toVar, kind, writtenVarOrConst, byteLow, byteHigh):-
   ProbablyPartialStorageUpdateSequenceWrite(originVar, _, _, _, _),
