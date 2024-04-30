@@ -1,0 +1,11 @@
+{
+    "handlers":[
+        {
+            "fileRegex": ".*.hex",
+            "cfgGenScript": {
+                "defaultDecomp": "true",
+                "customScripts": []
+            }
+        }
+    ]
+}

@@ -1,0 +1,88 @@
+
+/*
+ * Simple pipeline that doesn't perform any local transformations, and outputs the CFG
+ */
+
+#ifndef CONTEXT_SENSITIVITY
+  #define CONTEXT_SENSITIVITY TransactionalWithShrinkingContext
+#endif
+
+#include "types_defs.dl"
+#include "decompiler_input.dl"
+#include "global_components.dl"
+
+.init factReader = StatementFactReader
+
+.init local = PreTransLocalAnalysis
+COPY_CODE(local, factReader)
+
+
+/**
+  We use a 2-phase analysis to find invalidate incorrect public function entries,
+  and get better performance
+*/
+.init incompleteGlobal = IncompleteOptimizedGlobalAnalysis<CONTEXT_SENSITIVITY, LocalAnalysis>
+COPY_CODE_FULL(incompleteGlobal, local)
+
+.init global = ExperimentalCompleteOptimizedGlobalAnalysis<CONTEXT_SENSITIVITY>
+
+global.StatementPushesUsedLabel(stmt):-
+  incompleteGlobal.VariableUsedInAsJumpdest(pushedVar),
+  local.Statement_Defines(stmt, pushedVar).
+
+global.sens.ImportantBlockEdge(block, next):- incompleteGlobal.NeedToAddCtxAtEdge(block, next).
+
+COPY_CODE(global, local)
+
+global.PublicFunction(start, hex, selector):-
+  local.PublicFunction(start, hex, selector),
+  incompleteGlobal.ValidSelector(selector).
+
+global.PublicFunctionJump(callBlock, hex, selector):-
+  local.PublicFunctionJump(callBlock, hex, selector),
+  incompleteGlobal.ValidSelector(selector).
+
+/**
+  Output relations
+*/
+
+.decl BlockEdgeOrd(callerCtx:number, from:Block, calleeCtx:number, to:Block)
+.output BlockEdgeOrd
+
+.decl ContextOrd_PublicFunction(ctx: number, functionHex: symbol)
+.output ContextOrd_PublicFunction
+
+.decl PublicFunction(caller: Block, entry: Block, functionHex: symbol)
+.output PublicFunction
+
+BlockEdgeOrd(ord(callerCtx), from, ord(calleeCtx), to):-
+  global.BlockEdge(callerCtx, from, calleeCtx, to).
+
+ContextOrd_PublicFunction(ord(ctx), functionHex):-
+  global.sens.Context_PublicFunction(ctx, functionHex).
+
+PublicFunction(callBlock, start, hex):-
+  local.PublicFunctionJump(callBlock, hex, selector),
+  local.PublicFunction(start, hex, selector),
+  incompleteGlobal.ValidSelector(selector).
+
+// Not sure if needed
+PublicFunction("0x0", "0x0", "0x0").
+
+
+
+/**
+  Metrics that give more insights on the global CFG analysis
+*/
+
+.decl Analytics_Contexts(ctx: global.sens.Context)
+.output Analytics_Contexts
+
+Analytics_Contexts(ctx):-
+  global.ReachableContext(ctx, _).
+
+.decl Analytics_ReachableBlocks(block: Block)
+.output Analytics_ReachableBlocks
+
+Analytics_ReachableBlocks(block):-
+  global.ReachableContext(_, block).

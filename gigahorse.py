@@ -16,7 +16,7 @@ import os
 
 # Local project imports
 from src.common import GIGAHORSE_DIR, DEFAULT_SOUFFLE_BIN, log
-from src.runners import get_souffle_executable_path, compile_datalog, AbstractFactGenerator, DecompilerFactGenerator, CustomFactGenerator, MixedFactGenerator, AnalysisExecutor, TimeoutException
+from src.runners import get_souffle_executable_path, compile_datalog, AbstractFactGenerator, DecompilerFactGenerator, CustomFactGenerator, MixedFactGenerator, CFGFactGenerator, AnalysisExecutor, TimeoutException
 
 ## Constants
 
@@ -602,10 +602,15 @@ if __name__ == "__main__":
             run_gigahorse(args, DecompilerFactGenerator(args, ".*.hex"))
         elif len(tac_gen_config["handlers"]) == 1: # if one handler defined, can be either classic decompilation, or custom script
             tac_gen = tac_gen_config["handlers"][0]
-            if tac_gen["tacGenScripts"]["defaultDecomp"] == "true":
-                run_gigahorse(args, DecompilerFactGenerator(args, tac_gen["fileRegex"]))
-            else:
-                run_gigahorse(args, CustomFactGenerator(tac_gen["fileRegex"], tac_gen["tacGenScripts"]["customScripts"]))
+            if "tacGenScripts" in tac_gen:
+                if tac_gen["tacGenScripts"]["defaultDecomp"] == "true":
+                    run_gigahorse(args, DecompilerFactGenerator(args, tac_gen["fileRegex"]))
+                else:
+                    run_gigahorse(args, CustomFactGenerator(tac_gen["fileRegex"], tac_gen["tacGenScripts"]["customScripts"]))
+            elif "cfgGenScript" in tac_gen:
+                if tac_gen["cfgGenScript"]["defaultDecomp"] == "true":
+                    assert args.disable_inline, "--disable_inline must be used for CFG generation."
+                    run_gigahorse(args, CFGFactGenerator(args, tac_gen["fileRegex"]))
         elif len(tac_gen_config["handlers"]) > 1: # if multiple handlers have been defined, they will be selected based on the file regex
             fact_generator = MixedFactGenerator(args)
             for tac_gen in tac_gen_config["handlers"]:

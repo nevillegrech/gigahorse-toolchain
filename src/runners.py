@@ -404,3 +404,59 @@ class CustomFactGenerator(AbstractFactGenerator):
 
     def decomp_out_produced(self, out_dir: str) -> bool:
         return os.path.exists(join(out_dir, 'TAC_Def.csv'))
+
+class CFGFactGenerator(AbstractFactGenerator):
+    cfg_builder_dl = join(GIGAHORSE_DIR, 'logic/simple_cfg.dl')
+
+    def __init__(self, args, pattern: str):
+        self.context_depth = args.context_depth
+        if not pattern.endswith("$"):
+            pattern = pattern + "$"
+        self.pattern = re.compile(pattern)
+
+
+    def generate_facts(self, contract_filename: str, work_dir: str, out_dir: str) -> Tuple[float, float, str]:
+        with open(contract_filename) as file:
+            bytecode = file.read().strip()
+
+            if os.path.exists(metad:= f"{contract_filename[:-4]}_metadata.json"):
+                metadata = json.load(open(metad))
+            else:
+                metadata = {}
+
+        disassemble_start = time.time()
+        blocks = blockparse.EVMBytecodeParser(bytecode).parse()
+        exporter.InstructionTsvExporter(work_dir, blocks, True, bytecode, metadata).export()
+
+        os.symlink(join(work_dir, 'bytecode.hex'), join(out_dir, 'bytecode.hex'))
+
+        if os.path.exists(join(work_dir, 'compiler_info.csv')):
+            # Create a symlink with a name starting with 'Verbatim_' to be added to results json
+            os.symlink(join(work_dir, 'compiler_info.csv'), join(out_dir, 'Verbatim_compiler_info.csv'))
+
+        write_context_depth_file(os.path.join(work_dir, 'MaxContextDepth.csv'), self.context_depth)
+
+        decomp_start = time.time()
+
+        decompiler_config = self.run_decomp(contract_filename, work_dir, out_dir, disassemble_start)
+
+        return decomp_start - disassemble_start, time.time() - decomp_start, decompiler_config
+
+    def get_datalog_files(self) -> List[str]:
+        return [CFGFactGenerator.cfg_builder_dl]
+
+
+    def run_decomp(self, contract_filename: str, in_dir: str, out_dir: str, start_time: float) -> str:
+        def_timeouts, _ = self.analysis_executor.run_clients([CFGFactGenerator.cfg_builder_dl], [], in_dir, out_dir, start_time, False)
+
+        if def_timeouts or not self.decomp_out_produced(out_dir):
+            raise TimeoutException()
+
+        return "default"
+
+    def match_pattern(self, contract_filename: str) -> bool:
+        return self.pattern.match(contract_filename) is not None
+
+    def decomp_out_produced(self, out_dir: str) -> bool:
+        """Hacky. Needed to ensure process was not killed due to exceeding the memory limit."""
+        return os.path.exists(join(out_dir, 'BlockEdgeOrd.csv')) and os.path.exists(join(out_dir, 'PublicFunction.csv'))
