@@ -14,10 +14,10 @@
 #endif
 
 #include "types_defs.dl"
-#include "context-sensitivity/context_sensitivity.dl"
 
 #include "local.dl"
 #include "global.dl"
+
 #include "functions.dl"
 #include "decompiler_output.dl"
 

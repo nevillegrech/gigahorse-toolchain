@@ -4,11 +4,6 @@
 #define MAX_INSERTS 5
 
 
-#define COPY_CODE(to, from)\
-to.Statement_Next(stmt, next) :- from.Statement_Next(stmt, next).\
-to.Statement_Opcode(stmt, op) :- from.Statement_Opcode(stmt, op).\
-to.PushValue(stmt, value) :- from.PushValue(stmt, value).
-
 #define COPY_OUTPUT(to, from)\
 to.Statement_Next(stmt, next) :- from.Out_Statement_Next(stmt, next).\
 to.Statement_Opcode(stmt, op) :- from.Out_Statement_Opcode(stmt, op).\
@@ -23,11 +18,6 @@ to.PushValue(stmt, value) :- _insertor.Out_PushValue(stmt, value).
 #define INITIALIZE_STATEMENT_INSERTOR_FROM(_insertor, from, to)\
 COPY_CODE(_insertor, from)\
 INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
-
-#define COPY_CODE_FULL(to, from)\
-COPY_CODE(to, from)\
-to.PublicFunctionJump(block, funHex, selector):- from.PublicFunctionJump(block, funHex, selector).\
-to.PublicFunction(block, funHex, selector):- from.PublicFunction(block, funHex, selector).
 
 
 #define ISLABEL(value) (substr(value, 0, 9) = "JUMPDEST:")
