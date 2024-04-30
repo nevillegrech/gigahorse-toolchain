@@ -1,3 +1,9 @@
+/**
+  Local part of our pipeline, rather complex as it includes many transformations
+  in the form of statement insertions and block cloning ops.
+  These are mostly performed to normalize our IR output.
+*/
+
 #include "local_components.dl"
 #include "statement_insertor.dl"
 #include "decompiler_input.dl"

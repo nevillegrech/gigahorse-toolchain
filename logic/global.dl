@@ -1,5 +1,7 @@
-// The core of the decompiler logic. Most complex reasoning for value
-// flow and detecting CFG edges (much like the Vandal decompiler) is here.
+/**
+  Global CFG construction of our main pipeline.
+  2-phase approach
+*/
 
 #include "global_components.dl"
 
