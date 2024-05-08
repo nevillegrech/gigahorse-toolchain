@@ -66,6 +66,7 @@ CallToSignatureFromSHA3(call, sigText):-
   CALLWithPossibleSigHashFromSHA3(call, sha3),
   SHA3_KnownContent(sha3, hexContent),
   strlen(hexContent) % 2 = 0,
+  !contains("0a", hexContent), // filter out entries with '\n'
   sigText = @hex_to_str(hexContent).
 
 /**
