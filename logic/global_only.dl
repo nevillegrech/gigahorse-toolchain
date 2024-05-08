@@ -1,0 +1,216 @@
+#define FALLBACK_FUNCTION_SIGHASH "0x00000000"
+#define RECEIVE_FUNCTION_SIGHASH "0xeeeeeeee"
+
+#define CONTEXT_SENSITIVITYa TransactionalWithShrinkingContext
+// #define BLOCK_CLONING HeuristicBlockCloner
+/*
+ * Context sensitivity selection needs a little bit of macro expansion for generality
+ */
+
+#ifndef CONTEXT_SENSITIVITY
+  // TransactionalContext is default
+  #define CONTEXT_SENSITIVITY TransactionalContext
+//  #define CONTEXT_SENSITIVITY FinitePreciseContext
+//  #define CONTEXT_SENSITIVITY HybridPreciseContext
+#endif
+
+#include "context-sensitivity/context_sensitivity.dl"
+
+#include "global.dl"
+
+/**
+  Metrics that give more insights on the global CFG analysis
+*/
+.decl Analytics_Contexts(ctx: global.sens.Context)
+.output Analytics_Contexts
+
+Analytics_Contexts(ctx):-
+  global.ReachableContext(ctx, _).
+
+.decl Analytics_Jumps(block: Block)
+.output Analytics_Jumps
+
+Analytics_Jumps(block) :-
+  postTrans.BasicBlock_Tail(block, tail),
+  postTrans.IsJump(tail).
+
+
+.decl Analytics_ReachableBlocks(block: Block)
+.output Analytics_ReachableBlocks
+
+.decl Analytics_UnreachableBlock(block: Block)
+.output Analytics_UnreachableBlock
+
+// `originalBlock` is reachable because `postTransformBlock` CFG block is
+.decl ReachableBlocksHelper(originalBlock: Block, postTransformBlock: Block)
+// Incompleteness metric: this can happen due to our precision-favoring heuristics
+// or incompleteness due to the use of limitsize for scalability
+.decl Analytics_BlockHasNoTACBlock(block: Block)
+.output Analytics_BlockHasNoTACBlock
+
+// Blocks that are data
+.decl BlockIsData(block: Block)
+
+// Blocks with MISSING opcode are data
+BlockIsData(block):-
+  revertCloner.analysis.Statement_Block(stmt, block),
+  revertCloner.analysis.Statement_Opcode(stmt, "MISSING").
+
+BlockIsData(block):-
+  revertCloner.analysis.CODECOPYStatement(_, codeOffsetNumHex, smallNumHex),
+  revertCloner.analysis.Statement_Block(_, block),
+  @lt_256(codeOffsetNumHex, block) = "0x1",
+  @lt_256(block, @add_256(codeOffsetNumHex, smallNumHex)) = "0x1".
+
+#ifdef BLOCK_CLONING
+
+ReachableBlocksHelper(originalBlock, block):-
+  global.ReachableContext(_, block),
+  postTrans.Statement_Block(_, block),
+  blockCloner.Block_OriginalBlock(block, originalBlock).
+
+ReachableBlocksHelper(originalBlock, block):-
+  blockCloner.Block_OriginalBlock(transformedBlock, originalBlock),
+  postTrans.Statement_Block(as(transformedBlock, Statement), block),
+  global.ReachableContext(_, block).
+
+
+Analytics_UnreachableBlock(originalBlock):-
+  postTrans.Statement_Block(_, block),
+  blockCloner.Block_OriginalBlock(block, originalBlock),
+  !BlockIsData(originalBlock),
+  !Analytics_ReachableBlocks(originalBlock).
+
+#else
+
+ReachableBlocksHelper(originalBlock, block):-
+  global.ReachableContext(_, block),
+  postTrans.Statement_Block(_, block),
+  revertCloner.Block_OriginalBlock(block, originalBlock).
+
+ReachableBlocksHelper(originalBlock, block):-
+  revertCloner.Block_OriginalBlock(transformedBlock, originalBlock),
+  postTrans.Statement_Block(as(transformedBlock, Statement), block),
+  global.ReachableContext(_, block).
+
+Analytics_UnreachableBlock(originalBlock):-
+  postTrans.Statement_Block(_, block),
+  revertCloner.Block_OriginalBlock(block, originalBlock),
+  !BlockIsData(originalBlock),
+  !Analytics_ReachableBlocks(originalBlock).
+
+#endif
+
+Analytics_ReachableBlocks(originalBlock):-
+  ReachableBlocksHelper(originalBlock, _).
+
+
+.decl GloballyReachableBlocks(ctx: Block)
+
+GloballyReachableBlocks(block):-
+  global.ReachableContext(_, block).
+
+.decl Analytics_ReachableUnderContext(ctx: global.sens.Context, block: Block)
+.output Analytics_ReachableUnderContext
+
+Analytics_ReachableUnderContext(ctx, block):-
+  global.ReachableContext(ctx, block).
+
+.decl Analytics_Block_NumberOfContexts(block: Block, ctxNum: number)
+DEBUG_OUTPUT(Analytics_Block_NumberOfContexts)
+
+Analytics_Block_NumberOfContexts(block, ctxNum):-
+  GloballyReachableBlocks(block),
+  ctxNum = count : { global.ReachableContext(_, block) }.
+
+// .decl Analytics_Block_NumberOfContextsJump(block: Block, ctxNum: number, prev: Block, prevNum: number)
+// .output Analytics_Block_NumberOfContextsJump
+
+// Analytics_Block_NumberOfContextsJump(block, ctxNum, prev, maxPrev):-
+//   Analytics_Block_NumberOfContexts(block, ctxNum),
+//   maxPrev = max prevCtxNum : { global.BlockEdge(_, prevB, _, block), Analytics_Block_NumberOfContexts(prevB, prevCtxNum)},
+//   global.BlockEdge(_, prev, _, block),
+//   Analytics_Block_NumberOfContexts(prev, maxPrev),
+//   ctxNum > maxPrev * 2.
+
+.decl Analytics_Block_TimesInContexts(block: Block, ctxNum: number)
+DEBUG_OUTPUT(Analytics_Block_TimesInContexts)
+
+Analytics_Block_TimesInContexts(block, timesInContext):-
+  GloballyReachableBlocks(block),
+  timesInContext = count : { global.sens.ContextContainsBlock(_, block, _) }.
+
+
+.decl Verbatim_BlocksReachabilityMetric(blocks: number, totalReach: number, avg: float)
+DEBUG_OUTPUT(Verbatim_BlocksReachabilityMetric)
+
+Verbatim_BlocksReachabilityMetric(blocks, totalReach, avg):-
+  blocks = count: GloballyReachableBlocks(_),
+  totalReach = sum ctxNum : Analytics_Block_NumberOfContexts(_, ctxNum),
+  avg = as(totalReach, float) / as(blocks, float).
+
+.decl Analytics_PublicFunction_Contexts(pubFun: symbol, contexts: number)
+DEBUG_OUTPUT(Analytics_PublicFunction_Contexts)
+
+Analytics_PublicFunction_Contexts(pubFun, contexts):-
+  global.sens.Context_PublicFunction(_, pubFun),
+  contexts = count: global.sens.Context_PublicFunction(_, pubFun).
+
+// SL: The main imprecision metric of our global analysis
+.decl Analytics_PolymorphicTargetSameCtx(block: Block)
+.output Analytics_PolymorphicTargetSameCtx
+
+Analytics_PolymorphicTargetSameCtx(block) :-
+  Analytics_Jumps(block),
+  global.BlockJumpValidTarget(ctx, block, _, target1),
+  global.BlockJumpValidTarget(ctx, block, _, target2),
+  target1 != target2.
+
+.decl PolymorphicTargetSameCtxOrd(ctx: number, block: Block, target: Block)
+DEBUG_OUTPUT(PolymorphicTargetSameCtxOrd)
+
+PolymorphicTargetSameCtxOrd(ord(ctx), block, target1) :-
+  global.BlockJumpValidTarget(ctx, block, _, target1),
+  global.BlockJumpValidTarget(ctx, block, _, target2),
+  global.sens.Context_PublicFunction(ctx, "0xa574cea4"),
+  target1 != target2.
+
+.decl ContextOrd(ctx:global.sens.Context, ctxOrd:number)
+DEBUG_OUTPUT(ContextOrd)
+ContextOrd(ctx, ord(ctx)):-
+  global.ReachableContext(ctx, _).
+
+.decl BlockEdgeOrd(callerCtx:number, from:Block, calleeCtx:number, to:Block)
+DEBUG_OUTPUT(BlockEdgeOrd)
+BlockEdgeOrd(ord(callerCtx), from, ord(calleeCtx), to):-
+  global.BlockEdge(callerCtx, from, calleeCtx, to).
+
+.decl BlockOutputContentsOrd(context:number, block:Block, index:StackIndex, var:Variable)
+DEBUG_OUTPUT(BlockOutputContentsOrd)
+BlockOutputContentsOrd(ord(context), block, index, var):-
+  global.BlockOutputContents(context, block, index, var).
+
+.decl BlockInputContentsOrd(context:number, block:Block, index:StackIndex, var:Variable)
+DEBUG_OUTPUT(BlockInputContentsOrd)
+BlockInputContentsOrd(ord(context), block, index, var):-
+  global.BlockInputContents(context, block, index, var).
+
+.decl BlockJumpTargetOrd(context:number, block:Block, var:Variable)
+DEBUG_OUTPUT(BlockJumpTargetOrd)
+BlockJumpTargetOrd(ord(context), block, var):-
+  global.BlockJumpTarget(context, block, var).
+
+.decl BlockJumpValidTargetOrd(context:number, block:Block, var:Variable, target:Block)
+DEBUG_OUTPUT(BlockJumpValidTargetOrd)
+BlockJumpValidTargetOrd(ord(context), block, var, target):-
+  global.BlockJumpValidTarget(context, block, var, target).
+
+.decl MergeContextOrd(ctx: number, caller: Block, newContext: number)
+DEBUG_OUTPUT(MergeContextOrd)
+MergeContextOrd(ord(ctx), caller, ord(newContext)):-
+  global.sens.MergeContext(ctx, caller, newContext).
+
+.decl ReachableContextOrd(ctx: number, block: Block)
+DEBUG_OUTPUT(ReachableContextOrd)
+ReachableContextOrd(ord(ctx), block):-
+  global.ReachableContext(ctx, block).

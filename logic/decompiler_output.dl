@@ -280,7 +280,6 @@ IRInFunctionFiltered(block, func):-
   IRInFunction(block, func),
   ReachableFromFunHead(block).
 
-.output Mask_Length
 .output IRInFunctionFiltered(IO="file", filename="InFunction.csv", delimiter="\t")
 
 .decl FunctionIsInner(func: IRFunction)
