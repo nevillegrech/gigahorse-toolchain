@@ -66,6 +66,12 @@ contract SimpleArray {
         owners.push(newOwner);
     }
 
+    function changePos(uint i, uint j) external {
+        address tmp = owners[i];
+        owners[i] = owners[j];
+        owners[j] = tmp;
+    }
+
     function removeOwner(address owner) external returns (bool){
         for (uint i=0; i < owners.length; i++) {
             if (owners[i] == owner){
