@@ -14,19 +14,45 @@ castsAndShiftsFlows.TransferBoundary(b):- IsBlock(b).
 .decl FlowsToSSTOREOfConstruct(var: Variable, construct: StorageConstruct)
 DEBUG_OUTPUT(FlowsToSSTOREOfConstruct)
 
+/**
+  More general version of `SLOADandSSTORESameIndex`,
+  as a fallback it considers cases where the index is not the same but operated `construct` is.
+*/
 .decl SLOADFlowsToSSTORE(sload: Statement, sstore: Statement, construct: StorageConstruct)
 DEBUG_OUTPUT(SLOADFlowsToSSTORE)
 
+/**
+  `sload` and `sstore` operate on the same `storageIndex` (most likely also indexVar)
+  and the `loadedVar` flows to the `storedVar` through cast and shift operations
+*/
+.decl SLOADandSSTORESameIndex(sload: Statement, sstore: Statement)
+DEBUG_OUTPUT(SLOADandSSTORESameIndex)
+
+/**
+  Find vars that are used in bit masking operations when updating a tightly packed variable.
+*/
 .decl VarFlowsFromSLOADToSSTORE(var: Variable, construct: StorageConstruct)
 DEBUG_OUTPUT(VarFlowsFromSLOADToSSTORE)
+
+
+SLOADandSSTORESameIndex(sload, sstore):-
+  InitialStorageStmtToIndexAndConstruct(sload, "ACCESS", index, construct),
+  SLOAD(sload, _, loadedVar),
+  castsAndShiftsFlows.Flows(loadedVar, storedVar),
+  SSTORE(sstore, _, storedVar),
+  InitialStorageStmtToIndexAndConstruct(sstore, "ACCESS", index, construct).
+
+SLOADFlowsToSSTORE(sload, sstore, construct):-
+  SLOADandSSTORESameIndex(sload, sstore),
+  InitialStorageStmtToIndexAndConstruct(sload, "ACCESS", _, construct).
 
 SLOADFlowsToSSTORE(sload, sstore, construct):-
   InitialStorageStmtToIndexAndConstruct(sload, "ACCESS", _, construct),
   SLOAD(sload, _, loadedVar),
-  //LocalFlows(loadedVar, storedVar),
   castsAndShiftsFlows.Flows(loadedVar, storedVar),
   SSTORE(sstore, _, storedVar),
-  InitialStorageStmtToIndexAndConstruct(sstore, "ACCESS", _, construct).
+  InitialStorageStmtToIndexAndConstruct(sstore, "ACCESS", _, construct),
+  !SLOADandSSTORESameIndex(_, sstore).
 
 VarFlowsFromSLOADToSSTORE(var, construct):-
   SLOADFlowsToSSTORE(sload, sstore, construct),
@@ -314,7 +340,7 @@ ProbablyPartialStorageUpdateSequenceWrite(toVar, kind, writtenVarOrConst, byteLo
 ProbablyPartialStorageUpdateSequenceWrite(toVar, kind, writtenVarOrConst, byteLow, byteHigh):-
   ProbablyPartialStorageUpdateSequenceWrite(originVar, kind, writtenVarOrConst, byteLow, byteHigh),
   ByteMaskOpKeepRange(originVar, toVar, [keepByteLow, keepByteHigh]),
-  byteLow >= keepByteLow, keepByteLow < byteHigh, byteHigh <= keepByteHigh.
+  byteLow >= keepByteLow, keepByteLow <= byteHigh, byteHigh <= keepByteHigh.
 
 ProbablyPartialStorageUpdateSequenceWrite(toVar, kind, writtenVarOrConst, byteLow, byteHigh):-
   ProbablyPartialStorageUpdateSequenceWrite(originVar, _, _, _, _),

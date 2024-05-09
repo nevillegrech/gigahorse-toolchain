@@ -1,0 +1,32 @@
+#pragma once
+
+/**
+   Preprocessing of decompiler input, to yield convenient relations
+ */
+.comp StatementFactReader {                                         
+  .decl PushValue(stmt: Statement, v: Value)
+  .decl Statement_Opcode(statement: Statement, opcode: Opcode)
+  .decl Statement_Next(statement: Statement, statementNext: Statement)
+
+  .input PushValue(IO="file", filename="PushValue.facts")
+  .input Statement_Opcode(IO="file", filename="Statement_Opcode.facts")
+  .input Statement_Next(IO="file", filename="Statement_Next.facts")
+  
+}
+
+
+.decl ByteCodeHex(bytecode:symbol)
+
+.decl _ByteCodeHex(bytecode:symbol)
+.input _ByteCodeHex(IO="file", filename="bytecode.hex")
+
+// strip '0x' from the start of the bytecode if present
+// keeping it would have all the uses of the bytecode wrong (handling codecopies)
+ByteCodeHex(bytecode):-
+  _ByteCodeHex(bytecode),
+  !contains("0x", bytecode).
+
+ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
+  _ByteCodeHex(bytecode),
+  contains("0x", bytecode).
+
