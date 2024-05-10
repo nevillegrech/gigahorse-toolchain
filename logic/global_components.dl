@@ -74,15 +74,30 @@
     CheckIsStackIndex(stackIndex),
     Variable_Value(variable, value).
 
+
+  .decl VariableUsedInJumpTargetComputation(variable: Variable)
+
+  VariableUsedInJumpTargetComputation(var):-
+    ImmediateBlockJumpTarget(_, var).
+
+  VariableUsedInJumpTargetComputation(as(use, Variable)):-
+    VariableUsedInJumpTargetComputation(def),
+    Statement_Defines(stmt, def),
+    Statement_Uses_Local(stmt, use, _),
+    CheckIsVariable(use).
+
   // Auxiliary relations for constant folding
   .decl GlobalBinopStatementOpAndConstantArgValues(ctx: sens.Context, stmt: Statement, op: Opcode, a_val: Value, b_val: Value)
   GlobalBinopStatementOpAndConstantArgValues(ctx, stmt, op, aval, bval) :-
+    VariableUsedInJumpTargetComputation(targetVar),
+    Statement_Defines(stmt, targetVar),
     Statement_Opcode(stmt, op),
     Statement_Uses_Local(stmt, a, 0),
     Statement_Uses_Local(stmt, b, 1),
     GlobalVariable_Value(ctx, a, aval),
     GlobalVariable_Value(ctx, b, bval).
-   .plan 0:(4,2,3,5,1),1:(5,3,2,4,1)
+   .plan 0:(6,4,5,7,3,2,1),1:(7,5,4,6,3,2,1)
+  //  .plan 0:(4,2,3,5,1),1:(5,3,2,4,1)
 
   // .decl UnopStatementOpAndArgs(stmt: Statement, op: Opcode, a: Variable)
   // UnopStatementOpAndArgs(stmt, op, as(a, Variable)) :-
