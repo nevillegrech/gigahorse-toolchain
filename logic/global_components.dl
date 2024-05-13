@@ -173,6 +173,7 @@
     BlockJumpTarget(ctx, block, targetVar),
     GlobalVariable_Value(ctx, targetVar, targetValue),
     JUMPDEST(as(targetValue, symbol)).
+   .plan 1:(2,1,3)
 
 
   /*
