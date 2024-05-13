@@ -75,21 +75,23 @@
     Variable_Value(variable, value).
 
 
-  .decl VariableUsedInJumpTargetComputation(variable: Variable)
+  .decl VariableWithoutValueUsedInJumpTargetComputation(variable: Variable)
+  .output VariableWithoutValueUsedInJumpTargetComputation
+  VariableWithoutValueUsedInJumpTargetComputation(var):-
+    ImmediateBlockJumpTarget(_, var),
+    !Variable_Value(var, _).
 
-  VariableUsedInJumpTargetComputation(var):-
-    ImmediateBlockJumpTarget(_, var).
-
-  VariableUsedInJumpTargetComputation(as(use, Variable)):-
-    VariableUsedInJumpTargetComputation(def),
+  VariableWithoutValueUsedInJumpTargetComputation(as(use, Variable)):-
+    VariableWithoutValueUsedInJumpTargetComputation(def),
     Statement_Defines(stmt, def),
     Statement_Uses_Local(stmt, use, _),
-    CheckIsVariable(use).
+    CheckIsVariable(use),
+    !Variable_Value(use, _).
 
   // Auxiliary relations for constant folding
   .decl GlobalBinopStatementOpAndConstantArgValues(ctx: sens.Context, stmt: Statement, op: Opcode, a_val: Value, b_val: Value)
   GlobalBinopStatementOpAndConstantArgValues(ctx, stmt, op, aval, bval) :-
-    VariableUsedInJumpTargetComputation(targetVar),
+    VariableWithoutValueUsedInJumpTargetComputation(targetVar),
     Statement_Defines(stmt, targetVar),
     Statement_Opcode(stmt, op),
     Statement_Uses_Local(stmt, a, 0),
