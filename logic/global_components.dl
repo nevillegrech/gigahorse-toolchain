@@ -55,11 +55,19 @@
   */
   .decl BlockEdge(callerCtx: sens.Context, caller: Block, calleeCtx: sens.Context, callee: Block)
 
+  /**
+    Variable or stack index `variable` has `value` under `ctx`.
+  */
   .decl GlobalVariable_Value(ctx: sens.Context, variable: VariableOrStackIndex, value: Value)
   DEBUG_OUTPUT(GlobalVariable_Value)
+
+  /**
+    Global-level constant folding is limited by the fact that new values are not propagated to following contexts/blocks.
+    This would not model a case where a block reads a value from a previous block and produces a jumpdest,
+    pushing it to the stack for a following block.
+    Haven't seen such patterns in practice so I'm keeping it like that.
+  */
   .init globalVariableValueConstantFolding = ConstantFolding
-  DEBUG_OUTPUT(Statement_Uses)
-  DEBUG_OUTPUT(Statement_Uses_Local)
 
   GlobalVariable_Value(ctx, variable, value):-
     ReachableContext(ctx, block),
@@ -67,6 +75,7 @@
     Statement_Defines(statement, variable),
     Variable_Value(variable, value).
 
+  // global case, highlights limitation 
   GlobalVariable_Value(ctx, stackIndex, value):-
     BlockInputContents(ctx, block, stackIndex, variable),
     Statement_Block(statement, block),
@@ -75,8 +84,11 @@
     Variable_Value(variable, value).
 
 
+  /**
+    The set of variables for which we need to recover their values via global-level constant folding.
+  */
   .decl VariableWithoutValueUsedInJumpTargetComputation(variable: Variable)
-  .output VariableWithoutValueUsedInJumpTargetComputation
+
   VariableWithoutValueUsedInJumpTargetComputation(var):-
     ImmediateBlockJumpTarget(_, var),
     !Variable_Value(var, _).
@@ -88,7 +100,7 @@
     CheckIsVariable(use),
     !Variable_Value(use, _).
 
-  // Auxiliary relations for constant folding
+  // Helper to produce all constant folding requests
   .decl GlobalBinopStatementOpAndConstantArgValues(ctx: sens.Context, stmt: Statement, op: Opcode, a_val: Value, b_val: Value)
   GlobalBinopStatementOpAndConstantArgValues(ctx, stmt, op, aval, bval) :-
     VariableWithoutValueUsedInJumpTargetComputation(targetVar),
@@ -99,14 +111,6 @@
     GlobalVariable_Value(ctx, a, aval),
     GlobalVariable_Value(ctx, b, bval).
    .plan 0:(6,4,5,7,3,2,1),1:(7,5,4,6,3,2,1)
-  //  .plan 0:(4,2,3,5,1),1:(5,3,2,4,1)
-
-  // .decl UnopStatementOpAndArgs(stmt: Statement, op: Opcode, a: Variable)
-  // UnopStatementOpAndArgs(stmt, op, as(a, Variable)) :-
-  //   Statement_Opcode(stmt, op),
-  //   Statement_Uses_Local(stmt, a, 0),
-  //   !Statement_Uses_Local(stmt, _, 1),
-  //   CheckIsVariable(a).
 
   globalVariableValueConstantFolding.RequestConstantFold2(op, a_val, b_val) :-
     GlobalBinopStatementOpAndConstantArgValues(_, _, op, a_val, b_val).
