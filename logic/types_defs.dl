@@ -5,7 +5,7 @@
 #include "../clientlib/util.dl"
 
 #ifndef MAX_STACK_HEIGHT
-#define MAX_STACK_HEIGHT 70
+#define MAX_STACK_HEIGHT 80
 #endif
 
 #define CheckIsVariable(v) ((v) < 0)
