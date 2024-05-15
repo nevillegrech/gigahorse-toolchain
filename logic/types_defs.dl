@@ -5,7 +5,12 @@
 #include "../clientlib/util.dl"
 
 #ifndef MAX_STACK_HEIGHT
-#define MAX_STACK_HEIGHT 80
+/**
+  This parameter is tuned, increasing it (for example to 80) will give a minor completeness increase in extreme cases.
+  However it can negatively affect scalability so I'm keeping it at 70 for now.
+  To review.
+*/
+#define MAX_STACK_HEIGHT 70
 #endif
 
 #define CheckIsVariable(v) ((v) < 0)
