@@ -62,12 +62,13 @@
   DEBUG_OUTPUT(GlobalVariable_Value)
 
   /**
-    Global-level constant folding is limited by the fact that new values are not propagated to following contexts/blocks.
+    Global-level value flow and creation of new constant values via an instantiation of the `ConstantFolding` component
+    is limited by the fact that new values are not propagated to following contexts/blocks.
     This would not model a case where a block reads a value from a previous block and produces a jumpdest,
-    pushing it to the stack for a following block.
+    pushing it to the stack for a following block to read/jump to.
     Haven't seen such patterns in practice so I'm keeping it like that.
   */
-  .init globalVariableValueConstantFolding = ConstantFolding
+  .init globalVariableValueConstantOps = ConstantFolding
 
   GlobalVariable_Value(ctx, variable, value):-
     ReachableContext(ctx, block),
@@ -75,7 +76,7 @@
     Statement_Defines(statement, variable),
     Variable_Value(variable, value).
 
-  // global case, highlights limitation 
+  // global case, highlights limitation
   GlobalVariable_Value(ctx, stackIndex, value):-
     BlockInputContents(ctx, block, stackIndex, variable),
     Statement_Block(statement, block),
@@ -85,7 +86,7 @@
 
 
   /**
-    The set of variables for which we need to recover their values via global-level constant folding.
+    The set of variables for which we need to recover their values via global-level analysis.
   */
   .decl VariableWithoutValueUsedInJumpTargetComputation(variable: Variable)
 
@@ -100,7 +101,7 @@
     CheckIsVariable(use),
     !Variable_Value(use, _).
 
-  // Helper to produce all constant folding requests
+  // Helper to produce all constant operation requests
   .decl GlobalBinopStatementOpAndConstantArgValues(ctx: sens.Context, stmt: Statement, op: Opcode, a_val: Value, b_val: Value)
   GlobalBinopStatementOpAndConstantArgValues(ctx, stmt, op, aval, bval) :-
     VariableWithoutValueUsedInJumpTargetComputation(targetVar),
@@ -112,11 +113,11 @@
     GlobalVariable_Value(ctx, b, bval).
    .plan 0:(6,4,5,7,3,2,1),1:(7,5,4,6,3,2,1)
 
-  globalVariableValueConstantFolding.RequestConstantFold2(op, a_val, b_val) :-
+  globalVariableValueConstantOps.RequestConstantFold2(op, a_val, b_val) :-
     GlobalBinopStatementOpAndConstantArgValues(_, _, op, a_val, b_val).
 
   GlobalVariable_Value(ctx, to, result) :-
-    globalVariableValueConstantFolding.ConstantFoldResult2(op, a_val, b_val, result),
+    globalVariableValueConstantOps.ConstantFoldResult2(op, a_val, b_val, result),
     GlobalBinopStatementOpAndConstantArgValues(ctx, stmt, op, a_val, b_val),
     Statement_Defines(stmt, to).
     .plan 1:(2,1,3)
