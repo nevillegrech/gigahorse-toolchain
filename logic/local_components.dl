@@ -242,10 +242,12 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
 
   .decl BeforeLocalStackContents(stmt: Statement, n: StackIndex, variable: VariableOrStackIndex)
 
-  /**  
+  /**
     The target of a jump at the end of the `block` is a `variable` defined in
     the `block` itself. "Immediate" is misnomer, can't think of better name.
-    This is a context-independent predicate.
+    This is a context-independent predicate.  
+    __Note__: A `variable` in the output of this relation doesn't need to have a value,
+    it can be the result of the constant folding of a variable coming from a previous block.
   */
   .decl ImmediateBlockJumpTarget(block: Block, variable: Variable)
 
@@ -526,14 +528,8 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
     Helper for some ctx sensitivity algorithms
   */
   .decl BlockHasTrivialControl(block: Block)
-
   BlockHasTrivialControl(block):-
-    BasicBlock_Tail(block, stmt),
-    !JUMP(stmt),
-    !JUMPI(stmt).
-
-  BlockHasTrivialControl(block):-
-    ImmediateBlockJumpTarget(block, _).
+    StaticBlockJumpTarget(block, _).
 
   // inverse-escape analysis: helpers for ctx sensitivity
   .decl BlockUsesLocal(block: Block, var: VariableOrStackIndex)
@@ -624,7 +620,8 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
   PrivateFunctionReturn(returnBlock) :-
     Statement_Block(stmt, returnBlock),
     (JUMP(stmt); JUMPI(stmt)), // temp: handle conditional returns
-    !ImmediateBlockJumpTarget(returnBlock, _).
+    !StaticBlockJumpTarget(returnBlock, _).
+    // !ImmediateBlockJumpTarget(returnBlock, _).
 
   .decl PrivateFunctionCallOrReturn(block: Block)
   PrivateFunctionCallOrReturn(block) :-
@@ -766,7 +763,7 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
   // Compares label from stack to a constant: common public function dispatch pattern
   BlockComparesSig(block, sigHash, selector) :-
     Statement_Block(pushStmt, block),
-    ImmediateBlockJumpTarget(block, _),
+    StaticBlockJumpTarget(block, _),
     SmallValuePush(pushStmt, sigHash),
     Statement_Defines(pushStmt, sigHashVar),
     EQ(eqStmt),
@@ -821,7 +818,7 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
   .decl BlockComparesSigFallthroughSolidity(block: Block, sigHash: Value, selectorVarOrIndex: OptionalSelector)
   BlockComparesSigFallthroughSolidity(block, sigHash, selector) :-
     Statement_Block(pushStmt, block),
-    ImmediateBlockJumpTarget(block, _),
+    StaticBlockJumpTarget(block, _),
     SmallValuePush(pushStmt, sigHash),
     Statement_Defines(pushStmt, sigHashVar),
     SUB(subStmt),
@@ -842,9 +839,8 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
   PublicFunction(as(targetValue, Block), sigHash, selectorVarOrIndex) :-
     BlockComparesSig(block, sigHash, selectorVarOrIndex),
     ImmediateBlockJumpTarget(block, var),
-    Statement_Defines(push, var),
-    PushValue(push, targetValue),
-    JUMPDEST(as(targetValue, symbol)).
+    Variable_Value(var, targetValue),
+    JUMPDEST(as(targetValue, Statement)).
 
   PublicFunction(fallthrough, sigHash, selectorVarOrIndex) :-
     (BlockComparesSigVyper(block, sigHash, selectorVarOrIndex);
