@@ -76,7 +76,7 @@ InitialStoreToPossibleStruct(mstore, structBaseVar, storedVar, memOffset / 32):-
   StatementDominates(mstore, freePtrUpdStore).
 
 StoreToPossibleStruct(mstore, structBaseVar, storedVar, memOffset / 32):-
-  PossibleStructAllocation(mload, freePtrUpdStore, structBaseVar, wordWidth),
+  PossibleStructAllocation(mload, _, structBaseVar, wordWidth),
   FreePointerBasedValue(storeIndexVal, mload, _, memOffset),
   memOffset % 32 = 0,
   memOffset / 32 < wordWidth,
@@ -128,6 +128,18 @@ StructAllocation(freePtrUpdStore, structBaseVar, wordWidth):-
   LocalFlows(structBaseVar, argOrRet),
   (ActualArgs(_, argOrRet, _) ; FormalReturnArgs(_, argOrRet, _)),
   !ProbablyConstantArray(structBaseVar).
+
+/**
+  Find structs that are likely copies of structs from storage
+*/
+StructAllocation(freePtrUpdStore, structBaseVar, wordWidth):-
+  PossibleStructAllocation(_, freePtrUpdStore, structBaseVar, wordWidth),
+  wordWidth = count : InitialStoreToPossibleStruct(_, structBaseVar, _, _),
+  wordWidth = count : {
+    InitialStoreToPossibleStruct(_, structBaseVar, storedVar, _),
+    LocalFlows(sloadedVar, storedVar),
+    SLOAD(_, _, sloadedVar)
+  }.
 
 /**
   If something that may be an array is stored to a memory addr derived from `structBaseVar`
