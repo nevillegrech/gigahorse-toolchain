@@ -39,7 +39,7 @@ decomp_analytics = {
   'Analytics_PrivateFunctionMatchesMetadata': 'completeness',
   'Analytics_PrivateFunctionMatchesMetadataIncorrectArgs': 'imprecision',
   'Analytics_PrivateFunctionMatchesMetadataIncorrectReturnArgs': 'imprecision',
-#  'Analytics_MissingJumpTargetAnyCtx',
+  'Analytics_MissingJumpTargetAnyCtx' : 'incompleteness',
 #  'Analytics_JumpToManyWithoutGlobalImprecision',
 #  'Analytics_Blocks',
   'Analytics_Contexts' : 'scalability',
@@ -64,7 +64,8 @@ storage_analytics = {
 }
 
 clients_analytics = {
-  'client_time' : 'scalability'
+  'client_time' : 'scalability',
+  'inline_time': 'scalability'
 }
 
 list_of_verbatim_rels = {
