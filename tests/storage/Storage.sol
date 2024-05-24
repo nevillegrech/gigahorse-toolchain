@@ -72,6 +72,10 @@ contract SimpleArray {
         owners[j] = tmp;
     }
 
+    function free() external {
+        delete owners;
+    }
+
     function removeOwner(address owner) external returns (bool){
         for (uint i=0; i < owners.length; i++) {
             if (owners[i] == owner){
