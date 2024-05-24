@@ -162,30 +162,40 @@ InductionVariableStartsAtConst(loop, [beforeLoopVar, inLoopVar], const):-
   WellFormedLoopInductionVariable(loop, _, [beforeLoopVar, inLoopVar]),
   BasicVariable_Value(beforeLoopVar, const).
 
+// while (1) { if (i < boundVar)break; ... }
+// while (boundVar <= i) {...}
 InductionVariableLowerBoundVar(loop, [beforeLoopVar, inLoopVar], boundVar):-
   LoopExitCondPredicateTrue(condVar, loop, _),
   WellFormedLoopInductionVariable(loop, _, [beforeLoopVar, inLoopVar]),
   PHIStmtTwoUses(_, beforeLoopVar, inLoopVar, phiVar),
   LT(_, phiVar, boundVar, condVar).
 
+// while (1) { if (i <= boundVar)break; ... }
+// while (boundVar < i) {...}
 InductionVariableLowerBoundVar(loop, [beforeLoopVar, inLoopVar], boundVar):-
   LoopExitCondPredicateFalse(condVar, loop, _),
   WellFormedLoopInductionVariable(loop, _, [beforeLoopVar, inLoopVar]),
   PHIStmtTwoUses(_, beforeLoopVar, inLoopVar, phiVar),
   GT(_, phiVar, boundVar, condVar).
 
+// while (1) { if (boundVar < i)break; ... }
+// while (i <= boundVar) {...}
 InductionVariableUpperBoundVar(loop, [beforeLoopVar, inLoopVar], boundVar):-
   LoopExitCondPredicateTrue(condVar, loop, _),
   WellFormedLoopInductionVariable(loop, _, [beforeLoopVar, inLoopVar]),
   PHIStmtTwoUses(_, beforeLoopVar, inLoopVar, phiVar),
   GT(_, phiVar, boundVar, condVar).
 
+// while (1) { if (boundVar <= i)break; ... }
+// while (i < boundVar) {...}
 InductionVariableUpperBoundVar(loop, [beforeLoopVar, inLoopVar], boundVar):-
   LoopExitCondPredicateFalse(condVar, loop, _),
   WellFormedLoopInductionVariable(loop, _, [beforeLoopVar, inLoopVar]),
   PHIStmtTwoUses(_, beforeLoopVar, inLoopVar, phiVar),
   LT(_, phiVar, boundVar, condVar).
 
+// while (1) { if (boundVar <= i)break; ... }
+// while (i < boundVar) {...}
 InductionVariableUpperBoundVar(loop, [beforeLoopVar, inLoopVar], boundVar):-
   LoopExitCondPredicateTrue(condVar, loop, _),
   WellFormedLoopInductionVariable(loop, _, [beforeLoopVar, inLoopVar]),
@@ -193,6 +203,8 @@ InductionVariableUpperBoundVar(loop, [beforeLoopVar, inLoopVar], boundVar):-
   LT(_, phiVar, boundVar, ltVar),
   ISZERO(_, ltVar, condVar).
 
+// while (1) { if (boundVar < i)break; ... }
+// while (i <= boundVar) {...}
 InductionVariableUpperBoundVar(loop, [beforeLoopVar, inLoopVar], boundVar):-
   LoopExitCondPredicateFalse(condVar, loop, _),
   WellFormedLoopInductionVariable(loop, _, [beforeLoopVar, inLoopVar]),
@@ -200,6 +212,23 @@ InductionVariableUpperBoundVar(loop, [beforeLoopVar, inLoopVar], boundVar):-
   GT(_, phiVar, boundVar, gtVar),
   ISZERO(_, gtVar, condVar).
 
+// while (1) { if (boundVar <= i)break; ... }
+// while (i < boundVar) {...}
+InductionVariableUpperBoundVar(loop, [beforeLoopVar, inLoopVar], boundVar):-
+  LoopExitCondPredicateTrue(condVar, loop, _),
+  WellFormedLoopInductionVariable(loop, _, [beforeLoopVar, inLoopVar]),
+  PHIStmtTwoUses(_, beforeLoopVar, inLoopVar, phiVar),
+  GT(_, boundVar, phiVar, gtVar),
+  ISZERO(_, gtVar, condVar).
+
+// while (1) { if (boundVar < i)break; ... }
+// while (i <= boundVar) {...}
+InductionVariableUpperBoundVar(loop, [beforeLoopVar, inLoopVar], boundVar):-
+  LoopExitCondPredicateFalse(condVar, loop, _),
+  WellFormedLoopInductionVariable(loop, _, [beforeLoopVar, inLoopVar]),
+  PHIStmtTwoUses(_, beforeLoopVar, inLoopVar, phiVar),
+  LT(_, boundVar, phiVar, ltVar),
+  ISZERO(_, ltVar, condVar).
 
 .decl VariableDefinedInLoopUsedAfter(loop: Block, variable: Variable, useStmt: Statement)
 DEBUG_OUTPUT(VariableDefinedInLoopUsedAfter)
