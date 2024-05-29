@@ -90,6 +90,12 @@
     1 < count: Function_Exit(fun, _),
     !In_FormalReturnArgs(fun, _, 0).
 
+   .decl FunctionMultiReturnRestriction(fun:Function)
+  FunctionMultiReturnRestriction(fun):-
+    In_IsFunction(fun),
+    1 < count: Function_Exit(fun, _),
+    In_FormalReturnArgs(fun, _, 0).
+
   /* We can safely inline functions with only one return
      and matching args and returns at every call-site(as described above) */
   SafelyInlinableFunction(fun):-
@@ -98,7 +104,7 @@
     InFunction(fun_entry_block, fun),
     In_FunctionEntry(fun_entry_block),
     !GlobalEntryBlock(fun_entry_block),
-    FunctionReturnRestriction(fun),
+    (FunctionReturnRestriction(fun); FunctionMultiReturnRestriction(fun)),
     !FunHasArgMismatch(fun),
     !FunHasRetMismatch(fun),
     !FunCalledWithImpreciseControlFlow(fun).
@@ -359,7 +365,33 @@
     FunctionToInline_RetStmt(callee, retStmt),
     In_Statement_Uses(retStmt, formalRet, i + 1).
 
+  .decl InlinedCallNeedsPHIIntroduced(callerBlock: Block, callStmt: Statement, callee: Function, retStmt: Statement, index: number, actualRet: Variable, formalRet: Variable)
+  DEBUG_OUTPUT(InlinedCallNeedsPHIIntroduced)
+  InlinedCallNeedsPHIIntroduced(callerBlock, callStmt, callee, retStmt, i, actualRet, formalRet):-
+    CallToClonedFunction(callerBlock, callStmt, callee),
+    FunctionMultiReturnRestriction(callee),
+    In_Statement_Defines(callStmt, actualRet, i),
+    FunctionToInline_RetStmt(callee, retStmt),
+    In_Statement_Uses(retStmt, formalRet, i + 1).
 
+  .decl NewPHIInfo(callerBlock: Block, callStmt: Statement, actualRet: Variable, phiBlock: Block, stmtId: Statement, defVar: Variable, useVar: Variable)
+  DEBUG_OUTPUT(NewPHIInfo)
+
+  NewPHIInfo(callerBlock, callStmt, actualRet, phiBlock, stmtId, defVar, formalRett):-
+    InlinedCallNeedsPHIIntroduced(callerBlock, callStmt, _, _, i, actualRet, formalRet),
+    In_LocalBlockEdge(callerBlock, phiBlock),
+    InVar_OutVar(formalRet, callerBlock, formalRett),
+    !ClonedCallArgs(_, _, _, _, formalRet),
+    stmtId = cat(cat(cat(cat(callerBlock, "S"), phiBlock), "_"), to_string(i)),
+    defVar = cat(cat(cat(cat(actualRet, "V"), phiBlock), "_"), to_string(i)).
+
+  NewPHIInfo(callerBlock, callStmt, actualRet, phiBlock, stmtId, defVar, actualArgg):-
+    InlinedCallNeedsPHIIntroduced(callerBlock, callStmt, _, _, i, actualRet, formalRet),
+    In_LocalBlockEdge(callerBlock, phiBlock),
+    ClonedCallArgs(callerBlock, _, _, actualArg, formalRet), //Formal ret is formal arg
+    InVar_OutVar(actualArg, "", actualArgg),
+    stmtId = cat(cat(cat(cat(callerBlock, "S"), phiBlock), "_"), to_string(i)),
+    defVar = cat(cat(cat(cat(actualRet, "V"), phiBlock), "_"), to_string(i)).
 
   Out_Statement_Defines(outStmt, outVar, i),
   InVar_OutVar(inVar, callerBlock, outVar),
@@ -387,12 +419,14 @@
   InVar_OutVar(actualRet , "", formalRett):-
     ClonedCallRets(callerBlock, _, _, _, actualRet, formalRet),
     InVar_OutVar(formalRet, callerBlock, formalRett),
+    !InlinedCallNeedsPHIIntroduced(callerBlock, _, _, _, _, actualRet, formalRet),
     !ClonedCallArgs(_, _, _, _, formalRet).
 
   InVar_OutVar(actualRet , "", actualArgg):-
     ClonedCallRets(caller, _, _, _, actualRet, formalRet),
     ClonedCallArgs(caller, _, _, actualArg, formalRet), //Formal ret is formal arg
-    InVar_OutVar(actualArg, "", actualArgg).
+    InVar_OutVar(actualArg, "", actualArgg),
+    !InlinedCallNeedsPHIIntroduced(caller, _, _, _, _, actualRet, formalRet).
 
   Out_Statement_Uses(outStmt, outVar, i):-
     In_Statement_Uses(inStmt, inVar, i),
@@ -414,8 +448,16 @@
     InStatement_OutStatement(inStmt, "", outStmt),
     ClonedCallRets(callerBlock, _, _, _, actualRet, formalRet),
     InVar_OutVar(formalRet, callerBlock, outVar),
+    !InlinedCallNeedsPHIIntroduced(callerBlock, _, _, _, _, actualRet, formalRet),
     !ClonedCallRets(_, inStmt, _, _, _, _).
 
+  Out_Statement_Uses(outStmt, phiVar, i):-
+    In_Statement_Uses(inStmt, actualRet, i),
+    InStatement_OutStatement(inStmt, "", outStmt),
+    ClonedCallRets(callerBlock, _, _, _, actualRet, formalRet),
+    InlinedCallNeedsPHIIntroduced(callerBlock, _, _, _, _, actualRet, formalRet),
+    NewPHIInfo(callerBlock, _, actualRet, _, _, phiVar, _),
+    !ClonedCallRets(_, inStmt, _, _, _, _).
 
   /* Fixing the uses of cloned calls/returns to restore the JUMP stmts */
   Out_Statement_Uses(outCall, outJumpTargetVar, 0):-
@@ -429,6 +471,12 @@
     In_Statement_Uses(retJump, jumpTargetVar, 0),
     InStatement_OutStatement(retJump, callerBlock, outRetJump),
     InVar_OutVar(jumpTargetVar, callerBlock, outJumpTargetVar).
+
+  Out_Statement_Opcode(stmtId, "PHI"),
+  Out_Statement_Defines(stmtId, defVar, 0),
+  Out_Statement_Uses(stmtId, useVar, -1),
+  Out_Statement_Block(stmtId, phiBlock):-
+    NewPHIInfo(_, _, _, phiBlock, stmtId, defVar, useVar).
 
   .decl In_VariableHoldsJumpdest(inVar: Variable)
   In_VariableHoldsJumpdest(inVar):-
