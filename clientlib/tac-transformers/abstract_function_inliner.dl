@@ -85,16 +85,23 @@
     In_IsFunction(fun),
     1 = count: Function_Exit(fun, _).
 
+  // FunctionReturnRestriction(fun):-
+  //   In_IsFunction(fun),
+  //   1 < count: Function_Exit(fun, _),
+  //   !In_FormalReturnArgs(fun, _, 0).
+
   FunctionReturnRestriction(fun):-
     In_IsFunction(fun),
     1 < count: Function_Exit(fun, _),
-    !In_FormalReturnArgs(fun, _, 0).
+    !FunctionMultiReturnRestriction(fun).
 
-   .decl FunctionMultiReturnRestriction(fun:Function)
+  .decl FunctionMultiReturnRestriction(fun:Function)
   FunctionMultiReturnRestriction(fun):-
     In_IsFunction(fun),
     1 < count: Function_Exit(fun, _),
-    In_FormalReturnArgs(fun, _, 0).
+    In_FormalReturnArgs(fun, var1, i),
+    In_FormalReturnArgs(fun, var2, i),
+    var1 != var2.
 
   /* We can safely inline functions with only one return
      and matching args and returns at every call-site(as described above) */
