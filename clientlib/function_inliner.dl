@@ -18,7 +18,7 @@
 .comp AnalysisHelpInliner : FunctionInliner {
 
   .override InlineCandidate
-  //.output InlineCandidate
+  .output InlineCandidate, FunctionToInline, IsPublicFunction, FunctionIsInner, SafelyInlinableFunction
 
   /* Inline guards to help our analysis */
   InlineCandidate(fun):-
@@ -60,6 +60,18 @@ IsUtilFunc(fun):-
     In_CallGraphEdge(caller, fun),
     In_FormalArgs(fun, formalArg, pos),
     LocalFlows(formalArg, storeIndex),
+    (SLOAD(_, storeIndex, _) ; SSTORE(_, storeIndex, _)).
+
+  InlineCandidate(fun):-
+    (SHA3(_, _, _, var) ; Variable_Value(var, _)),
+    LocalFlows(var, actualArg),
+    In_ActualArgs(caller, actualArg, pos),
+    In_CallGraphEdge(caller, fun),
+    In_FormalArgs(fun, formalArg, pos),
+    LocalFlows(formalArg, intermIndex),
+    MemoryStatement_ActualArg(stmt, intermIndex, _),
+    SHA3(stmt, _, _, def),
+    LocalFlows(def, storeIndex),
     (SLOAD(_, storeIndex, _) ; SSTORE(_, storeIndex, _)).
 
   InlineCandidate(fun):-
@@ -113,6 +125,13 @@ IsUtilFunc(fun):-
   InlineCandidate(fun):-
     MLOADFreePtr_To(_, loadedAddr),
     In_FormalReturnArgs(fun, loadedAddr, _),
+    !Struct_WordWidth(loadedAddr, _),
+    !VarIsArray(loadedAddr, _).
+
+  InlineCandidate(fun):-
+    MLOADFreePtr_To(_, loadedAddr),
+    In_ActualArgs(caller, loadedAddr, _),
+    In_CallGraphEdge(caller, fun),
     !Struct_WordWidth(loadedAddr, _),
     !VarIsArray(loadedAddr, _).
 
