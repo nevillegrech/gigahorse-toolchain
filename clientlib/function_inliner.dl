@@ -69,8 +69,7 @@ IsUtilFunc(fun):-
     In_CallGraphEdge(caller, fun),
     In_FormalArgs(fun, formalArg, pos),
     LocalFlows(formalArg, intermIndex),
-    MemoryStatement_ActualArg(stmt, intermIndex, _),
-    SHA3(stmt, _, _, def),
+    (SHA3_2ARG(_, _, intermIndex, def); SHA3_1ARG(_, intermIndex, def)),
     LocalFlows(def, storeIndex),
     (SLOAD(_, storeIndex, _) ; SSTORE(_, storeIndex, _)).
 
