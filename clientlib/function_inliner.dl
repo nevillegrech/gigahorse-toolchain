@@ -75,6 +75,15 @@ IsUtilFunc(fun):-
     (SLOAD(_, storeIndex, _) ; SSTORE(_, storeIndex, _)).
 
   InlineCandidate(fun):-
+    (SHA3_2ARG(_, _, _, def); SHA3_1ARG(_, _, def)),
+    LocalFlows(def, intermIndex),
+    In_FormalReturnArgs(fun, intermIndex, pos),
+    In_CallGraphEdge(caller, fun),
+    In_ActualReturnArgs(caller, intermIndexCaller, pos),
+    LocalFlows(intermIndexCaller, storeIndex),
+    (SLOAD(_, storeIndex, _) ; SSTORE(_, storeIndex, _)).
+
+  InlineCandidate(fun):-
     //In_Variable_Value(actualArg, _),
     //In_ActualArgs(caller, actualArg, pos),
     //In_CallGraphEdge(caller, fun),
