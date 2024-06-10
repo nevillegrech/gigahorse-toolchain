@@ -101,9 +101,13 @@ IsUtilFunc(fun):-
     numOfBlocks = count : In_InFunction(_, fun),
     numOfBlocks <= 3.
 
+  // a function is only called once by a caller that makes a single call
   InlineCandidate(fun):-
     In_IsFunction(fun),
     1 = count : In_CallGraphEdge(_, fun),
+    In_CallGraphEdge(caller, fun),
+    In_InFunction(caller, callerFun),
+    1 = count: {In_InFunction(inCaller, callerFun), In_CallGraphEdge(inCaller, _)},
     !IsPublicFunction(fun).
 
   InlineCandidate(fun):-
