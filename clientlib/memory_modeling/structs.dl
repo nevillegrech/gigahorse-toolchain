@@ -32,6 +32,12 @@ DEBUG_OUTPUT(Struct_WordWidth)
 DEBUG_OUTPUT(InitialStoreToPossibleStruct)
 
 /**
+  Stores to possible structs
+*/
+.decl StoreToPossibleStruct(mstore: Statement, structBase: Variable, storedVar: Variable, wordOffset: number)
+DEBUG_OUTPUT(StoreToPossibleStruct)
+
+/**
   Helper to disqualify memory constructs that fit the patterns for both structs and constant arrays.
   This is an issue because array and struct inference are mutually recursive and we cannot
   use recursion.
@@ -69,12 +75,21 @@ InitialStoreToPossibleStruct(mstore, structBaseVar, storedVar, memOffset / 32):-
   StatementDominates(mload, mstore),
   StatementDominates(mstore, freePtrUpdStore).
 
+StoreToPossibleStruct(mstore, structBaseVar, storedVar, memOffset / 32):-
+  PossibleStructAllocation(mload, _, structBaseVar, wordWidth),
+  FreePointerBasedValue(storeIndexVal, mload, _, memOffset),
+  memOffset % 32 = 0,
+  memOffset / 32 < wordWidth,
+  Variable_SymbolicValue(memIndex, storeIndexVal),
+  MSTORE(mstore, memIndex, storedVar),
+  StatementDominates(mload, mstore).
+
 ProbablyConstantArray(probablyArrayVar):-
   PossibleStructAllocation(_, _, probablyArrayVar, _),
-  stores =  count : InitialStoreToPossibleStruct(_, probablyArrayVar, _, _),
+  stores =  count : StoreToPossibleStruct(_, probablyArrayVar, _, _),
   stores > 0,
   stores =  count : {
-    InitialStoreToPossibleStruct(_, probablyArrayVar, storedVar, _),
+    StoreToPossibleStruct(_, probablyArrayVar, storedVar, _),
     BasicVariable_Value(storedVar, _)
   }.
 
@@ -110,9 +125,21 @@ StructAllocation(freePtrUpdStore, structBaseVar, wordWidth):-
 StructAllocation(freePtrUpdStore, structBaseVar, wordWidth):-
   PossibleStructAllocation(_, freePtrUpdStore, structBaseVar, wordWidth),
   StructAllocationCheck(structBaseVar),
-  LocalFlows(structBaseVar, argOrRet),
-  (ActualArgs(_, argOrRet, _) ; FormalReturnArgs(_, argOrRet, _)),
+  // LocalFlows(structBaseVar, argOrRet),
+  // (ActualArgs(_, argOrRet, _) ; FormalReturnArgs(_, argOrRet, _)),
   !ProbablyConstantArray(structBaseVar).
+
+/**
+  Find structs that are likely copies of structs from storage
+*/
+StructAllocation(freePtrUpdStore, structBaseVar, wordWidth):-
+  PossibleStructAllocation(_, freePtrUpdStore, structBaseVar, wordWidth),
+  wordWidth = count : InitialStoreToPossibleStruct(_, structBaseVar, _, _),
+  wordWidth = count : {
+    InitialStoreToPossibleStruct(_, structBaseVar, storedVar, _),
+    LocalFlows(sloadedVar, storedVar),
+    SLOAD(_, _, sloadedVar)
+  }.
 
 /**
   If something that may be an array is stored to a memory addr derived from `structBaseVar`
