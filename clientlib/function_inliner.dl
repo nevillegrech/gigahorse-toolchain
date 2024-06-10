@@ -31,7 +31,8 @@
 IsUtilFunc(fun):-
     (prefix = "abi_encode_";
     prefix = "calldata_";
-    prefix = "checked_";
+    // prefix = "checked_";
+    // don't want to inline checked arithmetic functions
     prefix = "extract_";
     prefix = "getter_";
     prefix = "mapping_index_";
@@ -99,7 +100,7 @@ IsUtilFunc(fun):-
     In_CallGraphEdge(_, fun),
     In_FormalArgs(fun, _, _),
     numOfBlocks = count : In_InFunction(_, fun),
-    numOfBlocks <= 3.
+    numOfBlocks < 3.
 
   // a function is only called once by a caller that makes a single call
   InlineCandidate(fun):-
