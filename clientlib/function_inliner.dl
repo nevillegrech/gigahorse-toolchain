@@ -18,7 +18,31 @@
 .comp AnalysisHelpInliner : FunctionInliner {
 
   .override InlineCandidate
-  .output InlineCandidate, FunctionToInline, IsPublicFunction, FunctionIsInner, SafelyInlinableFunction
+  // .output InlineCandidate, FunctionToInline, IsPublicFunction, FunctionIsInner, SafelyInlinableFunction
+
+  .decl HighLevelStatement(stmt: Statement)
+  HighLevelStatement(stmt):-
+    Statement_Opcode(stmt, op),
+    (
+      op = "CALLPRIVATE";
+      op = "CALL";
+      op = "STATICCALL";
+      op = "DELEGATECALL";
+      op = "REVERT";
+      op = "THROW";
+      op = "SSTORE"
+    ).
+
+  HighLevelStatement(stmt):-
+    Analytics_NonModeledMSTORE(stmt);
+    StructStore(stmt, _, _, _);
+    StructAllocation(stmt, _, _);
+    ArrayStore(stmt, _, _);
+    ArrayAllocationInternal(stmt, _, _, _).
+
+  InlineCandidate(fun):-
+    In_CallGraphEdge(_, fun),
+    0 = count : { Statement_Function(stmt, fun), HighLevelStatement(stmt) }.
 
   /* Inline guards to help our analysis */
   InlineCandidate(fun):-
