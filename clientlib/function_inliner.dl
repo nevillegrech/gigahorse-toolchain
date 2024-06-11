@@ -1,6 +1,6 @@
 #include "tac-transformers/abstract_function_inliner.dl"
 #include "memory_modeling/memory_modeling.dl"
-
+#include "storage_modeling/storage_modeling.dl"
 
 /**
   Inliner was designed as a component in order to be able to have
@@ -75,8 +75,11 @@ IsUtilFunc(fun):-
     (SLOAD(_, storeIndex, _) ; SSTORE(_, storeIndex, _)).
 
   InlineCandidate(fun):-
-    (SHA3_2ARG(_, _, _, def); SHA3_1ARG(_, _, def)),
-    LocalFlows(def, intermIndex),
+    // (SHA3_2ARG(_, _, _, def); SHA3_1ARG(_, _, def)),
+    // LocalFlows(def, intermIndex),
+    // using internal storage modeling predicate here
+    // to get higher coverage
+    Variable_StorageIndex(intermIndex, _),
     In_FormalReturnArgs(fun, intermIndex, pos),
     In_CallGraphEdge(caller, fun),
     In_ActualReturnArgs(caller, intermIndexCaller, pos),
