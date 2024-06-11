@@ -30,11 +30,14 @@
       op = "DELEGATECALL";
       op = "REVERT";
       op = "THROW";
-      op = "SSTORE"
+      op = "SSTORE";
+      op = "CREATE";
+      op = "CREATE2"
     ).
 
   HighLevelStatement(stmt):-
     Analytics_NonModeledMSTORE(stmt);
+    LOGStatement(stmt, _);
     StructStore(stmt, _, _, _);
     StructAllocation(stmt, _, _);
     ArrayStore(stmt, _, _);
