@@ -47,6 +47,12 @@
     In_CallGraphEdge(_, fun),
     0 = count : { Statement_Function(stmt, fun), HighLevelStatement(stmt) }.
 
+  // Functions that have a single high-level stmt and no actual returns
+  InlineCandidate(fun):-
+    In_CallGraphEdge(_, fun),
+    1 = count : { Statement_Function(stmt, fun), HighLevelStatement(stmt) },
+    !In_FormalReturnArgs(fun, _, 0).
+
   /* Inline guards to help our analysis */
   InlineCandidate(fun):-
     (In_Statement_Opcode(callerOp, "CALLER"); In_Statement_Opcode(callerOp, "ORIGIN")),
@@ -126,13 +132,6 @@ IsUtilFunc(fun):-
     In_Variable_Value(calldataIndex, _),
     In_Statement_Function(cdl, fun),
     !IsPublicFunction(fun).
-
-  // Functions that only have a return jump and no actual returns
-  InlineCandidate(fun):-
-    In_CallGraphEdge(_, fun),
-    numOfStatements = count : In_Statement_Function(_, fun),
-    numOfStatements = 1,
-    !In_FormalReturnArgs(fun, _, 0).
 
   // Less than 3 blocks
   InlineCandidate(fun):-
