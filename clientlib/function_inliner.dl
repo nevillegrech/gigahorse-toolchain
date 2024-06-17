@@ -21,6 +21,7 @@
   .output InlineCandidate, FunctionToInline, IsPublicFunction, FunctionIsInner, SafelyInlinableFunction
 
   .decl HighLevelStatement(stmt: Statement)
+  DEBUG_OUTPUT(HighLevelStatement)
   HighLevelStatement(stmt):-
     Statement_Opcode(stmt, op),
     (
@@ -40,8 +41,11 @@
     LOGStatement(stmt, _);
     StructStore(stmt, _, _, _);
     StructAllocation(stmt, _, _);
-    ArrayStore(stmt, _, _);
     ArrayAllocationInternal(stmt, _, _, _).
+
+  HighLevelStatement(stmt):-
+    ArrayStore(stmt, arrRep, _),
+    !ConstArray_Contents(arrRep, _).
 
   HighLevelStatement(ret):-
     In_Statement_Opcode(ret, "RETURNPRIVATE"),
