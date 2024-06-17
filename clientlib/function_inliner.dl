@@ -18,7 +18,7 @@
 .comp AnalysisHelpInliner : FunctionInliner {
 
   .override InlineCandidate
-  // .output InlineCandidate, FunctionToInline, IsPublicFunction, FunctionIsInner, SafelyInlinableFunction
+  .output InlineCandidate, FunctionToInline, IsPublicFunction, FunctionIsInner, SafelyInlinableFunction
 
   .decl HighLevelStatement(stmt: Statement)
   HighLevelStatement(stmt):-
@@ -43,18 +43,28 @@
     ArrayStore(stmt, _, _);
     ArrayAllocationInternal(stmt, _, _, _).
 
-  InlineCandidate(fun):-
+  HighLevelStatement(ret):-
+    In_Statement_Opcode(ret, "RETURNPRIVATE"),
+    In_Statement_Uses(ret, _, pos),
+    pos >= 1.
+
+  .decl Function_HighLevelStmts(fun: Function, numOfStmts: number)
+  Function_HighLevelStmts(fun, numOfStmts):-
     In_CallGraphEdge(_, fun),
-    0 = count : { Statement_Function(stmt, fun), HighLevelStatement(stmt) }.
+    numOfStmts = count : { Statement_Function(stmt, fun), HighLevelStatement(stmt) }.
+
+  InlineCandidate(fun, "VerySmall"):-
+    In_CallGraphEdge(_, fun),
+    Function_HighLevelStmts(fun, 1).
 
   // Functions that have a single high-level stmt and no actual returns
-  InlineCandidate(fun):-
-    In_CallGraphEdge(_, fun),
-    1 = count : { Statement_Function(stmt, fun), HighLevelStatement(stmt) },
-    !In_FormalReturnArgs(fun, _, 0).
+  // InlineCandidate(fun):-
+  //   In_CallGraphEdge(_, fun),
+  //   1 = count : { Statement_Function(stmt, fun), HighLevelStatement(stmt) },
+  //   !In_FormalReturnArgs(fun, _, 0).
 
   /* Inline guards to help our analysis */
-  InlineCandidate(fun):-
+  InlineCandidate(fun, "WrapperMethod"):-
     (In_Statement_Opcode(callerOp, "CALLER"); In_Statement_Opcode(callerOp, "ORIGIN")),
     In_Statement_Defines(callerOp, sender, 0),
     LocalFlows(sender, formalRet),
@@ -82,12 +92,13 @@ IsUtilFunc(fun):-
     HighLevelFunctionName(fun, funName),
     prefix=substr(funName, 0, strlen(prefix)).
 
-  InlineCandidate(fun):-
+  InlineCandidate(fun, "Util"):-
+    In_CallGraphEdge(_, fun),
     IsUtilFunc(fun).
 
 
   /* To detect some storage constructs breaking through functions */
-  InlineCandidate(fun):-
+  InlineCandidate(fun, "Storage1"):-
     (SHA3(_, _, _, var) ; Variable_Value(var, _)),
     LocalFlows(var, actualArg),
     In_ActualArgs(caller, actualArg, pos),
@@ -96,7 +107,7 @@ IsUtilFunc(fun):-
     LocalFlows(formalArg, storeIndex),
     (SLOAD(_, storeIndex, _) ; SSTORE(_, storeIndex, _)).
 
-  InlineCandidate(fun):-
+  InlineCandidate(fun, "Storage2"):-
     (SHA3(_, _, _, var) ; Variable_Value(var, _)),
     LocalFlows(var, actualArg),
     In_ActualArgs(caller, actualArg, pos),
@@ -107,7 +118,7 @@ IsUtilFunc(fun):-
     LocalFlows(def, storeIndex),
     (SLOAD(_, storeIndex, _) ; SSTORE(_, storeIndex, _)).
 
-  InlineCandidate(fun):-
+  InlineCandidate(fun, "Storage3"):-
     // (SHA3_2ARG(_, _, _, def); SHA3_1ARG(_, _, def)),
     // LocalFlows(def, intermIndex),
     // using internal storage modeling predicate here
@@ -119,29 +130,29 @@ IsUtilFunc(fun):-
     LocalFlows(intermIndexCaller, storeIndex),
     (SLOAD(_, storeIndex, _) ; SSTORE(_, storeIndex, _)).
 
-  InlineCandidate(fun):-
+  InlineCandidate(fun, "CallData1"):-
     //In_Variable_Value(actualArg, _),
     //In_ActualArgs(caller, actualArg, pos),
     //In_CallGraphEdge(caller, fun),
     In_FormalArgs(fun, formalArg, _),
-    LocalFlows(formalArg, calldataIndex),
+    LocalFlowsExclPHI(formalArg, calldataIndex),
     CALLDATALOAD(_, calldataIndex, _).
 
-  InlineCandidate(fun):-
+  InlineCandidate(fun, "CallData2"):-
     CALLDATALOAD(cdl, calldataIndex, _),
     In_Variable_Value(calldataIndex, _),
     In_Statement_Function(cdl, fun),
     !IsPublicFunction(fun).
 
   // Less than 3 blocks
-  InlineCandidate(fun):-
+  InlineCandidate(fun, "Small"):-
     In_CallGraphEdge(_, fun),
     In_FormalArgs(fun, _, _),
     numOfBlocks = count : In_InFunction(_, fun),
     numOfBlocks < 3.
 
   // a function is only called once by a caller that makes a single call
-  InlineCandidate(fun):-
+  InlineCandidate(fun, "SingleCall"):-
     In_IsFunction(fun),
     1 = count : In_CallGraphEdge(_, fun),
     In_CallGraphEdge(caller, fun),
@@ -149,22 +160,35 @@ IsUtilFunc(fun):-
     1 = count: {In_InFunction(inCaller, callerFun), In_CallGraphEdge(inCaller, _)},
     !IsPublicFunction(fun).
 
-  InlineCandidate(fun):-
+  InlineCandidate(fun, "ConsumeMemNoArgs"):-
     StatementConsumesMemoryNoArgs(memConsStmt),
-    In_Statement_Function(memConsStmt, fun).
+    In_Statement_Function(memConsStmt, fun),
+    Function_HighLevelStmts(fun, numOfStmts),
+    numOfStmts < 15.
 
-  InlineCandidate(fun):-
+  InlineCandidate(fun, "Memory1"):-
     In_FormalArgs(fun, formalArg, _),
-    LocalFlows(formalArg, loadAddr),
+    LocalFlowsExclPHI(formalArg, loadAddr),
     MLOAD(_, loadAddr, loaded),
-    ( LocalFlows(loaded, formalRet);
-      LocalFlows(formalArg, formalRet)),
+    ( LocalFlowsExclPHI(loaded, formalRet);
+      LocalFlowsExclPHI(formalArg, formalRet)),
     In_FormalReturnArgs(fun, formalRet, _),
     !Struct_WordWidth(formalArg, _),
     // !Struct_WordWidth(formalRet, _),
     !VarIsArray(formalArg, _).
 
-  InlineCandidate(fun):-
+  // aimed to catch patterns that compute memory allocation bytes inside a function
+  InlineCandidate(fun, "Memory2"):-
+    In_FormalArgs(fun, formalArg, _),
+    In_FormalReturnArgs(fun, formalRet, index),
+    LocalFlowsExclPHI(formalArg, formalRet),
+    In_CallGraphEdge(caller, fun),
+    In_ActualReturnArgs(caller, actualRet, index),
+    LocalFlowsExclPHI(actualRet, bumpVar),
+    MSTORE(mstore, _, bumpVar),
+    MSTOREFreePtr(mstore).
+
+  InlineCandidate(fun, "Memory3"):-
     MLOADFreePtr_To(_, loadedAddr),
     In_FormalReturnArgs(fun, loadedAddr, _),
     !Struct_WordWidth(loadedAddr, _),
@@ -174,7 +198,7 @@ IsUtilFunc(fun):-
     If an arg passed to a function is always the free mem pointer and never a high-level
     memory structure, we inline it as it's likely an allocation split in half.
   */
-  InlineCandidate(fun):-
+  InlineCandidate(fun, "Memory4"):-
     CallArgIsNonModeledMemObject(_, fun, argNum),
     count: CallArgIsNonModeledMemObject(_, fun, argNum) = count: In_CallGraphEdge(_, fun).
 
@@ -186,9 +210,9 @@ IsUtilFunc(fun):-
     !Struct_WordWidth(loadedAddr, _),
     !VarIsArray(loadedAddr, _).
 
-  InlineCandidate(fun):-
+  InlineCandidate(fun, "Memory5"):-
     In_FormalArgs(fun, formalArg, _),
-    LocalFlows(formalArg, storeAddr),
+    LocalFlowsExclPHI(formalArg, storeAddr),
     MSTORE(_, storeAddr, _),
     !Struct_WordWidth(formalArg, _),
     !VarIsArray(formalArg, _).
@@ -199,7 +223,7 @@ IsUtilFunc(fun):-
     (In_Statement_Opcode(callStmt, "CALL"); In_Statement_Opcode(callStmt, "STATICCALL"); In_Statement_Opcode(callStmt, "DELEGATECALL")),
     In_Statement_Function(callStmt, fun).
 
-  InlineCandidate(fun):-
+  InlineCandidate(fun, "ReturnDataNoCall"):-
     (In_Statement_Opcode(returnDataStmt, "RETURNDATASIZE"); In_Statement_Opcode(returnDataStmt, "RETURNDATACOPY")),
     In_Statement_Function(returnDataStmt, fun),
     !FunctionContainsExternalCall(fun).
@@ -210,7 +234,7 @@ IsUtilFunc(fun):-
     StatementUsesMemory(stmt,_),
     In_Statement_Function(stmt, fun).
 
-  InlineCandidate(fun):-
+  InlineCandidate(fun, "MemoryLoop"):-
     MemoryCopyLoop(memLoop, _, _),
     In_InFunction(memLoop, fun),
     !FunctionContainsMemConsStmt(fun).
@@ -222,7 +246,7 @@ IsUtilFunc(fun):-
 .output NeedsMoreInlining
 
 NeedsMoreInlining(fun):-
-  inliner.InlineCandidate(fun),
+  inliner.InlineCandidate(fun, _),
   inliner.SafelyInlinableFunction(fun),
   !inliner.FunctionToInline(fun),
   !IsPublicFunction(fun).

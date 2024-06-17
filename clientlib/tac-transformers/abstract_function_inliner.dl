@@ -15,7 +15,7 @@
 
   /* Will be overriden to specify which functions the specific inliner will want to inline 
      FunctionToInline will contain a subset of this */
-  .decl InlineCandidate(fun:Function) overridable
+  .decl InlineCandidate(fun: Function, reason: symbol) overridable
   
   /* Functions that will be inlined in this instatiation of the component */
   .decl FunctionToInline(fun:Function)
@@ -45,7 +45,7 @@
   .decl VariableToClone(var:Variable, fromFun:Function, callerBlock:Block, callerFun:Function, newVar:Variable)
   
   /* By default tries to inline all private functions */
-  InlineCandidate(fun):-
+  InlineCandidate(fun, "NoReason"):-
     In_IsFunction(fun),
     !IsPublicFunction(fun).
 
@@ -128,7 +128,7 @@
     !In_LocalBlockEdge(block, _).
 
   CGEToInlineCandidate(caller, callee):-
-    InlineCandidate(callee),
+    InlineCandidate(callee, _),
     SafelyInlinableFunction(callee),
     In_CallGraphEdge(callerBlock, callee),
     In_InFunction(callerBlock, caller).
@@ -136,7 +136,7 @@
   /* The functions that end up being inlined are the safely inlinable candidates
      that do not contain calls to other inline candidates */
   FunctionToInline(func):-
-    InlineCandidate(func),
+    InlineCandidate(func, _),
     SafelyInlinableFunction(func),
     In_IsFunction(func),
     !IsPublicFunction(func),
