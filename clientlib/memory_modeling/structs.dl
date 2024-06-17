@@ -6,6 +6,18 @@ StatementDominates(stmt1, stmt2):-
   Statement_Block(stmt2, block2),
   (Dominates(block1, block2) ; LocalStatementPathInBlock(stmt1, stmt2)).
 
+.decl StatementDoesntDominate(stmt1: Statement, stmt2: Statement) inline
+StatementDoesntDominate(stmt1, stmt2):-
+  Statement_Block(stmt1, block),
+  Statement_Block(stmt2, block),
+  LocalStatementPathInBlock(stmt2, stmt1).
+
+StatementDoesntDominate(stmt1, stmt2):-
+  Statement_Block(stmt1, block1),
+  Statement_Block(stmt2, block2),
+  block1 != block2,
+  !Dominates(block1, block2).
+
 
 /**
   Base case for struct allocations
@@ -111,6 +123,14 @@ StructAllocationCheck(structBase):-
   ControlsWith(jmpi, throwBlock, condVar),
   ThrowBlock(throwBlock).
 
+// Maybe not the best way to define it, may revisit
+.decl StructStoresInDifferentPaths(structBase: Variable)
+StructStoresInDifferentPaths(structBaseVar):-
+  StoreToPossibleStruct(mstore1, structBaseVar, _, _),
+  StoreToPossibleStruct(mstore2, structBaseVar, _, _),
+  StatementDoesntDominate(mstore1, mstore2),
+  StatementDoesntDominate(mstore2, mstore1).
+
 // REVIEW: it requires at least as many InitialStoreToPossibleStruct as the struct's words
 // it may possibly not be the case in optimized code
 // REVIEW: only infers the structs in cases where it escapes the current method
@@ -127,6 +147,11 @@ StructAllocation(freePtrUpdStore, structBaseVar, wordWidth):-
   StructAllocationCheck(structBaseVar),
   // LocalFlows(structBaseVar, argOrRet),
   // (ActualArgs(_, argOrRet, _) ; FormalReturnArgs(_, argOrRet, _)),
+  !ProbablyConstantArray(structBaseVar).
+
+StructAllocation(freePtrUpdStore, structBaseVar, wordWidth):-
+  PossibleStructAllocation(_, freePtrUpdStore, structBaseVar, wordWidth),
+  StructStoresInDifferentPaths(structBaseVar),
   !ProbablyConstantArray(structBaseVar).
 
 /**
