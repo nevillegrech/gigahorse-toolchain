@@ -49,6 +49,7 @@
     pos >= 1.
 
   .decl Function_HighLevelStmts(fun: Function, numOfStmts: number)
+  DEBUG_OUTPUT(Function_HighLevelStmts)
   Function_HighLevelStmts(fun, numOfStmts):-
     In_CallGraphEdge(_, fun),
     numOfStmts = count : { Statement_Function(stmt, fun), HighLevelStatement(stmt) }.
@@ -164,7 +165,7 @@ IsUtilFunc(fun):-
     StatementConsumesMemoryNoArgs(memConsStmt),
     In_Statement_Function(memConsStmt, fun),
     Function_HighLevelStmts(fun, numOfStmts),
-    numOfStmts < 15.
+    numOfStmts < 20.
 
   InlineCandidate(fun, "Memory1"):-
     In_FormalArgs(fun, formalArg, _),
