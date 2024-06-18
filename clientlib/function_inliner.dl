@@ -18,7 +18,7 @@
 .comp AnalysisHelpInliner : FunctionInliner {
 
   .override InlineCandidate
-  .output InlineCandidate, FunctionToInline, IsPublicFunction, FunctionIsInner, SafelyInlinableFunction
+  // .output InlineCandidate, FunctionToInline, IsPublicFunction, FunctionIsInner, SafelyInlinableFunction
 
   .decl HighLevelStatement(stmt: Statement)
   DEBUG_OUTPUT(HighLevelStatement)
