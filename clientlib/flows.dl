@@ -224,6 +224,17 @@ localFlowAnalysis.TransferBoundary(block) :- IsBlock(block).
 
 #define LocalFlows localFlowAnalysis.Flows
 
+/**
+  Local flows excluding PHIs
+  To be used when more precise, local inferrences are needed
+*/
+.init altLocalFlowAnalysis = LocalFlowAnalysis
+
+altLocalFlowAnalysis.TransferStmt(stmt) :- FlowOp(op), Statement_Opcode(stmt, op), op != "PHI".
+altLocalFlowAnalysis.TransferBoundary(block) :- IsBlock(block).
+
+#define LocalFlowsExclPHI altLocalFlowAnalysis.Flows
+
 // x controls whether y is executed.
 .decl Controls(x:Statement, y:Block)
 
