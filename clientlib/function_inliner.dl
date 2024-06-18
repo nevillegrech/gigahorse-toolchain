@@ -135,6 +135,14 @@ IsUtilFunc(fun):-
     LocalFlows(intermIndexCaller, storeIndex),
     (SLOAD(_, storeIndex, _) ; SSTORE(_, storeIndex, _)).
 
+  InlineCandidate(fun, "ReentrancyGuard"):-
+    In_CallGraphEdge(_, fun),
+    Function_HighLevelStmts(fun, 2),
+    Statement_Function(sstore, fun),
+    SSTORE(sstore, _, const),
+    Variable_Value(const, _).
+
+
   InlineCandidate(fun, "CallData1"):-
     //In_Variable_Value(actualArg, _),
     //In_ActualArgs(caller, actualArg, pos),
