@@ -193,15 +193,14 @@ AnyLoadStoreStorVarBytes(stmt, storVar, low, high):-
   // Will need to handle these differently because in optimized code a single constant can initialize many vars
   ConstWrittenToBytesOfStorVar(_, _, stmt, _, storVar, low, high).
 
-AnyLoadStoreStorVarBytes(store, construct, 0, 31):-
-  SSTOREToConstruct(store, construct, _),
+VarWrittenToBytesOfStorVar(var, store, construct, 0, 31):-
+  SSTOREToConstruct(store, construct, var),
   !SLOADOfConstruct(_, construct, _).
 
 FailedMergedStorageModelingReason(storVar, stmt, stmt2, [low, high], [otherLow, otherHigh]),
 FailedMergedStorageModeling(storVar):-
   AnyLoadStoreStorVarBytes(stmt, storVar, low, high),
   AnyLoadStoreStorVarBytes(stmt2, storVar, otherLow, otherHigh),  otherLow = otherLow, otherHigh = otherHigh, // NOWARN
-  !ArrayIdToStorageIndex(as(storVar, Value), _),
   (low != otherLow ; high != otherHigh),
   ( (low < otherLow , otherLow < high) ; (low < otherHigh, otherHigh < high) ).
 
@@ -215,14 +214,12 @@ FailedMergedStorageModeling(storVar):-
   !UselessSLOAD(stmt),
   !AnyLoadStoreStorVarBytes(stmt, storVar, _, _),
   !BytesOfStorVarKept(_, stmt, storVar, _, _),
-  !ConstWrittenToBytesOfStorVar(_, _, _, stmt, storVar, _, _),
-  !ArrayIdToStorageIndex(as(storVar, Value), _).
+  !ConstWrittenToBytesOfStorVar(_, _, _, stmt, storVar, _, _).
 
 
 SuccessfulMergedStorageModeling(storVar):-
   AnyLoadStoreStorVarBytes(_, storVar, _, _),
-  !FailedMergedStorageModeling(storVar),
-  !ArrayIdToStorageIndex(as(storVar, Value), _).
+  !FailedMergedStorageModeling(storVar).
 
 /**
   Models complex expressions of many shifted and masked vars to update a single storage slot.
