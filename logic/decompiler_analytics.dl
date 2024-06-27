@@ -40,7 +40,7 @@ Analytics_ReachableUnderContext(ctx, block):-
 Analytics_ReachableBlocksInTAC(blk):-
   ReachableContext(_, blk),
   Block_IRBlock(blk, _, block),
-  TAC_Block(_, block).
+  (TAC_Block(_, block); LocalBlockEdge(_, block); LocalBlockEdge(block, _)).
 
 // Incompleteness metric: this can happen due to our precision-favoring heuristics
 // or incompleteness due to the use of limitsize for scalability
@@ -321,3 +321,11 @@ Analytics_InitiallyMissedCycleEntry(block) :-
 
 Analytics_LocalBlockEdge(from, to):-
   LocalBlockEdge(from, to).
+
+.decl Analytics_MissingEdgeInTAC(irBlock: IRBlock)
+.output Analytics_MissingEdgeInTAC
+Analytics_MissingEdgeInTAC(irBlock):-
+  Block_IRBlock(_, _, irBlock),
+  TAC_Block(jump, irBlock),
+  TAC_Op(jump, "JUMP"),
+  !LocalBlockEdge(irBlock, _).
