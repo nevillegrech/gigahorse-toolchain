@@ -49,7 +49,10 @@
 
 COPY_CODE_FULL(incompleteGlobal, postTrans)
 
-// .init global = CompleteOptimizedGlobalAnalysis<CONTEXT_SENSITIVITY, PostTransLocalAnalysis>
+#ifdef DISABLE_INCOMPLETE_GLOBAL
+.init global = CompleteOptimizedGlobalAnalysis<CONTEXT_SENSITIVITY, PostTransLocalAnalysis>
+
+#else
 .init global = ExperimentalCompleteOptimizedGlobalAnalysis<CONTEXT_SENSITIVITY>
 
 global.StatementPushesUsedLabel(stmt):-
@@ -57,6 +60,7 @@ global.StatementPushesUsedLabel(stmt):-
   postTrans.Statement_Defines(stmt, pushedVar).
 
 global.sens.ImportantBlockEdge(block, next):- incompleteGlobal.NeedToAddCtxAtEdge(block, next).
+#endif
 
 COPY_CODE_FULL(global, postTrans)
 
