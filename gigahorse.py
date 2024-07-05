@@ -263,7 +263,14 @@ def analyze_contract(index: int, contract_filename: str, result_queue, fact_gene
             inline_start = time.time()
             if not args.disable_inline:
                 # ignore timeouts and errors here
-                analysis_executor.run_clients([DEFAULT_INLINER_DL]*DEFAULT_INLINER_ROUNDS, [], out_dir, out_dir, start_time)
+                for _ in range(DEFAULT_INLINER_ROUNDS):
+                    analysis_executor.run_clients([DEFAULT_INLINER_DL], [], out_dir, out_dir, start_time)
+                    try:
+                        f = open(join(out_dir, 'NeedsMoreInlining.csv'), "r")
+                        if len(f.readlines()) == 0:
+                            break
+                    except FileNotFoundError:
+                        break
 
             inline_time = time.time() - inline_start
 
