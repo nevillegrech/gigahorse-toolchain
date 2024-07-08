@@ -2,7 +2,7 @@
 /*
  * Context sensitivity selection needs a little bit of macro expansion for generality
  */
-
+#define MAX_STACK_HEIGHT 50
 #ifndef CONTEXT_SENSITIVITY
   // TransactionalContext is default
 //  #define CONTEXT_SENSITIVITY TransactionalContext

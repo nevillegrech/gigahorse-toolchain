@@ -349,7 +349,16 @@
     BlockOutputContents(context, block, index, var),
     VariableToModel(var).
 
-  BlockInputContents(calleeCtx, callee, index, variable) :-
+  // BlockInputContents(calleeCtx, callee, index, variable) :-
+  //   AuxBlockOutputContentsJumpTarget(callerCtx, caller, index, variable),
+  //   BlockEdge(callerCtx, caller, calleeCtx, callee).
+  //   .plan 1:(2,1)
+
+  BlockInputContents(calleeCtx, callee, index, variable):-
+    BlockInputContentsLimited(calleeCtx, callee, index, variable, _).
+
+  .decl BlockInputContentsLimited(context: sens.Context, block: Block, index: StackIndex, var: Variable, num: number) choice-domain (context,block,num)
+  BlockInputContentsLimited(calleeCtx, callee, index, variable, (index*ord(variable)) % 241) :-
     AuxBlockOutputContentsJumpTarget(callerCtx, caller, index, variable),
     BlockEdge(callerCtx, caller, calleeCtx, callee).
     .plan 1:(2,1)
