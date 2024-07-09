@@ -258,7 +258,7 @@ insertor.insertOps(codeCopy,
 ) :-
   preTrans.CODECOPYSmallConstNoLoad(codeCopy, const).
 
-.init postTrans = PostTransLocalAnalysis
+.init postTrans = StaticOnlyGlobalAnalysis
 
 // For Solidity, Vyper
 postTrans.PublicFunctionJump(block, hash, selector) :-
