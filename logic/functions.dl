@@ -4,12 +4,12 @@
 #define MAX_NUM_PRIVATE_FUNCTION_ARGS 50
 #define MAX_NUM_PRIVATE_FUNCTION_RETS 50
 
-// Unused currently. The optimized version is used.
-#define CheckIsPopDelta(v) ((v) >= 0, (v) < MAX_STACK_HEIGHT)
-// The way this is used, the arg is always a max where one side is guaranteed to be >=0
-#define CheckIsPopDeltaOpt(v) ((v) < MAX_STACK_HEIGHT)
+// // Unused currently. The optimized version is used.
+// #define CheckIsPopDelta(v) ((v) >= 0, (v) < MAX_STACK_HEIGHT)
+// // The way this is used, the arg is always a max where one side is guaranteed to be >=0
+// #define CheckIsPopDeltaOpt(v) ((v) < MAX_STACK_HEIGHT)
 
-#define CheckIsStackDelta(n) ((n) < MAX_STACK_HEIGHT, (n) > -MAX_STACK_HEIGHT)
+// #define CheckIsStackDelta(n) ((n) < MAX_STACK_HEIGHT, (n) > -MAX_STACK_HEIGHT)
 
 #define CheckIsNumArgs(n) ((n) < MAX_NUM_PRIVATE_FUNCTION_ARGS)
 #define CheckIsNumRets(n) ((n) < MAX_NUM_PRIVATE_FUNCTION_RETS)
