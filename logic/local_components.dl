@@ -404,6 +404,8 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
     IsBasicBlockHead(stmt),
     Statement_Block(stmt, block),
     BlockPopDelta(block, delta),
+    // SL: Vastly increasing it to be more complete to aid
+    // the enhanced local analysis. Not to be ever merged like that.
     IsStackIndexLessThan(stackIndex, delta + 10).
   
    /*
@@ -953,6 +955,8 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
   .decl ReachableUnderEntry(entry: Block, block: Block)
   DEBUG_OUTPUT(ReachableUnderEntry)
 
+  .decl BlockOutLocalStackContents(block: Block, index: StackIndex, variableOrIndex: VariableOrStackIndex)
+  DEBUG_OUTPUT(BlockOutLocalStackContents)
   /**
     Stack contents at end of a `block`, given its `entry` point.
     Backwards analysis starting from nonImmediateJumps
@@ -965,6 +969,19 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
   */
   .decl BlockInputExitJumpdestIndex(entry: Block, exit: Block, block: Block, index: StackIndex)
   DEBUG_OUTPUT(BlockInputExitJumpdestIndex)
+
+  /**
+    External Stack contents at end of a `block`, given its `entry` point.
+    Backwards analysis starting from nonImmediateJumps
+  */
+  .decl BlockOutputExternalJumpdestIndex(entry: Block, exit: Block, exitIndex: StackIndex, block: Block, index: StackIndex)
+  DEBUG_OUTPUT(BlockOutputExternalJumpdestIndex)
+
+  /**
+    Stack contents at start of a `block`, given its `entry` point.
+  */
+  .decl BlockInputExternalJumpdestIndex(entry: Block, exit: Block, exitIndex: StackIndex, block: Block, index: StackIndex)
+  DEBUG_OUTPUT(BlockInputExternalJumpdestIndex)
 
   .decl LostIt(entry: Block, exit: Block, block: Block, index: StackIndex)
   DEBUG_OUTPUT(LostIt)
@@ -1031,6 +1048,16 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
     BasicBlock_Tail(cont, jump),
     JUMP(jump).
 
+  BlockOutLocalStackContents(block, index, varOrIndex):-
+    BasicBlock_Tail(block, tail),
+    LocalStackContents(tail, index, varOrIndex).
+
+  BlockOutLocalStackContents(block, index + stackDelta, as(index, StackIndex)):-
+    BasicBlock_Tail(block, tail),
+    BlockPopDelta(block, delta),
+    BlockStackDelta(block, stackDelta),
+    index = range(delta + 1, delta + 40, 1).
+
   ReachableUnderEntry(entry, entry):-
     EntryPoint(entry).
 
@@ -1079,17 +1106,15 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
   InternallyResolvedJumpdest(entry, exit, exit, as(target, Block)):-
     ImmediateExitPoint(entry, exit, otherEntry),
     ExternallyProvidedJumpdest(otherEntry, _, stackIndex),
-    BasicBlock_Tail(exit, stmt),
-    LocalStackContents(stmt, stackIndex, var),
+    BlockOutLocalStackContents(exit, stackIndex, var),
     CheckIsVariable(var),
     Variable_Value(var, target).
 
-  BlockOutputExitJumpdestIndex(entry, exit, exit, as(index, StackIndex)):-
+  BlockOutputExitJumpdestIndex(entry, exit, exit, stackIndex):-
     ImmediateExitPoint(entry, exit, otherEntry),
-    ExternallyProvidedJumpdest(otherEntry, _, stackIndex),
-    BasicBlock_Tail(exit, stmt),
-    LocalStackContents(stmt, stackIndex, index),
-    CheckIsStackIndex(index).
+    ExternallyProvidedJumpdest(otherEntry, _, stackIndex).
+    // BlockOutLocalStackContents(exit, stackIndex, index),
+    // CheckIsStackIndex(index).
 
   BlockOutputExitJumpdestIndex(entry, exit, prev, index):-
     BlockInputExitJumpdestIndex(entry, exit, next, index),
@@ -1098,44 +1123,80 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
     // !EntryPoint(next),
     next != entry.
 
-  BlockOutputExitJumpdestIndex(entry, exit, resolvedExit, index):-
-    BlockInputExitJumpdestIndex(entry, exit, continuation, index),
-    InternallyResolvedJumpdest(entry, resolvedExit, _, continuation).
+  // Seems plain wrong!
+  // BlockOutputExitJumpdestIndex(entry, exit, resolvedExit, index):-
+  //   BlockInputExitJumpdestIndex(entry, exit, continuation, index),
+  //   InternallyResolvedJumpdest(entry, resolvedExit, _, continuation).
 
-  BlockInputExitJumpdestIndex(entry, exit, block, index - delta) :-
-    BlockOutputExitJumpdestIndex(entry, exit, block, index),
-    BlockPopAndStackDeltaE(entry, block, _, delta),
-    // BlockStackDelta(block, delta),
-    //BlockPopDelta(block, popLen),
-    //index >= popLen,
-    BasicBlock_Tail(block, stmt),
-    !LocalStackContents(stmt, index, _),
-    index - delta >= 0. // SL: Do we really need to specify that?
+  // BlockInputExitJumpdestIndex(entry, exit, block, index - delta) :-
+  //   BlockOutputExitJumpdestIndex(entry, exit, block, index),
+  //   BlockPopAndStackDeltaE(entry, block, _, delta),
+  //   // BlockStackDelta(block, delta),
+  //   //BlockPopDelta(block, popLen),
+  //   //index >= popLen,
+  //   BasicBlock_Tail(block, stmt),
+  //   !LocalStackContents(stmt, index, _),
+  //   index - delta >= 0. // SL: Do we really need to specify that?
 
-  LostIt(entry, exit, block, index - delta) :-
-    BlockOutputExitJumpdestIndex(entry, exit, block, index),
-    BlockStackDelta(block, delta),
-    // BlockPopDelta(block, popLen),
-    // index >= popLen,
-    BasicBlock_Tail(block, stmt),
-    !LocalStackContents(stmt, index, _),
-    index - delta < 0.
+  // LostIt(entry, exit, block, index - delta) :-
+  //   BlockOutputExitJumpdestIndex(entry, exit, block, index),
+  //   BlockStackDelta(block, delta),
+  //   // BlockPopDelta(block, popLen),
+  //   // index >= popLen,
+  //   BasicBlock_Tail(block, stmt),
+  //   !LocalStackContents(stmt, index, _),
+  //   index - delta < 0.
 
   BlockInputExitJumpdestIndex(entry, exit, block, as(stackIndex, StackIndex)):-
     BlockOutputExitJumpdestIndex(entry, exit, block, index),
-    BasicBlock_Tail(block, stmt),
-    LocalStackContents(stmt, index, stackIndex),
+    BlockOutLocalStackContents(block, index, stackIndex),
     CheckIsStackIndex(stackIndex).
 
   InternallyResolvedJumpdest(entry, exit, block, as(target, Block)):-
     BlockOutputExitJumpdestIndex(entry, exit, block, index),
-    BasicBlock_Tail(block, stmt),
-    LocalStackContents(stmt, index, var),
+    BlockOutLocalStackContents(block, index, var),
     CheckIsVariable(var),
     Variable_Value(var, target).
 
   ExternallyProvidedJumpdest(entry, exit, index):-
     BlockInputExitJumpdestIndex(entry, exit, entry, index).
+
+  /**
+    External jumpdests
+  */
+
+  // This logic doesn't work in the case of an ImmediateExitPoint that is not Internally resolved,
+  // i.e. it ends up being an Externally provided jumpdest
+  // Will need to make it transitive
+  BlockOutputExternalJumpdestIndex(otherEntry, otherEExit, index, otherEExit, index):-
+    InternallyResolvedJumpdest(entry, exit, _, cont),
+    ImmediateExitPoint(entry, exit, otherEntry),
+    NonImmediateExitPoint(otherEntry, otherEExit, _),
+    BlockInputExitJumpdestIndex(entry, _, cont, index).
+
+  BlockInputExternalJumpdestIndex(entry, exit, exitIndex, block, as(stackIndex, StackIndex)) :-
+    BlockOutputExternalJumpdestIndex(entry, exit, exitIndex, block, index),
+    BlockOutLocalStackContents(block, index, stackIndex),
+    CheckIsStackIndex(stackIndex).
+
+  BlockOutputExternalJumpdestIndex(entry, exit, exitIndex, prev, index):-
+    BlockInputExternalJumpdestIndex(entry, exit, exitIndex, next, index),
+    DirectBlockEdge(prev, next),
+    ReachableUnderEntry(entry, prev).
+
+  BlockOutputExitJumpdestIndex(entry, exit, immediateExit, index):-
+    InternallyResolvedJumpdest(entry, immediateExit, _, cont),
+    ImmediateExitPoint(entry, immediateExit, otherEntry),
+    NonImmediateExitPoint(otherEntry, otherEExit, _),
+    BlockInputExitJumpdestIndex(entry, exit, cont, exitIndex),
+    BlockInputExternalJumpdestIndex(otherEntry, otherEExit, exitIndex, otherEntry, index).
+
+  BlockOutputExternalJumpdestIndex(entry, exit, outerExitIndex, immediateExit, index):-
+    InternallyResolvedJumpdest(entry, immediateExit, _, cont),
+    ImmediateExitPoint(entry, immediateExit, otherEntry),
+    NonImmediateExitPoint(otherEntry, otherEExit, _),
+    BlockInputExternalJumpdestIndex(entry, exit, outerExitIndex, cont, innerExitIndex),
+    BlockInputExternalJumpdestIndex(otherEntry, otherEExit, innerExitIndex, otherEntry, index).
 
   // .decl JumpToContinuation(entry: Block, )
   // InternallyResolvedJumpdest(entry, exit, block, target)
@@ -1168,6 +1229,7 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
   DEBUG_OUTPUT(BlockPopAndStackDeltaForEntryPoint)
   .decl BlockPopAndStackDeltaE(entry: Block, block: Block, popDelta: number, stackDelta: number)
   DEBUG_OUTPUT(BlockPopAndStackDeltaE)
+  .output BlockPopDelta, BlockStackDelta
 
   BlockPopAndStackDeltaE(entry, block, popDelta, stackDelta):-
     ReachableUnderEntry(entry, block),
@@ -1217,7 +1279,7 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
     EntryPoint(entry),
     entry != "0x0",
     // EntryPointReachesOther(entry, _),
-    !NonImmediateExitPoint(entry, _, _).
+    !ExternallyProvidedJumpdest(entry, _, _).
 
   .decl MoreThanOneExternallyProvidedJumpdests(entry: Block)
   DEBUG_OUTPUT(MoreThanOneExternallyProvidedJumpdests)
