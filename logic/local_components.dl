@@ -1181,6 +1181,7 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
     ImmediateExitPointTransitive(entry, exit, _, _, otherEntry),
     NonImmediateExitPoint(otherEntry, otherEExit, _),
     BlockInputExitJumpdestIndex(entry, _, cont, index).
+   .plan 1:(2,1,3,4),2:(4,2,1,3)
 
   // add external index to exit point, for external index in continuation
   BlockOutputExternalJumpdestIndex(otherEntry, otherEExit, index, otherEExit, index):-
@@ -1188,6 +1189,7 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
     ImmediateExitPointTransitive(entry, exit, _, _, otherEntry),
     NonImmediateExitPoint(otherEntry, otherEExit, _),
     BlockInputExternalJumpdestIndex(entry, _, _, cont, index).
+   .plan 1:(2,1,3,4),2:(4,2,1,3)
 
   // Flow out of `ImmediateExitPoint`s that are also `ExternallyProvidedJumpdest`
   BlockOutputExternalJumpdestIndex(entry, innerExit, innerIndex, exit, index):-
@@ -1214,6 +1216,7 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
     NonImmediateExitPoint(otherEntry, otherEExit, _),
     BlockInputExitJumpdestIndex(entry, exit, cont, exitIndex),
     BlockInputExternalJumpdestIndex(otherEntry, otherEExit, exitIndex, otherEntry, index).
+   .plan 1:(2,1,3,4,5),2:(4,2,1,3,5),3:(5,3,2,1,4)
 
   // Recover an external index after tracking it from exit to entry point
   BlockOutputExternalJumpdestIndex(entry, exit, outerExitIndex, immediateExit, index):-
@@ -1222,7 +1225,7 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
     NonImmediateExitPoint(otherEntry, otherEExit, _),
     BlockInputExternalJumpdestIndex(entry, exit, outerExitIndex, cont, innerExitIndex),
     BlockInputExternalJumpdestIndex(otherEntry, otherEExit, innerExitIndex, otherEntry, index).
-
+   .plan 1:(2,1,3,4,5),2:(4,2,1,3,5),3:(5,3,2,1,4)
 
   .decl PotentialCycleEntry(entry: Block, block: Block)
 
