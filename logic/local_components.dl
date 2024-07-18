@@ -1039,6 +1039,9 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
 
   EntryPoint("0x0").
 
+  EntryPoint(pubFunStart):-
+    PublicFunction(pubFunStart, _, _).
+
   // // A jumpdest that is pushed to the stack.
   // EntryPoint(as(value, Block)):-
   //   IsJump(jump),
