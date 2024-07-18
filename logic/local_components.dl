@@ -1144,7 +1144,8 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
     BlockInputExitJumpdestIndex(entry, exit, next, index),
     DirectBlockEdge(prev, next),
     ReachableUnderEntry(entry, prev),
-    // !EntryPoint(next),
+    // Not sure it's needed, I think it is
+    !EntryPoint(next),
     next != entry.
 
 
@@ -1210,6 +1211,7 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
   BlockOutputExternalJumpdestIndex(entry, exit, exitIndex, prev, index):-
     BlockInputExternalJumpdestIndex(entry, exit, exitIndex, next, index),
     DirectBlockEdge(prev, next),
+    !EntryPoint(next),
     ReachableUnderEntry(entry, prev).
 
   // Recover an exit index after tracking it from exit to entry point
