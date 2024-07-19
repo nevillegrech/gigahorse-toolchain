@@ -1007,7 +1007,7 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
     An `exit` block of `entry` that is a direct/immediate jump to another entry point (`next`),
     transitively, __when `ImmediateExitPoints` are also an entry's external exit points,__ reaching `transExit` and `transNext`
   */
-  .decl ImmediateExitPointTransitive(entry: Block, exit: Block, next: Block, transExit: Block, transNext: Block)
+  .decl ImmediateExitPointTransitive(entry: Block, exit: Block, next: Block, transNext: Block)
 
   /**
     The target of non immediate `exit` block is resolved internally to `target` block,
@@ -1122,14 +1122,29 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
     DirectBlockEdge(exit, next),
     EntryPoint(next).
 
-  ImmediateExitPointTransitive(entry, exit, next, exit, next):-
-    ImmediateExitPoint(entry, exit, next).
+  // ImmediateExitPointTransitive(entry, exit, next, exit, next):-
+  //   ImmediateExitPoint(entry, exit, next).
 
-  ImmediateExitPointTransitive(entry, exit, next, transExit, transNext):-
-    ImmediateExitPointTransitive(entry, exit, next, intermExit, intermNext),
-    // ExternallyProvidedJumpdest(_, intermExit, _),
-    ExternallyProvidedJumpdest(intermNext, _, _),
-    ImmediateExitPoint(intermNext, transExit, transNext).
+  // ImmediateExitPointTransitive(entry, exit, next, transExit, transNext):-
+  //   ImmediateExitPointTransitive(entry, exit, next, intermExit, intermNext),
+  //   ExternallyProvidedJumpdest(_, intermExit, _),
+  //   ImmediateExitPoint(intermNext, transExit, transNext).
+
+  ImmediateExitPointTransitive(entry, exit, nextEntry, otherEntry):-
+    ImmediateExitPoint(entry, exit, nextEntry),
+    EntryOutReliesOnOtherEntry(nextEntry, otherEntry).
+
+
+  .decl EntryOutReliesOnOtherEntry(entry: Block,  exit: Block)
+  DEBUG_OUTPUT(EntryOutReliesOnOtherEntry)
+
+  EntryOutReliesOnOtherEntry(entry, entry):-
+    EntryPoint(entry).
+
+  EntryOutReliesOnOtherEntry(entry, otherEntry):-
+    EntryOutReliesOnOtherEntry(entry, interm),
+    ImmediateExitPoint(interm, intermExit, otherEntry),
+    ExternallyProvidedJumpdest(interm, intermExit, _).
 
   BlockInputExitJumpdestIndex(entry, exit, exit, index):-
     NonImmediateExitPoint(entry, exit, index).
@@ -1185,7 +1200,7 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
   // add external index to exit point, for exit index in continuation
   BlockOutputExternalJumpdestIndex(otherEntry, otherEExit, index, otherEExit, index):-
     InternallyResolvedJumpdest(entry, exit, _, cont),
-    ImmediateExitPointTransitive(entry, exit, _, _, otherEntry),
+    ImmediateExitPointTransitive(entry, exit, _, otherEntry),
     ExternallyProvidedJumpdest(otherEntry, otherEExit, _),
     NonImmediateExitPoint(otherEntry, otherEExit, _),
     BlockInputExitJumpdestIndex(entry, _, cont, index).
@@ -1194,7 +1209,7 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
   // add external index to exit point, for external index in continuation
   BlockOutputExternalJumpdestIndex(otherEntry, otherEExit, index, otherEExit, index):-
     InternallyResolvedJumpdest(entry, exit, _, cont),
-    ImmediateExitPointTransitive(entry, exit, _, _, otherEntry),
+    ImmediateExitPointTransitive(entry, exit, _, otherEntry),
     ExternallyProvidedJumpdest(otherEntry, otherEExit, _),
     NonImmediateExitPoint(otherEntry, otherEExit, _),
     BlockInputExternalJumpdestIndex(entry, _, _, cont, index).
@@ -1222,16 +1237,16 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
   // Recover an exit index after tracking it from exit to entry point
   BlockOutputExitJumpdestIndex(entry, exit, immediateExit, index):-
     InternallyResolvedJumpdest(entry, immediateExit, _, cont),
-    ImmediateExitPointTransitive(entry, immediateExit, _, _, otherEntry),
+    ImmediateExitPointTransitive(entry, immediateExit, _, otherEntry),
     NonImmediateExitPoint(otherEntry, otherEExit, _),
-    BlockInputExitJumpdestIndex(entry, exit, cont, exitIndex),
+    BlockInputExitJumpdestIndex(entry, exit, cont, exitIndex), //exit != immediateExit,
     BlockInputExternalJumpdestIndex(otherEntry, otherEExit, exitIndex, otherEntry, index).
    .plan 1:(2,1,3,4,5),2:(4,2,1,3,5),3:(5,3,2,1,4)
 
   // Recover an external index after tracking it from exit to entry point
   BlockOutputExternalJumpdestIndex(entry, exit, outerExitIndex, immediateExit, index):-
     InternallyResolvedJumpdest(entry, immediateExit, _, cont),
-    ImmediateExitPointTransitive(entry, immediateExit, _, _, otherEntry),
+    ImmediateExitPointTransitive(entry, immediateExit, _, otherEntry),
     NonImmediateExitPoint(otherEntry, otherEExit, _),
     BlockInputExternalJumpdestIndex(entry, exit, outerExitIndex, cont, innerExitIndex),
     BlockInputExternalJumpdestIndex(otherEntry, otherEExit, innerExitIndex, otherEntry, index).
