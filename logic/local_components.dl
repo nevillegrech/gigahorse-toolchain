@@ -1127,7 +1127,8 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
 
   ImmediateExitPointTransitive(entry, exit, next, transExit, transNext):-
     ImmediateExitPointTransitive(entry, exit, next, intermExit, intermNext),
-    ExternallyProvidedJumpdest(_, intermExit, _),
+    // ExternallyProvidedJumpdest(_, intermExit, _),
+    ExternallyProvidedJumpdest(intermNext, _, _),
     ImmediateExitPoint(intermNext, transExit, transNext).
 
   BlockInputExitJumpdestIndex(entry, exit, exit, index):-
