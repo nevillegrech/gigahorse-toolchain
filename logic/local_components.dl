@@ -1322,9 +1322,9 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
   MissingProvidedJumpdest(entry):-
     EntryPoint(entry),
     entry != "0x0",
-    NonImmediateExitPoint(entry, _, _),
+    NonImmediateExitPoint(entry, exit, _),
     !PublicFunction(entry, _, _),
-    // !InternallyResolvedJumpdest(entry, exit, _, _),
+    !InternallyResolvedJumpdest(entry, exit, _, _),
     !ExternallyProvidedJumpdest(entry, _, _).
 
   MissingProvidedJumpdest2(entry):-
