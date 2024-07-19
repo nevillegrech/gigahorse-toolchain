@@ -1028,10 +1028,11 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
   DEBUG_OUTPUT(BlockStackDelta)
   DEBUG_OUTPUT(BlockPopDelta)
   DEBUG_OUTPUT(LocalStackContents)
+  DEBUG_OUTPUT(BeforeLocalStackContents)
   DEBUG_OUTPUT(InternallyResolvedJumpdest)
   DEBUG_OUTPUT(ExternallyProvidedJumpdest)
 
-  .decl MissingProvidedJumpdest(entry: Block, exit: Block)
+  .decl MissingProvidedJumpdest(entry: Block)
   DEBUG_OUTPUT(MissingProvidedJumpdest)
 
   .decl MissingProvidedJumpdest2(entry: Block)
@@ -1302,7 +1303,7 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
     NonImmediateExitPoint(entry, exit, _),
     BlockPopAndStackDeltaForEntryPoint(entry, exit, _, popDelta, stackDelta).
 
-  MissingProvidedJumpdest(entry, exit):-
+  MissingProvidedJumpdest(entry):-
     EntryPoint(entry),
     entry != "0x0",
     NonImmediateExitPoint(entry, _, _),
@@ -1420,7 +1421,7 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
   .output Analytics_MissingProvidedJumpdest(IO="file", filename = "Analytics_MissingProvidedJumpdest.csv", delimiter = "\t")
 
   Analytics_MissingProvidedJumpdest(entry):-
-    MissingProvidedJumpdest(entry, _).
+    MissingProvidedJumpdest(entry).
     // MissingProvidedJumpdest2(entry).
 
 }
