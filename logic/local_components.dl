@@ -1204,7 +1204,7 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
     ExternallyProvidedJumpdest(otherEntry, otherEExit, _),
     NonImmediateExitPoint(otherEntry, otherEExit, _),
     BlockInputExitJumpdestIndex(entry, _, cont, index).
-   .plan 1:(2,1,3,4,5),2:(3,2,1,4,5),3:(5,2,1,3,4)
+   .plan 1:(2,1,3,4,5),2:(3,2,1,4,5),3:(5,1,2,3,4)
 
   // add external index to exit point, for external index in continuation
   BlockOutputExternalJumpdestIndex(otherEntry, otherEExit, index, otherEExit, index):-
@@ -1213,7 +1213,7 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
     ExternallyProvidedJumpdest(otherEntry, otherEExit, _),
     NonImmediateExitPoint(otherEntry, otherEExit, _),
     BlockInputExternalJumpdestIndex(entry, _, _, cont, index).
-   .plan 1:(2,1,3,4,5),2:(3,2,1,4,5),3:(5,2,1,3,4)
+   .plan 1:(2,1,3,4,5),2:(3,2,1,4,5),3:(5,1,2,3,4)
 
   // Flow out of `ImmediateExitPoint`s that are also `ExternallyProvidedJumpdest`
   BlockOutputExternalJumpdestIndex(entry, innerExit, innerIndex, exit, index):-
