@@ -77,6 +77,11 @@ IsFunctionCallReturnOrd(ord(ctx), caller, func, ord(retCtx), retBlock, retTarget
 MaybeFunctionCallReturnOrd(ord(ctx), caller, func, ord(retCtx), retBlock, retTarget):-
   MaybeFunctionCallReturn(ctx, caller, func, retCtx, retBlock, retTarget).
 
+.decl PossibleCallReturnOrd(callCtx: number, caller: Block, index: number, target: Block)
+DEBUG_OUTPUT(PossibleCallReturnOrd)
+PossibleCallReturnOrd(ord(callCtx), caller, minIndex, retTarget):-
+  PossibleCallReturn(callCtx, caller, minIndex, retTarget).
+
 .decl PossibleReturnAddressWithRankOrd(callCtx:number, targetSetter:Block, retCtx:number, retBlock:Block, retTarget:Block, rank:number)
 .output PossibleReturnAddressWithRankOrd
 PossibleReturnAddressWithRankOrd(ord(callCtx), targetSetter, ord(retCtx), retBlock, retTarget, rank):-
