@@ -223,7 +223,8 @@ PossibleReturnAddressWithPositiveRank(callCtx, caller, retCtx, retBlock, retTarg
 .decl MaybeFunctionCallReturnNewContext(ctx:global.sens.Context, caller:Block, retTargetCtx:global.sens.Context, retTarget:Block)
 MaybeFunctionCallReturnNewContext(ctx, caller, retTargetCtx, retTarget) :-
   MaybeFunctionCallReturn(ctx, caller, _, retCtx, ret, retTarget),
-  !postTrans.NormalizedConditionalCallPattern(retTarget, _, _),
+  // Commented out for now, from branch logic to reintroduce in branch
+  // !postTrans.NormalizedConditionalCallPattern(retTarget, _, _),
   global.BlockEdge(retCtx, ret, retTargetCtx, retTarget).
 
 /**
