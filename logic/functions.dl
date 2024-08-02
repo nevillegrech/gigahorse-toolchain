@@ -253,9 +253,29 @@ PossibleReturnAddressWithRank(newCallCtx, caller, retCtx, retBlock, retTarget, n
 .decl PossibleCallReturn(callCtx: global.sens.Context, caller: Block, index: number, target: Block)
 DEBUG_OUTPUT(PossibleCallReturn)
 
+PossibleCallReturn(callCtx, caller, index, as(retTarget, Block)):-
+  (global.PrivateFunctionCall(_, _, caller, _); global.PrivateFunctionCall(caller, _, _, _)),
+  global.ReachableContext(callCtx, caller),
+  postTrans.DirectBlockEdge(caller, callee),
+  postTrans.ExternallyProvidedJumpdest(callee, _, index),
+  global.BlockOutputContents(callCtx, caller, index, retBlockVar),
+  global.Variable_Value(retBlockVar, retTarget).
+
+// need this case to cover function point patterns for now.
 PossibleCallReturn(callCtx, caller, minIndex, as(retTarget, Block)):-
   (global.PrivateFunctionCall(_, _, caller, _); global.PrivateFunctionCall(caller, _, _, _)),
   global.ReachableContext(callCtx, caller),
+  !postTrans.DirectBlockEdge(caller, _),
+  minIndex = min outIndex: global.BlockOutputContentsJumpTarget(callCtx, caller, outIndex, _),
+  global.BlockOutputContents(callCtx, caller, minIndex, retBlockVar),
+  global.Variable_Value(retBlockVar, retTarget).
+
+// handle incompleteness in `ExternallyProvidedJumpdest`
+PossibleCallReturn(callCtx, caller, minIndex, as(retTarget, Block)):-
+  (global.PrivateFunctionCall(_, _, caller, _); global.PrivateFunctionCall(caller, _, _, _)),
+  global.ReachableContext(callCtx, caller),
+  postTrans.DirectBlockEdge(caller, callee),
+  !postTrans.ExternallyProvidedJumpdest(callee, _, _),
   minIndex = min outIndex: global.BlockOutputContentsJumpTarget(callCtx, caller, outIndex, _),
   global.BlockOutputContents(callCtx, caller, minIndex, retBlockVar),
   global.Variable_Value(retBlockVar, retTarget).
