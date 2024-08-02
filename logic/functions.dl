@@ -161,10 +161,26 @@ InitialPossibleReturnAddressWithRank(targetSetter, retCtx, retBlock, retTarget, 
   rank < RETURN_ADDRESS_RANK_THRESHOLD.  
 
 .decl PossibleReturnAddressWithRank(callCtx:global.sens.Context, targetSetter:Block, retCtx:global.sens.Context, retBlock:Block, retTarget:Block, rank:number)
+
+/**
+  `InitialPossibleReturnAddressWithRank` to `PossibleReturnAddressWithRank`
+*/
+
+PossibleReturnAddressWithRank(callCtx, targetSetter, retCtx, retBlock, retTarget, 0) :-
+  ContextCanReachFromCallerToReturn(callCtx, targetSetter, retCtx, retBlock, retTarget),
+  InitialPossibleReturnAddressWithRank(targetSetter, retCtx, retBlock, retTarget, _),
+  PossibleCallReturn(callCtx, targetSetter, _, retTarget).
+
 PossibleReturnAddressWithRank(callCtx, targetSetter, retCtx, retBlock, retTarget, rank) :-
   ContextCanReachFromCallerToReturn(callCtx, targetSetter, retCtx, retBlock, retTarget),
-  InitialPossibleReturnAddressWithRank(targetSetter, retCtx, retBlock, retTarget, rank).
+  InitialPossibleReturnAddressWithRank(targetSetter, retCtx, retBlock, retTarget, rank), rank > 0,
+  PossibleCallReturn(callCtx, targetSetter, _, actualRetTarget), retTarget != actualRetTarget.
 
+// special case: if init rank 0 is not the `PossibleCallReturn`, set its rank to 1
+PossibleReturnAddressWithRank(callCtx, targetSetter, retCtx, retBlock, retTarget, 1) :-
+  ContextCanReachFromCallerToReturn(callCtx, targetSetter, retCtx, retBlock, retTarget),
+  InitialPossibleReturnAddressWithRank(targetSetter, retCtx, retBlock, retTarget, 0),
+  PossibleCallReturn(callCtx, targetSetter, _, actualRetTarget), retTarget != actualRetTarget.
 
 .decl MaxRankForPossibleReturnAddressSetter(targetSetter:Block, rank:number)
 MaxRankForPossibleReturnAddressSetter(targetSetter, rank) :-
