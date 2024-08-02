@@ -1375,6 +1375,12 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
     ExternallyProvidedJumpdest(entry, rep, index),
     ord(rep) = repOrd.
 
+  // Filter to use `ExternallyProvidedJumpdest` only when it's precise
+  .decl PreciseExternallyProvidedJumpdest(entry: Block, exit: Block, index: number)
+  PreciseExternallyProvidedJumpdest(entry, exit, index):-
+    ExternallyProvidedJumpdest(entry, exit, index),
+    !MoreThanOneExternallyProvidedJumpdests(entry).
+
   /**
     Two `ImmediateExitPoint` blocks have the same `target`. Can cause loss of precision in the CFG
   */
