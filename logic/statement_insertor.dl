@@ -1,10 +1,8 @@
+#pragma once
+
+#include "global_components.dl"
 #define MAX_INSERTS 5
 
-
-#define COPY_CODE(to, from)\
-to.Statement_Next(stmt, next) :- from.Statement_Next(stmt, next).\
-to.Statement_Opcode(stmt, op) :- from.Statement_Opcode(stmt, op).\
-to.PushValue(stmt, value) :- from.PushValue(stmt, value).
 
 #define COPY_OUTPUT(to, from)\
 to.Statement_Next(stmt, next) :- from.Out_Statement_Next(stmt, next).\
@@ -20,11 +18,6 @@ to.PushValue(stmt, value) :- _insertor.Out_PushValue(stmt, value).
 #define INITIALIZE_STATEMENT_INSERTOR_FROM(_insertor, from, to)\
 COPY_CODE(_insertor, from)\
 INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
-
-#define COPY_CODE_FULL(to, from)\
-COPY_CODE(to, from)\
-to.PublicFunctionJump(block, funHex, selector):- from.PublicFunctionJump(block, funHex, selector).\
-to.PublicFunction(block, funHex, selector):- from.PublicFunction(block, funHex, selector).
 
 
 #define ISLABEL(value) (substr(value, 0, 9) = "JUMPDEST:")
@@ -317,7 +310,7 @@ to.PublicFunction(block, funHex, selector):- from.PublicFunction(block, funHex, 
 
   MaxOriginalStatement(as(maxStmt, Statement)):-
     maxStmtNumber = max stmtNumber : { Statement_Opcode(stmt, _), stmtNumber = @hex_to_number(stmt)},
-    maxStmt = @number_to_hex(maxStmtNumber).
+    maxStmt = @number_to_hex(2*maxStmtNumber).
 
   BlockSize(block, @hex_to_number(tail) - @hex_to_number(block)):-
     analysis.BasicBlock_Tail(block, tail).
@@ -524,12 +517,31 @@ to.PublicFunction(block, funHex, selector):- from.PublicFunction(block, funHex, 
 
   .override BlockCloningCandidate
 
-  .decl PossibleCallerWithReturn(caller: Block, return: Block)
-  PossibleCallerWithReturn(caller, as(return, Block)):-
+  // Just like LocalAnalysis.BlockPushesLabel but outputs the variable
+  .decl BlockPushesLabelVar(block: Block, var: Variable)
+  BlockPushesLabelVar(block, var) :-
+    analysis.JUMPDEST(as(val, symbol)),
+    analysis.Variable_Value(var, val),
+    analysis.Statement_Defines(stmt, var),
+    analysis.Statement_Block(stmt, block),
+    analysis.BasicBlock_Tail(block, call),
+    analysis.LocalStackContents(call, _, var),
+    !analysis.BlockUsesLocal(block, var).
+
+  .decl PossibleCallerWithReturn(caller: Block, targetVar: Variable, return: Block)
+  PossibleCallerWithReturn(caller, var, as(return, Block)):-
     analysis.ImmediateBlockJumpTarget(caller, targetVar),
     analysis.Variable_Value(targetVar, target),
     analysis.JUMPDEST(as(target, symbol)),
-    analysis.BlockPushesLabel(caller, return).
+    BlockPushesLabelVar(caller, var),
+    analysis.Variable_Value(var, return).
+
+  // viaIR fallthrough call pattern
+  PossibleCallerWithReturn(caller, var, as(return, Block)):-
+    analysis.FallthroughBlockPushesContinuation(caller, fallthrough),
+    analysis.JUMPDEST(fallthrough),
+    BlockPushesLabelVar(caller, var),
+    analysis.Variable_Value(var, return).
 
   // SL: Too general, causes slowdown
   BlockCloningCandidate(candidate):-
@@ -542,15 +554,15 @@ to.PublicFunction(block, funHex, selector):- from.PublicFunction(block, funHex, 
   // caller-side return blocks that are shared between call-sites
   // SL: Best heuristic so far, targets functions.dl level precision loss
   BlockCloningCandidate(candidate):-
-    PossibleCallerWithReturn(from, candidate),
-    PossibleCallerWithReturn(from2, candidate),
+    PossibleCallerWithReturn(from, _, candidate),
+    PossibleCallerWithReturn(from2, _, candidate),
     from != from2.
-    // BlockPushesBlockToStack(from, candidate),
-    // BlockPushesBlockToStack(from2, candidate),
-    // from != from2,
-    // 1 != 1,
-    // !DirectBlockEdge(from, candidate),
-    // !DirectBlockEdge(from2, candidate).
+
+  BlockCloningCandidate(candidate):-
+    PossibleCallerWithReturn(_, var, candidate),
+    PossibleCallerWithReturn(_, var2, candidate),
+    var != var2.
+
 }
 
 /**

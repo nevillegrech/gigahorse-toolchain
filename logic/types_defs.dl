@@ -1,0 +1,37 @@
+/**
+  Definitions of types, constants and macros used throughout the decompiler
+*/
+
+#include "../clientlib/util.dl"
+
+#ifndef MAX_STACK_HEIGHT
+/**
+  This parameter is tuned, increasing it (for example to 80) will give a minor completeness increase in extreme cases.
+  However it can negatively affect scalability so I'm keeping it at 70 for now.
+  To review.
+*/
+#define MAX_STACK_HEIGHT 70
+#endif
+
+#define CheckIsVariable(v) ((v) < 0)
+#define CheckIsStackIndex(v) ((v) >= 0, (v) < MAX_STACK_HEIGHT)
+
+
+#define FUNCTION_SELECTOR "0x0"
+
+#define FALLBACK_FUNCTION_SIGHASH "0x00000000"
+#define RECEIVE_FUNCTION_SIGHASH "0xeeeeeeee"
+
+
+.type Block <: symbol
+.type Value <: symbol
+.type Variable <: number
+.type StackIndex <: number
+.type VariableOrStackIndex = Variable | StackIndex
+.type Opcode <: symbol
+.type Statement <: symbol
+.type FunctionSignature <: symbol
+
+.type OptionalSelector = NoSelector{}
+                      | SelectorVariable{selector: Variable}
+                      | SelectorStackIndex{block: Block, selector: StackIndex}

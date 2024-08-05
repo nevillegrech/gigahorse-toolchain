@@ -66,8 +66,10 @@ LowBytesMaskOp(from, to, castedTo):-
   BasicVariable_Value(maskVar, mask),
   (AND(_, from, maskVar, to) ; AND(_, maskVar, from, to)).
 
-LowBytesMaskOp(from, to, 1):-
-  BooleanCast(from, to).
+// SL: Commenting this out for now.
+// A Variable actually casted as a boolean would need to be masked a single byte first
+// LowBytesMaskOp(from, to, 1):-
+//   BooleanCast(from, to).
 
 LowBytesMaskOp(from, to, width):-
   SignedIntCast(from, to, width).
@@ -132,6 +134,10 @@ LShiftBytes(shiftedVar, to, @hex_to_number(shitftBits) / 8):-
 
 CastedAndShiftedVar(originVar, toVar, shiftedBy, castedTo):-
   LowBytesMaskOp(originVar, castedVar, castedTo),
+  LShiftBytes(castedVar, toVar, shiftedBy).
+
+CastedAndShiftedVar(originVar, toVar, shiftedBy, 1):-
+  BooleanCast(originVar, castedVar),
   LShiftBytes(castedVar, toVar, shiftedBy).
 
 HighBytesCastedAndRightShiftedVar(originVar, toVar, shiftedBy, castedTo):-
@@ -317,3 +323,24 @@ ConstantProbablyShifted(val, baseVal, shiftBytes):-
   j = count : {ValueMasksOrKeepsByteAtIndex(val, 0, k), k < j},
   shiftBytes = j + 1,
   baseVal = substr(val, 0, len - 2*shiftBytes).
+
+// Masks with all 1s
+.decl Mask_Length(mask: Value, bytes: number)
+.decl PreMask_Length(mask: symbol, bytes: number)
+
+Mask_Length(cat("0x", mask), bytes) :-
+   PreMask_Length(mask, bytes).
+
+PreMask_Length("1", 1).
+PreMask_Length("3", 1).
+PreMask_Length("7", 1).
+PreMask_Length("f", 1).
+PreMask_Length("1f", 1).
+PreMask_Length("3f", 1).
+PreMask_Length("7f", 1).
+PreMask_Length("ff", 1).
+
+PreMask_Length(cat(mask, "ff"), bytes+1) :-
+  PreMask_Length(mask, bytes),
+  bytes < 32.
+

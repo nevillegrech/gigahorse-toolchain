@@ -136,3 +136,9 @@ AllStorageOpsKnown():-
 
 HasStorageOpsUnknown():-
   !AllStorageOpsKnown().
+
+.decl Analytics_ArrayDeleteOp(sstore: Statement, loop: Block, array: StorageConstruct)
+.output Analytics_ArrayDeleteOp
+
+Analytics_ArrayDeleteOp(sstore, loop, array):-
+  ArrayDeleteOp(sstore, loop, array).

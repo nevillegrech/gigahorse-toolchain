@@ -162,8 +162,12 @@ Analytics_Block_TimesInContexts(block, timesInContext):-
 .decl Analytics_PublicFunction_Contexts(pubFun: symbol, contexts: number)
 .output Analytics_PublicFunction_Contexts
 
+.decl AuxPublicFunction(pubFun: symbol)
+AuxPublicFunction(pubFun) :-
+  global.sens.Context_PublicFunction(_, pubFun).
+  
 Analytics_PublicFunction_Contexts(pubFun, contexts):-
-  global.sens.Context_PublicFunction(_, pubFun),
+  AuxPublicFunction(pubFun),
   contexts = count: global.sens.Context_PublicFunction(_, pubFun).
 
 .decl Verbatim_BlocksReachabilityMetric(blocks: number, totalReach: number, avg: float)
@@ -207,12 +211,16 @@ Analytics_MissingImplementation(stmt, opcode) :-
 .decl Analytics_PolymorphicTarget(block: Block)
 .output Analytics_PolymorphicTarget
 
+.decl AuxBlockJumpValidTarget(block: Block, target: Block)
+AuxBlockJumpValidTarget(block, target) :-
+  global.BlockJumpValidTarget(_, block, _, target).
+  
 // Excludes function return blocks
 // SL: This gives little insight, should probably remove
 Analytics_PolymorphicTarget(block) :-
   Analytics_Jumps(block),                                                          
-  global.BlockJumpValidTarget(_, block, _, target1),
-  global.BlockJumpValidTarget(_, block, _, target2),
+  AuxBlockJumpValidTarget(block, target1),
+  AuxBlockJumpValidTarget(block, target2),
   !IsReturn(_, block, _),
   target1 != target2.
 
@@ -495,3 +503,18 @@ Analytics_BlocksLocalOrNot(block1, block2) :-
    IRInFunction(block1, fun1),
    IRInFunction(block2, fun2),
    fun1 != fun2.
+
+
+.decl Analytics_NeedToAddCtxAtEdge(from: Block, to: Block)
+.output Analytics_NeedToAddCtxAtEdge
+
+Analytics_NeedToAddCtxAtEdge(from, to):-
+  global.NeedToAddCtxAtEdge(from, to).
+
+.decl Analytics_MissingEdgeInTAC(irBlock: IRBlock)
+.output Analytics_MissingEdgeInTAC
+Analytics_MissingEdgeInTAC(irBlock):-
+  Block_IRBlock(_, _, irBlock),
+  TAC_Block(jump, irBlock),
+  TAC_Op(jump, "JUMP"),
+  !LocalBlockEdge(irBlock, _).

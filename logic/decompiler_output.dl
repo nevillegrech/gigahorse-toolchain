@@ -6,6 +6,15 @@
 
 .output ByteCodeHex(IO="file", filename="bytecode.hex")
 
+.decl DecompilerConfig(config: symbol) btree_delete
+.output DecompilerConfig
+
+DecompilerConfig("default").
+
+DecompilerConfig(default) <= DecompilerConfig(other):-
+  default = "default",
+  other != default.
+
 .decl GlobalEntryBlock(block: IRBlock)
 .output GlobalEntryBlock
 
@@ -271,7 +280,6 @@ IRInFunctionFiltered(block, func):-
   IRInFunction(block, func),
   ReachableFromFunHead(block).
 
-.output Mask_Length
 .output IRInFunctionFiltered(IO="file", filename="InFunction.csv", delimiter="\t")
 
 .decl FunctionIsInner(func: IRFunction)
@@ -392,8 +400,9 @@ TAC_Block_Gas(block, totalgas) :-
    totalgas = sum gas : IRBlock_PartialGas(block, _, gas).
 
 
-// SL: Not used anywhere
+// SL: Not sure what this is meant to be, outputting it as it is needed
 .decl UnmappedStatements(stmt: Statement)
+.output UnmappedStatements
 UnmappedStatements(stmt) :-
   preTrans.Statement_Block(stmt, _),
   !TAC_OriginalStatement_Block(stmt, _).

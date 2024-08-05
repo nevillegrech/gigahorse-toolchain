@@ -255,3 +255,10 @@ Verbatim_StorageOffset_Type(offset, type):-
 
 Verbatim_StructToString(structID, stringStruct):-
   StructToString(structID, stringStruct).
+
+.decl Analytics_StructWithNoStringRep(structID: symbol)
+.output Analytics_StructWithNoStringRep
+
+Analytics_StructWithNoStringRep(structID):-
+  DataStructureValueIsStruct(_, structID, _),
+  !StructToString(structID, _).

@@ -26,6 +26,7 @@ analytics = {
 }
 
 decomp_analytics = {
+  'Analytics_PublicFunction': 'completeness',
   'Analytics_ReachableBlocks': 'completeness',
   'Analytics_UnreachableBlock': 'incompleteness',
   'Analytics_ReachableBlocksInTAC': 'completeness',
@@ -33,11 +34,12 @@ decomp_analytics = {
   'Analytics_DeadBlocks': 'imprecision',
   'Analytics_PolymorphicTargetSameCtx': 'imprecision',
   'Analytics_LocalBlockEdge': 'completeness',
+  'Analytics_MissingEdgeInTAC': 'completeness',
   'Analytics_StmtMissingOperand': 'incompleteness',
   'Analytics_PrivateFunctionMatchesMetadata': 'completeness',
   'Analytics_PrivateFunctionMatchesMetadataIncorrectArgs': 'imprecision',
   'Analytics_PrivateFunctionMatchesMetadataIncorrectReturnArgs': 'imprecision',
-#  'Analytics_MissingJumpTargetAnyCtx',
+  'Analytics_MissingJumpTargetAnyCtx' : 'incompleteness',
 #  'Analytics_JumpToManyWithoutGlobalImprecision',
 #  'Analytics_Blocks',
   'Analytics_Contexts' : 'scalability',
@@ -46,13 +48,19 @@ decomp_analytics = {
 }
 
 mem_analytics = {
+  'inline_time': 'scalability',
+  'client_time' : 'scalability',
   'Analytics_NonModeledMSTORE': 'incompleteness',
   'Analytics_NonModeledMLOAD': 'incompleteness',
+  'Analytics_CallToSignature': 'completeness',
+  'Analytics_EventSignature': 'completeness',
   'Analytics_PublicFunctionArg': 'completeness',
   'Analytics_PublicFunctionArrayArg': 'completeness'
 }
 
 storage_analytics = {
+  'client_time' : 'scalability',
+  'inline_time': 'scalability',
   'Analytics_NonModeledSSTORE': 'incompleteness',
   'Analytics_NonModeledSLOAD': 'incompleteness',
   'Analytics_GlobalVariable': 'completeness',
@@ -60,7 +68,13 @@ storage_analytics = {
 }
 
 clients_analytics = {
-  'client_time' : 'scalability'
+  'client_time' : 'scalability',
+  'inline_time': 'scalability',
+  'Analytics_VarMayBeLimitSizeReached': 'unscalability',
+  'Metric_PrivateFunctions': 'completeness',
+  'Metric_UnreachableFunctions': 'incompleteness',
+  'Metric_AllBlocks': 'completeness',
+  'Metric_UnreachableBlocks': 'incompleteness',
 }
 
 list_of_verbatim_rels = {
@@ -138,6 +152,10 @@ if args.storage:
 if args.clients:
     analytics |= clients_analytics
 
+# add it as an analytic with completeness as a placeholder
+if args.point_to_point:
+    analytics |= {args.point_to_point: 'completeness'}
+
 result_files = args.result_files
 
 result_files_simple = [Path(file).stem for file in result_files]
@@ -198,7 +216,7 @@ if args.point_to_point:
     print(format_row.format("", *(["Contract"] + result_files_simple)))
     for file in output_in_all:
         # vals = [res[file]["analytics"][args.point_to_point].replace('\n', '') for res in results_processed_common]
-        vals = [res[file]["analytics"][args.point_to_point] for res in results_processed_common]
+        vals = [res[file]["analytics"].get(args.point_to_point, 0) for res in results_processed_common]
         if len(set(vals)) == 1:
             continue
         print(format_row.format("", *([file] + vals)))

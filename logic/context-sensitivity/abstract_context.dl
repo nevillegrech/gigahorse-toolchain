@@ -16,6 +16,8 @@
   .decl IsContext(ctx: Context)
   .decl InitialContext(ctx: Context)
 
+  .decl ImportantBlockEdge(block: Block, next: Block)
+
   /**
     Context is reachable under PublicFunction identified by its sighash.
     Only useful for contexts with a public function component
@@ -55,7 +57,7 @@
     InputMaxContextDepth(d).
 
 
-  MaxContextDepth(sigHash, 10) :-
+  MaxContextDepth(sigHash, 20) :-
     (local.PublicFunction(_, sigHash, _);
      sigHash = FALLBACK_FUNCTION_SIGHASH),
     !InputMaxContextDepth(_).

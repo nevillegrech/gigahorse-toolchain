@@ -369,6 +369,18 @@ MLOADReadsArrayLength(mload):-
   IsRegularArrayVar(array),
   MLOAD(mload, array, _).
 
+ArrayCopy(mcopy, fromArray, toArray):-
+  MCOPY(mcopy, toAddr, fromAddr, len),
+  ArrayDataStartVar(fromArrayVar, fromAddr),
+  VarIsArray(fromArrayVar, fromArray),
+  ArrayDataStartVar(toArrayVar, toAddr),
+  VarIsArray(toArrayVar, toArray),
+  ArrayLengthVar(fromArray, arrLen),
+  Array_ElementLength(fromArrayVar, elemLength),
+  VarTimesConstant(arrLen, elemLength, len),
+  ArrayLengthVar(fromArray, arrLen2),
+  MSTORE(_, toArrayVar2, arrLen2),
+  VarIsArray(toArrayVar2, toArray).
 
 /**
   Points somewhere in an array's data 
@@ -925,10 +937,9 @@ Array_ElementLength(actual, elementSize):-
   ActualReturnArgs(caller, actual, index).
 
 /**
-  Constant arrays and their contents.
+  Constant arrays and their contents. This is mainly useful to find debug messages.
+  Note that such bytearrays are right padded.
 **/
-
-
 .decl ConstArray_Contents(arrayRep:ArrayVariable, hex:symbol)
 
 MemoryModelingTempStmt(mstore),
@@ -937,6 +948,7 @@ ConstArray_Contents(arrayRep, substr(val, 0, strlen(val) + 2*(length - 32))):-
   VarIsArray(arrayVar, arrayRep),
   length > 0,
   length <= 32,
+  strlen(val) + 2*(length - 32) > 2,
   ArrayWriteToRelativeIndex(arrayVar, mstore, 0),
   MSTORE(mstore, _, storedVar),
   Variable_Value(storedVar, val).
@@ -947,7 +959,7 @@ MemoryModelingTempStmt(mstore2),
 ConstArray_Contents(arrayRep, val):-
   ArrayHasConstantLength(arrayRep, length),
   VarIsArray(arrayVar, arrayRep),
-  length > 0,
+  length > 32,
   length <= 64,
   ArrayWriteToRelativeIndex(arrayVar, mstore1, 0),
   MSTORE(mstore1, _, storedVar1),
@@ -963,7 +975,7 @@ MemoryModelingTempStmt(mstore3),
 ConstArray_Contents(arrayRep, val):-
   ArrayHasConstantLength(arrayRep, length),
   VarIsArray(arrayVar, arrayRep),
-  length > 0,
+  length > 64,
   length <= 96,
   ArrayWriteToRelativeIndex(arrayVar, mstore1, 0),
   MSTORE(mstore1, _, storedVar1),
@@ -1136,17 +1148,17 @@ VarPointsToArray(ctx, arrayVar, ctx, arrayId):-
   ArrayAllocation(arrayId, _, _).
 
 VarPointsToArray(newCtx, formal, heapCtx, arrayId):-
-  clientCtx.MergeClientContext(callerCtx, caller, newCtx),
   VarPointsToArray(callerCtx, actual, heapCtx, arrayId),
+  clientCtx.MergeClientContext(callerCtx, caller, newCtx),
   ActualArgs(caller, actual, pos),
   CallGraphEdge(caller, function),
   FormalArgs(function, formal, pos).
 
 VarPointsToArray(callerCtx, actual, heapCtx, arrayId):-
+  VarPointsToArray(calleeCtx, formal, heapCtx, arrayId),
   clientCtx.MergeClientContext(callerCtx, caller, calleeCtx),
   CallGraphEdge(caller, function),
   FormalReturnArgs(function, formal, index),
-  VarPointsToArray(calleeCtx, formal, heapCtx, arrayId),
   ActualReturnArgs(caller, actual, index).
 
 InsVarPointsToArray(var, arrayId):-

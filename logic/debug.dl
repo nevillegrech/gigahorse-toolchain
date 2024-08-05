@@ -16,7 +16,7 @@
 .output FunctionalBlockInputContents, FunctionalBlockOutputContents, FunctionalStatement_Uses_Local
 .output NumberOfFunctionArguments
 .output NumberOfFunctionReturnArguments
-
+.output Block_IRBlock
 .output Variable_String
 
 // The following relations print a number instead of a context in record form to help debugging
@@ -76,6 +76,11 @@ IsFunctionCallReturnOrd(ord(ctx), caller, func, ord(retCtx), retBlock, retTarget
 .output MaybeFunctionCallReturnOrd
 MaybeFunctionCallReturnOrd(ord(ctx), caller, func, ord(retCtx), retBlock, retTarget):-
   MaybeFunctionCallReturn(ctx, caller, func, retCtx, retBlock, retTarget).
+
+.decl PossibleCallReturnOrd(callCtx: number, caller: Block, index: number, target: Block)
+DEBUG_OUTPUT(PossibleCallReturnOrd)
+PossibleCallReturnOrd(ord(callCtx), caller, minIndex, retTarget):-
+  PossibleCallReturn(callCtx, caller, minIndex, retTarget).
 
 .decl PossibleReturnAddressWithRankOrd(callCtx:number, targetSetter:Block, retCtx:number, retBlock:Block, retTarget:Block, rank:number)
 .output PossibleReturnAddressWithRankOrd
