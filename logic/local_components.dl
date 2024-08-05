@@ -726,10 +726,11 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
     Statement_Defines(stmt, var),
     Statement_Block(stmt, block),
     BasicBlock_Tail(block, call),
-    LocalStackContents(call, index1, var),
-    LocalStackContents(call, index2, var),
-    index1 != index2,
-    !BlockUsesLocal(block, var).
+    // Change from LocalStackContents to BeforeLocalStackContents
+    // to cover cases where continuation is also directly jumped to
+    BeforeLocalStackContents(call, index1, var),
+    BeforeLocalStackContents(call, index2, var),
+    index1 != index2.
 
   /**
     Identify cases where the same continuation is pushed once but DUPed
