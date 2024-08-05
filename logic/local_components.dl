@@ -1196,24 +1196,35 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
     External jumpdests
   */
 
+  .decl EntryPointToOtherEntryWithActualReturn(entry: Block, exit: Block, next: Block, otherEntry: Block, actualExit: Block)
+  EntryPointToOtherEntryWithActualReturn(entry, exit, next, otherEntry, actualExit):-
+    InternallyResolvedJumpdest(entry, exit, _, _),
+    ImmediateExitPointTransitive(entry, exit, next, otherEntry),
+    ExternallyProvidedJumpdest(otherEntry, actualExit, _),
+    NonImmediateExitPoint(otherEntry, actualExit, _).
+   .plan 1:(2,1,3,4),2:(3,2,1,4)
 
   // add external index to exit point, for exit index in continuation
   BlockOutputExternalJumpdestIndex(otherEntry, otherEExit, index, otherEExit, index):-
     InternallyResolvedJumpdest(entry, exit, _, cont),
-    ImmediateExitPointTransitive(entry, exit, _, otherEntry),
-    ExternallyProvidedJumpdest(otherEntry, otherEExit, _),
-    NonImmediateExitPoint(otherEntry, otherEExit, _),
+    EntryPointToOtherEntryWithActualReturn(entry, exit, _, otherEntry, otherEExit),
+    // ImmediateExitPointTransitive(entry, exit, _, otherEntry),
+    // ExternallyProvidedJumpdest(otherEntry, otherEExit, _),
+    // NonImmediateExitPoint(otherEntry, otherEExit, _),
     BlockInputExitJumpdestIndex(entry, _, cont, index).
-   .plan 1:(2,1,3,4,5),2:(3,2,1,4,5),3:(5,1,2,3,4)
+  //  .plan 1:(2,1,3,4,5),2:(3,2,1,4,5),3:(5,1,2,3,4)
+   .plan 1:(2,1,3),2:(3,1,2)
 
   // add external index to exit point, for external index in continuation
   BlockOutputExternalJumpdestIndex(otherEntry, otherEExit, index, otherEExit, index):-
     InternallyResolvedJumpdest(entry, exit, _, cont),
-    ImmediateExitPointTransitive(entry, exit, _, otherEntry),
-    ExternallyProvidedJumpdest(otherEntry, otherEExit, _),
-    NonImmediateExitPoint(otherEntry, otherEExit, _),
+    EntryPointToOtherEntryWithActualReturn(entry, exit, _, otherEntry, otherEExit),
+    // ImmediateExitPointTransitive(entry, exit, _, otherEntry),
+    // ExternallyProvidedJumpdest(otherEntry, otherEExit, _),
+    // NonImmediateExitPoint(otherEntry, otherEExit, _),
     BlockInputExternalJumpdestIndex(entry, _, _, cont, index).
-   .plan 1:(2,1,3,4,5),2:(3,2,1,4,5),3:(5,1,2,3,4)
+  //  .plan 1:(2,1,3,4,5),2:(3,2,1,4,5),3:(5,1,2,3,4)
+      .plan 1:(2,1,3),2:(3,1,2)
 
   // Flow out of `ImmediateExitPoint`s that are also `ExternallyProvidedJumpdest`
   BlockOutputExternalJumpdestIndex(entry, innerExit, innerIndex, exit, index):-
@@ -1237,20 +1248,24 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
   // Recover an exit index after tracking it from exit to entry point
   BlockOutputExitJumpdestIndex(entry, exit, immediateExit, index):-
     InternallyResolvedJumpdest(entry, immediateExit, _, cont),
-    ImmediateExitPointTransitive(entry, immediateExit, next, otherEntry),
-    NonImmediateExitPoint(otherEntry, otherEExit, _),
+    EntryPointToOtherEntryWithActualReturn(entry, immediateExit, next, _, otherEExit),
+    // ImmediateExitPointTransitive(entry, immediateExit, next, otherEntry),
+    // NonImmediateExitPoint(otherEntry, otherEExit, _),
     BlockInputExitJumpdestIndex(entry, exit, cont, exitIndex), //exit != immediateExit,
     BlockInputExternalJumpdestIndex(next, otherEExit, exitIndex, next, index).
-   .plan 1:(2,1,3,4,5),2:(4,2,1,3,5),3:(5,3,2,1,4)
+  //  .plan 1:(2,1,3,4,5),2:(4,2,1,3,5),3:(5,3,2,1,4)
+  .plan 1:(2,1,3,4),2:(3,1,2,4),3:(4,2,1,3)
 
   // Recover an external index after tracking it from exit to entry point
   BlockOutputExternalJumpdestIndex(entry, exit, outerExitIndex, immediateExit, index):-
     InternallyResolvedJumpdest(entry, immediateExit, _, cont),
-    ImmediateExitPointTransitive(entry, immediateExit, next, otherEntry),
-    NonImmediateExitPoint(otherEntry, otherEExit, _),
+    EntryPointToOtherEntryWithActualReturn(entry, immediateExit, next, _, otherEExit),
+    // ImmediateExitPointTransitive(entry, immediateExit, next, otherEntry),
+    // NonImmediateExitPoint(otherEntry, otherEExit, _),
     BlockInputExternalJumpdestIndex(entry, exit, outerExitIndex, cont, innerExitIndex),
     BlockInputExternalJumpdestIndex(next, otherEExit, innerExitIndex, next, index).
-   .plan 1:(2,1,3,4,5),2:(4,1,2,3,5),3:(5,3,2,1,4)
+  //  .plan 1:(2,1,3,4,5),2:(4,1,2,3,5),3:(5,3,2,1,4)
+   .plan 1:(2,1,3,4),2:(3,1,2,4),3:(4,2,1,3)
 
   BlockOutputExitJumpdestIndex(entry, exit, nonImmediateExit, index):-
     InternallyResolvedJumpdest(entry, nonImmediateExit, _, cont),
