@@ -628,6 +628,7 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
     PrivateFunctionCall(block, _, _, _);
     PrivateFunctionReturn(block).
 
+  // Falthrough edges (excluding JUMPIs)
   .decl JumplessFalthroughBlock(block: Block, next: Block)
   JumplessFalthroughBlock(block, next):-
     FallthroughEdge(block, next),
@@ -649,10 +650,10 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
   FallthroughBlockUsedMultipleTimes(block, fallthrough):-
     JumplessFalthroughBlock(block, next),
     StackBalanceBlock(next),
-    BlockPushesLabel(pushBlock1, as(block, Value)),
-    BlockPushesLabel(pushBlock2, as(block, Value)),
+    (BlockPushesLabel(block1, as(block, Value)); StaticBlockJumpTarget(block1, as(block, Value))),
+    (BlockPushesLabel(block2, as(block, Value)); StaticBlockJumpTarget(block2, as(block, Value))),
     BasicBlock_Head(next, fallthrough),
-    pushBlock1 != pushBlock2.
+    block1 != block2.
 
   .decl CODECOPYStatement(stmt: Statement, offset: Value, size: Value)
   CODECOPYStatement(codeCopy, codeOffsetNumHex, smallNumHex) :-
