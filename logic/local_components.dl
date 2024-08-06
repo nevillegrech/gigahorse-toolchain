@@ -628,16 +628,32 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
     PrivateFunctionCall(block, _, _, _);
     PrivateFunctionReturn(block).
 
-    .decl FallthroughBlockPushesContinuation(block: Block, fallthrough: Statement)
-  DEBUG_OUTPUT(FallthroughBlockPushesContinuation)
-  FallthroughBlockPushesContinuation(block, fallthrough):-
-    BlockPushesLabel(block, _),
+  // Falthrough edges (excluding JUMPIs)
+  .decl JumplessFalthroughBlock(block: Block, next: Block)
+  JumplessFalthroughBlock(block, next):-
+    FallthroughEdge(block, next),
     BasicBlock_Tail(block, stmt),
-    Statement_Next(stmt, fallthrough),
     !JUMP(stmt),
     !JUMPI(stmt),
     Statement_Opcode(stmt, opcode),
     !OpcodePossiblyHalts(opcode).
+
+  // Insertor heuristic: Fallthrough block likely performs a function call
+  .decl FallthroughBlockPushesContinuation(block: Block, fallthrough: Statement)
+  FallthroughBlockPushesContinuation(block, fallthrough):-
+    BlockPushesLabel(block, _),
+    JumplessFalthroughBlock(block, next),
+    BasicBlock_Head(next, fallthrough).
+
+  // Insertor heuristic: Fallthrough block is used multiple times and its the next is a `StackBalanceBlock`
+  .decl FallthroughBlockUsedMultipleTimes(block: Block, fallthrough: Statement)
+  FallthroughBlockUsedMultipleTimes(block, fallthrough):-
+    JumplessFalthroughBlock(block, next),
+    StackBalanceBlock(next),
+    (BlockPushesLabel(block1, as(block, Value)); StaticBlockJumpTarget(block1, as(block, Value))),
+    (BlockPushesLabel(block2, as(block, Value)); StaticBlockJumpTarget(block2, as(block, Value))),
+    BasicBlock_Head(next, fallthrough),
+    block1 != block2.
 
   .decl CODECOPYStatement(stmt: Statement, offset: Value, size: Value)
   CODECOPYStatement(codeCopy, codeOffsetNumHex, smallNumHex) :-
