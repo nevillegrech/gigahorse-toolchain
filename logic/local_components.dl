@@ -242,10 +242,12 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
 
   .decl BeforeLocalStackContents(stmt: Statement, n: StackIndex, variable: VariableOrStackIndex)
 
-  /**  
+  /**
     The target of a jump at the end of the `block` is a `variable` defined in
     the `block` itself. "Immediate" is misnomer, can't think of better name.
-    This is a context-independent predicate.
+    This is a context-independent predicate.  
+    __Note__: A `variable` in the output of this relation doesn't need to have a value,
+    it can be the result of the constant folding of a variable coming from a previous block.
   */
   .decl ImmediateBlockJumpTarget(block: Block, variable: Variable)
 
@@ -526,14 +528,8 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
     Helper for some ctx sensitivity algorithms
   */
   .decl BlockHasTrivialControl(block: Block)
-
   BlockHasTrivialControl(block):-
-    BasicBlock_Tail(block, stmt),
-    !JUMP(stmt),
-    !JUMPI(stmt).
-
-  BlockHasTrivialControl(block):-
-    ImmediateBlockJumpTarget(block, _).
+    StaticBlockJumpTarget(block, _).
 
   // inverse-escape analysis: helpers for ctx sensitivity
   .decl BlockUsesLocal(block: Block, var: VariableOrStackIndex)
@@ -1018,18 +1014,18 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
     Statement_Block(stmt, returnBlock),
     (JUMP(stmt); JUMPI(stmt)), // temp: handle conditional returns
     !StaticBlockJumpTarget(returnBlock, _).
+    // !ImmediateBlockJumpTarget(returnBlock, _).
 
   .decl PrivateFunctionCallOrReturn(block: Block)
   PrivateFunctionCallOrReturn(block) :-
     PrivateFunctionCall(block, _, _, _);
     PrivateFunctionReturn(block).
 
-    .decl FallthroughBlockPushesContinuation(block: Block, fallthrough: Statement)
-  DEBUG_OUTPUT(FallthroughBlockPushesContinuation)
-  FallthroughBlockPushesContinuation(block, fallthrough):-
-    BlockPushesLabel(block, _),
+  // Falthrough edges (excluding JUMPIs)
+  .decl JumplessFalthroughBlock(block: Block, next: Block)
+  JumplessFalthroughBlock(block, next):-
+    FallthroughEdge(block, next),
     BasicBlock_Tail(block, stmt),
-    Statement_Next(stmt, fallthrough),
     !JUMP(stmt),
     !JUMPI(stmt),
     Statement_Opcode(stmt, opcode),
@@ -1046,14 +1042,20 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
     Statement_Opcode(stmt, opcode),
     !OpcodePossiblyHalts(opcode).
 
+  // Doesn't this overlap with FallthroughBlockUsedMultipleTimes to some extend?
   FallthroughBlockLikelyFunctionCall(block, fallthrough):-
     PrivateFunctionCall(_, _, block, _),
-    BasicBlock_Tail(block, stmt),
-    Statement_Next(stmt, fallthrough),
-    !JUMP(stmt),
-    !JUMPI(stmt),
-    Statement_Opcode(stmt, opcode),
-    !OpcodePossiblyHalts(opcode).
+    JumplessFalthroughBlock(block, next),
+    BasicBlock_Head(next, fallthrough).
+
+  // Commented out as it is superseeded
+  //   // Insertor heuristic: Fallthrough block likely performs a function call
+  // .decl FallthroughBlockPushesContinuation(block: Block, fallthrough: Statement)
+  // FallthroughBlockPushesContinuation(block, fallthrough):-
+  //   BlockPushesLabel(block, _),
+  //   JumplessFalthroughBlock(block, next),
+  //   BasicBlock_Head(next, fallthrough).
+
 
   /**
     If a known function start stmt is used a continuation in optimized code
@@ -1076,20 +1078,14 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
     we add a jump to its end, in order to allow our logic to consider it a call
   */
   .decl FallthroughBlockUsedMultipleTimes(block: Block, fallthrough: Statement)
-  DEBUG_OUTPUT(FallthroughBlockUsedMultipleTimes)
   FallthroughBlockUsedMultipleTimes(block, fallthrough):-
-    FallthroughEdge(block, next),
+    JumplessFalthroughBlock(block, next),
     StackBalanceBlock(next),
-    BlockPushesLabel(pushBlock1, as(block, Value)),
-    BlockPushesLabel(pushBlock2, as(block, Value)),
-    BasicBlock_Tail(block, stmt),
-    Statement_Next(stmt, fallthrough),
-    JUMPDEST(fallthrough),
-    !JUMP(stmt),
-    !JUMPI(stmt),
-    Statement_Opcode(stmt, opcode),
-    !OpcodePossiblyHalts(opcode),
-    pushBlock1 != pushBlock2.
+    (BlockPushesLabel(block1, as(block, Value)); StaticBlockJumpTarget(block1, as(block, Value))),
+    (BlockPushesLabel(block2, as(block, Value)); StaticBlockJumpTarget(block2, as(block, Value))),
+    BasicBlock_Head(next, fallthrough),
+    block1 != block2.
+
 
   .decl CODECOPYStatement(stmt: Statement, offset: Value, size: Value)
   CODECOPYStatement(codeCopy, codeOffsetNumHex, smallNumHex) :-
@@ -1183,6 +1179,16 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
     index1 != index2,
     !BlockUsesLocal(block, var).
 
+  // cover cases where continuation is also directly jumped to
+  PushedLabelOccupiesMultipleIndexes(block, var):-
+    JUMPDEST(as(val, symbol)),
+    Variable_Value(var, val),
+    Statement_Defines(stmt, var),
+    Statement_Block(stmt, block),
+    BasicBlock_Tail(block, call),
+    BeforeLocalStackContents(call, 0, var),
+    LocalStackContents(call, _, var).
+
   /**
     Identify cases where the same continuation is pushed once but DUPed
     into multiple stack indexes
@@ -1215,7 +1221,7 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
   // Compares label from stack to a constant: common public function dispatch pattern
   BlockComparesSig(block, sigHash, selector) :-
     Statement_Block(pushStmt, block),
-    ImmediateBlockJumpTarget(block, _),
+    StaticBlockJumpTarget(block, _),
     SmallValuePush(pushStmt, sigHash),
     Statement_Defines(pushStmt, sigHashVar),
     EQ(eqStmt),
@@ -1270,7 +1276,7 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
   .decl BlockComparesSigFallthroughSolidity(block: Block, sigHash: Value, selectorVarOrIndex: OptionalSelector)
   BlockComparesSigFallthroughSolidity(block, sigHash, selector) :-
     Statement_Block(pushStmt, block),
-    ImmediateBlockJumpTarget(block, _),
+    StaticBlockJumpTarget(block, _),
     SmallValuePush(pushStmt, sigHash),
     Statement_Defines(pushStmt, sigHashVar),
     SUB(subStmt),
@@ -1291,9 +1297,8 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
   PublicFunction(as(targetValue, Block), sigHash, selectorVarOrIndex) :-
     BlockComparesSig(block, sigHash, selectorVarOrIndex),
     ImmediateBlockJumpTarget(block, var),
-    Statement_Defines(push, var),
-    PushValue(push, targetValue),
-    JUMPDEST(as(targetValue, symbol)).
+    Variable_Value(var, targetValue),
+    JUMPDEST(as(targetValue, Statement)).
 
   PublicFunction(fallthrough, sigHash, selectorVarOrIndex) :-
     (BlockComparesSigVyper(block, sigHash, selectorVarOrIndex);

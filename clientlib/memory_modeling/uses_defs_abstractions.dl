@@ -36,7 +36,7 @@ PublicFunctionArg(pubFun, arg, index):-
   !PublicFunctionArrayArg(pubFun, _, index),
   !PublicFunctionStructArg(pubFun, _, index).
 
-PublicFunctionArg(pubFun, formalArg, constNum):-
+PublicFunctionArg(pubFun, formalArg, (constNum - 4) / 32):-
   IsPublicFunction(pubFun),
   CallGraphEdge(caller_block, pubFun),
   Statement_Block(stmt, caller_block),
@@ -45,6 +45,7 @@ PublicFunctionArg(pubFun, formalArg, constNum):-
   DataFlowsThroughConstOps(arg, argVar),
   FormalArgs(pubFun, formalArg, pos),
   CALLDATALOADOfConstant(cdl, _, constNum),
+  (constNum - 4) % 32 = 0,
   CALLDATALOAD(cdl, _, arg).
 
 PublicFunctionArg(pubFun, arrayArg, index):-
@@ -324,7 +325,7 @@ ABIEncodedArrayWriteTo(memWriteStmt, abiArr, memConsStmt, relativeIndex - 4):-
 
 WriteToArrayUsedByABIEncodedArray(mstore, abiArr):-
   (ABIEncodedArrayIncludesArray(abiArr, _, innerArrVar, _);
-    ABIEncodedArrayIncludesArrayAtConcreteIndex(abiArr, _, innerArrVar, _, index)),
+    ABIEncodedArrayIncludesArrayAtConcreteIndex(abiArr, _, innerArrVar, _, _)),
   VarIsArray(innerArrVar, innerArr),
   (ArrayStore(mstore, innerArr, _);
     ArrayStoreAtIndex(mstore, innerArr, _, _)).

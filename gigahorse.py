@@ -321,7 +321,7 @@ def analyze_contract(index: int, contract_filename: str, result_queue, fact_gene
 def get_gigahorse_analytics(out_dir: str, analytics: dict) -> None:
     for fname in os.listdir(out_dir):
         fpath = join(out_dir, fname)
-        if not fname.startswith('Analytics_'):
+        if not (fname.startswith('Analytics_') or fname.startswith('Metric_')):
             continue
         stat_name = fname.split(".")[0]
         analytics[stat_name] = sum(1 for line in open(join(out_dir, fname)))

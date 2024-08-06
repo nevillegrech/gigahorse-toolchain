@@ -537,3 +537,39 @@ StorageConstantToHash(const, zeroPaded, as(@hex_keccak_256(zeroPaded), Value)):-
   cut = substr(const, 2, strlen(const) - 2),
   Helper_Zeros(zeros, 64 - strlen(cut)),
   zeroPaded = cat("0x", cat(zeros, cut)).
+
+/**
+  An `array` is deleted by setting its length to zero in `sstore` and then erasing all its contents in a following `loop`. 
+*/
+.decl ArrayDeleteOp(sstore: Statement, loop: Block, array: StorageConstruct)
+DEBUG_OUTPUT(ArrayDeleteOp)
+
+ArrayDeleteOp(sstore, loop, array):-
+  SSTORE(sstore, _, zeroVar),
+  Variable_Value(zeroVar, "0x0"),
+  StorageStmtToIndexAndConstruct(sstore, "LENGTH", _, array),
+  Statement_Block(sstore, block),
+  ArrayDeleteLoop(loop, _, array),
+  Dominates(block, loop).
+
+/**
+  `loop` goes over `array`, setting all its storage fields to zero via the `sstore` statement.
+*/
+.decl ArrayDeleteLoop(loop: Block, sstore: Statement, array: StorageConstruct)
+DEBUG_OUTPUT(ArrayDeleteLoop)
+
+ArrayDeleteLoop(loop, sstore, array):-
+  WellFormedLoopInductionVariable(loop, phiVar, [beforeLoopVar, inLoopVar]),
+  InductionVariableIncreasesByConst(loop, [beforeLoopVar, inLoopVar], 1),
+  // iterator variable starts with value `array.datastart`
+  Variable_StorageIndex(beforeLoopVar, $ArrayDataStartIndex(parIndex)),
+  StorageIndex_StorageConstruct($ArrayDataStartIndex(parIndex), array),
+  // bound by a var containing array.datastart + array.length
+  InductionVariableUpperBoundVar(loop, [beforeLoopVar, inLoopVar], boundVar),
+  ADDFix(_, arrayLenVar, arrayDataStartVar, boundVar),
+  Variable_StorageIndex(arrayDataStartVar, $ArrayDataStartIndex(parIndex2)),
+  StorageIndex_StorageConstruct($ArrayDataStartIndex(parIndex2), array),
+  Statement_Defines(lenDefStmt, arrayLenVar, 0),
+  StorageStmtToIndexAndConstruct(lenDefStmt, "LENGTH", _, array),
+  SSTORE(sstore, phiVar, zeroVar),
+  Variable_Value(zeroVar, "0x0").

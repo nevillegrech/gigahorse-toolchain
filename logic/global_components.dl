@@ -4,7 +4,7 @@
 #include "context-sensitivity/context_sensitivity.dl"
 
 #define LIMITSIZE_BLOCK_OUTPUT_CONTENTS 1000000
-#define LIMITSIZE_BIG_BLOCK_OUTPUT_CONTENTS 5000000
+#define LIMITSIZE_BIG_BLOCK_OUTPUT_CONTENTS 2000000
 
 .comp GlobalAnalysis <AbstractContextSensitivity, LocalAnalysis> : LocalAnalysis {
   /*
@@ -55,6 +55,72 @@
   */
   .decl BlockEdge(callerCtx: sens.Context, caller: Block, calleeCtx: sens.Context, callee: Block)
 
+  /**
+    Variable or stack index `variable` has `value` under `ctx`.
+  */
+  .decl GlobalVariable_Value(ctx: sens.Context, variable: VariableOrStackIndex, value: Value)
+  DEBUG_OUTPUT(GlobalVariable_Value)
+
+  /**
+    Global-level value flow and creation of new constant values via an instantiation of the `ConstantFolding` component
+    is limited by the fact that new values are not propagated to following contexts/blocks.
+    This would not model a case where a block reads a value from a previous block and produces a jumpdest,
+    pushing it to the stack for a following block to read/jump to.
+    Haven't seen such patterns in practice so I'm keeping it like that.
+  */
+  .init globalVariableValueConstantOps = ConstantFolding
+
+  GlobalVariable_Value(ctx, variable, value):-
+    ReachableContext(ctx, block),
+    Statement_Block(statement, block),
+    Statement_Defines(statement, variable),
+    Variable_Value(variable, value).
+
+  // global case, highlights limitation
+  GlobalVariable_Value(ctx, stackIndex, value):-
+    BlockInputContents(ctx, block, stackIndex, variable),
+    Statement_Block(statement, block),
+    Statement_Uses_Local(statement, stackIndex, _),
+    CheckIsStackIndex(stackIndex),
+    Variable_Value(variable, value).
+
+
+  /**
+    The set of variables for which we need to recover their values via global-level analysis.
+  */
+  .decl VariableWithoutValueUsedInJumpTargetComputation(variable: Variable)
+
+  VariableWithoutValueUsedInJumpTargetComputation(var):-
+    ImmediateBlockJumpTarget(_, var),
+    !Variable_Value(var, _).
+
+  VariableWithoutValueUsedInJumpTargetComputation(as(use, Variable)):-
+    VariableWithoutValueUsedInJumpTargetComputation(def),
+    Statement_Defines(stmt, def),
+    Statement_Uses_Local(stmt, use, _),
+    CheckIsVariable(use),
+    !Variable_Value(use, _).
+
+  // Helper to produce all constant operation requests
+  .decl GlobalBinopStatementOpAndConstantArgValues(ctx: sens.Context, stmt: Statement, op: Opcode, a_val: Value, b_val: Value)
+  GlobalBinopStatementOpAndConstantArgValues(ctx, stmt, op, aval, bval) :-
+    VariableWithoutValueUsedInJumpTargetComputation(targetVar),
+    Statement_Defines(stmt, targetVar),
+    Statement_Opcode(stmt, op),
+    Statement_Uses_Local(stmt, a, 0),
+    Statement_Uses_Local(stmt, b, 1),
+    GlobalVariable_Value(ctx, a, aval),
+    GlobalVariable_Value(ctx, b, bval).
+   .plan 0:(6,4,5,7,3,2,1),1:(7,5,4,6,3,2,1)
+
+  globalVariableValueConstantOps.RequestConstantFold2(op, a_val, b_val) :-
+    GlobalBinopStatementOpAndConstantArgValues(_, _, op, a_val, b_val).
+
+  GlobalVariable_Value(ctx, to, result) :-
+    globalVariableValueConstantOps.ConstantFoldResult2(op, a_val, b_val, result),
+    GlobalBinopStatementOpAndConstantArgValues(ctx, stmt, op, a_val, b_val),
+    Statement_Defines(stmt, to).
+    .plan 1:(2,1,3)
 
   /*
   ***********
@@ -108,6 +174,12 @@
     Variable_Value(targetVar, targetValue),
     JUMPDEST(as(targetValue, symbol)).
 
+  BlockJumpValidTarget(ctx, block, targetVar, as(targetValue, Block)) :-
+    BlockJumpTarget(ctx, block, targetVar),
+    GlobalVariable_Value(ctx, targetVar, targetValue),
+    JUMPDEST(as(targetValue, symbol)).
+   .plan 1:(2,1,3)
+
 
   /*
   ***********
@@ -148,6 +220,7 @@
     sens.MergeContextResponse(callerCtx, caller, callee, calleeCtx).
     .plan 1:(2,1)
 
+  // Note: It's under __any__ ctx. To be used with caution.
   .decl Statement_Uses(stmt: Statement, var: Variable, n: StackIndex)
 
   // Case: variable originates locally
@@ -267,6 +340,10 @@
   VariableToModel(var):-
     VariableContainsJumpTarget(var); FunctionSelectorVariable(var).
 
+  .decl BlockOutputContentsJumpTarget(context:sens.Context, block:Block, index:StackIndex, var:Variable)
+  BlockOutputContentsJumpTarget(context, block, index, var):-
+    AuxBlockOutputContentsJumpTarget(context, block, index, var),
+    VariableUsedInAsJumpdest(var).
 
   .decl BlockOutputContentsJumpTarget(context:sens.Context, block:Block, index:StackIndex, var:Variable)
   BlockOutputContentsJumpTarget(context, block, index, var):-
