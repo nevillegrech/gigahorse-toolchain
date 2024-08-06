@@ -1048,13 +1048,12 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
     JumplessFalthroughBlock(block, next),
     BasicBlock_Head(next, fallthrough).
 
-  // Commented out as it is superseeded
-  //   // Insertor heuristic: Fallthrough block likely performs a function call
-  // .decl FallthroughBlockPushesContinuation(block: Block, fallthrough: Statement)
-  // FallthroughBlockPushesContinuation(block, fallthrough):-
-  //   BlockPushesLabel(block, _),
-  //   JumplessFalthroughBlock(block, next),
-  //   BasicBlock_Head(next, fallthrough).
+  // Insertor heuristic: Fallthrough block likely performs a function call
+  .decl FallthroughBlockPushesContinuation(block: Block, fallthrough: Statement)
+  FallthroughBlockPushesContinuation(block, fallthrough):-
+    BlockPushesLabel(block, _),
+    JumplessFalthroughBlock(block, next),
+    BasicBlock_Head(next, fallthrough).
 
 
   /**
@@ -1081,8 +1080,8 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
   FallthroughBlockUsedMultipleTimes(block, fallthrough):-
     JumplessFalthroughBlock(block, next),
     StackBalanceBlock(next),
-    (BlockPushesLabel(block1, as(block, Value)); StaticBlockJumpTarget(block1, as(block, Value))),
-    (BlockPushesLabel(block2, as(block, Value)); StaticBlockJumpTarget(block2, as(block, Value))),
+    (BlockPushesLabel(block1, as(block, Value)); StaticBlockJumpTarget(block1, block)),
+    (BlockPushesLabel(block2, as(block, Value)); StaticBlockJumpTarget(block2, block)),
     BasicBlock_Head(next, fallthrough),
     block1 != block2.
 

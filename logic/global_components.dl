@@ -345,11 +345,6 @@
     AuxBlockOutputContentsJumpTarget(context, block, index, var),
     VariableUsedInAsJumpdest(var).
 
-  .decl BlockOutputContentsJumpTarget(context:sens.Context, block:Block, index:StackIndex, var:Variable)
-  BlockOutputContentsJumpTarget(context, block, index, var):-
-    AuxBlockOutputContentsJumpTarget(context, block, index, var),
-    VariableUsedInAsJumpdest(var).
-
   /**
     Cut down `BlockOutputContents`, only containing jump targets (and the function selector var).
     Stack contents at end of a `block`, given its calling `context`.
