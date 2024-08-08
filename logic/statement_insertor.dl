@@ -288,22 +288,21 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
   // Create a new instance of `blockToClone` for its definition in `pushStmt`
   .decl BlockToClone(pushStmt: Statement, blockToClone: Block)
 
+  /**
+    We encode cloning ops as recursive records to enable more general cloning.
+    For example if a cloned block uses another block that is to be cloned this allows it to happen.
+  */
   .type CloneList = [pushStmt: Statement, blockToClone: Block, rest: CloneList]
   // Create a new instance of `blockToClone` for its definition in `pushStmt`
   .decl BlockToCloneRecursive(blockToClone: CloneList)
-
-  // For each fact of `BlockToClone` we create an identifier (`opID`) and order them based on it
-  .decl BlockToCloneOpID(pushStmt: Statement, blockToClone: Block, opID: symbol)
 
   /**
     After we compute the order of the inserted clone blocks,
     we assign each cloned instance to a starting bytecode offset (`generatedBlock`).
   */
-  //.decl BlockToCloneNewInstance(pushStmt: Statement, blockToClone: Block, generatedBlock: Block)
   .decl BlockToCloneNewInstance(cloneOp: CloneList, generatedBlock: Block)
   DEBUG_OUTPUT(BlockToCloneNewInstance)
   // `generatedStatement` will be the `stmt` of `blockToClone` when cloned in `pushStmt`
-  // .decl StatementToClonedStatement(pushStmt: Statement, blockToClone: Block, stmt: Statement, generatedStatement: Statement)
   .decl StatementToClonedStatement(cloneOp: CloneList, stmt: Statement, generatedStatement: Statement)
   DEBUG_OUTPUT(StatementToClonedStatement)
 
@@ -317,9 +316,6 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
   MaxOriginalStatement(as(maxStmt, Statement)):-
     maxStmtNumber = max stmtNumber : { Statement_Opcode(stmt, _), stmtNumber = @hex_to_number(stmt)},
     maxStmt = @number_to_hex(2*maxStmtNumber).
-
-  // BlockSize(block, @hex_to_number(tail) - @hex_to_number(block)):-
-  //   analysis.BasicBlock_Tail(block, tail).
 
   // New definition, makes it pre cloning insertion safe
   BlockSize(block, maxStmt - @hex_to_number(block)):-
@@ -337,7 +333,7 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
   // DirectBlockJumpToAddrPushedBy(from, pushStmt):-
   //   analysis.ImmediateBlockJumpTarget(from, pushedVar),
   //   analysis.Statement_Defines(pushStmt, pushedVar).
-  .output BlockPushesBlockToStack, ClonedBlockAddressPushedBy, Out_PushValue, Out_Statement_Next, Out_Statement_Opcode, BlockToCloneRecursive
+  // .output BlockPushesBlockToStack, ClonedBlockAddressPushedBy, Out_PushValue, Out_Statement_Next, Out_Statement_Opcode, BlockToCloneRecursive
   //Maybe change it to only consider direct block edges again?
   ClonedBlockAddressPushedBy(pushBlock, pushStmt, blockToClone):-
     BlockToClone(pushStmt, blockToClone),
@@ -375,17 +371,11 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
     BlockPushesBlockToStack(_, otherFrom, to),
     BlockCloningCandidate(to),
     from != otherFrom,
-    // Don't think we need it after all.
-    // !BlockPushesCloningCandidate(to, _, _),
     !FallthroughBlock(to),
     // Make sure we don't break any CODECOPY stmts
     !analysis.CODECOPYStatement(_, as(to,Value), _).
 
 
-  BlockToCloneOpID(pushStmt, blockToClone, cat(pushStmt, blockToClone)):-
-    BlockToClone(pushStmt, blockToClone).
-
-  // cloneOpSorter.Input(opID):- BlockToCloneOpID(_, _, opID).
   cloneOpSorter.Input(cloneOp):- BlockToCloneRecursive(cloneOp).
 
   BlockToCloneNewInstance(opID, as(generatedBlock, Block)):-
@@ -428,15 +418,6 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
     StatementToClonedStatement(cloneOp, stmt, genStmt),
     Statement_Next(stmt, nextStmt),
     StatementToClonedStatement(cloneOp, nextStmt, nextGenStmt).
-
-  // Out_Statement_Next(prevClonedTail, nextClonedHead):-
-  //   cloneOpSorter.Input_Next(prevOpID, nextOpID),
-  //   BlockToCloneOpID(prevPushStmt, prevBlockToClone, prevOpID),
-  //   BlockToCloneOpID(nextPushStmt, nextBlockToClone, nextOpID),
-  //   analysis.BasicBlock_Tail(prevBlockToClone, oldTail),
-  //   analysis.BasicBlock_Head(nextBlockToClone, oldHead),
-  //   StatementToClonedStatement(prevPushStmt, prevBlockToClone, oldTail, prevClonedTail),
-  //   StatementToClonedStatement(nextPushStmt, nextBlockToClone, oldHead, nextClonedHead).
 
   Out_Statement_Next(prevClonedTail, nextClonedHead):-
     cloneOpSorter.Input_Next(prevOpID, nextOpID),
