@@ -1,7 +1,7 @@
 
 .output global.BlockEdge, global.FallthroughEdge, global.BlockJumpValidTarget, global.BlockJumpTarget, MaybeInFunctionUnderContext
 .output MaybeFunctionCallReturn // DEBUG
-.output global.PrivateFunctionCall
+.output global.PrivateFunctionCall, preTrans.PrivateFunctionCall, beforeClonerLocal.PrivateFunctionCall
 .output PotentialCall // DEBUG
 .output PossibleReturnAddressWithPos // DEBUG
 .output IsFunctionCallReturn // DEBUG
@@ -14,6 +14,7 @@
 .output PossibleCombinedNumberOfFunctionReturnsAndArguments
 .output FunctionalBlockPopAndStackDelta, IRBlockStackDelta, IRBlockPopDelta
 .output FunctionalBlockInputContents, FunctionalBlockOutputContents, FunctionalStatement_Uses_Local
+.output InvalidIRBlockEdge
 .output NumberOfFunctionArguments
 .output NumberOfFunctionReturnArguments
 .output Block_IRBlock
