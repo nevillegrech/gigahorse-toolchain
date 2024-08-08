@@ -24,7 +24,7 @@ PreTransStatement_OriginalStatement(ogStmt, ogStmt) :-
   factReader.Statement_Opcode(ogStmt, _).
 
 PreTransStatement_OriginalStatement(rvtClStmt, ogStmt) :-
-  revertCloner.StatementToClonedStatement(_, _, ogStmt, rvtClStmt).
+  revertCloner.StatementToClonedStatement(_, ogStmt, rvtClStmt).
 
 
 .init revertCloner = RevertBlockCloner
@@ -77,12 +77,12 @@ blockCloner.Prev_Block_OriginalBlock(block, originalBlock):- revertCloner.Block_
 COPY_OUTPUT(preTrans, blockCloner)
 
 PreTransStatement_OriginalStatement(heurClStmt, ogStmt) :-
-  blockCloner.StatementToClonedStatement(_, _, rvtClStmt, heurClStmt),
-  revertCloner.StatementToClonedStatement(_, _, ogStmt, rvtClStmt).
+  blockCloner.StatementToClonedStatement(_, rvtClStmt, heurClStmt),
+  revertCloner.StatementToClonedStatement(_, ogStmt, rvtClStmt).
 
 PreTransStatement_OriginalStatement(heurClStmt, ogStmt) :-
-  blockCloner.StatementToClonedStatement(_, _, ogStmt, heurClStmt),
-  !revertCloner.StatementToClonedStatement(_, _, _, ogStmt).
+  blockCloner.StatementToClonedStatement(_, ogStmt, heurClStmt),
+  !revertCloner.StatementToClonedStatement(_, _, ogStmt).
 
 ValidSelector(optionalSelector):-
   blockCloner.analysis.ValidSelector(optionalSelector).
