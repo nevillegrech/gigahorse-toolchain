@@ -1256,7 +1256,8 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
   BlockOutputExternalJumpdestIndex(entry, innerExit, innerIndex, exit, index):-
     BlockInputExternalJumpdestIndex(innerEntry, innerExit, innerIndex, innerEntry, index),
     ImmediateExitPoint(entry, exit, innerEntry),
-    ExternallyProvidedJumpdest(_, exit, _).
+    ExternallyProvidedJumpdest(entry, exit, _).
+   .plan 1:(3,2,1)
 
   // In-block case
   BlockInputExternalJumpdestIndex(entry, exit, exitIndex, block, as(stackIndex, StackIndex)) :-
