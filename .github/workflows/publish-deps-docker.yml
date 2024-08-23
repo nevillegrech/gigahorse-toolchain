@@ -3,6 +3,7 @@ name: Build and Publish Docker
 on: 
   workflow_dispatch:
   workflow_call:
+  pull_request:
 
 env:
   REGISTRY: ghcr.io
