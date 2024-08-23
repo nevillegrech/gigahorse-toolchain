@@ -37,4 +37,8 @@ RUN apt-get update && apt-get install -y libssl-dev
 RUN apt-get update && apt-get install -y libz3-dev
 RUN apt-get update && apt-get install -y z3
 
+RUN python3 -m pip install --upgrade pip
+RUN python3 -m pip install pytest
+
 RUN souffle --version
+RUN python3  --version
