@@ -3,12 +3,11 @@ name: Build and Publish Docker
 on: 
   workflow_dispatch:
   workflow_call:
-  pull_request:
 
 env:
   REGISTRY: ghcr.io
   # github.repository as nevillegrech/gigahorse-toolchain
-  IMAGE_NAME: ${{ github.repository }}-deps-souffle24
+  IMAGE_NAME: ${{ github.repository }}-deps-souffle23
 
 
 jobs:
@@ -67,7 +66,7 @@ jobs:
         uses: docker/build-push-action@v4.0.0
         with:
           context: .
-          file: ./docker/dependencies/souffle24/Dockerfile
+          file: ./docker/dependencies/souffle23/Dockerfile
           push: true
           tags: ${{ steps.docker_tagging.outputs.docker_tags }}
           labels: ${{ steps.meta.outputs.labels }}
