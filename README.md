@@ -6,13 +6,17 @@ A binary lifter (and related framework) from low-level EVM code to a higher-leve
 ## Quickstart
 
 ### Running/Installing Gigahorse from local clone (requires `souffle`)
-First make sure you have the following things installed on your system:
+Our dependencies installation [Dockerfile](docker/dependencies/souffle24/Dockerfile) can be used as a reference for installing the dependencies of Gigahorse on a debian-based system. The Dockerfile also includes the instructions to build `souffle` 2.4.1 from source.
 
-- Boost libraries (Can be installed on Debian with `apt install libboost-all-dev`)
+In summary, you need to have the following things installed on your system:
+
+- Boost libraries, required for [souffle-addon](souffle-addon) (Can be installed on Debian with `apt install libboost-all-dev`)
+
+- Z3, required for [souffle-addon](souffle-addon) (Can be installed on Debian with `apt install libz3-dev`)
 
 - Python 3.8 (Refer to standard documentation)
 
-- Souffle 2.3 or 2.4 (We only test using the release versions, later development versions may work but are untested by us. Refer to Souffle documentation. The easiest way to install this is to use the release from https://github.com/souffle-lang/souffle/releases/tag/2.3)
+- Souffle 2.3 or 2.4.1 (We only test using the release versions, later development versions may work but are untested by us. We suggest building `souffle` from source, instead of installing its available binaries, due to a bug in some features used by the Gigahorse client libraries when using the pre-built binaries. Refer to Souffle [documentation](https://souffle-lang.github.io/build)).
 
 Now install the Souffle custom functors:
 
@@ -41,7 +45,7 @@ Alternatively, you can use Gigahorse via our pre-built docker images using the f
 ## Running Gigahorse
 The `gigahorse.py` script can be run on a contract individually or on a collection of contract bytecode files in specified directory, and it will run the binary lifter implemented in `logic/main.dl` on each contract, optionally followed by any additional client analyses specified by the user using the `-C` flag.
 
-The default pipeline first attempts to decompile a contract using a **transactional** context-sensitivity configuration. If that times out it performs a second attempt with the _scalable-fallback_ configuration (using a **hybrid-precise** context sensitivity algorithm, tuned for scalability). In addition, if the default configuration succeeds but produces imprecise output, the _precise-fallback_ configuration (currently the same as the `--early_cloning` config) is used to attempt to remove that imprecision. Both fallback configurations can be disabled if needed using the `--disable_scalable_fallback` and `--disable_precise_fallback` flags respectively.
+The default pipeline first attempts to decompile a contract using a **shrinking** context-sensitivity configuration. If that times out it performs a second attempt with the _scalable-fallback_ configuration (using a **finite-precise** context sensitivity algorithm, tuned for scalability). The _scalable-fallback_ configuration can be disabled if needed using the `--disable_scalable_fallback` flag.
 
 The Gigahorse pipeline also includes a few rounds of inlining of small functions in order to help the subsequent client libraries get more high-level inferences. The inlining functionality can be disabled with `--disable_inline`.
 
@@ -53,7 +57,7 @@ Example (individual contract):
 ./gigahorse.py examples/long_running.hex
 ```
 
-(For some Souffle versions, you will get an error message regarding the libsoufflenum.so dynamic library, during the first compilation. You can ignore this and gigahorse.py should work upon a re-run.)
+(For some Souffle versions, you will get an error message regarding the `libsoufflenum.so` dynamic library, during the first compilation. You can ignore this and gigahorse.py should work upon a re-run.)
 
 Contracts that take too long to analyse will be skipped after a configurable timeout.
 
@@ -104,7 +108,7 @@ Keep in mind that the pretty-printed variable identifiers do not correspond to t
 
 ## Writing client analyses
 
-Client analyses can be written in any language by reading the relational files that are written by the decompilation step (`main.dl`). This framework however provides preferential treatment for clients written in Datalog. The most notable example of client analysis for the Gigahorse framework is [MadMax](https://github.com/nevillegrech/MadMax). This uses several of the "analysis client libraries" under [clientlib](https://github.com/nevillegrech/gigahorse-toolchain/tree/master/clientlib). These libraries include customizable dataflow analysis, memory modeling, data structure reconstruction and others.
+Client analyses can be written in any language by reading the relational files that are written by the decompilation step (`main.dl`). This framework however provides preferential treatment for clients written in Datalog. The most notable example of client analysis for the Gigahorse framework is [MadMax](https://github.com/nevillegrech/MadMax). This uses several of the "analysis client libraries" under [clientlib](https://github.com/nevillegrech/gigahorse-toolchain/tree/master/clientlib). These libraries include [customizable dataflow analysis](clientlib/flows.dl), [memory modeling](clientlib/memory_modeling/README.md), [data structure reconstruction](clientlib/storage_modeling/storage_modeling.dl) and others.
 
 A common template for client analyses for decompiled bytecode is to create souffle datalog file that includes `clientlib/decompiler_imports.dl`, for instance:
 ```
@@ -123,14 +127,16 @@ Several novel developments to Gigahorse after the original publication have been
 
 - Grech, N., Lagouvardos, S., Tsatiris, I., Smaragdakis, Y. (2022), Elipmoc: Advanced Decompilation of Ethereum Smart Contracts *Proceedings of the ACM in Programming Languages (OOPSLA).*
 
+The analysis of EVM "memory" operations (`SHA3`, `xCALL`, `LOGx`, etc.) that is [bundled with Gigahorse](clientlib/memory_modeling/README.md) was published as:
+
+-  Lagouvardos, S., Grech, N., Tsatiris, I., Smaragdakis, Y. (2020) Precise Static Modelling of Ethereum "Memory". *Proceedings of the ACM in Programming Languages (OOPSLA).*
+
 In addition, other research tools have been developed on top of Gigahorse, including:
 
 -  Grech, N., Kong, M., Jurisevic, A., Brent, L., Scholz, B., Smaragdakis, Y. (2018), MadMax: Surviving Out-of-Gas Conditions in Ethereum Smart Contracts. *Proceedings of the ACM on Programming Languages (OOPSLA).*
 
 -  Brent, L., Grech, N., Lagouvardos, S., Scholz, B., Smaragdakis, Y. (2020), Ethainter: A Smart Contract Security Analyzer for Composite Vulnerabilities.
 *In 41st ACM SIGPLAN Conference on Programming Language Design and Implementation.*
-
--  Lagouvardos, S., Grech, N., Tsatiris, I., Smaragdakis, Y. (2020) Precise Static Modelling of Ethereum "Memory". *Proceedings of the ACM in Programming Languages (OOPSLA).*
 
 -  Grech, N., Kong, M., Jurisevic, A., Brent, L., Scholz, B., Smaragdakis, Y. (2020),  Analyzing the Out-of-Gas World of Smart Contracts. *Communications of the ACM.*
 
@@ -140,7 +146,7 @@ In addition, other research tools have been developed on top of Gigahorse, inclu
 
 
 
-The Gigahorse framework also underpins the realtime decompiler and analysis tool at [contract-library.com](https://contract-library.com).
+The Gigahorse framework also underpins the realtime decompiler and analysis tool at [app.dedaub.com](https://app.dedaub.com).
 
 
 
