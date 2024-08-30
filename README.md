@@ -10,9 +10,9 @@ Our dependencies installation [Dockerfile](docker/dependencies/souffle24/Dockerf
 
 In summary, you need to have the following things installed on your system:
 
-- Boost libraries, required for [souffle-addon](souffle-addon) (Can be installed on Debian with `apt install libboost-all-dev`)
+- Boost libraries, required for [souffle-addon](https://github.com/plast-lab/souffle-addon) (Can be installed on Debian with `apt install libboost-all-dev`)
 
-- Z3, required for [souffle-addon](souffle-addon) (Can be installed on Debian with `apt install libz3-dev`)
+- Z3, required for [souffle-addon](https://github.com/plast-lab/souffle-addon) (Can be installed on Debian with `apt install libz3-dev`)
 
 - Python 3.8 (Refer to standard documentation)
 
