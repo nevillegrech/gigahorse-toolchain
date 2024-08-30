@@ -16,12 +16,13 @@ In summary, you need to have the following things installed on your system:
 
 - Python 3.8 (Refer to standard documentation)
 
-- Souffle 2.3 or 2.4.1 (We only test using the release versions, later development versions may work but are untested by us. We suggest building `souffle` from source, instead of installing its available binaries, due to a bug in some features used by the Gigahorse client libraries when using the pre-built binaries. Refer to Souffle [documentation](https://souffle-lang.github.io/build)).
+- Souffle 2.3 or 2.4.1 (We only test using the release versions, later development versions may work but are untested by us. The easiest way to install this is to use the release from https://github.com/souffle-lang/souffle/releases/tag/2.4.1). Refer to the Souffle [documentation](https://souffle-lang.github.io) for more information.
 
 Now install the Souffle custom functors:
 
 ```
-cd souffle-addon && make            # builds all, sets libfunctors.so as a link to libsoufflenum.so
+# builds all, sets libfunctors.so as a link to libsoufflenum.so
+cd souffle-addon && make WORD_SIZE=$(souffle --version | sed -n 3p | cut -c12,13)
 ```
 
 You should now be ready to run Gigahorse.
