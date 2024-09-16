@@ -179,10 +179,12 @@ def compile_datalog(spec: str, souffle_bin: str, cache_dir: str, reuse_datalog_b
     if os.path.exists(cache_path):
         log(f"Found cached executable for {spec}")
     else:
+        comp_start = time.time()
         log(f"Compiling {spec} to C++ program and executable")
         compilation_command = [souffle_bin, '-M', souffle_macros, '-o', cache_path, spec, '-L', functor_path]
         process = subprocess.run(compilation_command, universal_newlines=True, env = souffle_env)
         assert not(process.returncode), f"Compilation for {spec} failed. Stopping."
+        log(f"Compilation of {spec} successful after {time.time() - comp_start} seconds.")
 
     shutil.copy2(cache_path, executable_path)
 

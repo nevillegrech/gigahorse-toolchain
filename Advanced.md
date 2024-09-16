@@ -5,7 +5,8 @@ The gigahorse framework offers various ways to tune its underlying algorithms.
 ## Tuning Context Sensitivity
 
 Gigahorse features different context sensitivity algorithms:
-* `TransactionalContext`: The default context sensitivity of Gigahorse. Composite, including a public entry point component and a variable depth selective context component approximating private function calls and returns.
+* `TransactionalWithShrinkingContext`: The default context sensitivity of Gigahorse. Composite, including a public entry point component and a variable depth selective context component approximating private function calls and returns. Differs from the transactional context, due to its ability to shrink significantly, dropping elements that should no longer provide additional precision.
+* `TransactionalContext`: The context sensitivity presented in the Elipmoc paper. Composite, including a public entry point component and a variable depth selective context component approximating private function calls and returns.
 * `CallSiteContext`: Call(or block)-site context sensitivity with a variable depth.
 * `CallSiteContextPlus`: The above call-site context including a public function component.
 * `SelectiveContext`: Selective call-site context only including with dynamic jumps.
@@ -15,7 +16,7 @@ You can run the decompilation pipeline with a different context sensitivity algo
 Changing the context-sensitivity algorithm using the default 2-step pipeline is not suggested as it will override the default for both configurations.
 As an example, the command below will run the example contract using call-site context sensitivity:
 ```
-python3.8 gigahorse.py examples/long_running.hex --single_decomp -M "CONTEXT_SENSITIVITY=CallSiteContext"
+python3.8 gigahorse.py examples/long_running.hex --disable_scalable_fallback -M "CONTEXT_SENSITIVITY=CallSiteContext"
 ```
 
 In addition the `-cd` flag can be used to provide a different maximum context depth.
@@ -24,7 +25,7 @@ In addition the `-cd` flag can be used to provide a different maximum context de
 
 ### Early cloning of blocks
 
-You can use the experimental `--early_cloning` flag to enable the cloning of blocks that are likely to introduce imprecision to the decompilation output. Can end up producing a more precise decompilation output, but on average makes decompilation take 2x as much time.
+You can use the `--early_cloning` flag to enable the cloning of blocks that are likely to introduce imprecision to the decompilation output. Can end up producing a more precise decompilation output, but on average makes decompilation take 1.5x as much time. This flag currently __enabled__ by default.
 
 ### Enabling limitsize of certain relations
 
