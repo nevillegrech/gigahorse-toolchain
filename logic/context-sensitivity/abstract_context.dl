@@ -157,8 +157,6 @@
   // Define our universe of contexts (including partial)
   .decl IsPotentialContext(pubFun: symbol, ctx: PrivateContext)
 
-  .init callSorter = OrdAscentingSorterWithDomain <symbol, Context>
-
   IsPotentialContext(FALLBACK_FUNCTION_SIGHASH, ctx) :-
     InitialPrivateContext(ctx).
 

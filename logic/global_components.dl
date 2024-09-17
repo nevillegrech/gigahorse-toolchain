@@ -368,18 +368,12 @@
   .decl OutstandingContinuation(callCtx: sens.Context, caller: Block, currCtx: sens.Context, currBlock: Block, continuation: Block)
   DEBUG_OUTPUT(OutstandingContinuation)
 
-  sens.callSorter.Input(caller, ctx):-
-    PrivateFunctionCall(caller, _, _, _),
-    ReachableContext(ctx, caller).
-
-
-  .decl PrivateFunctionContextToModel(callCtx: sens.Context, caller: Block)
+  .decl PrivateFunctionContextToModel(callCtx: sens.Context, caller: Block) choice-domain(caller)
   DEBUG_OUTPUT(PrivateFunctionContextToModel)
 
   PrivateFunctionContextToModel(callCtx, caller):-
     PrivateFunctionCall(caller, _, _, _),
-    sens.callSorter.Input(caller, callCtx),
-    !sens.callSorter.Input_Next(caller, _, callCtx).
+    ReachableContext(callCtx, caller).
 
   OutstandingContinuation(callCtx, caller, newCtx, next, cont):-
     PrivateFunctionCall(caller, next, cont, _),
