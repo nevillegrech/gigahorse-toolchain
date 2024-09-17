@@ -15,6 +15,16 @@ global.StatementPushesUsedLabel(stmt):-
   incompleteGlobal.VariableUsedInAsJumpdest(pushedVar),
   postTrans.Statement_Defines(stmt, pushedVar).
 
+global.ExtCallBlockEarliestContinuation(caller, callee, latestCont),
+global.sens.local.ExtCallBlockEarliestContinuation(caller, callee, latestCont):-
+  incompleteGlobal.CallBlockEarliestContinuation(caller, callee, _),
+  incompleteGlobal.LatestContinuation(caller, latestCont).
+
+global.ExtCallBlockEarliestContinuation(caller, callee, latestCont),
+global.sens.local.ExtCallBlockEarliestContinuation(caller, callee, latestCont):-
+  incompleteGlobal.CallBlockEarliestContinuation(caller, callee, latestCont),
+  !incompleteGlobal.LatestContinuation(caller, _).
+
 global.sens.ImportantBlockEdge(block, next):- incompleteGlobal.NeedToAddCtxAtEdge(block, next).
 
 COPY_CODE_FULL(global, postTrans)

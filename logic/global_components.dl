@@ -365,6 +365,44 @@
 */
 .comp IncompleteOptimizedGlobalAnalysis <AbstractContextSensitivity, LocalAnalysis> : OptimizedGlobalAnalysis <AbstractContextSensitivity, LocalAnalysis> {
   .limitsize BlockOutputContents(n=LIMITSIZE_BLOCK_OUTPUT_CONTENTS)
+  .decl OutstandingContinuation(callCtx: sens.Context, caller: Block, currCtx: sens.Context, currBlock: Block, continuation: Block)
+  DEBUG_OUTPUT(OutstandingContinuation)
+
+  sens.callSorter.Input(caller, ctx):-
+    PrivateFunctionCall(caller, _, _, _),
+    ReachableContext(ctx, caller).
+
+
+  .decl PrivateFunctionContextToModel(callCtx: sens.Context, caller: Block)
+  DEBUG_OUTPUT(PrivateFunctionContextToModel)
+
+  PrivateFunctionContextToModel(callCtx, caller):-
+    PrivateFunctionCall(caller, _, _, _),
+    sens.callSorter.Input(caller, callCtx),
+    !sens.callSorter.Input_Next(caller, _, callCtx).
+
+  OutstandingContinuation(callCtx, caller, newCtx, next, cont):-
+    PrivateFunctionCall(caller, next, cont, _),
+    PrivateFunctionContextToModel(callCtx, caller),
+    BlockEdge(callCtx, caller, newCtx, next).
+
+  OutstandingContinuation(callCtx, caller, newCtx, next, cont):-
+    OutstandingContinuation(callCtx, caller, prevCtx, prev, cont),
+    BlockEdge(prevCtx, prev, newCtx, next),
+    !PrivateFunctionReturn(prev).
+
+  OutstandingContinuation(callCtx, caller, newCtx, next, cont):-
+    OutstandingContinuation(callCtx, caller, prevCtx, prev, cont),
+    BlockEdge(prevCtx, prev, newCtx, next),
+    PrivateFunctionReturn(prev), next != cont.
+
+
+  .decl LatestContinuation(caller: Block, latestCont: Block)
+  DEBUG_OUTPUT(LatestContinuation)
+  LatestContinuation(caller, latestCont):-
+    OutstandingContinuation(callCtx, caller, prevCtx, prev, latestCont),
+    BlockEdge(prevCtx, prev, newCtx, latestCont),
+    !OutstandingContinuation(callCtx, caller, newCtx, _, _).
 }
 
 /**

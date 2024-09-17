@@ -588,7 +588,7 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
     CallBlockPushesContinuation(caller, _, _, index2),
     index2 > index1.
 
-  .decl CallBlockEarliestContinuation(caller: Block, callee: Block, cont: Block)
+  .decl CallBlockEarliestContinuation(caller: Block, callee: Block, cont: Block) overridable
   CallBlockEarliestContinuation(caller, callee, cont) :-
     CallBlockPushesContinuation(caller, callee, cont, _),
     !CallBlockNotEarliestContinuation(caller, callee, cont).
@@ -966,4 +966,14 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
 
   BlockPushesLabel(block, val):-
     ExtBlockPushesLabel(block, val).
+
+  .decl ExtCallBlockEarliestContinuation(caller: Block, callee: Block, cont: Block)
+
+  .override CallBlockEarliestContinuation
+
+  CallBlockEarliestContinuation(caller, callee, cont):-
+    ExtBlockPushesLabel(caller, _),
+    ExtCallBlockEarliestContinuation(caller, callee, cont).
+
+
 }
