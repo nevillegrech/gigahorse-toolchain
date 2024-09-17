@@ -233,45 +233,6 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
 }
 
 /**
-  Component to perform an anscenting sort of an input set.
-*/
-.comp AbstractAscentingSorterWithDomain <DomainType, Type> {
-  .decl Input(domain: DomainType, id:Type)
-
-  .decl InputToNumber(domain: DomainType, id:Type, idNum:number) overridable
-
-  .decl IsLessThan(domain: DomainType, id1:Type, id2:Type)
-  .decl IsLessThanNotNext(domain: DomainType, id1:Type, id2:Type)
-
-  .decl Input_Next(domain: DomainType, prev:Type, next:Type)
-
-  IsLessThan(domain, id1, id2):-
-    InputToNumber(domain, id1, num1),
-    InputToNumber(domain, id2, num2),
-    num1 < num2.
-
-  IsLessThanNotNext(domain, id1, id2):-
-    IsLessThan(domain, id1, id2),
-    IsLessThan(domain, id1, other),
-    IsLessThan(domain, other, id2).
-
-  Input_Next(domain, prev, next):-
-    IsLessThan(domain, prev, next),
-    !IsLessThanNotNext(domain, prev, next).
-}
-
-/**
-  Sort using souffle's internal ordinal number.
-  Useful when we just want to get any order.
-*/
-.comp OrdAscentingSorterWithDomain <DomainType, Type> : AbstractAscentingSorterWithDomain <DomainType, Type> {
-
-  .override InputToNumber
-  InputToNumber(domain, id, ord(id)):-
-    Input(domain, id).
-}
-
-/**
   Abstract block cloner.
   Subcomponents just need to override and provide facts for BlockCloningCandidate.
 */
