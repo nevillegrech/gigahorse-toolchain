@@ -397,10 +397,10 @@ DataStructure_ValueOrElementType(cons, type):-
   StorageVariable_Type($Variable(cons), type).
 
 // Not sure if needed, will experiment
-DataStructure_ValueOrElementType(cons, varType):-
-  DataStructure_ElemNum(cons, 1),
-  StorageConstruct_ParentAndOffset($Variable(cons1), cons, 0), cons1 = cons1,
-  StorageVariable_Type($Variable(cons1), varType).
+// DataStructure_ValueOrElementType(cons, varType):-
+//   DataStructure_ElemNum(cons, 1),
+//   StorageConstruct_ParentAndOffset($Variable(cons1), cons, 0), cons1 = cons1,
+//   StorageVariable_Type($Variable(cons1), varType).
 
 // Struct (single word (packed) or multi word)
 DataStructure_ValueOrElementType(cons, structID):-
