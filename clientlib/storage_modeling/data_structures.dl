@@ -60,10 +60,14 @@
 // StorageConstruct is array or mapping
 .decl IsDataStructureConstruct(cons: StorageConstruct)
 
-// Number of elements the value of a data structure has
+// Number of elements the value of a data structure construct (Array or Mapping) has
 .decl DataStructure_ElemNum(cons: StorageConstruct, elemNum: number)
 
+// Data structure construct has a value (Mappings) or element (Arrays) that is a struct
 .decl DataStructureValueIsStruct(cons: StorageConstruct, structID: symbol, elemNum: number)
+
+// value type for mapping or element type for arrays
+.decl DataStructure_ValueOrElementType(cons: StorageConstruct, type: symbol)
 
 // Map `structID` to solidity-like struct definition `stringStruct`
 .decl StructToString(structID: symbol, stringStruct: symbol)
@@ -109,6 +113,7 @@ DEBUG_OUTPUT(StorageConstruct_ParentAndOffset)
 DEBUG_OUTPUT(DataStructure_ElemNum)
 DEBUG_OUTPUT(DataStructureValueIsStruct)
 DEBUG_OUTPUT(DataStructure_Type)
+DEBUG_OUTPUT(DataStructure_ValueOrElementType)
 DEBUG_OUTPUT(StorageVariable_Type)
 DEBUG_OUTPUT(StorageIndex_HighLevelUses)
 DEBUG_OUTPUT(StorageIndex_ParentIndex)
@@ -385,37 +390,65 @@ PackedStructWordToString(structID, offset, stringRep):-
   StorageVariablePacksNVars(child, n),
   PackedStructWordToStringUpTo(structID, offset, stringRep, _, n - 1).
 
-DataStructure_Type(cons, cat("mapping (uint256 => ", cat(type, ")"))):-
+// Simple value type
+DataStructure_ValueOrElementType(cons, type):-
   DataStructure_ElemNum(cons, 1),
   StorageConstruct_ParentAndOffset($Variable(cons), cons, 0),
-  StorageVariable_Type($Variable(cons), type),
-  cons = $Mapping(parentCons), parentCons = parentCons.
+  StorageVariable_Type($Variable(cons), type).
 
-DataStructure_Type(cons, cat("mapping (uint256 => ", cat(structID, ")"))):-
-  DataStructureValueIsStruct(cons, structID, _),
-  cons = $Mapping(parentCons), parentCons = parentCons.
-
-DataStructure_Type(cons, cat("mapping (uint256 => ", cat(type, ")"))):-
-  DataStructure_ElemNum(cons, 1),
-  StorageConstruct_ParentAndOffset(child, cons, 0),
-  DataStructure_Type(child, type),
-  cons = $Mapping(parentCons), parentCons = parentCons.
-
-DataStructure_Type(cons, cat(varType, "[]")):-
+// Not sure if needed, will experiment
+DataStructure_ValueOrElementType(cons, varType):-
   DataStructure_ElemNum(cons, 1),
   StorageConstruct_ParentAndOffset($Variable(cons1), cons, 0), cons1 = cons1,
-  StorageVariable_Type($Variable(cons1), varType),
-  cons = $Array(parentCons), parentCons = parentCons.
+  StorageVariable_Type($Variable(cons1), varType).
 
-DataStructure_Type(cons, cat(structID, "[]")):-
-  DataStructureValueIsStruct(cons, structID, _),
-  cons = $Array(parentCons), parentCons = parentCons.
+// Struct (single word (packed) or multi word)
+DataStructure_ValueOrElementType(cons, structID):-
+  DataStructureValueIsStruct(cons, structID, _).
 
-DataStructure_Type(cons, cat(type, "[]")):-
+// Nested case (mapping of mappings, 2d array, etc)
+DataStructure_ValueOrElementType(cons, type):-
   DataStructure_ElemNum(cons, 1),
   StorageConstruct_ParentAndOffset(child, cons, 0),
-  DataStructure_Type(child, type),
-  cons = $Array(parentCons), parentCons = parentCons.
+  DataStructure_Type(child, type).
+
+DataStructure_Type($Mapping(parentCons), cat("mapping (uint256 => ", cat(type, ")"))):-
+  DataStructure_ValueOrElementType($Mapping(parentCons), type).
+
+DataStructure_Type($Array(parentCons), cat(type, "[]")):-
+  DataStructure_ValueOrElementType($Array(parentCons), type).
+
+// DataStructure_Type(cons, cat("mapping (uint256 => ", cat(type, ")"))):-
+//   DataStructure_ElemNum(cons, 1),
+//   StorageConstruct_ParentAndOffset($Variable(cons), cons, 0),
+//   StorageVariable_Type($Variable(cons), type),
+//   cons = $Mapping(parentCons), parentCons = parentCons.
+
+// DataStructure_Type(cons, cat("mapping (uint256 => ", cat(structID, ")"))):-
+//   DataStructureValueIsStruct(cons, structID, _),
+//   cons = $Mapping(parentCons), parentCons = parentCons.
+
+// DataStructure_Type(cons, cat("mapping (uint256 => ", cat(type, ")"))):-
+//   DataStructure_ElemNum(cons, 1),
+//   StorageConstruct_ParentAndOffset(child, cons, 0),
+//   DataStructure_Type(child, type),
+//   cons = $Mapping(parentCons), parentCons = parentCons.
+
+// DataStructure_Type(cons, cat(varType, "[]")):-
+//   DataStructure_ElemNum(cons, 1),
+//   StorageConstruct_ParentAndOffset($Variable(cons1), cons, 0), cons1 = cons1,
+//   StorageVariable_Type($Variable(cons1), varType),
+//   cons = $Array(parentCons), parentCons = parentCons.
+
+// DataStructure_Type(cons, cat(structID, "[]")):-
+//   DataStructureValueIsStruct(cons, structID, _),
+//   cons = $Array(parentCons), parentCons = parentCons.
+
+// DataStructure_Type(cons, cat(type, "[]")):-
+//   DataStructure_ElemNum(cons, 1),
+//   StorageConstruct_ParentAndOffset(child, cons, 0),
+//   DataStructure_Type(child, type),
+//   cons = $Array(parentCons), parentCons = parentCons.
 
 StorageVariable_Type(var, "uint256"):-
   IsStorageConstruct(var),
