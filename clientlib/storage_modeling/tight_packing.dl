@@ -485,6 +485,9 @@ VarHoldsBytesOfStorVar(to, store, storVar, 0, 0):-
 .decl ProcessedStorageVariable(storageVar: StorageConstruct, storageVarProcessed: StorageConstruct)
 DEBUG_OUTPUT(ProcessedStorageVariable)
 
+/**
+  Construct `storageVar` packs `numberOfVars` (more than one) variables in a single word
+*/
 .decl StorageVariablePacksNVars(storageVar: StorageConstruct, numberOfVars: number)
 DEBUG_OUTPUT(StorageVariablePacksNVars)
 
