@@ -13,7 +13,7 @@ from typing import Tuple, List, Any, Optional, Dict
 
 from abc import ABC, abstractmethod
 
-from .common import GIGAHORSE_DIR, SOUFFLE_COMPILED_SUFFIX, log
+from .common import GIGAHORSE_DIR, SOUFFLE_COMPILED_SUFFIX, log, log_debug
 from . import exporter
 from . import blockparse
 
@@ -49,6 +49,12 @@ def get_souffle_executable_path(cache_dir: str, dl_filename: str) -> str:
     executable_filename = os.path.basename(dl_filename) + SOUFFLE_COMPILED_SUFFIX
     executable_path = join(cache_dir, executable_filename)
     return executable_path
+
+def test_souffle(souffle_bin: str):
+    souffle_process = subprocess.run([souffle_bin, "--version"], universal_newlines=True, capture_output=True)
+    assert not(souffle_process.returncode), "Souffle binary not found at {souffle_bin}. Stopping."
+    log_debug("Souffle version info:")
+    log_debug(souffle_process.stdout)
 
 class AnalysisExecutor:
     def __init__(self, timeout: int, interpreted: bool, minimum_client_time: int, debug: bool, souffle_bin: str, cache_dir: str, souffle_macros: str) -> None:
@@ -173,6 +179,8 @@ def compile_datalog(spec: str, souffle_bin: str, cache_dir: str, reuse_datalog_b
     hasher = hashlib.md5()
     hasher.update(preproc_process.stdout.encode('utf-8'))
     md5_hash = hasher.hexdigest()
+
+    log_debug(f"md5 of spec {spec} is {md5_hash}")
 
     cache_path = join(cache_dir, md5_hash)
 

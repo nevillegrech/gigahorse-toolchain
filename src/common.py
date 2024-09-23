@@ -10,6 +10,7 @@ DEFAULT_SOUFFLE_BIN = 'souffle'
 SOUFFLE_COMPILED_SUFFIX = '_compiled'
 
 log = lambda msg: logging.log(logging.INFO + 1, msg)
+log_debug = lambda msg: logging.log(logging.DEBUG, msg)
 
 
 def __get_sig_file(simple_filename: str) -> str:

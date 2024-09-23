@@ -16,7 +16,7 @@ import os
 
 # Local project imports
 from src.common import GIGAHORSE_DIR, DEFAULT_SOUFFLE_BIN, log
-from src.runners import get_souffle_executable_path, compile_datalog, AbstractFactGenerator, DecompilerFactGenerator, CustomFactGenerator, MixedFactGenerator, AnalysisExecutor, TimeoutException
+from src.runners import test_souffle, get_souffle_executable_path, compile_datalog, AbstractFactGenerator, DecompilerFactGenerator, CustomFactGenerator, MixedFactGenerator, AnalysisExecutor, TimeoutException
 
 ## Constants
 
@@ -161,9 +161,15 @@ parser.add_argument("--disable_inline",
 
 parser.add_argument("-q",
                     "--quiet",
-                    nargs="?",
+                    action="store_true",
                     default=False,
                     help="Silence output.")
+
+parser.add_argument("-v",
+                    "--verbose",
+                    action="store_true",
+                    default=False,
+                    help="Verbose output (for debugging purposes).")
 
 parser.add_argument("--rerun_clients",
                     action="store_true",
@@ -505,8 +511,10 @@ def run_gigahorse(args, fact_generator: AbstractFactGenerator) -> None:
     """
     Run gigahorse, passing the cmd line args and fact generator type as arguments
     """
-    log_level = logging.WARNING if args.quiet else logging.INFO + 1
+    log_level = logging.WARNING if args.quiet else logging.DEBUG if (args.verbose or args.debug) else logging.INFO + 1
     logging.basicConfig(format='%(message)s', level=log_level)
+
+    test_souffle(args.souffle_bin)
 
     analysis_executor = AnalysisExecutor(args.timeout_secs, args.interpreted, args.minimum_client_time, args.debug, args.souffle_bin, args.cache_dir, get_souffle_macros())
 
