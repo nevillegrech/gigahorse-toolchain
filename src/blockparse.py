@@ -198,8 +198,7 @@ class EVMBytecodeParser(BlockParser):
                 if STRICT:
                     logging.warning("(strict) Invalid opcode at PC = %#02x: %s", pc, str(e))
                     raise e
-                # not strict, so just log:
-                logging.debug("Invalid opcode at PC = %#02x: %s", pc, str(e))
+                # not strict, do nothing
                 op = opcodes.missing_opcode(byte)
                 const = byte
 
