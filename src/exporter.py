@@ -2,6 +2,7 @@
 
 import abc
 import csv
+import json
 import os
 import src.opcodes as opcodes
 import src.basicblock as basicblock
@@ -85,7 +86,7 @@ class Exporter(abc.ABC):
         Exports the source object to an implementation-specific format.
         """
 
-class TsvExporter(Exporter):
+class FactExporter(Exporter):
     def __init__(self, output_dir: str):
         super().__init__(output_dir)
 
@@ -97,10 +98,14 @@ class TsvExporter(Exporter):
             writer = csv.writer(f, delimiter='\t', lineterminator='\n')
             writer.writerows(entries)
 
+    def generate_json(self, filename: str, entries: Any):
+        with open(self.get_out_file_path(filename), 'w') as f:
+            json.dump(entries, f)
 
-class InstructionTsvExporter(TsvExporter):
+
+class EVMBlockExporter(FactExporter):
     """
-    Prints a textual representation of the given CFG to stdout.
+    Populates the decompiler's fact files (tsv and json) given the low-level evm blocks
 
     Args:
       blocks: low-level evm block representation to be output
@@ -140,6 +145,8 @@ class InstructionTsvExporter(TsvExporter):
 
         self.function_debug_data = process_function_debug_data(metadata.get('function_debug_info', {})) if metadata is not None else []
         self.immutable_references = process_immutable_refs(metadata.get('immutable_references', {})) if metadata is not None else []
+        self.abi = metadata.get('abi', {}) if metadata is not None else {}
+        self.storage_layout = metadata.get('storage_layout', {}) if metadata is not None else {}
 
     def export(self):
         """
@@ -221,3 +228,5 @@ class InstructionTsvExporter(TsvExporter):
 
         self.generate('HighLevelFunctionInfo.facts', self.function_debug_data)
         self.generate('ImmutableLoads.facts', self.immutable_references)
+        self.generate_json('source-abi.json', self.abi)
+        self.generate_json('source-storage-layout.json', self.storage_layout)
