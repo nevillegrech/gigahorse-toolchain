@@ -145,8 +145,8 @@ class EVMBlockExporter(FactExporter):
 
         self.function_debug_data = process_function_debug_data(metadata.get('function_debug_info', {})) if metadata is not None else []
         self.immutable_references = process_immutable_refs(metadata.get('immutable_references', {})) if metadata is not None else []
-        self.abi = metadata.get('abi', {})
-        self.storage_layout = metadata.get('storage_layout', {})
+        self.abi = metadata.get('abi', {}) if metadata is not None else {}
+        self.storage_layout = metadata.get('storage_layout', {}) if metadata is not None else {}
 
     def export(self):
         """
