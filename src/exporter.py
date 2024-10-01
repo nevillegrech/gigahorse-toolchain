@@ -147,7 +147,6 @@ class InstructionTsvExporter(TsvExporter):
         self.immutable_references = process_immutable_refs(metadata.get('immutable_references', {})) if metadata is not None else []
         self.abi = metadata.get('abi', {})
         self.storage_layout = metadata.get('storage_layout', {})
-        print(self.storage_layout)
 
     def export(self):
         """
