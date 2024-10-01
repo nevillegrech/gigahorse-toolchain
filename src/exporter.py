@@ -86,7 +86,7 @@ class Exporter(abc.ABC):
         Exports the source object to an implementation-specific format.
         """
 
-class TsvExporter(Exporter):
+class FactExporter(Exporter):
     def __init__(self, output_dir: str):
         super().__init__(output_dir)
 
@@ -103,9 +103,9 @@ class TsvExporter(Exporter):
             json.dump(entries, f)
 
 
-class InstructionTsvExporter(TsvExporter):
+class EVMBlockExporter(FactExporter):
     """
-    Prints a textual representation of the given CFG to stdout.
+    Populates the decompiler's fact files (tsv and json) given the low-level evm blocks
 
     Args:
       blocks: low-level evm block representation to be output
