@@ -419,7 +419,9 @@ SSTOREZeroRange(store, construct, byteLow, byteHigh):-
   1 + byteHigh - byteLow = count : {SSTOREZeroByte(store, construct, k), byteLow <= k, k <= byteHigh}.
 
 ConstWrittenToBytesOfStorVar("0xNoVar", "0x0", store, "lolo", construct, byteLow, byteHigh):-
-  SSTOREZeroRange(store, construct, byteLow, byteHigh).
+  SSTOREZeroRange(store, construct, byteLow, byteHigh),
+  SSTOREToConstruct(store, construct, storedVar),
+  !ProbablyPartialStorageUpdateSequenceWrite(storedVar, "CONST", _, _, byteLow-1).
 
 
 VarWrittenToBytesOfStorVarIsMergedVar(writtenVar, modeledVar, store, construct, 0, byteHigh):-
