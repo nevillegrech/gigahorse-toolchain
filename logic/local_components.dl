@@ -588,7 +588,7 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
     CallBlockPushesContinuation(caller, _, _, index2),
     index2 > index1.
 
-  .decl CallBlockEarliestContinuation(caller: Block, callee: Block, cont: Block)
+  .decl CallBlockEarliestContinuation(caller: Block, callee: Block, cont: Block) overridable
   CallBlockEarliestContinuation(caller, callee, cont) :-
     CallBlockPushesContinuation(caller, callee, cont, _),
     !CallBlockNotEarliestContinuation(caller, callee, cont).
@@ -628,16 +628,32 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
     PrivateFunctionCall(block, _, _, _);
     PrivateFunctionReturn(block).
 
-    .decl FallthroughBlockPushesContinuation(block: Block, fallthrough: Statement)
-  DEBUG_OUTPUT(FallthroughBlockPushesContinuation)
-  FallthroughBlockPushesContinuation(block, fallthrough):-
-    BlockPushesLabel(block, _),
+  // Falthrough edges (excluding JUMPIs)
+  .decl JumplessFalthroughBlock(block: Block, next: Block)
+  JumplessFalthroughBlock(block, next):-
+    FallthroughEdge(block, next),
     BasicBlock_Tail(block, stmt),
-    Statement_Next(stmt, fallthrough),
     !JUMP(stmt),
     !JUMPI(stmt),
     Statement_Opcode(stmt, opcode),
     !OpcodePossiblyHalts(opcode).
+
+  // Insertor heuristic: Fallthrough block likely performs a function call
+  .decl FallthroughBlockPushesContinuation(block: Block, fallthrough: Statement)
+  FallthroughBlockPushesContinuation(block, fallthrough):-
+    BlockPushesLabel(block, _),
+    JumplessFalthroughBlock(block, next),
+    BasicBlock_Head(next, fallthrough).
+
+  // Insertor heuristic: Fallthrough block is used multiple times and its the next is a `StackBalanceBlock`
+  .decl FallthroughBlockUsedMultipleTimes(block: Block, fallthrough: Statement)
+  FallthroughBlockUsedMultipleTimes(block, fallthrough):-
+    JumplessFalthroughBlock(block, next),
+    StackBalanceBlock(next),
+    (BlockPushesLabel(block1, as(block, Value)); StaticBlockJumpTarget(block1, as(block, Value))),
+    (BlockPushesLabel(block2, as(block, Value)); StaticBlockJumpTarget(block2, as(block, Value))),
+    BasicBlock_Head(next, fallthrough),
+    block1 != block2.
 
   .decl CODECOPYStatement(stmt: Statement, offset: Value, size: Value)
   CODECOPYStatement(codeCopy, codeOffsetNumHex, smallNumHex) :-
@@ -730,6 +746,16 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
     LocalStackContents(call, index2, var),
     index1 != index2,
     !BlockUsesLocal(block, var).
+
+  // cover cases where continuation is also directly jumped to
+  PushedLabelOccupiesMultipleIndexes(block, var):-
+    JUMPDEST(as(val, symbol)),
+    Variable_Value(var, val),
+    Statement_Defines(stmt, var),
+    Statement_Block(stmt, block),
+    BasicBlock_Tail(block, call),
+    BeforeLocalStackContents(call, 0, var),
+    LocalStackContents(call, _, var).
 
   /**
     Identify cases where the same continuation is pushed once but DUPed
@@ -940,4 +966,14 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
 
   BlockPushesLabel(block, val):-
     ExtBlockPushesLabel(block, val).
+
+  .decl ExtCallBlockEarliestContinuation(caller: Block, callee: Block, cont: Block)
+
+  .override CallBlockEarliestContinuation
+
+  CallBlockEarliestContinuation(caller, callee, cont):-
+    ExtBlockPushesLabel(caller, _),
+    ExtCallBlockEarliestContinuation(caller, callee, cont).
+
+
 }

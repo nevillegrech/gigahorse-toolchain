@@ -24,7 +24,7 @@ PreTransStatement_OriginalStatement(ogStmt, ogStmt) :-
   factReader.Statement_Opcode(ogStmt, _).
 
 PreTransStatement_OriginalStatement(rvtClStmt, ogStmt) :-
-  revertCloner.StatementToClonedStatement(_, _, ogStmt, rvtClStmt).
+  revertCloner.StatementToClonedStatement(_, ogStmt, rvtClStmt).
 
 
 .init revertCloner = RevertBlockCloner
@@ -59,6 +59,16 @@ clonerHelperInsertor.insertOps(dup,
 ) :-
   beforeClonerLocal.DUPStatementCopiesPushedLabelVar(dup, label).
 
+// We can't clone fallthrough blocks, add a jump in that case
+clonerHelperInsertor.insertOps(fallthrough,
+  LIST(
+    STMT(PUSH4, as(fallthrough, symbol)),
+    STMT(JUMP, "")
+  )
+):-
+  beforeClonerLocal.FallthroughBlockUsedMultipleTimes(_, fallthrough),
+  beforeClonerLocal.JUMPDEST(fallthrough).
+
 COPY_OUTPUT(blockCloner, clonerHelperInsertor)
 // Transformation doesn't introduce new blocks, we can use revertCloner for the original block info
 blockCloner.Prev_Block_OriginalBlock(block, originalBlock):- revertCloner.Block_OriginalBlock(block, originalBlock).
@@ -67,12 +77,12 @@ blockCloner.Prev_Block_OriginalBlock(block, originalBlock):- revertCloner.Block_
 COPY_OUTPUT(preTrans, blockCloner)
 
 PreTransStatement_OriginalStatement(heurClStmt, ogStmt) :-
-  blockCloner.StatementToClonedStatement(_, _, rvtClStmt, heurClStmt),
-  revertCloner.StatementToClonedStatement(_, _, ogStmt, rvtClStmt).
+  blockCloner.StatementToClonedStatement(_, rvtClStmt, heurClStmt),
+  revertCloner.StatementToClonedStatement(_, ogStmt, rvtClStmt).
 
 PreTransStatement_OriginalStatement(heurClStmt, ogStmt) :-
-  blockCloner.StatementToClonedStatement(_, _, ogStmt, heurClStmt),
-  !revertCloner.StatementToClonedStatement(_, _, _, ogStmt).
+  blockCloner.StatementToClonedStatement(_, ogStmt, heurClStmt),
+  !revertCloner.StatementToClonedStatement(_, _, ogStmt).
 
 ValidSelector(optionalSelector):-
   blockCloner.analysis.ValidSelector(optionalSelector).

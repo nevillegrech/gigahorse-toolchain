@@ -196,15 +196,15 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
 /**
   Component to perform an anscenting sort of an input set.
 */
-.comp AbstractAscentingSorter {
-  .decl Input(id:symbol)
+.comp AbstractAscentingSorter <Type> {
+  .decl Input(id:Type)
 
-  .decl InputToNumber(id:symbol, idNum:number) overridable
+  .decl InputToNumber(id:Type, idNum:number) overridable
 
-  .decl IsLessThan(id1:symbol, id2:symbol)
-  .decl IsLessThanNotNext(id1:symbol, id2:symbol)
+  .decl IsLessThan(id1:Type, id2:Type)
+  .decl IsLessThanNotNext(id1:Type, id2:Type)
 
-  .decl Input_Next(prev:symbol, next:symbol)
+  .decl Input_Next(prev:Type, next:Type)
 
   IsLessThan(id1, id2):-
     InputToNumber(id1, num1),
@@ -225,7 +225,7 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
   Sort using souffle's internal ordinal number.
   Useful when we just want to get any order.
 */
-.comp OrdAscentingSorter : AbstractAscentingSorter {
+.comp OrdAscentingSorter <Type> : AbstractAscentingSorter <Type> {
 
   .override InputToNumber
   InputToNumber(id, ord(id)):-
@@ -288,20 +288,25 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
   // Create a new instance of `blockToClone` for its definition in `pushStmt`
   .decl BlockToClone(pushStmt: Statement, blockToClone: Block)
 
-  // For each fact of `BlockToClone` we create an identifier (`opID`) and order them based on it
-  .decl BlockToCloneOpID(pushStmt: Statement, blockToClone: Block, opID: symbol)
+  /**
+    We encode cloning ops as recursive records to enable more general cloning.
+    For example if a cloned block uses another block that is to be cloned this allows it to happen.
+  */
+  .type CloneList = [pushStmt: Statement, blockToClone: Block, rest: CloneList]
+  // Create a new instance of `blockToClone` for its definition in `pushStmt`
+  .decl BlockToCloneRecursive(blockToClone: CloneList)
 
   /**
     After we compute the order of the inserted clone blocks,
     we assign each cloned instance to a starting bytecode offset (`generatedBlock`).
   */
-  .decl BlockToCloneNewInstance(pushStmt: Statement, blockToClone: Block, generatedBlock: Block)
-
+  .decl BlockToCloneNewInstance(cloneOp: CloneList, generatedBlock: Block)
+  DEBUG_OUTPUT(BlockToCloneNewInstance)
   // `generatedStatement` will be the `stmt` of `blockToClone` when cloned in `pushStmt`
-  .decl StatementToClonedStatement(pushStmt: Statement, blockToClone: Block, stmt: Statement, generatedStatement: Statement)
+  .decl StatementToClonedStatement(cloneOp: CloneList, stmt: Statement, generatedStatement: Statement)
   DEBUG_OUTPUT(StatementToClonedStatement)
 
-  .init cloneOpSorter = OrdAscentingSorter
+  .init cloneOpSorter = OrdAscentingSorter <CloneList>
 
   // mapping output blocks (cloned and non-cloned) to the blocks in the original bytecode
   .decl Block_OriginalBlock(block: Block, originalBlock: Block)
@@ -312,8 +317,10 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
     maxStmtNumber = max stmtNumber : { Statement_Opcode(stmt, _), stmtNumber = @hex_to_number(stmt)},
     maxStmt = @number_to_hex(2*maxStmtNumber).
 
-  BlockSize(block, @hex_to_number(tail) - @hex_to_number(block)):-
-    analysis.BasicBlock_Tail(block, tail).
+  // New definition, makes it pre cloning insertion safe
+  BlockSize(block, maxStmt - @hex_to_number(block)):-
+    analysis.Statement_Block(_, block),
+    maxStmt = max @hex_to_number(stmt) : analysis.Statement_Block(stmt, block).
 
   Statement_BlockOffset(stmt, block, @hex_to_number(stmt) - @hex_to_number(block)):-
     analysis.Statement_Block(stmt, block).
@@ -326,7 +333,7 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
   // DirectBlockJumpToAddrPushedBy(from, pushStmt):-
   //   analysis.ImmediateBlockJumpTarget(from, pushedVar),
   //   analysis.Statement_Defines(pushStmt, pushedVar).
-  
+  // .output BlockPushesBlockToStack, ClonedBlockAddressPushedBy, Out_PushValue, Out_Statement_Next, Out_Statement_Opcode, BlockToCloneRecursive
   //Maybe change it to only consider direct block edges again?
   ClonedBlockAddressPushedBy(pushBlock, pushStmt, blockToClone):-
     BlockToClone(pushStmt, blockToClone),
@@ -335,6 +342,15 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
   BlockPushesBlockToStack(block, pushStmt, pushedBlock):-
     BlockPushedToStack(pushStmt, _, pushedBlock),
     analysis.Statement_Block(pushStmt, block).
+
+
+  BlockToCloneRecursive([pushStmt, blockToClone, nil]):-
+    BlockToClone(pushStmt, blockToClone).
+
+  BlockToCloneRecursive([pushStmt, blockToClone, [prevPushStmt, prevBlockToClone, rest]]):-
+    BlockToCloneRecursive([prevPushStmt, prevBlockToClone, rest]),
+    BlockPushesBlockToStack(prevBlockToClone, pushStmt, blockToClone),
+    BlockToClone(pushStmt, blockToClone).
 
   .decl FallthroughBlock(block: Block)
   FallthroughBlock(block):-
@@ -355,82 +371,94 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
     BlockPushesBlockToStack(_, otherFrom, to),
     BlockCloningCandidate(to),
     from != otherFrom,
-    !BlockPushesCloningCandidate(to, _, _),
     !FallthroughBlock(to),
     // Make sure we don't break any CODECOPY stmts
     !analysis.CODECOPYStatement(_, as(to,Value), _).
 
 
-  BlockToCloneOpID(pushStmt, blockToClone, cat(pushStmt, blockToClone)):-
-    BlockToClone(pushStmt, blockToClone).
+  cloneOpSorter.Input(cloneOp):- BlockToCloneRecursive(cloneOp).
 
-  cloneOpSorter.Input(opID):- BlockToCloneOpID(_, _, opID).
-
-  BlockToCloneNewInstance(pushStmt, blockToClone, as(generatedBlock, Block)):-
-    BlockToCloneOpID(pushStmt, blockToClone, opID),
+  BlockToCloneNewInstance(opID, as(generatedBlock, Block)):-
+    BlockToCloneRecursive(opID),
     !cloneOpSorter.Input_Next(_, opID),
     MaxOriginalStatement(maxStmt),
     generatedBlock = @add_256(maxStmt, "0x20").
 
-  BlockToCloneNewInstance(pushStmt, blockToClone, as(generatedBlock, Block)):-
-    BlockToCloneOpID(prevPushStmt, prevBlockToClone, prevOpID),
-    cloneOpSorter.Input_Next(prevOpID, opID),
-    BlockToCloneNewInstance(prevPushStmt, prevBlockToClone, prevCloneInstance),
-    BlockToCloneOpID(pushStmt, blockToClone, opID),
+  BlockToCloneNewInstance(opID, as(generatedBlock, Block)):-
+    BlockToCloneNewInstance([prevPushStmt, prevBlockToClone, rest], prevCloneInstance),
+    cloneOpSorter.Input_Next([prevPushStmt, prevBlockToClone, rest], opID),
     BlockSize(prevBlockToClone, prevCloneBlockSize),
     generatedBlock = @add_256(prevCloneInstance, @number_to_hex(prevCloneBlockSize + 32)).
 
-  StatementToClonedStatement(pushStmt, blockToClone, stmt, as(generatedStatement, Statement)):-
-    BlockToCloneNewInstance(pushStmt, blockToClone, generatedBlock),
+  StatementToClonedStatement([pushStmt, blockToClone, rest], stmt, as(generatedStatement, Statement)):-
+    BlockToCloneNewInstance([pushStmt, blockToClone, rest], generatedBlock),
     analysis.Statement_Block(stmt, blockToClone),
     generatedStatement = @add_256(generatedBlock, @sub_256(stmt, blockToClone)).
 
+  // SL: Keeping for debug, should be fixed now
+  .decl StatementToClonedStatementCollision(cloneOp: CloneList, stmt: Statement, generatedStatement: Statement)
+  DEBUG_OUTPUT(StatementToClonedStatementCollision)
+  StatementToClonedStatementCollision(opID, oldHead, clonedHead):-
+    StatementToClonedStatement(opID, oldHead, clonedHead),
+    StatementToClonedStatement(opID2, oldHead2, clonedHead),
+    opID2 != opID,
+    oldHead2 != oldHead.
 
   // Keep order for all original statements.
   Out_Statement_Next(stmt, nextStmt):-
     Statement_Next(stmt, nextStmt).
 
   Out_Statement_Next(lastOriginalStmt, clonedHead):-
-    MaxOriginalStatement(lastOriginalStmt),
-    BlockToCloneOpID(pushStmt, blockToClone, opID),
+    StatementToClonedStatement(opID, oldHead, clonedHead),
     !cloneOpSorter.Input_Next(_, opID),
-    analysis.BasicBlock_Head(blockToClone, oldHead),
-    StatementToClonedStatement(pushStmt, blockToClone, oldHead, clonedHead).
+    analysis.BasicBlock_Head(_, oldHead),
+    MaxOriginalStatement(lastOriginalStmt).
 
   Out_Statement_Next(genStmt, nextGenStmt):-
-    StatementToClonedStatement(pushStmt, blockToClone, stmt, genStmt),
+    StatementToClonedStatement(cloneOp, stmt, genStmt),
     Statement_Next(stmt, nextStmt),
-    StatementToClonedStatement(pushStmt, blockToClone, nextStmt, nextGenStmt).
+    StatementToClonedStatement(cloneOp, nextStmt, nextGenStmt).
 
   Out_Statement_Next(prevClonedTail, nextClonedHead):-
     cloneOpSorter.Input_Next(prevOpID, nextOpID),
-    BlockToCloneOpID(prevPushStmt, prevBlockToClone, prevOpID),
-    BlockToCloneOpID(nextPushStmt, nextBlockToClone, nextOpID),
-    analysis.BasicBlock_Tail(prevBlockToClone, oldTail),
-    analysis.BasicBlock_Head(nextBlockToClone, oldHead),
-    StatementToClonedStatement(prevPushStmt, prevBlockToClone, oldTail, prevClonedTail),
-    StatementToClonedStatement(nextPushStmt, nextBlockToClone, oldHead, nextClonedHead).
+    StatementToClonedStatement(prevOpID, oldTail, prevClonedTail),
+    analysis.BasicBlock_Tail(_, oldTail),
+    StatementToClonedStatement(nextOpID, oldHead, nextClonedHead),
+    analysis.BasicBlock_Head(_, oldHead).
+    //TODO: Add plan
 
   Out_Statement_Opcode(oldStmt, op):-
     Statement_Opcode(oldStmt, op).
 
   Out_Statement_Opcode(clonedStmt, op):-
     Statement_Opcode(oldStmt, op),
-    StatementToClonedStatement(_, _, oldStmt, clonedStmt).
+    StatementToClonedStatement(_, oldStmt, clonedStmt).
 
   Out_PushValue(oldStmt, oldVal):-
     PushValue(oldStmt, oldVal),
     !ClonedBlockAddressPushedBy(_, oldStmt, _).
 
+  // Out_PushValue(pushStmt, as(newVal, Value)):-
+  //   PushValue(pushStmt, _),
+  //   ClonedBlockAddressPushedBy(_, pushStmt, blockToClone),
+  //   BlockToCloneNewInstance(pushStmt, blockToClone, newVal).
+
   Out_PushValue(pushStmt, as(newVal, Value)):-
-    PushValue(pushStmt, _),
-    ClonedBlockAddressPushedBy(_, pushStmt, blockToClone),
-    BlockToCloneNewInstance(pushStmt, blockToClone, newVal).
+    BlockToCloneNewInstance([pushStmt, blockToClone, nil], newVal),
+    PushValue(pushStmt, as(blockToClone, Value)),
+    ClonedBlockAddressPushedBy(_, pushStmt, blockToClone).
+
+  Out_PushValue(clonedStmt, as(newVal, Value)):-
+    BlockToCloneNewInstance([pushStmt, blockToClone, rest], newVal),
+    StatementToClonedStatement(rest, pushStmt, clonedStmt),
+    PushValue(pushStmt, as(blockToClone, Value)),
+    ClonedBlockAddressPushedBy(_, pushStmt, blockToClone).
 
   // Note: For now the cloned blocks should have no pushes
   Out_PushValue(clonedStmt, val):-
     PushValue(oldStmt, val),
-    StatementToClonedStatement(_, _, oldStmt, clonedStmt).
+    StatementToClonedStatement(_, oldStmt, clonedStmt),
+    !ClonedBlockAddressPushedBy(_, oldStmt, _).
 
   In_Block_OriginalBlock(block, block):-
     analysis.Statement_Block(_, block),
@@ -445,7 +473,8 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
     In_Block_OriginalBlock(block, originalBlock).
 
   Block_OriginalBlock(block, originalBlock):-
-    BlockToCloneNewInstance(_, intermediateBlock, block),
+    BlockToCloneNewInstance([pushStmt, intermediateBlock, rest], block),
+    pushStmt=pushStmt, rest=rest,
     In_Block_OriginalBlock(intermediateBlock, originalBlock).
 }
 

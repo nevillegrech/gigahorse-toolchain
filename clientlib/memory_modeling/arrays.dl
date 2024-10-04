@@ -1148,17 +1148,17 @@ VarPointsToArray(ctx, arrayVar, ctx, arrayId):-
   ArrayAllocation(arrayId, _, _).
 
 VarPointsToArray(newCtx, formal, heapCtx, arrayId):-
-  clientCtx.MergeClientContext(callerCtx, caller, newCtx),
   VarPointsToArray(callerCtx, actual, heapCtx, arrayId),
+  clientCtx.MergeClientContext(callerCtx, caller, newCtx),
   ActualArgs(caller, actual, pos),
   CallGraphEdge(caller, function),
   FormalArgs(function, formal, pos).
 
 VarPointsToArray(callerCtx, actual, heapCtx, arrayId):-
+  VarPointsToArray(calleeCtx, formal, heapCtx, arrayId),
   clientCtx.MergeClientContext(callerCtx, caller, calleeCtx),
   CallGraphEdge(caller, function),
   FormalReturnArgs(function, formal, index),
-  VarPointsToArray(calleeCtx, formal, heapCtx, arrayId),
   ActualReturnArgs(caller, actual, index).
 
 InsVarPointsToArray(var, arrayId):-

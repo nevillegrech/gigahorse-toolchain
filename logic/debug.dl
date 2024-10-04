@@ -1,7 +1,7 @@
 
 .output global.BlockEdge, global.FallthroughEdge, global.BlockJumpValidTarget, global.BlockJumpTarget, MaybeInFunctionUnderContext
 .output MaybeFunctionCallReturn // DEBUG
-.output global.PrivateFunctionCall
+.output global.PrivateFunctionCall, preTrans.PrivateFunctionCall, beforeClonerLocal.PrivateFunctionCall
 .output PotentialCall // DEBUG
 .output PossibleReturnAddressWithPos // DEBUG
 .output IsFunctionCallReturn // DEBUG
@@ -14,6 +14,7 @@
 .output PossibleCombinedNumberOfFunctionReturnsAndArguments
 .output FunctionalBlockPopAndStackDelta, IRBlockStackDelta, IRBlockPopDelta
 .output FunctionalBlockInputContents, FunctionalBlockOutputContents, FunctionalStatement_Uses_Local
+.output InvalidIRBlockEdge
 .output NumberOfFunctionArguments
 .output NumberOfFunctionReturnArguments
 .output Block_IRBlock
@@ -77,10 +78,21 @@ IsFunctionCallReturnOrd(ord(ctx), caller, func, ord(retCtx), retBlock, retTarget
 MaybeFunctionCallReturnOrd(ord(ctx), caller, func, ord(retCtx), retBlock, retTarget):-
   MaybeFunctionCallReturn(ctx, caller, func, retCtx, retBlock, retTarget).
 
+.decl PossibleCallReturnOrd(callCtx: number, caller: Block, index: number, target: Block)
+DEBUG_OUTPUT(PossibleCallReturnOrd)
+PossibleCallReturnOrd(ord(callCtx), caller, minIndex, retTarget):-
+  PossibleCallReturn(callCtx, caller, minIndex, retTarget).
+
 .decl PossibleReturnAddressWithRankOrd(callCtx:number, targetSetter:Block, retCtx:number, retBlock:Block, retTarget:Block, rank:number)
 .output PossibleReturnAddressWithRankOrd
 PossibleReturnAddressWithRankOrd(ord(callCtx), targetSetter, ord(retCtx), retBlock, retTarget, rank):-
   PossibleReturnAddressWithRank(callCtx, targetSetter, retCtx, retBlock, retTarget, rank).
+
+.decl MaybeFunctionCallReturnNewContextOrd(ctx:number, caller:Block, retTargetCtx:number, retTarget:Block)
+.output MaybeFunctionCallReturnNewContextOrd
+MaybeFunctionCallReturnNewContextOrd(ord(ctx), caller, ord(retTargetCtx), retTarget):-
+  MaybeFunctionCallReturnNewContext(ctx, caller, retTargetCtx, retTarget).
+
 
 .decl MaybeInFunctionUnderContextOrd(ctx:number, block:Block, func:Block)
 .output MaybeInFunctionUnderContextOrd
