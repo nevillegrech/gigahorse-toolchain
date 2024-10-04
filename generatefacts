@@ -32,7 +32,7 @@ def main(args):
     logging.info("Initial parsing completed.")
 
     logging.info("Writing facts to disk.")
-    exporter.InstructionTsvExporter(args.outdir, blocks, bytecode_hex=bytecode, metadata=metadata).export()
+    exporter.EVMBlockExporter(args.outdir, blocks, bytecode_hex=bytecode, metadata=metadata).export()
 
 if __name__ == '__main__':
     # Configure argparse
