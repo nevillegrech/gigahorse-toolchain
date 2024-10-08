@@ -159,6 +159,12 @@ parser.add_argument("--disable_inline",
                     help="Disables the inlining of small functions performed after TAC code is generated"
                     " (to increase the amount of high level inferences produced by the memory and storage modeling components).")
 
+parser.add_argument("--skip_sig_resolution",
+                    action="store_true",
+                    default=False,
+                    help="Doesn't attempt to resolve external function, event, and error signatures, reducing execution time."
+                    "To be used when benchmarking.")
+
 parser.add_argument("-q",
                     "--quiet",
                     action="store_true",

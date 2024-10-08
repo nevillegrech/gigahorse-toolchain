@@ -299,6 +299,13 @@ class DecompilerFactGenerator(AbstractFactGenerator):
     decompiler_dl = join(GIGAHORSE_DIR, 'logic/main.dl')
     fallback_scalable_decompiler_dl = join(GIGAHORSE_DIR, 'logic/fallback_scalable.dl')
 
+    context_depth: int
+    disable_scalable_fallback: bool
+    souffle_pre_clients: list[str]
+    other_pre_clients: list[str]
+    skip_sig_resolution: bool
+
+
     def __init__(self, args, pattern: str):
         self.context_depth = args.context_depth
         self.disable_scalable_fallback = args.disable_scalable_fallback
@@ -309,6 +316,8 @@ class DecompilerFactGenerator(AbstractFactGenerator):
         pre_clients_split = [a.strip() for a in args.pre_client.split(',')]
         self.souffle_pre_clients = [a for a in pre_clients_split if a.endswith('.dl')]
         self.other_pre_clients = [a for a in pre_clients_split if not (a.endswith('.dl') or a == '')]
+
+        self.skip_sig_resolution = args.skip_sig_resolution
 
         if args.disable_precise_fallback:
             log("The use of the --disable_precise_fallback is deprecated. Its functionality is disabled.")
@@ -324,7 +333,7 @@ class DecompilerFactGenerator(AbstractFactGenerator):
 
         disassemble_start = time.time()
         blocks = blockparse.EVMBytecodeParser(bytecode).parse()
-        exporter.EVMBlockExporter(work_dir, blocks, True, bytecode, metadata).export()
+        exporter.EVMBlockExporter(work_dir, blocks, True, bytecode, metadata, self.skip_sig_resolution).export()
 
         os.symlink(join(work_dir, 'bytecode.hex'), join(out_dir, 'bytecode.hex'))
 
