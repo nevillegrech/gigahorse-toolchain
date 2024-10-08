@@ -115,12 +115,13 @@ class EVMBlockExporter(FactExporter):
     """
 
     def __init__(self, output_dir: str, blocks: List[basicblock.EVMBasicBlock], ordered: bool = True,
-                 bytecode_hex: Optional[str] = None, metadata: Optional[Dict[Any, Any]] = None):
+                 bytecode_hex: Optional[str] = None, metadata: Optional[Dict[Any, Any]] = None, skip_sig_resolution: bool = False):
         super().__init__(output_dir)
         self.blocks = blocks
         self.ordered = ordered
         self.bytecode_hex = bytecode_hex
         self.process_metadata(metadata)
+        self.skip_sig_resolution = skip_sig_resolution
 
     def process_metadata(self, metadata: Optional[Dict[Any, Any]] = None) -> None:
         """
@@ -160,7 +161,7 @@ class EVMBlockExporter(FactExporter):
 
         def link_or_output_signature_file(signatures_filename_in: str, signatures_filename_out_simple: str):
             signatures_filename_out = self.get_out_file_path(signatures_filename_out_simple)
-            if os.path.isfile(signatures_filename_in):
+            if not self.skip_sig_resolution and os.path.isfile(signatures_filename_in):
                 try:
                     os.symlink(signatures_filename_in, signatures_filename_out)
                 except FileExistsError:
@@ -205,7 +206,7 @@ class EVMBlockExporter(FactExporter):
         link_or_output_signature_file(public_function_signature_filename, 'PublicFunctionSignature.facts')
         link_or_output_signature_file(event_signature_filename, 'EventSignature.facts')
         link_or_output_signature_file(error_signature_filename, 'ErrorSignature.facts')
-        
+
         instructions = []
         instructions_order = []
         push_value = []
