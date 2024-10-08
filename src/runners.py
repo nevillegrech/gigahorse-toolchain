@@ -333,7 +333,7 @@ class DecompilerFactGenerator(AbstractFactGenerator):
 
         disassemble_start = time.time()
         blocks = blockparse.EVMBytecodeParser(bytecode).parse()
-        exporter.EVMBlockExporter(work_dir, blocks, True, bytecode, metadata).export()
+        exporter.EVMBlockExporter(work_dir, blocks, True, bytecode, metadata, self.skip_sig_resolution).export()
 
         os.symlink(join(work_dir, 'bytecode.hex'), join(out_dir, 'bytecode.hex'))
 
