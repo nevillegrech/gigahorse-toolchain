@@ -69,6 +69,9 @@
 // value type for mapping or element type for arrays
 .decl DataStructure_ValueOrElementType(cons: StorageConstruct, type: symbol)
 
+// key type for mapping
+.decl Mapping_KeyType(cons: StorageConstruct, type: symbol)
+
 // Map `structID` to solidity-like struct definition `stringStruct`
 .decl StructToString(structID: symbol, stringStruct: symbol)
 .decl StructToStringUpTo(structID: symbol, stringStruct: symbol, upTo: number)
@@ -413,7 +416,12 @@ DataStructure_ValueOrElementType(cons, type):-
   DataStructure_Type(child, type).
 
 DataStructure_Type($Mapping(parentCons), cat("mapping (uint256 => ", cat(type, ")"))):-
-  DataStructure_ValueOrElementType($Mapping(parentCons), type).
+  DataStructure_ValueOrElementType($Mapping(parentCons), type),
+  !Mapping_KeyType($Mapping(parentCons), _).
+
+DataStructure_Type($Mapping(parentCons), cat(cat("mapping (", cat(keyType, " => ")), cat(type, ")"))):-
+  DataStructure_ValueOrElementType($Mapping(parentCons), type),
+  Mapping_KeyType($Mapping(parentCons), keyType).
 
 DataStructure_Type($Array(parentCons), cat(type, "[]")):-
   DataStructure_ValueOrElementType($Array(parentCons), type),
