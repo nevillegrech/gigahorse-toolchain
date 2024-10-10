@@ -416,7 +416,12 @@ DataStructure_Type($Mapping(parentCons), cat("mapping (uint256 => ", cat(type, "
   DataStructure_ValueOrElementType($Mapping(parentCons), type).
 
 DataStructure_Type($Array(parentCons), cat(type, "[]")):-
-  DataStructure_ValueOrElementType($Array(parentCons), type).
+  DataStructure_ValueOrElementType($Array(parentCons), type),
+  !BytesOrStringLengthV2($Array(parentCons), _).
+
+DataStructure_Type($Array(parentCons), "string"):-
+  DataStructure_ValueOrElementType($Array(parentCons), _),
+  BytesOrStringLengthV2($Array(parentCons), _).
 
 StorageVariable_Type(var, "uint256"):-
   IsStorageConstruct(var),
@@ -524,6 +529,31 @@ BytesOrStringLength(storVar, lenVar):-
   (AND(_, minOne, storLoad, almost) ; AND(_, storLoad, minOne, almost)),
   DIV(_, almost, twoVar, lenVar),
   Variable_Value(twoVar, "0x2").
+
+.decl BytesOrStringLengthV2(storVar: StorageConstruct, lenVar:Variable)
+DEBUG_OUTPUT(BytesOrStringLengthV2)
+BytesOrStringLengthV2(cons, lenVar):-
+  ArrayLengthStatement(stmt, _, cons),
+  Statement_Defines(stmt, lengthVar, 0),
+  (AND(_, lengthVar, oneVar, lastBitVar) ; AND(_, oneVar, lengthVar, lastBitVar)),
+  Variable_Value(oneVar, "0x1"),
+  ISZERO(_, lastBitVar, notLastBitVar),
+  LShiftBytes(notLastBitVar, shifted, 1),
+  SUB(_, shifted, otherOneVar, minOne),
+  Variable_Value(otherOneVar, "0x1"),
+  (AND(_, minOne, lengthVar, almost) ; AND(_, lengthVar, minOne, almost)),
+  DIV(_, almost, twoVar, lenVar),
+  Variable_Value(twoVar, "0x2").
+
+BytesOrStringLengthV2(cons, phiDef):-
+  ArrayLengthStatement(stmt, _, cons),
+  Statement_Defines(stmt, lengthVar, 0),
+  SHR(_, shiftBits, lengthVar, shiftedVar),
+  Variable_Value(shiftBits, "0x1"),
+  (AND(_, var127, shiftedVar, otherCase) ; AND(_, shiftedVar, var127, otherCase)),
+  Variable_Value(var127, "0x7f"),
+  (PHIStmtTwoUses(_, otherCase, shiftedVar, phiDef); PHIStmtTwoUses(_, shiftedVar, otherCase, phiDef)),
+  ArrayAllocation(_, _, phiDef).
 
 /**
   A constant that flows to storage (possibly an array) to the result of its keccak256 hash.
