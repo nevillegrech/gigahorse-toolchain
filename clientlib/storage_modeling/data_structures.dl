@@ -563,6 +563,17 @@ BytesOrStringLengthV2(cons, phiDef):-
   (PHIStmtTwoUses(_, otherCase, shiftedVar, phiDef); PHIStmtTwoUses(_, shiftedVar, otherCase, phiDef)),
   ArrayAllocation(_, _, phiDef).
 
+// To introduce ShifyBits rels to remove this rule
+BytesOrStringLengthV2(cons, phiDef):-
+  ArrayLengthStatement(stmt, _, cons),
+  Statement_Defines(stmt, lengthVar, 0),
+  DIV(_, lengthVar, twoVar, shiftedVar),
+  Variable_Value(twoVar, "0x2"),
+  (AND(_, var127, shiftedVar, otherCase) ; AND(_, shiftedVar, var127, otherCase)),
+  Variable_Value(var127, "0x7f"),
+  (PHIStmtTwoUses(_, otherCase, shiftedVar, phiDef); PHIStmtTwoUses(_, shiftedVar, otherCase, phiDef)),
+  ArrayAllocation(_, _, phiDef).
+
 /**
   A constant that flows to storage (possibly an array) to the result of its keccak256 hash.
   This is needed to model optimized array patterns produced by the `--via-ir` pipeline.
