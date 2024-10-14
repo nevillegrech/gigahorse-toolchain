@@ -140,6 +140,10 @@ CastedAndShiftedVar(originVar, toVar, shiftedBy, 1):-
   BooleanCast(originVar, castedVar),
   LShiftBytes(castedVar, toVar, shiftedBy).
 
+CastedAndShiftedVar(checkedVar, toVar, shiftedBy, 1):-
+  RevertEnforcesEnum(checkedVar, _, _),
+  LShiftBytes(checkedVar, toVar, shiftedBy).
+
 HighBytesCastedAndRightShiftedVar(originVar, toVar, shiftedBy, castedTo):-
   HighBytesMaskOp(originVar, castedVar, castedTo),
   RShiftBytes(castedVar, toVar, shiftedBy).
@@ -344,3 +348,33 @@ PreMask_Length(cat(mask, "ff"), bytes+1) :-
   PreMask_Length(mask, bytes),
   bytes < 32.
 
+
+.decl VarLessThanSmallNumber(var: Variable, smallNum: number, cond: Variable)
+.decl VarGreaterThanSmallNumber(var: Variable, smallNum: number, cond: Variable)
+
+VarLessThanSmallNumber(var, @hex_to_number(smallNum), cond):-
+  LT(_, var, smallNumVar, cond),
+  BasicVariable_Value(smallNumVar, smallNum),
+  @hex_to_number(smallNum) < 256.
+
+VarGreaterThanSmallNumber(var, @hex_to_number(smallNum), cond):-
+  GT(_, var, smallNumVar, cond),
+  BasicVariable_Value(smallNumVar, smallNum),
+  @hex_to_number(smallNum) < 256.
+
+VarGreaterThanSmallNumber(var, smallNum - 1, newCond):-
+  VarLessThanSmallNumber(var, smallNum, cond),
+  ISZERO(_, cond, newCond).
+
+VarLessThanSmallNumber(var, smallNum + 1, newCond):-
+  VarGreaterThanSmallNumber(var, smallNum, cond),
+  ISZERO(_, cond, newCond).
+
+.decl RevertEnforcesEnum(checkedVar: Variable, numOfValues: number, jumpiBlock: Block)
+DEBUG_OUTPUT(RevertEnforcesEnum)
+RevertEnforcesEnum(checkedVar, smallNum, checkBlock):-
+  VarLessThanSmallNumber(checkedVar, smallNum, newCond),
+  JUMPI(jumpi, _, newCond),
+  Statement_Block(jumpi, checkBlock),
+  FallthroughEdge(checkBlock, revertBlock),
+  ThrowBlock(revertBlock).
