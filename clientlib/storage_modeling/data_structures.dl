@@ -561,7 +561,7 @@ BytesOrStringLengthV2(cons, phiDef):-
   (AND(_, var127, shiftedVar, otherCase) ; AND(_, shiftedVar, var127, otherCase)),
   Variable_Value(var127, "0x7f"),
   (PHIStmtTwoUses(_, otherCase, shiftedVar, phiDef); PHIStmtTwoUses(_, shiftedVar, otherCase, phiDef)),
-  ArrayAllocation(_, _, phiDef).
+  (ArrayAllocation(_, _, phiDef); MSTORE(_, _, phiDef)).
 
 // To introduce ShifyBits rels to remove this rule
 BytesOrStringLengthV2(cons, phiDef):-
@@ -572,7 +572,7 @@ BytesOrStringLengthV2(cons, phiDef):-
   (AND(_, var127, shiftedVar, otherCase) ; AND(_, shiftedVar, var127, otherCase)),
   Variable_Value(var127, "0x7f"),
   (PHIStmtTwoUses(_, otherCase, shiftedVar, phiDef); PHIStmtTwoUses(_, shiftedVar, otherCase, phiDef)),
-  ArrayAllocation(_, _, phiDef).
+  (ArrayAllocation(_, _, phiDef); MSTORE(_, _, phiDef)).
 
 /**
   A constant that flows to storage (possibly an array) to the result of its keccak256 hash.
