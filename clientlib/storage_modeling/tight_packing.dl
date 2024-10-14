@@ -280,6 +280,12 @@ ProbablyPartialStorageUpdatePattern(fromVar, toVar, "VAR", writtenVar, 0, 0):-
   FlowsToSSTOREOfConstruct(writtenVar, construct),
   !VarFlowsFromSLOADToSSTORE(writtenVar, construct).
 
+ProbablyPartialStorageUpdatePattern(fromVar, toVar, "VAR", checkedVar, 0, 0):-
+  RevertEnforcesEnum(checkedVar, _, _),
+  (OR(_, checkedVar, fromVar, toVar) ; OR(_, fromVar, checkedVar, toVar)),
+  FlowsToSSTOREOfConstruct(checkedVar, construct),
+  !VarFlowsFromSLOADToSSTORE(checkedVar, construct).
+
 // ProbablyPartialStorageUpdatePattern(fromVar, toVar, "VAR", writtenVar, byteLow, byteLow + castedTo - 1):-
 //   HighBytesCastedAndRightShiftedVar(writtenVar, castedNShifted, byteLow, castedTo),
 //   (OR(_, castedNShifted, fromVar, toVar) ; OR(_, fromVar, castedNShifted, toVar)).
