@@ -14,7 +14,7 @@ In summary, you need to have the following things installed on your system:
 
 - Z3, required for [souffle-addon](https://github.com/plast-lab/souffle-addon) (Can be installed on Debian with `apt install libz3-dev`)
 
-- Python 3.8 (Refer to standard documentation)
+- Python 3.10 (Refer to standard documentation)
 
 - Souffle 2.3 or 2.4.1 (We only test using the release versions, later development versions may work but are untested by us. The easiest way to install this is to use the release from https://github.com/souffle-lang/souffle/releases/tag/2.4.1). Refer to the Souffle [documentation](https://souffle-lang.github.io) for more information.
 
