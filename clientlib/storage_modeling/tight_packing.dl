@@ -222,6 +222,7 @@ FailedMergedStorageModeling(storVar):-
   !UselessSLOAD(stmt),
   !AnyLoadStoreStorVarBytes(stmt, storVar, _, _),
   !BytesOfStorVarKept(_, stmt, storVar, _, _),
+  !DeleteOfStructSlot(stmt, storVar),
   !ConstWrittenToBytesOfStorVar(_, _, _, stmt, storVar, _, _).
 
 
@@ -382,6 +383,16 @@ ConstWrittenToBytesOfStorVar("0xlala", as(writtenConst, Value), store, "lolo", c
   SSTOREToConstruct(store, construct, storedVar),
   ProbablyPartialStorageUpdateSequenceWrite(storedVar, "CONST", writtenConst, byteLow, byteHigh),
   !ProbablyPartialStorageUpdateSequenceWrite(storedVar, "VAR", _, byteLow, _).  // prefer var inference if they start from the same byte
+
+/**
+  Needs special handling because in via-ir deleted storage structs have all their bytes zeroed out.
+  Before the unused bytes would be kept.
+*/
+.decl DeleteOfStructSlot(store: Statement, construct: StorageConstruct)
+DEBUG_OUTPUT(DeleteOfStructSlot)
+DeleteOfStructSlot(store, construct):-
+  SSTOREToConstruct(store, construct, storedVar),
+  Variable_Value(storedVar, "0x0").
 
 .decl BytesOfStorVarKept(store: Statement, load: Statement, construct: StorageConstruct, keepByteLow: number, keepByteHigh: number)
 
