@@ -193,8 +193,16 @@ AnyLoadStoreStorVarBytes(stmt, storVar, low, high):-
   // Will need to handle these differently because in optimized code a single constant can initialize many vars
   ConstWrittenToBytesOfStorVar(_, _, stmt, _, storVar, low, high).
 
+// rare case, a variable is never read directly, but only stored
+// try to capture it with 2 simple rules
 VarWrittenToBytesOfStorVar(var, store, construct, 0, 31):-
   SSTOREToConstruct(store, construct, var),
+  !LowBytesMaskOp(_, var, _),
+  !SLOADOfConstruct(_, construct, _).
+
+VarWrittenToBytesOfStorVar(var, store, construct, 0, numOfBytes - 1):-
+  SSTOREToConstruct(store, construct, var),
+  LowBytesMaskOp(_, var, numOfBytes),
   !SLOADOfConstruct(_, construct, _).
 
 FailedMergedStorageModelingReason(storVar, stmt, stmt2, [low, high], [otherLow, otherHigh]),
