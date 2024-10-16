@@ -513,7 +513,7 @@ StorageStmtToIndexAndConstruct(store, "ACCESS", index, $TightlyPackedVariable(co
   StorageIndex_StorageConstruct(index, cons),
   Variable_StorageIndex(indexVar, index),
   StorageAccessOp(store, indexVar),
-  (VarWrittenToBytesOfStorVarFinal(_, store, $Variable(cons), low, high); ConstWrittenToBytesOfStorVar(_, _, store, _, $Variable(cons), low, high); DeleteOfStructSlot(store, $Variable(cons))),
+  (VarWrittenToBytesOfStorVarFinal(_, store, $Variable(cons), low, high); ConstWrittenToBytesOfStorVarProcessed(_, _, store, _, $Variable(cons), low, high); DeleteOfStructSlot(store, $Variable(cons))),
   ProcessedStorageVariable($Variable(cons), $TightlyPackedVariable(cons, low, high)).
 
 .decl StorageOffset_Type(offset: Value, type: symbol)
