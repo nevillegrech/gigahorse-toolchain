@@ -189,9 +189,9 @@ DEBUG_OUTPUT(SuccessfulMergedStorageModeling)
 
 AnyLoadStoreStorVarBytes(stmt, storVar, low, high):-
   VarHoldsBytesOfStorVarFinal(_, stmt, storVar, low, high);
-  VarWrittenToBytesOfStorVar(_, stmt, storVar, low, high).
+  VarWrittenToBytesOfStorVar(_, stmt, storVar, low, high);
   // Will need to handle these differently because in optimized code a single constant can initialize many vars
-  // ConstWrittenToBytesOfStorVar(_, _, stmt, _, storVar, low, high).
+  ConstWrittenToUnreadBytesOfStorVar(_, _, stmt, _, storVar, low, high).
 
 // rare case, a variable is never read directly, but only stored
 // try to capture it with 2 simple rules
@@ -279,8 +279,17 @@ DEBUG_OUTPUT(VarWrittenToBytesOfStorVar)
 .decl ConstWrittenToBytesOfStorVar(constVar:Variable, const:Value, store:Statement, load:Statement, storVar:StorageConstruct, byteLow:number, byteHigh:number)
 DEBUG_OUTPUT(ConstWrittenToBytesOfStorVar)
 
+/**
+  Results of ConstWrittenToBytesOfStorVar processed after identifying the variables
+*/
 .decl ConstWrittenToBytesOfStorVarProcessed(constVar:Variable, const:Value, store:Statement, load:Statement, storVar:StorageConstruct, byteLow:number, byteHigh:number)
 DEBUG_OUTPUT(ConstWrittenToBytesOfStorVarProcessed)
+
+/**
+  Subset of ConstWrittenToBytesOfStorVar that write to bytes that are never read
+*/
+.decl ConstWrittenToUnreadBytesOfStorVar(constVar:Variable, const:Value, store:Statement, load:Statement, storVar:StorageConstruct, byteLow:number, byteHigh:number)
+DEBUG_OUTPUT(ConstWrittenToUnreadBytesOfStorVar)
 
 ProbablyPartialStorageUpdatePattern(fromVar, toVar, "VAR", writtenVar, byteLow, byteLow + castedTo - 1):-
   CastedAndShiftedVar(writtenVar, castedNShifted, byteLow, castedTo),
@@ -490,6 +499,12 @@ ConstWrittenToBytesOfStorVar("0xNoVar", "0x0", store, load, construct, maskByteL
   ByteMaskOpMaskRange(originVar, storedVar, [maskByteLow, maskByteHigh]),
   SSTOREToConstruct(store, construct, storedVar).
 
+// TODO: process the different cases of this, making it more general.
+ConstWrittenToUnreadBytesOfStorVar(constVar, const, store, load, storVar, byteLow, byteHigh):-
+  ConstWrittenToBytesOfStorVar(constVar, const, store, load, storVar, byteLow, byteHigh),
+  !VarHoldsBytesOfStorVarFinal(_, _, storVar, byteLow, byteHigh),
+  !VarWrittenToBytesOfStorVar(_, _, storVar, byteLow, byteHigh).
+
 /**
   HACK (?) HACK (?) HACK (?)
   If the variable that is being stored on the update of a merged storage var
@@ -610,7 +625,7 @@ ProcessedStorageVariable(storageVar, $TightlyPackedVariable(parentCons, byteLow,
   SuccessfulMergedStorageModeling(storageVar),
   storageVar = $Variable(parentCons),
   (
-    // ConstWrittenToBytesOfStorVar(_, _, _, _, storageVar, byteLow, byteHigh);
+    ConstWrittenToUnreadBytesOfStorVar(_, _, _, _, storageVar, byteLow, byteHigh);
     VarWrittenToBytesOfStorVarFinal(_, _, storageVar, byteLow, byteHigh);
     VarHoldsBytesOfStorVarFinal(_, _, storageVar, byteLow, byteHigh)
   ),
