@@ -502,8 +502,10 @@ ConstWrittenToBytesOfStorVar("0xNoVar", "0x0", store, load, construct, maskByteL
 // TODO: process the different cases of this, making it more general.
 ConstWrittenToUnreadBytesOfStorVar(constVar, const, store, load, storVar, byteLow, byteHigh):-
   ConstWrittenToBytesOfStorVar(constVar, const, store, load, storVar, byteLow, byteHigh),
-  !VarHoldsBytesOfStorVarFinal(_, _, storVar, byteLow, byteHigh),
-  !VarWrittenToBytesOfStorVar(_, _, storVar, byteLow, byteHigh).
+  !VarHoldsBytesOfStorVarFinal(_, _, storVar, byteLow, _),
+  !VarWrittenToBytesOfStorVar(_, _, storVar, byteLow, _),
+  !VarHoldsBytesOfStorVarFinal(_, _, storVar, _, byteHigh),
+  !VarWrittenToBytesOfStorVar(_, _, storVar, _, byteHigh).
 
 /**
   HACK (?) HACK (?) HACK (?)
