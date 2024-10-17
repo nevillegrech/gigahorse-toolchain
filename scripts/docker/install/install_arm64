@@ -12,5 +12,5 @@ if [[ $PATH =~ .*${BIN_PATH}.* ]]; then
     echo "Executable already in PATH"
 else
     echo "Modifying PATH..."
-    echo "export PATH=${BIN_PATH}:\$PATH" >> ~/.bashrc
+    echo "export PATH=${BIN_PATH}:$PATH" >> ~/.bashrc
 fi
