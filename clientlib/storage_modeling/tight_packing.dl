@@ -1,4 +1,7 @@
 
+// TODO: Add shifts to `castsAndShiftsFlows`!!!!!!!!!
+// Maybe they are not there for a reason?
+// Example: 4b053890c3ceb6c77358d624bd0c10bb: 0x6a
 .init castsAndShiftsFlows = LocalFlowAnalysis
 castsAndShiftsFlows.TransferStmt(stmt):-
   Statement_Opcode(stmt, "OR").
@@ -290,14 +293,14 @@ ProbablyPartialStorageUpdatePattern(fromVar, toVar, "VAR", writtenVar, byteLow, 
   FlowsToSSTOREOfConstruct(writtenVar, construct),
   !VarFlowsFromSLOADToSSTORE(writtenVar, construct).
 
-// In this case an extra cast is performed, can't really tell why
-// example: 4b053890c3ceb6c77358d624bd0c10bb: 0x131f
-ProbablyPartialStorageUpdatePattern(fromVar, toVar, "VAR", writtenVar, byteLow, byteLow + castedTo - 1):-
-  CastedAndShiftedVar(writtenVar, castedNShifted, byteLow, castedTo),
-  ByteMaskOpKeepRange(castedNShifted, midVar, [byteLow, byteLow + castedTo - 1]),
-  (OR(_, midVar, fromVar, toVar) ; OR(_, fromVar, midVar, toVar)),
-  FlowsToSSTOREOfConstruct(writtenVar, construct),
-  !VarFlowsFromSLOADToSSTORE(writtenVar, construct).
+// // In this case an extra cast is performed, can't really tell why
+// // example: 4b053890c3ceb6c77358d624bd0c10bb: 0x131f
+// ProbablyPartialStorageUpdatePattern(fromVar, toVar, "VAR", writtenVar, byteLow, byteLow + castedTo - 1):-
+//   CastedAndShiftedVar(writtenVar, castedNShifted, byteLow, castedTo),
+//   ByteMaskOpKeepRange(castedNShifted, midVar, [byteLow, byteLow + castedTo - 1]),
+//   (OR(_, midVar, fromVar, toVar) ; OR(_, fromVar, midVar, toVar)),
+//   FlowsToSSTOREOfConstruct(writtenVar, construct),
+//   !VarFlowsFromSLOADToSSTORE(writtenVar, construct).
 
 ProbablyPartialStorageUpdatePattern(fromVar, toVar, "VAR", writtenVar, 0, byteHigh - 1):-
   LowBytesMaskOp(writtenVar, castedVar, byteHigh),
