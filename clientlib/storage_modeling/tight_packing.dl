@@ -190,8 +190,7 @@ DEBUG_OUTPUT(SuccessfulMergedStorageModeling)
 AnyLoadStoreStorVarBytes(stmt, storVar, low, high):-
   VarHoldsBytesOfStorVarFinal(_, stmt, storVar, low, high);
   VarWrittenToBytesOfStorVar(_, stmt, storVar, low, high);
-  // Will need to handle these differently because in optimized code a single constant can initialize many vars
-  ConstWrittenToUnreadBytesOfStorVar(_, _, stmt, _, storVar, low, high).
+  ConstWrittenToUnreadBytesOfStorVar(_, stmt, _, storVar, low, high).
 
 // rare case, a variable is never read directly, but only stored
 // try to capture it with 2 simple rules
@@ -284,12 +283,6 @@ DEBUG_OUTPUT(ConstWrittenToBytesOfStorVar)
 */
 .decl ConstWrittenToBytesOfStorVarProcessed(constVar:Variable, const:Value, store:Statement, load:Statement, storVar:StorageConstruct, byteLow:number, byteHigh:number)
 DEBUG_OUTPUT(ConstWrittenToBytesOfStorVarProcessed)
-
-/**
-  Subset of ConstWrittenToBytesOfStorVar that write to bytes that are never read
-*/
-.decl ConstWrittenToUnreadBytesOfStorVar(constVar:Variable, const:Value, store:Statement, load:Statement, storVar:StorageConstruct, byteLow:number, byteHigh:number)
-DEBUG_OUTPUT(ConstWrittenToUnreadBytesOfStorVar)
 
 ProbablyPartialStorageUpdatePattern(fromVar, toVar, "VAR", writtenVar, byteLow, byteLow + castedTo - 1):-
   CastedAndShiftedVar(writtenVar, castedNShifted, byteLow, castedTo),
@@ -499,13 +492,42 @@ ConstWrittenToBytesOfStorVar("0xNoVar", "0x0", store, load, construct, maskByteL
   ByteMaskOpMaskRange(originVar, storedVar, [maskByteLow, maskByteHigh]),
   SSTOREToConstruct(store, construct, storedVar).
 
-// TODO: process the different cases of this, making it more general.
-ConstWrittenToUnreadBytesOfStorVar(constVar, const, store, load, storVar, byteLow, byteHigh):-
-  ConstWrittenToBytesOfStorVar(constVar, const, store, load, storVar, byteLow, byteHigh),
-  !VarHoldsBytesOfStorVarFinal(_, _, storVar, byteLow, _),
-  !VarWrittenToBytesOfStorVar(_, _, storVar, byteLow, _),
-  !VarHoldsBytesOfStorVarFinal(_, _, storVar, _, byteHigh),
-  !VarWrittenToBytesOfStorVar(_, _, storVar, _, byteHigh).
+/**
+  byte of storage variable is never read ConstWrittenToByteOfStorVar that write to bytes that are never read
+*/
+.decl ConstWrittenToUnreadByteOfStorVar(const: Value, store: Statement, load: Statement, storVar: StorageConstruct, byteLow: number, writeByte: number)
+DEBUG_OUTPUT(ConstWrittenToUnreadByteOfStorVar)
+
+/**
+  Subset of ConstWrittenToBytesOfStorVar that write to bytes that are never read
+  Will first identify individual bytes and then group them together
+*/
+.decl ConstWrittenToUnreadBytesOfStorVar(const: Value, store: Statement, load: Statement, storVar: StorageConstruct, byteLow: number, byteHigh: number)
+DEBUG_OUTPUT(ConstWrittenToUnreadBytesOfStorVar)
+
+ConstWrittenToUnreadByteOfStorVar(const, store, load, storVar, byteLow, writeByte):-
+  ConstWrittenToBytesOfStorVar(_, const, store, load, storVar, byteLow, byteHigh),
+  writeByte = range(byteLow, byteHigh + 1, 1),
+  !ByteOfStorVarReadOfWritten(storVar, writeByte).
+
+ConstWrittenToUnreadBytesOfStorVar(newVal, store, load, storVar, byteLow, byteHigh):-
+  ConstWrittenToUnreadByteOfStorVar(const, store, load, storVar, originalByteLow, byteLow),
+  !ConstWrittenToUnreadByteOfStorVar(const, store, load, storVar, originalByteLow, byteLow - 1),
+  ConstWrittenToUnreadByteOfStorVar(const, store, load, storVar, originalByteLow, byteHigh),
+  !ConstWrittenToUnreadByteOfStorVar(const, store, load, storVar, originalByteLow, byteHigh + 1),
+  1 + byteHigh - byteLow = count : {ConstWrittenToUnreadByteOfStorVar(const, store, load, storVar, originalByteLow, k), byteLow <= k, k <= byteHigh},
+  excessRightBytes = byteLow - originalByteLow,
+  Mask_Length(mask, byteHigh - byteLow + 1),
+  ValueIsByteMask(mask),
+  newVal = as(@and_256(@shr_256(@number_to_hex(excessRightBytes*8), const), mask), Value).
+
+
+// Helper
+.decl ByteOfStorVarReadOfWritten(storVar: StorageConstruct, byte: number)
+ByteOfStorVarReadOfWritten(storVar, byte):-
+  (VarHoldsBytesOfStorVarFinal(_, _, storVar, varByteLow, varByteHigh);
+   VarWrittenToBytesOfStorVar(_, _, storVar, varByteLow, varByteHigh)),
+  byte = range(varByteLow, varByteHigh + 1, 1).
 
 /**
   HACK (?) HACK (?) HACK (?)
@@ -627,7 +649,7 @@ ProcessedStorageVariable(storageVar, $TightlyPackedVariable(parentCons, byteLow,
   SuccessfulMergedStorageModeling(storageVar),
   storageVar = $Variable(parentCons),
   (
-    ConstWrittenToUnreadBytesOfStorVar(_, _, _, _, storageVar, byteLow, byteHigh);
+    ConstWrittenToUnreadBytesOfStorVar(_, _, _, storageVar, byteLow, byteHigh);
     VarWrittenToBytesOfStorVarFinal(_, _, storageVar, byteLow, byteHigh);
     VarHoldsBytesOfStorVarFinal(_, _, storageVar, byteLow, byteHigh)
   ),
