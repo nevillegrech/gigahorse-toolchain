@@ -428,7 +428,7 @@ DataStructure_Type($Array(parentCons), cat(type, "[]")):-
   !BytesOrStringLengthV2($Array(parentCons), _).
 
 DataStructure_Type($Array(parentCons), "string"):-
-  DataStructure_ValueOrElementType($Array(parentCons), _),
+  IsDataStructureConstruct($Array(parentCons)),
   BytesOrStringLengthV2($Array(parentCons), _).
 
 StorageVariable_Type(var, "uint256"):-
