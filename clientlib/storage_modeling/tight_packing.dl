@@ -214,8 +214,8 @@ VarWrittenToBytesOfStorVar(var, store, construct, 0, numOfBytes - 1):-
 // Added for completeness to revisit
 ConstWrittenToBytesOfStorVar(var, val, store, store, construct, 0, 31):-
   SSTOREToConstruct(store, construct, var),
-  Variable_Value(var, val),
-  !SLOADOfConstruct(_, construct, _).
+  Variable_Value(var, val).
+  // !SLOADOfConstruct(_, construct, _).
 
 FailedMergedStorageModelingReason(storVar, stmt, stmt2, [low, high], [otherLow, otherHigh]),
 FailedMergedStorageModeling(storVar):-
