@@ -428,7 +428,7 @@ DataStructure_Type($Array(parentCons), cat(type, "[]")):-
   !BytesOrStringLengthV2($Array(parentCons), _).
 
 DataStructure_Type($Array(parentCons), "string"):-
-  DataStructure_ValueOrElementType($Array(parentCons), _),
+  IsDataStructureConstruct($Array(parentCons)),
   BytesOrStringLengthV2($Array(parentCons), _).
 
 StorageVariable_Type(var, "uint256"):-
@@ -513,7 +513,7 @@ StorageStmtToIndexAndConstruct(store, "ACCESS", index, $TightlyPackedVariable(co
   StorageIndex_StorageConstruct(index, cons),
   Variable_StorageIndex(indexVar, index),
   StorageAccessOp(store, indexVar),
-  (VarWrittenToBytesOfStorVarFinal(_, store, $Variable(cons), low, high); ConstWrittenToBytesOfStorVar(_, _, store, _, $Variable(cons), low, high)),
+  (VarWrittenToBytesOfStorVarFinal(_, store, $Variable(cons), low, high); ConstWrittenToBytesOfStorVarProcessed(_, _, store, _, $Variable(cons), low, high); DeleteOfStructSlot(store, $Variable(cons))),
   ProcessedStorageVariable($Variable(cons), $TightlyPackedVariable(cons, low, high)).
 
 .decl StorageOffset_Type(offset: Value, type: symbol)

@@ -163,6 +163,11 @@ CastedAndShiftedVar(originVar, toVar, shiftedBy, castedTo):-
   castedTo = strlen(unshiftedMask)/2 - 1,
   as(@shl_256(shiftBits, unshiftedMask), Value) = shiftedMask.
 
+// Recursive case, when a variable is recasted after being shifted
+CastedAndShiftedVar(originVar, reCastedVar, shiftedBy, castedTo):-
+  CastedAndShiftedVar(originVar, castedNShifted, shiftedBy, castedTo),
+  ByteMaskOpKeepRange(castedNShifted, reCastedVar, [shiftedBy, shiftedBy + castedTo - 1]).
+
 // Hack
 CastedAndShiftedVar(caller, caller, 0, 20):-
   CALLER(_, caller).
