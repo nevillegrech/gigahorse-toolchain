@@ -686,6 +686,10 @@ ConstWrittenToBytesOfStorVarProcessed("0xNoVar", newVal, store, load, $Variable(
   ValueIsByteMask(mask),
   newVal = as(@and_256(@shr_256(@number_to_hex(excessRightBytes*8), const), mask), Value).
 
+ConstWrittenToBytesOfStorVarProcessed("0xNoVar", "0x0", store, store, $Variable(parentCons), actualByteLow, actualByteHigh):-
+  DeleteOfStructSlot(store, $Variable(parentCons)),
+  ProcessedStorageVariable($Variable(parentCons), $TightlyPackedVariable(parentCons, actualByteLow, actualByteHigh)).
+
 /**
   Basic type inference
   Hacky for now just to print the correct uintX or address if nessesary.
