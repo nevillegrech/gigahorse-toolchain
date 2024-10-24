@@ -174,7 +174,15 @@ VarHoldsBytesOfStorVarFinal(var, load, storVar, low, high):-
 
 VarHoldsBytesOfStorVarFinal(var, load, storVar, low, high):-
   VarHoldsBytesOfStorVar(var, load, storVar, low, high),
-  (MSTORE(_, _, var); ActualArgs(_, var, _); ActualReturnArgs(_, var, _)).
+  VariableUsedInEndLevelOperation(var).
+
+// end-level in regards to byte-level shifting/casting trasformations (is incomplete)
+.decl VariableUsedInEndLevelOperation(var: Variable)
+VariableUsedInEndLevelOperation(var):-
+  MSTORE(_, _, var); ActualArgs(_, var, _); ActualReturnArgs(_, var, _);
+  LT(_, var, _, _); LT(_, _, var, _); GT(_, var, _, _); GT(_, _, var, _);
+  SLT(_, var, _, _); SLT(_, _, var, _); SGT(_, var, _, _); SGT(_, _, var, _);
+  EQ(_, var, _, _); EQ(_, _, var, _).
 
 .decl AnyLoadStoreStorVarBytes(loadOrStore: Statement, storVar: StorageConstruct, low: number, high: number)
 DEBUG_OUTPUT(AnyLoadStoreStorVarBytes)
@@ -215,7 +223,9 @@ VarWrittenToBytesOfStorVar(var, store, construct, 0, numOfBytes - 1):-
 ConstWrittenToBytesOfStorVar(var, val, store, store, construct, 0, 31):-
   SSTOREToConstruct(store, construct, var),
   Variable_Value(var, val),
-  !SLOADOfConstruct(_, construct, _).
+  // 0x0 is handled differently due to new viaIR delete patterns
+  val != "0x0".
+  // !SLOADOfConstruct(_, construct, _).
 
 FailedMergedStorageModelingReason(storVar, stmt, stmt2, [low, high], [otherLow, otherHigh]),
 FailedMergedStorageModeling(storVar):-
@@ -685,6 +695,10 @@ ConstWrittenToBytesOfStorVarProcessed("0xNoVar", newVal, store, load, $Variable(
   Mask_Length(mask, actualByteHigh - actualByteLow + 1),
   ValueIsByteMask(mask),
   newVal = as(@and_256(@shr_256(@number_to_hex(excessRightBytes*8), const), mask), Value).
+
+ConstWrittenToBytesOfStorVarProcessed("0xNoVar", "0x0", store, store, $Variable(parentCons), actualByteLow, actualByteHigh):-
+  DeleteOfStructSlot(store, $Variable(parentCons)),
+  ProcessedStorageVariable($Variable(parentCons), $TightlyPackedVariable(parentCons, actualByteLow, actualByteHigh)).
 
 /**
   Basic type inference
