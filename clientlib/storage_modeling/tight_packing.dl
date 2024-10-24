@@ -174,7 +174,15 @@ VarHoldsBytesOfStorVarFinal(var, load, storVar, low, high):-
 
 VarHoldsBytesOfStorVarFinal(var, load, storVar, low, high):-
   VarHoldsBytesOfStorVar(var, load, storVar, low, high),
-  (MSTORE(_, _, var); ActualArgs(_, var, _); ActualReturnArgs(_, var, _)).
+  VariableUsedInEndLevelOperation(var).
+
+// end-level in regards to byte-level shifting/casting trasformations (is incomplete)
+.decl VariableUsedInEndLevelOperation(var: Variable)
+VariableUsedInEndLevelOperation(var):-
+  MSTORE(_, _, var); ActualArgs(_, var, _); ActualReturnArgs(_, var, _);
+  LT(_, var, _, _); LT(_, _, var, _); GT(_, var, _, _); GT(_, _, var, _);
+  SLT(_, var, _, _); SLT(_, _, var, _); SGT(_, var, _, _); SGT(_, _, var, _);
+  EQ(_, var, _, _); EQ(_, _, var, _).
 
 .decl AnyLoadStoreStorVarBytes(loadOrStore: Statement, storVar: StorageConstruct, low: number, high: number)
 DEBUG_OUTPUT(AnyLoadStoreStorVarBytes)
