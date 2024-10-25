@@ -161,6 +161,12 @@ VarHoldsBytesOfStorVarPlus(to, load, storVar, startByte, newLow, high):-
   newLow = maxKeptByte - startByte,
   HighBytesMaskOp(var, to, maskLen).
 
+VarHoldsBytesOfStorVarPlus(to, load, storVar, startByte, low, high):-
+  VarHoldsBytesOfStorVarPlus(var, load, storVar, startByte, low, high),
+  width = high - low,
+  ByteMaskOpKeepRange(var, to, [keepLow, keepHigh]),
+  keepLow <= startByte, keepHigh >= startByte + width.
+
 VarHoldsBytesOfStorVarFinal(var, load, storVar, low, high):-
   VarHoldsBytesOfStorVar(var, load, storVar, low, high),
   !VarFlowsFromSLOADToSSTORE(var, storVar), // Could potentially be restrictive for rare cases in optimized code
