@@ -161,6 +161,9 @@ VarHoldsBytesOfStorVarPlus(to, load, storVar, startByte, newLow, high):-
   newLow = maxKeptByte - startByte,
   HighBytesMaskOp(var, to, maskLen).
 
+// Note: This is usually an intermediary case, to restore it to some storage bytes.
+// It could potentially lead to FPs, but not having it would introduce FNs, to revisit
+// That's the reason it's more restrictive (it will keep the bytes of the previous var is they are all kept)
 VarHoldsBytesOfStorVarPlus(to, load, storVar, startByte, low, high):-
   VarHoldsBytesOfStorVarPlus(var, load, storVar, startByte, low, high),
   width = high - low,
