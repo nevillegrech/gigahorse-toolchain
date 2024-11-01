@@ -801,6 +801,16 @@ SpecialStorageVariableType($TightlyPackedVariable(cons, byteLow, byteHigh), "add
   widthBytes = 1 + byteHigh - byteLow,
   widthBytes = 20.
 
+SpecialStorageVariableType($TightlyPackedVariable(cons, byteLow, byteHigh), "address"):-
+  AddressTypedVar(addrFrom),
+  DataFlows(addrFrom, addr),
+  (SUB(_, otherAddr, addr, _) ; SUB(_, addr, otherAddr, _)),
+  DataFlows(var, otherAddr),
+  VarHoldsBytesOfStorVarFinal(var, _, $Variable(cons), byteLow, byteHigh),
+  ProcessedStorageVariable(_, $TightlyPackedVariable(cons, byteLow, byteHigh)),
+  widthBytes = 1 + byteHigh - byteLow,
+  widthBytes = 20.
+
 .decl AddressTypedVar(addrVar:Variable)
 AddressTypedVar(addr):-
   CALL(_, _, addr, _, _, _, _, _, _);
