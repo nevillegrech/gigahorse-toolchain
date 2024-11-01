@@ -161,6 +161,15 @@ VarHoldsBytesOfStorVarPlus(to, load, storVar, startByte, newLow, high):-
   newLow = maxKeptByte - startByte,
   HighBytesMaskOp(var, to, maskLen).
 
+// Note: This is usually an intermediary case, to restore it to some storage bytes.
+// It could potentially lead to FPs, but not having it would introduce FNs, to revisit
+// That's the reason it's more restrictive (it will keep the bytes of the previous var is they are all kept)
+VarHoldsBytesOfStorVarPlus(to, load, storVar, startByte, low, high):-
+  VarHoldsBytesOfStorVarPlus(var, load, storVar, startByte, low, high),
+  width = high - low,
+  ByteMaskOpKeepRange(var, to, [keepLow, keepHigh]),
+  keepLow <= startByte, keepHigh >= startByte + width.
+
 VarHoldsBytesOfStorVarFinal(var, load, storVar, low, high):-
   VarHoldsBytesOfStorVar(var, load, storVar, low, high),
   !VarFlowsFromSLOADToSSTORE(var, storVar), // Could potentially be restrictive for rare cases in optimized code
@@ -227,12 +236,33 @@ ConstWrittenToBytesOfStorVar(var, val, store, store, construct, 0, 31):-
   val != "0x0".
   // !SLOADOfConstruct(_, construct, _).
 
+// FailedMergedStorageModelingReason(storVar, stmt, stmt2, [low, high], [otherLow, otherHigh]),
+// FailedMergedStorageModeling(storVar):-
+//   AnyLoadStoreStorVarBytes(stmt, storVar, low, high),
+//   AnyLoadStoreStorVarBytes(stmt2, storVar, otherLow, otherHigh),  otherLow = otherLow, otherHigh = otherHigh, // NOWARN
+//   (low != otherLow ; high != otherHigh),
+//   ( (low < otherLow , otherLow < high) ; (low < otherHigh, otherHigh < high) ).
+
 FailedMergedStorageModelingReason(storVar, stmt, stmt2, [low, high], [otherLow, otherHigh]),
 FailedMergedStorageModeling(storVar):-
   AnyLoadStoreStorVarBytes(stmt, storVar, low, high),
-  AnyLoadStoreStorVarBytes(stmt2, storVar, otherLow, otherHigh),  otherLow = otherLow, otherHigh = otherHigh, // NOWARN
-  (low != otherLow ; high != otherHigh),
+  AnyLoadStoreStorVarBytes(stmt2, storVar, otherLow, otherHigh),
+  low != otherLow, high != otherHigh,
   ( (low < otherLow , otherLow < high) ; (low < otherHigh, otherHigh < high) ).
+
+FailedMergedStorageModelingReason(storVar, stmt, stmt2, [low, high], [otherLow, high]),
+FailedMergedStorageModeling(storVar):-
+  AnyLoadStoreStorVarBytes(stmt, storVar, low, high),
+  AnyLoadStoreStorVarBytes(stmt2, storVar, otherLow, high),
+  low != otherLow,
+  low < otherLow , otherLow < high.
+
+// FailedMergedStorageModelingReason(storVar, stmt, stmt2, [low, high], [otherLow, otherHigh]),
+// FailedMergedStorageModeling(storVar):-
+//   AnyLoadStoreStorVarBytes(stmt, storVar, low, high),
+//   AnyLoadStoreStorVarBytes(stmt2, storVar, otherLow, otherHigh),  otherLow = otherLow, otherHigh = otherHigh, // NOWARN
+//   (low != otherLow ; high != otherHigh),
+//   ( (low < otherLow , otherLow < high) ; (low < otherHigh, otherHigh < high) ).
 
 LoadOrStoreToStoreVar(stmt, construct):-
   InitialStorageStmtToIndexAndConstruct(stmt, "ACCESS", _, construct).
@@ -556,6 +586,15 @@ VarHoldsBytesOfStorVar(to, store, storVar, 0, 0):-
   Statement_Uses(store, storedVar, 1),
   BooleanCast(storedVar, to).
 
+
+.decl NormalizeStorageVarByteLimits(storvVar: StorageConstruct, inByteLow: number, inByteHigh: number, actualByteLow: number, actualByteHigh: number)
+DEBUG_OUTPUT(NormalizeStorageVarByteLimits)
+
+NormalizeStorageVarByteLimits(storVar, low, high, low, actualHigh):-
+  AnyLoadStoreStorVarBytes(_, storVar, low, high),
+  actualHigh = max otherHigh :AnyLoadStoreStorVarBytes(_, storVar, low, otherHigh).
+
+
 /**
   Top-Level Global Variables
  */
@@ -604,7 +643,9 @@ LoadGlobalVariable(stmt, v, var):-
   SuccessfulMergedStorageModeling($Variable($Constant(storVar))),
   SLOADOfConst(_, storVar, _), // ensure it's a global variable
   VarHoldsBytesOfStorVarFinal(_, _, $Variable($Constant(storVar)), low, high),
-  VarHoldsBytesOfStorVar(var, _, $Variable($Constant(storVar)), low, high),
+  // perhaps we need to add new instruction here
+  NormalizeStorageVarByteLimits($Variable($Constant(storVar)), low, high, actualLow, actualHigh),
+  VarHoldsBytesOfStorVar(var, _, $Variable($Constant(storVar)), actualLow, actualHigh),
   Statement_Defines(stmt, var, 0),
   (low != 0 ; high != 31),
   v = MERGED_STORAGE_VAR(storVar, low, high).
@@ -622,13 +663,24 @@ StoreGlobalVariable(store, v, writtenVar):-
   SuccessfulMergedStorageModeling($Variable($Constant(storVar))),
   SSTOREToConst(_, storVar, _), // ensure it's a global variable
   VarWrittenToBytesOfStorVarFinal(writtenVar, store, $Variable($Constant(storVar)), byteLow, byteHigh),
-  v = MERGED_STORAGE_VAR(storVar, byteLow, byteHigh).
+  NormalizeStorageVarByteLimits($Variable($Constant(storVar)), byteLow, byteHigh, actualLow, actualHigh),
+  ProcessedStorageVariable($Variable($Constant(storVar)), $TightlyPackedVariable($Constant(storVar), actualLow, actualHigh)),
+  v = MERGED_STORAGE_VAR(storVar, actualLow, actualHigh).
+
+StoreGlobalVariable(store, storVar, writtenVar):-
+  SuccessfulMergedStorageModeling($Variable($Constant(storVar))),
+  SSTOREToConst(_, storVar, _), // ensure it's a global variable
+  VarWrittenToBytesOfStorVarFinal(writtenVar, store, $Variable($Constant(storVar)), byteLow, byteHigh),
+  NormalizeStorageVarByteLimits($Variable($Constant(storVar)), byteLow, byteHigh, 0, 31),
+  ProcessedStorageVariable($Variable($Constant(storVar)), $Variable($Constant(storVar))).
 
 StoreGlobalVariable(store, v, constVar):-
   SuccessfulMergedStorageModeling($Variable($Constant(storVar))),
   SSTOREToConst(_, storVar, _), // ensure it's a global variable
   ConstWrittenToBytesOfStorVarProcessed(constVar, _, store, _, $Variable($Constant(storVar)), byteLow, byteHigh),
-  v = MERGED_STORAGE_VAR(storVar, byteLow, byteHigh).
+  NormalizeStorageVarByteLimits($Variable($Constant(storVar)), byteLow, byteHigh, actualLow, actualHigh),
+  ProcessedStorageVariable($Variable($Constant(storVar)), $TightlyPackedVariable($Constant(storVar), actualLow, actualHigh)),
+  v = MERGED_STORAGE_VAR(storVar, actualLow, actualHigh).
 
 
 StorageVariableInfo(storVar, storVar, 0, 31):-
@@ -649,7 +701,7 @@ ProcessedStorageVariable(construct, construct):-
     VarHoldsBytesOfStorVarFinal(_, _, construct, 0, 31)
   ).
 
-ProcessedStorageVariable(storageVar, $TightlyPackedVariable(parentCons, byteLow, byteHigh)):-
+ProcessedStorageVariable(storageVar, $TightlyPackedVariable(parentCons, actualLow, actualHigh)):-
   SuccessfulMergedStorageModeling(storageVar),
   storageVar = $Variable(parentCons),
   (
@@ -657,7 +709,9 @@ ProcessedStorageVariable(storageVar, $TightlyPackedVariable(parentCons, byteLow,
     VarWrittenToBytesOfStorVarFinal(_, _, storageVar, byteLow, byteHigh);
     VarHoldsBytesOfStorVarFinal(_, _, storageVar, byteLow, byteHigh)
   ),
-  byteHigh - byteLow != 31.
+  NormalizeStorageVarByteLimits(storageVar, byteLow, byteHigh, actualLow, actualHigh),
+  byteHigh - byteLow != 31,
+  actualHigh - actualLow != 31.
 
 // If an array element is never loaded or stored directly (i.e. it is only copied via loops)
 // We consider it non merged. Maybe this isn't the right aproach, review.
@@ -670,6 +724,7 @@ StorageVariablePacksNVars(storageVar, numberOfVars):-
   numberOfVars = count : ProcessedStorageVariable(storageVar, _),
   numberOfVars > 1.
 
+// Does this need to be fixed for the (cons, cons) case
 ConstWrittenToBytesOfStorVarProcessed(constVar, const, store, load, $Variable(parentCons), byteLow, byteHigh):-
   ConstWrittenToBytesOfStorVar(constVar, const, store, load, $Variable(parentCons), byteLow, byteHigh),
   ProcessedStorageVariable($Variable(parentCons), $TightlyPackedVariable(parentCons, byteLow, byteHigh)).

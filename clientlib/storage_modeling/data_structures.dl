@@ -498,23 +498,25 @@ StorageStmtToIndexAndConstruct(stmt, "ACCESS", index, $Variable(cons)):-
   StorageAccessOp(stmt, var),
   ProcessedStorageVariable($Variable(cons), $Variable(cons)).
 
-StorageStmtToIndexAndConstruct(stmt, "ACCESS", index, $TightlyPackedVariable(cons, low, high)):-
+StorageStmtToIndexAndConstruct(stmt, "ACCESS", index, $TightlyPackedVariable(cons, actualLow, actualHigh)):-
   LikelyVariableLoadingStorageIndex(index),
   StorageIndex_StorageConstruct(index, cons),
   Variable_StorageIndex(indexVar, index),
   StorageAccessOp(srcLoad, indexVar),
   VarHoldsBytesOfStorVarFinal(_, _, $Variable(cons), low, high),
-  VarHoldsBytesOfStorVar(var, srcLoad, $Variable(cons), low, high),
+  NormalizeStorageVarByteLimits($Variable(cons), low, high, actualLow, actualHigh),
+  VarHoldsBytesOfStorVar(var, srcLoad, $Variable(cons), actualLow, actualHigh),
   Statement_Defines(stmt, var, _),
-  ProcessedStorageVariable($Variable(cons), $TightlyPackedVariable(cons, low, high)).
+  ProcessedStorageVariable($Variable(cons), $TightlyPackedVariable(cons, actualLow, actualHigh)).
 
-StorageStmtToIndexAndConstruct(store, "ACCESS", index, $TightlyPackedVariable(cons, low, high)):-
+StorageStmtToIndexAndConstruct(store, "ACCESS", index, $TightlyPackedVariable(cons, actualLow, actualHigh)):-
   LikelyVariableLoadingStorageIndex(index),
   StorageIndex_StorageConstruct(index, cons),
   Variable_StorageIndex(indexVar, index),
   StorageAccessOp(store, indexVar),
   (VarWrittenToBytesOfStorVarFinal(_, store, $Variable(cons), low, high); ConstWrittenToBytesOfStorVarProcessed(_, _, store, _, $Variable(cons), low, high); DeleteOfStructSlot(store, $Variable(cons))),
-  ProcessedStorageVariable($Variable(cons), $TightlyPackedVariable(cons, low, high)).
+  NormalizeStorageVarByteLimits($Variable(cons), low, high, actualLow, actualHigh),
+  ProcessedStorageVariable($Variable(cons), $TightlyPackedVariable(cons, actualLow, actualHigh)).
 
 .decl StorageOffset_Type(offset: Value, type: symbol)
 
