@@ -462,12 +462,23 @@ StorageVariable_IntermType($TightlyPackedVariable(cons, byteLow, byteHigh), "add
 
 StorageVariable_IntermType(storVar, "bool") <= StorageVariable_IntermType(storVar, "uint8"):- 1=1.
 
+StorageVariable_IntermType(storVar, "address") <= StorageVariable_IntermType(storVar, "uint160"):- 1=1.
+
 StorageVariable_IntermType($TightlyPackedVariable(cons, singleByte, singleByte), "bool"):-
   ProcessedStorageVariable(_, $TightlyPackedVariable(cons, singleByte, singleByte)).
 
 StorageVariable_IntermType($TightlyPackedVariable(cons, singleByte, singleByte), "uint8"):-
   ProcessedStorageVariable(_, $TightlyPackedVariable(cons, singleByte, singleByte)),
   VarHoldsBytesOfStorVarPlus(var, _, $Variable(cons), 0, singleByte, singleByte),
+  DataFlows(var, arithOp),
+  Statement_Uses(stmt, arithOp, _),
+  Statement_Opcode(stmt, op),
+  (op = "ADD"; op = "MOD"; op = "EXP"; op = "LT"; op = "GT").
+
+StorageVariable_IntermType($TightlyPackedVariable(cons, byteLow, byteHigh), "uint160"):-
+  ProcessedStorageVariable(_, $TightlyPackedVariable(cons, byteLow, byteHigh)),
+  VarHoldsBytesOfStorVarPlus(var, _, $Variable(cons), 0, byteLow, byteHigh),
+  20 = 1 + byteHigh - byteLow,
   DataFlows(var, arithOp),
   Statement_Uses(stmt, arithOp, _),
   Statement_Opcode(stmt, op),
