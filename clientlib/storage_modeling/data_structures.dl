@@ -85,6 +85,11 @@
 // Note: Can probably be unified with `DataStructure_Type`
 .decl StorageVariable_Type(cons: StorageConstruct, type: symbol)
 
+// Added interm relation that can results removed via subsumption
+.decl StorageVariable_IntermType(cons: StorageConstruct, type: symbol) btree_delete
+
+.decl StorageVariable_IntermTypeDone(numOfFacts: number)
+
 // Doesn't contain TightlyPackedVariable, maybe revisit
 .decl StorageConstruct_ParentAndOffset(cons: StorageConstruct, parentCons: StorageConstruct, offset: number)
 
@@ -431,23 +436,54 @@ DataStructure_Type($Array(parentCons), "string"):-
   IsDataStructureConstruct($Array(parentCons)),
   BytesOrStringLengthV2($Array(parentCons), _).
 
-StorageVariable_Type(var, "uint256"):-
+StorageVariable_IntermTypeDone(numOfFacts):-
+  numOfFacts = count : StorageVariable_IntermType(_, _).
+
+StorageVariable_Type(var, type):-
+  StorageVariable_IntermTypeDone(_),
+  StorageVariable_IntermType(var, type).
+
+StorageVariable_IntermType(var, "uint256"):-
   IsStorageConstruct(var),
   var = $Variable(cons), cons = cons,
   ProcessedStorageVariable(var, var).
 
-StorageVariable_Type($TightlyPackedVariable(cons, byteLow, byteHigh), type):-
+StorageVariable_IntermType($TightlyPackedVariable(cons, byteLow, byteHigh), type):-
   ProcessedStorageVariable(_, $TightlyPackedVariable(cons, byteLow, byteHigh)),
-  !SpecialStorageVariableType($TightlyPackedVariable(cons, byteLow, byteHigh), _),
   widthBytes = 1 + byteHigh - byteLow,
+  widthBytes != 20,
+  widthBytes != 1,
   type = cat("uint", to_string(widthBytes * 8)).
 
-StorageVariable_Type($TightlyPackedVariable(cons, byteLow, byteHigh), type):-
+StorageVariable_IntermType($TightlyPackedVariable(cons, byteLow, byteHigh), "address"):-
   ProcessedStorageVariable(_, $TightlyPackedVariable(cons, byteLow, byteHigh)),
-  SpecialStorageVariableType($TightlyPackedVariable(cons, byteLow, byteHigh), type).
+  widthBytes = 1 + byteHigh - byteLow,
+  widthBytes = 20.
 
-StorageVariable_Type(var, type):-
-  StorageVariable_Type(packedVar, type),
+StorageVariable_IntermType(storVar, "bool") <= StorageVariable_IntermType(storVar, "uint8"):- 1=1.
+
+StorageVariable_IntermType($TightlyPackedVariable(cons, singleByte, singleByte), "bool"):-
+  ProcessedStorageVariable(_, $TightlyPackedVariable(cons, singleByte, singleByte)).
+
+StorageVariable_IntermType($TightlyPackedVariable(cons, singleByte, singleByte), "uint8"):-
+  ProcessedStorageVariable(_, $TightlyPackedVariable(cons, singleByte, singleByte)),
+  VarHoldsBytesOfStorVarPlus(var, _, $Variable(cons), 0, singleByte, singleByte),
+  DataFlows(var, arithOp),
+  Statement_Uses(stmt, arithOp, _),
+  Statement_Opcode(stmt, op),
+  (op = "ADD"; op = "MOD"; op = "EXP"; op = "LT"; op = "GT").
+
+StorageVariable_IntermType($TightlyPackedVariable(cons, singleByte, singleByte), "uint8"):-
+  ProcessedStorageVariable(_, $TightlyPackedVariable(cons, singleByte, singleByte)),
+  ConstWrittenToBytesOfStorVarProcessed(_, constVal, _, _, $Variable(cons), singleByte, singleByte),
+  constVal != "0x0", constVal != "0x1".
+
+// StorageVariable_IntermType($TightlyPackedVariable(cons, byteLow, byteHigh), type):-
+//   ProcessedStorageVariable(_, $TightlyPackedVariable(cons, byteLow, byteHigh)),
+//   SpecialStorageVariableType($TightlyPackedVariable(cons, byteLow, byteHigh), type).
+
+StorageVariable_IntermType(var, type):-
+  StorageVariable_IntermType(packedVar, type),
   ProcessedStorageVariable(var, packedVar),
   IsStorageConstruct(var),
   1 = count: ProcessedStorageVariable(var, _).

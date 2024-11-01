@@ -767,12 +767,12 @@ ConstWrittenToBytesOfStorVarProcessed("0xNoVar", "0x0", store, store, $Variable(
 StorageVariableType(storVar, type):-
   StorageVariableInfo(storVar, slot, byteLow, byteHigh),
   widthBytes = 1 + byteHigh - byteLow,
-  !SpecialStorageVariableType($TightlyPackedVariable($Constant(slot), byteLow, byteHigh), _),
+  !StorageVariable_Type($TightlyPackedVariable($Constant(slot), byteLow, byteHigh), _),
   type = cat("uint", to_string(widthBytes * 8)).
 
 StorageVariableType(storVar, type):-
   StorageVariableInfo(storVar, slot, byteLow, byteHigh),
-  SpecialStorageVariableType($TightlyPackedVariable($Constant(slot), byteLow, byteHigh), type).
+  StorageVariable_Type($TightlyPackedVariable($Constant(slot), byteLow, byteHigh), type).
 
 SpecialStorageVariableType($TightlyPackedVariable(cons, byteLow, byteHigh), "address"):-
   ProcessedStorageVariable(_, $TightlyPackedVariable(cons, byteLow, byteHigh)),
