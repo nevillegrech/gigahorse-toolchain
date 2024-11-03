@@ -475,11 +475,15 @@ StorageVariable_IntermType($TightlyPackedVariable(cons, singleByte, singleByte),
   Statement_Opcode(stmt, op),
   (op = "ADD"; op = "MOD"; op = "EXP"; op = "LT"; op = "GT").
 
+.decl IsUint(storVar: StorageConstruct, stmt: Statement)
+.output IsUint
+
+IsUint($TightlyPackedVariable(cons, byteLow, byteHigh), stmt),
 StorageVariable_IntermType($TightlyPackedVariable(cons, byteLow, byteHigh), "uint160"):-
   ProcessedStorageVariable(_, $TightlyPackedVariable(cons, byteLow, byteHigh)),
   VarHoldsBytesOfStorVarPlus(var, _, $Variable(cons), 0, byteLow, byteHigh),
   20 = 1 + byteHigh - byteLow,
-  DataFlows(var, arithOp),
+  uint160flowAnalysis.GlobalFlows(var, arithOp),
   Statement_Uses(stmt, arithOp, _),
   Statement_Opcode(stmt, op),
   (op = "ADD"; op = "MOD"; op = "EXP"; op = "LT"; op = "GT").
@@ -499,6 +503,39 @@ StorageVariable_IntermType(var, type):-
   IsStorageConstruct(var),
   1 = count: ProcessedStorageVariable(var, _).
 
+
+.init uint160flowAnalysis = GlobalFlowAnalysis
+uint160flowAnalysis.InitialFlowVar(v) :- isVariable(v).
+uint160flowAnalysis.TransferBoundary(b) :- IsBlock(b).
+
+uint160flowAnalysis.TransferStmt(stmt):-
+  Statement_Opcode(stmt, op),
+  (op = "ADD"; op = "MOD" ; op = "EXP"; op = "ADDMOD"; op = "MULMOD").
+
+uint160flowAnalysis.TransferStmt(stmt):-
+  Statement_Defines(stmt, to, 0),
+  LowBytesMaskOp(_, to, castedTo),
+  castedTo >= 20.
+
+uint160flowAnalysis.TransferStmt(stmt):-
+  (Statement_Opcode(stmt, "MUL"); Statement_Opcode(stmt, "SHL")),
+  Statement_Defines(stmt, to, 0),
+  !LShiftBytes(_, to, _).
+
+uint160flowAnalysis.TransferStmt(stmt):-
+  (Statement_Opcode(stmt, "DIV"); Statement_Opcode(stmt, "SHR")),
+  Statement_Defines(stmt, to, 0),
+  !RShiftBytes(_, to, _).
+
+uint160flowAnalysis.TransferStmt(stmt):-
+  SUB(stmt, _, _, to),
+  !ISZERO(_, to, _),
+  !JUMPI(_, _, to).
+
+uint160flowAnalysis.TransferStmt(stmt):-
+  PHI(stmt, _, to),
+  nUses = count: PHITrans(_, to),
+  nUses < 4.
 
 // // Disable general rule for now
 // StorageStmtToIndexAndConstruct(stmt, "ACCESS", index, $Variable(cons)):-
