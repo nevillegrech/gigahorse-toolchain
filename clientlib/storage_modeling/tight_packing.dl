@@ -762,8 +762,6 @@ ConstWrittenToBytesOfStorVarProcessed("0xNoVar", "0x0", store, store, $Variable(
 
 .decl StorageVariableType(storVar:symbol, type:symbol)
 
-.decl SpecialStorageVariableType(storVar:StorageConstruct, type:symbol)
-
 StorageVariableType(storVar, type):-
   StorageVariableInfo(storVar, slot, byteLow, byteHigh),
   widthBytes = 1 + byteHigh - byteLow,
@@ -774,55 +772,6 @@ StorageVariableType(storVar, type):-
   StorageVariableInfo(storVar, slot, byteLow, byteHigh),
   StorageVariable_Type($TightlyPackedVariable($Constant(slot), byteLow, byteHigh), type).
 
-SpecialStorageVariableType($TightlyPackedVariable(cons, byteLow, byteHigh), "address"):-
-  ProcessedStorageVariable(_, $TightlyPackedVariable(cons, byteLow, byteHigh)),
-  VarHoldsBytesOfStorVarFinal(var, _, $Variable(cons), byteLow, byteHigh),
-  widthBytes = 1 + byteHigh - byteLow,
-  widthBytes = 20,
-  DataFlows(var, addr),
-  AddressTypedVar(addr).
-
-SpecialStorageVariableType($TightlyPackedVariable(cons, byteLow, byteHigh), "address"):-
-  ProcessedStorageVariable(_, $TightlyPackedVariable(cons, byteLow, byteHigh)),
-  VarWrittenToBytesOfStorVarFinal(var, _, $Variable(cons), byteLow, byteHigh),
-  widthBytes = 1 + byteHigh - byteLow,
-  widthBytes = 20,
-  DataFlows(addr, var),
-  AddressTypedVar(addr).
-
-// Hack to cover msg.sender == var and other similar things
-SpecialStorageVariableType($TightlyPackedVariable(cons, byteLow, byteHigh), "address"):-
-  AddressTypedVar(addrFrom),
-  DataFlows(addrFrom, addr),
-  (EQ(_, otherAddr, addr, _) ; EQ(_, addr, otherAddr, _)),
-  DataFlows(var, otherAddr),
-  VarHoldsBytesOfStorVarFinal(var, _, $Variable(cons), byteLow, byteHigh),
-  ProcessedStorageVariable(_, $TightlyPackedVariable(cons, byteLow, byteHigh)),
-  widthBytes = 1 + byteHigh - byteLow,
-  widthBytes = 20.
-
-SpecialStorageVariableType($TightlyPackedVariable(cons, byteLow, byteHigh), "address"):-
-  AddressTypedVar(addrFrom),
-  DataFlows(addrFrom, addr),
-  (SUB(_, otherAddr, addr, _) ; SUB(_, addr, otherAddr, _)),
-  DataFlows(var, otherAddr),
-  VarHoldsBytesOfStorVarFinal(var, _, $Variable(cons), byteLow, byteHigh),
-  ProcessedStorageVariable(_, $TightlyPackedVariable(cons, byteLow, byteHigh)),
-  widthBytes = 1 + byteHigh - byteLow,
-  widthBytes = 20.
-
-.decl AddressTypedVar(addrVar:Variable)
-AddressTypedVar(addr):-
-  CALL(_, _, addr, _, _, _, _, _, _);
-  STATICCALL(_, _, addr, _, _, _, _, _);
-  DELEGATECALL(_, _, addr, _, _, _, _, _);
-  SELFDESTRUCT(_, addr);
-  EXTCODECOPY(_, addr, _, _, _);
-  EXTCODESIZE(_, addr, _);
-  EXTCODEHASH(_, addr, _);
-  CALLER(_, addr);
-  ORIGIN(_, addr);
-  ADDRESS(_, addr).
 
 /**
   Temp statements for the source decompiler to hide

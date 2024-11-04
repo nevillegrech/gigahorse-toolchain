@@ -496,9 +496,6 @@ StorageVariable_IntermType($TightlyPackedVariable(cons, singleByte, singleByte),
   ConstWrittenToBytesOfStorVarProcessed(_, constVal, _, _, $Variable(cons), singleByte, singleByte),
   constVal != "0x0", constVal != "0x1".
 
-// StorageVariable_IntermType($TightlyPackedVariable(cons, byteLow, byteHigh), type):-
-//   ProcessedStorageVariable(_, $TightlyPackedVariable(cons, byteLow, byteHigh)),
-//   SpecialStorageVariableType($TightlyPackedVariable(cons, byteLow, byteHigh), type).
 
 StorageVariable_IntermType(var, type):-
   StorageVariable_IntermType(packedVar, type),
