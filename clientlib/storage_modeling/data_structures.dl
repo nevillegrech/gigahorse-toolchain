@@ -496,6 +496,12 @@ StorageVariable_IntermType($TightlyPackedVariable(cons, singleByte, singleByte),
   Variable_Value(uintVar, constVal),
   constVal != "0x0", constVal != "0x1".
 
+StorageVariable_IntermType($TightlyPackedVariable(cons, singleByte, singleByte), "uint8"):-
+  ProcessedStorageVariable(_, $TightlyPackedVariable(cons, singleByte, singleByte)),
+  VarWrittenToBytesOfStorVarFinal(var, _, $Variable(cons), singleByte, singleByte),
+  uint8AliasFlowAnalysis.GlobalFlows(uintVar, var),
+  UintVar(uintVar).
+
 StorageVariable_IntermType(var, type):-
   StorageVariable_IntermType(packedVar, type),
   ProcessedStorageVariable(var, packedVar),
