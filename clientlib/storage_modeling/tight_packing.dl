@@ -724,7 +724,7 @@ StorageVariablePacksNVars(storageVar, numberOfVars):-
   numberOfVars = count : ProcessedStorageVariable(storageVar, _),
   numberOfVars > 1.
 
-// Does this need to be fixed for the (cons, cons) case
+// TODO: Does this need to be fixed for the (cons, cons) case? YES
 ConstWrittenToBytesOfStorVarProcessed(constVar, const, store, load, $Variable(parentCons), byteLow, byteHigh):-
   ConstWrittenToBytesOfStorVar(constVar, const, store, load, $Variable(parentCons), byteLow, byteHigh),
   ProcessedStorageVariable($Variable(parentCons), $TightlyPackedVariable(parentCons, byteLow, byteHigh)).
