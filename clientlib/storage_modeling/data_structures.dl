@@ -443,7 +443,7 @@ StorageVariable_Type(var, type):-
   StorageVariable_IntermTypeDone(_),
   StorageVariable_IntermType(var, type).
 
-StorageVariable_IntermType(var, "uint256"):-
+StorageVariable_IntermType(var, "bytes32"):-
   IsStorageConstruct(var),
   var = $Variable(cons), cons = cons,
   ProcessedStorageVariable(var, var).
@@ -460,9 +460,19 @@ StorageVariable_IntermType($TightlyPackedVariable(cons, byteLow, byteHigh), "add
   widthBytes = 1 + byteHigh - byteLow,
   widthBytes = 20.
 
+IsUint(storVar, uintVar),
+StorageVariable_IntermType(storVar, "uint256"):-
+  ProcessedStorageVariable(storVar, storVar),
+  VarHoldsBytesOfStorVarPlus(var, _, storVar, 0, 0, 31),
+  uint256AliasFlowAnalysis.GlobalFlows(var, uintVar),
+  UintVar(uintVar),
+  !Variable_Value(uintVar, _).
+
 StorageVariable_IntermType(storVar, "bool") <= StorageVariable_IntermType(storVar, "uint8"):- 1=1.
 
 StorageVariable_IntermType(storVar, "address") <= StorageVariable_IntermType(storVar, "uint160"):- 1=1.
+
+StorageVariable_IntermType(storVar, "bytes32") <= StorageVariable_IntermType(storVar, "uint256"):- 1=1.
 
 StorageVariable_IntermType($TightlyPackedVariable(cons, singleByte, singleByte), "bool"):-
   ProcessedStorageVariable(_, $TightlyPackedVariable(cons, singleByte, singleByte)).
@@ -589,6 +599,21 @@ uint160flowAnalysis.TransferStmt(stmt):-
   castedTo >= 20.
 
 uint160flowAnalysis.TransferStmt(stmt):-
+  PHI(stmt, _, to),
+  nUses = count: PHITrans(_, to),
+  nUses < 4.
+
+.init uint256AliasFlowAnalysis = GlobalFlowAnalysis
+uint256AliasFlowAnalysis.InitialFlowVar(v) :- isVariable(v).
+uint256AliasFlowAnalysis.TransferBoundary(b) :- IsBlock(b).
+
+uint256AliasFlowAnalysis.TransferStmt(stmt):-
+  Statement_Defines(stmt, to, 0),
+  LowBytesMaskOp(_, to, castedTo),
+  // allow things to be upcasted for completeness
+  castedTo >= 30.
+
+uint256AliasFlowAnalysis.TransferStmt(stmt):-
   PHI(stmt, _, to),
   nUses = count: PHITrans(_, to),
   nUses < 4.
