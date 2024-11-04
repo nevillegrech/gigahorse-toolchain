@@ -475,10 +475,10 @@ StorageVariable_IntermType($TightlyPackedVariable(cons, singleByte, singleByte),
   Statement_Opcode(stmt, op),
   (op = "ADD"; op = "MOD"; op = "EXP"; op = "LT"; op = "GT").
 
-.decl IsUint(storVar: StorageConstruct, stmt: Statement)
+.decl IsUint(storVar: StorageConstruct, uintVar: Variable)
 .output IsUint
 
-IsUint($TightlyPackedVariable(cons, byteLow, byteHigh), stmt),
+IsUint($TightlyPackedVariable(cons, byteLow, byteHigh), uintVar),
 StorageVariable_IntermType($TightlyPackedVariable(cons, byteLow, byteHigh), "uint160"):-
   ProcessedStorageVariable(_, $TightlyPackedVariable(cons, byteLow, byteHigh)),
   VarHoldsBytesOfStorVarPlus(var, _, $Variable(cons), 0, byteLow, byteHigh),
