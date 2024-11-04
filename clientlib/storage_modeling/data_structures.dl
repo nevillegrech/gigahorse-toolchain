@@ -470,10 +470,8 @@ StorageVariable_IntermType($TightlyPackedVariable(cons, singleByte, singleByte),
 StorageVariable_IntermType($TightlyPackedVariable(cons, singleByte, singleByte), "uint8"):-
   ProcessedStorageVariable(_, $TightlyPackedVariable(cons, singleByte, singleByte)),
   VarHoldsBytesOfStorVarPlus(var, _, $Variable(cons), 0, singleByte, singleByte),
-  DataFlows(var, arithOp),
-  Statement_Uses(stmt, arithOp, _),
-  Statement_Opcode(stmt, op),
-  (op = "ADD"; op = "MOD"; op = "EXP"; op = "LT"; op = "GT").
+  uint8AliasFlowAnalysis.GlobalFlows(var, uintVar),
+  UintVar(uintVar).
 
 .decl IsUint(storVar: StorageConstruct, uintVar: Variable)
 .output IsUint
@@ -491,6 +489,12 @@ StorageVariable_IntermType($TightlyPackedVariable(cons, singleByte, singleByte),
   ConstWrittenToBytesOfStorVarProcessed(_, constVal, _, _, $Variable(cons), singleByte, singleByte),
   constVal != "0x0", constVal != "0x1".
 
+StorageVariable_IntermType($TightlyPackedVariable(cons, singleByte, singleByte), "uint8"):-
+  ProcessedStorageVariable(_, $TightlyPackedVariable(cons, singleByte, singleByte)),
+  VarWrittenToBytesOfStorVarFinal(var, _, $Variable(cons), singleByte, singleByte),
+  uint8AliasFlowAnalysis.GlobalFlows(uintVar, var),
+  Variable_Value(uintVar, constVal),
+  constVal != "0x0", constVal != "0x1".
 
 StorageVariable_IntermType(var, type):-
   StorageVariable_IntermType(packedVar, type),
@@ -537,6 +541,31 @@ ActualBinArithStmt(stmt):-
   !ISZERO(_, to, _),
   !JUMPI(_, _, to).
 
+.decl GlobalStructFlowsBase(from: Variable, to: Variable)
+GlobalStructFlowsBase(storedVar, loadedVar):-
+  StructLoad(_, structBase, wordOffset, loadedVar),
+  VarPointsToStruct(_, structBase, heapCtx, structId),
+  VarPointsToStruct(_, structBaseAlias, heapCtx, structId),
+  StructStore(_, structBaseAlias, wordOffset, storedVar).
+
+.init uint8AliasFlowAnalysis = GlobalFlowAnalysis
+uint8AliasFlowAnalysis.InitialFlowVar(v) :- isVariable(v).
+uint8AliasFlowAnalysis.TransferBoundary(b) :- IsBlock(b).
+
+uint8AliasFlowAnalysis.TransferStmt(stmt):-
+  Statement_Defines(stmt, to, 0),
+  LowBytesMaskOp(_, to, castedTo),
+  // allow things to be upcasted for completeness
+  castedTo >= 1.
+
+uint8AliasFlowAnalysis.TransferStmt(stmt):-
+  PHI(stmt, _, to),
+  nUses = count: PHITrans(_, to),
+  nUses < 4.
+
+uint8AliasFlowAnalysis.FlowsBase(from, to):-
+  GlobalStructFlowsBase(from, to).
+
 .init uint160flowAnalysis = GlobalFlowAnalysis
 uint160flowAnalysis.InitialFlowVar(v) :- isVariable(v).
 uint160flowAnalysis.TransferBoundary(b) :- IsBlock(b).
@@ -546,6 +575,7 @@ uint160flowAnalysis.TransferBoundary(b) :- IsBlock(b).
 uint160flowAnalysis.TransferStmt(stmt):-
   Statement_Defines(stmt, to, 0),
   LowBytesMaskOp(_, to, castedTo),
+  // allow things to be upcasted for completeness
   castedTo >= 20.
 
 uint160flowAnalysis.TransferStmt(stmt):-
