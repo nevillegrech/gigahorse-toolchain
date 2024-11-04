@@ -483,13 +483,8 @@ StorageVariable_IntermType($TightlyPackedVariable(cons, byteLow, byteHigh), "uin
   ProcessedStorageVariable(_, $TightlyPackedVariable(cons, byteLow, byteHigh)),
   VarHoldsBytesOfStorVarPlus(var, _, $Variable(cons), 0, byteLow, byteHigh),
   20 = 1 + byteHigh - byteLow,
-  uint160flowAnalysis.GlobalFlows(var, arithOp),
-  Statement_Uses(stmt, arithOp, _),
-  (
-    ActualBinArithStmt(stmt);
-    (Statement_Opcode(stmt, op),
-    (op = "LT"; op = "GT"))
-  ).
+  uint160flowAnalysis.GlobalFlows(var, uintVar),
+  UintVar(uintVar).
 
 StorageVariable_IntermType($TightlyPackedVariable(cons, singleByte, singleByte), "uint8"):-
   ProcessedStorageVariable(_, $TightlyPackedVariable(cons, singleByte, singleByte)),
@@ -502,6 +497,19 @@ StorageVariable_IntermType(var, type):-
   ProcessedStorageVariable(var, packedVar),
   IsStorageConstruct(var),
   1 = count: ProcessedStorageVariable(var, _).
+
+.decl UintVar(var: Variable)
+UintVar(var):-
+  Statement_Uses(stmt, var, _),
+  (
+    ActualBinArithStmt(stmt);
+    (Statement_Opcode(stmt, op),
+    (op = "LT"; op = "GT"))
+  ).
+
+UintVar(var):-
+  ActualBinArithStmt(stmt),
+  Statement_Defines(stmt, var, _).
 
 .decl ActualBinArithStmt(stmt: Statement)
 
@@ -533,7 +541,7 @@ ActualBinArithStmt(stmt):-
 uint160flowAnalysis.InitialFlowVar(v) :- isVariable(v).
 uint160flowAnalysis.TransferBoundary(b) :- IsBlock(b).
 
-uint160flowAnalysis.TransferStmt(stmt):- ActualBinArithStmt(stmt).
+// uint160flowAnalysis.TransferStmt(stmt):- ActualBinArithStmt(stmt).
 
 uint160flowAnalysis.TransferStmt(stmt):-
   Statement_Defines(stmt, to, 0),
