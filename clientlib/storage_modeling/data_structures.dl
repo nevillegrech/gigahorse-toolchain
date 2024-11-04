@@ -483,6 +483,15 @@ StorageVariable_IntermType(storVar, "uint256"):-
   UintVar(uintVar),
   !Variable_Value(uintVar, _).
 
+IsUint(storVar, uintVar),
+StorageVariable_IntermType(storVar, "uint256"):-
+  ProcessedStorageVariable(storVar, storVar),
+  StorageStmtToIndexAndConstruct(store, _, _, storVar),
+  SSTORE(store, _, var),
+  uint256AliasFlowAnalysis.GlobalFlows(var, uintVar),
+  UintVar(uintVar),
+  !Variable_Value(uintVar, _).
+
 StorageVariable_IntermType(storVar, "bool") <= StorageVariable_IntermType(storVar, "uint8"):- 1=1.
 
 StorageVariable_IntermType(storVar, "address") <= StorageVariable_IntermType(storVar, "uint160"):- 1=1.
@@ -617,6 +626,8 @@ uint160flowAnalysis.TransferStmt(stmt):-
   PHI(stmt, _, to),
   nUses = count: PHITrans(_, to),
   nUses < 4.
+
+.output uint256AliasFlowAnalysis.GlobalFlows
 
 .init uint256AliasFlowAnalysis = GlobalFlowAnalysis
 uint256AliasFlowAnalysis.InitialFlowVar(v) :- isVariable(v).
