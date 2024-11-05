@@ -9,6 +9,7 @@
   used to index/access it, representing the actual low-level index flowing to `SSTORE`/`SLOAD` stmts.
 */
 .type StorageIndex = ConstantIndex {value: Value}
+                    | ConstArrayAccessIndex {parIndex: StorageIndex, arraySize: number, indexVar: Variable}
                     | ArrayAccessIndex {parIndex: StorageIndex, indexVar: Variable}
                     | ArrayDataStartIndex {parIndex: StorageIndex}
                     | MappingAccessIndex {parIndex: StorageIndex, keyVar: Variable}
@@ -18,6 +19,7 @@
   `StorageConstruct` contains the information of `StorageIndex`, stripped of indexing/access vars
 */
 .type StorageConstruct = Constant {value: Value}
+                        | ConstArray {parConstruct: StorageConstruct, arraySize: number}
                         | Array {parConstruct: StorageConstruct}
                         | Mapping {parConstruct: StorageConstruct}
                         | Offset {parConstruct: StorageConstruct, offset: number}
@@ -192,6 +194,10 @@ Variable_StorageIndex(def, $ArrayAccessIndex(parentIndex, newIndexVar)):-
   ADDFix(_, indexVar, minusOneConstVar2, newIndexVar),
   Variable_Value(minusOneConstVar2, "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff").
 
+Variable_StorageIndex(def, $ConstArrayAccessIndex(parentIndex, arraySize, checkedVar)):-
+  Variable_StorageIndex(var, parentIndex),
+  ADDFix(_, var, checkedVar, def),
+  RevertEnforcesEnum(checkedVar, arraySize, _).
 
 StorageIndex_StorageConstruct($ConstantIndex(val), $Constant(val)):-
   ActualStorageIndex($ConstantIndex(val)).
@@ -210,6 +216,10 @@ StorageIndex_StorageConstruct($MappingAccessIndex(parentIndex, highLevelIndex), 
 
 StorageIndex_StorageConstruct($OffsetIndex(parentIndex, offset), $Offset(parentCons, offset)):-
   ActualStorageIndex($OffsetIndex(parentIndex, offset)), offset != 0,
+  StorageIndex_StorageConstruct(parentIndex, parentCons).
+
+StorageIndex_StorageConstruct($ConstArrayAccessIndex(parentIndex, arraySize, indexVar), $ConstArray(parentCons, arraySize)):-
+  ActualStorageIndex($ConstArrayAccessIndex(parentIndex, arraySize, indexVar)),
   StorageIndex_StorageConstruct(parentIndex, parentCons).
 
 /**
@@ -234,6 +244,7 @@ StorageIndex_ParentIndex(index, parentIndex):-
   (
     (index = $ArrayAccessIndex(parentIndex, indexVar), indexVar = indexVar); // suppress warning
     (index = $ArrayDataStartIndex(parentIndex));
+    (index = $ConstArrayAccessIndex(parentIndex, arraySize, indexVar), indexVar = indexVar, arraySize = arraySize); // suppress warning
     (index = $MappingAccessIndex(parentIndex, indexVar), indexVar = indexVar); // suppress warning
     (index = $OffsetIndex(parentIndex, offset), offset = offset) // suppress warning
   ).
@@ -243,6 +254,7 @@ StorageIndex_ParentIndexExclOffset(index, parentIndex):-
   (
     (index = $ArrayAccessIndex(parentIndex, indexVar), indexVar = indexVar); // suppress warning
     (index = $ArrayDataStartIndex(parentIndex));
+    (index = $ConstArrayAccessIndex(parentIndex, arraySize, indexVar), indexVar = indexVar, arraySize = arraySize); // suppress warning
     (index = $MappingAccessIndex(parentIndex, indexVar), indexVar = indexVar) // suppress warning
     // commenting this out for now, helps some cases but is not right
     // ;(index = $OffsetIndex(parentIndex, offset), offset > 0) // suppress warning
@@ -277,13 +289,13 @@ ActualStorageIndex(parentIndex):-
 
 StorageIndex_HighLevelUses(index, accessVar, 0, 0, 1):-
   ActualStorageIndex(index),
-  (index = $ArrayAccessIndex($ConstantIndex(const), accessVar); index = $MappingAccessIndex($ConstantIndex(const), accessVar)),
+  (index = $ArrayAccessIndex($ConstantIndex(const), accessVar); (index = $ConstArrayAccessIndex($ConstantIndex(const), arraySize, accessVar), arraySize=arraySize); index = $MappingAccessIndex($ConstantIndex(const), accessVar)),
   const = const.
 
 StorageIndex_HighLevelUses(index, otherVar, prevOffset, i, prevNestedness + 1),
 StorageIndex_HighLevelUses(index, accessVar, 0, prevNestedness, prevNestedness + 1):-
   ActualStorageIndex(index),
-  (index = $ArrayAccessIndex(parIndex, accessVar); index = $MappingAccessIndex(parIndex, accessVar)),
+  (index = $ArrayAccessIndex(parIndex, accessVar); (index = $ConstArrayAccessIndex(parIndex, arraySize, accessVar), arraySize=arraySize); index = $MappingAccessIndex(parIndex, accessVar)),
   StorageIndex_HighLevelUses(parIndex, otherVar, prevOffset, i, prevNestedness).
 
 StorageIndex_HighLevelUses($OffsetIndex(parentIndex, offset), accessVar, prevOffset, i, prevNestedness):-
@@ -319,19 +331,19 @@ IsStorageConstruct(cons),
 IsDataStructureConstruct(cons):-
   ActualStorageIndex(index),
   StorageIndex_StorageConstruct(index, cons),
-  (cons = $Array(parentCons); cons = $Mapping(parentCons)), // filter intermediate constructs
+  (cons = $Array(parentCons); cons = $Mapping(parentCons); (cons = $ConstArray(parentCons, arraySize), arraySize=arraySize)), // filter intermediate constructs
   parentCons = parentCons. // suppress warning
 
 StorageConstruct_ParentAndOffset(cons, paparentCons, offset):-
   IsStorageConstruct(cons),
-  (cons = $Array(parentCons); cons = $Mapping(parentCons); cons = $Variable(parentCons)),
+  (cons = $Array(parentCons); cons = $Mapping(parentCons); (cons = $ConstArray(parentCons, arraySize), arraySize=arraySize); cons = $Variable(parentCons)),
   parentCons = $Offset(paparentCons, offset),
   offset = offset. // suppress warning
 
 StorageConstruct_ParentAndOffset(cons, parentCons, 0):-
   IsStorageConstruct(cons),
-  (cons = $Array(parentCons); cons = $Mapping(parentCons); cons = $Variable(parentCons)),
-  (parentCons = $Array(paparentCons) ; parentCons = $Mapping(paparentCons); parentCons = $Variable(paparentCons)),
+  (cons = $Array(parentCons); cons = $Mapping(parentCons); (cons = $ConstArray(parentCons, arraySize), arraySize=arraySize); cons = $Variable(parentCons)),
+  (parentCons = $Array(paparentCons) ; parentCons = $Mapping(paparentCons); (parentCons = $ConstArray(paparentCons, arraySize2), arraySize2=arraySize2); parentCons = $Variable(paparentCons)),
   paparentCons = paparentCons. // suppress warning
 
 DataStructure_ElemNum(cons, elemNum):-
@@ -436,12 +448,37 @@ DataStructure_Type($Array(parentCons), "string"):-
   IsDataStructureConstruct($Array(parentCons)),
   BytesOrStringLengthV2($Array(parentCons), _).
 
+DataStructure_Type($ConstArray(parentCons, arraySize), cat(type, cat("[", cat(to_string(arraySize), "]")))):-
+  DataStructure_ValueOrElementType($ConstArray(parentCons, arraySize), type).
+
 StorageVariable_IntermTypeDone(numOfFacts):-
   numOfFacts = count : StorageVariable_IntermType(_, _).
 
 StorageVariable_Type(var, type):-
   StorageVariable_IntermTypeDone(_),
   StorageVariable_IntermType(var, type).
+
+.decl StorageVariableToAlias(storVar: StorageConstruct, alias: Variable)
+DEBUG_OUTPUT(StorageVariableToAlias)
+
+StorageVariableToAlias(storVar, alias):-
+  ProcessedStorageVariable(storVar, storVar),
+  VarHoldsBytesOfStorVarPlus(var, _, storVar, 0, 0, 31),
+  uint256AliasFlowAnalysis.GlobalFlows(var, alias).
+
+StorageVariableToAlias(storVar, alias):-
+  ProcessedStorageVariable(storVar, storVar),
+  StorageStmtToIndexAndConstruct(store, _, _, storVar),
+  SSTORE(store, _, var),
+  (
+    uint256AliasFlowAnalysis.GlobalFlows(alias, var);
+    uint256AliasFlowAnalysis.GlobalFlows(var, alias)
+  ).
+
+StorageVariable_IntermType(storVar, "uint256"):-
+  ProcessedStorageVariable(storVar, storVar),
+  instances = count : StorageVariableToAlias(storVar, _),
+  instances < 4.
 
 StorageVariable_IntermType(var, "bytes32"):-
   IsStorageConstruct(var),
@@ -578,6 +615,14 @@ UintVar(var):-
 UintVar(var):-
   ActualBinArithStmt(stmt),
   Statement_Defines(stmt, var, _).
+
+UintVar(var):-
+  GAS(_, var);
+  CALLVALUE(_, var);
+  TIMESTAMP(_, var);
+  DIFFICULTY(_, var);
+  NUMBER(_, var);
+  BALANCE(_, _, var).
 
 .decl ActualBinArithStmt(stmt: Statement)
 
@@ -733,7 +778,7 @@ StorageStmtToIndexAndConstruct(store, "ACCESS", index, $TightlyPackedVariable(co
 
 StorageOffset_Type(offset, type):-
   DataStructure_Type(cons, type),
-  (cons = $Array(parentCons); cons = $Mapping(parentCons)),
+  (cons = $Array(parentCons); cons = $Mapping(parentCons); (cons = $ConstArray(parentCons, arraySize), arraySize=arraySize)),
   parentCons = $Constant(offset).
 
 
