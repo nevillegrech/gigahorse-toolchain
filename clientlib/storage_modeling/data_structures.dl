@@ -746,6 +746,18 @@ BytesOrStringLengthV2(cons, lenVar):-
   DIV(_, almost, twoVar, lenVar),
   Variable_Value(twoVar, "0x2").
 
+BytesOrStringLengthV2(cons, lenVar):-
+  ArrayLengthStatement(stmt, _, cons),
+  Statement_Defines(stmt, lengthVar, 0),
+  (AND(_, lengthVar, oneVar, lastBitVar) ; AND(_, oneVar, lengthVar, lastBitVar)),
+  Variable_Value(oneVar, "0x1"),
+  ISZERO(_, lastBitVar, notLastBitVar),
+  LShiftBytes(notLastBitVar, shifted, 1),
+  VarPlusConst(shifted, "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", minOne),
+  (AND(_, minOne, lengthVar, almost) ; AND(_, lengthVar, minOne, almost)),
+  DIV(_, almost, twoVar, lenVar),
+  Variable_Value(twoVar, "0x2").
+
 BytesOrStringLengthV2(cons, phiDef):-
   ArrayLengthStatement(stmt, _, cons),
   Statement_Defines(stmt, lengthVar, 0),
