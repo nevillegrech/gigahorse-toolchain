@@ -756,6 +756,21 @@ BytesOrStringLengthV2(cons, phiDef):-
   (PHIStmtTwoUses(_, otherCase, shiftedVar, phiDef); PHIStmtTwoUses(_, shiftedVar, otherCase, phiDef)),
   (ArrayAllocation(_, _, phiDef); MSTORE(_, _, phiDef)).
 
+BytesOrStringLengthV2(cons, phiDef):-
+  ArrayLengthStatement(stmt, _, cons),
+  Statement_Defines(stmt, lengthVar, 0),
+  ActualArgs(caller, lengthVar, index),
+  CallGraphEdge(caller, method),
+  FormalArgs(method, inLenVar, index),
+  SHR(_, shiftBits, inLenVar, shiftedVar),
+  Variable_Value(shiftBits, "0x1"),
+  (AND(_, var127, shiftedVar, otherCase) ; AND(_, shiftedVar, var127, otherCase)),
+  Variable_Value(var127, "0x7f"),
+  (PHIStmtTwoUses(_, otherCase, shiftedVar, phiDef); PHIStmtTwoUses(_, shiftedVar, otherCase, phiDef)),
+  FormalReturnArgs(method, phiDef, retIndex),
+  ActualReturnArgs(caller, outPhiDef, retIndex),
+  (ArrayAllocation(_, _, outPhiDef); MSTORE(_, _, outPhiDef)).
+
 // To introduce ShifyBits rels to remove this rule
 BytesOrStringLengthV2(cons, phiDef):-
   ArrayLengthStatement(stmt, _, cons),
@@ -766,6 +781,22 @@ BytesOrStringLengthV2(cons, phiDef):-
   Variable_Value(var127, "0x7f"),
   (PHIStmtTwoUses(_, otherCase, shiftedVar, phiDef); PHIStmtTwoUses(_, shiftedVar, otherCase, phiDef)),
   (ArrayAllocation(_, _, phiDef); MSTORE(_, _, phiDef)).
+
+// To introduce ShifyBits rels to remove this rule
+BytesOrStringLengthV2(cons, phiDef):-
+  ArrayLengthStatement(stmt, _, cons),
+  Statement_Defines(stmt, lengthVar, 0),
+  ActualArgs(caller, lengthVar, index),
+  CallGraphEdge(caller, method),
+  FormalArgs(method, inLenVar, index),
+  DIV(_, inLenVar, twoVar, shiftedVar),
+  Variable_Value(twoVar, "0x2"),
+  (AND(_, var127, shiftedVar, otherCase) ; AND(_, shiftedVar, var127, otherCase)),
+  Variable_Value(var127, "0x7f"),
+  (PHIStmtTwoUses(_, otherCase, shiftedVar, phiDef); PHIStmtTwoUses(_, shiftedVar, otherCase, phiDef)),
+  FormalReturnArgs(method, phiDef, retIndex),
+  ActualReturnArgs(caller, outPhiDef, retIndex),
+  (ArrayAllocation(_, _, outPhiDef); MSTORE(_, _, outPhiDef)).
 
 /**
   A constant that flows to storage (possibly an array) to the result of its keccak256 hash.
