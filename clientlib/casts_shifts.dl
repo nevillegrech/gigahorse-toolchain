@@ -383,3 +383,9 @@ RevertEnforcesEnum(checkedVar, smallNum, checkBlock):-
   Statement_Block(jumpi, checkBlock),
   FallthroughEdge(checkBlock, revertBlock),
   ThrowBlock(revertBlock).
+
+// Hack, need a better way to get PHI aliases
+RevertEnforcesEnum(checkedVarAlias, smallNum, checkBlock):-
+  RevertEnforcesEnum(checkedVar, smallNum, checkBlock),
+  PHIStmtTwoUses(_, var1, var2, checkedVar),
+  PHIStmtTwoUses(_, var1, var2, checkedVarAlias).
