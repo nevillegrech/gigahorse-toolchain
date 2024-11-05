@@ -471,6 +471,26 @@ StorageVariable_IntermType(storVar, "uint256"):-
 // IsUint(storVar, uintVar),
 StorageVariable_IntermType(storVar, "uint256"):-
   ProcessedStorageVariable(storVar, storVar),
+  StorageStmtToIndexAndConstruct(store, _, _, storVar),
+  SSTORE(store, _, var),
+  uint256AliasFlowAnalysis.GlobalFlows(uintVar, var),
+  VarHoldsBytesOfStorVarPlus(uintVar, _, storVar2, 0, 0, 31),
+  StorageVariable_IntermType(storVar2, "uint256").
+  .plan 0:(6,5,4,3,2,1)
+
+// IsUint(storVar, uintVar),
+StorageVariable_IntermType(storVar, "uint256"):-
+  StorageVariable_IntermType(storVar2, "uint256"),
+  StorageStmtToIndexAndConstruct(store, _, _, storVar2),
+  SSTORE(store, _, uintVar),
+  uint256AliasFlowAnalysis.GlobalFlows(var, uintVar),
+  VarHoldsBytesOfStorVarPlus(var, _, storVar, 0, 0, 31),
+  ProcessedStorageVariable(storVar, storVar).
+
+
+// IsUint(storVar, uintVar),
+StorageVariable_IntermType(storVar, "uint256"):-
+  ProcessedStorageVariable(storVar, storVar),
   ConstWrittenToBytesOfStorVar(_, constVal, _, _, storVar, 0, 31),
   strlen(constVal) < 60. //is right aligned
 
