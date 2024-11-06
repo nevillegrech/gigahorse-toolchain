@@ -949,8 +949,10 @@ DEBUG_OUTPUT(IsPackedArray)
 
 IsPackedArray(cons, byteWidth):-
   SLOAD(_, sindexVar, loadedVar),
-  Variable_StorageIndex(sindexVar, $ConstArrayAccessIndex(parIndex, arraySize, indexVar)),
-  StorageIndex_StorageConstruct($ConstArrayAccessIndex(parIndex, arraySize, indexVar), cons),
+  Variable_StorageIndex(sindexVar, sindex),
+  ((sindex = $ConstArrayAccessIndex(parIndex, arraySize, indexVar), arraySize=arraySize);
+  sindex = $ArrayAccessIndex(parIndex, indexVar)),
+  StorageIndex_StorageConstruct(sindex, cons),
   VarDivByConstant(actualIndex, const, indexVar),
   MOD(_, actualIndex, constVar, modVar),
   Variable_Value(constVar, const),
@@ -963,8 +965,10 @@ IsPackedArray(cons, byteWidth):-
 
 IsPackedArray(cons, @hex_to_number(@div_256("0x20", const))):-
   SLOAD(_, sindexVar, loadedVar),
-  Variable_StorageIndex(sindexVar, $ConstArrayAccessIndex(parIndex, arraySize, indexVar)),
-  StorageIndex_StorageConstruct($ConstArrayAccessIndex(parIndex, arraySize, indexVar), cons),
+  Variable_StorageIndex(sindexVar, sindex),
+  ((sindex = $ConstArrayAccessIndex(parIndex, arraySize, indexVar), arraySize=arraySize);
+  sindex = $ArrayAccessIndex(parIndex, indexVar)),
+  StorageIndex_StorageConstruct(sindex, cons),
   VarDivByConstant(actualIndex, const, indexVar),
   AND(_, actualIndex, constVar, tmp),
   Variable_Value(constVar, as(@sub_256(const, "0x1"), Value)),
