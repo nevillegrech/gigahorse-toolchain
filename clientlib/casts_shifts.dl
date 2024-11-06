@@ -147,6 +147,17 @@ CastedAndShiftedVar(checkedVar, toVar, shiftedBy, 1):-
 HighBytesCastedAndRightShiftedVar(originVar, toVar, shiftedBy, castedTo):-
   HighBytesMaskOp(originVar, castedVar, castedTo),
   RShiftBytes(castedVar, toVar, shiftedBy).
+
+// TODO: Bounds check
+HighBytesCastedAndRightShiftedVar(originVar, toVar, shiftedBy + moreShift, castedTo):-
+  HighBytesCastedAndRightShiftedVar(originVar, tmpVar, shiftedBy, castedTo),
+  RShiftBytes(tmpVar, toVar, moreShift).
+
+// TODO: Bounds check
+HighBytesCastedAndRightShiftedVar(originVar, toVar, shiftedBy - moreShift, castedTo):-
+  HighBytesCastedAndRightShiftedVar(originVar, tmpVar, shiftedBy, castedTo),
+  LShiftBytes(tmpVar, toVar, moreShift).
+
 /**
   Optimized pattern like so:
     0xa4: va4 = SHL v9f(0xa0), v84

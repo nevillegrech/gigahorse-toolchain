@@ -199,6 +199,13 @@ Variable_StorageIndex(def, $ConstArrayAccessIndex(parentIndex, arraySize, checke
   ADDFix(_, var, checkedVar, def),
   RevertEnforcesEnum(checkedVar, arraySize, _).
 
+Variable_StorageIndex(def, $ConstArrayAccessIndex(parentIndex, arraySize, checkedVarDiv)):-
+  Variable_StorageIndex(var, parentIndex),
+  ADDFix(_, var, checkedVarDiv, def),
+  DIV(_, checkedVar, const, checkedVarDiv),
+  Variable_Value(const, _),
+  RevertEnforcesEnum(checkedVar, arraySize, _).
+
 StorageIndex_StorageConstruct($ConstantIndex(val), $Constant(val)):-
   ActualStorageIndex($ConstantIndex(val)).
 
@@ -454,9 +461,21 @@ DataStructure_Type($ConstArray(parentCons, arraySize), cat(type, cat("[", cat(to
 StorageVariable_IntermTypeDone(numOfFacts):-
   numOfFacts = count : StorageVariable_IntermType(_, _).
 
-StorageVariable_Type(var, type):-
+StorageVariable_Type($TightlyPackedVariable(cons, byteLow, byteHigh), type):-
   StorageVariable_IntermTypeDone(_),
-  StorageVariable_IntermType(var, type).
+  StorageVariable_IntermType($TightlyPackedVariable(cons, byteLow, byteHigh), type).
+
+StorageVariable_Type($Variable(cons), type):-
+  StorageVariable_IntermTypeDone(_),
+  StorageVariable_IntermType($Variable(cons), type),
+  !IsPackedArray(cons, _).
+
+// Hack for PackedArrays, to fix at a later point!
+// Should perhaps handle these with a special Variable construct type
+StorageVariable_Type($Variable(cons), cat("uint", to_string(8*width))):-
+  StorageVariable_IntermTypeDone(_),
+  StorageVariable_IntermType($Variable(cons), _),
+  IsPackedArray(cons, width).
 
 .decl StorageVariableToAlias(storVar: StorageConstruct, alias: Variable)
 DEBUG_OUTPUT(StorageVariableToAlias)
@@ -924,3 +943,32 @@ ArrayDeleteLoop(loop, sstore, array):-
   StorageStmtToIndexAndConstruct(lenDefStmt, "LENGTH", _, array),
   SSTORE(sstore, phiVar, zeroVar),
   Variable_Value(zeroVar, "0x0").
+
+.decl IsPackedArray(cons: StorageConstruct, byteWidth: number)
+DEBUG_OUTPUT(IsPackedArray)
+
+IsPackedArray(cons, byteWidth):-
+  SLOAD(_, sindexVar, loadedVar),
+  Variable_StorageIndex(sindexVar, $ConstArrayAccessIndex(parIndex, arraySize, indexVar)),
+  StorageIndex_StorageConstruct($ConstArrayAccessIndex(parIndex, arraySize, indexVar), cons),
+  VarDivByConstant(actualIndex, const, indexVar),
+  MOD(_, actualIndex, constVar, modVar),
+  Variable_Value(constVar, const),
+  VarTimesConstant(modVar, const2, modTimesVar),
+  EXP(_, expConst, modTimesVar, shiftVal),
+  Variable_Value(expConst, "0x100"),
+  DIV(_, loadedVar, shiftVal, shiftedVar),
+  const2 = as(@div_256("0x20", const), Value),
+  LowBytesMaskOp(shiftedVar, castedVar, byteWidth).
+
+IsPackedArray(cons, @hex_to_number(@div_256("0x20", const))):-
+  SLOAD(_, sindexVar, loadedVar),
+  Variable_StorageIndex(sindexVar, $ConstArrayAccessIndex(parIndex, arraySize, indexVar)),
+  StorageIndex_StorageConstruct($ConstArrayAccessIndex(parIndex, arraySize, indexVar), cons),
+  VarDivByConstant(actualIndex, const, indexVar),
+  AND(_, actualIndex, constVar, tmp),
+  Variable_Value(constVar, as(@sub_256(const, "0x1"), Value)),
+  EXP(_, expConst, tmp, shiftVal),
+  Variable_Value(expConst, "0x100"),
+  DIV(_, loadedVar, shiftVal, shiftedVar),
+  LowBytesMaskOp(shiftedVar, castedVar, @hex_to_number(@div_256("0x20", const))).
