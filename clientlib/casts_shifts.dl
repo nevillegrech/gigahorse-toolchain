@@ -149,14 +149,14 @@ HighBytesCastedAndRightShiftedVar(originVar, toVar, shiftedBy, castedTo):-
   RShiftBytes(castedVar, toVar, shiftedBy).
 
 // TODO: Bounds check
-HighBytesCastedAndRightShiftedVar(originVar, toVar, shiftedBy + moreShift, castedTo):-
-  HighBytesCastedAndRightShiftedVar(originVar, tmpVar, shiftedBy, castedTo),
-  RShiftBytes(tmpVar, toVar, moreShift).
+// HighBytesCastedAndRightShiftedVar(originVar, toVar, shiftedBy + moreShift, castedTo):-
+//   HighBytesCastedAndRightShiftedVar(originVar, tmpVar, shiftedBy, castedTo),
+//   RShiftBytes(tmpVar, toVar, moreShift).
 
 // TODO: Bounds check
-HighBytesCastedAndRightShiftedVar(originVar, toVar, shiftedBy - moreShift, castedTo):-
-  HighBytesCastedAndRightShiftedVar(originVar, tmpVar, shiftedBy, castedTo),
-  LShiftBytes(tmpVar, toVar, moreShift).
+// HighBytesCastedAndRightShiftedVar(originVar, toVar, shiftedBy - moreShift, castedTo):-
+//   HighBytesCastedAndRightShiftedVar(originVar, tmpVar, shiftedBy, castedTo),
+//   LShiftBytes(tmpVar, toVar, moreShift).
 
 /**
   Optimized pattern like so:
