@@ -236,6 +236,7 @@ uint8AliasFlowAnalysis.TransferBoundary(b) :- IsBlock(b).
 uint8AliasFlowAnalysis.TransferStmt(stmt):-
   Statement_Defines(stmt, to, 0),
   LowBytesMaskOp(_, to, castedTo),
+  !SignedIntCast(_, to, castedTo), // needed because its contained in the prior
   // allow things to be upcasted for completeness
   castedTo >= 1.
 
@@ -256,6 +257,7 @@ uint160flowAnalysis.TransferBoundary(b) :- IsBlock(b).
 uint160flowAnalysis.TransferStmt(stmt):-
   Statement_Defines(stmt, to, 0),
   LowBytesMaskOp(_, to, castedTo),
+  !SignedIntCast(_, to, castedTo), // needed because its contained in the prior
   // allow things to be upcasted for completeness
   castedTo >= 20.
 
@@ -273,6 +275,7 @@ uint256AliasFlowAnalysis.TransferBoundary(b) :- IsBlock(b).
 uint256AliasFlowAnalysis.TransferStmt(stmt):-
   Statement_Defines(stmt, to, 0),
   LowBytesMaskOp(_, to, castedTo),
+  !SignedIntCast(_, to, castedTo), // needed because its contained in the prior
   // allow things to be upcasted for completeness
   castedTo >= 30.
 
