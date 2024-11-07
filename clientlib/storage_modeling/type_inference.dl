@@ -207,7 +207,7 @@ StorageVariable_IntermType($TightlyPackedVariable(cons, singleByte, singleByte),
   ProcessedStorageVariable(_, $TightlyPackedVariable(cons, singleByte, singleByte)),
   VarHoldsBytesOfStorVarPlus(var, _, $Variable(cons), 0, singleByte, singleByte),
   uint8AliasFlowAnalysis.GlobalFlows(var, uintVar),
-  UintVar(uintVar),
+  Uint8Var(uintVar),
   !Variable_Value(uintVar, _).
 
 .decl IsUint(storVar: StorageConstruct, uintVar: Variable)
@@ -238,7 +238,7 @@ StorageVariable_IntermType($TightlyPackedVariable(cons, singleByte, singleByte),
   ProcessedStorageVariable(_, $TightlyPackedVariable(cons, singleByte, singleByte)),
   VarWrittenToBytesOfStorVarFinal(var, _, $Variable(cons), singleByte, singleByte),
   uint8AliasFlowAnalysis.GlobalFlows(uintVar, var),
-  UintVar(uintVar),
+  Uint8Var(uintVar),
   !Variable_Value(uintVar, _).
 
 StorageVariable_IntermType(var, type):-
@@ -250,11 +250,7 @@ StorageVariable_IntermType(var, type):-
 .decl UintVar(var: Variable)
 UintVar(var):-
   Statement_Uses(stmt, var, _),
-  (
-    ActualBinArithStmt(stmt);
-    (Statement_Opcode(stmt, op),
-    (op = "LT"; op = "GT"))
-  ).
+  ActualBinArithStmt(stmt).
 
 UintVar(var):-
   ActualBinArithStmt(stmt),
@@ -267,6 +263,16 @@ UintVar(var):-
   DIFFICULTY(_, var);
   NUMBER(_, var);
   BALANCE(_, _, var).
+
+// Added comparizons to UintVar results, as they're useful to distinguish bool and uint8
+.decl Uint8Var(var: Variable)
+Uint8Var(var):-
+  Statement_Uses(stmt, var, _),
+  Statement_Opcode(stmt, op),
+  (op = "LT"; op= "GT").
+
+Uint8Var(var):-
+  UintVar(var).
 
 .decl ActualBinArithStmt(stmt: Statement)
 
