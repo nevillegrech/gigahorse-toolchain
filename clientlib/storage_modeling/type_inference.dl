@@ -122,6 +122,19 @@ StorageVariable_IntermType($TightlyPackedVariable(cons, byteLow, byteHigh), type
   widthBytes = 1 + byteHigh - byteLow,
   type = cat("int", to_string(widthBytes * 8)).
 
+StorageVariable_IntermType($TightlyPackedVariable(cons, byteLow, byteHigh), type):-
+  ProcessedStorageVariable(_, $TightlyPackedVariable(cons, byteLow, byteHigh)),
+  StorageVariableToAlias($TightlyPackedVariable(cons, byteLow, byteHigh), aliasVar),
+  SignedIntVar(aliasVar),
+  widthBytes = 1 + byteHigh - byteLow,
+  type = cat("int", to_string(widthBytes * 8)).
+
+StorageVariable_IntermType(storVar, "int256"):-
+  ProcessedStorageVariable(storVar, storVar),
+  StorageVariableToAlias(storVar, aliasVar),
+  SignedIntVar(aliasVar).
+
+
 StorageVariable_IntermType($TightlyPackedVariable(cons, byteLow, byteHigh), "address"):-
   ProcessedStorageVariable(_, $TightlyPackedVariable(cons, byteLow, byteHigh)),
   widthBytes = 1 + byteHigh - byteLow,
@@ -273,6 +286,18 @@ ActualBinArithStmt(stmt):-
   ADD(stmt, _, _, to),
   !ISZERO(_, to, _),
   !JUMPI(_, _, to).
+
+.decl SignedIntVar(intVar: Variable)
+
+SignedIntVar(intVar):-
+  Statement_Opcode(stmt, op),
+  (op = "SMOD" ; op = "SDIV"; op = "SGT"; op = "SLT"),
+  Statement_Uses(stmt, intVar, _).
+
+SignedIntVar(intVar):-
+  Statement_Opcode(stmt, op),
+  (op = "SMOD" ; op = "SDIV"),
+  Statement_Defines(stmt, intVar, _).
 
 .decl GlobalStructFlowsBase(from: Variable, to: Variable)
 GlobalStructFlowsBase(storedVar, loadedVar):-
