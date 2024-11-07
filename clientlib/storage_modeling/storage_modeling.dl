@@ -13,5 +13,6 @@
 
 #include "data_structures.dl"
 #include "tight_packing.dl"
+#include "type_inference.dl"
 #include "legacy_data_structures.dl"
 #include "metrics.dl"
