@@ -952,6 +952,7 @@ IsPackedArray(cons, byteWidth):-
   Variable_StorageIndex(sindexVar, sindex),
   ((sindex = $ConstArrayAccessIndex(parIndex, arraySize, indexVar), arraySize=arraySize);
   sindex = $ArrayAccessIndex(parIndex, indexVar)),
+  parIndex=parIndex,
   StorageIndex_StorageConstruct(sindex, cons),
   VarDivByConstant(actualIndex, const, indexVar),
   MOD(_, actualIndex, constVar, modVar),
@@ -968,6 +969,7 @@ IsPackedArray(cons, @hex_to_number(@div_256("0x20", const))):-
   Variable_StorageIndex(sindexVar, sindex),
   ((sindex = $ConstArrayAccessIndex(parIndex, arraySize, indexVar), arraySize=arraySize);
   sindex = $ArrayAccessIndex(parIndex, indexVar)),
+  parIndex=parIndex,
   StorageIndex_StorageConstruct(sindex, cons),
   VarDivByConstant(actualIndex, const, indexVar),
   AND(_, actualIndex, constVar, tmp),
