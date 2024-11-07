@@ -68,6 +68,13 @@ StorageVariable_IntermType(storVar, uintType) <= StorageVariable_IntermType(stor
   Type_Kind(uintType, "uint"),
   Type_Kind(intType, "int").
 
+StorageVariable_IntermType(storVar, bytesType) <= StorageVariable_IntermType(storVar, intType):-
+  Type_Kind(bytesType, "bytes"),
+  Type_Kind(intType, "int").
+
+StorageVariable_IntermType(storVar, bytesType) <= StorageVariable_IntermType(storVar, uintType):-
+  Type_Kind(bytesType, "bytes"),
+  Type_Kind(uintType, "uint").
 
 .decl StorageVariableToAlias(storVar: StorageConstruct, alias: Variable)
 DEBUG_OUTPUT(StorageVariableToAlias)
