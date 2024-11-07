@@ -1,4 +1,32 @@
 
+.type Type <: symbol
+
+.decl Type_Kind(type: Type, kind: symbol)
+
+.decl Type_Width(type: Type, width: number)
+DEBUG_OUTPUT(Type_Width)
+
+Type_Kind("bool", "bool").
+Type_Width("bool", 1).
+Type_Kind("address", "uint").
+Type_Width("address", 20).
+
+Type_Kind(type, "uint"),
+Type_Width(type, byteWidth):-
+  byteWidth = range(1, 33),
+  type = cat("uint", to_string(byteWidth*8)).
+
+Type_Kind(type, "int"),
+Type_Width(type, byteWidth):-
+  byteWidth = range(1, 33),
+  type = cat("int", to_string(byteWidth*8)).
+
+Type_Kind(type, "bytes"),
+Type_Width(type, byteWidth):-
+  byteWidth = range(1, 33),
+  type = cat("bytes", to_string(byteWidth)).
+
+
 // Note: Can probably be unified with `DataStructure_Type`
 .decl StorageVariable_Type(cons: StorageConstruct, type: symbol)
 
@@ -30,6 +58,17 @@ StorageVariable_Type($Variable(cons), cat("uint", to_string(8*width))):-
   IsPackedArray(cons, width).
 
 
+StorageVariable_IntermType(storVar, "bool") <= StorageVariable_IntermType(storVar, "uint8"):- 1=1.
+
+StorageVariable_IntermType(storVar, "address") <= StorageVariable_IntermType(storVar, "uint160"):- 1=1.
+
+StorageVariable_IntermType(storVar, "bytes32") <= StorageVariable_IntermType(storVar, "uint256"):- 1=1.
+
+StorageVariable_IntermType(storVar, uintType) <= StorageVariable_IntermType(storVar, intType):-
+  Type_Kind(uintType, "uint"),
+  Type_Kind(intType, "int").
+
+
 .decl StorageVariableToAlias(storVar: StorageConstruct, alias: Variable)
 DEBUG_OUTPUT(StorageVariableToAlias)
 
@@ -52,6 +91,18 @@ StorageVariable_IntermType(storVar, "uint256"):-
   instances = count : StorageVariableToAlias(storVar, _),
   instances < 4.
 
+
+StorageVariableToAlias($TightlyPackedVariable(cons, byteLow, byteHigh), alias):-
+  ProcessedStorageVariable(storVar, $TightlyPackedVariable(cons, byteLow, byteHigh)),
+  VarHoldsBytesOfStorVarPlus(var, _, storVar, 0, byteLow, byteHigh),
+  uint256AliasFlowAnalysis.GlobalFlows(var, alias).
+
+StorageVariableToAlias($TightlyPackedVariable(cons, byteLow, byteHigh), alias):-
+  ProcessedStorageVariable(storVar, $TightlyPackedVariable(cons, byteLow, byteHigh)),
+  VarWrittenToBytesOfStorVarFinal(var, _, storVar, byteLow, byteHigh),
+  (uint256AliasFlowAnalysis.GlobalFlows(var, alias);
+  uint256AliasFlowAnalysis.GlobalFlows(alias, var)).
+
 StorageVariable_IntermType(var, "bytes32"):-
   IsStorageConstruct(var),
   var = $Variable(cons), cons = cons,
@@ -63,6 +114,13 @@ StorageVariable_IntermType($TightlyPackedVariable(cons, byteLow, byteHigh), type
   widthBytes != 20,
   widthBytes != 1,
   type = cat("uint", to_string(widthBytes * 8)).
+
+StorageVariable_IntermType($TightlyPackedVariable(cons, byteLow, byteHigh), type):-
+  ProcessedStorageVariable(_, $TightlyPackedVariable(cons, byteLow, byteHigh)),
+  StorageVariableToAlias($TightlyPackedVariable(cons, byteLow, byteHigh), aliasVar),
+  SignedIntCast(aliasVar, _, _),
+  widthBytes = 1 + byteHigh - byteLow,
+  type = cat("int", to_string(widthBytes * 8)).
 
 StorageVariable_IntermType($TightlyPackedVariable(cons, byteLow, byteHigh), "address"):-
   ProcessedStorageVariable(_, $TightlyPackedVariable(cons, byteLow, byteHigh)),
@@ -120,12 +178,6 @@ StorageVariable_IntermType(storVar, "uint256"):-
   uint256AliasFlowAnalysis.GlobalFlows(var, uintVar),
   UintVar(uintVar),
   !Variable_Value(uintVar, _).
-
-StorageVariable_IntermType(storVar, "bool") <= StorageVariable_IntermType(storVar, "uint8"):- 1=1.
-
-StorageVariable_IntermType(storVar, "address") <= StorageVariable_IntermType(storVar, "uint160"):- 1=1.
-
-StorageVariable_IntermType(storVar, "bytes32") <= StorageVariable_IntermType(storVar, "uint256"):- 1=1.
 
 StorageVariable_IntermType($TightlyPackedVariable(cons, singleByte, singleByte), "bool"):-
   ProcessedStorageVariable(_, $TightlyPackedVariable(cons, singleByte, singleByte)).
@@ -277,7 +329,7 @@ uint256AliasFlowAnalysis.TransferStmt(stmt):-
   LowBytesMaskOp(_, to, castedTo),
   !SignedIntCast(_, to, castedTo), // needed because its contained in the prior
   // allow things to be upcasted for completeness
-  castedTo >= 30.
+  castedTo >= 2.
 
 uint256AliasFlowAnalysis.TransferStmt(stmt):-
   PHI(stmt, _, to),
