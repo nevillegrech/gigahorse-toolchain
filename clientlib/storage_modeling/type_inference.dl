@@ -149,8 +149,7 @@ StorageVariable_IntermType(storVar, "uint256"):-
   Statement_Uses(stmt, uintVar, 1 - i),
   UintVar(uintVar),
   Statement_Opcode(stmt, op),
-  (op = "LT"; op= "GT"; op = "EQ"),
-  !Variable_Value(uintVar, _).
+  (op = "LT"; op= "GT"; op = "EQ").
 
 // IsUint(storVar, uintVar),
 StorageVariable_IntermType(storVar, "uint256"):-
@@ -292,6 +291,11 @@ UintVar(var):-
   DIFFICULTY(_, var);
   NUMBER(_, var);
   BALANCE(_, _, var).
+
+UintVar(var):-
+  Variable_Value(var, value),
+  value != "0x0", value != "0x1",
+  strlen(value) < 30.
 
 // Added comparizons to UintVar results, as they're useful to distinguish bool and uint8
 .decl Uint8Var(var: Variable)
