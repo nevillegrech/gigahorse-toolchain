@@ -152,6 +152,18 @@ StorageVariable_IntermType(storVar, "uint256"):-
   (op = "LT"; op= "GT"; op = "EQ"),
   !Variable_Value(uintVar, _).
 
+// IsUint(storVar, uintVar),
+StorageVariable_IntermType(storVar, "uint256"):-
+  ProcessedStorageVariable(storVar, storVar),
+  StorageVariableToAlias(storVar, aliasVar),
+  Statement_Uses(stmt, aliasVar, i),
+  Statement_Uses(stmt, otherAliasVar, 1 - i),
+  StorageVariableToAlias(storVar2, otherAliasVar),
+  StorageVariable_IntermType(storVar2, "uint256"),
+  Statement_Opcode(stmt, op),
+  (op = "LT"; op= "GT"; op = "EQ").
+
+
 IsUint(storVar, uintVar),
 StorageVariable_IntermType(storVar, "uint256"):-
   ProcessedStorageVariable(storVar, storVar),
