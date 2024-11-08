@@ -141,6 +141,23 @@ StorageVariable_IntermType(storVar, "int256"):-
   StorageVariableToAlias(storVar, aliasVar),
   SignedIntVar(aliasVar).
 
+IsUint(storVar, uintVar),
+StorageVariable_IntermType(storVar, "uint256"):-
+  ProcessedStorageVariable(storVar, storVar),
+  StorageVariableToAlias(storVar, aliasVar),
+  Statement_Uses(stmt, aliasVar, i),
+  Statement_Uses(stmt, uintVar, 1 - i),
+  UintVar(uintVar),
+  Statement_Opcode(stmt, op),
+  (op = "LT"; op= "GT"; op = "EQ"),
+  !Variable_Value(uintVar, _).
+
+IsUint(storVar, uintVar),
+StorageVariable_IntermType(storVar, "uint256"):-
+  ProcessedStorageVariable(storVar, storVar),
+  StorageVariableToAlias(storVar, uintVar),
+  UintVar(uintVar),
+  !Variable_Value(uintVar, _).
 
 StorageVariable_IntermType($TightlyPackedVariable(cons, byteLow, byteHigh), "address"):-
   ProcessedStorageVariable(_, $TightlyPackedVariable(cons, byteLow, byteHigh)),
@@ -356,6 +373,9 @@ uint160flowAnalysis.TransferStmt(stmt):-
   nUses = count: PHITrans(_, to),
   nUses < 4.
 
+uint160flowAnalysis.FlowsBase(from, to):-
+  GlobalStructFlowsBase(from, to).
+
 .output uint256AliasFlowAnalysis.GlobalFlows
 
 .init uint256AliasFlowAnalysis = GlobalFlowAnalysis
@@ -373,3 +393,6 @@ uint256AliasFlowAnalysis.TransferStmt(stmt):-
   PHI(stmt, _, to),
   nUses = count: PHITrans(_, to),
   nUses < 4.
+
+uint256AliasFlowAnalysis.FlowsBase(from, to):-
+  GlobalStructFlowsBase(from, to).
