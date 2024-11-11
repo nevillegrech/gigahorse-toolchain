@@ -473,7 +473,8 @@ VariableUsedAs(var, typeKind):-
 
 VariableUsedAs(var, typeKind):-
   VariableUsedAs(otherVar, typeKind),
-  ComparisonOperation(_, var, otherVar).
+  ComparisonOperation(_, var, otherVar),
+  !Variable_Value(var, _).
 
 VariableUsedAs(var, "uint"):-
   VariableUsedAs(defVar, "uint"),
@@ -524,7 +525,16 @@ StorageVariable_IntermType(storVar, type):-
   Type_Kind(type, typeKind),
   Type_Width(type, 32).
 
+// IsUint(storVar, alias),
+// StorageVariable_IntermType(storVar, type):-
+//   VariableUsedAs(alias, "uint"),
+//   StorageVariableToAlias(storVar, alias),
+//   ProcessedStorageVariable(storVar, storVar),
+//   Type_Kind(type, "uint"),
+//   Type_Width(type, 32).
+
 VariableUsedAs(alias, typeKind):-
   StorageVariable_IntermType(storVar, type),
+  ProcessedStorageVariable(storVar, storVar),
   StorageVariableToAlias(storVar, alias),
   Type_Kind(type, typeKind).
