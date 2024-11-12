@@ -141,91 +141,16 @@ StorageVariable_IntermType(storVar, "int256"):-
   StorageVariableToAlias(storVar, aliasVar),
   SignedIntVar(aliasVar).
 
-// IsUint(storVar, uintVar),
-// StorageVariable_IntermType(storVar, "uint256"):-
-//   ProcessedStorageVariable(storVar, storVar),
-//   StorageVariableToAlias(storVar, aliasVar),
-//   Statement_Uses(stmt, aliasVar, i),
-//   Statement_Uses(stmt, uintVar, 1 - i),
-//   UintVar(uintVar),
-//   Statement_Opcode(stmt, op),
-//   (op = "LT"; op= "GT"; op = "EQ").
-
-// // IsUint(storVar, uintVar),
-// StorageVariable_IntermType(storVar, "uint256"):-
-//   ProcessedStorageVariable(storVar, storVar),
-//   StorageVariableToAlias(storVar, aliasVar),
-//   Statement_Uses(stmt, aliasVar, i),
-//   Statement_Uses(stmt, otherAliasVar, 1 - i),
-//   StorageVariableToAlias(storVar2, otherAliasVar),
-//   StorageVariable_IntermType(storVar2, "uint256"),
-//   Statement_Opcode(stmt, op),
-//   (op = "LT"; op= "GT"; op = "EQ").
-
-
-// IsUint(storVar, uintVar),
-// StorageVariable_IntermType(storVar, "uint256"):-
-//   ProcessedStorageVariable(storVar, storVar),
-//   StorageVariableToAlias(storVar, uintVar),
-//   UintVar(uintVar),
-//   !Variable_Value(uintVar, _).
-
 StorageVariable_IntermType($TightlyPackedVariable(cons, byteLow, byteHigh), "address"):-
   ProcessedStorageVariable(_, $TightlyPackedVariable(cons, byteLow, byteHigh)),
   widthBytes = 1 + byteHigh - byteLow,
   widthBytes = 20.
 
-// IsUint(storVar, uintVar),
-// StorageVariable_IntermType(storVar, "uint256"):-
-//   ProcessedStorageVariable(storVar, storVar),
-//   VarHoldsBytesOfStorVarPlus(var, _, storVar, 0, 0, 31),
-//   uint256AliasFlowAnalysis.GlobalFlows(var, uintVar),
-//   UintVar(uintVar),
-//   !Variable_Value(uintVar, _).
 
-// // IsUint(storVar, uintVar),
-// StorageVariable_IntermType(storVar, "uint256"):-
-//   ProcessedStorageVariable(storVar, storVar),
-//   StorageStmtToIndexAndConstruct(store, _, _, storVar),
-//   SSTORE(store, _, var),
-//   uint256AliasFlowAnalysis.GlobalFlows(uintVar, var),
-//   VarHoldsBytesOfStorVarPlus(uintVar, _, storVar2, 0, 0, 31),
-//   StorageVariable_IntermType(storVar2, "uint256").
-//   .plan 0:(6,5,4,3,2,1)
-
-// // IsUint(storVar, uintVar),
-// StorageVariable_IntermType(storVar, "uint256"):-
-//   StorageVariable_IntermType(storVar2, "uint256"),
-//   StorageStmtToIndexAndConstruct(store, _, _, storVar2),
-//   SSTORE(store, _, uintVar),
-//   uint256AliasFlowAnalysis.GlobalFlows(var, uintVar),
-//   VarHoldsBytesOfStorVarPlus(var, _, storVar, 0, 0, 31),
-//   ProcessedStorageVariable(storVar, storVar).
-
-
-// IsUint(storVar, uintVar),
 StorageVariable_IntermType(storVar, "uint256"):-
   ProcessedStorageVariable(storVar, storVar),
   ConstWrittenToBytesOfStorVar(_, constVal, _, _, storVar, 0, 31),
   strlen(constVal) < 60. //is right aligned
-
-// IsUint(storVar, uintVar),
-// StorageVariable_IntermType(storVar, "uint256"):-
-//   ProcessedStorageVariable(storVar, storVar),
-//   StorageStmtToIndexAndConstruct(store, _, _, storVar),
-//   SSTORE(store, _, var),
-//   uint256AliasFlowAnalysis.GlobalFlows(uintVar, var),
-//   UintVar(uintVar),
-//   !Variable_Value(uintVar, _).
-
-// IsUint(storVar, uintVar),
-// StorageVariable_IntermType(storVar, "uint256"):-
-//   ProcessedStorageVariable(storVar, storVar),
-//   StorageStmtToIndexAndConstruct(store, _, _, storVar),
-//   SSTORE(store, _, var),
-//   uint256AliasFlowAnalysis.GlobalFlows(var, uintVar),
-//   UintVar(uintVar),
-//   !Variable_Value(uintVar, _).
 
 StorageVariable_IntermType($TightlyPackedVariable(cons, singleByte, singleByte), "bool"):-
   ProcessedStorageVariable(_, $TightlyPackedVariable(cons, singleByte, singleByte)).
