@@ -412,6 +412,19 @@ RevertCastsToUint(checkedVar, checkBlock):-
   FallthroughEdge(checkBlock, revertBlock),
   ThrowBlock(revertBlock).
 
+RevertCastsToUint(def, checkBlock):-
+  (EQ(_, checkedVar, maxConst, negCont); EQ(_, maxConst, checkedVar, negCont)),
+  BasicVariable_Value(maxConst, const),
+  IntMaxConst(const, 256),
+  ISZERO(_, negCont, cond),
+  JUMPI(jumpi, _, cond),
+  Statement_Block(jumpi, checkBlock),
+  FallthroughEdge(checkBlock, revertBlock),
+  ThrowBlock(revertBlock),
+  SUB(_, zeroVar, checkedVar, posVar),
+  BasicVariable_Value(zeroVar, "0x0"),
+  PHIStmtTwoUses(_, checkedVar, posVar, def).
+
 .decl IntMaxConst(const: Value, width: number)
 IntMaxConst(as(@exp_256("0x2", @number_to_hex(typeWidth - 1)), Value), typeWidth):-
   typeWidth = range(8, 264, 8).
