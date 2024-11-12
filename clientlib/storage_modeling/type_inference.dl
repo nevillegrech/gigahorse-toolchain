@@ -391,6 +391,10 @@ VariableUsedAsBase(var, "uint"):-
   val != "0x0", val != "0x1",
   strlen(val) < 30. // right aligned val
 
+VariableUsedAsBase(var, "int"):-
+  SignedIntVar(var);
+  SignedIntCast(_, var, _).
+
 VariableUsedAsBase(var, "bytes"):-
   ComparisonOperation(_, var, otherVar),
   Variable_Value(otherVar, val),
