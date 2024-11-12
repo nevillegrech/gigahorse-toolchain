@@ -136,11 +136,6 @@ StorageVariable_IntermType($TightlyPackedVariable(cons, byteLow, byteHigh), type
   widthBytes = 1 + byteHigh - byteLow,
   type = cat("int", to_string(widthBytes * 8)).
 
-StorageVariable_IntermType(storVar, "int256"):-
-  ProcessedStorageVariable(storVar, storVar),
-  StorageVariableToAlias(storVar, aliasVar),
-  SignedIntVar(aliasVar).
-
 StorageVariable_IntermType($TightlyPackedVariable(cons, byteLow, byteHigh), "address"):-
   ProcessedStorageVariable(_, $TightlyPackedVariable(cons, byteLow, byteHigh)),
   widthBytes = 1 + byteHigh - byteLow,
