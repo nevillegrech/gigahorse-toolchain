@@ -400,3 +400,43 @@ RevertEnforcesEnum(checkedVarAlias, smallNum, checkBlock):-
   RevertEnforcesEnum(checkedVar, smallNum, checkBlock),
   PHIStmtTwoUses(_, var1, var2, checkedVar),
   PHIStmtTwoUses(_, var1, var2, checkedVarAlias).
+
+.decl RevertCastsToUint(checkedVar: Variable, jumpiBlock: Block)
+DEBUG_OUTPUT(RevertCastsToUint)
+RevertCastsToUint(checkedVar, checkBlock):-
+  SLT(_, checkedVar, zeroVar, negCont),
+  BasicVariable_Value(zeroVar, "0x0"),
+  ISZERO(_, negCont, cond),
+  JUMPI(jumpi, _, cond),
+  Statement_Block(jumpi, checkBlock),
+  FallthroughEdge(checkBlock, revertBlock),
+  ThrowBlock(revertBlock).
+
+.decl IntMaxConst(const: Value, width: number)
+IntMaxConst(as(@exp_256("0x2", @number_to_hex(typeWidth - 1)), Value), typeWidth):-
+  typeWidth = range(8, 264, 8).
+
+.decl IntMaxConstMinusOne(const: Value, width: number)
+IntMaxConstMinusOne(as(@sub_256(@exp_256("0x2", @number_to_hex(typeWidth - 1)), "0x1"), Value), typeWidth):-
+  typeWidth = range(8, 264, 8).
+
+.decl RevertCastsToInt(checkedVar: Variable, width: number, jumpiBlock: Block)
+DEBUG_OUTPUT(RevertCastsToInt)
+RevertCastsToInt(checkedVar, width, checkBlock):-
+  GT(_, checkedVar, zeroVar, negCont),
+  BasicVariable_Value(zeroVar, const),
+  IntMaxConstMinusOne(const, width),
+  ISZERO(_, negCont, cond),
+  JUMPI(jumpi, _, cond),
+  Statement_Block(jumpi, checkBlock),
+  FallthroughEdge(checkBlock, revertBlock),
+  ThrowBlock(revertBlock).
+
+.decl RevertEnforcesTypeCast(checkedVar: Variable, fromTypeKind: symbol, toTypeKind: symbol, width: number, jumpiBlock: Block)
+DEBUG_OUTPUT(RevertEnforcesTypeCast)
+
+RevertEnforcesTypeCast(checkedVar, "uint", "int", width, checkBlock):-
+  RevertCastsToInt(checkedVar, width, checkBlock).
+
+RevertEnforcesTypeCast(checkedVar, "int", "uint", 256, checkBlock):-
+  RevertCastsToUint(checkedVar, checkBlock).

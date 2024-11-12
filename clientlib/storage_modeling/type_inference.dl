@@ -500,17 +500,20 @@ VariableUsedAs(formalArg, typeKind):-
   VariableUsedAs(actualArg, typeKind),
   ActualArgs(caller, actualArg, pos),
   CallGraphEdge(caller, fun),
-  FormalArgs(fun, formalArg, pos).
+  FormalArgs(fun, formalArg, pos),
+  !RevertEnforcesTypeCast(formalArg, typeKind, _, _, _).
 
 VariableUsedAs(actualRet, typeKind):-
   VariableUsedAs(formalRet, typeKind),
   FormalReturnArgs(fun, formalRet, retPos),
   CallGraphEdge(caller, fun),
-  ActualReturnArgs(caller, actualRet, retPos).
+  ActualReturnArgs(caller, actualRet, retPos),
+  !RevertEnforcesTypeCast(actualRet, typeKind, _, _, _).
 
 VariableUsedAs(to, typeKind):-
   VariableUsedAs(from, typeKind),
-  GlobalStructFlowsBase(from, to).
+  GlobalStructFlowsBase(from, to),
+  !RevertEnforcesTypeCast(to, typeKind, _, _, _).
 
 VariableUsedAs(from, typeKind):-
   VariableUsedAs(to, typeKind),
