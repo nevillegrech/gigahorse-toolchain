@@ -546,8 +546,14 @@ StorageVariable_IntermType(storVar, type):-
 //   Type_Kind(type, "uint"),
 //   Type_Width(type, 32).
 
-VariableUsedAs(alias, typeKind):-
+VariableUsedAs(alias, "uint"):-
   StorageVariable_IntermType(storVar, type),
   ProcessedStorageVariable(storVar, storVar),
   StorageVariableToAlias(storVar, alias),
-  Type_Kind(type, typeKind).
+  Type_Kind(type, "uint").
+
+VariableUsedAs(alias, "bytes"):-
+  StorageVariable_IntermType(storVar, type),
+  ProcessedStorageVariable(storVar, storVar),
+  StorageVariableToAlias(storVar, alias),
+  Type_Kind(type, "bytes").
