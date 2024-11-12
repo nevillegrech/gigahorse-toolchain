@@ -422,6 +422,13 @@ ComparisonOperation(stmt, var1, var2):-
   Statement_Uses(stmt, var1, i),
   Statement_Uses(stmt, var2, 1 - i).
 
+
+.decl PHIFlowBase(from: Variable, to: Variable)
+PHIFlowBase(from, to):-
+  PHITrans(from, to),
+  nUses = count: PHITrans(_, to),
+  nUses < 4.
+
 .decl VariableUsedAs(var: Variable, typeKind: symbol)
 DEBUG_OUTPUT(VariableUsedAs)
 
@@ -519,7 +526,10 @@ VariableUsedAs(from, typeKind):-
   VariableUsedAs(to, typeKind),
   GlobalStructFlowsBase(from, to).
 
-
+VariableUsedAs(to, typeKind):-
+  VariableUsedAs(from, typeKind),
+  PHIFlowBase(from, to),
+  !RevertEnforcesTypeCast(to, typeKind, _, _, _).
 
 StorageVariable_IntermType(storVar, type):-
   VariableUsedAs(alias, typeKind),
