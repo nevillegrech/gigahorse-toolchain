@@ -497,6 +497,16 @@ VariableUsedAs(actualRet, typeKind):-
   FormalArgs(fun, formalArg, pos),
   !RevertEnforcesTypeCast(formalArg, typeKind, _, _, _).
 
+// Backwards from actualRet to actualArg
+VariableUsedAs(actualArg, typeKind):-
+  VariableUsedAs(actualRet, typeKind),
+  ActualReturnArgs(caller, actualRet, retIndex),
+  CallGraphEdge(caller, fun),
+  ActualArgs(caller, actualArg, pos),
+  PolymorphicMethod(fun, pos, retIndex),
+  FormalArgs(fun, formalArg, pos),
+  !RevertEnforcesTypeCast(formalArg, typeKind, _, _, _).
+
 VariableUsedAs(actualRet, typeKind):-
   VariableUsedAs(formalRet, typeKind),
   FormalReturnArgs(fun, formalRet, retPos),
@@ -510,6 +520,16 @@ VariableUsedAs(formalArg, toTypeKind):-
   CallGraphEdge(caller, fun),
   FormalArgs(fun, formalArg, pos),
   RevertEnforcesTypeCast(formalArg, typeKind, toTypeKind, _, _).
+
+// Flow from formalArg to actualArg
+// TODO: Disabled
+VariableUsedAs(actualArg, typeKind):-
+  VariableUsedAs(formalArg, typeKind),1=0,
+  FormalArgs(fun, formalArg, pos),
+  CallGraphEdge(caller, fun),
+  ActualArgs(caller, actualArg, pos),
+  !PolymorphicMethod(fun, pos, _),
+  !RevertEnforcesTypeCast(formalArg, typeKind, _, _, _).
 
 VariableUsedAs(to, typeKind):-
   VariableUsedAs(from, typeKind),
