@@ -82,16 +82,17 @@ DEBUG_OUTPUT(StorageVariableToAlias)
 StorageVariableToAlias(storVar, alias):-
   ProcessedStorageVariable(storVar, storVar),
   VarHoldsBytesOfStorVarPlus(var, _, storVar, 0, 0, 31),
-  uint256AliasFlowAnalysis.GlobalFlows(var, alias).
+  var = alias.
+  // uint256AliasFlowAnalysis.GlobalFlows(var, alias).
 
 StorageVariableToAlias(storVar, alias):-
   ProcessedStorageVariable(storVar, storVar),
   StorageStmtToIndexAndConstruct(store, _, _, storVar),
-  SSTORE(store, _, var),
-  (
-    uint256AliasFlowAnalysis.GlobalFlows(alias, var);
-    uint256AliasFlowAnalysis.GlobalFlows(var, alias)
-  ).
+  SSTORE(store, _, var), var=alias.
+  // (
+  //   uint256AliasFlowAnalysis.GlobalFlows(alias, var);
+  //   uint256AliasFlowAnalysis.GlobalFlows(var, alias)
+  // ).
 
 StorageVariable_IntermType(storVar, "uint256"):-
   ProcessedStorageVariable(storVar, storVar),
@@ -286,7 +287,7 @@ PolymorphicMethod(fun, argIndex, retIndex):-
   FormalReturnArgs(fun, ret, retIndex).
 
 .decl SignedIntVar(intVar: Variable)
-
+DEBUG_OUTPUT(SignedIntVar)
 SignedIntVar(intVar):-
   Statement_Opcode(stmt, op),
   (op = "SMOD" ; op = "SDIV"; op = "SGT"; op = "SLT"),
@@ -419,8 +420,9 @@ VariableUsedAsBase(var, "uint"):-
   strlen(val) < 30. // right aligned val
 
 VariableUsedAsBase(var, "int"):-
-  SignedIntVar(var);
-  SignedIntCast(_, var, _).
+  (SignedIntVar(var);
+  SignedIntCast(_, var, _)),
+  !RevertEnforcesTypeCast(var, "int", _, _, _).
 
 VariableUsedAsBase(var, "bytes"):-
   ComparisonOperation(_, var, otherVar),
@@ -482,6 +484,13 @@ VariableUsedAs(actualRet, typeKind):-
   CallGraphEdge(caller, fun),
   ActualReturnArgs(caller, actualRet, retPos),
   !RevertEnforcesTypeCast(actualRet, typeKind, _, _, _).
+
+VariableUsedAs(formalArg, toTypeKind):-
+  VariableUsedAs(actualArg, typeKind),
+  ActualArgs(caller, actualArg, pos),
+  CallGraphEdge(caller, fun),
+  FormalArgs(fun, formalArg, pos),
+  RevertEnforcesTypeCast(formalArg, typeKind, toTypeKind, _, _).
 
 VariableUsedAs(to, typeKind):-
   VariableUsedAs(from, typeKind),
