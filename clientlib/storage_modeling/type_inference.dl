@@ -253,6 +253,38 @@ ActualBinArithStmt(stmt):-
   !ISZERO(_, to, _),
   !JUMPI(_, _, to).
 
+.decl SharedIntMathOperation(stmt: Statement, use1: Variable, use2: Variable, def: Variable)
+SharedIntMathOperation(stmt, use1, use2, to):-
+  (Statement_Opcode(stmt, "MUL"); Statement_Opcode(stmt, "SHL")),
+  Statement_Uses(stmt, use1, 0),
+  Statement_Uses(stmt, use2, 1),
+  Statement_Defines(stmt, to, 0),
+  !LShiftBytes(_, to, _).
+
+SharedIntMathOperation(stmt, use1, use2, to):-
+  SUB(stmt, use1, use2, to),
+  !ISZERO(_, to, _),
+  !JUMPI(_, _, to).
+
+SharedIntMathOperation(stmt, use1, use2, to):-
+  ADD(stmt, use1, use2, to),
+  !ISZERO(_, to, _),
+  !JUMPI(_, _, to).
+
+
+.init polymorphicFlows = LocalFlowAnalysis
+
+polymorphicFlows.TransferStmt(stmt):- SharedIntMathOperation(stmt, _, _, _).
+polymorphicFlows.TransferBoundary(block) :- IsBlock(block).
+
+.decl PolymorphicMethod(fun: Function, argIndex: number, retIndex: number)
+DEBUG_OUTPUT(PolymorphicMethod)
+
+PolymorphicMethod(fun, argIndex, retIndex):-
+  FormalArgs(fun, arg, argIndex),
+  polymorphicFlows.Flows(arg, ret),
+  FormalReturnArgs(fun, ret, retIndex).
+
 .decl SignedIntVar(intVar: Variable)
 
 SignedIntVar(intVar):-
@@ -431,6 +463,16 @@ VariableUsedAs(formalArg, typeKind):-
   VariableUsedAs(actualArg, typeKind),
   ActualArgs(caller, actualArg, pos),
   CallGraphEdge(caller, fun),
+  FormalArgs(fun, formalArg, pos),
+  !PolymorphicMethod(fun, pos, _),
+  !RevertEnforcesTypeCast(formalArg, typeKind, _, _, _).
+
+VariableUsedAs(actualRet, typeKind):-
+  VariableUsedAs(actualArg, typeKind),
+  ActualArgs(caller, actualArg, pos),
+  CallGraphEdge(caller, fun),
+  PolymorphicMethod(fun, pos, retIndex),
+  ActualReturnArgs(caller, actualRet, retIndex),
   FormalArgs(fun, formalArg, pos),
   !RevertEnforcesTypeCast(formalArg, typeKind, _, _, _).
 
