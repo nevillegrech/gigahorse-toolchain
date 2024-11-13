@@ -6,6 +6,10 @@
 .decl Type_Width(type: Type, width: number)
 DEBUG_OUTPUT(Type_Width)
 
+// Top type for 32 bytes, to compare against VarLifter
+Type_Kind("bytes32/(u)int256", "any").
+Type_Width("bytes32/(u)int256", 32).
+
 Type_Kind("bool", "bool").
 Type_Width("bool", 1).
 Type_Kind("address", "uint").
@@ -76,6 +80,11 @@ StorageVariable_IntermType(storVar, bytesType) <= StorageVariable_IntermType(sto
   Type_Kind(bytesType, "bytes"),
   Type_Kind(uintType, "uint").
 
+StorageVariable_IntermType(storVar, anyType) <= StorageVariable_IntermType(storVar, type):-
+  Type_Kind(anyType, "any"),
+  Type_Kind(type, typeKind),
+  (typeKind = "bytes"; typeKind = "uint"; typeKind = "int").
+
 .decl StorageVariableToAlias(storVar: StorageConstruct, alias: Variable)
 DEBUG_OUTPUT(StorageVariableToAlias)
 
@@ -94,11 +103,24 @@ StorageVariableToAlias(storVar, alias):-
   //   uint256AliasFlowAnalysis.GlobalFlows(var, alias)
   // ).
 
-StorageVariable_IntermType(storVar, "uint256"):-
-  ProcessedStorageVariable(storVar, storVar),
-  instances = count : StorageVariableToAlias(storVar, _),
-  instances < 4.
 
+// OLD handling of 32 byte vals
+
+// StorageVariable_IntermType(storVar, "uint256"):-
+//   ProcessedStorageVariable(storVar, storVar),
+//   instances = count : StorageVariableToAlias(storVar, _),
+//   instances < 4.
+
+// StorageVariable_IntermType(var, "bytes32"):-
+//   IsStorageConstruct(var),
+//   var = $Variable(cons), cons = cons,
+//   ProcessedStorageVariable(var, var).
+
+// VarLifter compatible handling of 32 byte vals
+StorageVariable_IntermType(var, "bytes32/(u)int256"):-
+  IsStorageConstruct(var),
+  var = $Variable(cons), cons = cons,
+  ProcessedStorageVariable(var, var).
 
 StorageVariableToAlias($TightlyPackedVariable(cons, byteLow, byteHigh), alias):-
   ProcessedStorageVariable(storVar, $TightlyPackedVariable(cons, byteLow, byteHigh)),
@@ -110,11 +132,6 @@ StorageVariableToAlias($TightlyPackedVariable(cons, byteLow, byteHigh), alias):-
   VarWrittenToBytesOfStorVarFinal(var, _, storVar, byteLow, byteHigh),
   (uint256AliasFlowAnalysis.GlobalFlows(var, alias);
   uint256AliasFlowAnalysis.GlobalFlows(alias, var)).
-
-StorageVariable_IntermType(var, "bytes32"):-
-  IsStorageConstruct(var),
-  var = $Variable(cons), cons = cons,
-  ProcessedStorageVariable(var, var).
 
 StorageVariable_IntermType($TightlyPackedVariable(cons, byteLow, byteHigh), type):-
   ProcessedStorageVariable(_, $TightlyPackedVariable(cons, byteLow, byteHigh)),
@@ -432,6 +449,8 @@ VariableUsedAsBase(var, "bytes"):-
 VariableUsedAs(var, "bytes") <= VariableUsedAs(var, "uint"):- 1=1.
 
 VariableUsedAs(var, "uint") <= VariableUsedAs(var, "int"):- 1=1.
+
+VariableUsedAs(var, "any") <= VariableUsedAs(var, typeKind):- typeKind = "bytes"; typeKind = "uint"; typeKind = "int".
 
 VariableUsedAs(var, typeKind):-
   VariableUsedAsBase(var, typeKind).
