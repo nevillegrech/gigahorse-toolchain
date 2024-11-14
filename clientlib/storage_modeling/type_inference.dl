@@ -7,8 +7,8 @@
 DEBUG_OUTPUT(Type_Width)
 
 // Top type for 32 bytes, to compare against VarLifter
-Type_Kind("bytes32/(u)int256", "any").
-Type_Width("bytes32/(u)int256", 32).
+Type_Kind("any32", "any").
+Type_Width("any32", 32).
 
 Type_Kind("bool", "bool").
 Type_Width("bool", 1).
@@ -40,7 +40,7 @@ Type_Width(type, byteWidth):-
 // This relation is needed to ensure that the propagation of allsou
 .decl StorageVariable_IntermTypeDone(numOfFacts: number)
 
-
+DEBUG_OUTPUT(StorageVariable_IntermType)
 
 StorageVariable_IntermTypeDone(numOfFacts):-
   numOfFacts = count : StorageVariable_IntermType(_, _).
@@ -52,6 +52,14 @@ StorageVariable_Type($TightlyPackedVariable(cons, byteLow, byteHigh), type):-
 StorageVariable_Type($Variable(cons), type):-
   StorageVariable_IntermTypeDone(_),
   StorageVariable_IntermType($Variable(cons), type),
+  Type_Kind(type, typeKind),
+  typeKind != "any",
+  !IsPackedArray(cons, _).
+
+StorageVariable_Type($Variable(cons), "uint256"):-
+  StorageVariable_IntermTypeDone(_),
+  StorageVariable_IntermType($Variable(cons), type),
+  Type_Kind(type, "any"),
   !IsPackedArray(cons, _).
 
 // Hack for PackedArrays, to fix at a later point!
@@ -117,7 +125,7 @@ StorageVariableToAlias(storVar, alias):-
 //   ProcessedStorageVariable(var, var).
 
 // VarLifter compatible handling of 32 byte vals
-StorageVariable_IntermType(var, "bytes32/(u)int256"):-
+StorageVariable_IntermType(var, "any32"):-
   IsStorageConstruct(var),
   var = $Variable(cons), cons = cons,
   ProcessedStorageVariable(var, var).
@@ -392,6 +400,14 @@ ComparisonOperation(stmt, var1, var2):-
   Statement_Uses(stmt, var1, i),
   Statement_Uses(stmt, var2, 1 - i).
 
+ComparisonOperation(stmt, var1, var2):-
+  (SUB(stmt, var1, var2, def); SUB(stmt, var2, var1, def)),
+  JUMPI(_, _, def).
+
+ComparisonOperation(stmt, var1, var2):-
+  (SUB(stmt, var1, var2, def); SUB(stmt, var2, var1, def)),
+  ISZERO(_, def, cond),
+  JUMPI(_, _, cond).
 
 .decl PHIFlowBase(from: Variable, to: Variable)
 PHIFlowBase(from, to):-
@@ -426,7 +442,7 @@ VariableUsedAsBase(lenVar, "uint"):-
   ArrayAllocation(_, _, lenVar).
 
 VariableUsedAsBase(var, "bytes"):-
-  SHA3(_, _, _, var),
+  SHA3(_, _, _, var);
   BLOCKHASH(_, _, var);
   EXTCODEHASH(_, _, var).
 
