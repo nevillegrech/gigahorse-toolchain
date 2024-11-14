@@ -184,6 +184,13 @@ StorageVariable_IntermType($TightlyPackedVariable(cons, singleByte, singleByte),
   Uint8Var(uintVar),
   !Variable_Value(uintVar, _).
 
+StorageVariable_IntermType($TightlyPackedVariable(cons, singleByte, singleByte), "uint8"):-
+  ProcessedStorageVariable(_, $TightlyPackedVariable(cons, singleByte, singleByte)),
+  (VarHoldsBytesOfStorVarPlus(var, _, $Variable(cons), 0, singleByte, singleByte);
+  VarWrittenToBytesOfStorVarFinal(var, _, $Variable(cons), singleByte, singleByte)),
+  VariableUsedAs(var, "uint"),
+  !Variable_Value(var, _).
+
 .decl IsUint(storVar: StorageConstruct, uintVar: Variable)
 .output IsUint
 
@@ -279,6 +286,7 @@ ActualBinArithStmt(stmt):-
   !ISZERO(_, to, _),
   !JUMPI(_, _, to).
 
+// math operations used by both uintX and intX types
 .decl SharedIntMathOperation(stmt: Statement, use1: Variable, use2: Variable, def: Variable)
 SharedIntMathOperation(stmt, use1, use2, to):-
   (Statement_Opcode(stmt, "MUL"); Statement_Opcode(stmt, "SHL")),
