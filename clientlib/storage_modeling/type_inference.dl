@@ -203,6 +203,14 @@ StorageVariable_IntermType($TightlyPackedVariable(cons, byteLow, byteHigh), "uin
   uint160flowAnalysis.GlobalFlows(var, uintVar),
   UintVar(uintVar).
 
+StorageVariable_IntermType($TightlyPackedVariable(cons, byteLow, byteHigh), "uint160"):-
+  ProcessedStorageVariable(_, $TightlyPackedVariable(cons, byteLow, byteHigh)),
+  (VarHoldsBytesOfStorVarPlus(var, _, $Variable(cons), 0, byteLow, byteHigh);
+  VarWrittenToBytesOfStorVarFinal(var, _, $Variable(cons), byteLow, byteHigh)),
+  20 = 1 + byteHigh - byteLow,
+  VariableUsedAs(var, "uint"),
+  !Variable_Value(var, _).
+
 StorageVariable_IntermType($TightlyPackedVariable(cons, singleByte, singleByte), "uint8"):-
   ProcessedStorageVariable(_, $TightlyPackedVariable(cons, singleByte, singleByte)),
   ConstWrittenToBytesOfStorVarProcessed(_, constVal, _, _, $Variable(cons), singleByte, singleByte),
