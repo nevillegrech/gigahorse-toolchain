@@ -184,6 +184,7 @@ StorageVariable_IntermType($TightlyPackedVariable(cons, singleByte, singleByte),
   Uint8Var(uintVar),
   !Variable_Value(uintVar, _).
 
+// IsUint($TightlyPackedVariable(cons, singleByte, singleByte), var):-
 StorageVariable_IntermType($TightlyPackedVariable(cons, singleByte, singleByte), "uint8"):-
   ProcessedStorageVariable(_, $TightlyPackedVariable(cons, singleByte, singleByte)),
   (VarHoldsBytesOfStorVarPlus(var, _, $Variable(cons), 0, singleByte, singleByte);
@@ -477,7 +478,8 @@ VariableUsedAs(var, "uint") <= VariableUsedAs(var, "int"):- 1=1.
 VariableUsedAs(var, "any") <= VariableUsedAs(var, typeKind):- typeKind = "bytes"; typeKind = "uint"; typeKind = "int".
 
 VariableUsedAs(var, typeKind):-
-  VariableUsedAsBase(var, typeKind).
+  VariableUsedAsBase(var, typeKind),
+  !Variable_Value(var, _).
 
 VariableUsedAs(var, typeKind):-
   VariableUsedAs(otherVar, typeKind),
