@@ -87,6 +87,9 @@ contract SimpleArray {
         return false;
     }
 
+    function setOwners(address[] memory _owners) external {
+        owners = _owners;
+    }
 }
 
 contract SimpleMapping {

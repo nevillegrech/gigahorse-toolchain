@@ -1,0 +1,609 @@
+
+.type Type <: symbol
+
+.decl Type_Kind(type: Type, kind: symbol)
+
+.decl Type_Width(type: Type, width: number)
+DEBUG_OUTPUT(Type_Width)
+
+// Top type for 32 bytes, to compare against VarLifter
+Type_Kind("any32", "any").
+Type_Width("any32", 32).
+
+Type_Kind("bool", "bool").
+Type_Width("bool", 1).
+Type_Kind("address", "uint").
+Type_Width("address", 20).
+
+Type_Kind(type, "uint"),
+Type_Width(type, byteWidth):-
+  byteWidth = range(1, 33),
+  type = cat("uint", to_string(byteWidth*8)).
+
+Type_Kind(type, "int"),
+Type_Width(type, byteWidth):-
+  byteWidth = range(1, 33),
+  type = cat("int", to_string(byteWidth*8)).
+
+Type_Kind(type, "bytes"),
+Type_Width(type, byteWidth):-
+  byteWidth = range(1, 33),
+  type = cat("bytes", to_string(byteWidth)).
+
+
+// Note: Can probably be unified with `DataStructure_Type`
+.decl StorageVariable_Type(cons: StorageConstruct, type: symbol)
+
+// Added interm relation that can results removed via subsumption
+.decl StorageVariable_IntermType(cons: StorageConstruct, type: symbol) btree_delete
+
+// This relation is needed to ensure that the propagation of allsou
+.decl StorageVariable_IntermTypeDone(numOfFacts: number)
+
+DEBUG_OUTPUT(StorageVariable_IntermType)
+
+StorageVariable_IntermTypeDone(numOfFacts):-
+  numOfFacts = count : StorageVariable_IntermType(_, _).
+
+StorageVariable_Type($TightlyPackedVariable(cons, byteLow, byteHigh), type):-
+  StorageVariable_IntermTypeDone(_),
+  StorageVariable_IntermType($TightlyPackedVariable(cons, byteLow, byteHigh), type).
+
+StorageVariable_Type($Variable(cons), type):-
+  StorageVariable_IntermTypeDone(_),
+  StorageVariable_IntermType($Variable(cons), type),
+  Type_Kind(type, typeKind),
+  typeKind != "any",
+  !IsPackedArray(cons, _).
+
+StorageVariable_Type($Variable(cons), "uint256"):-
+  StorageVariable_IntermTypeDone(_),
+  StorageVariable_IntermType($Variable(cons), type),
+  Type_Kind(type, "any"),
+  !IsPackedArray(cons, _).
+
+// Hack for PackedArrays, to fix at a later point!
+// Should perhaps handle these with a special Variable construct type
+StorageVariable_Type($Variable(cons), cat("uint", to_string(8*width))):-
+  StorageVariable_IntermTypeDone(_),
+  StorageVariable_IntermType($Variable(cons), _),
+  IsPackedArray(cons, width).
+
+
+StorageVariable_IntermType(storVar, "bool") <= StorageVariable_IntermType(storVar, "uint8"):- 1=1.
+
+StorageVariable_IntermType(storVar, "address") <= StorageVariable_IntermType(storVar, "uint160"):- 1=1.
+
+StorageVariable_IntermType(storVar, "bytes32") <= StorageVariable_IntermType(storVar, "uint256"):- 1=1.
+
+StorageVariable_IntermType(storVar, uintType) <= StorageVariable_IntermType(storVar, intType):-
+  Type_Kind(uintType, "uint"),
+  Type_Kind(intType, "int").
+
+StorageVariable_IntermType(storVar, bytesType) <= StorageVariable_IntermType(storVar, intType):-
+  Type_Kind(bytesType, "bytes"),
+  Type_Kind(intType, "int").
+
+StorageVariable_IntermType(storVar, bytesType) <= StorageVariable_IntermType(storVar, uintType):-
+  Type_Kind(bytesType, "bytes"),
+  Type_Kind(uintType, "uint").
+
+StorageVariable_IntermType(storVar, anyType) <= StorageVariable_IntermType(storVar, type):-
+  Type_Kind(anyType, "any"),
+  Type_Kind(type, typeKind),
+  (typeKind = "bytes"; typeKind = "uint"; typeKind = "int").
+
+.decl StorageVariableToAlias(storVar: StorageConstruct, alias: Variable)
+DEBUG_OUTPUT(StorageVariableToAlias)
+
+StorageVariableToAlias(storVar, alias):-
+  ProcessedStorageVariable(storVar, storVar),
+  VarHoldsBytesOfStorVarPlus(var, _, storVar, 0, 0, 31),
+  var = alias.
+  // uint256AliasFlowAnalysis.GlobalFlows(var, alias).
+
+StorageVariableToAlias(storVar, alias):-
+  ProcessedStorageVariable(storVar, storVar),
+  StorageStmtToIndexAndConstruct(store, _, _, storVar),
+  SSTORE(store, _, var), var=alias.
+  // (
+  //   uint256AliasFlowAnalysis.GlobalFlows(alias, var);
+  //   uint256AliasFlowAnalysis.GlobalFlows(var, alias)
+  // ).
+
+
+// OLD handling of 32 byte vals
+
+// StorageVariable_IntermType(storVar, "uint256"):-
+//   ProcessedStorageVariable(storVar, storVar),
+//   instances = count : StorageVariableToAlias(storVar, _),
+//   instances < 4.
+
+// StorageVariable_IntermType(var, "bytes32"):-
+//   IsStorageConstruct(var),
+//   var = $Variable(cons), cons = cons,
+//   ProcessedStorageVariable(var, var).
+
+// VarLifter compatible handling of 32 byte vals
+StorageVariable_IntermType(var, "any32"):-
+  IsStorageConstruct(var),
+  var = $Variable(cons), cons = cons,
+  ProcessedStorageVariable(var, var).
+
+StorageVariableToAlias($TightlyPackedVariable(cons, byteLow, byteHigh), alias):-
+  ProcessedStorageVariable(storVar, $TightlyPackedVariable(cons, byteLow, byteHigh)),
+  VarHoldsBytesOfStorVarPlus(var, _, storVar, 0, byteLow, byteHigh),
+  uint256AliasFlowAnalysis.GlobalFlows(var, alias).
+
+StorageVariableToAlias($TightlyPackedVariable(cons, byteLow, byteHigh), alias):-
+  ProcessedStorageVariable(storVar, $TightlyPackedVariable(cons, byteLow, byteHigh)),
+  VarWrittenToBytesOfStorVarFinal(var, _, storVar, byteLow, byteHigh),
+  (uint256AliasFlowAnalysis.GlobalFlows(var, alias);
+  uint256AliasFlowAnalysis.GlobalFlows(alias, var)).
+
+StorageVariable_IntermType($TightlyPackedVariable(cons, byteLow, byteHigh), type):-
+  ProcessedStorageVariable(_, $TightlyPackedVariable(cons, byteLow, byteHigh)),
+  widthBytes = 1 + byteHigh - byteLow,
+  widthBytes != 20,
+  widthBytes != 1,
+  type = cat("uint", to_string(widthBytes * 8)).
+
+StorageVariable_IntermType($TightlyPackedVariable(cons, byteLow, byteHigh), type):-
+  ProcessedStorageVariable(_, $TightlyPackedVariable(cons, byteLow, byteHigh)),
+  StorageVariableToAlias($TightlyPackedVariable(cons, byteLow, byteHigh), aliasVar),
+  SignedIntCast(aliasVar, _, _),
+  widthBytes = 1 + byteHigh - byteLow,
+  type = cat("int", to_string(widthBytes * 8)).
+
+StorageVariable_IntermType($TightlyPackedVariable(cons, byteLow, byteHigh), type):-
+  ProcessedStorageVariable(_, $TightlyPackedVariable(cons, byteLow, byteHigh)),
+  StorageVariableToAlias($TightlyPackedVariable(cons, byteLow, byteHigh), aliasVar),
+  SignedIntVar(aliasVar),
+  widthBytes = 1 + byteHigh - byteLow,
+  type = cat("int", to_string(widthBytes * 8)).
+
+StorageVariable_IntermType($TightlyPackedVariable(cons, byteLow, byteHigh), "address"):-
+  ProcessedStorageVariable(_, $TightlyPackedVariable(cons, byteLow, byteHigh)),
+  widthBytes = 1 + byteHigh - byteLow,
+  widthBytes = 20.
+
+
+StorageVariable_IntermType(storVar, "uint256"):-
+  ProcessedStorageVariable(storVar, storVar),
+  ConstWrittenToBytesOfStorVar(_, constVal, _, _, storVar, 0, 31),
+  strlen(constVal) < 60. //is right aligned
+
+StorageVariable_IntermType($TightlyPackedVariable(cons, singleByte, singleByte), "bool"):-
+  ProcessedStorageVariable(_, $TightlyPackedVariable(cons, singleByte, singleByte)).
+
+IsUint($TightlyPackedVariable(cons, singleByte, singleByte), uintVar),
+StorageVariable_IntermType($TightlyPackedVariable(cons, singleByte, singleByte), "uint8"):-
+  ProcessedStorageVariable(_, $TightlyPackedVariable(cons, singleByte, singleByte)),
+  VarHoldsBytesOfStorVarPlus(var, _, $Variable(cons), 0, singleByte, singleByte),
+  uint8AliasFlowAnalysis.GlobalFlows(var, uintVar),
+  Uint8Var(uintVar),
+  !Variable_Value(uintVar, _).
+
+// IsUint($TightlyPackedVariable(cons, singleByte, singleByte), var):-
+StorageVariable_IntermType($TightlyPackedVariable(cons, singleByte, singleByte), "uint8"):-
+  ProcessedStorageVariable(_, $TightlyPackedVariable(cons, singleByte, singleByte)),
+  (VarHoldsBytesOfStorVarPlus(var, _, $Variable(cons), 0, singleByte, singleByte);
+  VarWrittenToBytesOfStorVarFinal(var, _, $Variable(cons), singleByte, singleByte)),
+  VariableUsedAs(var, "uint"),
+  !Variable_Value(var, _).
+
+.decl IsUint(storVar: StorageConstruct, uintVar: Variable)
+.output IsUint
+
+IsUint($TightlyPackedVariable(cons, byteLow, byteHigh), uintVar),
+StorageVariable_IntermType($TightlyPackedVariable(cons, byteLow, byteHigh), "uint160"):-
+  ProcessedStorageVariable(_, $TightlyPackedVariable(cons, byteLow, byteHigh)),
+  VarHoldsBytesOfStorVarPlus(var, _, $Variable(cons), 0, byteLow, byteHigh),
+  20 = 1 + byteHigh - byteLow,
+  uint160flowAnalysis.GlobalFlows(var, uintVar),
+  UintVar(uintVar).
+
+// Removed due to imprecision caused by comparisons/uses of mock address consts
+// IsUint($TightlyPackedVariable(cons, byteLow, byteHigh), var):-
+// StorageVariable_IntermType($TightlyPackedVariable(cons, byteLow, byteHigh), "uint160"):-
+//   ProcessedStorageVariable(_, $TightlyPackedVariable(cons, byteLow, byteHigh)),
+//   (VarHoldsBytesOfStorVarPlus(var, _, $Variable(cons), 0, byteLow, byteHigh);
+//   VarWrittenToBytesOfStorVarFinal(var, _, $Variable(cons), byteLow, byteHigh)),
+//   20 = 1 + byteHigh - byteLow,
+//   VariableUsedAs(var, "uint"),
+//   !Variable_Value(var, _).
+
+StorageVariable_IntermType($TightlyPackedVariable(cons, singleByte, singleByte), "uint8"):-
+  ProcessedStorageVariable(_, $TightlyPackedVariable(cons, singleByte, singleByte)),
+  ConstWrittenToBytesOfStorVarProcessed(_, constVal, _, _, $Variable(cons), singleByte, singleByte),
+  constVal != "0x0", constVal != "0x1".
+
+StorageVariable_IntermType($TightlyPackedVariable(cons, singleByte, singleByte), "uint8"):-
+  ProcessedStorageVariable(_, $TightlyPackedVariable(cons, singleByte, singleByte)),
+  VarWrittenToBytesOfStorVarFinal(var, _, $Variable(cons), singleByte, singleByte),
+  uint8AliasFlowAnalysis.GlobalFlows(uintVar, var),
+  Variable_Value(uintVar, constVal),
+  constVal != "0x0", constVal != "0x1".
+
+IsUint($TightlyPackedVariable(cons, singleByte, singleByte), uintVar),
+StorageVariable_IntermType($TightlyPackedVariable(cons, singleByte, singleByte), "uint8"):-
+  ProcessedStorageVariable(_, $TightlyPackedVariable(cons, singleByte, singleByte)),
+  VarWrittenToBytesOfStorVarFinal(var, _, $Variable(cons), singleByte, singleByte),
+  uint8AliasFlowAnalysis.GlobalFlows(uintVar, var),
+  Uint8Var(uintVar),
+  !Variable_Value(uintVar, _).
+
+StorageVariable_IntermType(var, type):-
+  StorageVariable_IntermType(packedVar, type),
+  ProcessedStorageVariable(var, packedVar),
+  IsStorageConstruct(var),
+  1 = count: ProcessedStorageVariable(var, _).
+
+.decl UintVar(var: Variable)
+UintVar(var):-
+  Statement_Uses(stmt, var, _),
+  ActualBinArithStmt(stmt).
+
+UintVar(var):-
+  ActualBinArithStmt(stmt),
+  Statement_Defines(stmt, var, _).
+
+UintVar(var):-
+  GAS(_, var);
+  CALLVALUE(_, var);
+  TIMESTAMP(_, var);
+  DIFFICULTY(_, var);
+  NUMBER(_, var);
+  BALANCE(_, _, var).
+
+UintVar(var):-
+  Variable_Value(var, value),
+  value != "0x0", value != "0x1",
+  strlen(value) < 30.
+
+// Added comparizons to UintVar results, as they're useful to distinguish bool and uint8
+.decl Uint8Var(var: Variable)
+Uint8Var(var):-
+  Statement_Uses(stmt, var, _),
+  Statement_Opcode(stmt, op),
+  (op = "LT"; op= "GT").
+
+Uint8Var(var):-
+  UintVar(var).
+
+.decl ActualBinArithStmt(stmt: Statement)
+
+ActualBinArithStmt(stmt):-
+  Statement_Opcode(stmt, op),
+  (op = "MOD" ; op = "EXP"; op = "ADDMOD"; op = "MULMOD").
+
+ActualBinArithStmt(stmt):-
+  (Statement_Opcode(stmt, "MUL"); Statement_Opcode(stmt, "SHL")),
+  Statement_Defines(stmt, to, 0),
+  !LShiftBytes(_, to, _).
+
+ActualBinArithStmt(stmt):-
+  (Statement_Opcode(stmt, "DIV"); Statement_Opcode(stmt, "SHR")),
+  Statement_Defines(stmt, to, 0),
+  !RShiftBytes(_, to, _).
+
+ActualBinArithStmt(stmt):-
+  SUB(stmt, _, _, to),
+  !ISZERO(_, to, _),
+  !JUMPI(_, _, to).
+
+ActualBinArithStmt(stmt):-
+  ADD(stmt, _, _, to),
+  !ISZERO(_, to, _),
+  !JUMPI(_, _, to).
+
+// math operations used by both uintX and intX types
+.decl SharedIntMathOperation(stmt: Statement, use1: Variable, use2: Variable, def: Variable)
+SharedIntMathOperation(stmt, use1, use2, to):-
+  (Statement_Opcode(stmt, "MUL"); Statement_Opcode(stmt, "SHL")),
+  Statement_Uses(stmt, use1, 0),
+  Statement_Uses(stmt, use2, 1),
+  Statement_Defines(stmt, to, 0),
+  !LShiftBytes(_, to, _).
+
+SharedIntMathOperation(stmt, use1, use2, to):-
+  SUB(stmt, use1, use2, to),
+  !ISZERO(_, to, _),
+  !JUMPI(_, _, to).
+
+SharedIntMathOperation(stmt, use1, use2, to):-
+  ADD(stmt, use1, use2, to),
+  !ISZERO(_, to, _),
+  !JUMPI(_, _, to).
+
+
+.init polymorphicFlows = LocalFlowAnalysis
+
+polymorphicFlows.TransferStmt(stmt):- SharedIntMathOperation(stmt, _, _, _).
+polymorphicFlows.TransferBoundary(block) :- IsBlock(block).
+
+.decl PolymorphicMethod(fun: Function, argIndex: number, retIndex: number)
+DEBUG_OUTPUT(PolymorphicMethod)
+
+PolymorphicMethod(fun, argIndex, retIndex):-
+  FormalArgs(fun, arg, argIndex),
+  polymorphicFlows.Flows(arg, ret),
+  FormalReturnArgs(fun, ret, retIndex).
+
+.decl SignedIntVar(intVar: Variable)
+DEBUG_OUTPUT(SignedIntVar)
+SignedIntVar(intVar):-
+  Statement_Opcode(stmt, op),
+  (op = "SMOD" ; op = "SDIV"; op = "SGT"; op = "SLT"),
+  Statement_Uses(stmt, intVar, _).
+
+SignedIntVar(intVar):-
+  Statement_Opcode(stmt, op),
+  (op = "SMOD" ; op = "SDIV"),
+  Statement_Defines(stmt, intVar, _).
+
+.decl GlobalStructFlowsBase(from: Variable, to: Variable)
+GlobalStructFlowsBase(storedVar, loadedVar):-
+  StructLoad(_, structBase, wordOffset, loadedVar),
+  VarPointsToStruct(_, structBase, heapCtx, structId),
+  VarPointsToStruct(_, structBaseAlias, heapCtx, structId),
+  StructStore(_, structBaseAlias, wordOffset, storedVar).
+
+.init uint8AliasFlowAnalysis = GlobalFlowAnalysis
+uint8AliasFlowAnalysis.InitialFlowVar(v) :- isVariable(v).
+uint8AliasFlowAnalysis.TransferBoundary(b) :- IsBlock(b).
+
+uint8AliasFlowAnalysis.TransferStmt(stmt):-
+  Statement_Defines(stmt, to, 0),
+  LowBytesMaskOp(_, to, castedTo),
+  !SignedIntCast(_, to, castedTo), // needed because its contained in the prior
+  // allow things to be upcasted for completeness
+  castedTo >= 1.
+
+uint8AliasFlowAnalysis.TransferStmt(stmt):-
+  PHI(stmt, _, to),
+  nUses = count: PHITrans(_, to),
+  nUses < 4.
+
+uint8AliasFlowAnalysis.FlowsBase(from, to):-
+  GlobalStructFlowsBase(from, to).
+
+.init uint160flowAnalysis = GlobalFlowAnalysis
+uint160flowAnalysis.InitialFlowVar(v) :- isVariable(v).
+uint160flowAnalysis.TransferBoundary(b) :- IsBlock(b).
+
+// uint160flowAnalysis.TransferStmt(stmt):- ActualBinArithStmt(stmt).
+
+uint160flowAnalysis.TransferStmt(stmt):-
+  Statement_Defines(stmt, to, 0),
+  LowBytesMaskOp(_, to, castedTo),
+  !SignedIntCast(_, to, castedTo), // needed because its contained in the prior
+  // allow things to be upcasted for completeness
+  castedTo >= 20.
+
+uint160flowAnalysis.TransferStmt(stmt):-
+  PHI(stmt, _, to),
+  nUses = count: PHITrans(_, to),
+  nUses < 4.
+
+uint160flowAnalysis.FlowsBase(from, to):-
+  GlobalStructFlowsBase(from, to).
+
+.output uint256AliasFlowAnalysis.GlobalFlows
+
+.init uint256AliasFlowAnalysis = GlobalFlowAnalysis
+uint256AliasFlowAnalysis.InitialFlowVar(v) :- isVariable(v).
+uint256AliasFlowAnalysis.TransferBoundary(b) :- IsBlock(b).
+
+uint256AliasFlowAnalysis.TransferStmt(stmt):-
+  Statement_Defines(stmt, to, 0),
+  LowBytesMaskOp(_, to, castedTo),
+  !SignedIntCast(_, to, castedTo), // needed because its contained in the prior
+  // allow things to be upcasted for completeness
+  castedTo >= 2.
+
+uint256AliasFlowAnalysis.TransferStmt(stmt):-
+  PHI(stmt, _, to),
+  nUses = count: PHITrans(_, to),
+  nUses < 4.
+
+uint256AliasFlowAnalysis.FlowsBase(from, to):-
+  GlobalStructFlowsBase(from, to).
+
+.decl ComparisonOperation(stmt: Statement, var1: Variable, var2: Variable)
+DEBUG_OUTPUT(ComparisonOperation)
+
+ComparisonOperation(stmt, var1, var2):-
+  Statement_Opcode(stmt, op),
+  (op = "LT"; op= "GT"; op = "EQ"),
+  Statement_Uses(stmt, var1, i),
+  Statement_Uses(stmt, var2, 1 - i).
+
+ComparisonOperation(stmt, var1, var2):-
+  (SUB(stmt, var1, var2, def); SUB(stmt, var2, var1, def)),
+  JUMPI(_, _, def).
+
+ComparisonOperation(stmt, var1, var2):-
+  (SUB(stmt, var1, var2, def); SUB(stmt, var2, var1, def)),
+  ISZERO(_, def, cond),
+  JUMPI(_, _, cond).
+
+.decl PHIFlowBase(from: Variable, to: Variable)
+PHIFlowBase(from, to):-
+  PHITrans(from, to),
+  nUses = count: PHITrans(_, to),
+  nUses < 4.
+
+.decl VariableUsedAs(var: Variable, typeKind: symbol)
+DEBUG_OUTPUT(VariableUsedAs)
+
+.decl VariableUsedAsBase(var: Variable, typeKind: symbol)
+DEBUG_OUTPUT(VariableUsedAsBase)
+
+VariableUsedAsBase(var, "uint"):-
+  GAS(_, var);
+  CALLVALUE(_, var);
+  TIMESTAMP(_, var);
+  DIFFICULTY(_, var);
+  NUMBER(_, var);
+  BALANCE(_, _, var).
+
+VariableUsedAsBase(var, "uint"):-
+  ActualBinArithStmt(stmt),
+  Statement_Uses(stmt, var, _).
+
+VariableUsedAsBase(var, "uint"):-
+  ActualBinArithStmt(stmt),
+  Statement_Defines(stmt, var, _).
+
+VariableUsedAsBase(lenVar, "uint"):-
+  ArrayLengthVar(_, lenVar);
+  ArrayAllocation(_, _, lenVar).
+
+VariableUsedAsBase(var, "bytes"):-
+  SHA3(_, _, _, var);
+  BLOCKHASH(_, _, var);
+  EXTCODEHASH(_, _, var).
+
+VariableUsedAsBase(var, "uint"):-
+  ComparisonOperation(_, var, otherVar),
+  Variable_Value(otherVar, val),
+  val != "0x0", val != "0x1",
+  strlen(val) < 30. // right aligned val
+
+VariableUsedAsBase(var, "int"):-
+  (SignedIntVar(var);
+  SignedIntCast(_, var, _)),
+  !RevertEnforcesTypeCast(var, "int", _, _, _).
+
+VariableUsedAsBase(var, "bytes"):-
+  ComparisonOperation(_, var, otherVar),
+  Variable_Value(otherVar, val),
+  strlen(val) >= 65. // left aligned val (65 or 66 chars in our repr)
+
+VariableUsedAs(var, "bytes") <= VariableUsedAs(var, "uint"):- 1=1.
+
+VariableUsedAs(var, "uint") <= VariableUsedAs(var, "int"):- 1=1.
+
+VariableUsedAs(var, "any") <= VariableUsedAs(var, typeKind):- typeKind = "bytes"; typeKind = "uint"; typeKind = "int".
+
+VariableUsedAs(var, typeKind):-
+  VariableUsedAsBase(var, typeKind),
+  !Variable_Value(var, _).
+
+VariableUsedAs(var, typeKind):-
+  VariableUsedAs(otherVar, typeKind),
+  ComparisonOperation(_, var, otherVar),
+  !Variable_Value(var, _).
+
+VariableUsedAs(var, "uint"):-
+  VariableUsedAs(defVar, "uint"),
+  LowBytesMaskOp(var, defVar, castedTo),
+  !SignedIntCast(var, defVar, castedTo),
+  castedTo > 1.
+
+VariableUsedAs(defVar, "uint"):-
+  VariableUsedAs(useVar, "uint"),
+  LowBytesMaskOp(useVar, defVar, castedTo),
+  !SignedIntCast(useVar, defVar, castedTo),
+  castedTo > 1.
+
+VariableUsedAs(toVar, "bytes"):-
+  VariableUsedAs(useVar, "bytes"),
+  HighBytesMaskOp(useVar, toVar, _).
+
+VariableUsedAs(useVar, "bytes"):-
+  VariableUsedAs(toVar, "bytes"),
+  HighBytesMaskOp(useVar, toVar, _).
+
+VariableUsedAs(formalArg, typeKind):-
+  VariableUsedAs(actualArg, typeKind),
+  ActualArgs(caller, actualArg, pos),
+  CallGraphEdge(caller, fun),
+  FormalArgs(fun, formalArg, pos),
+  !PolymorphicMethod(fun, pos, _),
+  !RevertEnforcesTypeCast(formalArg, typeKind, _, _, _).
+
+VariableUsedAs(actualRet, typeKind):-
+  VariableUsedAs(actualArg, typeKind),
+  ActualArgs(caller, actualArg, pos),
+  CallGraphEdge(caller, fun),
+  PolymorphicMethod(fun, pos, retIndex),
+  ActualReturnArgs(caller, actualRet, retIndex),
+  FormalArgs(fun, formalArg, pos),
+  !RevertEnforcesTypeCast(formalArg, typeKind, _, _, _).
+
+// Backwards from actualRet to actualArg
+VariableUsedAs(actualArg, typeKind):-
+  VariableUsedAs(actualRet, typeKind),
+  ActualReturnArgs(caller, actualRet, retIndex),
+  CallGraphEdge(caller, fun),
+  ActualArgs(caller, actualArg, pos),
+  PolymorphicMethod(fun, pos, retIndex),
+  FormalArgs(fun, formalArg, pos),
+  !RevertEnforcesTypeCast(formalArg, typeKind, _, _, _).
+
+VariableUsedAs(actualRet, typeKind):-
+  VariableUsedAs(formalRet, typeKind),
+  FormalReturnArgs(fun, formalRet, retPos),
+  CallGraphEdge(caller, fun),
+  ActualReturnArgs(caller, actualRet, retPos),
+  !RevertEnforcesTypeCast(actualRet, typeKind, _, _, _).
+
+VariableUsedAs(formalArg, toTypeKind):-
+  VariableUsedAs(actualArg, typeKind),
+  ActualArgs(caller, actualArg, pos),
+  CallGraphEdge(caller, fun),
+  FormalArgs(fun, formalArg, pos),
+  RevertEnforcesTypeCast(formalArg, typeKind, toTypeKind, _, _).
+
+// Flow from formalArg to actualArg
+// TODO: Disabled
+VariableUsedAs(actualArg, typeKind):-
+  VariableUsedAs(formalArg, typeKind),1=0,
+  FormalArgs(fun, formalArg, pos),
+  CallGraphEdge(caller, fun),
+  ActualArgs(caller, actualArg, pos),
+  !PolymorphicMethod(fun, pos, _),
+  !RevertEnforcesTypeCast(formalArg, typeKind, _, _, _).
+
+VariableUsedAs(to, typeKind):-
+  VariableUsedAs(from, typeKind),
+  GlobalStructFlowsBase(from, to),
+  !RevertEnforcesTypeCast(to, typeKind, _, _, _).
+
+VariableUsedAs(from, typeKind):-
+  VariableUsedAs(to, typeKind),
+  GlobalStructFlowsBase(from, to).
+
+VariableUsedAs(to, typeKind):-
+  VariableUsedAs(from, typeKind),
+  PHIFlowBase(from, to),
+  !RevertEnforcesTypeCast(to, typeKind, _, _, _).
+
+StorageVariable_IntermType(storVar, type):-
+  VariableUsedAs(alias, typeKind),
+  StorageVariableToAlias(storVar, alias),
+  ProcessedStorageVariable(storVar, storVar),
+  Type_Kind(type, typeKind),
+  Type_Width(type, 32).
+
+// IsUint(storVar, alias),
+// StorageVariable_IntermType(storVar, type):-
+//   VariableUsedAs(alias, "uint"),
+//   StorageVariableToAlias(storVar, alias),
+//   ProcessedStorageVariable(storVar, storVar),
+//   Type_Kind(type, "uint"),
+//   Type_Width(type, 32).
+
+VariableUsedAs(alias, "uint"):-
+  StorageVariable_IntermType(storVar, type),
+  ProcessedStorageVariable(storVar, storVar),
+  StorageVariableToAlias(storVar, alias),
+  Type_Kind(type, "uint").
+
+VariableUsedAs(alias, "bytes"):-
+  StorageVariable_IntermType(storVar, type),
+  ProcessedStorageVariable(storVar, storVar),
+  StorageVariableToAlias(storVar, alias),
+  Type_Kind(type, "bytes").

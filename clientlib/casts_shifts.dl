@@ -147,6 +147,17 @@ CastedAndShiftedVar(checkedVar, toVar, shiftedBy, 1):-
 HighBytesCastedAndRightShiftedVar(originVar, toVar, shiftedBy, castedTo):-
   HighBytesMaskOp(originVar, castedVar, castedTo),
   RShiftBytes(castedVar, toVar, shiftedBy).
+
+// TODO: Bounds check
+// HighBytesCastedAndRightShiftedVar(originVar, toVar, shiftedBy + moreShift, castedTo):-
+//   HighBytesCastedAndRightShiftedVar(originVar, tmpVar, shiftedBy, castedTo),
+//   RShiftBytes(tmpVar, toVar, moreShift).
+
+// TODO: Bounds check
+// HighBytesCastedAndRightShiftedVar(originVar, toVar, shiftedBy - moreShift, castedTo):-
+//   HighBytesCastedAndRightShiftedVar(originVar, tmpVar, shiftedBy, castedTo),
+//   LShiftBytes(tmpVar, toVar, moreShift).
+
 /**
   Optimized pattern like so:
     0xa4: va4 = SHL v9f(0xa0), v84
@@ -383,3 +394,62 @@ RevertEnforcesEnum(checkedVar, smallNum, checkBlock):-
   Statement_Block(jumpi, checkBlock),
   FallthroughEdge(checkBlock, revertBlock),
   ThrowBlock(revertBlock).
+
+// Hack, need a better way to get PHI aliases
+RevertEnforcesEnum(checkedVarAlias, smallNum, checkBlock):-
+  RevertEnforcesEnum(checkedVar, smallNum, checkBlock),
+  PHIStmtTwoUses(_, var1, var2, checkedVar),
+  PHIStmtTwoUses(_, var1, var2, checkedVarAlias).
+
+.decl RevertCastsToUint(checkedVar: Variable, jumpiBlock: Block)
+DEBUG_OUTPUT(RevertCastsToUint)
+RevertCastsToUint(checkedVar, checkBlock):-
+  SLT(_, checkedVar, zeroVar, negCont),
+  BasicVariable_Value(zeroVar, "0x0"),
+  ISZERO(_, negCont, cond),
+  JUMPI(jumpi, _, cond),
+  Statement_Block(jumpi, checkBlock),
+  FallthroughEdge(checkBlock, revertBlock),
+  ThrowBlock(revertBlock).
+
+RevertCastsToUint(def, checkBlock):-
+  (EQ(_, checkedVar, maxConst, negCont); EQ(_, maxConst, checkedVar, negCont)),
+  BasicVariable_Value(maxConst, const),
+  IntMaxConst(const, 256),
+  ISZERO(_, negCont, cond),
+  JUMPI(jumpi, _, cond),
+  Statement_Block(jumpi, checkBlock),
+  FallthroughEdge(checkBlock, revertBlock),
+  ThrowBlock(revertBlock),
+  SUB(_, zeroVar, checkedVar, posVar),
+  BasicVariable_Value(zeroVar, "0x0"),
+  PHIStmtTwoUses(_, checkedVar, posVar, def).
+
+.decl IntMaxConst(const: Value, width: number)
+IntMaxConst(as(@exp_256("0x2", @number_to_hex(typeWidth - 1)), Value), typeWidth):-
+  typeWidth = range(8, 264, 8).
+
+.decl IntMaxConstMinusOne(const: Value, width: number)
+IntMaxConstMinusOne(as(@sub_256(@exp_256("0x2", @number_to_hex(typeWidth - 1)), "0x1"), Value), typeWidth):-
+  typeWidth = range(8, 264, 8).
+
+.decl RevertCastsToInt(checkedVar: Variable, width: number, jumpiBlock: Block)
+DEBUG_OUTPUT(RevertCastsToInt)
+RevertCastsToInt(checkedVar, width, checkBlock):-
+  GT(_, checkedVar, zeroVar, negCont),
+  BasicVariable_Value(zeroVar, const),
+  IntMaxConstMinusOne(const, width),
+  ISZERO(_, negCont, cond),
+  JUMPI(jumpi, _, cond),
+  Statement_Block(jumpi, checkBlock),
+  FallthroughEdge(checkBlock, revertBlock),
+  ThrowBlock(revertBlock).
+
+.decl RevertEnforcesTypeCast(checkedVar: Variable, fromTypeKind: symbol, toTypeKind: symbol, width: number, jumpiBlock: Block)
+DEBUG_OUTPUT(RevertEnforcesTypeCast)
+
+RevertEnforcesTypeCast(checkedVar, "uint", "int", width, checkBlock):-
+  RevertCastsToInt(checkedVar, width, checkBlock).
+
+RevertEnforcesTypeCast(checkedVar, "int", "uint", 256, checkBlock):-
+  RevertCastsToUint(checkedVar, checkBlock).

@@ -9,6 +9,7 @@
   used to index/access it, representing the actual low-level index flowing to `SSTORE`/`SLOAD` stmts.
 */
 .type StorageIndex = ConstantIndex {value: Value}
+                    | StaticArrayAccessIndex {parIndex: StorageIndex, arraySize: number, indexVar: Variable}
                     | ArrayAccessIndex {parIndex: StorageIndex, indexVar: Variable}
                     | ArrayDataStartIndex {parIndex: StorageIndex}
                     | MappingAccessIndex {parIndex: StorageIndex, keyVar: Variable}
@@ -18,6 +19,7 @@
   `StorageConstruct` contains the information of `StorageIndex`, stripped of indexing/access vars
 */
 .type StorageConstruct = Constant {value: Value}
+                        | StaticArray {parConstruct: StorageConstruct, arraySize: number}
                         | Array {parConstruct: StorageConstruct}
                         | Mapping {parConstruct: StorageConstruct}
                         | Offset {parConstruct: StorageConstruct, offset: number}
@@ -82,8 +84,6 @@
 
 // Note: Can probably be unified with `StorageVariable_Type`
 .decl DataStructure_Type(cons: StorageConstruct, type: symbol)
-// Note: Can probably be unified with `DataStructure_Type`
-.decl StorageVariable_Type(cons: StorageConstruct, type: symbol)
 
 // Doesn't contain TightlyPackedVariable, maybe revisit
 .decl StorageConstruct_ParentAndOffset(cons: StorageConstruct, parentCons: StorageConstruct, offset: number)
@@ -187,6 +187,17 @@ Variable_StorageIndex(def, $ArrayAccessIndex(parentIndex, newIndexVar)):-
   ADDFix(_, indexVar, minusOneConstVar2, newIndexVar),
   Variable_Value(minusOneConstVar2, "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff").
 
+Variable_StorageIndex(def, $StaticArrayAccessIndex(parentIndex, arraySize, checkedVar)):-
+  Variable_StorageIndex(var, parentIndex),
+  ADDFix(_, var, checkedVar, def),
+  RevertEnforcesEnum(checkedVar, arraySize, _).
+
+Variable_StorageIndex(def, $StaticArrayAccessIndex(parentIndex, arraySize, checkedVarDiv)):-
+  Variable_StorageIndex(var, parentIndex),
+  ADDFix(_, var, checkedVarDiv, def),
+  DIV(_, checkedVar, const, checkedVarDiv),
+  Variable_Value(const, _),
+  RevertEnforcesEnum(checkedVar, arraySize, _).
 
 StorageIndex_StorageConstruct($ConstantIndex(val), $Constant(val)):-
   ActualStorageIndex($ConstantIndex(val)).
@@ -205,6 +216,10 @@ StorageIndex_StorageConstruct($MappingAccessIndex(parentIndex, highLevelIndex), 
 
 StorageIndex_StorageConstruct($OffsetIndex(parentIndex, offset), $Offset(parentCons, offset)):-
   ActualStorageIndex($OffsetIndex(parentIndex, offset)), offset != 0,
+  StorageIndex_StorageConstruct(parentIndex, parentCons).
+
+StorageIndex_StorageConstruct($StaticArrayAccessIndex(parentIndex, arraySize, indexVar), $StaticArray(parentCons, arraySize)):-
+  ActualStorageIndex($StaticArrayAccessIndex(parentIndex, arraySize, indexVar)),
   StorageIndex_StorageConstruct(parentIndex, parentCons).
 
 /**
@@ -229,6 +244,7 @@ StorageIndex_ParentIndex(index, parentIndex):-
   (
     (index = $ArrayAccessIndex(parentIndex, indexVar), indexVar = indexVar); // suppress warning
     (index = $ArrayDataStartIndex(parentIndex));
+    (index = $StaticArrayAccessIndex(parentIndex, arraySize, indexVar), indexVar = indexVar, arraySize = arraySize); // suppress warning
     (index = $MappingAccessIndex(parentIndex, indexVar), indexVar = indexVar); // suppress warning
     (index = $OffsetIndex(parentIndex, offset), offset = offset) // suppress warning
   ).
@@ -238,6 +254,7 @@ StorageIndex_ParentIndexExclOffset(index, parentIndex):-
   (
     (index = $ArrayAccessIndex(parentIndex, indexVar), indexVar = indexVar); // suppress warning
     (index = $ArrayDataStartIndex(parentIndex));
+    (index = $StaticArrayAccessIndex(parentIndex, arraySize, indexVar), indexVar = indexVar, arraySize = arraySize); // suppress warning
     (index = $MappingAccessIndex(parentIndex, indexVar), indexVar = indexVar) // suppress warning
     // commenting this out for now, helps some cases but is not right
     // ;(index = $OffsetIndex(parentIndex, offset), offset > 0) // suppress warning
@@ -272,13 +289,13 @@ ActualStorageIndex(parentIndex):-
 
 StorageIndex_HighLevelUses(index, accessVar, 0, 0, 1):-
   ActualStorageIndex(index),
-  (index = $ArrayAccessIndex($ConstantIndex(const), accessVar); index = $MappingAccessIndex($ConstantIndex(const), accessVar)),
+  (index = $ArrayAccessIndex($ConstantIndex(const), accessVar); (index = $StaticArrayAccessIndex($ConstantIndex(const), arraySize, accessVar), arraySize=arraySize); index = $MappingAccessIndex($ConstantIndex(const), accessVar)),
   const = const.
 
 StorageIndex_HighLevelUses(index, otherVar, prevOffset, i, prevNestedness + 1),
 StorageIndex_HighLevelUses(index, accessVar, 0, prevNestedness, prevNestedness + 1):-
   ActualStorageIndex(index),
-  (index = $ArrayAccessIndex(parIndex, accessVar); index = $MappingAccessIndex(parIndex, accessVar)),
+  (index = $ArrayAccessIndex(parIndex, accessVar); (index = $StaticArrayAccessIndex(parIndex, arraySize, accessVar), arraySize=arraySize); index = $MappingAccessIndex(parIndex, accessVar)),
   StorageIndex_HighLevelUses(parIndex, otherVar, prevOffset, i, prevNestedness).
 
 StorageIndex_HighLevelUses($OffsetIndex(parentIndex, offset), accessVar, prevOffset, i, prevNestedness):-
@@ -314,19 +331,19 @@ IsStorageConstruct(cons),
 IsDataStructureConstruct(cons):-
   ActualStorageIndex(index),
   StorageIndex_StorageConstruct(index, cons),
-  (cons = $Array(parentCons); cons = $Mapping(parentCons)), // filter intermediate constructs
+  (cons = $Array(parentCons); cons = $Mapping(parentCons); (cons = $StaticArray(parentCons, arraySize), arraySize=arraySize)), // filter intermediate constructs
   parentCons = parentCons. // suppress warning
 
 StorageConstruct_ParentAndOffset(cons, paparentCons, offset):-
   IsStorageConstruct(cons),
-  (cons = $Array(parentCons); cons = $Mapping(parentCons); cons = $Variable(parentCons)),
+  (cons = $Array(parentCons); cons = $Mapping(parentCons); (cons = $StaticArray(parentCons, arraySize), arraySize=arraySize); cons = $Variable(parentCons)),
   parentCons = $Offset(paparentCons, offset),
   offset = offset. // suppress warning
 
 StorageConstruct_ParentAndOffset(cons, parentCons, 0):-
   IsStorageConstruct(cons),
-  (cons = $Array(parentCons); cons = $Mapping(parentCons); cons = $Variable(parentCons)),
-  (parentCons = $Array(paparentCons) ; parentCons = $Mapping(paparentCons); parentCons = $Variable(paparentCons)),
+  (cons = $Array(parentCons); cons = $Mapping(parentCons); (cons = $StaticArray(parentCons, arraySize), arraySize=arraySize); cons = $Variable(parentCons)),
+  (parentCons = $Array(paparentCons) ; parentCons = $Mapping(paparentCons); (parentCons = $StaticArray(paparentCons, arraySize2), arraySize2=arraySize2); parentCons = $Variable(paparentCons)),
   paparentCons = paparentCons. // suppress warning
 
 DataStructure_ElemNum(cons, elemNum):-
@@ -431,27 +448,8 @@ DataStructure_Type($Array(parentCons), "string"):-
   IsDataStructureConstruct($Array(parentCons)),
   BytesOrStringLengthV2($Array(parentCons), _).
 
-StorageVariable_Type(var, "uint256"):-
-  IsStorageConstruct(var),
-  var = $Variable(cons), cons = cons,
-  ProcessedStorageVariable(var, var).
-
-StorageVariable_Type($TightlyPackedVariable(cons, byteLow, byteHigh), type):-
-  ProcessedStorageVariable(_, $TightlyPackedVariable(cons, byteLow, byteHigh)),
-  !SpecialStorageVariableType($TightlyPackedVariable(cons, byteLow, byteHigh), _),
-  widthBytes = 1 + byteHigh - byteLow,
-  type = cat("uint", to_string(widthBytes * 8)).
-
-StorageVariable_Type($TightlyPackedVariable(cons, byteLow, byteHigh), type):-
-  ProcessedStorageVariable(_, $TightlyPackedVariable(cons, byteLow, byteHigh)),
-  SpecialStorageVariableType($TightlyPackedVariable(cons, byteLow, byteHigh), type).
-
-StorageVariable_Type(var, type):-
-  StorageVariable_Type(packedVar, type),
-  ProcessedStorageVariable(var, packedVar),
-  IsStorageConstruct(var),
-  1 = count: ProcessedStorageVariable(var, _).
-
+DataStructure_Type($StaticArray(parentCons, arraySize), cat(type, cat("[", cat(to_string(arraySize), "]")))):-
+  DataStructure_ValueOrElementType($StaticArray(parentCons, arraySize), type).
 
 // // Disable general rule for now
 // StorageStmtToIndexAndConstruct(stmt, "ACCESS", index, $Variable(cons)):-
@@ -522,7 +520,7 @@ StorageStmtToIndexAndConstruct(store, "ACCESS", index, $TightlyPackedVariable(co
 
 StorageOffset_Type(offset, type):-
   DataStructure_Type(cons, type),
-  (cons = $Array(parentCons); cons = $Mapping(parentCons)),
+  (cons = $Array(parentCons); cons = $Mapping(parentCons); (cons = $StaticArray(parentCons, arraySize), arraySize=arraySize)),
   parentCons = $Constant(offset).
 
 
@@ -555,6 +553,18 @@ BytesOrStringLengthV2(cons, lenVar):-
   DIV(_, almost, twoVar, lenVar),
   Variable_Value(twoVar, "0x2").
 
+BytesOrStringLengthV2(cons, lenVar):-
+  ArrayLengthStatement(stmt, _, cons),
+  Statement_Defines(stmt, lengthVar, 0),
+  (AND(_, lengthVar, oneVar, lastBitVar) ; AND(_, oneVar, lengthVar, lastBitVar)),
+  Variable_Value(oneVar, "0x1"),
+  ISZERO(_, lastBitVar, notLastBitVar),
+  LShiftBytes(notLastBitVar, shifted, 1),
+  VarPlusConst(shifted, "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", minOne),
+  (AND(_, minOne, lengthVar, almost) ; AND(_, lengthVar, minOne, almost)),
+  DIV(_, almost, twoVar, lenVar),
+  Variable_Value(twoVar, "0x2").
+
 BytesOrStringLengthV2(cons, phiDef):-
   ArrayLengthStatement(stmt, _, cons),
   Statement_Defines(stmt, lengthVar, 0),
@@ -564,6 +574,21 @@ BytesOrStringLengthV2(cons, phiDef):-
   Variable_Value(var127, "0x7f"),
   (PHIStmtTwoUses(_, otherCase, shiftedVar, phiDef); PHIStmtTwoUses(_, shiftedVar, otherCase, phiDef)),
   (ArrayAllocation(_, _, phiDef); MSTORE(_, _, phiDef)).
+
+BytesOrStringLengthV2(cons, phiDef):-
+  ArrayLengthStatement(stmt, _, cons),
+  Statement_Defines(stmt, lengthVar, 0),
+  ActualArgs(caller, lengthVar, index),
+  CallGraphEdge(caller, method),
+  FormalArgs(method, inLenVar, index),
+  SHR(_, shiftBits, inLenVar, shiftedVar),
+  Variable_Value(shiftBits, "0x1"),
+  (AND(_, var127, shiftedVar, otherCase) ; AND(_, shiftedVar, var127, otherCase)),
+  Variable_Value(var127, "0x7f"),
+  (PHIStmtTwoUses(_, otherCase, shiftedVar, phiDef); PHIStmtTwoUses(_, shiftedVar, otherCase, phiDef)),
+  FormalReturnArgs(method, phiDef, retIndex),
+  ActualReturnArgs(caller, outPhiDef, retIndex),
+  (ArrayAllocation(_, _, outPhiDef); MSTORE(_, _, outPhiDef)).
 
 // To introduce ShifyBits rels to remove this rule
 BytesOrStringLengthV2(cons, phiDef):-
@@ -575,6 +600,22 @@ BytesOrStringLengthV2(cons, phiDef):-
   Variable_Value(var127, "0x7f"),
   (PHIStmtTwoUses(_, otherCase, shiftedVar, phiDef); PHIStmtTwoUses(_, shiftedVar, otherCase, phiDef)),
   (ArrayAllocation(_, _, phiDef); MSTORE(_, _, phiDef)).
+
+// To introduce ShifyBits rels to remove this rule
+BytesOrStringLengthV2(cons, phiDef):-
+  ArrayLengthStatement(stmt, _, cons),
+  Statement_Defines(stmt, lengthVar, 0),
+  ActualArgs(caller, lengthVar, index),
+  CallGraphEdge(caller, method),
+  FormalArgs(method, inLenVar, index),
+  DIV(_, inLenVar, twoVar, shiftedVar),
+  Variable_Value(twoVar, "0x2"),
+  (AND(_, var127, shiftedVar, otherCase) ; AND(_, shiftedVar, var127, otherCase)),
+  Variable_Value(var127, "0x7f"),
+  (PHIStmtTwoUses(_, otherCase, shiftedVar, phiDef); PHIStmtTwoUses(_, shiftedVar, otherCase, phiDef)),
+  FormalReturnArgs(method, phiDef, retIndex),
+  ActualReturnArgs(caller, outPhiDef, retIndex),
+  (ArrayAllocation(_, _, outPhiDef); MSTORE(_, _, outPhiDef)).
 
 /**
   A constant that flows to storage (possibly an array) to the result of its keccak256 hash.
@@ -625,3 +666,38 @@ ArrayDeleteLoop(loop, sstore, array):-
   StorageStmtToIndexAndConstruct(lenDefStmt, "LENGTH", _, array),
   SSTORE(sstore, phiVar, zeroVar),
   Variable_Value(zeroVar, "0x0").
+
+.decl IsPackedArray(cons: StorageConstruct, byteWidth: number)
+DEBUG_OUTPUT(IsPackedArray)
+
+IsPackedArray(cons, byteWidth):-
+  SLOAD(_, sindexVar, loadedVar),
+  Variable_StorageIndex(sindexVar, sindex),
+  ((sindex = $StaticArrayAccessIndex(parIndex, arraySize, indexVar), arraySize=arraySize);
+  sindex = $ArrayAccessIndex(parIndex, indexVar)),
+  parIndex=parIndex,
+  StorageIndex_StorageConstruct(sindex, cons),
+  VarDivByConstant(actualIndex, const, indexVar),
+  MOD(_, actualIndex, constVar, modVar),
+  Variable_Value(constVar, const),
+  VarTimesConstant(modVar, const2, modTimesVar),
+  EXP(_, expConst, modTimesVar, shiftVal),
+  Variable_Value(expConst, "0x100"),
+  DIV(_, loadedVar, shiftVal, shiftedVar),
+  const2 = as(@div_256("0x20", const), Value),
+  LowBytesMaskOp(shiftedVar, castedVar, byteWidth).
+
+IsPackedArray(cons, @hex_to_number(@div_256("0x20", const))):-
+  SLOAD(_, sindexVar, loadedVar),
+  Variable_StorageIndex(sindexVar, sindex),
+  ((sindex = $StaticArrayAccessIndex(parIndex, arraySize, indexVar), arraySize=arraySize);
+  sindex = $ArrayAccessIndex(parIndex, indexVar)),
+  parIndex=parIndex,
+  StorageIndex_StorageConstruct(sindex, cons),
+  VarDivByConstant(actualIndex, const, indexVar),
+  AND(_, actualIndex, constVar, tmp),
+  Variable_Value(constVar, as(@sub_256(const, "0x1"), Value)),
+  EXP(_, expConst, tmp, shiftVal),
+  Variable_Value(expConst, "0x100"),
+  DIV(_, loadedVar, shiftVal, shiftedVar),
+  LowBytesMaskOp(shiftedVar, castedVar, @hex_to_number(@div_256("0x20", const))).
