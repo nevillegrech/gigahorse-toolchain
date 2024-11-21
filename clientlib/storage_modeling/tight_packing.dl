@@ -635,13 +635,13 @@ LoadGlobalVariable(stmt, storVar, var):-
 
 LoadGlobalVariable(stmt, as(storVar, Value), var):-
   SuccessfulMergedStorageModeling($Variable($Constant(storVar))),
-  SLOADOfConst(_, storVar, _), // ensure it's a global variable
+  (SLOADOfConst(_, storVar, _); SSTOREToConst(_, storVar, _)), // ensure it's a global variable
   VarHoldsBytesOfStorVarFinal(var, _, $Variable($Constant(storVar)), 0, 31),
   Statement_Defines(stmt, var, 0).
 
 LoadGlobalVariable(stmt, v, var):-
   SuccessfulMergedStorageModeling($Variable($Constant(storVar))),
-  SLOADOfConst(_, storVar, _), // ensure it's a global variable
+  (SLOADOfConst(_, storVar, _); SSTOREToConst(_, storVar, _)), // ensure it's a global variable
   VarHoldsBytesOfStorVarFinal(_, _, $Variable($Constant(storVar)), low, high),
   // perhaps we need to add new instruction here
   NormalizeStorageVarByteLimits($Variable($Constant(storVar)), low, high, actualLow, actualHigh),
