@@ -574,17 +574,23 @@ ByteOfStorVarReadOfWritten(storVar, byte):-
 VarHoldsBytesOfStorVar(to, store, storVar, bytes, 31):-
   VarWrittenToBytesOfStorVar(_, store, storVar, _, _),
   Statement_Uses(store, storedVar, 1),
-  RShiftBytes(storedVar, to, bytes).
+  RShiftBytes(storedVar, to, bytes),
+  Statement_Defines(shiftStmt, to, 0),
+  StatementDominates(store, shiftStmt).
 
 VarHoldsBytesOfStorVar(to, store, storVar, 0, maskLen - 1):-
   VarWrittenToBytesOfStorVar(_, store, storVar, _, _),
   Statement_Uses(store, storedVar, 1),
-  LowBytesMaskOp(storedVar, to, maskLen).
+  LowBytesMaskOp(storedVar, to, maskLen),
+  Statement_Defines(castStmt, to, 0),
+  StatementDominates(store, castStmt).
 
 VarHoldsBytesOfStorVar(to, store, storVar, 0, 0):-
   VarWrittenToBytesOfStorVar(_, store, storVar, _, _),
   Statement_Uses(store, storedVar, 1),
-  BooleanCast(storedVar, to).
+  BooleanCast(storedVar, to),
+  Statement_Defines(castStmt, to, 0),
+  StatementDominates(store, castStmt).
 
 
 .decl NormalizeStorageVarByteLimits(storvVar: StorageConstruct, inByteLow: number, inByteHigh: number, actualByteLow: number, actualByteHigh: number)
