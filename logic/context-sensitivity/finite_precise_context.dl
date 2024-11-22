@@ -14,13 +14,13 @@
 
   MaxContextDepth(sigHash, d) :-
     (local.PublicFunction(_, sigHash, _);
-     sigHash = FALLBACK_FUNCTION_SIGHASH),
+     sigHash = FUNCTION_SELECTOR_SIGHASH),
     InputMaxContextDepth(d).
 
   // HERE: much deeper
   MaxContextDepth(sigHash, 27) :-
     (local.PublicFunction(_, sigHash, _);
-     sigHash = FALLBACK_FUNCTION_SIGHASH),
+     sigHash = FUNCTION_SELECTOR_SIGHASH),
     !InputMaxContextDepth(_).
 
 
@@ -41,7 +41,7 @@
 
   InitialPrivateContext(nil).
 
-  InitialContext([FALLBACK_FUNCTION_SIGHASH, initialPrivateContext]) :-
+  InitialContext([FUNCTION_SELECTOR_SIGHASH, initialPrivateContext]) :-
     InitialPrivateContext(initialPrivateContext).
 
   DecomposeContext(ctx, publicFun, private):-
@@ -138,14 +138,14 @@
     local.PublicFunction(caller, sigHash, _),
     !MaxContextDepth(sigHash, -1),
     DecomposeContext(ctx, prevSigHash, _),
-    prevSigHash != FALLBACK_FUNCTION_SIGHASH.
+    prevSigHash != FUNCTION_SELECTOR_SIGHASH.
   .plan 1:(3,1,2)
   MergeContext(ctx, caller, newContext):-
     ReachableContext(ctx, caller),
     local.PublicFunction(caller, sigHash, _),
     !MaxContextDepth(sigHash, -1),
     DecomposeContext(ctx, prevSigHash, pri),
-    prevSigHash = FALLBACK_FUNCTION_SIGHASH,
+    prevSigHash = FUNCTION_SELECTOR_SIGHASH,
     newContext = [sigHash, pri].
   .plan 1:(3,1,2)
   #endif

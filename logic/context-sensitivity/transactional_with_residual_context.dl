@@ -18,7 +18,7 @@
 
   // Define our universe of contexts (including partial)
   .decl IsPotentialContext(pubFun: symbol, ctx: PrivateContext, residual: number)
-  IsPotentialContext(FALLBACK_FUNCTION_SIGHASH, ctx, 0) :-
+  IsPotentialContext(FUNCTION_SELECTOR_SIGHASH, ctx, 0) :-
     InitialPrivateContext(ctx).
 
   IsPotentialContext(publicFun, private, residual) :-
@@ -48,7 +48,7 @@
    .plan 1:(2,1)
 
 
-  InitialContext([FALLBACK_FUNCTION_SIGHASH, initialPrivateContext, 0]) :-
+  InitialContext([FUNCTION_SELECTOR_SIGHASH, initialPrivateContext, 0]) :-
     InitialPrivateContext(initialPrivateContext).
 
   PrivateContextDepth(init, 0):-
@@ -109,14 +109,14 @@
     local.PublicFunction(caller, sigHash),
     !MaxContextDepth(sigHash, -1),
     DecomposeContext(ctx, prevSigHash, _, _),
-    prevSigHash != FALLBACK_FUNCTION_SIGHASH.
+    prevSigHash != FUNCTION_SELECTOR_SIGHASH.
   .plan 1:(3,1,2)
   MergeContext(ctx, caller, newContext):-
     ReachableContext(ctx, caller),
     local.PublicFunction(caller, sigHash),
     !MaxContextDepth(sigHash, -1),
     DecomposeContext(ctx, prevSigHash, pri, _),
-    prevSigHash = FALLBACK_FUNCTION_SIGHASH,
+    prevSigHash = FUNCTION_SELECTOR_SIGHASH,
     newContext = [sigHash, pri, 0].
   .plan 1:(3,1,2)
   #endif

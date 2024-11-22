@@ -21,6 +21,7 @@
 
 #define FALLBACK_FUNCTION_SIGHASH "0x00000000"
 #define RECEIVE_FUNCTION_SIGHASH "0xeeeeeeee"
+#define FUNCTION_SELECTOR_SIGHASH "0xfa11bacc"
 
 
 .type Block <: symbol
