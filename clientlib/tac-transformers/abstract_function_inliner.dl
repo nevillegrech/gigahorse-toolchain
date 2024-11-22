@@ -400,6 +400,9 @@
     stmtId = cat(cat(cat(cat(callerBlock, "S"), phiBlock), "_"), to_string(i)),
     defVar = cat(cat(cat(cat(actualRet, "V"), phiBlock), "_"), to_string(i)).
 
+  InVar_OutVar(actualRet, "", defVar):-
+    NewPHIInfo(_, _, actualRet, _, _, defVar, _).
+
   Out_Statement_Defines(outStmt, outVar, i),
   InVar_OutVar(inVar, callerBlock, outVar),
   VariableToClone(inVar, fromFun, callerBlock, callerFun, outVar):-
