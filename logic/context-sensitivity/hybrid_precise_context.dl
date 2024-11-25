@@ -17,19 +17,19 @@
 
   MaxImpreciseContextDepth(sigHash, d) :-
     (local.PublicFunction(_, sigHash, _);
-     sigHash = FALLBACK_FUNCTION_SIGHASH),
+     sigHash = FUNCTION_SELECTOR_SIGHASH),
     InputMaxImpreciseContextDepth(d).
 
   MaxImpreciseContextDepth(sigHash, 7) :-
     (local.PublicFunction(_, sigHash, _);
-     sigHash = FALLBACK_FUNCTION_SIGHASH),
+     sigHash = FUNCTION_SELECTOR_SIGHASH),
     !InputMaxImpreciseContextDepth(_).
 
   // Not yet configurable via input file
   .decl MaxPreciseContextDepth(sigHash: symbol, d: number)
   MaxPreciseContextDepth(sigHash, 27) :-
     (local.PublicFunction(_, sigHash, _);
-     sigHash = FALLBACK_FUNCTION_SIGHASH).
+     sigHash = FUNCTION_SELECTOR_SIGHASH).
 
   //
   // Much like PublicComponentContextSensitivity but need to change truncation logic
@@ -54,7 +54,7 @@
   // Define our universe of contexts (including partial)
   .decl IsPotentialContext(pubFun: symbol, ctx: PrivateContext)
 
-  IsPotentialContext(FALLBACK_FUNCTION_SIGHASH, ctx) :-
+  IsPotentialContext(FUNCTION_SELECTOR_SIGHASH, ctx) :-
     InitialPrivateContext(ctx).
 
   IsPotentialContext(publicFun, private) :-
@@ -105,7 +105,7 @@
     InitialPrecisePrivateContext(initialPrivateContext);
     InitialImprecisePrivateContext(initialPrivateContext).
 
-  InitialContext([FALLBACK_FUNCTION_SIGHASH, initialPrivateContext]) :-
+  InitialContext([FUNCTION_SELECTOR_SIGHASH, initialPrivateContext]) :-
     InitialPrecisePrivateContext(initialPrivateContext).  // ONLY PRECISE!!!
 
   PrecisePrivateContext(ctx) :-
@@ -256,14 +256,14 @@
     local.PublicFunction(caller, sigHash, _),
     !MaxImpreciseContextDepth(sigHash, -1),
     DecomposeContext(ctx, prevSigHash, _),
-    prevSigHash != FALLBACK_FUNCTION_SIGHASH.
+    prevSigHash != FUNCTION_SELECTOR_SIGHASH.
   .plan 1:(3,1,2)
   MergeContext(ctx, caller, newContext) :-
     ReachableContext(ctx, caller),
     local.PublicFunction(caller, sigHash, _),
     !MaxImpreciseContextDepth(sigHash, -1),
     DecomposeContext(ctx, prevSigHash, pri),
-    prevSigHash = FALLBACK_FUNCTION_SIGHASH,
+    prevSigHash = FUNCTION_SELECTOR_SIGHASH,
     newContext = [sigHash, pri].
   .plan 1:(3,1,2)
   #endif

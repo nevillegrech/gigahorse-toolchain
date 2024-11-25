@@ -622,7 +622,7 @@ IRFunctionCall(fromir, irfunc) :-
 */
 .decl PubFun(entry:symbol, hex:symbol)
 
-PubFun("0x0", FALLBACK_FUNCTION_SIGHASH):- global.sens.Context_PublicFunction(_, _).
+PubFun("0x0", FUNCTION_SELECTOR_SIGHASH):- global.sens.Context_PublicFunction(_, _).
 PubFun(entry, sigHash):- global.sens.Context_PublicFunction(_, sigHash), PublicFunctionFiltered(entry, sigHash).
 
 // Intra-function edges (i.e., real CFG edges)
