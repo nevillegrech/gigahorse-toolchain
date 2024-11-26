@@ -64,7 +64,7 @@ LowBytesMaskOp(from, to, castedTo):-
   ValueIsByteMask(mask),
   Mask_Length(mask, castedTo),
   BasicVariable_Value(maskVar, mask),
-  (AND(_, from, maskVar, to) ; AND(_, maskVar, from, to)).
+  AND_Commutative(_, from, maskVar, to).
 
 // SL: Commenting this out for now.
 // A Variable actually casted as a boolean would need to be masked a single byte first
@@ -81,7 +81,7 @@ HighBytesMaskOp(var, masked, 32 - keepLow):-
 // Hack for boolean masks.
 BooleanCast(from, to):-
   BasicVariable_Value(maskVar, "0xf"),
-  (AND(_, from, maskVar, to) ; AND(_, maskVar, from, to)).
+  AND_Commutative(_, from, maskVar, to).
 
 /* Not actually a byte mask but a boolean cast */
 BooleanCast(from, to):-
@@ -102,13 +102,13 @@ SignedIntCast(from, to, @hex_to_number(numBytes) + 1):-
   BasicVariable_Value(numBytesVar, numBytes).
 
 AntiMaskOp(originVar, to, byteLow, byteHigh):-
-  (AND(_, antiMaskVar, originVar, to) ; AND(_, originVar, antiMaskVar, to)),
+  AND_Commutative(_, originVar, antiMaskVar, to),
   BasicVariable_Value(antiMaskVar, antiMask),
   AntiByteMask(antiMask, byteLow, byteHigh).
 
 AntiMaskOp(originVar, to, byteLow, byteHigh):-
   AntiMaskOp(originVar, mid, byteLow, byteHigh),
-  (AND(_, antiMaskVar, mid, to) ; AND(_, mid, antiMaskVar, to)),
+  AND_Commutative(_, mid, antiMaskVar, to),
   BasicVariable_Value(antiMaskVar, antiMask),
   AntiByteMask(antiMask, byteLow, byteHigh).
 
@@ -118,7 +118,7 @@ RShiftBytes(shiftedVar, to, bytes):-
   ShiftConst(shitftConst, bytes).
 
 LShiftBytes(shiftedVar, to, bytes):-
-  ( MUL(_, shiftedVar, var, to); MUL(_, var, shiftedVar, to)),
+  MUL_Commutative(_, shiftedVar, var, to),
   BasicVariable_Value(var, shitftConst),
   ShiftConst(shitftConst, bytes).
 
@@ -167,7 +167,7 @@ HighBytesCastedAndRightShiftedVar(originVar, toVar, shiftedBy, castedTo):-
 CastedAndShiftedVar(originVar, toVar, shiftedBy, castedTo):-
   LShiftBytes(originVar, shiftedVar, shiftedBy),
   shiftBits = @mul_256("0x8", @number_to_hex(shiftedBy)),
-  (AND(_, shiftedVar, maskVar, toVar) ; AND(_, maskVar, shiftedVar, toVar)),
+  AND_Commutative(_, shiftedVar, maskVar, toVar),
   BasicVariable_Value(maskVar, shiftedMask),
   unshiftedMask = as(@shr_256(shiftBits, shiftedMask), Value),
   ValueIsByteMask(unshiftedMask),
@@ -320,12 +320,12 @@ DEBUG_OUTPUT(ByteMaskOpKeepRange)
 DEBUG_OUTPUT(ByteMaskOpMaskRange)
 
 ByteMaskOpKeepRange(var, masked, keepRange):-
-  (AND(_, maskVar, var, masked) ; AND(_, var, maskVar, masked)),
+  AND_Commutative(_, var, maskVar, masked),
   BasicVariable_Value(maskVar, byteMask),
   ByteMask_KeepRange(byteMask, keepRange).
 
 ByteMaskOpMaskRange(var, masked, keepRange):-
-  (AND(_, maskVar, var, masked) ; AND(_, var, maskVar, masked)),
+  AND_Commutative(_, maskVar, var, masked),
   BasicVariable_Value(maskVar, byteMask),
   ByteMask_MaskRange(byteMask, keepRange).
 

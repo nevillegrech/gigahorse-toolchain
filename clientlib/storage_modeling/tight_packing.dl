@@ -7,7 +7,7 @@ castsAndShiftsFlows.TransferStmt(stmt):-
   Statement_Opcode(stmt, "OR").
 
 castsAndShiftsFlows.TransferStmt(stmt):-
-  (AND(stmt, maskVar, _, _) ; AND(stmt, _, maskVar, _)),
+  AND_Commutative(stmt, maskVar, _, _),
   BasicVariable_Value(maskVar, byteMask),
   ValueIsByteMask(byteMask).
 

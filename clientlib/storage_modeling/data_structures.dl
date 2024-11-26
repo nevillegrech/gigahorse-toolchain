@@ -528,13 +528,13 @@ StorageOffset_Type(offset, type):-
 
 BytesOrStringLength(storVar, lenVar):-
   VarHoldsBytesOfStorVar(storLoad, _, $Variable($Constant(storVar)), 0, 31),
-  (AND(_, storLoad, oneVar, lastBitVar) ; AND(_, oneVar, storLoad, lastBitVar)),
+  AND_Commutative(_, storLoad, oneVar, lastBitVar),
   Variable_Value(oneVar, "0x1"),
   ISZERO(_, lastBitVar, notLastBitVar),
   LShiftBytes(notLastBitVar, shifted, 1),
   SUB(_, shifted, otherOneVar, minOne),
   Variable_Value(otherOneVar, "0x1"),
-  (AND(_, minOne, storLoad, almost) ; AND(_, storLoad, minOne, almost)),
+  AND_Commutative(_, minOne, storLoad, almost),
   DIV(_, almost, twoVar, lenVar),
   Variable_Value(twoVar, "0x2").
 
@@ -543,25 +543,25 @@ DEBUG_OUTPUT(BytesOrStringLengthV2)
 BytesOrStringLengthV2(cons, lenVar):-
   ArrayLengthStatement(stmt, _, cons),
   Statement_Defines(stmt, lengthVar, 0),
-  (AND(_, lengthVar, oneVar, lastBitVar) ; AND(_, oneVar, lengthVar, lastBitVar)),
+  AND_Commutative(_, lengthVar, oneVar, lastBitVar),
   Variable_Value(oneVar, "0x1"),
   ISZERO(_, lastBitVar, notLastBitVar),
   LShiftBytes(notLastBitVar, shifted, 1),
   SUB(_, shifted, otherOneVar, minOne),
   Variable_Value(otherOneVar, "0x1"),
-  (AND(_, minOne, lengthVar, almost) ; AND(_, lengthVar, minOne, almost)),
+  AND_Commutative(_, minOne, lengthVar, almost),
   DIV(_, almost, twoVar, lenVar),
   Variable_Value(twoVar, "0x2").
 
 BytesOrStringLengthV2(cons, lenVar):-
   ArrayLengthStatement(stmt, _, cons),
   Statement_Defines(stmt, lengthVar, 0),
-  (AND(_, lengthVar, oneVar, lastBitVar) ; AND(_, oneVar, lengthVar, lastBitVar)),
+  AND_Commutative(_, lengthVar, oneVar, lastBitVar),
   Variable_Value(oneVar, "0x1"),
   ISZERO(_, lastBitVar, notLastBitVar),
   LShiftBytes(notLastBitVar, shifted, 1),
   VarPlusConst(shifted, "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", minOne),
-  (AND(_, minOne, lengthVar, almost) ; AND(_, lengthVar, minOne, almost)),
+  AND_Commutative(_, minOne, lengthVar, almost),
   DIV(_, almost, twoVar, lenVar),
   Variable_Value(twoVar, "0x2").
 
@@ -570,7 +570,7 @@ BytesOrStringLengthV2(cons, phiDef):-
   Statement_Defines(stmt, lengthVar, 0),
   SHR(_, shiftBits, lengthVar, shiftedVar),
   Variable_Value(shiftBits, "0x1"),
-  (AND(_, var127, shiftedVar, otherCase) ; AND(_, shiftedVar, var127, otherCase)),
+  AND_Commutative(_, var127, shiftedVar, otherCase),
   Variable_Value(var127, "0x7f"),
   (PHIStmtTwoUses(_, otherCase, shiftedVar, phiDef); PHIStmtTwoUses(_, shiftedVar, otherCase, phiDef)),
   (ArrayAllocation(_, _, phiDef); MSTORE(_, _, phiDef)).
@@ -583,7 +583,7 @@ BytesOrStringLengthV2(cons, phiDef):-
   FormalArgs(method, inLenVar, index),
   SHR(_, shiftBits, inLenVar, shiftedVar),
   Variable_Value(shiftBits, "0x1"),
-  (AND(_, var127, shiftedVar, otherCase) ; AND(_, shiftedVar, var127, otherCase)),
+  AND_Commutative(_, var127, shiftedVar, otherCase),
   Variable_Value(var127, "0x7f"),
   (PHIStmtTwoUses(_, otherCase, shiftedVar, phiDef); PHIStmtTwoUses(_, shiftedVar, otherCase, phiDef)),
   FormalReturnArgs(method, phiDef, retIndex),
@@ -596,7 +596,7 @@ BytesOrStringLengthV2(cons, phiDef):-
   Statement_Defines(stmt, lengthVar, 0),
   DIV(_, lengthVar, twoVar, shiftedVar),
   Variable_Value(twoVar, "0x2"),
-  (AND(_, var127, shiftedVar, otherCase) ; AND(_, shiftedVar, var127, otherCase)),
+  AND_Commutative(_, var127, shiftedVar, otherCase),
   Variable_Value(var127, "0x7f"),
   (PHIStmtTwoUses(_, otherCase, shiftedVar, phiDef); PHIStmtTwoUses(_, shiftedVar, otherCase, phiDef)),
   (ArrayAllocation(_, _, phiDef); MSTORE(_, _, phiDef)).
@@ -610,7 +610,7 @@ BytesOrStringLengthV2(cons, phiDef):-
   FormalArgs(method, inLenVar, index),
   DIV(_, inLenVar, twoVar, shiftedVar),
   Variable_Value(twoVar, "0x2"),
-  (AND(_, var127, shiftedVar, otherCase) ; AND(_, shiftedVar, var127, otherCase)),
+  AND_Commutative(_, var127, shiftedVar, otherCase),
   Variable_Value(var127, "0x7f"),
   (PHIStmtTwoUses(_, otherCase, shiftedVar, phiDef); PHIStmtTwoUses(_, shiftedVar, otherCase, phiDef)),
   FormalReturnArgs(method, phiDef, retIndex),

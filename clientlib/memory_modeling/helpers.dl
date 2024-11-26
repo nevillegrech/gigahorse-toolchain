@@ -105,12 +105,12 @@ VarPlusThrirtyOneAndNotThirtyOne(var, result):-
   Variable_Value(notThrirtyOne, "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0"),
   Variable_Value(temp2, "0x1f"),
   ADDFix(_, var, temp2, varPlus),
-  (AND(_, notThrirtyOne, varPlus, result); AND(_, varPlus, notThrirtyOne, result)).
+  AND_Commutative(_, notThrirtyOne, varPlus, result).
 
 VarPlusSixtyThreeAndNotThirtyOne(var, result):-
   Variable_Value(temp2, "0x3f"),
   ADDFix(_, var, temp2, varPlus),
-  (AND(_, notThrirtyOne, varPlus, result); AND(_, varPlus, notThrirtyOne, result)),
+  AND_Commutative(_, notThrirtyOne, varPlus, result),
   Variable_Value(notThrirtyOne, "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0").
 
 VarPlusThrirtyOneDivMulSixtyFour(var, result):-
@@ -121,7 +121,7 @@ VarPlusThrirtyOneDivMulSixtyFour(var, result):-
 
 VarTimesConstantNoIdentity(var, constVal, result),
 VarTimesConstant(var, constVal, result):-
-  (MUL(_, var, constVar, result); MUL(_, constVar, var, result)),
+  MUL_Commutative(_, var, constVar, result),
   BasicVariable_Value(constVar, constVal).
 
 VarTimesConstantNoIdentity(var, as(@exp_256("0x2", shiftBits), Value), result),
