@@ -18,7 +18,21 @@ name(stmt, a, b, to) :-\
   Statement_Uses(stmt, a, 0),\
   Statement_Uses(stmt, b, 1)
 
+#define MAKECOMMUTATIVEBINOP(name) \
+.decl name##_Commutative(stmt: Statement, a: Variable, b: Variable, to: Variable)\
+name##_Commutative(stmt, b, a, to),\
+name##_Commutative(stmt, a, b, to) :-\
+  Statement_Opcode(stmt, #name),\
+  Statement_Defines(stmt, to, _),\
+  Statement_Uses(stmt, a, 0),\
+  Statement_Uses(stmt, b, 1)
+
 #define MAKEBINARITHOP(name) \
+MAKEBINOP(name). \
+BinArith(#name)
+
+#define MAKECOMMUTATIVEBINARITHOP(name) \
+MAKECOMMUTATIVEBINOP(name). \
 MAKEBINOP(name). \
 BinArith(#name)
 
@@ -52,13 +66,13 @@ TernArith("MULMOD").
 MAKEBINOP(SHA3).
 
 // Binary arithmetic operators
-MAKEBINARITHOP(EQ).
-MAKEBINARITHOP(ADD).
-MAKEBINARITHOP(OR).
+MAKECOMMUTATIVEBINARITHOP(EQ).
+MAKECOMMUTATIVEBINARITHOP(ADD).
+MAKECOMMUTATIVEBINARITHOP(OR).
 MAKEBINARITHOP(SUB).
-MAKEBINARITHOP(AND).
+MAKECOMMUTATIVEBINARITHOP(AND).
 MAKEBINARITHOP(DIV).
-MAKEBINARITHOP(MUL).
+MAKECOMMUTATIVEBINARITHOP(MUL).
 MAKEBINARITHOP(SDIV).
 MAKEBINARITHOP(MOD).
 MAKEBINARITHOP(SMOD).
