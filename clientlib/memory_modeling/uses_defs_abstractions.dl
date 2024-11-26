@@ -31,13 +31,13 @@ PublicFunctionArg(pubFun, arg, index):-
   CALLDATALOADOfConstant(cdl, _, constNum),
   CALLDATALOAD(cdl, _, arg),
   Statement_Function(cdl, pubFun),
-  IsPublicFunction(pubFun),
+  (IsPublicFunction(pubFun); pubFun = "0x0"),
   (((constNum - 4) % 32 = 0, index = (constNum - 4) / 32); ((constNum - 4) % 32 != 0, index = constNum)),
   !PublicFunctionArrayArg(pubFun, _, index),
   !PublicFunctionStructArg(pubFun, _, index).
 
 PublicFunctionArg(pubFun, formalArg, (constNum - 4) / 32):-
-  IsPublicFunction(pubFun),
+  (IsPublicFunction(pubFun); pubFun = "0x0"),
   CallGraphEdge(caller_block, pubFun),
   Statement_Block(stmt, caller_block),
   CALLPRIVATE(stmt, _),
@@ -57,14 +57,14 @@ PublicFunctionArg(pubFun, structArg, index):-
 PublicFunctionArrayArg(pubFun, as(arrayArg, ArrayVariable), index):-
   IsArgCallDataArrayVar(arrayArg, constHex),
   Variable_Function(arrayArg, pubFun),
-  IsPublicFunction(pubFun),
+  (IsPublicFunction(pubFun); pubFun = "0x0"),
   num = @hex_to_number(constHex),
   (((num - 4) % 32 = 0, index = (num - 4) / 32); ((num - 4) % 32 != 0, index = num)).
 
 PublicFunctionStructArg(pubFun, structArg, index):-
   IsArgCallDataStruct(structArg, constHex),
   Variable_Function(structArg, pubFun),
-  IsPublicFunction(pubFun),
+  (IsPublicFunction(pubFun); pubFun = "0x0"),
   num = @hex_to_number(constHex),
   (((num - 4) % 32 = 0, index = (num - 4) / 32); ((num - 4) % 32 != 0, index = num)).
 
