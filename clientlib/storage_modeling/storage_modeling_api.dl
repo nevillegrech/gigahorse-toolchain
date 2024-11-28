@@ -1,0 +1,82 @@
+
+/***
+ New Storage Model
+ Aims to support arbituary nested data structures
+***/
+
+/**
+  `StorageIndex` contains information on the data structure used as well as the variables
+  used to index/access it, representing the actual low-level index flowing to `SSTORE`/`SLOAD` stmts.
+*/
+.type StorageIndex = ConstantIndex {value: Value}
+                    | StaticArrayAccessIndex {parIndex: StorageIndex, arraySize: number, indexVar: Variable}
+                    | ArrayAccessIndex {parIndex: StorageIndex, indexVar: Variable}
+                    | ArrayDataStartIndex {parIndex: StorageIndex}
+                    | MappingAccessIndex {parIndex: StorageIndex, keyVar: Variable}
+                    | OffsetIndex {parIndex: StorageIndex, offset: number}
+
+/**
+  `StorageConstruct` contains the information of `StorageIndex`, stripped of indexing/access vars
+*/
+.type StorageConstruct = Constant {value: Value}
+                        | StaticArray {parConstruct: StorageConstruct, arraySize: number}
+                        | Array {parConstruct: StorageConstruct}
+                        | Mapping {parConstruct: StorageConstruct}
+                        | Offset {parConstruct: StorageConstruct, offset: number}
+                        | Variable {construct: StorageConstruct}
+                        | TightlyPackedVariable {construct: StorageConstruct, byteLow: number, byteHigh: number}
+
+
+
+/**
+  Maps `SSTORE` and `SLOAD` statements to the high-level information:
+  - `kind` can be "ACCESS", "LENGTH", "GETDATASTART"
+  - `index` can be used to get the high-level uses of the composite storage data structure accesses and writes
+  - `construct` is the data structure that is being accessed/written to
+*/
+.decl StorageStmtToIndexAndConstruct(stmt: Statement, kind: symbol, index: StorageIndex, construct: StorageConstruct)
+
+.decl StorageIndex_HighLevelUses(index: StorageIndex, accessVar: Variable, offset: number, i: number, nestedness: number)
+
+/**
+  Top-Level Global Variables
+  There is some overlap with the other, more general definitions
+  but I've also kept these separate relations for backwards compatibility
+ */
+
+.decl GlobalVariable(v: Value)
+
+.decl LoadGlobalVariable(stmt: Statement, val: Value, var: Variable)
+
+.decl StoreGlobalVariable(stmt: Statement, val: Value, var: Variable)
+
+// Info for top-level global variables
+.decl StorageVariableInfo(storageVariable: symbol, storageSlot: symbol, byteLow: number, byteHigh: number)
+
+
+/**
+  An `array` is deleted by setting its length to zero in `sstore` and then erasing all its contents in a following `loop`. 
+*/
+.decl ArrayDeleteOp(sstore: Statement, loop: Block, array: StorageConstruct)
+
+// Data structure construct has a value (Mappings) or element (Arrays) that is a struct
+.decl DataStructureValueIsStruct(cons: StorageConstruct, structID: symbol, elemNum: number)
+
+// Map `structID` to solidity-like struct definition `stringStruct`
+.decl StructToString(structID: symbol, stringStruct: symbol)
+
+/**
+  Type related outputs
+*/
+
+// value type for mapping or element type for arrays
+.decl DataStructure_ValueOrElementType(cons: StorageConstruct, type: symbol)
+
+// key type for mapping
+.decl Mapping_KeyType(cons: StorageConstruct, type: symbol)
+
+// Note: Can probably be unified with `DataStructure_Type`
+.decl StorageVariable_Type(cons: StorageConstruct, type: symbol)
+
+// Note: Can probably be unified with `StorageVariable_Type`
+.decl DataStructure_Type(cons: StorageConstruct, type: symbol)

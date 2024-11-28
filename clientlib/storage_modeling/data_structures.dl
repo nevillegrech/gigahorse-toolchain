@@ -1,31 +1,4 @@
 
-/***
- New Storage Model
- Aims to support arbituary nested data structures
-***/
-
-/**
-  `StorageIndex` contains information on the data structure used as well as the variables
-  used to index/access it, representing the actual low-level index flowing to `SSTORE`/`SLOAD` stmts.
-*/
-.type StorageIndex = ConstantIndex {value: Value}
-                    | StaticArrayAccessIndex {parIndex: StorageIndex, arraySize: number, indexVar: Variable}
-                    | ArrayAccessIndex {parIndex: StorageIndex, indexVar: Variable}
-                    | ArrayDataStartIndex {parIndex: StorageIndex}
-                    | MappingAccessIndex {parIndex: StorageIndex, keyVar: Variable}
-                    | OffsetIndex {parIndex: StorageIndex, offset: number}
-
-/**
-  `StorageConstruct` contains the information of `StorageIndex`, stripped of indexing/access vars
-*/
-.type StorageConstruct = Constant {value: Value}
-                        | StaticArray {parConstruct: StorageConstruct, arraySize: number}
-                        | Array {parConstruct: StorageConstruct}
-                        | Mapping {parConstruct: StorageConstruct}
-                        | Offset {parConstruct: StorageConstruct, offset: number}
-                        | Variable {construct: StorageConstruct}
-                        | TightlyPackedVariable {construct: StorageConstruct, byteLow: number, byteHigh: number}
-
 /**
   Syntactic translation of `StorageIndex` to `StorageConstruct`
 */
@@ -55,8 +28,6 @@
 // Used to find the ones that are end-level variables
 .decl NonVariableConstruct(cons: StorageConstruct)
 
-.decl StorageIndex_HighLevelUses(index: StorageIndex, accessVar: Variable, offset: number, i: number, nestedness: number)
-
 .decl IsStorageConstruct(cons: StorageConstruct)
 
 // StorageConstruct is array or mapping
@@ -65,36 +36,15 @@
 // Number of elements the value of a data structure construct (Array or Mapping) has
 .decl DataStructure_ElemNum(cons: StorageConstruct, elemNum: number)
 
-// Data structure construct has a value (Mappings) or element (Arrays) that is a struct
-.decl DataStructureValueIsStruct(cons: StorageConstruct, structID: symbol, elemNum: number)
-
-// value type for mapping or element type for arrays
-.decl DataStructure_ValueOrElementType(cons: StorageConstruct, type: symbol)
-
-// key type for mapping
-.decl Mapping_KeyType(cons: StorageConstruct, type: symbol)
-
-// Map `structID` to solidity-like struct definition `stringStruct`
-.decl StructToString(structID: symbol, stringStruct: symbol)
+// Internal predicate, used to compute `StructToString`
 .decl StructToStringUpTo(structID: symbol, stringStruct: symbol, upTo: number)
 
 // Map tightly packed field in storage struct to solidity-like def used by `StructToString`
 .decl PackedStructWordToString(structID: symbol, offset: number, stringRep: symbol)
 .decl PackedStructWordToStringUpTo(structID: symbol, offset: number, stringRep: symbol, upToByte: number, upToIndex: number)
 
-// Note: Can probably be unified with `StorageVariable_Type`
-.decl DataStructure_Type(cons: StorageConstruct, type: symbol)
-
 // Doesn't contain TightlyPackedVariable, maybe revisit
 .decl StorageConstruct_ParentAndOffset(cons: StorageConstruct, parentCons: StorageConstruct, offset: number)
-
-/**
-  Maps `SSTORE` and `SLOAD` statements to the high-level information:
-  - `kind` can be "ACCESS", "LENGTH", "GETDATASTART"
-  - `index` can be used to get the high-level uses of the composite storage data structure accesses and writes
-  - `construct` is the data structure that is being accessed/written to
-*/
-.decl StorageStmtToIndexAndConstruct(stmt: Statement, kind: symbol, index: StorageIndex, construct: StorageConstruct)
 
 // Same as `StorageStmtToIndexAndConstruct`, populated before the tight packing component
 .decl InitialStorageStmtToIndexAndConstruct(stmt: Statement, kind: symbol, index: StorageIndex, construct: StorageConstruct)
@@ -631,12 +581,8 @@ StorageConstantToHash(const, zeroPaded, as(@hex_keccak_256(zeroPaded), Value)):-
   Helper_Zeros(zeros, 64 - strlen(cut)),
   zeroPaded = cat("0x", cat(zeros, cut)).
 
-/**
-  An `array` is deleted by setting its length to zero in `sstore` and then erasing all its contents in a following `loop`. 
-*/
-.decl ArrayDeleteOp(sstore: Statement, loop: Block, array: StorageConstruct)
-DEBUG_OUTPUT(ArrayDeleteOp)
 
+DEBUG_OUTPUT(ArrayDeleteOp)
 ArrayDeleteOp(sstore, loop, array):-
   SSTORE(sstore, _, zeroVar),
   Variable_Value(zeroVar, "0x0"),

@@ -31,9 +31,6 @@ Type_Width(type, byteWidth):-
   type = cat("bytes", to_string(byteWidth)).
 
 
-// Note: Can probably be unified with `DataStructure_Type`
-.decl StorageVariable_Type(cons: StorageConstruct, type: symbol)
-
 // Added interm relation that can results removed via subsumption
 .decl StorageVariable_IntermType(cons: StorageConstruct, type: symbol) btree_delete
 

@@ -11,6 +11,7 @@
 #include "../flows.dl"
 #include "../casts_shifts.dl"
 
+#include "storage_modeling_api.dl"
 #include "data_structures.dl"
 #include "tight_packing.dl"
 #include "type_inference.dl"

@@ -601,18 +601,6 @@ NormalizeStorageVarByteLimits(storVar, low, high, low, actualHigh):-
   actualHigh = max otherHigh :AnyLoadStoreStorVarBytes(_, storVar, low, otherHigh).
 
 
-/**
-  Top-Level Global Variables
- */
-
-.decl GlobalVariable(v: Value)
-
-.decl LoadGlobalVariable(stmt: Statement, val: Value, var: Variable)
-
-.decl StoreGlobalVariable(stmt: Statement, val: Value, var: Variable)
-
-// Info for top-level global variables
-.decl StorageVariableInfo(storageVariable: symbol, storageSlot: symbol, byteLow: number, byteHigh: number)
 
 // Processing of storage variables, accounting for tightly packed words
 .decl ProcessedStorageVariable(storageVar: StorageConstruct, storageVarProcessed: StorageConstruct)
