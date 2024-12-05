@@ -16,13 +16,14 @@ def emit(s: str, out: TextIO, indent: int=0):
     print(f'{indent*INDENT_BASE}{s}', file=out)
 
 
-def emit_stmt(stmt: Statement, out: TextIO):
-    def render_var(var: str):
-        if var in tac_variable_value:
-            return f"v{var.replace('0x', '')}({tac_variable_value[var]})"
-        else:
-            return f"v{var.replace('0x', '')}"
+def render_var(var: str):
+    if var in tac_variable_value:
+        return f"v{var.replace('0x', '')}({tac_variable_value[var]})"
+    else:
+        return f"v{var.replace('0x', '')}"
 
+
+def emit_stmt(stmt: Statement, out: TextIO):
     defs = [render_var(v) for v in stmt.defs]
     uses = [render_var(v) for v in stmt.operands]
 
@@ -55,7 +56,8 @@ def pretty_print_block(block: Block, visited: Set[str], out: TextIO):
 def pretty_print_tac(functions: Mapping[str, Function], out: TextIO):
     for function in sorted(functions.values(), key=lambda x: x.ident):
         visibility = 'public' if function.is_public else 'private'
-        emit(f"function {function.name}({', '.join(function.formals)}) {visibility} {{", out)
+        formals = [render_var(v) for v in function.formals]
+        emit(f"function {function.name}({', '.join(formals)}) {visibility} {{", out)
         pretty_print_block(function.head_block, set(), out)
 
         emit("}", out)
