@@ -8,6 +8,7 @@ import sys
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from clientlib.facts_to_cfg import Statement, Block, Function, construct_cfg, load_csv_map # type: ignore
 
+sys.setrecursionlimit(3000)
 
 def emit(s: str, out: TextIO, indent: int=0):
     # 4 spaces
