@@ -76,13 +76,13 @@ blockCloner.Prev_Block_OriginalBlock(block, originalBlock):- revertCloner.Block_
 .init preTrans = PreTransLocalAnalysis
 COPY_OUTPUT(preTrans, blockCloner)
 
-PreTransStatement_OriginalStatement(heurClStmt, ogStmt) :-
-  blockCloner.StatementToClonedStatement(_, rvtClStmt, heurClStmt),
-  revertCloner.StatementToClonedStatement(_, ogStmt, rvtClStmt).
+PreTransStatement_OriginalStatement(insStmt, ogStmt) :-
+  clonerHelperInsertor.InsertedOpNewStatement(ogOrMidStmt, _, insStmt),
+  PreTransStatement_OriginalStatement(ogOrMidStmt, ogStmt).
 
 PreTransStatement_OriginalStatement(heurClStmt, ogStmt) :-
-  blockCloner.StatementToClonedStatement(_, ogStmt, heurClStmt),
-  !revertCloner.StatementToClonedStatement(_, _, ogStmt).
+  blockCloner.StatementToClonedStatement(_, ogOrMidStmt, heurClStmt),
+  PreTransStatement_OriginalStatement(ogOrMidStmt, ogStmt).
 
 ValidSelector(optionalSelector):-
   blockCloner.analysis.ValidSelector(optionalSelector).
