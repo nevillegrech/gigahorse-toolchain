@@ -466,6 +466,20 @@ StorageStmtToIndexAndConstruct(store, "ACCESS", index, $TightlyPackedVariable(co
   NormalizeStorageVarByteLimits($Variable(cons), low, high, actualLow, actualHigh),
   ProcessedStorageVariable($Variable(cons), $TightlyPackedVariable(cons, actualLow, actualHigh)).
 
+StorageStmtKindAndConstruct(stmt, $VariableAccess(), construct):-
+  StorageStmtToIndexAndConstruct(stmt, "ACCESS", _, construct).
+
+StorageStmtKindAndConstruct(stmt, $ArrayLength(), construct):-
+  StorageStmtToIndexAndConstruct(stmt, "LENGTH", _, construct).
+
+StorageStmtKindAndConstruct(stmt, $DataStart(), construct):-
+  StorageStmtToIndexAndConstruct(stmt, "GETDATASTART", _, construct).
+
+StorageStmt_HighLevelUses(stmt, accessVar, offset, i, nestedness):-
+  StorageAccessOp(stmt, indexVar),
+  Variable_StorageIndex(indexVar, index),
+  StorageIndex_HighLevelUses(index, accessVar, offset, i, nestedness).
+
 .decl StorageOffset_Type(offset: Value, type: symbol)
 
 StorageOffset_Type(offset, type):-

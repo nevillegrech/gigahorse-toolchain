@@ -15,6 +15,10 @@
                     | MappingAccessIndex {parIndex: StorageIndex, keyVar: Variable}
                     | OffsetIndex {parIndex: StorageIndex, offset: number}
 
+.type StorageStmtKind = VariableAccess {}
+                      | DataStart {}
+                      | ArrayLength {}
+
 /**
   `StorageConstruct` contains the information of `StorageIndex`, stripped of indexing/access vars
 */
@@ -37,6 +41,10 @@
 .decl StorageStmtToIndexAndConstruct(stmt: Statement, kind: symbol, index: StorageIndex, construct: StorageConstruct)
 
 .decl StorageIndex_HighLevelUses(index: StorageIndex, accessVar: Variable, offset: number, i: number, nestedness: number)
+
+.decl StorageStmtKindAndConstruct(stmt: Statement, kind: StorageStmtKind, construct: StorageConstruct)
+
+.decl StorageStmt_HighLevelUses(stmt: Statement, accessVar: Variable, offset: number, i: number, nestedness: number)
 
 /**
   Top-Level Global Variables
