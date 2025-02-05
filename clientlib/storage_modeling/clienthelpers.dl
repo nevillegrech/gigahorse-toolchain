@@ -11,8 +11,8 @@
 .decl StorageConstructPredecesor(cons: StorageConstruct, predCons: StorageConstruct)
 
 StorageConstructPredecesor(cons, parentCons):-
-  StorageConstruct_ParentAndOffset(cons, parentCons).
+  StorageConstruct_ParentAndOffset(cons, parentCons, _).
 
 StorageConstructPredecesor(cons, predParentCons):-
   StorageConstructPredecesor(cons, predCons),
-  StorageConstruct_ParentAndOffset(predCons, predParentCons).
+  StorageConstruct_ParentAndOffset(predCons, predParentCons, _).
