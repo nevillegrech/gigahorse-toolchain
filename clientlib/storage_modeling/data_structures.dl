@@ -473,8 +473,7 @@ StorageStmtKindAndConstruct(stmt, $DataStart(), construct):-
   StorageStmtToIndexAndConstruct(stmt, "GETDATASTART", _, construct).
 
 StorageStmt_HighLevelUses(stmt, accessVar, offset, i, nestedness):-
-  StorageAccessOp(stmt, indexVar),
-  Variable_StorageIndex(indexVar, index),
+  StorageStmtToIndexAndConstruct(stmt, _, index, _),
   StorageIndex_HighLevelUses(index, accessVar, offset, i, nestedness).
 
 .decl StorageOffset_Type(offset: Value, type: symbol)
