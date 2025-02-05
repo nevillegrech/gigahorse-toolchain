@@ -40,6 +40,8 @@
                       | ArrayDataStart {}
                       | ArrayLength {}
 
+.type VarOrConstWrite = VariableWrite {var: Variable}
+                      | ConstantWrite {const: Value}
 
 
 /**
@@ -55,6 +57,10 @@
 .decl StorageStmtKindAndConstruct(stmt: Statement, kind: StorageStmtKind, construct: StorageConstruct)
 
 .decl StorageStmt_HighLevelUses(stmt: Statement, accessVar: Variable, offset: number, i: number, nestedness: number)
+
+.decl StorageLoad(load: Statement, cons: StorageConstruct, loadedVar: Variable)
+
+.decl StorageStore(store: Statement, cons: StorageConstruct, write: VarOrConstWrite)
 
 /**
   Top-Level Global Variables

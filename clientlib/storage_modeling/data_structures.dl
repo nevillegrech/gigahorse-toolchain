@@ -443,6 +443,7 @@ StorageStmtToIndexAndConstruct(stmt, "ACCESS", index, $Variable(cons)):-
   StorageAccessOp(stmt, var),
   ProcessedStorageVariable($Variable(cons), $Variable(cons)).
 
+StorageLoad(stmt, $TightlyPackedVariable(cons, actualLow, actualHigh), var),
 StorageStmtToIndexAndConstruct(stmt, "ACCESS", index, $TightlyPackedVariable(cons, actualLow, actualHigh)):-
   LikelyVariableLoadingStorageIndex(index),
   StorageIndex_StorageConstruct(index, cons),
@@ -462,6 +463,52 @@ StorageStmtToIndexAndConstruct(store, "ACCESS", index, $TightlyPackedVariable(co
   (VarWrittenToBytesOfStorVarFinal(_, store, $Variable(cons), low, high); ConstWrittenToBytesOfStorVarProcessed(_, _, store, _, $Variable(cons), low, high); DeleteOfStructSlot(store, $Variable(cons))),
   NormalizeStorageVarByteLimits($Variable(cons), low, high, actualLow, actualHigh),
   ProcessedStorageVariable($Variable(cons), $TightlyPackedVariable(cons, actualLow, actualHigh)).
+
+// New API relation computation
+
+StorageLoad(stmt, $Variable(cons), loadedVar):-
+  LikelyVariableLoadingStorageIndex(index),
+  StorageIndex_StorageConstruct(index, cons),
+  Variable_StorageIndex(var, index),
+  SLOAD(stmt, var, loadedVar),
+  ProcessedStorageVariable($Variable(cons), $Variable(cons)).
+
+StorageStore(store, $Variable(cons), $VariableWrite(storedVar)):-
+  LikelyVariableLoadingStorageIndex(index),
+  StorageIndex_StorageConstruct(index, cons),
+  Variable_StorageIndex(var, index),
+  SSTORE(store, var, storedVar),
+  ProcessedStorageVariable($Variable(cons), $Variable(cons)).
+
+StorageStore(store, $TightlyPackedVariable(cons, actualLow, actualHigh), $VariableWrite(storedVar)):-
+  LikelyVariableLoadingStorageIndex(index),
+  StorageIndex_StorageConstruct(index, cons),
+  Variable_StorageIndex(indexVar, index),
+  StorageAccessOp(store, indexVar),
+  VarWrittenToBytesOfStorVarFinal(storedVar, store, $Variable(cons), low, high),
+  NormalizeStorageVarByteLimits($Variable(cons), low, high, actualLow, actualHigh),
+  ProcessedStorageVariable($Variable(cons), $TightlyPackedVariable(cons, actualLow, actualHigh)).
+
+StorageStore(store, $TightlyPackedVariable(cons, actualLow, actualHigh), $ConstantWrite(const)):-
+  LikelyVariableLoadingStorageIndex(index),
+  StorageIndex_StorageConstruct(index, cons),
+  Variable_StorageIndex(indexVar, index),
+  StorageAccessOp(store, indexVar),
+  ConstWrittenToBytesOfStorVarProcessed(_, const, store, _, $Variable(cons), low, high),
+  NormalizeStorageVarByteLimits($Variable(cons), low, high, actualLow, actualHigh),
+  ProcessedStorageVariable($Variable(cons), $TightlyPackedVariable(cons, actualLow, actualHigh)).
+
+// Not sure if this is needed
+// StorageStore(store, $Variable(cons), $ConstantWrite("0x0")):-
+//   LikelyVariableLoadingStorageIndex(index),
+//   StorageIndex_StorageConstruct(index, cons),
+//   Variable_StorageIndex(indexVar, index),
+//   StorageAccessOp(store, indexVar),
+//   DeleteOfStructSlot(store, $Variable(cons)),
+//   NormalizeStorageVarByteLimits($Variable(cons), _, _, actualLow, actualHigh),
+//   ProcessedStorageVariable($Variable(cons), $TightlyPackedVariable(cons, actualLow, actualHigh)).
+
+
 
 StorageStmtKindAndConstruct(stmt, $VariableAccess(), construct):-
   StorageStmtToIndexAndConstruct(stmt, "ACCESS", _, construct).
