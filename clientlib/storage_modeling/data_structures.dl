@@ -43,9 +43,6 @@
 .decl PackedStructWordToString(structID: symbol, offset: number, stringRep: symbol)
 .decl PackedStructWordToStringUpTo(structID: symbol, offset: number, stringRep: symbol, upToByte: number, upToIndex: number)
 
-// Doesn't contain TightlyPackedVariable, maybe revisit
-.decl StorageConstruct_ParentAndOffset(cons: StorageConstruct, parentCons: StorageConstruct, offset: number)
-
 // Same as `StorageStmtToIndexAndConstruct`, populated before the tight packing component
 .decl InitialStorageStmtToIndexAndConstruct(stmt: Statement, kind: symbol, index: StorageIndex, construct: StorageConstruct)
 
