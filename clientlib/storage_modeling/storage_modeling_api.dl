@@ -15,10 +15,6 @@
                     | MappingAccessIndex {parIndex: StorageIndex, keyVar: Variable}
                     | OffsetIndex {parIndex: StorageIndex, offset: number}
 
-.type StorageStmtKind = VariableAccess {}
-                      | DataStart {}
-                      | ArrayLength {}
-
 /**
   `StorageConstruct` contains the information of `StorageIndex`, stripped of indexing/access vars
 */
@@ -29,6 +25,20 @@
                         | Offset {parConstruct: StorageConstruct, offset: number}
                         | Variable {construct: StorageConstruct}
                         | TightlyPackedVariable {construct: StorageConstruct, byteLow: number, byteHigh: number}
+
+/**
+  Storage Statement Kind:
+    * VariableAccess which can be used to read or write either:
+      * A top-level variable
+      * A struct field
+      * An array or mapping element
+    * ArrayDataStart which loads or writes to the start location of an array
+    * ArrayLength which is used to load or write the length of an array
+
+*/
+.type StorageStmtKind = VariableAccess {}
+                      | ArrayDataStart {}
+                      | ArrayLength {}
 
 
 

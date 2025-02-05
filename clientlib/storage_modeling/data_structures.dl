@@ -469,7 +469,7 @@ StorageStmtKindAndConstruct(stmt, $VariableAccess(), construct):-
 StorageStmtKindAndConstruct(stmt, $ArrayLength(), construct):-
   StorageStmtToIndexAndConstruct(stmt, "LENGTH", _, construct).
 
-StorageStmtKindAndConstruct(stmt, $DataStart(), construct):-
+StorageStmtKindAndConstruct(stmt, $ArrayDataStart(), construct):-
   StorageStmtToIndexAndConstruct(stmt, "GETDATASTART", _, construct).
 
 StorageStmt_HighLevelUses(stmt, accessVar, offset, i, nestedness):-
