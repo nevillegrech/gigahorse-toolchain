@@ -496,7 +496,8 @@ StorageStore(store, $TightlyPackedVariable(cons, actualLow, actualHigh), $Consta
   StorageAccessOp(store, indexVar),
   ConstWrittenToBytesOfStorVarProcessed(_, const, store, _, $Variable(cons), low, high),
   NormalizeStorageVarByteLimits($Variable(cons), low, high, actualLow, actualHigh),
-  ProcessedStorageVariable($Variable(cons), $TightlyPackedVariable(cons, actualLow, actualHigh)).
+  ProcessedStorageVariable($Variable(cons), $TightlyPackedVariable(cons, actualLow, actualHigh)),
+  !VarWrittenToBytesOfStorVarFinal(_, store, $Variable(cons), low, high).
 
 // Not sure if this is needed
 // StorageStore(store, $Variable(cons), $ConstantWrite("0x0")):-
