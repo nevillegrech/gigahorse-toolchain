@@ -813,4 +813,6 @@ DataStructuresTempStmt(load):-
   SuccessfulMergedStorageModeling(storVar),
   VarHoldsBytesOfStorVarFinal(var, load, storVar, _, _),
   Statement_Defines(stmt, var, 0),
+  // Ensure it's an SLOAD, it can be an SSTORE in some rare cases
+  Statement_Opcode(load, "SLOAD"),
   stmt != load.
