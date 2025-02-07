@@ -7,6 +7,8 @@
 
 #define PACKED_FIELD(fieldNum,byteLow,byteHigh) MERGED_STORAGE_VAR(cat("field", to_string(fieldNum)),byteLow,byteHigh)
 
+#define MISSING_VAR_PLACEHOLDER "0xNoVar"
+
 #include "../dominators.dl"
 #include "../flows.dl"
 #include "../casts_shifts.dl"
