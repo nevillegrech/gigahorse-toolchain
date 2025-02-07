@@ -465,6 +465,8 @@ StorageStmtToIndexAndConstruct(store, "ACCESS", index, $TightlyPackedVariable(co
   ProcessedStorageVariable($Variable(cons), $TightlyPackedVariable(cons, actualLow, actualHigh)).
 
 // New API relation computation
+DEBUG_OUTPUT(StorageLoad)
+DEBUG_OUTPUT(StorageStore)
 
 StorageLoad(stmt, $Variable(cons), loadedVar):-
   LikelyVariableLoadingStorageIndex(index),

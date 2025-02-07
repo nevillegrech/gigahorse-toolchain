@@ -623,58 +623,81 @@ GlobalVariable(v):-
   StoreGlobalVariable(_, v, _).
 
 
-LoadGlobalVariable(stmt, storVar, var):-
-  SLOADOfConst(stmt, storVar, var),
-  FailedMergedStorageModeling($Variable($Constant(storVar))).
+// LoadGlobalVariable(stmt, storVar, var):-
+//   SLOADOfConst(stmt, storVar, var),
+//   FailedMergedStorageModeling($Variable($Constant(storVar))).
 
-LoadGlobalVariable(stmt, as(storVar, Value), var):-
-  SuccessfulMergedStorageModeling($Variable($Constant(storVar))),
-  (SLOADOfConst(_, storVar, _); SSTOREToConst(_, storVar, _)), // ensure it's a global variable
-  VarHoldsBytesOfStorVarFinal(var, _, $Variable($Constant(storVar)), 0, 31),
-  Statement_Defines(stmt, var, 0).
+// LoadGlobalVariable(stmt, as(storVar, Value), var):-
+//   SuccessfulMergedStorageModeling($Variable($Constant(storVar))),
+//   (SLOADOfConst(_, storVar, _); SSTOREToConst(_, storVar, _)), // ensure it's a global variable
+//   VarHoldsBytesOfStorVarFinal(var, _, $Variable($Constant(storVar)), 0, 31),
+//   Statement_Defines(stmt, var, 0).
 
-LoadGlobalVariable(stmt, v, var):-
-  SuccessfulMergedStorageModeling($Variable($Constant(storVar))),
-  (SLOADOfConst(_, storVar, _); SSTOREToConst(_, storVar, _)), // ensure it's a global variable
-  VarHoldsBytesOfStorVarFinal(_, _, $Variable($Constant(storVar)), low, high),
-  // perhaps we need to add new instruction here
-  NormalizeStorageVarByteLimits($Variable($Constant(storVar)), low, high, actualLow, actualHigh),
-  VarHoldsBytesOfStorVar(var, _, $Variable($Constant(storVar)), actualLow, actualHigh),
-  Statement_Defines(stmt, var, 0),
-  (low != 0 ; high != 31),
-  v = MERGED_STORAGE_VAR(storVar, low, high).
+// LoadGlobalVariable(stmt, v, var):-
+//   SuccessfulMergedStorageModeling($Variable($Constant(storVar))),
+//   (SLOADOfConst(_, storVar, _); SSTOREToConst(_, storVar, _)), // ensure it's a global variable
+//   VarHoldsBytesOfStorVarFinal(_, _, $Variable($Constant(storVar)), low, high),
+//   // perhaps we need to add new instruction here
+//   NormalizeStorageVarByteLimits($Variable($Constant(storVar)), low, high, actualLow, actualHigh),
+//   VarHoldsBytesOfStorVar(var, _, $Variable($Constant(storVar)), actualLow, actualHigh),
+//   Statement_Defines(stmt, var, 0),
+//   (low != 0 ; high != 31),
+//   v = MERGED_STORAGE_VAR(storVar, low, high).
 
-StoreGlobalVariable(stmt, storVar, var):-
-  SSTOREToConst(stmt, storVar, var),
-  FailedMergedStorageModeling($Variable($Constant(storVar))).
+// StoreGlobalVariable(stmt, storVar, var):-
+//   SSTOREToConst(stmt, storVar, var),
+//   FailedMergedStorageModeling($Variable($Constant(storVar))).
 
-StoreGlobalVariable(stmt, storVar, var):-
-  SSTOREToConst(stmt, storVar, var),
-  SuccessfulMergedStorageModeling($Variable($Constant(storVar))),
-  (VarHoldsBytesOfStorVarFinal(_, _, $Variable($Constant(storVar)), 0, 31); !SLOADOfConstruct(_, $Variable($Constant(storVar)), _)).
+// StoreGlobalVariable(stmt, storVar, var):-
+//   SSTOREToConst(stmt, storVar, var),
+//   SuccessfulMergedStorageModeling($Variable($Constant(storVar))),
+//   (VarHoldsBytesOfStorVarFinal(_, _, $Variable($Constant(storVar)), 0, 31); !SLOADOfConstruct(_, $Variable($Constant(storVar)), _)).
 
-StoreGlobalVariable(store, v, writtenVar):-
-  SuccessfulMergedStorageModeling($Variable($Constant(storVar))),
-  SSTOREToConst(_, storVar, _), // ensure it's a global variable
-  VarWrittenToBytesOfStorVarFinal(writtenVar, store, $Variable($Constant(storVar)), byteLow, byteHigh),
-  NormalizeStorageVarByteLimits($Variable($Constant(storVar)), byteLow, byteHigh, actualLow, actualHigh),
-  ProcessedStorageVariable($Variable($Constant(storVar)), $TightlyPackedVariable($Constant(storVar), actualLow, actualHigh)),
-  v = MERGED_STORAGE_VAR(storVar, actualLow, actualHigh).
+// StoreGlobalVariable(store, v, writtenVar):-
+//   SuccessfulMergedStorageModeling($Variable($Constant(storVar))),
+//   SSTOREToConst(_, storVar, _), // ensure it's a global variable
+//   VarWrittenToBytesOfStorVarFinal(writtenVar, store, $Variable($Constant(storVar)), byteLow, byteHigh),
+//   NormalizeStorageVarByteLimits($Variable($Constant(storVar)), byteLow, byteHigh, actualLow, actualHigh),
+//   ProcessedStorageVariable($Variable($Constant(storVar)), $TightlyPackedVariable($Constant(storVar), actualLow, actualHigh)),
+//   v = MERGED_STORAGE_VAR(storVar, actualLow, actualHigh).
+
+// StoreGlobalVariable(store, storVar, writtenVar):-
+//   SuccessfulMergedStorageModeling($Variable($Constant(storVar))),
+//   SSTOREToConst(_, storVar, _), // ensure it's a global variable
+//   VarWrittenToBytesOfStorVarFinal(writtenVar, store, $Variable($Constant(storVar)), byteLow, byteHigh),
+//   NormalizeStorageVarByteLimits($Variable($Constant(storVar)), byteLow, byteHigh, 0, 31),
+//   ProcessedStorageVariable($Variable($Constant(storVar)), $Variable($Constant(storVar))).
+
+// StoreGlobalVariable(store, v, constVar):-
+//   SuccessfulMergedStorageModeling($Variable($Constant(storVar))),
+//   SSTOREToConst(_, storVar, _), // ensure it's a global variable
+//   ConstWrittenToBytesOfStorVarProcessed(constVar, _, store, _, $Variable($Constant(storVar)), byteLow, byteHigh),
+//   NormalizeStorageVarByteLimits($Variable($Constant(storVar)), byteLow, byteHigh, actualLow, actualHigh),
+//   ProcessedStorageVariable($Variable($Constant(storVar)), $TightlyPackedVariable($Constant(storVar), actualLow, actualHigh)),
+//   v = MERGED_STORAGE_VAR(storVar, actualLow, actualHigh).
+
+LoadGlobalVariable(load, storVar, loadedVar):-
+  StorageLoad(load, $Variable($Constant(storVar)), loadedVar).
+
+LoadGlobalVariable(load, MERGED_STORAGE_VAR(storVar, low, high), loadedVar):-
+  StorageLoad(load, $TightlyPackedVariable($Constant(storVar), low, high), loadedVar).
 
 StoreGlobalVariable(store, storVar, writtenVar):-
-  SuccessfulMergedStorageModeling($Variable($Constant(storVar))),
-  SSTOREToConst(_, storVar, _), // ensure it's a global variable
-  VarWrittenToBytesOfStorVarFinal(writtenVar, store, $Variable($Constant(storVar)), byteLow, byteHigh),
-  NormalizeStorageVarByteLimits($Variable($Constant(storVar)), byteLow, byteHigh, 0, 31),
-  ProcessedStorageVariable($Variable($Constant(storVar)), $Variable($Constant(storVar))).
+  StorageStore(store, $Variable($Constant(storVar)), $VariableWrite(writtenVar)).
 
-StoreGlobalVariable(store, v, constVar):-
-  SuccessfulMergedStorageModeling($Variable($Constant(storVar))),
-  SSTOREToConst(_, storVar, _), // ensure it's a global variable
-  ConstWrittenToBytesOfStorVarProcessed(constVar, _, store, _, $Variable($Constant(storVar)), byteLow, byteHigh),
-  NormalizeStorageVarByteLimits($Variable($Constant(storVar)), byteLow, byteHigh, actualLow, actualHigh),
-  ProcessedStorageVariable($Variable($Constant(storVar)), $TightlyPackedVariable($Constant(storVar), actualLow, actualHigh)),
-  v = MERGED_STORAGE_VAR(storVar, actualLow, actualHigh).
+StoreGlobalVariable(store, MERGED_STORAGE_VAR(storVar, low, high), writtenVar):-
+  StorageStore(store, $TightlyPackedVariable($Constant(storVar), low, high), $VariableWrite(writtenVar)).
+
+// NoVar because we only infer a ConstantWrite when we cannot infer a variable write
+StoreGlobalVariable(store, storVar, "0xNoVar"):-
+  StorageStore(store, $Variable($Constant(storVar)), $ConstantWrite(const)),
+  const = const.
+  // ConstWrittenToBytesOfStorVarProcessed(constVar, const, store, _, $Variable($Constant(storVar)), _, _).
+
+// NoVar because we only infer a ConstantWrite when we cannot infer a variable write
+StoreGlobalVariable(store, MERGED_STORAGE_VAR(storVar, low, high), "0xNoVar"):-
+  StorageStore(store, $TightlyPackedVariable($Constant(storVar), low, high), $ConstantWrite(const)),
+  const = const.
 
 
 StorageVariableInfo(storVar, storVar, 0, 31):-
