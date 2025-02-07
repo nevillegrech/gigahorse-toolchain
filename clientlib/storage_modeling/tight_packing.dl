@@ -718,6 +718,14 @@ ProcessedStorageVariable(construct, construct):-
     VarHoldsBytesOfStorVarFinal(_, _, construct, 0, 31)
   ).
 
+// Edge case
+// REVIEW: See if we can handle it using the above rule
+ProcessedStorageVariable(construct, construct):-
+  SuccessfulMergedStorageModeling(construct),
+  ConstWrittenToBytesOfStorVar(_, _, _, _, construct, 0, 31),
+  !VarWrittenToBytesOfStorVarFinal(_, _, construct, _, _),
+  !VarHoldsBytesOfStorVarFinal(_, _, construct, _, _).
+
 ProcessedStorageVariable(storageVar, $TightlyPackedVariable(parentCons, actualLow, actualHigh)):-
   SuccessfulMergedStorageModeling(storageVar),
   storageVar = $Variable(parentCons),
