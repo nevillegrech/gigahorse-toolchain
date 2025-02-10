@@ -1,0 +1,107 @@
+
+/***
+ New Storage Model
+ Aims to support arbituary nested data structures
+***/
+
+/**
+  `StorageConstruct` contains the information that can be used to describe arbitrarily nested data structures.
+  Each construct will start from a `Constant` offset that represent its allocated offset.
+  End-level (non intermediate) constucts end with `Variable` or `TightlyPackedVariable` facts.
+*/
+.type StorageConstruct = Constant {value: Value}
+                        | StaticArray {parConstruct: StorageConstruct, arraySize: number}
+                        | Array {parConstruct: StorageConstruct}
+                        | Mapping {parConstruct: StorageConstruct}
+                        | Offset {parConstruct: StorageConstruct, offset: number}
+                        | Variable {construct: StorageConstruct}
+                        | TightlyPackedVariable {construct: StorageConstruct, byteLow: number, byteHigh: number}
+
+/**
+  Storage Statement Kind:
+    * VariableAccess which can be used to read or write either:
+      * A top-level variable
+      * A struct field
+      * An array or mapping element
+    * ArrayDataStart which loads or writes to the start location of an array
+    * ArrayLength which is used to load or write the length of an array
+
+*/
+.type StorageStmtKind = VariableAccess {}
+                      | ArrayDataStart {}
+                      | ArrayLength {}
+
+.type VarOrConstWrite = VariableWrite {var: Variable}
+                      | ConstantWrite {const: Value}
+
+
+/**
+  Maps Storage Stmts to their corresponding construct and their `StorageStmtKind`
+  __Note__: Storage stmts do not have to be `SSTORE` and `SLOAD` statements, see `StorageLoad` for more info
+*/
+.decl StorageStmtKindAndConstruct(stmt: Statement, kind: StorageStmtKind, construct: StorageConstruct)
+
+/**
+  Information about storage stmts on potentially nested data structures.
+  Can be used to get all information on index variables and field offsets at every step.
+*/
+.decl StorageStmt_HighLevelUses(stmt: Statement, accessVar: Variable, offset: number, i: number, nestedness: number)
+
+/**
+  Storage load information.
+  In cases of packed variables a single `SLOAD` can load multiple high-level variables.
+  In these cases we consider the `load` to not be the `SLOAD` but rather the statement that ends up
+  extracting the bytes that define the packed variable (cast, etc)
+*/
+.decl StorageLoad(load: Statement, cons: StorageConstruct, loadedVar: Variable)
+
+/**
+  `SSTORE` statement write information.
+  A write can be either a Variable or a Constant in cases where the actual written constant doesn't have a corresponding
+  `Variable_Value` fact.  
+  __Note__: Due to optimized packed variable write patterns, one `SSTORE` can write multiple different constructs
+*/
+.decl StorageStore(store: Statement, cons: StorageConstruct, write: VarOrConstWrite)
+
+/**
+  Top-Level Global Variables
+  There is some overlap with the other, more general definitions
+  but I've also kept these separate relations for backwards compatibility
+ */
+
+.decl GlobalVariable(v: Value)
+
+.decl LoadGlobalVariable(stmt: Statement, val: Value, var: Variable)
+
+.decl StoreGlobalVariable(stmt: Statement, val: Value, var: Variable)
+
+// Info for top-level global variables
+.decl StorageVariableInfo(storageVariable: symbol, storageSlot: symbol, byteLow: number, byteHigh: number)
+
+
+/**
+  An `array` is deleted by setting its length to zero in `sstore` and then erasing all its contents in a following `loop`. 
+*/
+.decl ArrayDeleteOp(sstore: Statement, loop: Block, array: StorageConstruct)
+
+// Data structure construct has a value (Mappings) or element (Arrays) that is a struct
+.decl DataStructureValueIsStruct(cons: StorageConstruct, structID: symbol, elemNum: number)
+
+// Map `structID` to solidity-like struct definition `stringStruct`
+.decl StructToString(structID: symbol, stringStruct: symbol)
+
+/**
+  Type related outputs
+*/
+
+// value type for mapping or element type for arrays
+.decl DataStructure_ValueOrElementType(cons: StorageConstruct, type: symbol)
+
+// key type for mapping
+.decl Mapping_KeyType(cons: StorageConstruct, type: symbol)
+
+// Note: Can probably be unified with `DataStructure_Type`
+.decl StorageVariable_Type(cons: StorageConstruct, type: symbol)
+
+// Note: Can probably be unified with `StorageVariable_Type`
+.decl DataStructure_Type(cons: StorageConstruct, type: symbol)

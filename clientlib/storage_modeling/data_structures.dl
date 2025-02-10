@@ -1,8 +1,4 @@
 
-/***
- New Storage Model
- Aims to support arbituary nested data structures
-***/
 
 /**
   `StorageIndex` contains information on the data structure used as well as the variables
@@ -15,16 +11,6 @@
                     | MappingAccessIndex {parIndex: StorageIndex, keyVar: Variable}
                     | OffsetIndex {parIndex: StorageIndex, offset: number}
 
-/**
-  `StorageConstruct` contains the information of `StorageIndex`, stripped of indexing/access vars
-*/
-.type StorageConstruct = Constant {value: Value}
-                        | StaticArray {parConstruct: StorageConstruct, arraySize: number}
-                        | Array {parConstruct: StorageConstruct}
-                        | Mapping {parConstruct: StorageConstruct}
-                        | Offset {parConstruct: StorageConstruct, offset: number}
-                        | Variable {construct: StorageConstruct}
-                        | TightlyPackedVariable {construct: StorageConstruct, byteLow: number, byteHigh: number}
 
 /**
   Syntactic translation of `StorageIndex` to `StorageConstruct`
@@ -51,11 +37,19 @@
 // Indexes in this relation can only be used directly to construct offset indexes
 .decl LikelyVariableLoadingStorageIndex(index: StorageIndex)
 
+/**
+  Maps `SSTORE`, `SLOAD` (and more, for packed vars) statements to the high-level information:
+  - `kind` can be "ACCESS", "LENGTH", "GETDATASTART"
+  - `index` can be used to get the high-level uses of the composite storage data structure accesses and writes
+  - `construct` is the data structure that is being accessed/written to
+*/
+.decl StorageStmtToIndexAndConstruct(stmt: Statement, kind: symbol, index: StorageIndex, construct: StorageConstruct)
+
+.decl StorageIndex_HighLevelUses(index: StorageIndex, accessVar: Variable, offset: number, i: number, nestedness: number)
+
 // Construct is not used as a variable (i.e. is used as an array or mapping)
 // Used to find the ones that are end-level variables
 .decl NonVariableConstruct(cons: StorageConstruct)
-
-.decl StorageIndex_HighLevelUses(index: StorageIndex, accessVar: Variable, offset: number, i: number, nestedness: number)
 
 .decl IsStorageConstruct(cons: StorageConstruct)
 
@@ -65,36 +59,12 @@
 // Number of elements the value of a data structure construct (Array or Mapping) has
 .decl DataStructure_ElemNum(cons: StorageConstruct, elemNum: number)
 
-// Data structure construct has a value (Mappings) or element (Arrays) that is a struct
-.decl DataStructureValueIsStruct(cons: StorageConstruct, structID: symbol, elemNum: number)
-
-// value type for mapping or element type for arrays
-.decl DataStructure_ValueOrElementType(cons: StorageConstruct, type: symbol)
-
-// key type for mapping
-.decl Mapping_KeyType(cons: StorageConstruct, type: symbol)
-
-// Map `structID` to solidity-like struct definition `stringStruct`
-.decl StructToString(structID: symbol, stringStruct: symbol)
+// Internal predicate, used to compute `StructToString`
 .decl StructToStringUpTo(structID: symbol, stringStruct: symbol, upTo: number)
 
 // Map tightly packed field in storage struct to solidity-like def used by `StructToString`
 .decl PackedStructWordToString(structID: symbol, offset: number, stringRep: symbol)
 .decl PackedStructWordToStringUpTo(structID: symbol, offset: number, stringRep: symbol, upToByte: number, upToIndex: number)
-
-// Note: Can probably be unified with `StorageVariable_Type`
-.decl DataStructure_Type(cons: StorageConstruct, type: symbol)
-
-// Doesn't contain TightlyPackedVariable, maybe revisit
-.decl StorageConstruct_ParentAndOffset(cons: StorageConstruct, parentCons: StorageConstruct, offset: number)
-
-/**
-  Maps `SSTORE` and `SLOAD` statements to the high-level information:
-  - `kind` can be "ACCESS", "LENGTH", "GETDATASTART"
-  - `index` can be used to get the high-level uses of the composite storage data structure accesses and writes
-  - `construct` is the data structure that is being accessed/written to
-*/
-.decl StorageStmtToIndexAndConstruct(stmt: Statement, kind: symbol, index: StorageIndex, construct: StorageConstruct)
 
 // Same as `StorageStmtToIndexAndConstruct`, populated before the tight packing component
 .decl InitialStorageStmtToIndexAndConstruct(stmt: Statement, kind: symbol, index: StorageIndex, construct: StorageConstruct)
@@ -496,6 +466,7 @@ StorageStmtToIndexAndConstruct(stmt, "ACCESS", index, $Variable(cons)):-
   StorageAccessOp(stmt, var),
   ProcessedStorageVariable($Variable(cons), $Variable(cons)).
 
+StorageLoad(stmt, $TightlyPackedVariable(cons, actualLow, actualHigh), var),
 StorageStmtToIndexAndConstruct(stmt, "ACCESS", index, $TightlyPackedVariable(cons, actualLow, actualHigh)):-
   LikelyVariableLoadingStorageIndex(index),
   StorageIndex_StorageConstruct(index, cons),
@@ -515,6 +486,68 @@ StorageStmtToIndexAndConstruct(store, "ACCESS", index, $TightlyPackedVariable(co
   (VarWrittenToBytesOfStorVarFinal(_, store, $Variable(cons), low, high); ConstWrittenToBytesOfStorVarProcessed(_, _, store, _, $Variable(cons), low, high); DeleteOfStructSlot(store, $Variable(cons))),
   NormalizeStorageVarByteLimits($Variable(cons), low, high, actualLow, actualHigh),
   ProcessedStorageVariable($Variable(cons), $TightlyPackedVariable(cons, actualLow, actualHigh)).
+
+// New API relation computation
+DEBUG_OUTPUT(StorageLoad)
+DEBUG_OUTPUT(StorageStore)
+
+StorageLoad(stmt, $Variable(cons), loadedVar):-
+  LikelyVariableLoadingStorageIndex(index),
+  StorageIndex_StorageConstruct(index, cons),
+  Variable_StorageIndex(var, index),
+  SLOAD(stmt, var, loadedVar),
+  ProcessedStorageVariable($Variable(cons), $Variable(cons)).
+
+StorageStore(store, $Variable(cons), $VariableWrite(storedVar)):-
+  LikelyVariableLoadingStorageIndex(index),
+  StorageIndex_StorageConstruct(index, cons),
+  Variable_StorageIndex(var, index),
+  SSTORE(store, var, storedVar),
+  ProcessedStorageVariable($Variable(cons), $Variable(cons)).
+
+StorageStore(store, $TightlyPackedVariable(cons, actualLow, actualHigh), $VariableWrite(storedVar)):-
+  LikelyVariableLoadingStorageIndex(index),
+  StorageIndex_StorageConstruct(index, cons),
+  Variable_StorageIndex(indexVar, index),
+  StorageAccessOp(store, indexVar),
+  VarWrittenToBytesOfStorVarFinal(storedVar, store, $Variable(cons), low, high),
+  NormalizeStorageVarByteLimits($Variable(cons), low, high, actualLow, actualHigh),
+  ProcessedStorageVariable($Variable(cons), $TightlyPackedVariable(cons, actualLow, actualHigh)).
+
+StorageStore(store, $TightlyPackedVariable(cons, actualLow, actualHigh), $ConstantWrite(const)):-
+  LikelyVariableLoadingStorageIndex(index),
+  StorageIndex_StorageConstruct(index, cons),
+  Variable_StorageIndex(indexVar, index),
+  StorageAccessOp(store, indexVar),
+  ConstWrittenToBytesOfStorVarProcessed(_, const, store, _, $Variable(cons), low, high),
+  NormalizeStorageVarByteLimits($Variable(cons), low, high, actualLow, actualHigh),
+  ProcessedStorageVariable($Variable(cons), $TightlyPackedVariable(cons, actualLow, actualHigh)),
+  !VarWrittenToBytesOfStorVarFinal(_, store, $Variable(cons), low, high).
+
+// Not sure if this is needed
+// StorageStore(store, $Variable(cons), $ConstantWrite("0x0")):-
+//   LikelyVariableLoadingStorageIndex(index),
+//   StorageIndex_StorageConstruct(index, cons),
+//   Variable_StorageIndex(indexVar, index),
+//   StorageAccessOp(store, indexVar),
+//   DeleteOfStructSlot(store, $Variable(cons)),
+//   NormalizeStorageVarByteLimits($Variable(cons), _, _, actualLow, actualHigh),
+//   ProcessedStorageVariable($Variable(cons), $TightlyPackedVariable(cons, actualLow, actualHigh)).
+
+
+
+StorageStmtKindAndConstruct(stmt, $VariableAccess(), construct):-
+  StorageStmtToIndexAndConstruct(stmt, "ACCESS", _, construct).
+
+StorageStmtKindAndConstruct(stmt, $ArrayLength(), construct):-
+  StorageStmtToIndexAndConstruct(stmt, "LENGTH", _, construct).
+
+StorageStmtKindAndConstruct(stmt, $ArrayDataStart(), construct):-
+  StorageStmtToIndexAndConstruct(stmt, "GETDATASTART", _, construct).
+
+StorageStmt_HighLevelUses(stmt, accessVar, offset, i, nestedness):-
+  StorageStmtToIndexAndConstruct(stmt, _, index, _),
+  StorageIndex_HighLevelUses(index, accessVar, offset, i, nestedness).
 
 .decl StorageOffset_Type(offset: Value, type: symbol)
 
@@ -631,12 +664,8 @@ StorageConstantToHash(const, zeroPaded, as(@hex_keccak_256(zeroPaded), Value)):-
   Helper_Zeros(zeros, 64 - strlen(cut)),
   zeroPaded = cat("0x", cat(zeros, cut)).
 
-/**
-  An `array` is deleted by setting its length to zero in `sstore` and then erasing all its contents in a following `loop`. 
-*/
-.decl ArrayDeleteOp(sstore: Statement, loop: Block, array: StorageConstruct)
-DEBUG_OUTPUT(ArrayDeleteOp)
 
+DEBUG_OUTPUT(ArrayDeleteOp)
 ArrayDeleteOp(sstore, loop, array):-
   SSTORE(sstore, _, zeroVar),
   Variable_Value(zeroVar, "0x0"),

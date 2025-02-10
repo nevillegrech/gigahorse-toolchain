@@ -1,0 +1,18 @@
+
+/**
+  Storage modeling client helpers
+  Relations that can be computed using relations in the API but are useful standalone
+*/
+
+// Doesn't contain TightlyPackedVariable, maybe revisit
+.decl StorageConstruct_ParentAndOffset(cons: StorageConstruct, parentCons: StorageConstruct, offset: number)
+
+
+.decl StorageConstructPredecesor(cons: StorageConstruct, predCons: StorageConstruct)
+
+StorageConstructPredecesor(cons, parentCons):-
+  StorageConstruct_ParentAndOffset(cons, parentCons, _).
+
+StorageConstructPredecesor(cons, predParentCons):-
+  StorageConstructPredecesor(cons, predCons),
+  StorageConstruct_ParentAndOffset(predCons, predParentCons, _).

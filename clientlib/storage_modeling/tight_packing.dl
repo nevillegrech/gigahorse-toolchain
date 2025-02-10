@@ -499,7 +499,7 @@ SSTOREZeroRange(store, construct, byteLow, byteHigh):-
   byteLow <= byteHigh,
   1 + byteHigh - byteLow = count : {SSTOREZeroByte(store, construct, k), byteLow <= k, k <= byteHigh}.
 
-ConstWrittenToBytesOfStorVar("0xNoVar", "0x0", store, "lolo", construct, byteLow, byteHigh):-
+ConstWrittenToBytesOfStorVar(MISSING_VAR_PLACEHOLDER, "0x0", store, "lolo", construct, byteLow, byteHigh):-
   SSTOREZeroRange(store, construct, byteLow, byteHigh).
 
 
@@ -520,7 +520,7 @@ VarWrittenToBytesOfStorVarFinal(writtenVar, store, construct, byteLow, byteHigh)
 
 
 BytesOfStorVarKept(store, load, construct, keepByteLow, keepByteHigh),
-ConstWrittenToBytesOfStorVar("0xNoVar", "0x0", store, load, construct, maskByteLow, maskByteHigh):-
+ConstWrittenToBytesOfStorVar(MISSING_VAR_PLACEHOLDER, "0x0", store, load, construct, maskByteLow, maskByteHigh):-
   VarHoldsBytesOfStorVar(originVar, load, construct, 0, 31),
   ByteMaskOpKeepRange(originVar, storedVar, [keepByteLow, keepByteHigh]),
   ByteMaskOpMaskRange(originVar, storedVar, [maskByteLow, maskByteHigh]),
@@ -601,18 +601,6 @@ NormalizeStorageVarByteLimits(storVar, low, high, low, actualHigh):-
   actualHigh = max otherHigh :AnyLoadStoreStorVarBytes(_, storVar, low, otherHigh).
 
 
-/**
-  Top-Level Global Variables
- */
-
-.decl GlobalVariable(v: Value)
-
-.decl LoadGlobalVariable(stmt: Statement, val: Value, var: Variable)
-
-.decl StoreGlobalVariable(stmt: Statement, val: Value, var: Variable)
-
-// Info for top-level global variables
-.decl StorageVariableInfo(storageVariable: symbol, storageSlot: symbol, byteLow: number, byteHigh: number)
 
 // Processing of storage variables, accounting for tightly packed words
 .decl ProcessedStorageVariable(storageVar: StorageConstruct, storageVarProcessed: StorageConstruct)
@@ -624,69 +612,32 @@ DEBUG_OUTPUT(ProcessedStorageVariable)
 .decl StorageVariablePacksNVars(storageVar: StorageConstruct, numberOfVars: number)
 DEBUG_OUTPUT(StorageVariablePacksNVars)
 
-/* Old logic
-GlobalVariable(v) :-
-  SLOAD(_, index, _),
-  Variable_Value(index, v).
-*/
 
 GlobalVariable(v):-
   LoadGlobalVariable(_, v, _) ;
   StoreGlobalVariable(_, v, _).
 
+LoadGlobalVariable(load, storVar, loadedVar):-
+  StorageLoad(load, $Variable($Constant(storVar)), loadedVar).
 
-LoadGlobalVariable(stmt, storVar, var):-
-  SLOADOfConst(stmt, storVar, var),
-  FailedMergedStorageModeling($Variable($Constant(storVar))).
-
-LoadGlobalVariable(stmt, as(storVar, Value), var):-
-  SuccessfulMergedStorageModeling($Variable($Constant(storVar))),
-  (SLOADOfConst(_, storVar, _); SSTOREToConst(_, storVar, _)), // ensure it's a global variable
-  VarHoldsBytesOfStorVarFinal(var, _, $Variable($Constant(storVar)), 0, 31),
-  Statement_Defines(stmt, var, 0).
-
-LoadGlobalVariable(stmt, v, var):-
-  SuccessfulMergedStorageModeling($Variable($Constant(storVar))),
-  (SLOADOfConst(_, storVar, _); SSTOREToConst(_, storVar, _)), // ensure it's a global variable
-  VarHoldsBytesOfStorVarFinal(_, _, $Variable($Constant(storVar)), low, high),
-  // perhaps we need to add new instruction here
-  NormalizeStorageVarByteLimits($Variable($Constant(storVar)), low, high, actualLow, actualHigh),
-  VarHoldsBytesOfStorVar(var, _, $Variable($Constant(storVar)), actualLow, actualHigh),
-  Statement_Defines(stmt, var, 0),
-  (low != 0 ; high != 31),
-  v = MERGED_STORAGE_VAR(storVar, low, high).
-
-StoreGlobalVariable(stmt, storVar, var):-
-  SSTOREToConst(stmt, storVar, var),
-  FailedMergedStorageModeling($Variable($Constant(storVar))).
-
-StoreGlobalVariable(stmt, storVar, var):-
-  SSTOREToConst(stmt, storVar, var),
-  SuccessfulMergedStorageModeling($Variable($Constant(storVar))),
-  (VarHoldsBytesOfStorVarFinal(_, _, $Variable($Constant(storVar)), 0, 31); !SLOADOfConstruct(_, $Variable($Constant(storVar)), _)).
-
-StoreGlobalVariable(store, v, writtenVar):-
-  SuccessfulMergedStorageModeling($Variable($Constant(storVar))),
-  SSTOREToConst(_, storVar, _), // ensure it's a global variable
-  VarWrittenToBytesOfStorVarFinal(writtenVar, store, $Variable($Constant(storVar)), byteLow, byteHigh),
-  NormalizeStorageVarByteLimits($Variable($Constant(storVar)), byteLow, byteHigh, actualLow, actualHigh),
-  ProcessedStorageVariable($Variable($Constant(storVar)), $TightlyPackedVariable($Constant(storVar), actualLow, actualHigh)),
-  v = MERGED_STORAGE_VAR(storVar, actualLow, actualHigh).
+LoadGlobalVariable(load, MERGED_STORAGE_VAR(storVar, low, high), loadedVar):-
+  StorageLoad(load, $TightlyPackedVariable($Constant(storVar), low, high), loadedVar).
 
 StoreGlobalVariable(store, storVar, writtenVar):-
-  SuccessfulMergedStorageModeling($Variable($Constant(storVar))),
-  SSTOREToConst(_, storVar, _), // ensure it's a global variable
-  VarWrittenToBytesOfStorVarFinal(writtenVar, store, $Variable($Constant(storVar)), byteLow, byteHigh),
-  NormalizeStorageVarByteLimits($Variable($Constant(storVar)), byteLow, byteHigh, 0, 31),
-  ProcessedStorageVariable($Variable($Constant(storVar)), $Variable($Constant(storVar))).
+  StorageStore(store, $Variable($Constant(storVar)), $VariableWrite(writtenVar)).
 
-StoreGlobalVariable(store, v, constVar):-
-  SuccessfulMergedStorageModeling($Variable($Constant(storVar))),
-  SSTOREToConst(_, storVar, _), // ensure it's a global variable
-  ConstWrittenToBytesOfStorVarProcessed(constVar, _, store, _, $Variable($Constant(storVar)), byteLow, byteHigh),
-  NormalizeStorageVarByteLimits($Variable($Constant(storVar)), byteLow, byteHigh, actualLow, actualHigh),
-  ProcessedStorageVariable($Variable($Constant(storVar)), $TightlyPackedVariable($Constant(storVar), actualLow, actualHigh)),
-  v = MERGED_STORAGE_VAR(storVar, actualLow, actualHigh).
+StoreGlobalVariable(store, MERGED_STORAGE_VAR(storVar, low, high), writtenVar):-
+  StorageStore(store, $TightlyPackedVariable($Constant(storVar), low, high), $VariableWrite(writtenVar)).
+
+// MissingVar because we only infer a ConstantWrite when we cannot infer a variable write
+StoreGlobalVariable(store, storVar, MISSING_VAR_PLACEHOLDER):-
+  StorageStore(store, $Variable($Constant(storVar)), $ConstantWrite(const)),
+  const = const.
+
+// MissingVar because we only infer a ConstantWrite when we cannot infer a variable write
+StoreGlobalVariable(store, MERGED_STORAGE_VAR(storVar, low, high), MISSING_VAR_PLACEHOLDER):-
+  StorageStore(store, $TightlyPackedVariable($Constant(storVar), low, high), $ConstantWrite(const)),
+  const = const.
 
 
 StorageVariableInfo(storVar, storVar, 0, 31):-
@@ -706,6 +657,14 @@ ProcessedStorageVariable(construct, construct):-
     VarWrittenToBytesOfStorVarFinal(_, _, construct, 0, 31);
     VarHoldsBytesOfStorVarFinal(_, _, construct, 0, 31)
   ).
+
+// Edge case
+// REVIEW: See if we can handle it using the above rule
+ProcessedStorageVariable(construct, construct):-
+  SuccessfulMergedStorageModeling(construct),
+  ConstWrittenToBytesOfStorVar(_, _, _, _, construct, 0, 31),
+  !VarWrittenToBytesOfStorVarFinal(_, _, construct, _, _),
+  !VarHoldsBytesOfStorVarFinal(_, _, construct, _, _).
 
 ProcessedStorageVariable(storageVar, $TightlyPackedVariable(parentCons, actualLow, actualHigh)):-
   SuccessfulMergedStorageModeling(storageVar),
@@ -740,14 +699,14 @@ ConstWrittenToBytesOfStorVarProcessed(constVar, const, store, load, $Variable(pa
   ProcessedStorageVariable($Variable(parentCons), $TightlyPackedVariable(parentCons, byteLow, actualByteHigh)),
   actualByteHigh > byteHigh.
 
-ConstWrittenToBytesOfStorVarProcessed("0xNoVar", as(@and_256(const, mask), Value), store, load, $Variable(parentCons), byteLow, actualByteHigh):-
+ConstWrittenToBytesOfStorVarProcessed(MISSING_VAR_PLACEHOLDER, as(@and_256(const, mask), Value), store, load, $Variable(parentCons), byteLow, actualByteHigh):-
   ConstWrittenToBytesOfStorVar(_, const, store, load, $Variable(parentCons), byteLow, byteHigh),
   ProcessedStorageVariable($Variable(parentCons), $TightlyPackedVariable(parentCons, byteLow, actualByteHigh)),
   actualByteHigh < byteHigh,
   Mask_Length(mask, byteHigh - actualByteHigh),
   ValueIsByteMask(mask).
 
-ConstWrittenToBytesOfStorVarProcessed("0xNoVar", newVal, store, load, $Variable(parentCons), actualByteLow, actualByteHigh):-
+ConstWrittenToBytesOfStorVarProcessed(MISSING_VAR_PLACEHOLDER, newVal, store, load, $Variable(parentCons), actualByteLow, actualByteHigh):-
   ConstWrittenToBytesOfStorVar(_, const, store, load, $Variable(parentCons), writeByteLow, writeByteHigh),
   ProcessedStorageVariable($Variable(parentCons), $TightlyPackedVariable(parentCons, actualByteLow, actualByteHigh)),
   writeByteLow <= actualByteLow,
@@ -757,7 +716,7 @@ ConstWrittenToBytesOfStorVarProcessed("0xNoVar", newVal, store, load, $Variable(
   ValueIsByteMask(mask),
   newVal = as(@and_256(@shr_256(@number_to_hex(excessRightBytes*8), const), mask), Value).
 
-ConstWrittenToBytesOfStorVarProcessed("0xNoVar", "0x0", store, store, $Variable(parentCons), actualByteLow, actualByteHigh):-
+ConstWrittenToBytesOfStorVarProcessed(MISSING_VAR_PLACEHOLDER, "0x0", store, store, $Variable(parentCons), actualByteLow, actualByteHigh):-
   DeleteOfStructSlot(store, $Variable(parentCons)),
   ProcessedStorageVariable($Variable(parentCons), $TightlyPackedVariable(parentCons, actualByteLow, actualByteHigh)).
 
@@ -794,4 +753,6 @@ DataStructuresTempStmt(load):-
   SuccessfulMergedStorageModeling(storVar),
   VarHoldsBytesOfStorVarFinal(var, load, storVar, _, _),
   Statement_Defines(stmt, var, 0),
+  // Ensure it's an SLOAD, it can be an SSTORE in some rare cases
+  Statement_Opcode(load, "SLOAD"),
   stmt != load.
