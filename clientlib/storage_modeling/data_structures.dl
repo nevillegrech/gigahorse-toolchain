@@ -1,4 +1,17 @@
 
+
+/**
+  `StorageIndex` contains information on the data structure used as well as the variables
+  used to index/access it, representing the actual low-level index flowing to `SSTORE`/`SLOAD` stmts.
+*/
+.type StorageIndex = ConstantIndex {value: Value}
+                    | StaticArrayAccessIndex {parIndex: StorageIndex, arraySize: number, indexVar: Variable}
+                    | ArrayAccessIndex {parIndex: StorageIndex, indexVar: Variable}
+                    | ArrayDataStartIndex {parIndex: StorageIndex}
+                    | MappingAccessIndex {parIndex: StorageIndex, keyVar: Variable}
+                    | OffsetIndex {parIndex: StorageIndex, offset: number}
+
+
 /**
   Syntactic translation of `StorageIndex` to `StorageConstruct`
 */
@@ -23,6 +36,16 @@
 // "Final" storage index: used in an `SSTORE`/`SLOAD` op and not to construct a more complex index
 // Indexes in this relation can only be used directly to construct offset indexes
 .decl LikelyVariableLoadingStorageIndex(index: StorageIndex)
+
+/**
+  Maps `SSTORE`, `SLOAD` (and more, for packed vars) statements to the high-level information:
+  - `kind` can be "ACCESS", "LENGTH", "GETDATASTART"
+  - `index` can be used to get the high-level uses of the composite storage data structure accesses and writes
+  - `construct` is the data structure that is being accessed/written to
+*/
+.decl StorageStmtToIndexAndConstruct(stmt: Statement, kind: symbol, index: StorageIndex, construct: StorageConstruct)
+
+.decl StorageIndex_HighLevelUses(index: StorageIndex, accessVar: Variable, offset: number, i: number, nestedness: number)
 
 // Construct is not used as a variable (i.e. is used as an array or mapping)
 // Used to find the ones that are end-level variables

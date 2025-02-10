@@ -5,18 +5,9 @@
 ***/
 
 /**
-  `StorageIndex` contains information on the data structure used as well as the variables
-  used to index/access it, representing the actual low-level index flowing to `SSTORE`/`SLOAD` stmts.
-*/
-.type StorageIndex = ConstantIndex {value: Value}
-                    | StaticArrayAccessIndex {parIndex: StorageIndex, arraySize: number, indexVar: Variable}
-                    | ArrayAccessIndex {parIndex: StorageIndex, indexVar: Variable}
-                    | ArrayDataStartIndex {parIndex: StorageIndex}
-                    | MappingAccessIndex {parIndex: StorageIndex, keyVar: Variable}
-                    | OffsetIndex {parIndex: StorageIndex, offset: number}
-
-/**
-  `StorageConstruct` contains the information of `StorageIndex`, stripped of indexing/access vars
+  `StorageConstruct` contains the information that can be used to describe arbitrarily nested data structures.
+  Each construct will start from a `Constant` offset that represent its allocated offset.
+  End-level (non intermediate) constucts end with `Variable` or `TightlyPackedVariable` facts.
 */
 .type StorageConstruct = Constant {value: Value}
                         | StaticArray {parConstruct: StorageConstruct, arraySize: number}
@@ -45,21 +36,31 @@
 
 
 /**
-  Maps `SSTORE` and `SLOAD` statements to the high-level information:
-  - `kind` can be "ACCESS", "LENGTH", "GETDATASTART"
-  - `index` can be used to get the high-level uses of the composite storage data structure accesses and writes
-  - `construct` is the data structure that is being accessed/written to
+  Maps Storage Stmts to their corresponding construct and their `StorageStmtKind`
+  __Note__: Storage stmts do not have to be `SSTORE` and `SLOAD` statements, see `StorageLoad` for more info
 */
-.decl StorageStmtToIndexAndConstruct(stmt: Statement, kind: symbol, index: StorageIndex, construct: StorageConstruct)
-
-.decl StorageIndex_HighLevelUses(index: StorageIndex, accessVar: Variable, offset: number, i: number, nestedness: number)
-
 .decl StorageStmtKindAndConstruct(stmt: Statement, kind: StorageStmtKind, construct: StorageConstruct)
 
+/**
+  Information about storage stmts on potentially nested data structures.
+  Can be used to get all information on index variables and field offsets at every step.
+*/
 .decl StorageStmt_HighLevelUses(stmt: Statement, accessVar: Variable, offset: number, i: number, nestedness: number)
 
+/**
+  Storage load information.
+  In cases of packed variables a single `SLOAD` can load multiple high-level variables.
+  In these cases we consider the `load` to not be the `SLOAD` but rather the statement that ends up
+  extracting the bytes that define the packed variable (cast, etc)
+*/
 .decl StorageLoad(load: Statement, cons: StorageConstruct, loadedVar: Variable)
 
+/**
+  `SSTORE` statement write information.
+  A write can be either a Variable or a Constant in cases where the actual written constant doesn't have a corresponding
+  `Variable_Value` fact.  
+  __Note__: Due to optimized packed variable write patterns, one `SSTORE` can write multiple different constructs
+*/
 .decl StorageStore(store: Statement, cons: StorageConstruct, write: VarOrConstWrite)
 
 /**
