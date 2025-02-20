@@ -260,5 +260,5 @@ Verbatim_StructToString(structID, stringStruct):-
 .output Analytics_StructWithNoStringRep
 
 Analytics_StructWithNoStringRep(structID):-
-  DataStructureValueIsStruct(_, structID, _),
+  DataStructureValueIsStruct(_, _, structID, _),
   !StructToString(structID, _).
