@@ -82,10 +82,10 @@
 /**
   An `array` is deleted by setting its length to zero in `sstore` and then erasing all its contents in a following `loop`. 
 */
-.decl ArrayDeleteOp(sstore: Statement, loop: Block, array: StorageConstruct)
+.decl ArrayDeleteOp(sstore: Statement, loop: Block, loc: StorageLocation, array: StorageConstruct)
 
 // Data structure construct has a value (Mappings) or element (Arrays) that is a struct
-.decl DataStructureValueIsStruct(cons: StorageConstruct, structID: symbol, elemNum: number)
+.decl DataStructureValueIsStruct(loc: StorageLocation, cons: StorageConstruct, structID: symbol, elemNum: number)
 
 // Map `structID` to solidity-like struct definition `stringStruct`
 .decl StructToString(structID: symbol, stringStruct: symbol)
@@ -95,13 +95,13 @@
 */
 
 // value type for mapping or element type for arrays
-.decl DataStructure_ValueOrElementType(cons: StorageConstruct, type: symbol)
+.decl DataStructure_ValueOrElementType(loc: StorageLocation, cons: StorageConstruct, type: symbol)
 
 // key type for mapping
-.decl Mapping_KeyType(cons: StorageConstruct, type: symbol)
+.decl Mapping_KeyType(loc: StorageLocation, cons: StorageConstruct, type: symbol)
 
 // Note: Can probably be unified with `DataStructure_Type`
-.decl StorageVariable_Type(cons: StorageConstruct, type: symbol)
+.decl StorageVariable_Type(loc: StorageLocation, cons: StorageConstruct, type: symbol)
 
 // Note: Can probably be unified with `StorageVariable_Type`
-.decl DataStructure_Type(cons: StorageConstruct, type: symbol)
+.decl DataStructure_Type(loc: StorageLocation, cons: StorageConstruct, type: symbol)
