@@ -355,7 +355,7 @@ StructToStringUpTo(structID, cat(prev, cat(" ", decl)), i + 1):-
   PackedStructWordToString(structID, i + 1, decl)).
 
 StructToString(structID, cat(prev, " }")):-
-  DataStructureValueIsStruct(loc, _, structID, elemNum),
+  DataStructureValueIsStruct(_, _, structID, elemNum),
   StructToStringUpTo(structID, prev, elemNum - 1).
 
 PackedStructWordToStringUpTo(structID, offset, cat(type, cat(" ", cat(varName, ";"))), byteHigh, 0):-
