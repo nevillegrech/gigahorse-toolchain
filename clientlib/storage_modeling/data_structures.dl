@@ -77,6 +77,21 @@
 */
 .decl ArrayLengthStatement(stmt: Statement, location: StorageLocation, index: StorageIndex, cons: StorageConstruct)
 
+/**
+  Storage load information.
+  In cases of packed variables a single `SLOAD`/`TLOAD` can load multiple high-level variables.
+  In these cases we consider the `load` to not be the `SLOAD`/`TLOAD` but rather the statement that ends up
+  extracting the bytes that define the packed variable (cast, etc)
+*/
+.decl StorageLoadWithLoc(load: Statement, location: StorageLocation, cons: StorageConstruct, loadedVar: Variable)
+
+/**
+  `SSTORE`/`TSTORE` statement write information.
+  A write can be either a Variable or a Constant in cases where the actual written constant doesn't have a corresponding
+  `Variable_Value` fact.  
+  __Note__: Due to optimized packed variable write patterns, one `SSTORE`/`TSTORE` can write multiple different constructs
+*/
+.decl StorageStoreWithLoc(store: Statement, location: StorageLocation, cons: StorageConstruct, write: VarOrConstWrite)
 
 DEBUG_OUTPUT(StorageIndex_StorageConstruct)
 DEBUG_OUTPUT(ActualStorageIndex)
@@ -202,14 +217,14 @@ StorageIndex_StorageConstruct($OffsetIndex(parentIndex, 0), parentCons):-
   ActualStorageIndex(_, $OffsetIndex(parentIndex, 0)),
   StorageIndex_StorageConstruct(parentIndex, parentCons).
 
-ActualStorageIndex($Storage(), index):-
+ActualStorageIndex(loc, index):-
   Variable_StorageIndex(var, index),
-  StorageAccessOp(_, var).
+  StorageAccessOp(loc, _, var).
 
-ActualStorageIndex($Storage(), index):-
+ActualStorageIndex(loc, index):-
   PHITrans(var, phiVar),
   Variable_StorageIndex(var, index),
-  StorageAccessOp(_, phiVar).
+  StorageAccessOp(loc, _, phiVar).
 
 StorageIndex_ParentIndex(index, parentIndex):-
   ActualStorageIndex(_, index),
@@ -431,27 +446,27 @@ DataStructure_Type(loc, $StaticArray(parentCons, arraySize), cat(type, cat("[", 
 //   Variable_StorageIndex(var, index),
 //   StorageAccessOp(stmt, phiVar).
 
-InitialStorageStmtToIndexAndConstruct(stmt, "GETDATASTART", $Storage(), $ArrayDataStartIndex(parIndex), cons):-
+InitialStorageStmtToIndexAndConstruct(stmt, "GETDATASTART", loc, $ArrayDataStartIndex(parIndex), cons):-
   LikelyVariableLoadingStorageIndex(_, $ArrayDataStartIndex(parIndex)),
   StorageIndex_StorageConstruct($ArrayDataStartIndex(parIndex), cons),
   Variable_StorageIndex(var, $ArrayDataStartIndex(parIndex)),
   PHITrans(var, phiVar),
-  StorageAccessOp(_, phiVar),
+  StorageAccessOp(loc, _, phiVar),
   Statement_Defines(stmt, var, _).
 
-InitialStorageStmtToIndexAndConstruct(stmt, "ACCESS", $Storage(), index, $Variable(cons)):-
+InitialStorageStmtToIndexAndConstruct(stmt, "ACCESS", loc, index, $Variable(cons)):-
   LikelyVariableLoadingStorageIndex(_, index),
   StorageIndex_StorageConstruct(index, cons),
   Variable_StorageIndex(var, index),
-  StorageAccessOp(stmt, var).
+  StorageAccessOp(loc, stmt, var).
 
-InitialStorageStmtToIndexAndConstruct(stmt, "LENGTH", $Storage(), index, $Array(cons)),
-ArrayLengthStatement(stmt, $Storage(), index, $Array(cons)):-
-  StorageAccessOp(stmt, var),
+InitialStorageStmtToIndexAndConstruct(stmt, "LENGTH", loc, index, $Array(cons)),
+ArrayLengthStatement(stmt, loc, index, $Array(cons)):-
+  StorageAccessOp(loc, stmt, var),
   Variable_StorageIndex(var, index),
-  ActualStorageIndex($Storage(), index),
+  ActualStorageIndex(loc, index),
   StorageIndex_StorageConstruct(index, cons),
-  IsStorageConstruct($Storage(), $Array(cons)).
+  IsStorageConstruct(loc, $Array(cons)).
 
 // Compute `StorageStmtToIndexAndConstruct` after we infer packed variables
 
@@ -461,19 +476,20 @@ StorageStmtToIndexAndConstruct(stmt, "GETDATASTART", loc, $ArrayDataStartIndex(p
 StorageStmtToIndexAndConstruct(stmt, "LENGTH", loc, index, $Array(cons)):-
   InitialStorageStmtToIndexAndConstruct(stmt, "LENGTH", loc, index, $Array(cons)).
 
-StorageStmtToIndexAndConstruct(stmt, "ACCESS", $Storage(), index, $Variable(cons)):-
+StorageStmtToIndexAndConstruct(stmt, "ACCESS", loc, index, $Variable(cons)):-
   LikelyVariableLoadingStorageIndex(loc, index),
   StorageIndex_StorageConstruct(index, cons),
   Variable_StorageIndex(var, index),
-  StorageAccessOp(stmt, var),
+  StorageAccessOp(loc, stmt, var),
   ProcessedStorageVariable(loc, $Variable(cons), $Variable(cons)).
 
-StorageLoad(stmt, $TightlyPackedVariable(cons, actualLow, actualHigh), var),
+// StorageLoad(stmt, $TightlyPackedVariable(cons, actualLow, actualHigh), var),
+StorageLoadWithLoc(stmt, loc, $TightlyPackedVariable(cons, actualLow, actualHigh), var),
 StorageStmtToIndexAndConstruct(stmt, "ACCESS", loc, index, $TightlyPackedVariable(cons, actualLow, actualHigh)):-
   LikelyVariableLoadingStorageIndex(loc, index),
   StorageIndex_StorageConstruct(index, cons),
   Variable_StorageIndex(indexVar, index),
-  StorageAccessOp(srcLoad, indexVar),
+  StorageAccessOp(loc, srcLoad, indexVar),
   VarHoldsBytesOfStorVarFinal(_, _, loc, $Variable(cons), low, high),
   NormalizeStorageVarByteLimits(loc, $Variable(cons), low, high, actualLow, actualHigh),
   VarHoldsBytesOfStorVar(var, srcLoad, loc, $Variable(cons), actualLow, actualHigh),
@@ -484,7 +500,7 @@ StorageStmtToIndexAndConstruct(store, "ACCESS", loc, index, $TightlyPackedVariab
   LikelyVariableLoadingStorageIndex(loc, index),
   StorageIndex_StorageConstruct(index, cons),
   Variable_StorageIndex(indexVar, index),
-  StorageAccessOp(store, indexVar),
+  StorageAccessOp(loc, store, indexVar),
   (VarWrittenToBytesOfStorVarFinal(_, store, loc, $Variable(cons), low, high); ConstWrittenToBytesOfStorVarProcessed(_, _, store, _, loc, $Variable(cons), low, high); DeleteOfStructSlot(store, loc, $Variable(cons))),
   NormalizeStorageVarByteLimits(loc, $Variable(cons), low, high, actualLow, actualHigh),
   ProcessedStorageVariable(loc, $Variable(cons), $TightlyPackedVariable(cons, actualLow, actualHigh)).
@@ -493,25 +509,51 @@ StorageStmtToIndexAndConstruct(store, "ACCESS", loc, index, $TightlyPackedVariab
 DEBUG_OUTPUT(StorageLoad)
 DEBUG_OUTPUT(StorageStore)
 
-StorageLoad(stmt, $Variable(cons), loadedVar):-
+StorageStore(store, cons, write):-
+  StorageStoreWithLoc(store, $Storage(), cons, write).
+
+StorageLoad(load, cons, var):-
+  StorageLoadWithLoc(load, $Storage(), cons, var).
+
+TransientStorageStore(store, cons, write):-
+  StorageStoreWithLoc(store, $TransientStorage(), cons, write).
+
+TransientStorageLoad(load, cons, var):-
+  StorageLoadWithLoc(load, $TransientStorage(), cons, var).
+
+StorageLoadWithLoc(stmt, $Storage(), $Variable(cons), loadedVar):-
   LikelyVariableLoadingStorageIndex(loc, index),
   StorageIndex_StorageConstruct(index, cons),
   Variable_StorageIndex(var, index),
   SLOAD(stmt, var, loadedVar),
   ProcessedStorageVariable(loc, $Variable(cons), $Variable(cons)).
 
-StorageStore(store, $Variable(cons), $VariableWrite(storedVar)):-
+StorageLoadWithLoc(stmt, $TransientStorage(), $Variable(cons), loadedVar):-
+  LikelyVariableLoadingStorageIndex(loc, index),
+  StorageIndex_StorageConstruct(index, cons),
+  Variable_StorageIndex(var, index),
+  TLOAD(stmt, var, loadedVar),
+  ProcessedStorageVariable(loc, $Variable(cons), $Variable(cons)).
+
+StorageStoreWithLoc(store, $Storage(), $Variable(cons), $VariableWrite(storedVar)):-
   LikelyVariableLoadingStorageIndex(loc, index),
   StorageIndex_StorageConstruct(index, cons),
   Variable_StorageIndex(var, index),
   SSTORE(store, var, storedVar),
   ProcessedStorageVariable(loc, $Variable(cons), $Variable(cons)).
 
+StorageStoreWithLoc(store, $TransientStorage(), $Variable(cons), $VariableWrite(storedVar)):-
+  LikelyVariableLoadingStorageIndex(loc, index),
+  StorageIndex_StorageConstruct(index, cons),
+  Variable_StorageIndex(var, index),
+  TSTORE(store, var, storedVar),
+  ProcessedStorageVariable(loc, $Variable(cons), $Variable(cons)).
+
 StorageStore(store, $TightlyPackedVariable(cons, actualLow, actualHigh), $VariableWrite(storedVar)):-
   LikelyVariableLoadingStorageIndex(loc, index),
   StorageIndex_StorageConstruct(index, cons),
   Variable_StorageIndex(indexVar, index),
-  StorageAccessOp(store, indexVar),
+  StorageAccessOp($Storage(), store, indexVar),
   VarWrittenToBytesOfStorVarFinal(storedVar, store, loc, $Variable(cons), low, high),
   NormalizeStorageVarByteLimits(loc, $Variable(cons), low, high, actualLow, actualHigh),
   ProcessedStorageVariable(loc, $Variable(cons), $TightlyPackedVariable(cons, actualLow, actualHigh)).
@@ -520,7 +562,7 @@ StorageStore(store, $TightlyPackedVariable(cons, actualLow, actualHigh), $Consta
   LikelyVariableLoadingStorageIndex(loc, index),
   StorageIndex_StorageConstruct(index, cons),
   Variable_StorageIndex(indexVar, index),
-  StorageAccessOp(store, indexVar),
+  StorageAccessOp($Storage(), store, indexVar),
   ConstWrittenToBytesOfStorVarProcessed(_, const, store, _, loc, $Variable(cons), low, high),
   NormalizeStorageVarByteLimits(loc, $Variable(cons), low, high, actualLow, actualHigh),
   ProcessedStorageVariable(loc, $Variable(cons), $TightlyPackedVariable(cons, actualLow, actualHigh)),
@@ -660,7 +702,7 @@ BytesOrStringLengthV2(loc, cons, phiDef):-
 DEBUG_OUTPUT(StorageConstantToHash)
 
 StorageConstantToHash(const, zeroPaded, as(@hex_keccak_256(zeroPaded), Value)):-
-  StorageAccessOp(_, var),
+  StorageAccessOp(_, _, var),
   BasicVariable_Value(var, const),
   cut = substr(const, 2, strlen(const) - 2),
   Helper_Zeros(zeros, 64 - strlen(cut)),

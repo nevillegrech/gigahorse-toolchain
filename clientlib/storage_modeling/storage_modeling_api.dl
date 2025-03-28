@@ -64,6 +64,23 @@
 .decl StorageStore(store: Statement, cons: StorageConstruct, write: VarOrConstWrite)
 
 /**
+  Storage load information.
+  In cases of packed variables a single `SLOAD` can load multiple high-level variables.
+  In these cases we consider the `load` to not be the `SLOAD` but rather the statement that ends up
+  extracting the bytes that define the packed variable (cast, etc)
+*/
+.decl TransientStorageLoad(load: Statement, cons: StorageConstruct, loadedVar: Variable)
+
+/**
+  `SSTORE` statement write information.
+  A write can be either a Variable or a Constant in cases where the actual written constant doesn't have a corresponding
+  `Variable_Value` fact.  
+  __Note__: Due to optimized packed variable write patterns, one `SSTORE` can write multiple different constructs
+*/
+.decl TransientStorageStore(store: Statement, cons: StorageConstruct, write: VarOrConstWrite)
+
+
+/**
   Top-Level Global Variables
   There is some overlap with the other, more general definitions
   but I've also kept these separate relations for backwards compatibility
