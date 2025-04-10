@@ -117,11 +117,16 @@ A common template for client analyses for decompiled bytecode is to create souff
 ## Uses of Gigahorse
 The Gigahorse toolchain was originally published as:
 
-- Grech, N., Brent, L., Scholz, B., Smaragdakis, Y. (2019), Gigahorse: Thorough, Declarative Decompilation of Smart Contracts. *In 41st ACM/IEEE International Conference on Software Engineering.*
+- Grech, N., Brent, L., Scholz, B., Smaragdakis, Y. (2019), Gigahorse: Thorough, Declarative Decompilation of Smart Contracts.
+  *In 41st ACM/IEEE International Conference on Software Engineering.*
 
 Several novel developments to Gigahorse after the original publication have been published as:
 
-- Grech, N., Lagouvardos, S., Tsatiris, I., Smaragdakis, Y. (2022), Elipmoc: Advanced Decompilation of Ethereum Smart Contracts *Proceedings of the ACM in Programming Languages (OOPSLA).*
+- Grech, N., Lagouvardos, S., Tsatiris, I., Smaragdakis, Y. (2022), Elipmoc: Advanced Decompilation of Ethereum Smart Contracts 
+  *Proceedings of the ACM in Programming Languages (OOPSLA).*
+
+- Lagouvardos, S., Bollanos, Y., Grech, N., Smaragdakis, Y. (2025), The Incredible Shrinking Context... in a Decompiler Near You
+  *Proceedings of the ACM in Software Engineering (ISSTA).*
 
 In addition, other research tools have been developed on top of Gigahorse, including:
 
