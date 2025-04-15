@@ -112,6 +112,8 @@ DEBUG_OUTPUT(InitialStorageStmtToIndexAndConstruct)
 DEBUG_OUTPUT(ArrayLengthStatement)
 DEBUG_OUTPUT(StructToStringUpTo)
 DEBUG_OUTPUT(PackedStructWordToStringUpTo)
+DEBUG_OUTPUT(StorageLoadWithLoc)
+DEBUG_OUTPUT(StorageStoreWithLoc)
 
 Variable_StorageIndex(var, $ConstantIndex(val)):-
   Variable_Value(var, val),

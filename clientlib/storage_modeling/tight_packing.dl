@@ -14,59 +14,86 @@ castsAndShiftsFlows.TransferStmt(stmt):-
 // castsAndShiftsFlows.InitialFlowVar(v):- isVariable(v).
 castsAndShiftsFlows.TransferBoundary(b):- IsBlock(b).
 
-.decl FlowsToSSTOREOfConstruct(var: Variable, construct: StorageConstruct)
-DEBUG_OUTPUT(FlowsToSSTOREOfConstruct)
+.decl FlowsToSTOREOfConstruct(var: Variable, construct: StorageConstruct)
+DEBUG_OUTPUT(FlowsToSTOREOfConstruct)
 
 /**
-  More general version of `SLOADandSSTORESameIndex`,
+  More general version of `LOADandSTORESameIndex`,
   as a fallback it considers cases where the index is not the same but operated `construct` is.
 */
-.decl SLOADFlowsToSSTORE(sload: Statement, sstore: Statement, construct: StorageConstruct)
-DEBUG_OUTPUT(SLOADFlowsToSSTORE)
+.decl LOADFlowsToSTORE(sload: Statement, sstore: Statement, construct: StorageConstruct)
+DEBUG_OUTPUT(LOADFlowsToSTORE)
 
 /**
   `sload` and `sstore` operate on the same `storageIndex` (most likely also indexVar)
   and the `loadedVar` flows to the `storedVar` through cast and shift operations
 */
-.decl SLOADandSSTORESameIndex(sload: Statement, sstore: Statement)
-DEBUG_OUTPUT(SLOADandSSTORESameIndex)
+.decl LOADandSTORESameIndex(sload: Statement, sstore: Statement)
+DEBUG_OUTPUT(LOADandSTORESameIndex)
 
 /**
   Find vars that are used in bit masking operations when updating a tightly packed variable.
 */
-.decl VarFlowsFromSLOADToSSTORE(var: Variable, construct: StorageConstruct)
-DEBUG_OUTPUT(VarFlowsFromSLOADToSSTORE)
+.decl VarFlowsFromLOADToSTORE(var: Variable, construct: StorageConstruct)
+DEBUG_OUTPUT(VarFlowsFromLOADToSTORE)
 
 
-SLOADandSSTORESameIndex(sload, sstore):-
+LOADandSTORESameIndex(sload, sstore):-
   InitialStorageStmtToIndexAndConstruct(sload, "ACCESS", $Storage(), index, construct),
   SLOAD(sload, _, loadedVar),
   castsAndShiftsFlows.Flows(loadedVar, storedVar),
   SSTORE(sstore, _, storedVar),
   InitialStorageStmtToIndexAndConstruct(sstore, "ACCESS", $Storage(), index, construct).
 
-SLOADFlowsToSSTORE(sload, sstore, construct):-
-  SLOADandSSTORESameIndex(sload, sstore),
-  InitialStorageStmtToIndexAndConstruct(sload, "ACCESS", $Storage(), _, construct).
+LOADandSTORESameIndex(load, store):-
+  InitialStorageStmtToIndexAndConstruct(load, "ACCESS", $TransientStorage(), index, construct),
+  TLOAD(load, _, loadedVar),
+  castsAndShiftsFlows.Flows(loadedVar, storedVar),
+  TSTORE(store, _, storedVar),
+  InitialStorageStmtToIndexAndConstruct(store, "ACCESS", $TransientStorage(), index, construct).
 
-SLOADFlowsToSSTORE(sload, sstore, construct):-
+LOADFlowsToSTORE(load, store, construct):-
+  LOADandSTORESameIndex(load, store),
+  InitialStorageStmtToIndexAndConstruct(load, "ACCESS", $Storage(), _, construct).
+
+LOADFlowsToSTORE(sload, sstore, construct):-
   InitialStorageStmtToIndexAndConstruct(sload, "ACCESS", $Storage(), _, construct),
   SLOAD(sload, _, loadedVar),
   castsAndShiftsFlows.Flows(loadedVar, storedVar),
   SSTORE(sstore, _, storedVar),
   InitialStorageStmtToIndexAndConstruct(sstore, "ACCESS", $Storage(), _, construct),
-  !SLOADandSSTORESameIndex(_, sstore).
+  !LOADandSTORESameIndex(_, sstore).
 
-VarFlowsFromSLOADToSSTORE(var, construct):-
-  SLOADFlowsToSSTORE(sload, sstore, construct),
+LOADFlowsToSTORE(load, store, construct):-
+  InitialStorageStmtToIndexAndConstruct(load, "ACCESS", $TransientStorage(), _, construct),
+  TLOAD(load, _, loadedVar),
+  castsAndShiftsFlows.Flows(loadedVar, storedVar),
+  TSTORE(store, _, storedVar),
+  InitialStorageStmtToIndexAndConstruct(store, "ACCESS", $TransientStorage(), _, construct),
+  !LOADandSTORESameIndex(_, store).
+
+VarFlowsFromLOADToSTORE(var, construct):-
+  LOADFlowsToSTORE(sload, sstore, construct),
   SLOAD(sload, _, loadedVar),
   castsAndShiftsFlows.Flows(loadedVar, var),
   castsAndShiftsFlows.Flows(var, storedVar),
   SSTORE(sstore, _, storedVar).
 
-FlowsToSSTOREOfConstruct(var, construct):-
+VarFlowsFromLOADToSTORE(var, construct):-
+  LOADFlowsToSTORE(sload, sstore, construct),
+  TLOAD(sload, _, loadedVar),
+  castsAndShiftsFlows.Flows(loadedVar, var),
+  castsAndShiftsFlows.Flows(var, storedVar),
+  TSTORE(sstore, _, storedVar).
+
+FlowsToSTOREOfConstruct(var, construct):-
   InitialStorageStmtToIndexAndConstruct(sstore, "ACCESS", $Storage(), _, construct),
   SSTORE(sstore, _, storedVar),
+  LocalFlows(var, storedVar).
+
+FlowsToSTOREOfConstruct(var, construct):-
+  InitialStorageStmtToIndexAndConstruct(store, "ACCESS", $TransientStorage(), _, construct),
+  TSTORE(store, _, storedVar),
   LocalFlows(var, storedVar).
 
 .decl SLOADOfConst(sload: Statement, const: Value, var: Variable)
@@ -125,6 +152,10 @@ VarHoldsBytesOfStorVarPlus(to, load, $Storage(), construct, 0, 0, 31):-
   SLOAD(load, _, to),
   InitialStorageStmtToIndexAndConstruct(load, "ACCESS", $Storage(), _, construct).
 
+VarHoldsBytesOfStorVarPlus(to, load, $TransientStorage(), construct, 0, 0, 31):-
+  TLOAD(load, _, to),
+  InitialStorageStmtToIndexAndConstruct(load, "ACCESS", $TransientStorage(), _, construct).
+
 VarHoldsBytesOfStorVar(var, load, loc, storVar, low, high):-
   VarHoldsBytesOfStorVarPlus(var, load, loc, storVar, _, low, high).
 
@@ -172,7 +203,7 @@ VarHoldsBytesOfStorVarPlus(to, load, loc, storVar, startByte, low, high):-
 
 VarHoldsBytesOfStorVarFinal(var, load, loc, storVar, low, high):-
   VarHoldsBytesOfStorVar(var, load, loc, storVar, low, high),
-  !VarFlowsFromSLOADToSSTORE(var, storVar), // Could potentially be restrictive for rare cases in optimized code
+  !VarFlowsFromLOADToSTORE(var, storVar), // Could potentially be restrictive for rare cases in optimized code
   !LShiftBytes(var, _, _),
   !RShiftBytes(var, _, _),
   !LowBytesMaskOp(var, _, _),
@@ -330,26 +361,26 @@ DEBUG_OUTPUT(ConstWrittenToBytesOfStorVarProcessed)
 ProbablyPartialStorageUpdatePattern(fromVar, toVar, "VAR", writtenVar, byteLow, byteLow + castedTo - 1):-
   CastedAndShiftedVar(writtenVar, castedNShifted, byteLow, castedTo),
   (OR(_, castedNShifted, fromVar, toVar) ; OR(_, fromVar, castedNShifted, toVar)),
-  FlowsToSSTOREOfConstruct(writtenVar, construct),
-  !VarFlowsFromSLOADToSSTORE(writtenVar, construct).
+  FlowsToSTOREOfConstruct(writtenVar, construct),
+  !VarFlowsFromLOADToSTORE(writtenVar, construct).
 
 ProbablyPartialStorageUpdatePattern(fromVar, toVar, "VAR", writtenVar, 0, byteHigh - 1):-
   LowBytesMaskOp(writtenVar, castedVar, byteHigh),
   (OR(_, castedVar, fromVar, toVar) ; OR(_, fromVar, castedVar, toVar)),
-  FlowsToSSTOREOfConstruct(writtenVar, construct),
-  !VarFlowsFromSLOADToSSTORE(writtenVar, construct).
+  FlowsToSTOREOfConstruct(writtenVar, construct),
+  !VarFlowsFromLOADToSTORE(writtenVar, construct).
 
 ProbablyPartialStorageUpdatePattern(fromVar, toVar, "VAR", writtenVar, 0, 0):-
   BooleanCast(writtenVar, castedVar),
   (OR(_, castedVar, fromVar, toVar) ; OR(_, fromVar, castedVar, toVar)),
-  FlowsToSSTOREOfConstruct(writtenVar, construct),
-  !VarFlowsFromSLOADToSSTORE(writtenVar, construct).
+  FlowsToSTOREOfConstruct(writtenVar, construct),
+  !VarFlowsFromLOADToSTORE(writtenVar, construct).
 
 ProbablyPartialStorageUpdatePattern(fromVar, toVar, "VAR", checkedVar, 0, 0):-
   RevertEnforcesEnum(checkedVar, _, _),
   (OR(_, checkedVar, fromVar, toVar) ; OR(_, fromVar, checkedVar, toVar)),
-  FlowsToSSTOREOfConstruct(checkedVar, construct),
-  !VarFlowsFromSLOADToSSTORE(checkedVar, construct).
+  FlowsToSTOREOfConstruct(checkedVar, construct),
+  !VarFlowsFromLOADToSTORE(checkedVar, construct).
 
 // ProbablyPartialStorageUpdatePattern(fromVar, toVar, "VAR", writtenVar, byteLow, byteLow + castedTo - 1):-
 //   HighBytesCastedAndRightShiftedVar(writtenVar, castedNShifted, byteLow, castedTo),
@@ -638,6 +669,28 @@ StoreGlobalVariable(store, storVar, MISSING_VAR_PLACEHOLDER):-
 // MissingVar because we only infer a ConstantWrite when we cannot infer a variable write
 StoreGlobalVariable(store, MERGED_STORAGE_VAR(storVar, low, high), MISSING_VAR_PLACEHOLDER):-
   StorageStore(store, $TightlyPackedVariable($Constant(storVar), low, high), $ConstantWrite(const)),
+  const = const.
+
+LoadGlobalVariable(load, storVar, loadedVar):-
+  TransientStorageLoad(load, $Variable($Constant(storVar)), loadedVar).
+
+LoadGlobalVariable(load, MERGED_STORAGE_VAR(storVar, low, high), loadedVar):-
+  TransientStorageLoad(load, $TightlyPackedVariable($Constant(storVar), low, high), loadedVar).
+
+StoreGlobalVariable(store, storVar, writtenVar):-
+  TransientStorageStore(store, $Variable($Constant(storVar)), $VariableWrite(writtenVar)).
+
+StoreGlobalVariable(store, MERGED_STORAGE_VAR(storVar, low, high), writtenVar):-
+  TransientStorageStore(store, $TightlyPackedVariable($Constant(storVar), low, high), $VariableWrite(writtenVar)).
+
+// MissingVar because we only infer a ConstantWrite when we cannot infer a variable write
+StoreGlobalVariable(store, storVar, MISSING_VAR_PLACEHOLDER):-
+  TransientStorageStore(store, $Variable($Constant(storVar)), $ConstantWrite(const)),
+  const = const.
+
+// MissingVar because we only infer a ConstantWrite when we cannot infer a variable write
+StoreGlobalVariable(store, MERGED_STORAGE_VAR(storVar, low, high), MISSING_VAR_PLACEHOLDER):-
+  TransientStorageStore(store, $TightlyPackedVariable($Constant(storVar), low, high), $ConstantWrite(const)),
   const = const.
 
 
