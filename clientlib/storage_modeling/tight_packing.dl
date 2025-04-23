@@ -56,6 +56,10 @@ LOADFlowsToSTORE(load, store, construct):-
   LOADandSTORESameIndex(load, store),
   InitialStorageStmtToIndexAndConstruct(load, "ACCESS", $Storage(), _, construct).
 
+LOADFlowsToSTORE(load, store, construct):-
+  LOADandSTORESameIndex(load, store),
+  InitialStorageStmtToIndexAndConstruct(load, "ACCESS", $TransientStorage(), _, construct).
+
 LOADFlowsToSTORE(sload, sstore, construct):-
   InitialStorageStmtToIndexAndConstruct(sload, "ACCESS", $Storage(), _, construct),
   SLOAD(sload, _, loadedVar),
@@ -107,17 +111,24 @@ SSTOREToConst(sstore, const, var):-
   SSTORE(sstore, constVar, var),
   Variable_Value(constVar, const).
 
-.decl SLOADOfConstruct(sload: Statement, loc: StorageLocation, construct: StorageConstruct, var: Variable)
-.decl SSTOREToConstruct(sstore: Statement, loc: StorageLocation, construct: StorageConstruct, var: Variable)
+.decl LOADOfConstruct(sload: Statement, loc: StorageLocation, construct: StorageConstruct, var: Variable)
+.decl STOREToConstruct(sstore: Statement, loc: StorageLocation, construct: StorageConstruct, var: Variable)
 
-SLOADOfConstruct(sload, loc, construct, var):-
+LOADOfConstruct(sload, loc, construct, var):-
   SLOAD(sload, _, var),
   InitialStorageStmtToIndexAndConstruct(sload, "ACCESS", loc, _, construct).
 
-SSTOREToConstruct(sstore, loc, construct, var):-
+LOADOfConstruct(tload, loc, construct, var):-
+  TLOAD(tload, _, var),
+  InitialStorageStmtToIndexAndConstruct(tload, "ACCESS", loc, _, construct).
+
+STOREToConstruct(sstore, loc, construct, var):-
   SSTORE(sstore, _, var),
   InitialStorageStmtToIndexAndConstruct(sstore, "ACCESS", loc, _, construct).
 
+STOREToConstruct(tstore, loc, construct, var):-
+  TSTORE(tstore, _, var),
+  InitialStorageStmtToIndexAndConstruct(tstore, "ACCESS", loc, _, construct).
 
 /**
   Variable holds a range of bytes from a storage word. Relies on `VarHoldsBytesOfStorVarPlus`.
@@ -246,26 +257,26 @@ AnyLoadStoreStorVarBytes(stmt, loc, storVar, low, high):-
 // rare case, a variable is never read directly, but only stored
 // try to capture it with 2 simple rules
 VarWrittenToBytesOfStorVar(var, store, loc, construct, 0, 31):-
-  SSTOREToConstruct(store, loc, construct, var),
+  STOREToConstruct(store, loc, construct, var),
   !Variable_Value(var, _),
   !LowBytesMaskOp(_, var, _),
-  !SLOADOfConstruct(_, loc, construct, _).
+  !LOADOfConstruct(_, loc, construct, _).
 
 // This pattern will be used when an array is shortened (replaced with a smaller one)
 // in via-ir code
 VarWrittenToBytesOfStorVar(var, store, loc, construct, 0, numOfBytes - 1):-
-  SSTOREToConstruct(store, loc, construct, var),
+  STOREToConstruct(store, loc, construct, var),
   LowBytesMaskOp(_, var, numOfBytes),
   !Variable_Value(var, _),
-  !SLOADOfConstruct(_, loc, construct, _).
+  !LOADOfConstruct(_, loc, construct, _).
 
 // Added for completeness to revisit
 ConstWrittenToBytesOfStorVar(var, val, store, store, loc, construct, 0, 31):-
-  SSTOREToConstruct(store, loc, construct, var),
+  STOREToConstruct(store, loc, construct, var),
   Variable_Value(var, val),
   // 0x0 is handled differently due to new viaIR delete patterns
   val != "0x0".
-  // !SLOADOfConstruct(_, construct, _).
+  // !LOADOfConstruct(_, construct, _).
 
 // FailedMergedStorageModelingReason(storVar, stmt, stmt2, [low, high], [otherLow, otherHigh]),
 // FailedMergedStorageModeling(storVar):-
@@ -466,11 +477,11 @@ UselessSLOAD(sload):-
 
 
 VarWrittenToBytesOfStorVar(as(writtenVar, Variable), store, loc, construct, byteLow, byteHigh):-
-  SSTOREToConstruct(store, loc, construct, storedVar),
+  STOREToConstruct(store, loc, construct, storedVar),
   ProbablyPartialStorageUpdateSequenceWrite(storedVar, "VAR", writtenVar, byteLow, byteHigh).
 
 ConstWrittenToBytesOfStorVar("0xlala", as(writtenConst, Value), store, "lolo", loc, construct, byteLow, byteHigh):-
-  SSTOREToConstruct(store, loc, construct, storedVar),
+  STOREToConstruct(store, loc, construct, storedVar),
   ProbablyPartialStorageUpdateSequenceWrite(storedVar, "CONST", writtenConst, byteLow, byteHigh),
   !ProbablyPartialStorageUpdateSequenceWrite(storedVar, "VAR", _, byteLow, _).  // prefer var inference if they start from the same byte
 
@@ -481,13 +492,13 @@ ConstWrittenToBytesOfStorVar("0xlala", as(writtenConst, Value), store, "lolo", l
 .decl DeleteOfStructSlot(store: Statement, loc: StorageLocation, construct: StorageConstruct)
 DEBUG_OUTPUT(DeleteOfStructSlot)
 DeleteOfStructSlot(store, loc, construct):-
-  SSTOREToConstruct(store, loc, construct, storedVar),
+  STOREToConstruct(store, loc, construct, storedVar),
   Variable_Value(storedVar, "0x0").
 
 .decl BytesOfStorVarKept(store: Statement, load: Statement, loc: StorageLocation, construct: StorageConstruct, keepByteLow: number, keepByteHigh: number)
 
 BytesOfStorVarKept(store, load, loc, construct, keepByteLow, keepByteHigh):-
-  SSTOREToConstruct(store, loc, construct, storedVar),
+  STOREToConstruct(store, loc, construct, storedVar),
   ProbablyPartialStorageUpdateSequenceKeep(storedVar, load, loc, construct, keepByteLow, keepByteHigh).
 
 .decl UselessSLOAD(sload: Statement)
@@ -497,7 +508,7 @@ DEBUG_OUTPUT(UselessSLOAD)
 DEBUG_OUTPUT(ByteOfStorVarKeptOrUpdated)
 
 ByteOfStorVarKeptOrUpdated(store, loc, construct, byte):-
-  SSTOREToConstruct(store, loc, construct, storedVar),
+  STOREToConstruct(store, loc, construct, storedVar),
   (
     ProbablyPartialStorageUpdateSequenceKeep(storedVar, _, loc, construct, byteLow, byteHigh);
     ProbablyPartialStorageUpdateSequenceWrite(storedVar, _, _, byteLow, byteHigh)
@@ -517,7 +528,7 @@ DEBUG_OUTPUT(SSTOREZeroByte)
 DEBUG_OUTPUT(SSTOREZeroRange)
 
 SSTOREZeroByte(store, construct, byte):-
-  SSTOREToConstruct(store, loc, construct, _),
+  STOREToConstruct(store, loc, construct, _),
   ByteOfStorVarKeptOrUpdated(store, loc, construct, _),
   byte = range(0, 32, 1),
   !ByteOfStorVarKeptOrUpdated(store, loc, construct, byte).
@@ -531,7 +542,7 @@ SSTOREZeroRange(store, construct, byteLow, byteHigh):-
   1 + byteHigh - byteLow = count : {SSTOREZeroByte(store, construct, k), byteLow <= k, k <= byteHigh}.
 
 ConstWrittenToBytesOfStorVar(MISSING_VAR_PLACEHOLDER, "0x0", store, "lolo", loc, construct, byteLow, byteHigh):-
-  SSTOREToConstruct(store, loc, construct, _),
+  STOREToConstruct(store, loc, construct, _),
   SSTOREZeroRange(store, construct, byteLow, byteHigh).
 
 
@@ -556,7 +567,7 @@ ConstWrittenToBytesOfStorVar(MISSING_VAR_PLACEHOLDER, "0x0", store, load, loc, c
   VarHoldsBytesOfStorVar(originVar, load, loc, construct, 0, 31),
   ByteMaskOpKeepRange(originVar, storedVar, [keepByteLow, keepByteHigh]),
   ByteMaskOpMaskRange(originVar, storedVar, [maskByteLow, maskByteHigh]),
-  SSTOREToConstruct(store, loc, construct, storedVar).
+  STOREToConstruct(store, loc, construct, storedVar).
 
 /**
   byte of storage variable is never read ConstWrittenToByteOfStorVar that write to bytes that are never read

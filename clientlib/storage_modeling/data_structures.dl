@@ -583,13 +583,13 @@ StorageStore(store, $TightlyPackedVariable(cons, actualLow, actualHigh), $Consta
 
 
 StorageStmtKindAndConstruct(stmt, $VariableAccess(), construct):-
-  StorageStmtToIndexAndConstruct(stmt, "ACCESS", loc, _, construct).
+  StorageStmtToIndexAndConstruct(stmt, "ACCESS", $Storage(), _, construct).
 
 StorageStmtKindAndConstruct(stmt, $ArrayLength(), construct):-
-  StorageStmtToIndexAndConstruct(stmt, "LENGTH", loc, _, construct).
+  StorageStmtToIndexAndConstruct(stmt, "LENGTH", $Storage(), _, construct).
 
 StorageStmtKindAndConstruct(stmt, $ArrayDataStart(), construct):-
-  StorageStmtToIndexAndConstruct(stmt, "GETDATASTART", loc, _, construct).
+  StorageStmtToIndexAndConstruct(stmt, "GETDATASTART", $Storage(), _, construct).
 
 StorageStmt_HighLevelUses(stmt, accessVar, offset, i, nestedness):-
   StorageStmtToIndexAndConstruct(stmt, _, _, index, _),
