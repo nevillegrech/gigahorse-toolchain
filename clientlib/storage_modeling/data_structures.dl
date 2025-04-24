@@ -11,8 +11,6 @@
                     | MappingAccessIndex {parIndex: StorageIndex, keyVar: Variable}
                     | OffsetIndex {parIndex: StorageIndex, offset: number}
 
-.type StorageLocation = Storage {}
-                      | TransientStorage {}
 
 /**
   Syntactic translation of `StorageIndex` to `StorageConstruct`
@@ -582,14 +580,14 @@ StorageStoreWithLoc(store, loc, $TightlyPackedVariable(cons, actualLow, actualHi
 
 
 
-StorageStmtKindAndConstruct(stmt, $VariableAccess(), construct):-
-  StorageStmtToIndexAndConstruct(stmt, "ACCESS", $Storage(), _, construct).
+StorageStmtKindAndConstruct(stmt, $VariableAccess(), loc, construct):-
+  StorageStmtToIndexAndConstruct(stmt, "ACCESS", loc, _, construct).
 
-StorageStmtKindAndConstruct(stmt, $ArrayLength(), construct):-
-  StorageStmtToIndexAndConstruct(stmt, "LENGTH", $Storage(), _, construct).
+StorageStmtKindAndConstruct(stmt, $ArrayLength(), loc, construct):-
+  StorageStmtToIndexAndConstruct(stmt, "LENGTH", loc, _, construct).
 
-StorageStmtKindAndConstruct(stmt, $ArrayDataStart(), construct):-
-  StorageStmtToIndexAndConstruct(stmt, "GETDATASTART", $Storage(), _, construct).
+StorageStmtKindAndConstruct(stmt, $ArrayDataStart(), loc, construct):-
+  StorageStmtToIndexAndConstruct(stmt, "GETDATASTART", loc, _, construct).
 
 StorageStmt_HighLevelUses(stmt, accessVar, offset, i, nestedness):-
   StorageStmtToIndexAndConstruct(stmt, _, _, index, _),

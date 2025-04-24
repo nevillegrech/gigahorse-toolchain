@@ -250,6 +250,12 @@ Analytics_UselessSLOAD(stmt):-
 Verbatim_StorageOffset_Type(offset, type):-
   StorageOffset_Type(offset, type).
 
+.decl Verbatim_StorageVariableType(varId: symbol, type: symbol)
+.output Verbatim_StorageVariableType
+
+Verbatim_StorageVariableType(storVar, type):-
+  StorageVariableType(storVar, type).
+
 .decl Verbatim_StructToString(structID: symbol, stringStruct: symbol)
 .output Verbatim_StructToString
 
