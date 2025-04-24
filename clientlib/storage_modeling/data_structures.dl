@@ -524,32 +524,32 @@ TransientStorageLoad(load, cons, var):-
   StorageLoadWithLoc(load, $TransientStorage(), cons, var).
 
 StorageLoadWithLoc(stmt, $Storage(), $Variable(cons), loadedVar):-
-  LikelyVariableLoadingStorageIndex(loc, index),
+  LikelyVariableLoadingStorageIndex($Storage(), index),
   StorageIndex_StorageConstruct(index, cons),
   Variable_StorageIndex(var, index),
   SLOAD(stmt, var, loadedVar),
-  ProcessedStorageVariable(loc, $Variable(cons), $Variable(cons)).
+  ProcessedStorageVariable($Storage(), $Variable(cons), $Variable(cons)).
 
 StorageLoadWithLoc(stmt, $TransientStorage(), $Variable(cons), loadedVar):-
-  LikelyVariableLoadingStorageIndex(loc, index),
+  LikelyVariableLoadingStorageIndex($TransientStorage(), index),
   StorageIndex_StorageConstruct(index, cons),
   Variable_StorageIndex(var, index),
   TLOAD(stmt, var, loadedVar),
-  ProcessedStorageVariable(loc, $Variable(cons), $Variable(cons)).
+  ProcessedStorageVariable($TransientStorage(), $Variable(cons), $Variable(cons)).
 
 StorageStoreWithLoc(store, $Storage(), $Variable(cons), $VariableWrite(storedVar)):-
-  LikelyVariableLoadingStorageIndex(loc, index),
+  LikelyVariableLoadingStorageIndex($Storage(), index),
   StorageIndex_StorageConstruct(index, cons),
   Variable_StorageIndex(var, index),
   SSTORE(store, var, storedVar),
-  ProcessedStorageVariable(loc, $Variable(cons), $Variable(cons)).
+  ProcessedStorageVariable($Storage(), $Variable(cons), $Variable(cons)).
 
 StorageStoreWithLoc(store, $TransientStorage(), $Variable(cons), $VariableWrite(storedVar)):-
-  LikelyVariableLoadingStorageIndex(loc, index),
+  LikelyVariableLoadingStorageIndex($TransientStorage(), index),
   StorageIndex_StorageConstruct(index, cons),
   Variable_StorageIndex(var, index),
   TSTORE(store, var, storedVar),
-  ProcessedStorageVariable(loc, $Variable(cons), $Variable(cons)).
+  ProcessedStorageVariable($TransientStorage(), $Variable(cons), $Variable(cons)).
 
 StorageStoreWithLoc(store, loc, $TightlyPackedVariable(cons, actualLow, actualHigh), $VariableWrite(storedVar)):-
   LikelyVariableLoadingStorageIndex(loc, index),
