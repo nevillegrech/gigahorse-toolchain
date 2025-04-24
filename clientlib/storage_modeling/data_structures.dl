@@ -551,20 +551,20 @@ StorageStoreWithLoc(store, $TransientStorage(), $Variable(cons), $VariableWrite(
   TSTORE(store, var, storedVar),
   ProcessedStorageVariable(loc, $Variable(cons), $Variable(cons)).
 
-StorageStore(store, $TightlyPackedVariable(cons, actualLow, actualHigh), $VariableWrite(storedVar)):-
+StorageStoreWithLoc(store, loc, $TightlyPackedVariable(cons, actualLow, actualHigh), $VariableWrite(storedVar)):-
   LikelyVariableLoadingStorageIndex(loc, index),
   StorageIndex_StorageConstruct(index, cons),
   Variable_StorageIndex(indexVar, index),
-  StorageAccessOp($Storage(), store, indexVar),
+  StorageAccessOp(loc, store, indexVar),
   VarWrittenToBytesOfStorVarFinal(storedVar, store, loc, $Variable(cons), low, high),
   NormalizeStorageVarByteLimits(loc, $Variable(cons), low, high, actualLow, actualHigh),
   ProcessedStorageVariable(loc, $Variable(cons), $TightlyPackedVariable(cons, actualLow, actualHigh)).
 
-StorageStore(store, $TightlyPackedVariable(cons, actualLow, actualHigh), $ConstantWrite(const)):-
+StorageStoreWithLoc(store, loc, $TightlyPackedVariable(cons, actualLow, actualHigh), $ConstantWrite(const)):-
   LikelyVariableLoadingStorageIndex(loc, index),
   StorageIndex_StorageConstruct(index, cons),
   Variable_StorageIndex(indexVar, index),
-  StorageAccessOp($Storage(), store, indexVar),
+  StorageAccessOp(loc, store, indexVar),
   ConstWrittenToBytesOfStorVarProcessed(_, const, store, _, loc, $Variable(cons), low, high),
   NormalizeStorageVarByteLimits(loc, $Variable(cons), low, high, actualLow, actualHigh),
   ProcessedStorageVariable(loc, $Variable(cons), $TightlyPackedVariable(cons, actualLow, actualHigh)),

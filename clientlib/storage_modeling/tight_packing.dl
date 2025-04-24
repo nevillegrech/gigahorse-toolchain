@@ -660,20 +660,20 @@ GlobalVariable(v):-
   LoadGlobalVariable(_, v, _) ;
   StoreGlobalVariable(_, v, _).
 
-LoadGlobalVariable(load, storVar, loadedVar):-
+LoadGlobalVariable(load, SIMPLE_STORAGE_VAR(storVar), loadedVar):-
   StorageLoad(load, $Variable($Constant(storVar)), loadedVar).
 
 LoadGlobalVariable(load, MERGED_STORAGE_VAR(storVar, low, high), loadedVar):-
   StorageLoad(load, $TightlyPackedVariable($Constant(storVar), low, high), loadedVar).
 
-StoreGlobalVariable(store, storVar, writtenVar):-
+StoreGlobalVariable(store, SIMPLE_STORAGE_VAR(storVar), writtenVar):-
   StorageStore(store, $Variable($Constant(storVar)), $VariableWrite(writtenVar)).
 
 StoreGlobalVariable(store, MERGED_STORAGE_VAR(storVar, low, high), writtenVar):-
   StorageStore(store, $TightlyPackedVariable($Constant(storVar), low, high), $VariableWrite(writtenVar)).
 
 // MissingVar because we only infer a ConstantWrite when we cannot infer a variable write
-StoreGlobalVariable(store, storVar, MISSING_VAR_PLACEHOLDER):-
+StoreGlobalVariable(store, SIMPLE_STORAGE_VAR(storVar), MISSING_VAR_PLACEHOLDER):-
   StorageStore(store, $Variable($Constant(storVar)), $ConstantWrite(const)),
   const = const.
 
@@ -682,35 +682,43 @@ StoreGlobalVariable(store, MERGED_STORAGE_VAR(storVar, low, high), MISSING_VAR_P
   StorageStore(store, $TightlyPackedVariable($Constant(storVar), low, high), $ConstantWrite(const)),
   const = const.
 
-LoadGlobalVariable(load, storVar, loadedVar):-
+LoadGlobalVariable(load, SIMPLE_TSTORAGE_VAR(storVar), loadedVar):-
   TransientStorageLoad(load, $Variable($Constant(storVar)), loadedVar).
 
-LoadGlobalVariable(load, MERGED_STORAGE_VAR(storVar, low, high), loadedVar):-
+LoadGlobalVariable(load, MERGED_TSTORAGE_VAR(storVar, low, high), loadedVar):-
   TransientStorageLoad(load, $TightlyPackedVariable($Constant(storVar), low, high), loadedVar).
 
-StoreGlobalVariable(store, storVar, writtenVar):-
+StoreGlobalVariable(store, SIMPLE_TSTORAGE_VAR(storVar), writtenVar):-
   TransientStorageStore(store, $Variable($Constant(storVar)), $VariableWrite(writtenVar)).
 
-StoreGlobalVariable(store, MERGED_STORAGE_VAR(storVar, low, high), writtenVar):-
+StoreGlobalVariable(store, MERGED_TSTORAGE_VAR(storVar, low, high), writtenVar):-
   TransientStorageStore(store, $TightlyPackedVariable($Constant(storVar), low, high), $VariableWrite(writtenVar)).
 
 // MissingVar because we only infer a ConstantWrite when we cannot infer a variable write
-StoreGlobalVariable(store, storVar, MISSING_VAR_PLACEHOLDER):-
+StoreGlobalVariable(store, SIMPLE_TSTORAGE_VAR(storVar), MISSING_VAR_PLACEHOLDER):-
   TransientStorageStore(store, $Variable($Constant(storVar)), $ConstantWrite(const)),
   const = const.
 
 // MissingVar because we only infer a ConstantWrite when we cannot infer a variable write
-StoreGlobalVariable(store, MERGED_STORAGE_VAR(storVar, low, high), MISSING_VAR_PLACEHOLDER):-
+StoreGlobalVariable(store, MERGED_TSTORAGE_VAR(storVar, low, high), MISSING_VAR_PLACEHOLDER):-
   TransientStorageStore(store, $TightlyPackedVariable($Constant(storVar), low, high), $ConstantWrite(const)),
   const = const.
 
+DEBUG_OUTPUT(StorageVariableInfo)
 
-StorageVariableInfo(storVar, storVar, 0, 31):-
+StorageVariableInfo(SIMPLE_STORAGE_VAR(storVar), $Storage(), storVar, 0, 31):-
   ProcessedStorageVariable($Storage(), construct, construct),
   construct = $Variable($Constant(storVar)).
 
-StorageVariableInfo(MERGED_STORAGE_VAR(storVar, byteLow, byteHigh), storVar, byteLow, byteHigh):-
+StorageVariableInfo(MERGED_STORAGE_VAR(storVar, byteLow, byteHigh), $Storage(), storVar, byteLow, byteHigh):-
   ProcessedStorageVariable($Storage(), $Variable($Constant(storVar)), $TightlyPackedVariable($Constant(storVar), byteLow, byteHigh)).
+
+StorageVariableInfo(SIMPLE_TSTORAGE_VAR(storVar), $TransientStorage(), storVar, 0, 31):-
+  ProcessedStorageVariable($TransientStorage(), construct, construct),
+  construct = $Variable($Constant(storVar)).
+
+StorageVariableInfo(MERGED_TSTORAGE_VAR(storVar, byteLow, byteHigh), $TransientStorage(), storVar, byteLow, byteHigh):-
+  ProcessedStorageVariable($TransientStorage(), $Variable($Constant(storVar)), $TightlyPackedVariable($Constant(storVar), byteLow, byteHigh)).
 
 ProcessedStorageVariable(loc, storageVar, storageVar):-
   FailedMergedStorageModeling(loc, storageVar).
@@ -793,22 +801,22 @@ ConstWrittenToBytesOfStorVarProcessed(MISSING_VAR_PLACEHOLDER, "0x0", store, sto
 .decl StorageVariableType(storVar:symbol, type:symbol)
 
 StorageVariableType(storVar, type):-
-  StorageVariableInfo(storVar, slot, byteLow, byteHigh),
+  StorageVariableInfo(storVar, loc, slot, byteLow, byteHigh),
   widthBytes = 1 + byteHigh - byteLow,
-  !StorageVariable_Type($Storage(), $TightlyPackedVariable($Constant(slot), byteLow, byteHigh), _),
+  !StorageVariable_Type(loc, $TightlyPackedVariable($Constant(slot), byteLow, byteHigh), _),
   type = cat("uint", to_string(widthBytes * 8)).
 
 StorageVariableType(storVar, type):-
-  StorageVariableInfo(storVar, slot, byteLow, byteHigh),
-  StorageVariable_Type($Storage(), $TightlyPackedVariable($Constant(slot), byteLow, byteHigh), type).
+  StorageVariableInfo(storVar, loc, slot, byteLow, byteHigh),
+  StorageVariable_Type(loc, $TightlyPackedVariable($Constant(slot), byteLow, byteHigh), type).
 
 StorageVariableType(storVar, "uint256"):-
-  StorageVariableInfo(storVar, slot, 0, 31),
-  !StorageVariable_Type($Storage(), $Variable($Constant(slot)), _).
+  StorageVariableInfo(storVar, loc, slot, 0, 31),
+  !StorageVariable_Type(loc, $Variable($Constant(slot)), _).
 
 StorageVariableType(storVar, type):-
-  StorageVariableInfo(storVar, slot, 0, 31),
-  StorageVariable_Type($Storage(), $Variable($Constant(slot)), type).
+  StorageVariableInfo(storVar, loc, slot, 0, 31),
+  StorageVariable_Type(loc, $Variable($Constant(slot)), type).
 
 /**
   Temp statements for the source decompiler to hide
@@ -819,5 +827,5 @@ DataStructuresTempStmt(load):-
   VarHoldsBytesOfStorVarFinal(var, load, loc, storVar, _, _),
   Statement_Defines(stmt, var, 0),
   // Ensure it's an SLOAD, it can be an SSTORE in some rare cases
-  Statement_Opcode(load, "SLOAD"),
+  (Statement_Opcode(load, "SLOAD"); Statement_Opcode(load, "TLOAD")),
   stmt != load.

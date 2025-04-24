@@ -93,7 +93,7 @@
 .decl StoreGlobalVariable(stmt: Statement, val: Value, var: Variable)
 
 // Info for top-level global variables
-.decl StorageVariableInfo(storageVariable: symbol, storageSlot: symbol, byteLow: number, byteHigh: number)
+.decl StorageVariableInfo(storageVariable: symbol, loc: StorageLocation, storageSlot: symbol, byteLow: number, byteHigh: number)
 
 
 /**
