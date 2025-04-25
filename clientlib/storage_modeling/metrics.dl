@@ -141,4 +141,4 @@ HasStorageOpsUnknown():-
 .output Analytics_ArrayDeleteOp
 
 Analytics_ArrayDeleteOp(sstore, loop, array):-
-  ArrayDeleteOp(sstore, loop, array).
+  ArrayDeleteOp(sstore, loop, _, array).

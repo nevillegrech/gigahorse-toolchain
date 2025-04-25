@@ -34,15 +34,21 @@
 .type VarOrConstWrite = VariableWrite {var: Variable}
                       | ConstantWrite {const: Value}
 
+/**
+  Used in predicates that treat both storage and transient storage in a uniform way
+*/
+.type StorageLocation = Storage {}
+                      | TransientStorage {}
+
 
 /**
   Maps Storage Stmts to their corresponding construct and their `StorageStmtKind`
-  __Note__: Storage stmts do not have to be `SSTORE` and `SLOAD` statements, see `StorageLoad` for more info
+  __Note__: Storage stmts do not have to be `S/TSTORE` and `S/TLOAD` statements, see `StorageLoad` for more info
 */
-.decl StorageStmtKindAndConstruct(stmt: Statement, kind: StorageStmtKind, construct: StorageConstruct)
+.decl StorageStmtKindAndConstruct(stmt: Statement, kind: StorageStmtKind, loc: StorageLocation, construct: StorageConstruct)
 
 /**
-  Information about storage stmts on potentially nested data structures.
+  Information about storage (+ transient storage) stmts on potentially nested data structures.
   Can be used to get all information on index variables and field offsets at every step.
 */
 .decl StorageStmt_HighLevelUses(stmt: Statement, accessVar: Variable, offset: number, i: number, nestedness: number)
@@ -64,7 +70,25 @@
 .decl StorageStore(store: Statement, cons: StorageConstruct, write: VarOrConstWrite)
 
 /**
+  Storage load information.
+  In cases of packed variables a single `SLOAD` can load multiple high-level variables.
+  In these cases we consider the `load` to not be the `SLOAD` but rather the statement that ends up
+  extracting the bytes that define the packed variable (cast, etc)
+*/
+.decl TransientStorageLoad(load: Statement, cons: StorageConstruct, loadedVar: Variable)
+
+/**
+  `SSTORE` statement write information.
+  A write can be either a Variable or a Constant in cases where the actual written constant doesn't have a corresponding
+  `Variable_Value` fact.  
+  __Note__: Due to optimized packed variable write patterns, one `SSTORE` can write multiple different constructs
+*/
+.decl TransientStorageStore(store: Statement, cons: StorageConstruct, write: VarOrConstWrite)
+
+
+/**
   Top-Level Global Variables
+  This includes value typed variables declared in __both__ storage and transient storage.  
   There is some overlap with the other, more general definitions
   but I've also kept these separate relations for backwards compatibility
  */
@@ -76,16 +100,16 @@
 .decl StoreGlobalVariable(stmt: Statement, val: Value, var: Variable)
 
 // Info for top-level global variables
-.decl StorageVariableInfo(storageVariable: symbol, storageSlot: symbol, byteLow: number, byteHigh: number)
+.decl StorageVariableInfo(storageVariable: symbol, loc: StorageLocation, storageSlot: symbol, byteLow: number, byteHigh: number)
 
 
 /**
   An `array` is deleted by setting its length to zero in `sstore` and then erasing all its contents in a following `loop`. 
 */
-.decl ArrayDeleteOp(sstore: Statement, loop: Block, array: StorageConstruct)
+.decl ArrayDeleteOp(sstore: Statement, loop: Block, loc: StorageLocation, array: StorageConstruct)
 
 // Data structure construct has a value (Mappings) or element (Arrays) that is a struct
-.decl DataStructureValueIsStruct(cons: StorageConstruct, structID: symbol, elemNum: number)
+.decl DataStructureValueIsStruct(loc: StorageLocation, cons: StorageConstruct, structID: symbol, elemNum: number)
 
 // Map `structID` to solidity-like struct definition `stringStruct`
 .decl StructToString(structID: symbol, stringStruct: symbol)
@@ -95,13 +119,13 @@
 */
 
 // value type for mapping or element type for arrays
-.decl DataStructure_ValueOrElementType(cons: StorageConstruct, type: symbol)
+.decl DataStructure_ValueOrElementType(loc: StorageLocation, cons: StorageConstruct, type: symbol)
 
 // key type for mapping
-.decl Mapping_KeyType(cons: StorageConstruct, type: symbol)
+.decl Mapping_KeyType(loc: StorageLocation, cons: StorageConstruct, type: symbol)
 
 // Note: Can probably be unified with `DataStructure_Type`
-.decl StorageVariable_Type(cons: StorageConstruct, type: symbol)
+.decl StorageVariable_Type(loc: StorageLocation, cons: StorageConstruct, type: symbol)
 
 // Note: Can probably be unified with `StorageVariable_Type`
-.decl DataStructure_Type(cons: StorageConstruct, type: symbol)
+.decl DataStructure_Type(loc: StorageLocation, cons: StorageConstruct, type: symbol)

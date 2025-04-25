@@ -27,7 +27,7 @@ KeyToOffset(keyVar, storeOffsetVar, keySize) :-
   MSTORE(mstoreStmt, shaStart2, keyVar),
   Variable_Value(keySizeVar, keySize),
   DataFlows(storeOffsetVar, index),
-  StorageAccessOp(_, index).
+  StorageAccessOp($Storage(), _, index).
 
 // Same, but in this instance storage is not used
 DataStructuresTempStmt(mstoreStmt),
@@ -48,11 +48,15 @@ KeyToOffset(keyVar1, storeOffsetVar2, keySize) :-
 //#endif
 
 
-.decl StorageAccessOp(stmt: Statement, index: Variable)
+.decl StorageAccessOp(loc: StorageLocation, stmt: Statement, index: Variable)
 
-StorageAccessOp(stmt, index):-
-  SSTORE(stmt, index, _) ;
-  SLOAD(stmt, index, _).      
+StorageAccessOp($Storage(), stmt, index):-
+  SSTORE(stmt, index, _);
+  SLOAD(stmt, index, _).
+
+StorageAccessOp($TransientStorage(), stmt, index):-
+  TSTORE(stmt, index, _);
+  TLOAD(stmt, index, _).
 
 .decl ArrayIdToStorageIndex(c:Value, storeOffsetVar:Variable)
 

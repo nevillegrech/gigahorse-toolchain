@@ -71,16 +71,25 @@ The `VarOrConstWrite` type is introduced to unify writes of variables and consta
                       | ConstantWrite {const: Value}
 ```
 
+## `StorageLocation`
+`StorageLocation` is used in predicates that treat both storage and transient storage in a uniform way.
+
+### Definition
+```solidity
+.type StorageLocation = Storage {}
+                      | TransientStorage {}
+```
+
 ## Main relations
 
 ---
-`.decl StorageStmtKindAndConstruct(stmt: Statement, kind: StorageStmtKind, construct: StorageConstruct)`
-Maps Storage Stmts to their corresponding construct and their `StorageStmtKind`
-__Note__: Storage stmts do not have to be `SSTORE` and `SLOAD` statements, see `StorageLoad` for more info
+`.decl StorageStmtKindAndConstruct(stmt: Statement, kind: StorageStmtKind, loc: StorageLocation, construct: StorageConstruct)`
+Maps Storage (and Transient Storage) Stmts to their corresponding construct and their `StorageStmtKind`
+__Note__: Storage stmts do not have to be `S/TSTORE` and `S/TLOAD` statements, see `StorageLoad` for more info
 
 ---
 `.decl StorageStmt_HighLevelUses(stmt: Statement, accessVar: Variable, offset: number, i: number, nestedness: number)`
-Information about storage stmts on potentially nested data structures.
+Information about storage (and transient storage) stmts on potentially nested data structures.
 Can be used to get all information on index variables and field offsets at every step.
 
 ---
@@ -97,11 +106,11 @@ A write can be either a Variable or a Constant in cases where the actual written
 __Note__: Due to optimized packed variable write patterns, one `SSTORE` can write multiple different constructs
 
 ---
-`.decl ArrayDeleteOp(sstore: Statement, loop: Block, array: StorageConstruct)`
+`.decl ArrayDeleteOp(sstore: Statement, loop: Block, loc: StorageLocation, array: StorageConstruct)`
 An `array` is deleted by setting its length to zero in `sstore` and then erasing all its contents in a following `loop`.
 
 ---
-`.decl DataStructureValueIsStruct(cons: StorageConstruct, structID: symbol, elemNum: number)`
+`.decl DataStructureValueIsStruct(loc: StorageLocation, cons: StorageConstruct, structID: symbol, elemNum: number)`
 Data structure construct has a value (Mappings) or element (Arrays) that is a struct identified by its `structID`
 
 ---

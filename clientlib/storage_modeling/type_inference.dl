@@ -32,7 +32,7 @@ Type_Width(type, byteWidth):-
 
 
 // Added interm relation that can results removed via subsumption
-.decl StorageVariable_IntermType(cons: StorageConstruct, type: symbol) btree_delete
+.decl StorageVariable_IntermType(location: StorageLocation, cons: StorageConstruct, type: symbol) btree_delete
 
 // This relation is needed to ensure that the propagation of allsou
 .decl StorageVariable_IntermTypeDone(numOfFacts: number)
@@ -40,68 +40,68 @@ Type_Width(type, byteWidth):-
 DEBUG_OUTPUT(StorageVariable_IntermType)
 
 StorageVariable_IntermTypeDone(numOfFacts):-
-  numOfFacts = count : StorageVariable_IntermType(_, _).
+  numOfFacts = count : StorageVariable_IntermType(_, _, _).
 
-StorageVariable_Type($TightlyPackedVariable(cons, byteLow, byteHigh), type):-
+StorageVariable_Type(loc, $TightlyPackedVariable(cons, byteLow, byteHigh), type):-
   StorageVariable_IntermTypeDone(_),
-  StorageVariable_IntermType($TightlyPackedVariable(cons, byteLow, byteHigh), type).
+  StorageVariable_IntermType(loc, $TightlyPackedVariable(cons, byteLow, byteHigh), type).
 
-StorageVariable_Type($Variable(cons), type):-
+StorageVariable_Type(loc, $Variable(cons), type):-
   StorageVariable_IntermTypeDone(_),
-  StorageVariable_IntermType($Variable(cons), type),
+  StorageVariable_IntermType(loc, $Variable(cons), type),
   Type_Kind(type, typeKind),
   typeKind != "any",
-  !IsPackedArray(cons, _).
+  !IsPackedArray(loc, cons, _).
 
-StorageVariable_Type($Variable(cons), "uint256"):-
+StorageVariable_Type(loc, $Variable(cons), "uint256"):-
   StorageVariable_IntermTypeDone(_),
-  StorageVariable_IntermType($Variable(cons), type),
+  StorageVariable_IntermType(loc, $Variable(cons), type),
   Type_Kind(type, "any"),
-  !IsPackedArray(cons, _).
+  !IsPackedArray(loc, cons, _).
 
 // Hack for PackedArrays, to fix at a later point!
 // Should perhaps handle these with a special Variable construct type
-StorageVariable_Type($Variable(cons), cat("uint", to_string(8*width))):-
+StorageVariable_Type(loc, $Variable(cons), cat("uint", to_string(8*width))):-
   StorageVariable_IntermTypeDone(_),
-  StorageVariable_IntermType($Variable(cons), _),
-  IsPackedArray(cons, width).
+  StorageVariable_IntermType(loc, $Variable(cons), _),
+  IsPackedArray(loc, cons, width).
 
 
-StorageVariable_IntermType(storVar, "bool") <= StorageVariable_IntermType(storVar, "uint8"):- 1=1.
+StorageVariable_IntermType(loc, storVar, "bool") <= StorageVariable_IntermType(loc, storVar, "uint8"):- 1=1.
 
-StorageVariable_IntermType(storVar, "address") <= StorageVariable_IntermType(storVar, "uint160"):- 1=1.
+StorageVariable_IntermType(loc, storVar, "address") <= StorageVariable_IntermType(loc, storVar, "uint160"):- 1=1.
 
-StorageVariable_IntermType(storVar, "bytes32") <= StorageVariable_IntermType(storVar, "uint256"):- 1=1.
+StorageVariable_IntermType(loc, storVar, "bytes32") <= StorageVariable_IntermType(loc, storVar, "uint256"):- 1=1.
 
-StorageVariable_IntermType(storVar, uintType) <= StorageVariable_IntermType(storVar, intType):-
+StorageVariable_IntermType(loc, storVar, uintType) <= StorageVariable_IntermType(loc, storVar, intType):-
   Type_Kind(uintType, "uint"),
   Type_Kind(intType, "int").
 
-StorageVariable_IntermType(storVar, bytesType) <= StorageVariable_IntermType(storVar, intType):-
+StorageVariable_IntermType(loc, storVar, bytesType) <= StorageVariable_IntermType(loc, storVar, intType):-
   Type_Kind(bytesType, "bytes"),
   Type_Kind(intType, "int").
 
-StorageVariable_IntermType(storVar, bytesType) <= StorageVariable_IntermType(storVar, uintType):-
+StorageVariable_IntermType(loc, storVar, bytesType) <= StorageVariable_IntermType(loc, storVar, uintType):-
   Type_Kind(bytesType, "bytes"),
   Type_Kind(uintType, "uint").
 
-StorageVariable_IntermType(storVar, anyType) <= StorageVariable_IntermType(storVar, type):-
+StorageVariable_IntermType(loc, storVar, anyType) <= StorageVariable_IntermType(loc, storVar, type):-
   Type_Kind(anyType, "any"),
   Type_Kind(type, typeKind),
   (typeKind = "bytes"; typeKind = "uint"; typeKind = "int").
 
-.decl StorageVariableToAlias(storVar: StorageConstruct, alias: Variable)
+.decl StorageVariableToAlias(location: StorageLocation, storVar: StorageConstruct, alias: Variable)
 DEBUG_OUTPUT(StorageVariableToAlias)
 
-StorageVariableToAlias(storVar, alias):-
-  ProcessedStorageVariable(storVar, storVar),
-  VarHoldsBytesOfStorVarPlus(var, _, storVar, 0, 0, 31),
+StorageVariableToAlias(loc, storVar, alias):-
+  ProcessedStorageVariable(loc, storVar, storVar),
+  VarHoldsBytesOfStorVarPlus(var, _, loc, storVar, 0, 0, 31),
   var = alias.
   // uint256AliasFlowAnalysis.GlobalFlows(var, alias).
 
-StorageVariableToAlias(storVar, alias):-
-  ProcessedStorageVariable(storVar, storVar),
-  StorageStmtToIndexAndConstruct(store, _, _, storVar),
+StorageVariableToAlias(loc, storVar, alias):-
+  ProcessedStorageVariable(loc, storVar, storVar),
+  StorageStmtToIndexAndConstruct(store, _, loc, _, storVar),
   SSTORE(store, _, var), var=alias.
   // (
   //   uint256AliasFlowAnalysis.GlobalFlows(alias, var);
@@ -112,80 +112,80 @@ StorageVariableToAlias(storVar, alias):-
 // OLD handling of 32 byte vals
 
 // StorageVariable_IntermType(storVar, "uint256"):-
-//   ProcessedStorageVariable(storVar, storVar),
+//   ProcessedStorageVariable(loc, storVar, storVar),
 //   instances = count : StorageVariableToAlias(storVar, _),
 //   instances < 4.
 
 // StorageVariable_IntermType(var, "bytes32"):-
 //   IsStorageConstruct(var),
 //   var = $Variable(cons), cons = cons,
-//   ProcessedStorageVariable(var, var).
+//   ProcessedStorageVariable(loc, var, var).
 
 // VarLifter compatible handling of 32 byte vals
-StorageVariable_IntermType(var, "any32"):-
-  IsStorageConstruct(var),
+StorageVariable_IntermType(loc, var, "any32"):-
+  IsStorageConstruct(loc, var),
   var = $Variable(cons), cons = cons,
-  ProcessedStorageVariable(var, var).
+  ProcessedStorageVariable(loc, var, var).
 
-StorageVariableToAlias($TightlyPackedVariable(cons, byteLow, byteHigh), alias):-
-  ProcessedStorageVariable(storVar, $TightlyPackedVariable(cons, byteLow, byteHigh)),
-  VarHoldsBytesOfStorVarPlus(var, _, storVar, 0, byteLow, byteHigh),
+StorageVariableToAlias(loc, $TightlyPackedVariable(cons, byteLow, byteHigh), alias):-
+  ProcessedStorageVariable(loc, storVar, $TightlyPackedVariable(cons, byteLow, byteHigh)),
+  VarHoldsBytesOfStorVarPlus(var, _, loc, storVar, 0, byteLow, byteHigh),
   uint256AliasFlowAnalysis.GlobalFlows(var, alias).
 
-StorageVariableToAlias($TightlyPackedVariable(cons, byteLow, byteHigh), alias):-
-  ProcessedStorageVariable(storVar, $TightlyPackedVariable(cons, byteLow, byteHigh)),
-  VarWrittenToBytesOfStorVarFinal(var, _, storVar, byteLow, byteHigh),
+StorageVariableToAlias(loc, $TightlyPackedVariable(cons, byteLow, byteHigh), alias):-
+  ProcessedStorageVariable(loc, storVar, $TightlyPackedVariable(cons, byteLow, byteHigh)),
+  VarWrittenToBytesOfStorVarFinal(var, _, loc, storVar, byteLow, byteHigh),
   (uint256AliasFlowAnalysis.GlobalFlows(var, alias);
   uint256AliasFlowAnalysis.GlobalFlows(alias, var)).
 
-StorageVariable_IntermType($TightlyPackedVariable(cons, byteLow, byteHigh), type):-
-  ProcessedStorageVariable(_, $TightlyPackedVariable(cons, byteLow, byteHigh)),
+StorageVariable_IntermType(loc, $TightlyPackedVariable(cons, byteLow, byteHigh), type):-
+  ProcessedStorageVariable(loc, _, $TightlyPackedVariable(cons, byteLow, byteHigh)),
   widthBytes = 1 + byteHigh - byteLow,
   widthBytes != 20,
   widthBytes != 1,
   type = cat("uint", to_string(widthBytes * 8)).
 
-StorageVariable_IntermType($TightlyPackedVariable(cons, byteLow, byteHigh), type):-
-  ProcessedStorageVariable(_, $TightlyPackedVariable(cons, byteLow, byteHigh)),
-  StorageVariableToAlias($TightlyPackedVariable(cons, byteLow, byteHigh), aliasVar),
+StorageVariable_IntermType(loc, $TightlyPackedVariable(cons, byteLow, byteHigh), type):-
+  ProcessedStorageVariable(loc, _, $TightlyPackedVariable(cons, byteLow, byteHigh)),
+  StorageVariableToAlias(loc, $TightlyPackedVariable(cons, byteLow, byteHigh), aliasVar),
   SignedIntCast(aliasVar, _, _),
   widthBytes = 1 + byteHigh - byteLow,
   type = cat("int", to_string(widthBytes * 8)).
 
-StorageVariable_IntermType($TightlyPackedVariable(cons, byteLow, byteHigh), type):-
-  ProcessedStorageVariable(_, $TightlyPackedVariable(cons, byteLow, byteHigh)),
-  StorageVariableToAlias($TightlyPackedVariable(cons, byteLow, byteHigh), aliasVar),
+StorageVariable_IntermType(loc, $TightlyPackedVariable(cons, byteLow, byteHigh), type):-
+  ProcessedStorageVariable(loc, _, $TightlyPackedVariable(cons, byteLow, byteHigh)),
+  StorageVariableToAlias(loc, $TightlyPackedVariable(cons, byteLow, byteHigh), aliasVar),
   SignedIntVar(aliasVar),
   widthBytes = 1 + byteHigh - byteLow,
   type = cat("int", to_string(widthBytes * 8)).
 
-StorageVariable_IntermType($TightlyPackedVariable(cons, byteLow, byteHigh), "address"):-
-  ProcessedStorageVariable(_, $TightlyPackedVariable(cons, byteLow, byteHigh)),
+StorageVariable_IntermType(loc, $TightlyPackedVariable(cons, byteLow, byteHigh), "address"):-
+  ProcessedStorageVariable(loc, _, $TightlyPackedVariable(cons, byteLow, byteHigh)),
   widthBytes = 1 + byteHigh - byteLow,
   widthBytes = 20.
 
 
-StorageVariable_IntermType(storVar, "uint256"):-
-  ProcessedStorageVariable(storVar, storVar),
-  ConstWrittenToBytesOfStorVar(_, constVal, _, _, storVar, 0, 31),
+StorageVariable_IntermType(loc, storVar, "uint256"):-
+  ProcessedStorageVariable(loc, storVar, storVar),
+  ConstWrittenToBytesOfStorVar(_, constVal, _, _, loc, storVar, 0, 31),
   strlen(constVal) < 60. //is right aligned
 
-StorageVariable_IntermType($TightlyPackedVariable(cons, singleByte, singleByte), "bool"):-
-  ProcessedStorageVariable(_, $TightlyPackedVariable(cons, singleByte, singleByte)).
+StorageVariable_IntermType(loc, $TightlyPackedVariable(cons, singleByte, singleByte), "bool"):-
+  ProcessedStorageVariable(loc, _, $TightlyPackedVariable(cons, singleByte, singleByte)).
 
 IsUint($TightlyPackedVariable(cons, singleByte, singleByte), uintVar),
-StorageVariable_IntermType($TightlyPackedVariable(cons, singleByte, singleByte), "uint8"):-
-  ProcessedStorageVariable(_, $TightlyPackedVariable(cons, singleByte, singleByte)),
-  VarHoldsBytesOfStorVarPlus(var, _, $Variable(cons), 0, singleByte, singleByte),
+StorageVariable_IntermType(loc, $TightlyPackedVariable(cons, singleByte, singleByte), "uint8"):-
+  ProcessedStorageVariable(loc, _, $TightlyPackedVariable(cons, singleByte, singleByte)),
+  VarHoldsBytesOfStorVarPlus(var, _, loc, $Variable(cons), 0, singleByte, singleByte),
   uint8AliasFlowAnalysis.GlobalFlows(var, uintVar),
   Uint8Var(uintVar),
   !Variable_Value(uintVar, _).
 
 // IsUint($TightlyPackedVariable(cons, singleByte, singleByte), var):-
-StorageVariable_IntermType($TightlyPackedVariable(cons, singleByte, singleByte), "uint8"):-
-  ProcessedStorageVariable(_, $TightlyPackedVariable(cons, singleByte, singleByte)),
-  (VarHoldsBytesOfStorVarPlus(var, _, $Variable(cons), 0, singleByte, singleByte);
-  VarWrittenToBytesOfStorVarFinal(var, _, $Variable(cons), singleByte, singleByte)),
+StorageVariable_IntermType(loc, $TightlyPackedVariable(cons, singleByte, singleByte), "uint8"):-
+  ProcessedStorageVariable(loc, _, $TightlyPackedVariable(cons, singleByte, singleByte)),
+  (VarHoldsBytesOfStorVarPlus(var, _, loc, $Variable(cons), 0, singleByte, singleByte);
+  VarWrittenToBytesOfStorVarFinal(var, _, loc, $Variable(cons), singleByte, singleByte)),
   VariableUsedAs(var, "uint"),
   !Variable_Value(var, _).
 
@@ -193,9 +193,9 @@ StorageVariable_IntermType($TightlyPackedVariable(cons, singleByte, singleByte),
 .output IsUint
 
 IsUint($TightlyPackedVariable(cons, byteLow, byteHigh), uintVar),
-StorageVariable_IntermType($TightlyPackedVariable(cons, byteLow, byteHigh), "uint160"):-
-  ProcessedStorageVariable(_, $TightlyPackedVariable(cons, byteLow, byteHigh)),
-  VarHoldsBytesOfStorVarPlus(var, _, $Variable(cons), 0, byteLow, byteHigh),
+StorageVariable_IntermType(loc, $TightlyPackedVariable(cons, byteLow, byteHigh), "uint160"):-
+  ProcessedStorageVariable(loc, _, $TightlyPackedVariable(cons, byteLow, byteHigh)),
+  VarHoldsBytesOfStorVarPlus(var, _, loc, $Variable(cons), 0, byteLow, byteHigh),
   20 = 1 + byteHigh - byteLow,
   uint160flowAnalysis.GlobalFlows(var, uintVar),
   UintVar(uintVar).
@@ -210,31 +210,31 @@ StorageVariable_IntermType($TightlyPackedVariable(cons, byteLow, byteHigh), "uin
 //   VariableUsedAs(var, "uint"),
 //   !Variable_Value(var, _).
 
-StorageVariable_IntermType($TightlyPackedVariable(cons, singleByte, singleByte), "uint8"):-
-  ProcessedStorageVariable(_, $TightlyPackedVariable(cons, singleByte, singleByte)),
-  ConstWrittenToBytesOfStorVarProcessed(_, constVal, _, _, $Variable(cons), singleByte, singleByte),
+StorageVariable_IntermType(loc, $TightlyPackedVariable(cons, singleByte, singleByte), "uint8"):-
+  ProcessedStorageVariable(loc, _, $TightlyPackedVariable(cons, singleByte, singleByte)),
+  ConstWrittenToBytesOfStorVarProcessed(_, constVal, _, _, loc, $Variable(cons), singleByte, singleByte),
   constVal != "0x0", constVal != "0x1".
 
-StorageVariable_IntermType($TightlyPackedVariable(cons, singleByte, singleByte), "uint8"):-
-  ProcessedStorageVariable(_, $TightlyPackedVariable(cons, singleByte, singleByte)),
-  VarWrittenToBytesOfStorVarFinal(var, _, $Variable(cons), singleByte, singleByte),
+StorageVariable_IntermType(loc, $TightlyPackedVariable(cons, singleByte, singleByte), "uint8"):-
+  ProcessedStorageVariable(loc, _, $TightlyPackedVariable(cons, singleByte, singleByte)),
+  VarWrittenToBytesOfStorVarFinal(var, _, loc, $Variable(cons), singleByte, singleByte),
   uint8AliasFlowAnalysis.GlobalFlows(uintVar, var),
   Variable_Value(uintVar, constVal),
   constVal != "0x0", constVal != "0x1".
 
 IsUint($TightlyPackedVariable(cons, singleByte, singleByte), uintVar),
-StorageVariable_IntermType($TightlyPackedVariable(cons, singleByte, singleByte), "uint8"):-
-  ProcessedStorageVariable(_, $TightlyPackedVariable(cons, singleByte, singleByte)),
-  VarWrittenToBytesOfStorVarFinal(var, _, $Variable(cons), singleByte, singleByte),
+StorageVariable_IntermType(loc, $TightlyPackedVariable(cons, singleByte, singleByte), "uint8"):-
+  ProcessedStorageVariable(loc, _, $TightlyPackedVariable(cons, singleByte, singleByte)),
+  VarWrittenToBytesOfStorVarFinal(var, _, loc, $Variable(cons), singleByte, singleByte),
   uint8AliasFlowAnalysis.GlobalFlows(uintVar, var),
   Uint8Var(uintVar),
   !Variable_Value(uintVar, _).
 
-StorageVariable_IntermType(var, type):-
-  StorageVariable_IntermType(packedVar, type),
-  ProcessedStorageVariable(var, packedVar),
-  IsStorageConstruct(var),
-  1 = count: ProcessedStorageVariable(var, _).
+StorageVariable_IntermType(loc, var, type):-
+  StorageVariable_IntermType(loc, packedVar, type),
+  ProcessedStorageVariable(loc, var, packedVar),
+  IsStorageConstruct(loc, var),
+  1 = count: ProcessedStorageVariable(loc, var, _).
 
 .decl UintVar(var: Variable)
 UintVar(var):-
@@ -578,10 +578,10 @@ VariableUsedAs(to, typeKind):-
   PHIFlowBase(from, to),
   !RevertEnforcesTypeCast(to, typeKind, _, _, _).
 
-StorageVariable_IntermType(storVar, type):-
+StorageVariable_IntermType(loc, storVar, type):-
   VariableUsedAs(alias, typeKind),
-  StorageVariableToAlias(storVar, alias),
-  ProcessedStorageVariable(storVar, storVar),
+  StorageVariableToAlias(loc, storVar, alias),
+  ProcessedStorageVariable(loc, storVar, storVar),
   Type_Kind(type, typeKind),
   Type_Width(type, 32).
 
@@ -594,13 +594,13 @@ StorageVariable_IntermType(storVar, type):-
 //   Type_Width(type, 32).
 
 VariableUsedAs(alias, "uint"):-
-  StorageVariable_IntermType(storVar, type),
-  ProcessedStorageVariable(storVar, storVar),
-  StorageVariableToAlias(storVar, alias),
+  StorageVariable_IntermType(loc, storVar, type),
+  ProcessedStorageVariable(loc, storVar, storVar),
+  StorageVariableToAlias(loc, storVar, alias),
   Type_Kind(type, "uint").
 
 VariableUsedAs(alias, "bytes"):-
-  StorageVariable_IntermType(storVar, type),
-  ProcessedStorageVariable(storVar, storVar),
-  StorageVariableToAlias(storVar, alias),
+  StorageVariable_IntermType(loc, storVar, type),
+  ProcessedStorageVariable(loc, storVar, storVar),
+  StorageVariableToAlias(loc, storVar, alias),
   Type_Kind(type, "bytes").
