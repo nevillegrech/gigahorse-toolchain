@@ -37,13 +37,13 @@ Construct_TopLevelName($TransientStorage(), $Variable($Constant(const)), SIMPLE_
 Construct_TopLevelName($TransientStorage(), $TightlyPackedVariable($Constant(const), low, high), MERGED_TSTORAGE_VAR(const, low, high)):-
   IsStorageConstruct($TransientStorage(), $TightlyPackedVariable($Constant(const), low, high)).
 
-Construct_TopLevelName($Storage(), $Mapping($Constant(const)), cat("mapping_", const)):-
+Construct_TopLevelName($Storage(), $Mapping($Constant(const)), cat("mapping", const)):-
   IsStorageConstruct($Storage(), $Mapping($Constant(const))).
 
-Construct_TopLevelName($Storage(), $Array($Constant(const)), cat("array_", const)):-
+Construct_TopLevelName($Storage(), $Array($Constant(const)), cat("array", const)):-
   IsStorageConstruct($Storage(), $Array($Constant(const))).
 
-Construct_TopLevelName($Storage(), $StaticArray($Constant(const), arraySize), cat("array_", const)):-
+Construct_TopLevelName($Storage(), $StaticArray($Constant(const), arraySize), cat("array", const)):-
   IsStorageConstruct($Storage(), $StaticArray($Constant(const), arraySize)).
 
 
