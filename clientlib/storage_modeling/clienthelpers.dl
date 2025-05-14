@@ -50,3 +50,7 @@ Construct_TopLevelName($Storage(), $StaticArray($Constant(const), arraySize), ca
 Construct_TopLevelName(loc, cons, name):-
   Construct_TopLevelName(loc, predParentCons, name),
   StorageConstructPredecesor(cons, predParentCons).
+
+Construct_TopLevelName(loc, processedVar, name):-
+  Construct_TopLevelName(loc, var, name),
+  ProcessedStorageVariable(loc, var, processedVar).
