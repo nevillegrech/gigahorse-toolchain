@@ -26,16 +26,16 @@ StorageConstructPredecesor(cons, predParentCons):-
 DEBUG_OUTPUT(Construct_TopLevelName)
 
 Construct_TopLevelName($Storage(), $Variable($Constant(const)), SIMPLE_STORAGE_VAR(const)):-
-  IsStorageConstruct($Storage(), $Variable($Constant(const))).
+  ProcessedStorageVariable($Storage(), $Variable($Constant(const)), $Variable($Constant(const))).
 
 Construct_TopLevelName($Storage(), $TightlyPackedVariable($Constant(const), low, high), MERGED_STORAGE_VAR(const, low, high)):-
-  IsStorageConstruct($Storage(), $TightlyPackedVariable($Constant(const), low, high)).
+  ProcessedStorageVariable($Storage(), $Variable($Constant(const)), $TightlyPackedVariable($Constant(const), low, high)).
 
 Construct_TopLevelName($TransientStorage(), $Variable($Constant(const)), SIMPLE_TSTORAGE_VAR(const)):-
-  IsStorageConstruct($TransientStorage(), $Variable($Constant(const))).
+  ProcessedStorageVariable($TransientStorage(), $Variable($Constant(const)), $Variable($Constant(const))).
 
 Construct_TopLevelName($TransientStorage(), $TightlyPackedVariable($Constant(const), low, high), MERGED_TSTORAGE_VAR(const, low, high)):-
-  IsStorageConstruct($TransientStorage(), $TightlyPackedVariable($Constant(const), low, high)).
+  ProcessedStorageVariable($TransientStorage(), $Variable($Constant(const)), $TightlyPackedVariable($Constant(const), low, high)).
 
 Construct_TopLevelName($Storage(), $Mapping($Constant(const)), cat("mapping", const)):-
   IsStorageConstruct($Storage(), $Mapping($Constant(const))).
