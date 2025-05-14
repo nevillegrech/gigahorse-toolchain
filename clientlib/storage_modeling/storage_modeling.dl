@@ -9,7 +9,7 @@
 
 #define MERGED_STORAGE_VAR(storVar,byteLow,byteHigh) MERGED_VAR_BASE(cat("stor", storVar),byteLow,byteHigh)
 
-#define MERGED_TSTORAGE_VAR(fieldNum,byteLow,byteHigh) MERGED_VAR_BASE(cat("tstor", storVar),byteLow,byteHigh)
+#define MERGED_TSTORAGE_VAR(storVar,byteLow,byteHigh) MERGED_VAR_BASE(cat("tstor", storVar),byteLow,byteHigh)
 
 #define SIMPLE_FIELD(fieldNum) cat("field", to_string(fieldNum))
 

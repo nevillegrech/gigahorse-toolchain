@@ -16,3 +16,37 @@ StorageConstructPredecesor(cons, parentCons):-
 StorageConstructPredecesor(cons, predParentCons):-
   StorageConstructPredecesor(cons, predCons),
   StorageConstruct_ParentAndOffset(predCons, predParentCons, _).
+
+/**
+  Top level identifier for every construct.
+  Even for complex data structures (nested, including structs etc) it will unify all inferences in a
+  top level one containing its kind ("stor" for simple vars, "mapping", "array") and its declared offset.
+*/
+.decl Construct_TopLevelName(loc: StorageLocation, cons: StorageConstruct, name: symbol)
+DEBUG_OUTPUT(Construct_TopLevelName)
+
+Construct_TopLevelName($Storage(), $Variable($Constant(const)), SIMPLE_STORAGE_VAR(const)):-
+  IsStorageConstruct($Storage(), $Variable($Constant(const))).
+
+Construct_TopLevelName($Storage(), $TightlyPackedVariable($Constant(const), low, high), MERGED_STORAGE_VAR(const, low, high)):-
+  IsStorageConstruct($Storage(), $TightlyPackedVariable($Constant(const), low, high)).
+
+Construct_TopLevelName($TransientStorage(), $Variable($Constant(const)), SIMPLE_TSTORAGE_VAR(const)):-
+  IsStorageConstruct($TransientStorage(), $Variable($Constant(const))).
+
+Construct_TopLevelName($TransientStorage(), $TightlyPackedVariable($Constant(const), low, high), MERGED_TSTORAGE_VAR(const, low, high)):-
+  IsStorageConstruct($TransientStorage(), $TightlyPackedVariable($Constant(const), low, high)).
+
+Construct_TopLevelName($Storage(), $Mapping($Constant(const)), cat("mapping_", const)):-
+  IsStorageConstruct($Storage(), $Mapping($Constant(const))).
+
+Construct_TopLevelName($Storage(), $Array($Constant(const)), cat("array_", const)):-
+  IsStorageConstruct($Storage(), $Array($Constant(const))).
+
+Construct_TopLevelName($Storage(), $StaticArray($Constant(const), arraySize), cat("array_", const)):-
+  IsStorageConstruct($Storage(), $StaticArray($Constant(const), arraySize)).
+
+
+Construct_TopLevelName(loc, cons, name):-
+  Construct_TopLevelName(loc, predParentCons, name),
+  StorageConstructPredecesor(cons, predParentCons).
