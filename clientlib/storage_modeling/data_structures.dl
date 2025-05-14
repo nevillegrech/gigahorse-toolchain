@@ -458,7 +458,8 @@ InitialStorageStmtToIndexAndConstruct(stmt, "ACCESS", loc, index, $Variable(cons
   LikelyVariableLoadingStorageIndex(_, index),
   StorageIndex_StorageConstruct(index, cons),
   Variable_StorageIndex(var, index),
-  StorageAccessOp(loc, stmt, var).
+  StorageAccessOp(loc, stmt, var),
+  !NonVariableConstruct(loc, cons).
 
 InitialStorageStmtToIndexAndConstruct(stmt, "LENGTH", loc, index, $Array(cons)),
 ArrayLengthStatement(stmt, loc, index, $Array(cons)):-
