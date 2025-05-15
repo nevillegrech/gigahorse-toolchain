@@ -1,8 +1,6 @@
 # TODO: all this functionality can be carefully removed since we don't require
 # the need for finding basic blocks during fact generation
 
-from typing import List, Optional
-
 import src.opcodes as opcodes
 
 
@@ -12,8 +10,8 @@ class EVMBasicBlock:
     its parent and child nodes in the graph structure.
     """
 
-    def __init__(self, entry: Optional[int] = None, exit: Optional[int] = None,
-                 evm_ops: Optional[List['EVMOp']] = None):
+    def __init__(self, entry: int | None = None, exit: int | None = None,
+                 evm_ops: list['EVMOp'] | None = None):
         """
         Creates a new basic block containing operations between the
         specified entry and exit instruction counters (inclusive).
@@ -75,12 +73,12 @@ class EVMBasicBlock:
 
 
 class EVMOp:
-    block: Optional[EVMBasicBlock]
+    block: EVMBasicBlock | None
     """
     Represents a single EVM operation.
     """
 
-    def __init__(self, pc: int, opcode: opcodes.OpCode, value: Optional[int] = None):
+    def __init__(self, pc: int, opcode: opcodes.OpCode, value: int | None = None):
         """
         Create a new EVMOp object from the given params which should correspond to
         disasm output.
@@ -135,7 +133,7 @@ class EVMOp:
         )
 
 
-def blocks_from_ops(ops: List[EVMOp]) -> List[EVMBasicBlock]:
+def blocks_from_ops(ops: list[EVMOp]) -> list[EVMBasicBlock]:
     """
     Process a sequence of EVMOps and create a sequence of EVMBasicBlocks.
 

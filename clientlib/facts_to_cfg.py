@@ -1,32 +1,31 @@
-from typing import Tuple, List, Union, Mapping, Set
 from collections import namedtuple, defaultdict
 from itertools import chain
 
 Statement = namedtuple('Statement', ['ident', 'op', 'operands', 'defs'])
 
 class Block:
-    def __init__(self, ident: str, statements: List[Statement]):
+    def __init__(self, ident: str, statements: list[Statement]):
         self.ident = ident
         self.statements = statements
-        self.predecessors: List[Block] = []
-        self.successors: List[Block] = []
+        self.predecessors: list[Block] = []
+        self.successors: list[Block] = []
 
 class Function:
-    def __init__(self, ident: str, name: str, head_block: Block, is_public: bool, formals: List[str]):
+    def __init__(self, ident: str, name: str, head_block: Block, is_public: bool, formals: list[str]):
         self.ident = ident
         self.name = name
         self.formals = formals
         self.is_public = is_public
         self.head_block = head_block
 
-def load_csv(path: str, seperator: str='\t') -> List[Union[str, List[str]]]:
+def load_csv(path: str, seperator: str='\t') -> list[list[str]]:
     with open(path) as f:
         return [line.split(seperator) for line in f.read().splitlines()]
 
-def load_csv_map(path: str, seperator: str='\t', reverse: bool=False) -> Mapping[str, str]:
+def load_csv_map(path: str, seperator: str='\t', reverse: bool=False) -> dict[str, str]:
     return {y: x for x, y in load_csv(path, seperator)} if reverse else {x: y for x, y in load_csv(path, seperator)}
 
-def load_csv_multimap(path: str, seperator: str='\t', reverse: bool=False) -> Mapping[str, List[str]]:
+def load_csv_multimap(path: str, seperator: str='\t', reverse: bool=False) -> defaultdict[str, list[str]]:
     ret = defaultdict(list)
 
     if reverse:
@@ -38,48 +37,48 @@ def load_csv_multimap(path: str, seperator: str='\t', reverse: bool=False) -> Ma
 
     return ret
 
-def construct_cfg() -> Tuple[Mapping[str, Block], Mapping[str, Function]]:
+def construct_cfg() -> tuple[dict[str, Block], dict[str, Function]]:
     # Load facts
     tac_function_blocks = load_csv_multimap('InFunction.csv', reverse=True)
 
     tac_func_id_to_public = load_csv_map('PublicFunction.csv')
     tac_high_level_func_name = load_csv_map('HighLevelFunctionName.csv')
 
-    tac_formal_args: Mapping[str, List[Tuple[str, int]]] = defaultdict(list)
+    tac_formal_args: defaultdict[str, list[tuple[str, int]]] = defaultdict(list)
     for func_id, arg, pos in load_csv('FormalArgs.csv'):
         tac_formal_args[func_id].append((arg, int(pos)))
     
     # Inverse mapping
-    tac_block_function: Mapping[str, str] = {}
+    tac_block_function: dict[str, str] = {}
     for func_id, block_ids in tac_function_blocks.items():
-        for block in block_ids:
-            tac_block_function[block] = func_id
+        for block_id in block_ids:
+            tac_block_function[block_id] = func_id
 
 
     tac_block_stmts = load_csv_multimap('TAC_Block.csv', reverse=True)
     tac_op = load_csv_map('TAC_Op.csv')
 
     # Load statement defs/uses
-    tac_defs: Mapping[str, List[Tuple[str, int]]] = defaultdict(list)
+    tac_defs: defaultdict[str, list[tuple[str, int]]] = defaultdict(list)
     for stmt_id, var, pos in load_csv('TAC_Def.csv'):
         tac_defs[stmt_id].append((var, int(pos)))
 
-    tac_uses: Mapping[str, List[Tuple[str, int]]] = defaultdict(list)
+    tac_uses: defaultdict[str, list[tuple[str, int]]] = defaultdict(list)
     for stmt_id, var, pos in load_csv('TAC_Use.csv'):
         tac_uses[stmt_id].append((var, int(pos)))
 
     # Load block edges
     tac_block_succ = load_csv_multimap('LocalBlockEdge.csv')
-    tac_block_pred: Mapping[str, List[str]] = defaultdict(list)
-    for block, succs in tac_block_succ.items():
+    tac_block_pred: defaultdict[str, list[str]] = defaultdict(list)
+    for block_id, succs in tac_block_succ.items():
         for succ in succs:
-            tac_block_pred[succ].append(block)
+            tac_block_pred[succ].append(block_id)
 
     def stmt_sort_key(stmt_id: str) -> int:
         return int(stmt_id.replace("S", "").split('0x')[1].split('_')[0], base=16)
 
     # Construct blocks
-    blocks: Mapping[str, Block] = {}
+    blocks: dict[str, Block] = {}
     for block_id in chain(*tac_function_blocks.values()):
         try:
             statements = [
@@ -99,7 +98,7 @@ def construct_cfg() -> Tuple[Mapping[str, Block], Mapping[str, Function]]:
         block.predecessors = [blocks[pred] for pred in tac_block_pred[block.ident]]
         block.successors   = [blocks[succ] for succ in tac_block_succ[block.ident]]
 
-    functions: Mapping[str, Function] = {}
+    functions: dict[str, Function] = {}
     for block_id, in load_csv('IRFunctionEntry.csv'):
         func_id = tac_block_function[block_id]
 
