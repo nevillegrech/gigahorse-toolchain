@@ -9,7 +9,7 @@ import src.basicblock as basicblock
 from src.common import public_function_signature_filename, event_signature_filename, error_signature_filename
 
 
-from typing import List, Tuple, Dict, Any, Optional
+from typing import Any
 
 opcode_output = {'alters_flow':bool, 'halts':bool, 'is_arithmetic':bool,
                  'is_call':bool, 'is_dup':bool, 'is_invalid':bool,
@@ -93,7 +93,7 @@ class FactExporter(Exporter):
     def get_out_file_path(self, filename):
         return os.path.join(self.output_dir, filename)
 
-    def generate(self, filename: str, entries: List[Any]):
+    def generate(self, filename: str, entries: list[Any]):
         with open(self.get_out_file_path(filename), 'w') as f:
             writer = csv.writer(f, delimiter='\t', lineterminator='\n')
             writer.writerows(entries)
@@ -114,8 +114,8 @@ class EVMBlockExporter(FactExporter):
       metadata: dict containing metadata output by the solidity compiler
     """
 
-    def __init__(self, output_dir: str, blocks: List[basicblock.EVMBasicBlock], ordered: bool = True,
-                 bytecode_hex: Optional[str] = None, metadata: Optional[Dict[Any, Any]] = None, skip_sig_resolution: bool = False):
+    def __init__(self, output_dir: str, blocks: list[basicblock.EVMBasicBlock], ordered: bool = True,
+                 bytecode_hex: str | None = None, metadata: dict[Any, Any] | None = None, skip_sig_resolution: bool = False):
         super().__init__(output_dir)
         self.blocks = blocks
         self.ordered = ordered
@@ -123,18 +123,18 @@ class EVMBlockExporter(FactExporter):
         self.process_metadata(metadata)
         self.skip_sig_resolution = skip_sig_resolution
 
-    def process_metadata(self, metadata: Optional[Dict[Any, Any]] = None) -> None:
+    def process_metadata(self, metadata: dict[Any, Any] | None = None) -> None:
         """
         Processes metadata dicts are produced by solc, to lists of facts we can output
         """
-        def process_function_debug_data(function_debug_data: Dict[str, Dict[str, Optional[int]]]) -> List[Tuple[str, str, int, int]]:
+        def process_function_debug_data(function_debug_data: dict[str, dict[str, int | None]]) -> list[tuple[str, str, int, int]]:
             return [(function_id,
                     hex(debug_info["entryPoint"]) if debug_info["entryPoint"] else "0x0",
                     debug_info["parameterSlots"] if debug_info["parameterSlots"] else 0,
                     debug_info["returnSlots"]if debug_info["returnSlots"] else 0)
                 for function_id, debug_info in function_debug_data.items()]
 
-        def process_immutable_refs(immutable_refs: Dict[str, List[Dict[str, int]]]) -> List[Tuple[str, int]]:
+        def process_immutable_refs(immutable_refs: dict[str, list[dict[str, int]]]) -> list[tuple[str, int]]:
             res = []
             for id, accesses in immutable_refs.items():
                 # TODO: skipping this for now

@@ -6,7 +6,7 @@ import re
 import json
 from os.path import abspath, dirname, join, isdir, isfile
 from os import listdir, makedirs
-from typing import Mapping, MutableMapping, Any, List, Iterator, Tuple
+from typing import Mapping, MutableMapping, Any, Iterator
 
 GIGAHORSE_TOOLCHAIN_ROOT = dirname(abspath(__file__))
 
@@ -31,8 +31,8 @@ class LogicTestCase():
 
         self.gigahorse_args = test_config.get('gigahorse_args', [])
 
-        self.expected_analytics: List[Tuple[str, int, float]] = test_config.get("expected_analytics", [])
-        self.expected_verbatim: List[Tuple[str, str]] = test_config.get("expected_verbatim", [])
+        self.expected_analytics: list[tuple[str, int, float]] = test_config.get("expected_analytics", [])
+        self.expected_verbatim: list[tuple[str, str]] = test_config.get("expected_verbatim", [])
 
     def id(self) -> str:
         return self.name
@@ -103,7 +103,7 @@ class LogicTestCase():
                 assert regex.match(analytics[metric]), f"Value for {metric} ({analytics[metric]}) not the expected value ({expected})."
 
 
-def discover_logic_tests(current_config: MutableMapping[str, Any], directory: str) -> Iterator[Tuple[Mapping[str, Any], str]]:
+def discover_logic_tests(current_config: MutableMapping[str, Any], directory: str) -> Iterator[tuple[Mapping[str, Any], str]]:
     def update_config(config_path: str) -> MutableMapping:
         if isfile(config_path):
             with open(config_path) as f:
@@ -125,7 +125,7 @@ def discover_logic_tests(current_config: MutableMapping[str, Any], directory: st
             yield from discover_logic_tests(current_config, entry_path)
 
 
-def collect_tests(test_dirs: List[str]):
+def collect_tests(test_dirs: list[str]):
     makedirs(TEST_WORKING_DIR, exist_ok=True)
 
     for test_dir in (abspath(x) for x in test_dirs):

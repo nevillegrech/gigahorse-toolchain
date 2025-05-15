@@ -107,6 +107,12 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install mypy
-    - name: mypy
+    - name: mypy gigahorse
       run: |
         mypy gigahorse.py
+    - name: mypy visualizeout.py
+      run: |
+        mypy clients/visualizeout.py
+    - name: mypy rest
+      run: |
+        mypy src/*.py clientlib/*.py

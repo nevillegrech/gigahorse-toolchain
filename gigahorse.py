@@ -10,7 +10,7 @@ import sys
 import time
 from collections import defaultdict
 from multiprocessing import Process, SimpleQueue, Manager, Event, cpu_count
-from typing import List, Tuple, Any, Dict, DefaultDict
+from typing import Any
 from os.path import join, getsize
 import os
 
@@ -214,7 +214,7 @@ parser.add_argument(
 def get_working_dir(contract_name: str) -> str:
     return join(os.path.abspath(args.working_dir), os.path.split(contract_name)[1].split('.')[0])
 
-def prepare_working_dir(contract_name: str) -> Tuple[bool, str, str]:
+def prepare_working_dir(contract_name: str) -> tuple[bool, str, str]:
     newdir = get_working_dir(contract_name)
     out_dir = join(newdir, 'out')
 
@@ -240,7 +240,7 @@ def get_souffle_macros() -> str:
 
     return souffle_macros
 
-def analyze_contract(index: int, contract_filename: str, result_queue, fact_generator: AbstractFactGenerator, souffle_clients: List[str], other_clients: List[str]) -> None:
+def analyze_contract(index: int, contract_filename: str, result_queue, fact_generator: AbstractFactGenerator, souffle_clients: list[str], other_clients: list[str]) -> None:
     """
     Perform static analysis on a contract, storing the result in the queue.
     This is a worker function to be passed to a subprocess.
@@ -258,7 +258,7 @@ def analyze_contract(index: int, contract_filename: str, result_queue, fact_gene
         # prepare working directory
         exists, work_dir, out_dir = prepare_working_dir(contract_filename)
         assert not(args.restart and exists)
-        analytics: Dict[str, Any] = {}
+        analytics: dict[str, Any] = {}
         contract_name = os.path.split(contract_filename)[1]
         with open(contract_filename) as file:
             bytecode = file.read().strip()
@@ -378,9 +378,9 @@ def write_results(res_list: Any, results_file: str) -> None:
     and writting them to the results_file json file
     """
     total = len(res_list)
-    vulnerability_counts: DefaultDict[str, int] = defaultdict(int)
-    analytics_sums: DefaultDict[str, int] = defaultdict(int)
-    meta_counts: DefaultDict[str, int] = defaultdict(int)
+    vulnerability_counts: defaultdict[str, int] = defaultdict(int)
+    analytics_sums: defaultdict[str, int] = defaultdict(int)
+    meta_counts: defaultdict[str, int] = defaultdict(int)
     all_files = set()
     for _, files, meta, analytics in res_list:
         for f in files:
@@ -426,7 +426,7 @@ def write_results(res_list: Any, results_file: str) -> None:
     with open(results_file, 'w') as f:
         f.write(json.dumps(list(res_list), indent=1))
 
-def batch_analysis(fact_generator: AbstractFactGenerator, souffle_clients: List[str], other_clients: List[str], contracts: List[str], num_of_jobs: int) -> Any:
+def batch_analysis(fact_generator: AbstractFactGenerator, souffle_clients: list[str], other_clients: list[str], contracts: list[str], num_of_jobs: int) -> Any:
     """
     Given a fact generator and the client lists, analyzes the contracts list, using num_of_jobs parallel jobs/processes
     """
@@ -446,7 +446,7 @@ def batch_analysis(fact_generator: AbstractFactGenerator, souffle_clients: List[
     flush_proc = Process(target=flush_queue, args=(run_signal, res_queue, res_list))
     flush_proc.start()
 
-    workers: List[Dict[str, Any]] = []
+    workers: list[dict[str, Any]] = []
     avail_jobs = list(range(num_of_jobs))
     contract_iter = enumerate(contracts)
     contracts_exhausted = False

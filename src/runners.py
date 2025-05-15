@@ -9,7 +9,7 @@ import shutil
 import json
 import re
 
-from typing import Tuple, List, Any, Optional, Dict
+from typing import Any
 
 from abc import ABC, abstractmethod
 
@@ -73,7 +73,7 @@ class AnalysisExecutor:
 
             return max(timeout_left, self.minimum_client_time)
 
-    def run_souffle_client(self, souffle_client: str, in_dir: str, out_dir: str, start_time: float, half: bool) -> Tuple[List[str], List[str]]:
+    def run_souffle_client(self, souffle_client: str, in_dir: str, out_dir: str, start_time: float, half: bool) -> tuple[list[str], list[str]]:
         errors = []
         timeouts = []
         err_filename = join(out_dir, os.path.basename(souffle_client) + '.err')
@@ -125,7 +125,7 @@ class AnalysisExecutor:
         return errors, timeouts
 
 
-    def run_clients(self, souffle_clients: List[str], other_clients: List[str], in_dir: str, out_dir: str, start_time: float, half: bool = False) -> Tuple[List[str], List[str]]:
+    def run_clients(self, souffle_clients: list[str], other_clients: list[str], in_dir: str, out_dir: str, start_time: float, half: bool = False) -> tuple[list[str], list[str]]:
         errors = []
         timeouts = []
         for souffle_client in souffle_clients:
@@ -197,7 +197,7 @@ def compile_datalog(spec: str, souffle_bin: str, cache_dir: str, reuse_datalog_b
     shutil.copy2(cache_path, executable_path)
 
 
-def write_context_depth_file(filename: str, max_context_depth: Optional[int] = None) -> None:
+def write_context_depth_file(filename: str, max_context_depth: int | None = None) -> None:
     context_depth_file = open(filename, "w")
     if max_context_depth is not None:
         context_depth_file.write(f"{max_context_depth}\n")
@@ -226,11 +226,11 @@ class AbstractFactGenerator(ABC):
         self._analysis_executor = analysis_executor
 
     @abstractmethod
-    def generate_facts(self, contract_filename: str, work_dir: str, out_dir: str) -> Tuple[float, float, str]:
+    def generate_facts(self, contract_filename: str, work_dir: str, out_dir: str) -> tuple[float, float, str]:
         pass
 
     @abstractmethod
-    def get_datalog_files(self) -> List[str]:
+    def get_datalog_files(self) -> list[str]:
         pass
 
     @abstractmethod
@@ -243,9 +243,9 @@ class AbstractFactGenerator(ABC):
 
 
 class MixedFactGenerator(AbstractFactGenerator):
-    fact_generators: Dict[re.Pattern, AbstractFactGenerator]
-    out_dir_to_gen: Dict[str, AbstractFactGenerator]
-    contract_filename_to_gen: Dict[str, AbstractFactGenerator]
+    fact_generators: dict[re.Pattern, AbstractFactGenerator]
+    out_dir_to_gen: dict[str, AbstractFactGenerator]
+    contract_filename_to_gen: dict[str, AbstractFactGenerator]
 
     def __init__(self, args):
         self.fact_generators = {}
@@ -262,13 +262,13 @@ class MixedFactGenerator(AbstractFactGenerator):
         for fact_gen in self.fact_generators.values():
             fact_gen.analysis_executor = analysis_executor
 
-    def generate_facts(self, contract_filename: str, work_dir: str, out_dir: str) -> Tuple[float, float, str]:
+    def generate_facts(self, contract_filename: str, work_dir: str, out_dir: str) -> tuple[float, float, str]:
         generator = self.contract_filename_to_gen[contract_filename]
         del self.contract_filename_to_gen[contract_filename]
         self.out_dir_to_gen[out_dir] = generator
         return generator.generate_facts(contract_filename, work_dir, out_dir)
 
-    def get_datalog_files(self) -> List[str]:
+    def get_datalog_files(self) -> list[str]:
         datalog_files = []
         for fact_gen in self.fact_generators.values():
             datalog_files += fact_gen.get_datalog_files()
@@ -286,7 +286,7 @@ class MixedFactGenerator(AbstractFactGenerator):
                 return True
         return False
 
-    def add_fact_generator(self, pattern: str, scripts: List[str], is_default: bool, args):
+    def add_fact_generator(self, pattern: str, scripts: list[str], is_default: bool, args):
         if not pattern.endswith("$"):
             pattern = pattern + "$"
         if is_default:
@@ -322,7 +322,7 @@ class DecompilerFactGenerator(AbstractFactGenerator):
         if args.disable_precise_fallback:
             log("The use of the --disable_precise_fallback is deprecated. Its functionality is disabled.")
 
-    def generate_facts(self, contract_filename: str, work_dir: str, out_dir: str) -> Tuple[float, float, str]:
+    def generate_facts(self, contract_filename: str, work_dir: str, out_dir: str) -> tuple[float, float, str]:
         with open(contract_filename) as file:
             bytecode = file.read().strip()
 
@@ -357,7 +357,7 @@ class DecompilerFactGenerator(AbstractFactGenerator):
 
         return decomp_start - disassemble_start, time.time() - decomp_start, decompiler_config
 
-    def get_datalog_files(self) -> List[str]:
+    def get_datalog_files(self) -> list[str]:
         datalog_files = self.souffle_pre_clients + [DecompilerFactGenerator.decompiler_dl]
         if not self.disable_scalable_fallback:
             datalog_files += [DecompilerFactGenerator.fallback_scalable_decompiler_dl]
@@ -393,13 +393,13 @@ class DecompilerFactGenerator(AbstractFactGenerator):
 
 
 class CustomFactGenerator(AbstractFactGenerator):
-    def __init__(self, pattern: str, custom_fact_gen_scripts: List[str]):
+    def __init__(self, pattern: str, custom_fact_gen_scripts: list[str]):
         if not pattern.endswith("$"):
             pattern = pattern + "$"
         self.pattern = re.compile(pattern)
         self.fact_generator_scripts = custom_fact_gen_scripts
 
-    def generate_facts(self, contract_filename: str, work_dir: str, out_dir: str) -> Tuple[float, float, str]:
+    def generate_facts(self, contract_filename: str, work_dir: str, out_dir: str) -> tuple[float, float, str]:
         errors = []
         timeouts = []
         fact_gen_time_start = time.time()
@@ -415,7 +415,7 @@ class CustomFactGenerator(AbstractFactGenerator):
                 timeouts.extend(t)
         return time.time() - fact_gen_time_start, 0.0, ""
 
-    def get_datalog_files(self) -> List[str]:
+    def get_datalog_files(self) -> list[str]:
         return [a for a in self.fact_generator_scripts if a.endswith('.dl')]
 
     def match_pattern(self, contract_filename: str) -> bool:
