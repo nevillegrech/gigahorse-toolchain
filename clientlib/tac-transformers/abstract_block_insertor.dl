@@ -1,0 +1,184 @@
+#include "abstract_tac_transformer.dl"
+#include "../memory_modeling/memory_modeling.dl"
+#include "../storage_modeling/storage_modeling.dl"
+
+.type InsertedStatement = NullaryStatement {opcode: symbol, defVar: Variable}
+                        | UnaryStatement {opcode: symbol, useVar: Variable, defVar: Variable}
+                        | BinaryStatement {opcode: symbol, useVar1: Variable, useVar2: Variable, defVar: Variable}
+                        | StoreStatement {opcode: symbol, useVar1: Variable, useVar2: Variable}
+                        | CopyStatement {opcode: symbol, fromVar: Variable, toVar: Variable, lenVar: Variable}
+                        | ConstStatement {constant: Value}
+
+.type InsertionList = [statement: InsertedStatement, rest: InsertionList]
+
+.comp BlockInsertor : AbstractTACTransformer {
+
+  // inputs
+  .decl Insertion(insertionPoint: Block, continuation: Block)
+  .decl InsertedStatement(insertionPoint: Block, index: number, statement: InsertedStatement)
+
+  // intermediate relations
+  .decl BlockToRemove(block: Block)
+  .decl StatementToRemove(stmt: Statement)
+  .decl VariableToRemove(var: Variable)
+
+  .decl ReachableBlock(block: Block)
+
+  ReachableBlock(block):-
+    In_FunctionEntry(block),
+    !Insertion(block, _).
+
+  ReachableBlock(block):-
+    ReachableBlock(prev),
+    In_LocalBlockEdge(prev, block),
+    !Insertion(block, _).
+
+  ReachableBlock(cont):-
+    ReachableBlock(prev),
+    In_LocalBlockEdge(prev, block),
+    Insertion(block, cont).
+
+  BlockToRemove(block):-
+    In_InFunction(block, _),
+    !ReachableBlock(block).
+
+  StatementToRemove(stmt):-
+    BlockToRemove(block),
+    In_Statement_Block(stmt, block).
+
+  VariableToRemove(var):-
+    StatementToRemove(stmt),
+    In_Statement_Defines(stmt, var, _).
+
+  .output BlockToRemove, Insertion, InsertedStatement
+
+  Out_Statement_Opcode(stmt, opcode):-
+    In_Statement_Opcode(stmt, opcode),
+    !StatementToRemove(stmt).
+  
+  Out_IsStatement(stmt):-
+    In_IsStatement(stmt),
+    !StatementToRemove(stmt).
+
+  Out_Statement_Block(stmt, block):-
+    In_Statement_Block(stmt, block),
+    !BlockToRemove(block).
+
+  Out_Variable_Value(var, value):-
+    In_Variable_Value(var, value),
+    !VariableToRemove(var).
+
+  Out_Variable_BlockValue(var, value):-
+    In_Variable_BlockValue(var, value),
+    !VariableToRemove(var).
+
+  Out_LocalBlockEdge(block, nextBlock):-
+    In_LocalBlockEdge(block, nextBlock),
+    ReachableBlock(block),
+    ReachableBlock(nextBlock).
+
+  Out_FallthroughEdge(block, nextBlock):-
+    In_FallthroughEdge(block, nextBlock),
+    ReachableBlock(block),
+    ReachableBlock(nextBlock).
+
+  Out_CallGraphEdge(callerBlock, fun):-
+    In_CallGraphEdge(callerBlock, fun),
+    ReachableBlock(callerBlock).
+
+  Out_FunctionCallReturn(callerBlock, fun, return):-
+    In_FunctionCallReturn(callerBlock, fun, return),
+    ReachableBlock(callerBlock).
+
+  Out_IsFunction(fun):-
+    In_IsFunction(fun).
+
+  Out_Block_Gas(block, gas):-
+    In_Block_Gas(block, gas),
+    ReachableBlock(block).
+
+  Out_Block_CodeChunkAccessed(block, chunk):-
+    In_Block_CodeChunkAccessed(block, chunk),
+    ReachableBlock(block).
+
+  Out_Statement_OriginalStatement(inStmt, stmt):-
+    In_Statement_OriginalStatement(inStmt, stmt),
+    !StatementToRemove(inStmt).
+
+  Out_Statement_OriginalStatementList(stmt, stmtList):-
+    In_Statement_OriginalStatementList(stmt, stmtList),
+    !StatementToRemove(stmt).
+
+  Out_Statement_InlineInfo(stmt, funList):-
+    In_Statement_InlineInfo(stmt, funList),
+    !StatementToRemove(stmt).
+
+  Out_FormalArgs(fun, arg, pos):-
+    In_FormalArgs(fun, arg, pos).
+
+  Out_Statement_Uses(stmt, var, i):-
+    In_Statement_Uses(stmt, var, i),
+    !StatementToRemove(stmt).
+
+  Out_Statement_Defines(stmt, var, i):-
+    In_Statement_Defines(stmt, var, i),
+    !StatementToRemove(stmt).
+
+  Out_Statement_Next(stmt, next):-
+    In_Statement_Next(stmt, next),
+    !StatementToRemove(stmt),
+    !StatementToRemove(next).
+
+  // TODO: Find first insertion stmt
+  Out_Statement_Next(stmt, next):-
+    In_Statement_Next(stmt, next),
+    !StatementToRemove(stmt),
+    StatementToRemove(next).
+
+  // Review: can we ever delete an entry? perhaps we can disallow this.
+  Out_FunctionEntry(entry):-
+    In_FunctionEntry(entry).
+
+  Out_InFunction(block, function):-
+    In_InFunction(block, function),
+    !BlockToRemove(block).
+
+  Out_ActualReturnArgs(inCaller, inRet, pos):-
+    In_ActualReturnArgs(inCaller, inRet, pos).
+
+}
+
+.init insertor = BlockInsertor
+
+insertor.Insertion(loop, cont):-
+  MemoryCopyLoop(loop, _, _),
+  LoopNext(loop, cont).
+
+insertor.InsertedStatement(loop, 0, $CopyStatement("MCPY", fromVar, toVar, lenVar)):-
+  MemoryCopyLoop(loop, fromVar, toVar),
+  InductionVariableUpperBoundVar(loop, _, lenVar),
+  LoopNext(loop, cont).
+
+insertor.In_Statement_Opcode(stmt, op):- Statement_Opcode(stmt, op).
+insertor.In_IsStatement(stmt):-IsStatement(stmt).
+insertor.In_Statement_Block(stmt, block):-Statement_Block(stmt, block).
+insertor.In_Variable_Value(var, value):-Variable_Value(var, value).
+insertor.In_Variable_BlockValue(var, value):-Variable_BlockValue(var, value).
+insertor.In_LocalBlockEdge(block, nextBlock):-LocalBlockEdge(block, nextBlock).
+insertor.In_FallthroughEdge(block, nextBlock):- FallthroughEdge(block, nextBlock).
+insertor.In_CallGraphEdge(block, function):- CallGraphEdge(block, function).
+insertor.In_FunctionCallReturn(block, function, return):- FunctionCallReturn(block, function, return).
+insertor.In_IsFunction(func):- IsFunction(func).
+insertor.In_Block_Gas(block, gas):- Block_Gas(block, gas).
+insertor.In_Block_CodeChunkAccessed(block, chunk):- Block_CodeChunkAccessed(block, chunk).
+insertor.In_Statement_OriginalStatement(stmt, original):- Statement_OriginalStatement(stmt, original).
+insertor.In_Statement_OriginalStatementList(stmt, original):- Statement_OriginalStatementList(stmt, original).
+insertor.In_Statement_InlineInfo(stmt, funList):- Statement_InlineInfo(stmt, funList).
+insertor.In_OriginalStatement_Block(stmt, block):- OriginalStatement_Block(stmt, block).
+insertor.In_FormalArgs(fn, a, pos):- FormalArgs(fn, a, pos).
+insertor.In_Statement_Uses(stmt, var, i):- Statement_Uses(stmt, var, i).
+insertor.In_Statement_Defines(stmt, var, n):- Statement_Defines(stmt, var, n).
+insertor.In_Statement_Next(stmt, next):- Statement_Next(stmt, next).
+insertor.In_FunctionEntry(block):- FunctionEntry(block).
+insertor.In_InFunction(block, function):- InFunction(block, function).
+insertor.In_ActualReturnArgs(caller, arg, pos):- ActualReturnArgs(caller, arg, pos).
