@@ -2,12 +2,14 @@
 #include "../memory_modeling/memory_modeling.dl"
 #include "../storage_modeling/storage_modeling.dl"
 
-.type InsertedStatement = NullaryStatement {opcode: symbol, defVar: Variable}
-                        | UnaryStatement {opcode: symbol, useVar: Variable, defVar: Variable}
-                        | BinaryStatement {opcode: symbol, useVar1: Variable, useVar2: Variable, defVar: Variable}
-                        | StoreStatement {opcode: symbol, useVar1: Variable, useVar2: Variable}
-                        | CopyStatement {opcode: symbol, fromVar: Variable, toVar: Variable, lenVar: Variable}
-                        | ConstStatement {constant: Value}
+#define NewStmtId(blockId, stmtIndex) cat(cat(blockId, "0xafa"), @number_to_hex(stmtIndex))
+
+.type InsertedStatement = NullaryStatement {opcode: Opcode, defVar: Variable}
+                        | UnaryStatement {opcode: Opcode, useVar: Variable, defVar: Variable}
+                        | BinaryStatement {opcode: Opcode, useVar1: Variable, useVar2: Variable, defVar: Variable}
+                        | StoreStatement {opcode: Opcode, useVar1: Variable, useVar2: Variable}
+                        | CopyStatement {opcode: Opcode, fromVar: Variable, toVar: Variable, lenVar: Variable}
+                        | ConstStatement {constant: Value, defVar: Variable}
 
 .type InsertionList = [statement: InsertedStatement, rest: InsertionList]
 
@@ -52,21 +54,49 @@
 
   .output BlockToRemove, Insertion, InsertedStatement
 
+  .decl StatementToInsert(insertionBlock: Block, index: number, stmtId: Statement, stmt: InsertedStatement)
+  .decl VariableToInsert(variable: Variable)
+  .decl VariableSubstitution(originalVar: Variable, newVar: Variable)
+
+  .output StatementToInsert
+
+  StatementToInsert(insertionBlock, index, NewStmtId(insertionBlock, index), stmt):-
+    InsertedStatement(insertionBlock, index, stmt).
+
   Out_Statement_Opcode(stmt, opcode):-
     In_Statement_Opcode(stmt, opcode),
     !StatementToRemove(stmt).
-  
+
+  Out_Statement_Opcode(stmtId, opcode):-
+    StatementToInsert(_, _, stmtId, stmt),
+    ((stmt = $NullaryStatement(opcode, def), def=def);
+    (stmt = $UnaryStatement(opcode, use, def), use=use, def=def);
+    (stmt = $BinaryStatement(opcode, use1, use2, def), use1=use1, use2=use2, def=def);
+    (stmt = $StoreStatement(opcode, use1, use2), use1=use1, use2=use2);
+    (stmt = $CopyStatement(opcode, use1, use2, use3), use1=use1, use2=use2, use3=use3);
+    (stmt = $ConstStatement(const, var), const=const, var=var, opcode=as("CONST", Opcode))).
+
+
   Out_IsStatement(stmt):-
     In_IsStatement(stmt),
     !StatementToRemove(stmt).
+
+  Out_IsStatement(stmtId):-
+    StatementToInsert(_, _, stmtId, _).
 
   Out_Statement_Block(stmt, block):-
     In_Statement_Block(stmt, block),
     !BlockToRemove(block).
 
+  Out_Statement_Block(stmtId, block):-
+    StatementToInsert(block, _, stmtId, _).
+
   Out_Variable_Value(var, value):-
     In_Variable_Value(var, value),
     !VariableToRemove(var).
+
+  Out_Variable_Value(var, value):-
+    StatementToInsert(_, _, _, $ConstStatement(value, var)).
 
   Out_Variable_BlockValue(var, value):-
     In_Variable_BlockValue(var, value),
@@ -76,6 +106,14 @@
     In_LocalBlockEdge(block, nextBlock),
     ReachableBlock(block),
     ReachableBlock(nextBlock).
+
+  Out_LocalBlockEdge(block, nextBlock):-
+    In_LocalBlockEdge(block, nextBlock),
+    ReachableBlock(block),
+    Insertion(nextBlock, _).
+
+  Out_LocalBlockEdge(block, nextBlock):-
+    Insertion(block, nextBlock).
 
   Out_FallthroughEdge(block, nextBlock):-
     In_FallthroughEdge(block, nextBlock),
@@ -120,6 +158,23 @@
     In_Statement_Uses(stmt, var, i),
     !StatementToRemove(stmt).
 
+  Out_Statement_Uses(stmtId, use, 0):-
+    StatementToInsert(_, _, stmtId, stmt),
+    ((stmt = $UnaryStatement(opcode, use, def), def=def);
+    (stmt = $BinaryStatement(opcode, use, use2, def), opcode=opcode, use2=use2, def=def);
+    (stmt = $StoreStatement(opcode, use, use2), opcode=opcode, use2=use2);
+    (stmt = $CopyStatement(opcode, use, use2, use3), opcode=opcode, use2=use2, use3=use3)).
+
+  Out_Statement_Uses(stmtId, use, 1):-
+    StatementToInsert(_, _, stmtId, stmt),
+    ((stmt = $BinaryStatement(opcode, use1, use, def), opcode=opcode, use1=use1, def=def);
+    (stmt = $StoreStatement(opcode, use1, use), opcode=opcode, use1=use1);
+    (stmt = $CopyStatement(opcode, use1, use, use3), opcode=opcode, use1=use1, use3=use3)).
+
+  Out_Statement_Uses(stmtId, use, 1):-
+    StatementToInsert(_, _, stmtId, stmt),
+    stmt = $CopyStatement(opcode, use1, use2, use), opcode=opcode, use1=use1, use2=use2.
+
   Out_Statement_Defines(stmt, var, i):-
     In_Statement_Defines(stmt, var, i),
     !StatementToRemove(stmt).
@@ -130,10 +185,25 @@
     !StatementToRemove(next).
 
   // TODO: Find first insertion stmt
-  Out_Statement_Next(stmt, next):-
+  Out_Statement_Next(stmt, stmtId):-
     In_Statement_Next(stmt, next),
     !StatementToRemove(stmt),
-    StatementToRemove(next).
+    StatementToRemove(next),
+    In_Statement_Block(next, insertionBlock),
+    StatementToInsert(insertionBlock, 0, stmtId, _).
+
+  Out_Statement_Next(stmt, next):-
+    StatementToInsert(insertionBlock, n, stmt, _),
+    StatementToInsert(insertionBlock, n + 1, next, _).
+
+  Out_Statement_Next(stmt, head):-
+    StatementToInsert(insertionBlock, n, stmt, _),
+    !StatementToInsert(insertionBlock, n + 1, _, _),
+    Insertion(insertionBlock, cont),
+    In_Statement_Block(head, cont),
+    In_Statement_Next(prev, head),
+    In_Statement_Block(prev, other),
+    other != cont.
 
   // Review: can we ever delete an entry? perhaps we can disallow this.
   Out_FunctionEntry(entry):-
@@ -143,6 +213,10 @@
     In_InFunction(block, function),
     !BlockToRemove(block).
 
+  Out_InFunction(block, function):-
+    In_InFunction(block, function),
+    Insertion(block, _).
+
   Out_ActualReturnArgs(inCaller, inRet, pos):-
     In_ActualReturnArgs(inCaller, inRet, pos).
 
@@ -150,14 +224,18 @@
 
 .init insertor = BlockInsertor
 
-insertor.Insertion(loop, cont):-
-  MemoryCopyLoop(loop, _, _),
-  LoopNext(loop, cont).
+.decl SimpleMemoryCopy(loop: Block, continuation: Block, fromVar: Variable, toVar: Variable, lenVar: Variable)
+DEBUG_OUTPUT(SimpleMemoryCopy)
 
-insertor.InsertedStatement(loop, 0, $CopyStatement("MCPY", fromVar, toVar, lenVar)):-
+insertor.Insertion(loop, cont),
+insertor.InsertedStatement(loop, 0, $CopyStatement("MCOPY", fromVar, toVar, lenVar)):-
+  SimpleMemoryCopy(loop, cont, fromVar, toVar, lenVar).
+
+SimpleMemoryCopy(loop, cont, fromVar, toVar, lenVar):-
   MemoryCopyLoop(loop, fromVar, toVar),
   InductionVariableUpperBoundVar(loop, _, lenVar),
-  LoopNext(loop, cont).
+  LoopNext(loop, cont),
+  !VariableDefinedInLoopUsedAfter(loop, _, _).
 
 insertor.In_Statement_Opcode(stmt, op):- Statement_Opcode(stmt, op).
 insertor.In_IsStatement(stmt):-IsStatement(stmt).
@@ -182,3 +260,27 @@ insertor.In_Statement_Next(stmt, next):- Statement_Next(stmt, next).
 insertor.In_FunctionEntry(block):- FunctionEntry(block).
 insertor.In_InFunction(block, function):- InFunction(block, function).
 insertor.In_ActualReturnArgs(caller, arg, pos):- ActualReturnArgs(caller, arg, pos).
+
+.output insertor.Out_Statement_Opcode(IO="file", filename = "TAC_Op.csv", delimiter = "\t")
+.output insertor.Out_IsStatement(IO="file", filename="TAC_Stmt.csv", delimiter="\t")
+.output insertor.Out_Statement_Block(IO="file", filename="TAC_Block.csv", delimiter="\t")
+.output insertor.Out_Variable_Value(IO="file", filename="TAC_Variable_Value.csv", delimiter="\t")
+.output insertor.Out_Variable_BlockValue(IO="file", filename="TAC_Variable_BlockValue.csv", delimiter="\t")
+.output insertor.Out_LocalBlockEdge(IO="file", filename="LocalBlockEdge.csv", delimiter="\t")
+.output insertor.Out_FallthroughEdge(IO="file", filename="IRFallthroughEdge.csv", delimiter="\t")
+.output insertor.Out_CallGraphEdge(IO="file", filename="IRFunctionCall.csv", delimiter="\t")
+.output insertor.Out_FunctionCallReturn(IO="file", filename="IRFunctionCallReturn.csv", delimiter="\t")
+.output insertor.Out_IsFunction(IO="file", filename="Function.csv", delimiter="\t")
+.output insertor.Out_Block_Gas(IO="file", filename="TAC_Block_Gas.csv", delimiter="\t")
+.output insertor.Out_Block_CodeChunkAccessed(IO="file", filename="TAC_Block_CodeChunkAccessed.csv", delimiter="\t")
+.output insertor.Out_Statement_OriginalStatement(IO="file", filename="TAC_Statement_OriginalStatement.csv", delimiter="\t")
+.output insertor.Out_Statement_OriginalStatementList(IO="file", filename="TAC_Statement_OriginalStatementList.csv", delimiter="\t")
+.output insertor.Out_Statement_InlineInfo(IO="file", filename="TAC_Statement_InlineInfo.csv", delimiter="\t")
+.output insertor.Out_OriginalStatement_Block(IO="file", filename="TAC_OriginalStatement_Block.csv", delimiter="\t")
+.output insertor.Out_FormalArgs(IO="file", filename="FormalArgs.csv", delimiter="\t")
+.output insertor.Out_Statement_Uses(IO="file", filename="TAC_Use.csv", delimiter="\t")
+.output insertor.Out_Statement_Defines(IO="file", filename="TAC_Def.csv", delimiter="\t")
+.output insertor.Out_Statement_Next(IO="file", filename="TAC_Statement_Next.csv", delimiter="\t")
+.output insertor.Out_FunctionEntry(IO="file", filename="IRFunctionEntry.csv", delimiter="\t")
+.output insertor.Out_InFunction(IO="file", filename="InFunction.csv", delimiter="\t")
+.output insertor.Out_ActualReturnArgs(IO="file", filename="ActualReturnArgs.csv", delimiter="\t")
