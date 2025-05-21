@@ -235,6 +235,9 @@ SimpleMemoryCopy(loop, cont, fromVar, toVar, lenVar):-
   MemoryCopyLoop(loop, fromVar, toVar),
   InductionVariableUpperBoundVar(loop, _, lenVar),
   LoopNext(loop, cont),
+  Statement_Defines(defStmt, lenVar, _),
+  Statement_Block(defStmt, defBlock),
+  !BlockInStructuredLoop(defBlock, loop),
   !VariableDefinedInLoopUsedAfter(loop, _, _).
 
 insertor.In_Statement_Opcode(stmt, op):- Statement_Opcode(stmt, op).
