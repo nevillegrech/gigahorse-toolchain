@@ -171,7 +171,7 @@
     (stmt = $StoreStatement(opcode, use1, use), opcode=opcode, use1=use1);
     (stmt = $CopyStatement(opcode, use1, use, use3), opcode=opcode, use1=use1, use3=use3)).
 
-  Out_Statement_Uses(stmtId, use, 1):-
+  Out_Statement_Uses(stmtId, use, 2):-
     StatementToInsert(_, _, stmtId, stmt),
     stmt = $CopyStatement(opcode, use1, use2, use), opcode=opcode, use1=use1, use2=use2.
 
@@ -228,7 +228,7 @@
 DEBUG_OUTPUT(SimpleMemoryCopy)
 
 insertor.Insertion(loop, cont),
-insertor.InsertedStatement(loop, 0, $CopyStatement("MCOPY", fromVar, toVar, lenVar)):-
+insertor.InsertedStatement(loop, 0, $CopyStatement("MCOPY", toVar, fromVar, lenVar)):-
   SimpleMemoryCopy(loop, cont, fromVar, toVar, lenVar).
 
 SimpleMemoryCopy(loop, cont, fromVar, toVar, lenVar):-
