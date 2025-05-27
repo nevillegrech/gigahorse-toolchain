@@ -733,7 +733,7 @@ ArrayDeleteLoop(loop, sstore, array):-
   Variable_StorageIndex(beforeLoopVar, $ArrayDataStartIndex(parIndex)),
   StorageIndex_StorageConstruct($ArrayDataStartIndex(parIndex), array),
   // bound by a var containing array.datastart + array.length
-  InductionVariableUpperBoundVar(loop, [beforeLoopVar, inLoopVar], boundVar),
+  InductionVariableUpperBoundVar(loop, [beforeLoopVar, inLoopVar], boundVar, _),
   ADDFix(_, arrayLenVar, arrayDataStartVar, boundVar),
   Variable_StorageIndex(arrayDataStartVar, $ArrayDataStartIndex(parIndex2)),
   StorageIndex_StorageConstruct($ArrayDataStartIndex(parIndex2), array),

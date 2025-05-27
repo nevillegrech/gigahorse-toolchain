@@ -70,7 +70,7 @@ CallDataCopyLoop(loop, beforeLoopVarFrom, beforeLoopVarTo):-
 
 CallDataCopyLoopConstantLength(loop, callDataAddrFrom, memAddrTo, boundVal - startCallDataAddr):-
   CallDataCopyLoop(loop, callDataAddrFrom, memAddrTo),
-  InductionVariableUpperBoundVar(loop, [callDataAddrFrom, inLoopCallDataVar], boundVar),
+  InductionVariableUpperBoundVar(loop, [callDataAddrFrom, inLoopCallDataVar], boundVar, _),
   InductionVariableIncreasesByConst(loop, [callDataAddrFrom, inLoopCallDataVar], 32),
   Variable_NumericValue(boundVar, boundVal),
   Variable_NumericValue(callDataAddrFrom, startCallDataAddr).
@@ -85,7 +85,7 @@ MemoryCopyLoopConstLength(loop, memAddrFrom, memAddrTo, length):-
 
 MemoryCopyLoopConstLength(loop, memAddrFrom, memAddrTo, length):-
   MemoryCopyLoop(loop, memAddrFrom, memAddrTo),
-  InductionVariableUpperBoundVar(loop, [beforeLoopVar, inLoopVar], boundVar),
+  InductionVariableUpperBoundVar(loop, [beforeLoopVar, inLoopVar], boundVar, _),
   inLoopVar = inLoopVar, // to fix warning
   Variable_NumericValue(beforeLoopVar, 0),
   Variable_NumericValue(boundVar, length).
@@ -122,7 +122,7 @@ ArrayCopy(loop, fromArray, toArray):-
   VarIsArray(toArrayVar, toArray),
   // incrConst will be 1 or 32 in practise, maybe make this stricter
   InductionVariableIncreasesByConst(loop, simpleIndVar, incrConst),
-  InductionVariableUpperBoundVar(loop, simpleIndVar, upperBoundVar),
+  InductionVariableUpperBoundVar(loop, simpleIndVar, upperBoundVar, _),
   VarTimesConstant(lengthVar1, as(@number_to_hex(incrConst), Value), upperBoundVar),
   ArrayVarLengthVar(fromArrayVar2, lengthVar1),
   VarIsArray(fromArrayVar2, fromArray),
@@ -140,7 +140,7 @@ ArrayCopy(loop, fromArray, toArray):-
   VarIsArray(fromArrayVar, fromArray),
   VarIsArray(toArrayVar, toArray),
   InductionVariableIncreasesByConst(loop, simpleIndVar, 32),
-  InductionVariableUpperBoundVar(loop, simpleIndVar, upperBoundVar),
+  InductionVariableUpperBoundVar(loop, simpleIndVar, upperBoundVar, _),
   ArrayVarLengthVar(fromArrayVar2, upperBoundVar),
   VarIsArray(fromArrayVar2, fromArray),
   VarIsArray(fromArrayVar3, fromArray),
@@ -163,7 +163,7 @@ ArrayCopy(loop, fromArray, toArray):-
   Statement_Block(mstore, block),
   MemArrayPut(mstore, toArrayVar, index, copied),
   VarIsArray(toArrayVar, toArray),
-  InductionVariableUpperBoundVar(loop, simpleIndVar, upperBoundVar),
+  InductionVariableUpperBoundVar(loop, simpleIndVar, upperBoundVar, _),
   ArrayVarLengthVar(fromArrayVar2, upperBoundVar),
   VarIsArray(fromArrayVar2, fromArray),
   VarIsArray(fromArrayVar3, fromArray),
@@ -180,7 +180,7 @@ ArrayCopy(loop, fromArray, toArray):-
   RawDataArrayVar_ClassRep(toArrayVar, toArray),
   // incrConst will be 1 or 32 in practise, maybe make this stricter
   InductionVariableIncreasesByConst(loop, simpleIndVar, incrConst),
-  InductionVariableUpperBoundVar(loop, simpleIndVar, upperBoundVar),
+  InductionVariableUpperBoundVar(loop, simpleIndVar, upperBoundVar, _),
   VarTimesConstant(lengthVar1, as(@number_to_hex(incrConst), Value), upperBoundVar),
   ArrayVarLengthVar(fromArrayVar2, lengthVar1),
   VarIsArray(fromArrayVar2, fromArray).
@@ -194,6 +194,6 @@ ArrayCopy(loop, fromArray, toArray):-
   VarIsArray(fromArrayVar, fromArray),
   RawDataArrayVar_ClassRep(toArrayVar, toArray),
   InductionVariableIncreasesByConst(loop, simpleIndVar, 32),
-  InductionVariableUpperBoundVar(loop, simpleIndVar, upperBoundVar),
+  InductionVariableUpperBoundVar(loop, simpleIndVar, upperBoundVar, _),
   ArrayVarLengthVar(fromArrayVar2, upperBoundVar),
   VarIsArray(fromArrayVar2, fromArray).

@@ -3,13 +3,17 @@
 #include "../storage_modeling/storage_modeling.dl"
 
 #define NewStmtId(blockId, stmtIndex) cat(cat(blockId, "0xafa"), @number_to_hex(stmtIndex))
+#define NewVarId(blockId, varIndex) cat(cat(blockId, "0xff"), @number_to_hex(varIndex))
 
-.type InsertedStatement = NullaryStatement {opcode: Opcode, defVar: Variable}
-                        | UnaryStatement {opcode: Opcode, useVar: Variable, defVar: Variable}
-                        | BinaryStatement {opcode: Opcode, useVar1: Variable, useVar2: Variable, defVar: Variable}
-                        | StoreStatement {opcode: Opcode, useVar1: Variable, useVar2: Variable}
-                        | CopyStatement {opcode: Opcode, fromVar: Variable, toVar: Variable, lenVar: Variable}
-                        | ConstStatement {constant: Value, defVar: Variable}
+.type VariableWrapper = ExternalVariable {useVar: Variable}
+                        | InternalVariable {insertionPoint: Block, index: number}
+
+.type InsertedStatement = NullaryStatement {opcode: Opcode, defVar: VariableWrapper}
+                        | UnaryStatement {opcode: Opcode, useVar: VariableWrapper, defVar: VariableWrapper}
+                        | BinaryStatement {opcode: Opcode, useVar1: VariableWrapper, useVar2: VariableWrapper, defVar: VariableWrapper}
+                        | StoreStatement {opcode: Opcode, useVar1: VariableWrapper, useVar2: VariableWrapper}
+                        | CopyStatement {opcode: Opcode, fromVar: VariableWrapper, toVar: VariableWrapper, lenVar: VariableWrapper}
+                        | ConstStatement {constant: Value, defVar: VariableWrapper}
 
 .type InsertionList = [statement: InsertedStatement, rest: InsertionList]
 
@@ -58,7 +62,20 @@
   .decl VariableToInsert(variable: Variable)
   .decl VariableSubstitution(originalVar: Variable, newVar: Variable)
 
-  .output StatementToInsert
+  .output StatementToInsert, InsertedStatementUses, InsertedStatementDefines, VariableWrapperToVariable
+
+  .decl VariableWrapperToVariable(varW: VariableWrapper, varId: Variable)
+
+  .decl InsertedStatementUses(stmt: InsertedStatement, varW: VariableWrapper, index: number)
+  .decl InsertedStatementDefines(stmt: InsertedStatement, varW: VariableWrapper, index: number)
+
+  VariableWrapperToVariable($ExternalVariable(var), var):-
+    InsertedStatementDefines(_, $ExternalVariable(var), _);
+    InsertedStatementUses(_, $ExternalVariable(var), _).
+
+  VariableWrapperToVariable($InternalVariable(insertion, index), NewVarId(insertion, index)):-
+    InsertedStatementDefines(_, $InternalVariable(insertion, index), _);
+    InsertedStatementUses(_, $InternalVariable(insertion, index), _).
 
   StatementToInsert(insertionBlock, index, NewStmtId(insertionBlock, index), stmt):-
     InsertedStatement(insertionBlock, index, stmt).
@@ -96,7 +113,8 @@
     !VariableToRemove(var).
 
   Out_Variable_Value(var, value):-
-    StatementToInsert(_, _, _, $ConstStatement(value, var)).
+    StatementToInsert(_, _, _, $ConstStatement(value, varW)),
+    VariableWrapperToVariable(varW, var).
 
   Out_Variable_BlockValue(var, value):-
     In_Variable_BlockValue(var, value),
@@ -158,22 +176,41 @@
     In_Statement_Uses(stmt, var, i),
     !StatementToRemove(stmt).
 
-  Out_Statement_Uses(stmtId, use, 0):-
-    StatementToInsert(_, _, stmtId, stmt),
+  // Out_Statement_Uses(stmtId, use, 0):-
+  InsertedStatementUses(stmt, use, 0):-
+    StatementToInsert(_, _, _, stmt),
     ((stmt = $UnaryStatement(opcode, use, def), def=def);
     (stmt = $BinaryStatement(opcode, use, use2, def), opcode=opcode, use2=use2, def=def);
     (stmt = $StoreStatement(opcode, use, use2), opcode=opcode, use2=use2);
     (stmt = $CopyStatement(opcode, use, use2, use3), opcode=opcode, use2=use2, use3=use3)).
 
-  Out_Statement_Uses(stmtId, use, 1):-
-    StatementToInsert(_, _, stmtId, stmt),
+  // Out_Statement_Uses(stmtId, use, 1):-
+  InsertedStatementUses(stmt, use, 1):-
+    StatementToInsert(_, _, _, stmt),
     ((stmt = $BinaryStatement(opcode, use1, use, def), opcode=opcode, use1=use1, def=def);
     (stmt = $StoreStatement(opcode, use1, use), opcode=opcode, use1=use1);
     (stmt = $CopyStatement(opcode, use1, use, use3), opcode=opcode, use1=use1, use3=use3)).
 
-  Out_Statement_Uses(stmtId, use, 2):-
-    StatementToInsert(_, _, stmtId, stmt),
+  // Out_Statement_Uses(stmtId, use, 2):-
+  InsertedStatementUses(stmt, use, 2):-
+    StatementToInsert(_, _, _, stmt),
     stmt = $CopyStatement(opcode, use1, use2, use), opcode=opcode, use1=use1, use2=use2.
+
+  Out_Statement_Uses(stmtId, use, n):-
+    StatementToInsert(_, _, stmtId, stmt),
+    InsertedStatementUses(stmt, useW, n),
+    VariableWrapperToVariable(useW, use).
+
+  InsertedStatementDefines(stmt, def, 0):-
+    StatementToInsert(_, _, _, stmt),
+    ((stmt = $UnaryStatement(opcode, use, def), use=use);
+    (stmt = $BinaryStatement(opcode, use, use2, def), opcode=opcode, use2=use2, use=use);
+    (stmt = $ConstStatement(const, def), const=const)).
+
+  Out_Statement_Defines(stmtId, def, n):-
+    StatementToInsert(_, _, stmtId, stmt),
+    InsertedStatementDefines(stmt, defW, n),
+    VariableWrapperToVariable(defW, def).
 
   Out_Statement_Defines(stmt, var, i):-
     In_Statement_Defines(stmt, var, i),
@@ -228,12 +265,67 @@
 DEBUG_OUTPUT(SimpleMemoryCopy)
 
 insertor.Insertion(loop, cont),
-insertor.InsertedStatement(loop, 0, $CopyStatement("MCOPY", toVar, fromVar, lenVar)):-
-  SimpleMemoryCopy(loop, cont, fromVar, toVar, lenVar).
+insertor.InsertedStatement(loop, stmtNum, $CopyStatement("MCOPY", $ExternalVariable(toVar), $ExternalVariable(fromVar), $InternalVariable(loop, stmtNum - 1))):-
+  SimpleMemoryCopy(loop, cont, fromVar, toVar, _),
+  LoopIterationCountExpr(loop, _, expr),
+  Expr_StatementCount(expr, stmtNum).
+
+insertor.InsertedStatement(loop, index, instStmt):-
+  SimpleMemoryCopy(loop, _, _, _, _),
+  LoopIterationCountExpr(loop, _, expr),
+  // Expr_StatementCount(expr, stmts),
+  ExpressionToInsertionStmtResponse(loop, expr, _, index, instStmt).
+
+.decl ExpressionToInsertionStmtRequest(insertionPoint:Block, expr: Expr, subExpr: Expr, reqIndex: number)
+.decl ExpressionToInsertionStmtResponse(insertionPoint:Block, expr: Expr, subExpr: Expr, reqIndex: number, instStmt: InsertedStatement)
+.decl ExpressionToDefinedVariable(insertionPoint:Block, expr: Expr, subExpr: Expr, reqIndex: number, defVar: VariableWrapper)
+.output ExpressionToInsertionStmtResponse, ExpressionToInsertionStmtRequest, ExpressionToDefinedVariable
+
+ExpressionToInsertionStmtRequest(loop, expr, expr, reqIndex - 1):-
+  MemoryCopyLoop(loop, _, _),
+  LoopIterationCountExpr(loop, _, expr),
+  Expr_StatementCount(expr, reqIndex).
+
+
+ExpressionToInsertionStmtRequest(loop, outterExpr, left, reqIndex - 1):-
+  ExpressionToInsertionStmtRequest(loop, outterExpr, expr, reqIndex),
+  expr = [op, left, right], op=op, right=right,
+  // !VariableToExpr(_, left),
+  left != nil.
+
+ExpressionToInsertionStmtRequest(loop, outterExpr, right, reqIndex - leftInstrs - 1):-
+  ExpressionToInsertionStmtRequest(loop, outterExpr, expr, reqIndex),
+  expr = [op, left, right], op=op,
+  Expr_StatementCount(left, leftInstrs),
+  // !VariableToExpr(_, right),
+  right != nil.
+
+ExpressionToInsertionStmtResponse(loop, outterExpr, expr, index, $ConstStatement(val, varW)):-
+  ExpressionToInsertionStmtRequest(loop, outterExpr, expr, index),
+  ExpressionToDefinedVariable(loop, outterExpr, expr, index, varW),
+  expr = [val, nil, nil],
+  !VariableToExpr(_, expr).
+
+ExpressionToInsertionStmtResponse(loop, outterExpr, expr, index, $BinaryStatement(op, lvarW, rvarW, varW)):-
+  ExpressionToInsertionStmtRequest(loop, outterExpr, expr, index),
+  ExpressionToDefinedVariable(loop, outterExpr, expr, index, varW),
+  expr = [op, left, right],
+  ExpressionToDefinedVariable(loop, outterExpr, left, index - 1, lvarW),
+  Expr_StatementCount(left, leftInstrs),
+  ExpressionToDefinedVariable(loop, outterExpr, right, index - 1 - leftInstrs, rvarW),
+  BinArith(op).
+
+ExpressionToDefinedVariable(loop, outterExpr, expr, index, $InternalVariable(loop, index)):-
+  ExpressionToInsertionStmtRequest(loop, outterExpr, expr, index),
+  !VariableToExpr(_, expr).
+
+ExpressionToDefinedVariable(loop, outterExpr, expr, index, $ExternalVariable(var)):-
+  ExpressionToInsertionStmtRequest(loop, outterExpr, expr, index),
+  VariableToExpr(var, expr).
 
 SimpleMemoryCopy(loop, cont, fromVar, toVar, lenVar):-
   MemoryCopyLoop(loop, fromVar, toVar),
-  InductionVariableUpperBoundVar(loop, _, lenVar),
+  InductionVariableUpperBoundVar(loop, _, lenVar, _),
   LoopNext(loop, cont),
   Statement_Defines(defStmt, lenVar, _),
   Statement_Block(defStmt, defBlock),

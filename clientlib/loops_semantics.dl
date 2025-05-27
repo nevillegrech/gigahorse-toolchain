@@ -121,6 +121,8 @@ PHIStmtOneUse(phi, var, def):-
 */
 .type SimpleInductionVariable = [beforeLoopVar: Variable, inLoopVar: Variable]
 
+.type CompEqualityInfo = WithEqual{} | WithoutEqual{}
+
 /**
   
 */
@@ -129,9 +131,27 @@ PHIStmtOneUse(phi, var, def):-
 .decl InductionVariableDecreasesByConst(loop:Block, simpleIndVar:SimpleInductionVariable, const:number)
 .decl InductionVariableStartsAtConst(loop:Block, simpleIndVar:SimpleInductionVariable, const:Value)
 .decl InductionVariableLowerBoundVar(loop:Block, indVar:SimpleInductionVariable, bound:Variable)
-.decl InductionVariableUpperBoundVar(loop:Block, indVar:SimpleInductionVariable, bound:Variable)
+.decl InductionVariableUpperBoundVar(loop:Block, indVar:SimpleInductionVariable, bound:Variable, isEq: CompEqualityInfo)
 .decl MemoryCopyLoop(loop:Block, memAddrFrom:Variable, memAddrTo:Variable)
 .decl MemoryCopyLoopConstLength(loop:Block, memAddrFrom:Variable, memAddrTo:Variable, length:number)
+
+
+.type PrimitiveExpr = symbol
+
+.type Operator = symbol
+.type Base = PrimitiveExpr | Operator
+
+// unary, ternary, etc. expressions are represented via binary ones
+.type Expr = [
+  base: Base,
+  left: Expr,
+  right: Expr
+]
+
+.decl LoopIterationCountExpr(loop: Block, indVar: SimpleInductionVariable, iters: Expr)
+#define ValueToExpr(val) [val, nil, nil]
+#define VarToExpr(var) [cat("v", var), nil, nil]
+#define IndVarToExpr(var1, var2) ["PHI", VarToExpr(var1), VarToExpr(var2)]
 
 DEBUG_OUTPUT(WellFormedLoopInductionVariable)
 DEBUG_OUTPUT(InductionVariable)
@@ -180,7 +200,7 @@ InductionVariableLowerBoundVar(loop, [beforeLoopVar, inLoopVar], boundVar):-
 
 // while (1) { if (boundVar < i)break; ... }
 // while (i <= boundVar) {...}
-InductionVariableUpperBoundVar(loop, [beforeLoopVar, inLoopVar], boundVar):-
+InductionVariableUpperBoundVar(loop, [beforeLoopVar, inLoopVar], boundVar, $WithEqual()):-
   LoopExitCondPredicateTrue(condVar, loop, _),
   WellFormedLoopInductionVariable(loop, _, [beforeLoopVar, inLoopVar]),
   PHIStmtTwoUses(_, beforeLoopVar, inLoopVar, phiVar),
@@ -188,7 +208,7 @@ InductionVariableUpperBoundVar(loop, [beforeLoopVar, inLoopVar], boundVar):-
 
 // while (1) { if (boundVar <= i)break; ... }
 // while (i < boundVar) {...}
-InductionVariableUpperBoundVar(loop, [beforeLoopVar, inLoopVar], boundVar):-
+InductionVariableUpperBoundVar(loop, [beforeLoopVar, inLoopVar], boundVar, $WithoutEqual()):-
   LoopExitCondPredicateFalse(condVar, loop, _),
   WellFormedLoopInductionVariable(loop, _, [beforeLoopVar, inLoopVar]),
   PHIStmtTwoUses(_, beforeLoopVar, inLoopVar, phiVar),
@@ -196,7 +216,7 @@ InductionVariableUpperBoundVar(loop, [beforeLoopVar, inLoopVar], boundVar):-
 
 // while (1) { if (boundVar <= i)break; ... }
 // while (i < boundVar) {...}
-InductionVariableUpperBoundVar(loop, [beforeLoopVar, inLoopVar], boundVar):-
+InductionVariableUpperBoundVar(loop, [beforeLoopVar, inLoopVar], boundVar, $WithoutEqual()):-
   LoopExitCondPredicateTrue(condVar, loop, _),
   WellFormedLoopInductionVariable(loop, _, [beforeLoopVar, inLoopVar]),
   PHIStmtTwoUses(_, beforeLoopVar, inLoopVar, phiVar),
@@ -205,7 +225,7 @@ InductionVariableUpperBoundVar(loop, [beforeLoopVar, inLoopVar], boundVar):-
 
 // while (1) { if (boundVar < i)break; ... }
 // while (i <= boundVar) {...}
-InductionVariableUpperBoundVar(loop, [beforeLoopVar, inLoopVar], boundVar):-
+InductionVariableUpperBoundVar(loop, [beforeLoopVar, inLoopVar], boundVar, $WithEqual()):-
   LoopExitCondPredicateFalse(condVar, loop, _),
   WellFormedLoopInductionVariable(loop, _, [beforeLoopVar, inLoopVar]),
   PHIStmtTwoUses(_, beforeLoopVar, inLoopVar, phiVar),
@@ -214,7 +234,7 @@ InductionVariableUpperBoundVar(loop, [beforeLoopVar, inLoopVar], boundVar):-
 
 // while (1) { if (boundVar <= i)break; ... }
 // while (i < boundVar) {...}
-InductionVariableUpperBoundVar(loop, [beforeLoopVar, inLoopVar], boundVar):-
+InductionVariableUpperBoundVar(loop, [beforeLoopVar, inLoopVar], boundVar, $WithoutEqual()):-
   LoopExitCondPredicateTrue(condVar, loop, _),
   WellFormedLoopInductionVariable(loop, _, [beforeLoopVar, inLoopVar]),
   PHIStmtTwoUses(_, beforeLoopVar, inLoopVar, phiVar),
@@ -223,7 +243,7 @@ InductionVariableUpperBoundVar(loop, [beforeLoopVar, inLoopVar], boundVar):-
 
 // while (1) { if (boundVar < i)break; ... }
 // while (i <= boundVar) {...}
-InductionVariableUpperBoundVar(loop, [beforeLoopVar, inLoopVar], boundVar):-
+InductionVariableUpperBoundVar(loop, [beforeLoopVar, inLoopVar], boundVar, $WithEqual()):-
   LoopExitCondPredicateFalse(condVar, loop, _),
   WellFormedLoopInductionVariable(loop, _, [beforeLoopVar, inLoopVar]),
   PHIStmtTwoUses(_, beforeLoopVar, inLoopVar, phiVar),
@@ -248,3 +268,96 @@ VariableDefinedInLoopUsedAfter(loop, phiVar, useStmt):-
   Statement_Block(useStmt, useBlock),
   Dominates(loop, useBlock),
   !BlockInStructuredLoop(useBlock, loop).
+
+
+// .decl Variable_ExprInLoop(var: Variable, expr: Expr)
+// .output Variable_ExprInLoop
+
+// Variable_ExprInLoop(var, VarToExpr(var)):-
+//   StatementInStructuredLoop(useStmt, loop),
+//   Statement_Uses(useStmt, var, _),
+//   Statement_Defines(defStmt, var, _),
+//   !StatementInStructuredLoop(useStmt, loop).
+
+// Variable_ExprInLoop(var, VarToExpr(var)):-
+//   StatementInStructuredLoop(useStmt, loop),
+//   Statement_Uses(useStmt, var, _),
+//   !Statement_Defines(_, var, _).
+
+// Variable_ExprInLoop(var, ValueToExpr(val)):-
+//   StatementInStructuredLoop(useStmt, loop),
+//   Statement_Uses(useStmt, var, _),
+//   Variable_Value(var, val).
+
+// Variable_ExprInLoop(var, IndVarToExpr(beforeLoopVar, inLoopVar)):-
+//   WellFormedLoopInductionVariable(_, var, [beforeLoopVar, inLoopVar]).
+
+// Variable_ExprInLoop(def, [op, left, right]):-
+//   AuxStatementOpAndArgs(stmt, op, a, b),
+//   BinArith(op),
+//   Variable_ExprInLoop(a, left),
+//   Variable_ExprInLoop(b, right),
+//   Statement_Defines(stmt, def, 0),
+//   !Variable_Value(def, _).
+
+.decl VariableToExpr(var: Variable, expr: Expr)
+.output VariableToExpr
+VariableToExpr(var, VarToExpr(var)):-
+  Statement_Defines(_, var, _);
+  Statement_Uses(_, var, _);
+  FormalArgs(_, var, _).
+
+.output LoopIterationCountExpr
+LoopIterationCountExpr(loop, indVar, ["ADD", ValueToExpr("0x1"), ["DIV", boundVarE, ValueToExpr(@number_to_hex(constNum))]]):-
+  InductionVariableUpperBoundVar(loop, indVar, boundVar, $WithEqual()),
+  VariableToExpr(boundVar, boundVarE),
+  InductionVariableStartsAtConst(loop, indVar, "0x0"),
+  InductionVariableIncreasesByConst(loop, indVar, constNum).
+
+LoopIterationCountExpr(loop, indVar, ["DIV", ["ADD", ValueToExpr(@number_to_hex(constNum - 1)), ["MUL", boundVarE, ValueToExpr(@number_to_hex(constNum))]], ValueToExpr(@number_to_hex(constNum))]):-
+  InductionVariableUpperBoundVar(loop, indVar, boundVar, $WithoutEqual()),
+  VariableToExpr(boundVar, boundVarE),
+  InductionVariableStartsAtConst(loop, indVar, "0x0"),
+  InductionVariableIncreasesByConst(loop, indVar, constNum),
+  constNum != 1.
+
+LoopIterationCountExpr(loop, indVar, boundVarE):-
+  InductionVariableUpperBoundVar(loop, indVar, boundVar, $WithoutEqual()),
+  VariableToExpr(boundVar, boundVarE),
+  InductionVariableStartsAtConst(loop, indVar, "0x0"),
+  InductionVariableIncreasesByConst(loop, indVar, 1).
+
+LoopIterationCountExpr(loop, indVar, ["ADD", boundVarE, ValueToExpr("0x1")]):-
+  InductionVariableUpperBoundVar(loop, indVar, boundVar, $WithEqual()),
+  VariableToExpr(boundVar, boundVarE),
+  InductionVariableStartsAtConst(loop, indVar, "0x0"),
+  InductionVariableIncreasesByConst(loop, indVar, 1).
+
+.decl LoopExprOrSubExpr(expr: Expr)
+DEBUG_OUTPUT(LoopExprOrSubExpr)
+LoopExprOrSubExpr(expr):-
+  LoopIterationCountExpr(_, _, expr).
+
+LoopExprOrSubExpr(left):-
+  LoopExprOrSubExpr([op, left, right]),
+  op=op, right=right.
+
+LoopExprOrSubExpr(right):-
+  LoopExprOrSubExpr([op, left, right]),
+  op=op, left=left.
+
+.decl Expr_StatementCount(expr: Expr, stmtNum: number)
+DEBUG_OUTPUT(Expr_StatementCount)
+Expr_StatementCount(expr, 0):-
+  LoopExprOrSubExpr(expr),
+  VariableToExpr(_, expr).
+
+// Const, case
+Expr_StatementCount([op, nil, nil], 1):-
+  LoopExprOrSubExpr([op, nil, nil]),
+  !VariableToExpr(_, [op, nil, nil]).
+
+Expr_StatementCount([op, left, right], nleft + nright + 1):-
+  LoopExprOrSubExpr([op, left, right]),
+  Expr_StatementCount(left, nleft),
+  Expr_StatementCount(right, nright).
