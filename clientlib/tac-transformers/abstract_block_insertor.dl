@@ -267,12 +267,12 @@ DEBUG_OUTPUT(SimpleMemoryCopy)
 insertor.Insertion(loop, cont),
 insertor.InsertedStatement(loop, stmtNum, $CopyStatement("MCOPY", $ExternalVariable(toVar), $ExternalVariable(fromVar), $InternalVariable(loop, stmtNum - 1))):-
   SimpleMemoryCopy(loop, cont, fromVar, toVar, _),
-  LoopIterationCountExpr(loop, _, expr),
+  MemoryCopyLoopLengthExpr(loop, _, expr),
   Expr_StatementCount(expr, stmtNum).
 
 insertor.InsertedStatement(loop, index, instStmt):-
   SimpleMemoryCopy(loop, _, _, _, _),
-  LoopIterationCountExpr(loop, _, expr),
+  MemoryCopyLoopLengthExpr(loop, _, expr),
   // Expr_StatementCount(expr, stmts),
   ExpressionToInsertionStmtResponse(loop, expr, _, index, instStmt).
 
@@ -283,7 +283,7 @@ insertor.InsertedStatement(loop, index, instStmt):-
 
 ExpressionToInsertionStmtRequest(loop, expr, expr, reqIndex - 1):-
   MemoryCopyLoop(loop, _, _),
-  LoopIterationCountExpr(loop, _, expr),
+  MemoryCopyLoopLengthExpr(loop, _, expr),
   Expr_StatementCount(expr, reqIndex).
 
 

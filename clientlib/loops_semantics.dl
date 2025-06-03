@@ -314,7 +314,7 @@ LoopIterationCountExpr(loop, indVar, ["ADD", ValueToExpr("0x1"), ["DIV", boundVa
   InductionVariableStartsAtConst(loop, indVar, "0x0"),
   InductionVariableIncreasesByConst(loop, indVar, constNum).
 
-LoopIterationCountExpr(loop, indVar, ["DIV", ["ADD", ValueToExpr(@number_to_hex(constNum - 1)), ["MUL", boundVarE, ValueToExpr(@number_to_hex(constNum))]], ValueToExpr(@number_to_hex(constNum))]):-
+LoopIterationCountExpr(loop, indVar, ["DIV", ["ADD", ValueToExpr(@number_to_hex(constNum - 1)), boundVarE], ValueToExpr(@number_to_hex(constNum))]):-
   InductionVariableUpperBoundVar(loop, indVar, boundVar, $WithoutEqual()),
   VariableToExpr(boundVar, boundVarE),
   InductionVariableStartsAtConst(loop, indVar, "0x0"),
@@ -333,10 +333,18 @@ LoopIterationCountExpr(loop, indVar, ["ADD", boundVarE, ValueToExpr("0x1")]):-
   InductionVariableStartsAtConst(loop, indVar, "0x0"),
   InductionVariableIncreasesByConst(loop, indVar, 1).
 
+.decl MemoryCopyLoopLengthExpr(loop: Block, indVar: SimpleInductionVariable, expr: Expr)
+.output MemoryCopyLoopLengthExpr
+
+MemoryCopyLoopLengthExpr(loop, indVar, ["MUL", expr, ValueToExpr("0x20")]):-
+  MemoryCopyLoop(loop, _, _),
+  LoopIterationCountExpr(loop, indVar, expr).
+
 .decl LoopExprOrSubExpr(expr: Expr)
 DEBUG_OUTPUT(LoopExprOrSubExpr)
 LoopExprOrSubExpr(expr):-
-  LoopIterationCountExpr(_, _, expr).
+  LoopIterationCountExpr(_, _, expr);
+  MemoryCopyLoopLengthExpr(_, _, expr).
 
 LoopExprOrSubExpr(left):-
   LoopExprOrSubExpr([op, left, right]),
