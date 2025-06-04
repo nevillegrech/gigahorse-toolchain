@@ -363,8 +363,14 @@ SimpleMemoryCopy(loop, cont, fromVar, toVar, lenVar):-
 DEBUG_OUTPUT(LoopWithModeledStackSideEffects)
 LoopWithModeledStackSideEffects(loop):-
   BlockInStructuredLoop(_, loop),
-  n = count: VariableDefinedInLoopUsedAfter(loop, _, _),
-  n = count: VariableDefinedInLoop_Expr(loop, _, _).
+  !VariableDefinedInLoopUsedAfterMissesExpr(loop, _).
+  // n = count: VariableDefinedInLoopUsedAfter(loop, _, _),
+  // n = count: VariableDefinedInLoop_Expr(loop, _, _).
+
+.decl VariableDefinedInLoopUsedAfterMissesExpr(loop: Block, var: Variable)
+VariableDefinedInLoopUsedAfterMissesExpr(loop, var):-
+  VariableDefinedInLoopUsedAfter(loop, var, _),
+  !VariableDefinedInLoop_Expr(loop, var, _).
 
 ExpressionToInsertionStmtRequest(loop, expr, expr, reqIndex - 1):-
   LoopWithModeledStackSideEffects(loop),
