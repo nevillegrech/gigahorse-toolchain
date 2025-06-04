@@ -151,7 +151,6 @@ PHIStmtOneUse(phi, var, def):-
 .decl LoopIterationCountExpr(loop: Block, indVar: SimpleInductionVariable, iters: Expr)
 #define ValueToExpr(val) [val, nil, nil]
 #define VarToExpr(var) [cat("v", var), nil, nil]
-#define IndVarToExpr(var1, var2) ["PHI", VarToExpr(var1), VarToExpr(var2)]
 
 DEBUG_OUTPUT(WellFormedLoopInductionVariable)
 DEBUG_OUTPUT(InductionVariable)
@@ -336,36 +335,63 @@ LoopIterationCountExpr(loop, indVar, ["ADD", boundVarE, ValueToExpr("0x1")]):-
 .decl MemoryCopyLoopLengthExpr(loop: Block, indVar: SimpleInductionVariable, expr: Expr)
 .output MemoryCopyLoopLengthExpr
 
+// 32x the iteration number expr, because each iteration stores 32 bytes
 MemoryCopyLoopLengthExpr(loop, indVar, ["MUL", expr, ValueToExpr("0x20")]):-
   MemoryCopyLoop(loop, _, _),
   LoopIterationCountExpr(loop, indVar, expr).
 
-.decl LoopExprOrSubExpr(expr: Expr)
-DEBUG_OUTPUT(LoopExprOrSubExpr)
-LoopExprOrSubExpr(expr):-
+.decl VariableDefinedInLoop_Expr(loop: Block, variable: Variable, expr: Expr)
+DEBUG_OUTPUT(VariableDefinedInLoop_Expr)
+
+VariableDefinedInLoop_Expr(loop, phiVar, ["MUL", iterExpr, ValueToExpr(@number_to_hex(const))]):-
+  VariableDefinedInLoopUsedAfter(loop, phiVar, _),
+  PHIStmtTwoUses(_, beforeLoopVar, inLoopVar, phiVar),
+  WellFormedLoopInductionVariable(loop, _, [beforeLoopVar, inLoopVar]),
+  InductionVariableStartsAtConst(loop, [beforeLoopVar, inLoopVar], "0x0"),
+  InductionVariableIncreasesByConst(loop, [beforeLoopVar, inLoopVar], const),
+  LoopIterationCountExpr(loop, _, iterExpr).
+
+loopExprs.IsExpr(expr):-
   LoopIterationCountExpr(_, _, expr);
-  MemoryCopyLoopLengthExpr(_, _, expr).
+  MemoryCopyLoopLengthExpr(_, _, expr);
+  VariableDefinedInLoop_Expr(_, _, expr).
 
-LoopExprOrSubExpr(left):-
-  LoopExprOrSubExpr([op, left, right]),
-  op=op, right=right.
+.comp SimpleExpressionDomain {
 
-LoopExprOrSubExpr(right):-
-  LoopExprOrSubExpr([op, left, right]),
-  op=op, left=left.
+  /**
+    Given as input, then we add the subexpressions
+  */
+  .decl IsExpr(expr: Expr)
+  DEBUG_OUTPUT(IsExpr)
+  IsExpr(left):-
+    IsExpr([op, left, right]),
+    op=op, right=right.
 
-.decl Expr_StatementCount(expr: Expr, stmtNum: number)
-DEBUG_OUTPUT(Expr_StatementCount)
-Expr_StatementCount(expr, 0):-
-  LoopExprOrSubExpr(expr),
-  VariableToExpr(_, expr).
+  IsExpr(right):-
+    IsExpr([op, left, right]),
+    op=op, left=left.
 
-// Const, case
-Expr_StatementCount([op, nil, nil], 1):-
-  LoopExprOrSubExpr([op, nil, nil]),
-  !VariableToExpr(_, [op, nil, nil]).
+  .decl IsConstExpr(expr: Expr, const: Value)
+  IsConstExpr([const, nil, nil], as(const, Value)):-
+    IsExpr([const, nil, nil]),
+    !VariableToExpr(_, [const, nil, nil]).
 
-Expr_StatementCount([op, left, right], nleft + nright + 1):-
-  LoopExprOrSubExpr([op, left, right]),
-  Expr_StatementCount(left, nleft),
-  Expr_StatementCount(right, nright).
+  .decl Expr_StatementCount(expr: Expr, stmtNum: number)
+  DEBUG_OUTPUT(Expr_StatementCount)
+  Expr_StatementCount(expr, 0):-
+    IsExpr(expr),
+    VariableToExpr(_, expr).
+
+  // Const, case
+  Expr_StatementCount([op, nil, nil], 1):-
+    IsExpr([op, nil, nil]),
+    !VariableToExpr(_, [op, nil, nil]).
+
+  Expr_StatementCount([op, left, right], nleft + nright + 1):-
+    IsExpr([op, left, right]),
+    Expr_StatementCount(left, nleft),
+    Expr_StatementCount(right, nright).
+
+}
+
+.init loopExprs = SimpleExpressionDomain

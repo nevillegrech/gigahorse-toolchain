@@ -1,6 +1,7 @@
 #include "abstract_tac_transformer.dl"
 #include "../memory_modeling/memory_modeling.dl"
 #include "../storage_modeling/storage_modeling.dl"
+#include "../../logic/common/sorting.dl"
 
 #define NewStmtId(blockId, stmtIndex) cat(cat(blockId, "0xafa"), @number_to_hex(stmtIndex))
 #define NewVarId(blockId, varIndex) cat(cat(blockId, "0xff"), @number_to_hex(varIndex))
@@ -15,18 +16,20 @@
                         | CopyStatement {opcode: Opcode, fromVar: VariableWrapper, toVar: VariableWrapper, lenVar: VariableWrapper}
                         | ConstStatement {constant: Value, defVar: VariableWrapper}
 
-.type InsertionList = [statement: InsertedStatement, rest: InsertionList]
 
 .comp BlockInsertor : AbstractTACTransformer {
 
   // inputs
   .decl Insertion(insertionPoint: Block, continuation: Block)
   .decl InsertedStatement(insertionPoint: Block, index: number, statement: InsertedStatement)
+  .decl VariableSubstitution(originalVar: Variable, newVar: VariableWrapper)
 
   // intermediate relations
   .decl BlockToRemove(block: Block)
   .decl StatementToRemove(stmt: Statement)
   .decl VariableToRemove(var: Variable)
+
+  .decl InVar_OutVar(inVar: Variable, outVar: Variable)
 
   .decl ReachableBlock(block: Block)
 
@@ -52,15 +55,27 @@
     BlockToRemove(block),
     In_Statement_Block(stmt, block).
 
+  StatementToRemove(stmt):-
+    VariableSubstitution(var, _),
+    In_Statement_Defines(stmt, var, _).
+
   VariableToRemove(var):-
     StatementToRemove(stmt),
     In_Statement_Defines(stmt, var, _).
 
+  InVar_OutVar(inVar, inVar):-
+    (In_Statement_Defines(_, inVar, _);
+    In_Statement_Uses(_, inVar, _);
+    In_FormalArgs(_, inVar, _)),
+    !VariableSubstitution(inVar, _).
+
+  InVar_OutVar(inVar, outVar):-
+    VariableSubstitution(inVar, outVarW),
+    VariableWrapperToVariable(outVarW, outVar).
+
   .output BlockToRemove, Insertion, InsertedStatement
 
   .decl StatementToInsert(insertionBlock: Block, index: number, stmtId: Statement, stmt: InsertedStatement)
-  .decl VariableToInsert(variable: Variable)
-  .decl VariableSubstitution(originalVar: Variable, newVar: Variable)
 
   .output StatementToInsert, InsertedStatementUses, InsertedStatementDefines, VariableWrapperToVariable
 
@@ -103,7 +118,8 @@
 
   Out_Statement_Block(stmt, block):-
     In_Statement_Block(stmt, block),
-    !BlockToRemove(block).
+    !BlockToRemove(block),
+    !StatementToRemove(stmt).
 
   Out_Statement_Block(stmtId, block):-
     StatementToInsert(block, _, stmtId, _).
@@ -174,6 +190,7 @@
 
   Out_Statement_Uses(stmt, var, i):-
     In_Statement_Uses(stmt, var, i),
+    !VariableSubstitution(var, _),
     !StatementToRemove(stmt).
 
   // Out_Statement_Uses(stmtId, use, 0):-
@@ -198,8 +215,14 @@
 
   Out_Statement_Uses(stmtId, use, n):-
     StatementToInsert(_, _, stmtId, stmt),
-    InsertedStatementUses(stmt, useW, n),
-    VariableWrapperToVariable(useW, use).
+    InsertedStatementUses(stmt, $InternalVariable(block, index), n),
+    VariableWrapperToVariable($InternalVariable(block, index), use).
+
+  Out_Statement_Uses(stmtId, newUse, n):-
+    StatementToInsert(_, _, stmtId, stmt),
+    InsertedStatementUses(stmt, $ExternalVariable(var), n),
+    VariableWrapperToVariable($ExternalVariable(var), use),
+    InVar_OutVar(use, newUse).
 
   InsertedStatementDefines(stmt, def, 0):-
     StatementToInsert(_, _, _, stmt),
@@ -265,53 +288,57 @@
 DEBUG_OUTPUT(SimpleMemoryCopy)
 
 insertor.Insertion(loop, cont),
-insertor.InsertedStatement(loop, stmtNum, $CopyStatement("MCOPY", $ExternalVariable(toVar), $ExternalVariable(fromVar), $InternalVariable(loop, stmtNum - 1))):-
+insertor.InsertedStatement(loop, lastInstrIndex + 1, $CopyStatement("MCOPY", $ExternalVariable(toVar), $ExternalVariable(fromVar), $InternalVariable(loop, lenResultIndex))):-
   SimpleMemoryCopy(loop, cont, fromVar, toVar, _),
   MemoryCopyLoopLengthExpr(loop, _, expr),
-  Expr_StatementCount(expr, stmtNum).
+  ExpressionToInsertionStmtRequest(loop, expr, expr, lenResultIndex),
+  lastInstrIndex = max instrIndex : ExpressionToInsertionStmtRequest(loop, _, _, instrIndex).
+  // loopExprs.Expr_StatementCount(expr, stmtNum).
 
 insertor.InsertedStatement(loop, index, instStmt):-
   SimpleMemoryCopy(loop, _, _, _, _),
   MemoryCopyLoopLengthExpr(loop, _, expr),
-  // Expr_StatementCount(expr, stmts),
   ExpressionToInsertionStmtResponse(loop, expr, _, index, instStmt).
+
+insertor.VariableSubstitution(inVar, $InternalVariable(loop, exprResultIndex)):-
+  SimpleMemoryCopy(loop, _, _, _, _),
+  VariableDefinedInLoop_Expr(loop, inVar, expr),
+  ExpressionToInsertionStmtRequest(loop, expr, expr, exprResultIndex).
 
 .decl ExpressionToInsertionStmtRequest(insertionPoint:Block, expr: Expr, subExpr: Expr, reqIndex: number)
 .decl ExpressionToInsertionStmtResponse(insertionPoint:Block, expr: Expr, subExpr: Expr, reqIndex: number, instStmt: InsertedStatement)
 .decl ExpressionToDefinedVariable(insertionPoint:Block, expr: Expr, subExpr: Expr, reqIndex: number, defVar: VariableWrapper)
 .output ExpressionToInsertionStmtResponse, ExpressionToInsertionStmtRequest, ExpressionToDefinedVariable
 
-ExpressionToInsertionStmtRequest(loop, expr, expr, reqIndex - 1):-
-  MemoryCopyLoop(loop, _, _),
-  MemoryCopyLoopLengthExpr(loop, _, expr),
-  Expr_StatementCount(expr, reqIndex).
+ExpressionToInsertionStmtRequest(loop, expr, expr, insertIndex + reqIndex - 1):-
+  // MemoryCopyLoop(loop, _, _),
+  // MemoryCopyLoopLengthExpr(loop, _, expr),
+  ExpressionInsertedAtOffset(loop, expr, insertIndex),
+  loopExprs.Expr_StatementCount(expr, reqIndex).
 
 
 ExpressionToInsertionStmtRequest(loop, outterExpr, left, reqIndex - 1):-
   ExpressionToInsertionStmtRequest(loop, outterExpr, expr, reqIndex),
   expr = [op, left, right], op=op, right=right,
-  // !VariableToExpr(_, left),
   left != nil.
 
 ExpressionToInsertionStmtRequest(loop, outterExpr, right, reqIndex - leftInstrs - 1):-
   ExpressionToInsertionStmtRequest(loop, outterExpr, expr, reqIndex),
   expr = [op, left, right], op=op,
-  Expr_StatementCount(left, leftInstrs),
-  // !VariableToExpr(_, right),
+  loopExprs.Expr_StatementCount(left, leftInstrs),
   right != nil.
 
 ExpressionToInsertionStmtResponse(loop, outterExpr, expr, index, $ConstStatement(val, varW)):-
   ExpressionToInsertionStmtRequest(loop, outterExpr, expr, index),
   ExpressionToDefinedVariable(loop, outterExpr, expr, index, varW),
-  expr = [val, nil, nil],
-  !VariableToExpr(_, expr).
+  loopExprs.IsConstExpr(expr, val).
 
 ExpressionToInsertionStmtResponse(loop, outterExpr, expr, index, $BinaryStatement(op, lvarW, rvarW, varW)):-
   ExpressionToInsertionStmtRequest(loop, outterExpr, expr, index),
   ExpressionToDefinedVariable(loop, outterExpr, expr, index, varW),
   expr = [op, left, right],
   ExpressionToDefinedVariable(loop, outterExpr, left, index - 1, lvarW),
-  Expr_StatementCount(left, leftInstrs),
+  loopExprs.Expr_StatementCount(left, leftInstrs),
   ExpressionToDefinedVariable(loop, outterExpr, right, index - 1 - leftInstrs, rvarW),
   BinArith(op).
 
@@ -324,13 +351,48 @@ ExpressionToDefinedVariable(loop, outterExpr, expr, index, $ExternalVariable(var
   VariableToExpr(var, expr).
 
 SimpleMemoryCopy(loop, cont, fromVar, toVar, lenVar):-
+  LoopWithModeledStackSideEffects(loop),
   MemoryCopyLoop(loop, fromVar, toVar),
   InductionVariableUpperBoundVar(loop, _, lenVar, _),
   LoopNext(loop, cont),
   Statement_Defines(defStmt, lenVar, _),
   Statement_Block(defStmt, defBlock),
-  !BlockInStructuredLoop(defBlock, loop),
-  !VariableDefinedInLoopUsedAfter(loop, _, _).
+  !BlockInStructuredLoop(defBlock, loop).
+
+.decl LoopWithModeledStackSideEffects(loop: Block)
+DEBUG_OUTPUT(LoopWithModeledStackSideEffects)
+LoopWithModeledStackSideEffects(loop):-
+  BlockInStructuredLoop(_, loop),
+  n = count: VariableDefinedInLoopUsedAfter(loop, _, _),
+  n = count: VariableDefinedInLoop_Expr(loop, _, _).
+
+ExpressionToInsertionStmtRequest(loop, expr, expr, reqIndex - 1):-
+  LoopWithModeledStackSideEffects(loop),
+  VariableDefinedInLoopUsedAfter(loop, var, _),
+  VariableDefinedInLoop_Expr(loop, var, expr),
+  loopExprs.Expr_StatementCount(expr, reqIndex).
+
+.init exprSorter = OrdAscendingMultiSorter<Block, Expr>
+.output exprSorter.Input_Next, exprSorter.Input
+exprSorter.Input(loop, expr):-
+  SimpleMemoryCopy(loop, _, _, _, _),
+  VariableDefinedInLoop_Expr(loop, _, expr).
+
+exprSorter.Input(loop, expr):-
+  SimpleMemoryCopy(loop, _, _, _, _),
+  MemoryCopyLoopLengthExpr(loop, _, expr).
+
+.decl ExpressionInsertedAtOffset(insertionBlock: Block, expr: Expr, offset: number)
+.output ExpressionInsertedAtOffset
+
+ExpressionInsertedAtOffset(insB, expr, 0):-
+  exprSorter.Input(insB, expr),
+  !exprSorter.Input_Next(insB, _, expr).
+
+ExpressionInsertedAtOffset(insB, expr, prev + i):-
+  ExpressionInsertedAtOffset(insB, pexpr, prev),
+  exprSorter.Input_Next(insB, pexpr, expr),
+  loopExprs.Expr_StatementCount(pexpr, i).
 
 insertor.In_Statement_Opcode(stmt, op):- Statement_Opcode(stmt, op).
 insertor.In_IsStatement(stmt):-IsStatement(stmt).
