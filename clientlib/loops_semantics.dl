@@ -351,6 +351,15 @@ VariableDefinedInLoop_Expr(loop, phiVar, ["MUL", iterExpr, ValueToExpr(@number_t
   InductionVariableIncreasesByConst(loop, [beforeLoopVar, inLoopVar], const),
   LoopIterationCountExpr(loop, _, iterExpr).
 
+VariableDefinedInLoop_Expr(loop, phiVar, ["ADD", ["MUL", iterExpr, ValueToExpr(@number_to_hex(const))], beforeLoopExpr]):-
+  VariableDefinedInLoopUsedAfter(loop, phiVar, _),
+  PHIStmtTwoUses(_, beforeLoopVar, inLoopVar, phiVar),
+  WellFormedLoopInductionVariable(loop, _, [beforeLoopVar, inLoopVar]),
+  !InductionVariableStartsAtConst(loop, [beforeLoopVar, inLoopVar], "0x0"),
+  VariableToExpr(beforeLoopVar, beforeLoopExpr),
+  InductionVariableIncreasesByConst(loop, [beforeLoopVar, inLoopVar], const),
+  LoopIterationCountExpr(loop, _, iterExpr).
+
 loopExprs.IsExpr(expr):-
   LoopIterationCountExpr(_, _, expr);
   MemoryCopyLoopLengthExpr(_, _, expr);
