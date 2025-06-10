@@ -256,17 +256,18 @@ insertor.insertOps(mload,
 ) :-
   preTrans.CODECOPYSmallConstWLoad(codeCopy, const, mload).
 
-insertor.removeOp(codeCopy),
-insertor.insertOps(codeCopy,
-  LIST(
-    STMT(SWAP2, ""),
-    STMT(POP, ""),
-    STMT(POP, ""),
-    STMT(PUSH32, const),
-    STMT(SWAP1, "")
-  )
-) :-
-  preTrans.CODECOPYSmallConstNoLoad(codeCopy, const).
+// SL: Removing this for now, don't remember what I was thinking. Seems plain wrong.
+// insertor.removeOp(codeCopy),
+// insertor.insertOps(codeCopy,
+//   LIST(
+//     STMT(SWAP2, ""),
+//     STMT(POP, ""),
+//     STMT(POP, ""),
+//     STMT(PUSH32, const),
+//     STMT(SWAP1, "")
+//   )
+// ) :-
+//   preTrans.CODECOPYSmallConstNoLoad(codeCopy, const).
 
 .init postTrans = PostTransLocalAnalysis
 

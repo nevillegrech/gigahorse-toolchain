@@ -723,6 +723,19 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
     Statement_Opcode(mload, "MLOAD"),
     BeforeLocalStackContents(mload, 0, memLocVar).
 
+  // handle constant writes, mostly in optimized code.
+  CODECOPYSmallConstWLoad(codeCopy, const, mload):-
+    CODECOPYSmallConst(codeCopy, const),
+    BeforeLocalStackContents(codeCopy, 0, memLocVar1),
+    CheckIsVariable(memLocVar1),
+    Variable_Value(memLocVar1, val),
+    Statement_Next(codeCopy, someStmt),
+    Statement_Next(someStmt, mload),
+    Statement_Opcode(mload, "MLOAD"),
+    BeforeLocalStackContents(mload, 0, memLocVar2),
+    CheckIsVariable(memLocVar2),
+    Variable_Value(memLocVar2, val).
+
   CODECOPYSmallConstNoLoad(codeCopy, const):-
     CODECOPYSmallConst(codeCopy, const),
     !CODECOPYSmallConstWLoad(codeCopy, const, _).
