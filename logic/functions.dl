@@ -1,4 +1,4 @@
-#define FRESH_VARIABLE(var, stmt, stackIndex) (IRStatementNum((stmt), ?stmtNum), var=-0xFFFF+?stmtNum*MAX_STACK_HEIGHT+(stackIndex))
+#define FRESH_VARIABLE(var, stmt, stackIndex) (IRStatementNum((stmt), ?stmtNum), var=-0xFFFFFF+?stmtNum*MAX_STACK_HEIGHT+(stackIndex))
 
 
 #define MAX_NUM_PRIVATE_FUNCTION_ARGS 50
