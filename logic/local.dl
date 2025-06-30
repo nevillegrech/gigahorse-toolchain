@@ -256,6 +256,7 @@ insertor.insertOps(mload,
 ) :-
   preTrans.CODECOPYSmallConstWLoad(codeCopy, const, mload).
 
+// Replace codecopy with MSTORE of constant value
 insertor.removeOp(codeCopy),
 insertor.insertOps(codeCopy,
   LIST(
@@ -263,7 +264,8 @@ insertor.insertOps(codeCopy,
     STMT(POP, ""),
     STMT(POP, ""),
     STMT(PUSH32, const),
-    STMT(SWAP1, "")
+    STMT(SWAP1, ""),
+    STMT(MSTORE, "")
   )
 ) :-
   preTrans.CODECOPYSmallConstNoLoad(codeCopy, const).
