@@ -358,21 +358,24 @@ TAC_Statement_InlineInfo(irStmt, nil):-
 .output TAC_OriginalStatement_Block
 
 // unmodified statements
-TAC_OriginalStatement_Block(stmt, irblock) :-
-  postTrans.Statement_Block(_, block),
+TAC_OriginalStatement_Block(ogStmt, irblock) :-
+  PreTransStatement_OriginalStatement(stmt, ogStmt),
   preTrans.Statement_Block(stmt, block),
+  postTrans.Statement_Block(_, block),
   Block_IRBlock(block, _, irblock).
 
 
 // tracks statements that have been placed into generated blocks
-TAC_OriginalStatement_Block(stmt, irblock) :-
+TAC_OriginalStatement_Block(ogStmt, irblock) :-
+  PreTransStatement_OriginalStatement(stmt, ogStmt),
   postTrans.Statement_Block(stmt, block),
   !preTrans.Statement_Block(_, block),
   preTrans.Statement_Block(stmt, _),
   Block_IRBlock(block, _, irblock).
 
 // tracks deleted statements where their old block was also changed
-TAC_OriginalStatement_Block(stmt, irblock) :-
+TAC_OriginalStatement_Block(ogStmt, irblock) :-
+  PreTransStatement_OriginalStatement(stmt, ogStmt),
   preTrans.Statement_Block(stmt, block),
   !postTrans.Statement_Block(stmt, _),
   !postTrans.Statement_Block(_, block),
