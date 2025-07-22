@@ -197,10 +197,11 @@ VarHoldsBytesOfStorVarPlus(to, load, loc, storVar, 0, low, low):-
   VarHoldsBytesOfStorVarPlus(from, load, loc, storVar, 0, low, low),
   BooleanCast(from, to).
 
-VarHoldsBytesOfStorVarPlus(to, load, loc, storVar, startByte, newLow, high):-
+VarHoldsBytesOfStorVarPlus(to, load, loc, storVar, newStartByte, newLow, high):-
   VarHoldsBytesOfStorVarPlus(var, load, loc, storVar, startByte, low, high),
   maxKeptByte = max(startByte + low, startByte + high - maskLen + 1),
   newLow = maxKeptByte - startByte,
+  newStartByte = max(32 - maskLen, startByte),
   HighBytesMaskOp(var, to, maskLen).
 
 // Note: This is usually an intermediary case, to restore it to some storage bytes.
