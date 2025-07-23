@@ -755,6 +755,7 @@ IRStatementNum(irstmt, num) :-
   postTrans._StatementNum(stmt, num),
   Statement_IRStatement(stmt, _, irstmt).
 
+// SL: This needs changing
 .decl IRTACNOP(stmt: IRStatement)
 IRTACNOP(irstmt) :-
   postTrans.TACNOP(stmt),
@@ -1196,6 +1197,88 @@ FunctionalStatement_Uses(stmt, var, n) :-
    CheckIsStackIndex(stackIndex),
    IRStatement_Block(stmt, block),
    FunctionalBlockInputContents(block, stackIndex, var).
+
+.decl FunctionalBlockUsesPHIVar(block: IRBlock, var: Variable, index: StackIndex)
+DEBUG_OUTPUT(FunctionalBlockUsesPHIVar)
+
+FunctionalBlockUsesPHIVar(block, var, stackIndex):-
+  IRStatement_Block(stmt, block),
+  IRStatement_Uses_Local(stmt, stackIndex, n),
+  CheckIsStackIndex(stackIndex),
+  FunctionalBlockInputContents(block, stackIndex, var),
+  FunctionalBlockInputContents(block, stackIndex, otherVar), var!= otherVar.
+
+FunctionalBlockUsesPHIVar(block, var, stackIndex):-
+  IRStatement_Block(stmt, block),
+  FunctionReturnStmt(stmt),
+  IRInFunction(block, func),
+  NumberOfFunctionReturnArguments(func, n_out),
+  IRBeforeLocalStackContents(stmt, n, stackIndex),
+  CheckIsStackIndex(stackIndex),
+  IsStackIndexLessThan(n, n_out),
+  FunctionalBlockInputContents(block, stackIndex, var),
+  FunctionalBlockInputContents(block, stackIndex, otherVar), var!= otherVar.
+
+
+.decl PHIVar_DefBlockToUseBlock(defBlock: IRBlock, useBlock: IRBlock, useVar: Variable, stackIndex: StackIndex)
+DEBUG_OUTPUT(PHIVar_DefBlockToUseBlock)
+
+PHIVar_DefBlockToUseBlock(defBlock, useBlock, var, stackIndex):-
+  FunctionalBlockUsesPHIVar(useBlock, var, stackIndex),
+  FunctionalStatement_Defines(defStmt, var, _),
+  IRStatement_Block(defStmt, defBlock).
+
+PHIVar_DefBlockToUseBlock(entry, useBlock, var, stackIndex):-
+  FunctionalBlockUsesPHIVar(useBlock, var, stackIndex),
+  !FunctionalStatement_Defines(_, var, _),
+  IRInFunction(useBlock, func),
+  IRInFunction(entry, func),
+  IRFunctionEntry(entry).
+
+.decl DefBlockToUseBlockPathInterm(from: IRBlock, to: IRBlock, tmp: IRBlock, path: Path)
+DEBUG_OUTPUT(DefBlockToUseBlockPathInterm)
+
+DefBlockToUseBlockPathInterm(from, to, from, initPath):-
+  PHIVar_DefBlockToUseBlock(from, to, _, _),
+  initPath = as(from, Path).
+
+DefBlockToUseBlockPathInterm(from, to, next, newPath):-
+  DefBlockToUseBlockPathInterm(from, to, cur, prevPath),
+  PotentialCycleEntryLocalBlockEdge(cur, next),
+  newPath = as(@add_set(prevPath, next), Path),
+  newPath != prevPath.
+
+DefBlockToUseBlockPathInterm(from, to, next, prevPath):-
+  DefBlockToUseBlockPathInterm(from, to, cur, prevPath),
+  NotCycleEntryLocalBlockEdge(cur, next).
+
+.decl DefBlockToUseBlockPath(from: IRBlock, to: IRBlock, path: Path)
+DEBUG_OUTPUT(DefBlockToUseBlockPath)
+
+DefBlockToUseBlockPath(from, to, path):-
+  DefBlockToUseBlockPathInterm(from, to, to, path).
+
+.decl PHIVarInformationLoss(useBlock: IRBlock, useVar: Variable, stackIndex: StackIndex)
+DEBUG_OUTPUT(PHIVarInformationLoss)
+
+PHIVarInformationLoss(useBlock, var, stackIndex):-
+  PHIVar_DefBlockToUseBlock(defBlock, useBlock, var, stackIndex),
+  DefBlockToUseBlockPath(defBlock, useBlock, path),
+  PHIVar_DefBlockToUseBlock(otherDefBlock, useBlock, otherVar, stackIndex), otherVar != var,
+  DefBlockToUseBlockPath(otherDefBlock, useBlock, path).
+
+.decl DUPTouchesPHIWithLoss(dup: IRStatement)
+DEBUG_OUTPUT(DUPTouchesPHIWithLoss)
+
+DUPTouchesPHIWithLoss(stmt):-
+  PHIVarInformationLoss(useBlock, var, stackIndex),
+  PHIVar_DefBlockToUseBlock(defBlock, useBlock, var, stackIndex),
+  DefBlockToUseBlockPathInterm(defBlock, useBlock, block, prevPath),
+  IRStatement_Block(stmt, block),
+  IRStatement_Opcode(stmt, opcode),
+  postTrans.DUPN(opcode, n),
+  IRBeforeLocalStackContents(stmt, n - 1, stackIndex).
+
 
 .decl PublicFunctionSignature(hex_signature: symbol, text_signature: symbol)
 .input PublicFunctionSignature

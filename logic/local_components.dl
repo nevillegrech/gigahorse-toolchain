@@ -42,6 +42,8 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
 
   #include "decompiler_input_statements.dl"
 
+  .decl DupOrSwapNeededInTAC(stmt: Statement)
+
   /**
     Any input opcode that should not be present in the output
     (three-address) code. These are mostly stack machine instructions,
@@ -52,10 +54,11 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
     the entire JUMP opcode.
   */
   .decl TACNOP(statement: Statement)
-  
+
   TACNOP(stmt) :-
     Statement_Opcode(stmt, opcode),
-    (OpcodeIsDup(opcode) ; OpcodeIsSwap(opcode)).
+    (OpcodeIsDup(opcode) ; OpcodeIsSwap(opcode)),
+    !DupOrSwapNeededInTAC(stmt).
 
   TACNOP(stmt) :- POP(stmt) ; JUMPDEST(stmt).
   
@@ -344,6 +347,7 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
   LocalStackContents(stmt, 0, duplicated) :-
     BeforeLocalStackContents(stmt, n-1, duplicated),
     Statement_Opcode(stmt, opcode),
+    TACNOP(stmt),
     DUPN(opcode, n).
 
   LocalStackContents(stmt, m+1, other) :-
