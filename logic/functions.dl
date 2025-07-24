@@ -1034,7 +1034,7 @@ NumberOfFunctionReturnArguments(func, n) :-
   // Is output
   .decl FunctionalStatement_Uses_Local(stmt: IRStatement, var:VariableOrStackIndex, n:StackIndex)
   // Is unused
-  .decl FunctionalStatement_Uses(stmt:IRStatement, var:Variable, n:StackIndex)
+  // .decl FunctionalStatement_Uses(stmt:IRStatement, var:Variable, n:StackIndex)
   // Is output
   .decl FunctionalStatement_Defines(callStmt:IRStatement, newVar:Variable, n: number)
 
@@ -1055,8 +1055,6 @@ NumberOfFunctionReturnArguments(func, n) :-
     IRBlock_VarString(block, block_str),
     Variable_String(var, var_str).
 
-  Variable_String(var, var_rep) :-
-    postTrans.Statement_Defines(var_rep, var).
 
   Variable_String(var, cat(func, cat("arg", @number_to_hex(n)))),
   FunctionArgument(func, n, var) :-
@@ -1072,19 +1070,8 @@ NumberOfFunctionReturnArguments(func, n) :-
     IsStackIndexLessThan(n, n_args).
 
   .decl IRBeforeLocalStackContents(stmt: IRStatement, n:StackIndex, varOrStackIndex:VariableOrStackIndex)
-  IRBeforeLocalStackContents(irstmt, n, varOrStackIndex) :-
-    postTrans.BeforeLocalStackContents(stmt, n, varOrStackIndex),
-    Statement_IRStatement(stmt, _, irstmt).
-
   .decl IRLocalStackContents(stmt: IRStatement, n:StackIndex, varOrStackIndex:VariableOrStackIndex)
-  IRLocalStackContents(irstmt, n, varOrStackIndex) :-
-    postTrans.LocalStackContents(stmt, n, varOrStackIndex),
-    Statement_IRStatement(stmt, _, irstmt).
-
   .decl IRStatement_Uses_Local(stmt: IRStatement, varOrStackIndex: VariableOrStackIndex, n: StackIndex)
-IRStatement_Uses_Local(irstmt, varOrStackIndex, n) :-
-  postTrans.Statement_Uses_Local(stmt, varOrStackIndex, n),
-  Statement_IRStatement(stmt, _, irstmt).
 
   Variable_String(newVar, cat(callStmtBefore, cat("_", @number_to_hex(n)))),
   FunctionalStatement_Defines(callStmt, newVar, n),
@@ -1189,28 +1176,31 @@ IRStatement_Uses_Local(irstmt, varOrStackIndex, n) :-
     IRBeforeLocalStackContents(stmt, n, varOrStackIndex).
 
   FunctionalStatement_Uses_Local(irstmt, varOrStackIndex, n) :-
-    postTrans.Statement_Uses_Local(stmt, varOrStackIndex, n),
-    Statement_IRStatement(stmt, _, irstmt).
+    IRStatement_Uses_Local(irstmt, varOrStackIndex, n).
 
-  FunctionalStatement_Uses(irstmt, as(var, Variable), n) :-
-    postTrans.Statement_Uses_Local(stmt, var, n),
-    CheckIsVariable(var),
-    Statement_IRStatement(stmt, _, irstmt).
-
-  FunctionalStatement_Defines(irstmt, newVar, 0) :-
-    postTrans.Statement_Defines(stmt, newVar),
-    Statement_IRStatement(stmt, _, irstmt).
+  // FunctionalStatement_Uses(irstmt, as(var, Variable), n) :-
+  //   postTrans.Statement_Uses_Local(stmt, var, n),
+  //   CheckIsVariable(var),
+  //   Statement_IRStatement(stmt, _, irstmt).
 
   // Case: variable originates elsewhere
-  FunctionalStatement_Uses(stmt, var, n) :-
-    IRStatement_Uses_Local(stmt, stackIndex, n),
-    CheckIsStackIndex(stackIndex),
-    IRStatement_Block(stmt, block),
-    FunctionalBlockInputContents(block, stackIndex, var).
+  // FunctionalStatement_Uses(stmt, var, n) :-
+  //   IRStatement_Uses_Local(stmt, stackIndex, n),
+  //   CheckIsStackIndex(stackIndex),
+  //   IRStatement_Block(stmt, block),
+  //   FunctionalBlockInputContents(block, stackIndex, var).
 
 }
 
+#define INIT_FSTACK_FROM_LOCAL(fstack, local)\
+fstack.Variable_String(var, var_rep):- local.Statement_Defines(var_rep, var).\
+fstack.IRBeforeLocalStackContents(irstmt, n, varOrStackIndex):- local.BeforeLocalStackContents(stmt, n, varOrStackIndex), Statement_IRStatement(stmt, _, irstmt).\
+fstack.IRLocalStackContents(irstmt, n, varOrStackIndex):- local.LocalStackContents(stmt, n, varOrStackIndex), Statement_IRStatement(stmt, _, irstmt).\
+fstack.IRStatement_Uses_Local(irstmt, varOrStackIndex, n):- local.Statement_Uses_Local(stmt, varOrStackIndex, n), Statement_IRStatement(stmt, _, irstmt).\
+fstack.FunctionalStatement_Defines(irstmt, newVar, 0):- local.Statement_Defines(stmt, newVar), Statement_IRStatement(stmt, _, irstmt).
+
 .init firstFunctional = FunctionalStackAnalysis
+INIT_FSTACK_FROM_LOCAL(firstFunctional, postTrans)
 
 .decl FunctionalBlockUsesPHIVar(block: IRBlock, var: Variable, index: StackIndex)
 DEBUG_OUTPUT(FunctionalBlockUsesPHIVar)
