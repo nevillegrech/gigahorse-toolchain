@@ -418,7 +418,7 @@ Analytics_UnknownOperand(stmt) :-
    TAC_Op(stmt, opcode),
    OpcodePopWords(opcode, words),
    IsStackIndexLessThan(n, words),
-   !FunctionalStatement_Uses_Local(stmt, _, n).
+   !firstFunctional.FunctionalStatement_Uses_Local(stmt, _, n).
 
 .decl ReachableStatement(stmt: IRStatement)
 ReachableStatement(stmt) :-
