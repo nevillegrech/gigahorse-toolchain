@@ -451,9 +451,16 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
   Statement_Uses_Local(stmt, varOrStackIndex, n) :-
      Statement_Opcode(stmt, opcode),
      !TACNOP(stmt),
+     !OpcodeIsDup(opcode),
      OpcodePopWords(opcode, m),
      IsStackIndexLessThan(n, m),
      BeforeLocalStackContents(stmt, n, varOrStackIndex).
+
+  Statement_Uses_Local(stmt, varOrStackIndex, 0):-
+    Statement_Opcode(stmt, opcode),
+    DUPN(opcode, n),
+    !TACNOP(stmt),
+    BeforeLocalStackContents(stmt, n - 1, varOrStackIndex).
 
   // Identify low-level blocks that will always REVERT
   .decl BlockWillRevert(revertBlock: Block)

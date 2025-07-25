@@ -24,15 +24,15 @@ GlobalEntryBlock("0x0").
 
 FunctionalBlock_Uses_Local(block, as(stackIndex, StackIndex)) :-
   IRStatement_Block(stmt, block),
-  firstFunctional.FunctionalStatement_Uses_Local(stmt, stackIndex, _),
+  lastFunctional.FunctionalStatement_Uses_Local(stmt, stackIndex, _),
   CheckIsStackIndex(stackIndex).
 
 .decl PolymorphicStackIndex(block: IRBlock, stackIndex: StackIndex)
 
 PolymorphicStackIndex(block, stackIndex) :-
   FunctionalBlock_Uses_Local(block, stackIndex),
-  firstFunctional.FunctionalBlockInputContents(block, stackIndex, var1),
-  firstFunctional.FunctionalBlockInputContents(block, stackIndex, var2),
+  lastFunctional.FunctionalBlockInputContents(block, stackIndex, var1),
+  lastFunctional.FunctionalBlockInputContents(block, stackIndex, var2),
   var1 != var2.
 
 /**
@@ -83,9 +83,9 @@ SHA3Decompositions(a, b, c, d) :- SHA3Decompositions(a, b, c, d).
 /// basic block labels! Don't up
 
 TAC_Variable_BlockValue(as(tacvar,TACVariable), irvalue) :-
-  firstFunctional.FunctionalStatement_Defines(stmt, var, _),
-  firstFunctional.Variable_Stmt_String(var, stmt, tacvar),
-  postTrans.Variable_Value(var, value),
+  lastFunctional.FunctionalStatement_Defines(stmt, var, _),
+  lastFunctional.Variable_Stmt_String(var, stmt, tacvar),
+  dupIntr.Variable_Value(var, value),
   StatementAndBlockInSameFunction(stmt, as(value, symbol), irvalue),
    // value matches address of block
    STARTSWITH(value, "0x").
@@ -98,9 +98,9 @@ StatementAndBlockInSameFunction(stmt, block, irblock) :-
 
 // Normal variable
 TAC_Variable_Value(as(tacvar, TACVariable), value) :-
-   firstFunctional.FunctionalStatement_Defines(stmt, var, _),
-   firstFunctional.Variable_Stmt_String(var, stmt, tacvar),
-   postTrans.Variable_Value(var, value),
+   lastFunctional.FunctionalStatement_Defines(stmt, var, _),
+   lastFunctional.Variable_Stmt_String(var, stmt, tacvar),
+   dupIntr.Variable_Value(var, value),
    STARTSWITH(value, "0x").
 
 /**
@@ -129,32 +129,39 @@ TAC_Variable_Value(formalArg, value):-
 // Non-nop instructions
 TAC_Stmt(irstmt) :-
   Statement_IRStatement(stmt, _, irstmt),
-  postTrans.ValidStatement(stmt),
+  dupIntr.ValidStatement(stmt),
   !DeadStmt(irstmt),
   !IRTACNOP(irstmt).
 
 TAC_Op(irstmt, op) :-
    IRStatement_Opcode(irstmt, op),
    Statement_IRStatement(stmt, _, irstmt),
-   postTrans.ValidStatement(stmt),
+   dupIntr.ValidStatement(stmt),
    !DeadStmt(irstmt),
    !IRTACNOP(irstmt),
-   !postTrans.PushValue(stmt, _),
-   !postTrans.PC(stmt),
-   !postTrans.PUSH0(stmt),
-   !postTrans.INVALID(stmt).
+   !OpcodeIsDup(op),
+   !dupIntr.PushValue(stmt, _),
+   !dupIntr.PC(stmt),
+   !dupIntr.PUSH0(stmt),
+   !dupIntr.INVALID(stmt).
 
 TAC_Op(irstmt, "CONST") :-
    Statement_IRStatement(stmt, _, irstmt),
    (
-    postTrans.PushValue(stmt, _);
-    postTrans.PC(stmt);
-    postTrans.PUSH0(stmt)
+    dupIntr.PushValue(stmt, _);
+    dupIntr.PC(stmt);
+    dupIntr.PUSH0(stmt)
   ).
+
+TAC_Op(irstmt, "MOV") :-
+   IRStatement_Opcode(irstmt, op),
+   OpcodeIsDup(op),
+   !IRTACNOP(irstmt).
+
 
 TAC_Op(irstmt, "THROW") :-
    Statement_IRStatement(stmt, _, irstmt),
-   postTrans.INVALID(stmt).
+   dupIntr.INVALID(stmt).
 
 // Phi instructions
 TAC_Var(var),
@@ -167,64 +174,64 @@ TAC_Op(stmt, "PHI") :-
 // Non-phi, non-call variable id same as stmt it is defined in
 TAC_Var(tac_var),
 TAC_Def(stmt, tac_var, n) :-
-   firstFunctional.FunctionalStatement_Defines(stmt, var, n),
-   firstFunctional.Variable_Stmt_String(var, stmt, var_rep),
+   lastFunctional.FunctionalStatement_Defines(stmt, var, n),
+   lastFunctional.Variable_Stmt_String(var, stmt, var_rep),
    tac_var = as(var_rep, TACVariable).
 
 // Case 1: Uses locally defined variable
 TAC_Use(stmt, as(var_rep, TACVariable), n) :-
-  firstFunctional.FunctionalStatement_Uses_Local(stmt, var, n),
+  lastFunctional.FunctionalStatement_Uses_Local(stmt, var, n),
   CheckIsVariable(var),
-  firstFunctional.Variable_Stmt_String(var, stmt, var_rep).
+  lastFunctional.Variable_Stmt_String(var, stmt, var_rep).
 
 // Case 2: Uses monomorphic global var
 // Using the block in which the var is defined,
 // Fixes cases where a stmt in a cloned block is using
 // a variable defined in a non cloned block
 TAC_Use(stmt, as(var_rep, TACVariable), n) :-
-  firstFunctional.FunctionalStatement_Uses_Local(stmt, stackIndex, n),
+  lastFunctional.FunctionalStatement_Uses_Local(stmt, stackIndex, n),
   CheckIsStackIndex(stackIndex),
   IRStatement_Block(stmt, block),
   IRInFunction(block, fun),
   !PHILocation(block, stackIndex, _),
-  firstFunctional.FunctionalBlockInputContents(block, stackIndex, var),
-  firstFunctional.FunctionalStatement_Defines(defstmt, var, _),
+  lastFunctional.FunctionalBlockInputContents(block, stackIndex, var),
+  lastFunctional.FunctionalStatement_Defines(defstmt, var, _),
   IRStatement_Block(defstmt, defBlock),
   IRInFunction(defBlock, fun),
-  firstFunctional.Variable_Block_String(var, defBlock, var_rep).
+  lastFunctional.Variable_Block_String(var, defBlock, var_rep).
 
 //Case 2.1: Uses arg(like the above case, but not defined)
 TAC_Use(stmt, as(var_rep, TACVariable), n) :-
-  firstFunctional.FunctionalStatement_Uses_Local(stmt, stackIndex, n),
+  lastFunctional.FunctionalStatement_Uses_Local(stmt, stackIndex, n),
   CheckIsStackIndex(stackIndex),
   IRStatement_Block(stmt, block),
   !PHILocation(block, stackIndex, _),
-  firstFunctional.FunctionalBlockInputContents(block, stackIndex, var),
-  firstFunctional.FunctionArgument(_, _, var),
-  firstFunctional.Variable_String(var, var_rep).
+  lastFunctional.FunctionalBlockInputContents(block, stackIndex, var),
+  lastFunctional.FunctionArgument(_, _, var),
+  lastFunctional.Variable_String(var, var_rep).
 
 
 // Case 3: Is a PHI statement
 TAC_Use(phiStmt, as(var_rep, TACVariable), -1) :-
   PHILocation(block, stackIndex, phiStmt),
-  firstFunctional.FunctionalBlockInputContents(block, stackIndex, var),
+  lastFunctional.FunctionalBlockInputContents(block, stackIndex, var),
   IRInFunction(block, fun),
-  firstFunctional.FunctionalStatement_Defines(defstmt, var, _),
+  lastFunctional.FunctionalStatement_Defines(defstmt, var, _),
   IRStatement_Block(defstmt, defBlock),
   IRInFunction(defBlock, fun),
-  firstFunctional.Variable_Block_String(var, defBlock, var_rep).
+  lastFunctional.Variable_Block_String(var, defBlock, var_rep).
 
 // Case 3.1: Phis using args
 TAC_Use(phiStmt, as(var_rep, TACVariable), -1) :-
   PHILocation(block, stackIndex, phiStmt),
-  firstFunctional.FunctionalBlockInputContents(block, stackIndex, var),
-  firstFunctional.FunctionArgument(_, _, var),
-  firstFunctional.Variable_String(var, var_rep).
+  lastFunctional.FunctionalBlockInputContents(block, stackIndex, var),
+  lastFunctional.FunctionArgument(_, _, var),
+  lastFunctional.Variable_String(var, var_rep).
 
 
 // Case 4: Uses polymorphic variable
 TAC_Use(stmt, as(phiStmt, TACVariable), n) :-
-  firstFunctional.FunctionalStatement_Uses_Local(stmt, stackIndex, n),
+  lastFunctional.FunctionalStatement_Uses_Local(stmt, stackIndex, n),
   CheckIsStackIndex(stackIndex),
   IRStatement_Block(stmt, block),
   PHILocation(block, stackIndex, phiStmt).
@@ -261,15 +268,15 @@ TAC_Block(phiStmt, block) :-
 .output FormalArgs
 
 FormalArgs(func, as(var_rep, TACVariable), n) :-
-   firstFunctional.FunctionArgument(func, n, var),
-   firstFunctional.Variable_String(var, var_rep).
+   lastFunctional.FunctionArgument(func, n, var),
+   lastFunctional.Variable_String(var, var_rep).
 
 .decl ActualReturnArgs(caller:IRBlock, var_rep:symbol, n:number)
 .output ActualReturnArgs
 
 ActualReturnArgs(caller, var_rep, n) :-
-   firstFunctional.FunctionCallReturnArgument(caller, n, var),
-   firstFunctional.Variable_Block_String(var, caller, var_rep).
+   lastFunctional.FunctionCallReturnArgument(caller, n, var),
+   lastFunctional.Variable_Block_String(var, caller, var_rep).
 
 .output LocalBlockEdge
 .output IRFallthroughEdge
@@ -291,12 +298,12 @@ IRInFunctionFiltered(block, func):-
 .decl PRE_TAC_Statement_Next(stmt: Statement, next: Statement)
 
 PRE_TAC_Statement_Next(stmt, next) :-
-   postTrans.Statement_Next(stmt, next).
+   dupIntr.Statement_Next(stmt, next).
 
 PRE_TAC_Statement_Next(stmt, nextnext) :-
   PRE_TAC_Statement_Next(stmt, next),
   PRE_TAC_Statement_Next(next, nextnext),
-  postTrans.TACNOP(next).
+  dupIntr.TACNOP(next).
 
 
 /// WARNING: This only works intra-procedurally after the Functional IR conversion.
@@ -316,7 +323,7 @@ TAC_Statement_Next(irstmt, irnext) :-
 TAC_Block_Head(block, irstmt) :-
    TAC_Block(irstmt, block),
    Statement_IRStatement(stmt, _, irstmt),
-   postTrans.IsBasicBlockHead(stmt).
+   dupIntr.IsBasicBlockHead(stmt).
 
 // TODO: Account for cloning. Shouldn't matter as it's all low-level stuff
 .decl TAC_Statement_OriginalStatement(irstmt: IRStatement, stmt: Statement)
@@ -359,14 +366,14 @@ TAC_Statement_InlineInfo(irStmt, nil):-
 
 // unmodified statements
 TAC_OriginalStatement_Block(stmt, irblock) :-
-  postTrans.Statement_Block(_, block),
+  dupIntr.Statement_Block(_, block),
   preTrans.Statement_Block(stmt, block),
   Block_IRBlock(block, _, irblock).
 
 
 // tracks statements that have been placed into generated blocks
 TAC_OriginalStatement_Block(stmt, irblock) :-
-  postTrans.Statement_Block(stmt, block),
+  dupIntr.Statement_Block(stmt, block),
   !preTrans.Statement_Block(_, block),
   preTrans.Statement_Block(stmt, _),
   Block_IRBlock(block, _, irblock).
@@ -374,10 +381,10 @@ TAC_OriginalStatement_Block(stmt, irblock) :-
 // tracks deleted statements where their old block was also changed
 TAC_OriginalStatement_Block(stmt, irblock) :-
   preTrans.Statement_Block(stmt, block),
-  !postTrans.Statement_Block(stmt, _),
-  !postTrans.Statement_Block(_, block),
+  !dupIntr.Statement_Block(stmt, _),
+  !dupIntr.Statement_Block(_, block),
   preTrans.Statement_Block(otherStmt, block),
-  postTrans.Statement_Block(otherStmt, genBlock),
+  dupIntr.Statement_Block(otherStmt, genBlock),
   Block_IRBlock(genBlock, _, irblock).
 
 .decl TAC_Block_CodeChunkAccessed(irblock: IRBlock, chunk_id: Chunk)
