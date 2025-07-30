@@ -1230,6 +1230,8 @@ DEBUG_OUTPUT(PHIVar_DefBlockToUseBlock)
 PHIVar_DefBlockToUseBlock(defBlock, useBlock, var, stackIndex):-
   FunctionalBlockUsesPHIVar(useBlock, var, stackIndex),
   firstFunctional.FunctionalStatement_Defines(defStmt, var, _),
+  IRInFunction(useBlock, func),
+  IRInFunction(defBlock, func),
   IRStatement_Block(defStmt, defBlock).
 
 PHIVar_DefBlockToUseBlock(entry, useBlock, var, stackIndex):-
@@ -1244,7 +1246,8 @@ DEBUG_OUTPUT(DefBlockToUseBlockPathInterm)
 
 DefBlockToUseBlockPathInterm(from, to, from, initPath):-
   PHIVar_DefBlockToUseBlock(from, to, _, _),
-  initPath = as(from, Path).
+  initPath = as("", Path).
+  // initPath = as(from, Path).
 
 DefBlockToUseBlockPathInterm(from, to, next, newPath):-
   DefBlockToUseBlockPathInterm(from, to, cur, prevPath),
@@ -1270,6 +1273,20 @@ PHIVarInformationLoss(useBlock, var, stackIndex):-
   DefBlockToUseBlockPath(defBlock, useBlock, path),
   PHIVar_DefBlockToUseBlock(otherDefBlock, useBlock, otherVar, stackIndex), otherVar != var,
   DefBlockToUseBlockPath(otherDefBlock, useBlock, path).
+
+PHIVarInformationLoss(useBlock, var, stackIndex):-
+  PHIVar_DefBlockToUseBlock(defBlock, useBlock, var, stackIndex),
+  DefBlockToUseBlockPath(defBlock, useBlock, path),
+  PHIVar_DefBlockToUseBlock(otherDefBlock, useBlock, otherVar, stackIndex), otherVar != var,
+  DefBlockToUseBlockPath(otherDefBlock, useBlock, otherPath), path != otherPath,
+  contains(path, otherPath), otherPath != "", path != "".
+
+PHIVarInformationLoss(useBlock, otherVar, stackIndex):-
+  PHIVar_DefBlockToUseBlock(defBlock, useBlock, var, stackIndex),
+  DefBlockToUseBlockPath(defBlock, useBlock, path),
+  PHIVar_DefBlockToUseBlock(otherDefBlock, useBlock, otherVar, stackIndex), otherVar != var,
+  DefBlockToUseBlockPath(otherDefBlock, useBlock, otherPath), path != otherPath,
+  contains(path, otherPath), otherPath != "", path != "".
 
 .decl DUPTouchesPHIWithLoss(dup: IRStatement, useVar: Variable)
 DEBUG_OUTPUT(DUPTouchesPHIWithLoss)
