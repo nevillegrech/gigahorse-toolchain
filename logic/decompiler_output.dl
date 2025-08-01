@@ -140,6 +140,7 @@ TAC_Op(irstmt, op) :-
    !DeadStmt(irstmt),
    !IRTACNOP(irstmt),
    !OpcodeIsDup(op),
+   !OpcodeIsSwap(op),
    !dupIntr.PushValue(stmt, _),
    !dupIntr.PC(stmt),
    !dupIntr.PUSH0(stmt),
@@ -155,7 +156,7 @@ TAC_Op(irstmt, "CONST") :-
 
 TAC_Op(irstmt, "MOV") :-
    IRStatement_Opcode(irstmt, op),
-   OpcodeIsDup(op),
+   (OpcodeIsDup(op); OpcodeIsSwap(op)),
    !IRTACNOP(irstmt).
 
 

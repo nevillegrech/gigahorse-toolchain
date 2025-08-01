@@ -1301,6 +1301,15 @@ DUPTouchesPHIWithLoss(stmt, var):-
   firstFunctional.IRBeforeLocalStackContents(stmt, n - 1, index),
   firstFunctional.FunctionalBlockInputContents(block, index, var).
 
+DUPTouchesPHIWithLoss(stmt, var):-
+  PHIVarInformationLoss(useBlock, var, ogStackIndex),
+  PHIVar_DefBlockToUseBlock(defBlock, useBlock, var, ogStackIndex),
+  DefBlockToUseBlockPathInterm(defBlock, useBlock, block, prevPath),
+  IRStatement_Block(stmt, block),
+  IRStatement_Opcode(stmt, opcode),
+  postTrans.SWAPN(opcode, n),
+  firstFunctional.IRBeforeLocalStackContents(stmt, n, index),
+  firstFunctional.FunctionalBlockInputContents(block, index, var).
 
 .init dupIntr = PostTransLocalAnalysis
 COPY_CODE_FULL(dupIntr, postTrans)

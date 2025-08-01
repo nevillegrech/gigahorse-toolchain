@@ -368,12 +368,17 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
     SWAPN(opcode, n).
      
   // SWAP
-  LocalStackContents(stmt, n, variable0),
-  LocalStackContents(stmt, 0, variableN) :-
+  LocalStackContents(stmt, n, variable0):-
     BeforeSwapLocalStackContents(stmt, n, n, variableN),
     BeforeSwapLocalStackContents(stmt, n, 0, variable0).
     .plan 1:(2,1)
-  
+
+  LocalStackContents(stmt, 0, variableN) :-
+    BeforeSwapLocalStackContents(stmt, n, n, variableN),
+    BeforeSwapLocalStackContents(stmt, n, 0, variable0),
+    TACNOP(stmt).
+    .plan 1:(2,1,3)
+
   LocalStackContents(stmt, m, other) :-
     BeforeSwapLocalStackContents(stmt, n, m, other),
     IsStackIndexLessThan(m, n), m > 0.
@@ -452,6 +457,7 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
      Statement_Opcode(stmt, opcode),
      !TACNOP(stmt),
      !OpcodeIsDup(opcode),
+     !OpcodeIsSwap(opcode),
      OpcodePopWords(opcode, m),
      IsStackIndexLessThan(n, m),
      BeforeLocalStackContents(stmt, n, varOrStackIndex).
@@ -461,6 +467,12 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
     DUPN(opcode, n),
     !TACNOP(stmt),
     BeforeLocalStackContents(stmt, n - 1, varOrStackIndex).
+
+  Statement_Uses_Local(stmt, varOrStackIndex, 0):-
+    Statement_Opcode(stmt, opcode),
+    SWAPN(opcode, n),
+    !TACNOP(stmt),
+    BeforeLocalStackContents(stmt, n, varOrStackIndex).
 
   // Identify low-level blocks that will always REVERT
   .decl BlockWillRevert(revertBlock: Block)
