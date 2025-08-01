@@ -1219,7 +1219,7 @@ FunctionalBlockUsesPHIVar(block, var, stackIndex):-
   NumberOfFunctionReturnArguments(func, n_out),
   firstFunctional.IRBeforeLocalStackContents(stmt, n, stackIndex),
   CheckIsStackIndex(stackIndex),
-  IsStackIndexLessThan(n, n_out),
+  IsStackIndexLessThan(n, n_out + 1),
   firstFunctional.FunctionalBlockInputContents(block, stackIndex, var),
   firstFunctional.FunctionalBlockInputContents(block, stackIndex, otherVar), var!= otherVar.
 
