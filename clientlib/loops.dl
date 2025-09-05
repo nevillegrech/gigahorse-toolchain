@@ -54,6 +54,7 @@ LoopExitCond(condVar, loop) :-
    JUMPI(jmpi, _, condVar),
    LocalBlockEdge(jmpiBlock, out),
    !BlockInStructuredLoop(out, loop),
+   !ThrowBlock(out),
    LocalBlockEdge(jmpiBlock, in),
    BlockInStructuredLoop(in, loop).
 
@@ -64,6 +65,7 @@ LoopExitCondPredicateTrue(condVar, loop, jmpiBlock) :-
    JUMPI(jmpi, _, condVar),
    LocalBlockEdge(jmpiBlock, out),
    !BlockInStructuredLoop(out, loop),
+   !ThrowBlock(out),
    FallthroughEdge(jmpiBlock, in),
    BlockInStructuredLoop(in, loop).
 
@@ -73,6 +75,7 @@ LoopExitCondPredicateFalse(condVar, loop, jmpiBlock) :-
    JUMPI(jmpi, _, condVar),
    FallthroughEdge(jmpiBlock, out),
    !BlockInStructuredLoop(out, loop),
+   !ThrowBlock(out),
    LocalBlockEdge(jmpiBlock, in),
    BlockInStructuredLoop(in, loop).
 
