@@ -123,6 +123,18 @@ StructAllocationCheck(structBase):-
   ControlsWith(jmpi, throwBlock, condVar),
   ThrowBlock(throwBlock).
 
+StructAllocationCheck(structBase):-
+  PossibleStructAllocation(_, freePtrUpdStore, structBase, _),
+  MSTORE(freePtrUpdStore, _, storedVar),
+  LT(_, storedVar, structBase, pt1),
+  GT(_, storedVar, memLimitVar, pt2),
+  Variable_Value(memLimitVar, "0xffffffffffffffff"),
+  (OR(_, pt1, pt2, condVar); OR(_, pt2, pt1, condVar)),
+  ISZERO(_, condVar, reversed),
+  JUMPI(jmpi, _, reversed),
+  ControlsWith(jmpi, throwBlock, reversed),
+  ThrowBlock(throwBlock).
+
 // Maybe not the best way to define it, may revisit
 .decl StructStoresInDifferentPaths(structBase: Variable)
 StructStoresInDifferentPaths(structBaseVar):-
