@@ -1268,20 +1268,19 @@ DefBlockToUseBlockPath(from, to, path):-
 .decl PHIVarInformationLoss(useBlock: IRBlock, useVar: Variable, stackIndex: StackIndex)
 DEBUG_OUTPUT(PHIVarInformationLoss)
 
+// both variables defined in same path
 PHIVarInformationLoss(useBlock, var, stackIndex):-
   PHIVar_DefBlockToUseBlock(defBlock, useBlock, var, stackIndex),
   DefBlockToUseBlockPath(defBlock, useBlock, path),
   PHIVar_DefBlockToUseBlock(otherDefBlock, useBlock, otherVar, stackIndex), otherVar != var,
   DefBlockToUseBlockPath(otherDefBlock, useBlock, path).
 
+/**
+  variable `otherVar` defined in subpath of `var`.
+  It can be useful but it also matches with loop induction variables.
+*/
+PHIVarInformationLoss(useBlock, otherVar, stackIndex),
 PHIVarInformationLoss(useBlock, var, stackIndex):-
-  PHIVar_DefBlockToUseBlock(defBlock, useBlock, var, stackIndex),
-  DefBlockToUseBlockPath(defBlock, useBlock, path),
-  PHIVar_DefBlockToUseBlock(otherDefBlock, useBlock, otherVar, stackIndex), otherVar != var,
-  DefBlockToUseBlockPath(otherDefBlock, useBlock, otherPath), path != otherPath,
-  contains(path, otherPath), otherPath != "", path != "".
-
-PHIVarInformationLoss(useBlock, otherVar, stackIndex):-
   PHIVar_DefBlockToUseBlock(defBlock, useBlock, var, stackIndex),
   DefBlockToUseBlockPath(defBlock, useBlock, path),
   PHIVar_DefBlockToUseBlock(otherDefBlock, useBlock, otherVar, stackIndex), otherVar != var,
@@ -1299,7 +1298,10 @@ DUPTouchesPHIWithLoss(stmt, var):-
   IRStatement_Opcode(stmt, opcode),
   postTrans.DUPN(opcode, n),
   firstFunctional.IRBeforeLocalStackContents(stmt, n - 1, index),
-  firstFunctional.FunctionalBlockInputContents(block, index, var).
+  firstFunctional.FunctionalBlockInputContents(block, index, var),
+  PHIVarInformationLoss(useBlock, otherVar, ogStackIndex),
+  var != otherVar, // ensure the otherVar is not also used, i.e. there is no phi at `index`
+  !firstFunctional.FunctionalBlockInputContents(block, index, otherVar).
 
 DUPTouchesPHIWithLoss(stmt, var):-
   PHIVarInformationLoss(useBlock, var, ogStackIndex),
@@ -1309,7 +1311,10 @@ DUPTouchesPHIWithLoss(stmt, var):-
   IRStatement_Opcode(stmt, opcode),
   postTrans.SWAPN(opcode, n),
   firstFunctional.IRBeforeLocalStackContents(stmt, n, index),
-  firstFunctional.FunctionalBlockInputContents(block, index, var).
+  firstFunctional.FunctionalBlockInputContents(block, index, var),
+  PHIVarInformationLoss(useBlock, otherVar, ogStackIndex),
+  var != otherVar, // ensure the otherVar is not also used, i.e. there is no phi at `index`
+  !firstFunctional.FunctionalBlockInputContents(block, index, otherVar).
 
 .init dupIntr = PostTransLocalAnalysis
 COPY_CODE_FULL(dupIntr, postTrans)
