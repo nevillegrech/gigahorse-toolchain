@@ -78,13 +78,13 @@ class AnalysisExecutor:
         timeouts = []
         err_filename = join(out_dir, os.path.basename(souffle_client) + '.err')
         if not self.interpreted:
-            err_file: Any = devnull
+            err_file: Any = open(err_filename, 'w')
             analysis_args = [
                 get_souffle_executable_path(self.cache_dir, souffle_client),
                 f"--facts={in_dir}", f"--output={out_dir}"
             ]
         else:
-            err_file = open(err_filename, 'w') # if self.debug else devnull
+            err_file = open(err_filename, 'w') if self.debug else devnull
             analysis_args = [
                 self.souffle_bin,
                 join(os.getcwd(), souffle_client),
