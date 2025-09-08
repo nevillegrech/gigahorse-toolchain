@@ -186,7 +186,7 @@ CastedAndShiftedVar(caller, caller, 0, 20):-
 // Hack
 CastedAndShiftedVar(caller, toVar, shiftedBy, 20):-
   CALLER(_, caller),
-  LShiftBytes(castedVar, toVar, shiftedBy).
+  LShiftBytes(caller, toVar, shiftedBy).
 
 VarsEqualOrMasked(var1, var1):-
   isVariable(var1).
