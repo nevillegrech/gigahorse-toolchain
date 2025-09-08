@@ -84,7 +84,7 @@ class AnalysisExecutor:
                 f"--facts={in_dir}", f"--output={out_dir}"
             ]
         else:
-            err_file = open(err_filename, 'w') if self.debug else devnull
+            err_file = open(err_filename, 'w') # if self.debug else devnull
             analysis_args = [
                 self.souffle_bin,
                 join(os.getcwd(), souffle_client),
@@ -94,11 +94,11 @@ class AnalysisExecutor:
 
         if run_process(analysis_args, self.calc_timeout(start_time, half), stderr=err_file) < 0:
             timeouts.append(souffle_client)
-        if self.debug and err_file != devnull:
+        if err_file != devnull:
             souffle_err = open(err_filename).read()
             # Used to be "Error:" to avoid reporting the file not found errors of souffle
             # However with souffle 2.4 they cause the program to stop so we have to report them as well
-            if any(s in souffle_err for s in ["Error", "core dumped", "Segmentation", "corrupted"]):
+            if any(s in souffle_err for s in ["Error", "error", "core dumped", "Segmentation", "segmentation", "corrupted"]):
                 errors.append(os.path.basename(souffle_client))
                 log(souffle_err)
         return errors, timeouts
