@@ -42,6 +42,14 @@ if not os.path.isfile(join(functor_path, 'libfunctors.so')):
 class TimeoutException(Exception):
     pass
 
+class DecompilationException(Exception):
+    """
+    Error during the execution of any fact-producing datalog executable.
+    This includes main decompiler, scalable fallback, inliner, and any pre clients.
+    Other errors are just output as `client_errors` on the produced json.
+    """
+    pass
+
 def set_memory_limit(memory_limit: int):
     resource.setrlimit(resource.RLIMIT_AS, (memory_limit, memory_limit))
 
@@ -345,10 +353,12 @@ class DecompilerFactGenerator(AbstractFactGenerator):
             # Create a symlink with a name starting with 'Verbatim_' to be added to results json
             os.symlink(join(work_dir, 'compiler_info.csv'), join(out_dir, 'Verbatim_compiler_info.csv'))
 
-        timeouts, _ = self.analysis_executor.run_clients(self.souffle_pre_clients, self.other_pre_clients, work_dir, work_dir, disassemble_start)
+        timeouts, errors = self.analysis_executor.run_clients(self.souffle_pre_clients, self.other_pre_clients, work_dir, work_dir, disassemble_start)
         if timeouts:
             # pre clients should be very light, should never happen
             raise TimeoutException()
+        if errors:
+            raise DecompilationException()
 
         write_context_depth_file(os.path.join(work_dir, 'MaxContextDepth.csv'), self.context_depth)
 
@@ -367,9 +377,11 @@ class DecompilerFactGenerator(AbstractFactGenerator):
 
     def run_decomp(self, contract_filename: str, in_dir: str, out_dir: str, start_time: float) -> str:
         config = "default"
-        def_timeouts, _ = self.analysis_executor.run_clients([DecompilerFactGenerator.decompiler_dl], [], in_dir, out_dir, start_time, not self.disable_scalable_fallback)
+        def_timeouts, def_errors = self.analysis_executor.run_clients([DecompilerFactGenerator.decompiler_dl], [], in_dir, out_dir, start_time, not self.disable_scalable_fallback)
 
-        if def_timeouts or not self.decomp_out_produced(out_dir):
+        if def_errors:
+            raise DecompilationException()
+        elif def_timeouts or not self.decomp_out_produced(out_dir):
             if self.disable_scalable_fallback:
                 raise TimeoutException()
             else:
@@ -377,8 +389,10 @@ class DecompilerFactGenerator(AbstractFactGenerator):
                 log(f"Using scalable fallback decompilation configuration for {os.path.split(contract_filename)[1]}")
                 write_context_depth_file(os.path.join(in_dir, 'MaxContextDepth.csv'), 10)
 
-                sca_timeouts, _ = self.analysis_executor.run_clients([DecompilerFactGenerator.fallback_scalable_decompiler_dl], [], in_dir, out_dir, start_time)
-                if not sca_timeouts and self.decomp_out_produced(out_dir):
+                sca_timeouts, sca_errors = self.analysis_executor.run_clients([DecompilerFactGenerator.fallback_scalable_decompiler_dl], [], in_dir, out_dir, start_time)
+                if sca_errors:
+                    raise DecompilationException()
+                elif not sca_timeouts and self.decomp_out_produced(out_dir):
                     config = "scalable"
                 else:
                     raise TimeoutException()

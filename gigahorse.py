@@ -16,7 +16,7 @@ import os
 
 # Local project imports
 from src.common import GIGAHORSE_DIR, DEFAULT_SOUFFLE_BIN, log
-from src.runners import test_souffle, get_souffle_executable_path, compile_datalog, AbstractFactGenerator, DecompilerFactGenerator, CustomFactGenerator, MixedFactGenerator, AnalysisExecutor, TimeoutException
+from src.runners import test_souffle, get_souffle_executable_path, compile_datalog, AbstractFactGenerator, DecompilerFactGenerator, CustomFactGenerator, MixedFactGenerator, AnalysisExecutor, TimeoutException, DecompilationException
 
 ## Constants
 
@@ -274,8 +274,10 @@ def analyze_contract(index: int, contract_filename: str, result_queue, fact_gene
 
             inline_start = time.time()
             if not args.disable_inline:
-                # ignore timeouts and errors here
-                analysis_executor.run_clients([DEFAULT_INLINER_DL]*DEFAULT_INLINER_ROUNDS, [], out_dir, out_dir, start_time)
+                # ignore timeouts here: if it happens, just continue to the clients
+                _, inl_errors = analysis_executor.run_clients([DEFAULT_INLINER_DL]*DEFAULT_INLINER_ROUNDS, [], out_dir, out_dir, start_time)
+                if inl_errors:
+                    raise DecompilationException()
 
             inline_time = time.time() - inline_start
 
@@ -306,7 +308,7 @@ def analyze_contract(index: int, contract_filename: str, result_queue, fact_gene
         analytics['client_timeouts'] = len(timeouts)
         analytics['bytecode_size'] = (len(bytecode) - 2)//2
         analytics['decompiler_config'] = decompiler_config
-        contract_msg = "{}: {:.36} completed in {:.2f} + {:.2f} + {:.2f} + {:.2f} secs.".format(
+        contract_msg = "{}: {:.46} completed in {:.2f} + {:.2f} + {:.2f} + {:.2f} secs.".format(
             index, contract_name, analytics['disassemble_time'],
             analytics['decomp_time'], analytics['inline_time'], analytics['client_time']
         )
@@ -325,8 +327,11 @@ def analyze_contract(index: int, contract_filename: str, result_queue, fact_gene
     except TimeoutException as e:
         result_queue.put((contract_name, [], ["TIMEOUT"], {}))
         log("{} timed out.".format(contract_name))
+    except DecompilationException as e:
+        log(f"Error during execution of decompilation binary: {e}")
+        result_queue.put((contract_name, [], ["ERROR"], {}))
     except Exception as e:
-        log(f"Error: {e}")
+        log(f"Other Error: {e}")
         result_queue.put((contract_name, [], ["ERROR"], {}))
 
 
