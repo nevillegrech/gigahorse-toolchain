@@ -1,4 +1,9 @@
 
+/**
+  Last resort decompilation configuration that should almost never time out.
+  Max context depth is defined in `src/runners.py`.
+*/
+
 #define CONTEXT_SENSITIVITY FinitePreciseContext
 
 #define MAX_STACK_HEIGHT 30
