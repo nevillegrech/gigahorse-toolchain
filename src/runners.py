@@ -307,6 +307,7 @@ class MixedFactGenerator(AbstractFactGenerator):
 class DecompilerFactGenerator(AbstractFactGenerator):
     decompiler_dl = join(GIGAHORSE_DIR, 'logic/main.dl')
     fallback_scalable_decompiler_dl = join(GIGAHORSE_DIR, 'logic/fallback_scalable.dl')
+    last_resort_decompiler_dl = join(GIGAHORSE_DIR, 'logic/last_resort.dl')
 
     context_depth: int
     disable_scalable_fallback: bool
@@ -371,7 +372,7 @@ class DecompilerFactGenerator(AbstractFactGenerator):
     def get_datalog_files(self) -> list[str]:
         datalog_files = self.souffle_pre_clients + [DecompilerFactGenerator.decompiler_dl]
         if not self.disable_scalable_fallback:
-            datalog_files += [DecompilerFactGenerator.fallback_scalable_decompiler_dl]
+            datalog_files += [DecompilerFactGenerator.fallback_scalable_decompiler_dl, DecompilerFactGenerator.last_resort_decompiler_dl]
 
         return datalog_files
 
@@ -389,9 +390,19 @@ class DecompilerFactGenerator(AbstractFactGenerator):
                 log(f"Using scalable fallback decompilation configuration for {os.path.split(contract_filename)[1]}")
                 write_context_depth_file(os.path.join(in_dir, 'MaxContextDepth.csv'), 10)
 
-                sca_timeouts, sca_errors = self.analysis_executor.run_clients([DecompilerFactGenerator.fallback_scalable_decompiler_dl], [], in_dir, out_dir, start_time)
+                sca_timeouts, sca_errors = self.analysis_executor.run_clients([DecompilerFactGenerator.fallback_scalable_decompiler_dl], [], in_dir, out_dir, start_time, half=True)
                 if sca_errors:
                     raise DecompilationException()
+                elif sca_timeouts:
+                    log(f"Using the last resort ultra scalable decompilation configuration for {os.path.split(contract_filename)[1]}")
+                    write_context_depth_file(os.path.join(in_dir, 'MaxContextDepth.csv'), 15)
+                    last_timeouts, last_errors = self.analysis_executor.run_clients([DecompilerFactGenerator.last_resort_decompiler_dl], [], in_dir, out_dir, start_time)
+                    if last_errors:
+                        raise DecompilationException()
+                    elif not last_timeouts and self.decomp_out_produced(out_dir):
+                        config = "last-resort"
+                    else:
+                        raise TimeoutException()
                 elif not sca_timeouts and self.decomp_out_produced(out_dir):
                     config = "scalable"
                 else:
