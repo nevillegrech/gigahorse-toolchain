@@ -387,7 +387,7 @@ class DecompilerFactGenerator(AbstractFactGenerator):
                 raise TimeoutException()
             else:
                 # Default using scalable fallback config
-                log(f"Using scalable fallback decompilation configuration for {os.path.split(contract_filename)[1]}")
+                log(f"Using the scalable fallback decompilation configuration for {os.path.split(contract_filename)[1]}")
                 write_context_depth_file(os.path.join(in_dir, 'MaxContextDepth.csv'), 10)
 
                 sca_timeouts, sca_errors = self.analysis_executor.run_clients([DecompilerFactGenerator.fallback_scalable_decompiler_dl], [], in_dir, out_dir, start_time, half=True)
@@ -395,7 +395,7 @@ class DecompilerFactGenerator(AbstractFactGenerator):
                     raise DecompilationException()
                 elif sca_timeouts:
                     log(f"Using the last resort ultra scalable decompilation configuration for {os.path.split(contract_filename)[1]}")
-                    write_context_depth_file(os.path.join(in_dir, 'MaxContextDepth.csv'), 15)
+                    write_context_depth_file(os.path.join(in_dir, 'MaxContextDepth.csv'), 10)
                     last_timeouts, last_errors = self.analysis_executor.run_clients([DecompilerFactGenerator.last_resort_decompiler_dl], [], in_dir, out_dir, start_time)
                     if last_errors:
                         raise DecompilationException()
