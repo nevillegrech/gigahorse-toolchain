@@ -16,6 +16,7 @@ import os
 
 # Local project imports
 from src.common import GIGAHORSE_DIR, DEFAULT_SOUFFLE_BIN, log
+from src.runners import MAIN_DECOMPILER_MAX_CONTEXT_DEPTH
 from src.runners import test_souffle, get_souffle_executable_path, compile_datalog, AbstractFactGenerator, DecompilerFactGenerator, CustomFactGenerator, MixedFactGenerator, AnalysisExecutor, TimeoutException, DecompilationException
 
 ## Constants
@@ -61,83 +62,67 @@ parser.add_argument(
 
 parser.add_argument("-S",
                     "--souffle_bin",
-                    nargs="?",
                     default=DEFAULT_SOUFFLE_BIN,
-                    const=DEFAULT_SOUFFLE_BIN,
                     metavar="BINARY",
-                    help="the location of the souffle binary.")
+                    help=f"The location of the souffle binary (default: {DEFAULT_SOUFFLE_BIN}).")
 
 parser.add_argument("-C",
                     "--client",
                     nargs="?",
                     default="",
-                    help="additional clients to run after decompilation.")
+                    help="Additional clients to run after decompilation.")
 
 parser.add_argument("-P",
                     "--pre-client",
                     nargs="?",
                     default="",
-                    help="additional clients to run before decompilation.")
+                    help="Additional clients to run before decompilation.")
 
 parser.add_argument("-r",
                     "--results_file",
-                    nargs="?",
                     default=DEFAULT_RESULTS_FILE,
-                    const=DEFAULT_RESULTS_FILE,
                     metavar="FILE",
-                    help="the location to write the results.")
+                    help=f"The location to write the results (default: {DEFAULT_RESULTS_FILE}).")
 
 parser.add_argument("-w",
                     "--working_dir",
-                    nargs="?",
                     default=TEMP_WORKING_DIR,
-                    const=TEMP_WORKING_DIR,
                     metavar="DIR",
-                    help="the location to were temporary files are placed.")
+                    help=f"The location to were temporary files are placed (default: {TEMP_WORKING_DIR}).")
 
 parser.add_argument('--cache_dir',
-                    nargs="?",
                     default=DEFAULT_CACHE_DIR,
-                    const=DEFAULT_CACHE_DIR,
                     metavar="DIR",
-                    help="the location to were temporary files are placed.")
+                    help=f"The location to were temporary files are placed (default: {DEFAULT_CACHE_DIR}).")
 
 
 parser.add_argument("-j",
                     "--jobs",
                     type=int,
-                    nargs="?",
                     default=DEFAULT_NUM_JOBS,
-                    const=DEFAULT_NUM_JOBS,
                     metavar="NUM",
-                    help="The number of subprocesses to run at once.")
+                    help=f"The number of subprocesses to run at once (default: {DEFAULT_NUM_JOBS}).")
 
 parser.add_argument("-k",
                     "--skip",
                     type=int,
-                    nargs="?",
                     default=0,
-                    const=0,
                     metavar="NUM",
-                    help="Skip the the analysis of the first NUM contracts.")
+                    help="Skip the the analysis of the first NUM contracts (default: 0).")
 
 parser.add_argument("-T",
                     "--timeout_secs",
                     type=int,
-                    nargs="?",
                     default=DEFAULT_TIMEOUT,
-                    const=DEFAULT_TIMEOUT,
                     metavar="SECONDS",
                     help="Forcibly halt decompilation/analysis of a single contact after "
-                         "the specified number of seconds. Separate timers for decompilation and anaysis.")
+                         "the specified number of seconds. Separate timers for decompilation and analysis.")
 
 parser.add_argument("--minimum_client_time",
                     type=int,
-                    nargs="?",
                     default=DEFAULT_MINIMUM_CLIENT_TIME,
-                    const=DEFAULT_MINIMUM_CLIENT_TIME,
                     metavar="SECONDS",
-                    help="Minimum time to allow each client to run.")
+                    help=f"Minimum time to allow each client to run (default: {DEFAULT_MINIMUM_CLIENT_TIME}).")
 
 parser.add_argument("-M",
                     "--souffle_macros",
@@ -591,9 +576,9 @@ if __name__ == "__main__":
     parser.add_argument("-cd",
                         "--context_depth",
                         type=int,
-                        nargs="?",
+                        default=MAIN_DECOMPILER_MAX_CONTEXT_DEPTH,
                         metavar="NUM",
-                        help="Override the maximum context depth for decompilation (default is 20).")
+                        help=f"Override the maximum context depth for decompilation (default is {MAIN_DECOMPILER_MAX_CONTEXT_DEPTH}).")
 
     parser.add_argument("--early_cloning",
                         action="store_true",
