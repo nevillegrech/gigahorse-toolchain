@@ -22,6 +22,10 @@ devnull = subprocess.DEVNULL
 DEFAULT_MEMORY_LIMIT = 50 * 1_000_000_000
 """Hard capped memory limit for analyses processes (50 GB)"""
 
+MAX_CONTEXT_DEPTH_INPUT_FILE = "MaxContextDepth.csv"
+MAIN_DECOMPILER_MAX_CONTEXT_DEPTH = 20
+FALLBACK_SCALABLE_MAX_CONTEXT_DEPTH = 10
+LAST_RESORT_MAX_CONTEXT_DEPTH = 10
 
 souffle_env = os.environ.copy()
 functor_path = join(GIGAHORSE_DIR, 'souffle-addon')
@@ -361,7 +365,7 @@ class DecompilerFactGenerator(AbstractFactGenerator):
         if errors:
             raise DecompilationException()
 
-        write_context_depth_file(os.path.join(work_dir, 'MaxContextDepth.csv'), self.context_depth)
+        write_context_depth_file(os.path.join(work_dir, MAX_CONTEXT_DEPTH_INPUT_FILE), self.context_depth)
 
         decomp_start = time.time()
 
@@ -388,14 +392,14 @@ class DecompilerFactGenerator(AbstractFactGenerator):
             else:
                 # Default using scalable fallback config
                 log(f"Using the scalable fallback decompilation configuration for {os.path.split(contract_filename)[1]}")
-                write_context_depth_file(os.path.join(in_dir, 'MaxContextDepth.csv'), 10)
+                write_context_depth_file(os.path.join(in_dir, MAX_CONTEXT_DEPTH_INPUT_FILE), FALLBACK_SCALABLE_MAX_CONTEXT_DEPTH)
 
                 sca_timeouts, sca_errors = self.analysis_executor.run_clients([DecompilerFactGenerator.fallback_scalable_decompiler_dl], [], in_dir, out_dir, start_time, half=True)
                 if sca_errors:
                     raise DecompilationException()
                 elif sca_timeouts:
                     log(f"Using the last resort ultra scalable decompilation configuration for {os.path.split(contract_filename)[1]}")
-                    write_context_depth_file(os.path.join(in_dir, 'MaxContextDepth.csv'), 10)
+                    write_context_depth_file(os.path.join(in_dir, MAX_CONTEXT_DEPTH_INPUT_FILE), LAST_RESORT_MAX_CONTEXT_DEPTH)
                     last_timeouts, last_errors = self.analysis_executor.run_clients([DecompilerFactGenerator.last_resort_decompiler_dl], [], in_dir, out_dir, start_time)
                     if last_errors:
                         raise DecompilationException()
