@@ -59,13 +59,13 @@ DEBUG_OUTPUT(LoopNext)
 .decl LoopNextBase(loop: Block, next: Block)
 // Internal relation: Loop exits to a terminating (with regards to the current function) block 
 // (revert, exit, returnprivate, return)
-.decl LoopToTerminatingBlock(loop: Block, revertBlock: Block)
+.decl LoopToTerminatingBlock(loop: Block, termBlock: Block)
 
 LoopNext(loop, next):-
   LoopNextBase(loop, next).
 
-LoopNext(loop, revertBlock):-
-  LoopToTerminatingBlock(loop, revertBlock),
+LoopNext(loop, termBlock):-
+  LoopToTerminatingBlock(loop, termBlock),
   !LoopNextBase(loop, _).
 
 LoopNextBase(loop, out):-
@@ -77,12 +77,12 @@ LoopNextBase(loop, out):-
   !ThrowBlock(out),
   !FunctionExit(out).
 
-LoopToTerminatingBlock(loop, revertBlock):-
+LoopToTerminatingBlock(loop, termBlock):-
   BlockInStructuredLoopBase(jmpiBlock, loop),
   Block_Tail(jmpiBlock, jmpi),
   JUMPI(jmpi, _, _),
-  LocalBlockEdge(jmpiBlock, revertBlock),
-  ThrowBlock(revertBlock).
+  LocalBlockEdge(jmpiBlock, termBlock),
+  (ThrowBlock(termBlock); FunctionExit(termBlock)).
 
 /**
   Loops that can be expressed using high-level control-flow
@@ -127,6 +127,9 @@ LoopExitCondPredicateTrue(condVar, loop, jmpiBlock) :-
    FallthroughEdge(jmpiBlock, in),
    BlockInStructuredLoopBase(in, loop).
 
+DEBUG_OUTPUT(LoopExitCond)
+DEBUG_OUTPUT(LoopExitCondPredicateTrue)
+DEBUG_OUTPUT(LoopExitCondPredicateFalse)
 LoopExitCondPredicateFalse(condVar, loop, jmpiBlock) :-
    BlockInStructuredLoopBase(jmpiBlock, loop),
    Block_Tail(jmpiBlock, jmpi),
