@@ -25,7 +25,7 @@ Analytics_Loop(loop):-
 
 Analytics_NonHighLevelLoop(loop):-
   Analytics_Loop(loop),
-  1 != count : LoopNext(loop, _).
+  !HighLevelLoop(loop).
 
 Analytics_NonHighLevelLoop(loop):-
   Analytics_Loop(loop),
@@ -33,8 +33,8 @@ Analytics_NonHighLevelLoop(loop):-
 
 Analytics_LoopWithManyExits(loop):-
   Analytics_Loop(loop),
-  0 = count: {BlockInStructuredLoop(block, loop), JumpToMany(block)},
-  1 != count : LoopNext(loop, _).
+  !HighLevelLoop(loop),
+  0 = count: {BlockInStructuredLoop(block, loop), JumpToMany(block)}.
 
 .decl JumpToMany(block: Block)
 JumpToMany(block):-

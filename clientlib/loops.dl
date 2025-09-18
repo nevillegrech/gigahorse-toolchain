@@ -13,7 +13,7 @@ StructuredLoopHead(to) :-
 // Detect a loop body *without* also capturing surrounding loops (i.e., not just SCC)
 .decl BlockInStructuredLoop(s: Block, loophead: Block)
 /**
-  Base of above relation, excluding reverting statements inside the loop
+  Base of above relation, excluding terminating statements inside the loop
 */
 .decl BlockInStructuredLoopBase(s: Block, loophead: Block)
 
@@ -29,16 +29,16 @@ BlockInStructuredLoopBase(s, loophead) :-
 BlockInStructuredLoop(block, loop):-
   BlockInStructuredLoopBase(block, loop).
 
-// If non reverting loop exit exists, consider reverting ones part of the loop
-BlockInStructuredLoop(revertBlock, loop):-
+// If non terminating loop exit exists, consider terminating ones part of the loop
+BlockInStructuredLoop(termBlock, loop):-
   LoopNextBase(loop, _),
-  LoopToRevert(loop, revertBlock).
+  LoopToTerminatingBlock(loop, termBlock).
 
-BlockInStructuredLoop(revertBlock, loop):-
+BlockInStructuredLoop(termBlock, loop):-
   LoopNextBase(loop, _),
-  LoopToRevert(loop, revertOne),
+  LoopToTerminatingBlock(loop, termOne),
   // reverts can span across multiple blocks (connected via direct jumps)
-  LocalBlockPath(revertOne, revertBlock).
+  LocalBlockPath(termOne, termBlock).
 
 .decl StatementInStructuredLoop(s: Statement, loop: Block)
 StatementInStructuredLoop(s, loop) :-
@@ -49,22 +49,23 @@ StatementInStructuredLoop(s, loop) :-
 /**
   Block that will be executed after the loop completes.
   We first define `LoopNextBase` as an exit to a non-terminating block.  
-  If such a fact exists, we consider it `LoopNext` and "exits" to reverting blocks as part of the loop.  
-  If no such fact is produced we consider exits to reverting blocks as `LoopNext` facts.
+  If such a fact exists, we consider it `LoopNext` and "exits" to terminating blocks as part of the loop.  
+  If no such fact is produced we consider exits to terminating blocks as `LoopNext` facts.
   (This mostly covers cases where a revert message is copied using a loop, followed by a `REVERT`).
 */
 .decl LoopNext(loop: Block, next: Block)
 DEBUG_OUTPUT(LoopNext)
 // Internal relation: Loop exits to a non-terminating block
 .decl LoopNextBase(loop: Block, next: Block)
-// Internal relation: Loop exits to a reverting block
-.decl LoopToRevert(loop: Block, revertBlock: Block)
+// Internal relation: Loop exits to a terminating (with regards to the current function) block 
+// (revert, exit, returnprivate, return)
+.decl LoopToTerminatingBlock(loop: Block, revertBlock: Block)
 
 LoopNext(loop, next):-
   LoopNextBase(loop, next).
 
 LoopNext(loop, revertBlock):-
-  LoopToRevert(loop, revertBlock),
+  LoopToTerminatingBlock(loop, revertBlock),
   !LoopNextBase(loop, _).
 
 LoopNextBase(loop, out):-
@@ -73,14 +74,34 @@ LoopNextBase(loop, out):-
   JUMPI(jmpi, _, _),
   LocalBlockEdge(jmpiBlock, out),
   !BlockInStructuredLoopBase(out, loop),
-  !ThrowBlock(out).
+  !ThrowBlock(out),
+  !FunctionExit(out).
 
-LoopToRevert(loop, revertBlock):-
+LoopToTerminatingBlock(loop, revertBlock):-
   BlockInStructuredLoopBase(jmpiBlock, loop),
   Block_Tail(jmpiBlock, jmpi),
   JUMPI(jmpi, _, _),
   LocalBlockEdge(jmpiBlock, revertBlock),
   ThrowBlock(revertBlock).
+
+/**
+  Loops that can be expressed using high-level control-flow
+*/
+.decl HighLevelLoop(loop: Block)
+HighLevelLoop(loop):-
+  BlockInStructuredLoop(_, loop),
+  1 = count : LoopNext(loop, _).
+
+/**
+  We consider it a high-level loop if it has more than one next blocks
+  but all are terminating ones.
+*/
+HighLevelLoop(loop):-
+  BlockInStructuredLoop(_, loop),
+  n_next = count : LoopNext(loop, _),
+  n_next > 1,
+  n_next_term = count : LoopToTerminatingBlock(loop, _),
+  n_next_term = n_next.
 
 // condVar determines whether a loop is exited
 .decl LoopExitCond(condVar: Variable, loop: Block)
