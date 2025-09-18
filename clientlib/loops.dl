@@ -75,14 +75,14 @@ LoopNextBase(loop, out):-
   LocalBlockEdge(jmpiBlock, out),
   !BlockInStructuredLoopBase(out, loop),
   !ThrowBlock(out),
-  !FunctionExit(out).
+  !BlockTerminates(out).
 
 LoopToTerminatingBlock(loop, termBlock):-
   BlockInStructuredLoopBase(jmpiBlock, loop),
   Block_Tail(jmpiBlock, jmpi),
   JUMPI(jmpi, _, _),
   LocalBlockEdge(jmpiBlock, termBlock),
-  (ThrowBlock(termBlock); FunctionExit(termBlock)).
+  (ThrowBlock(termBlock); BlockTerminates(termBlock)).
 
 /**
   Loops that can be expressed using high-level control-flow

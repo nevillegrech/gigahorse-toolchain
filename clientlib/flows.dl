@@ -300,6 +300,16 @@ ThrowBlock(block) :-
    !NonLinearEdge(block),
    ThrowBlock(next).
 
+// if `block` is reached, function will execution *will* end up terminating (in a following block)
+.decl BlockTerminates(block: Block)
+BlockTerminates(block):-
+  FunctionExit(block).
+
+BlockTerminates(block) :-
+   GlobalBlockEdge(block, next),
+   !NonLinearEdge(block),
+   BlockTerminates(next).
+
 .decl AddResult(b: Variable, d: Variable)
 
 AddResult(b, d) :-
