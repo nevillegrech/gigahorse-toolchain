@@ -17,12 +17,36 @@
 .decl Analytics_NonHighLevelLoop(loop: Block)
 .output Analytics_NonHighLevelLoop
 
+.decl Analytics_LoopWithManyExits(loop: Block)
+.output Analytics_LoopWithManyExits
+
 Analytics_Loop(loop):-
   BlockInStructuredLoop(_, loop).
 
 Analytics_NonHighLevelLoop(loop):-
   Analytics_Loop(loop),
   1 != count : LoopNext(loop, _).
+
+Analytics_NonHighLevelLoop(loop):-
+  Analytics_Loop(loop),
+  0 != count: {BlockInStructuredLoop(block, loop), JumpToMany(block)}.
+
+Analytics_LoopWithManyExits(loop):-
+  Analytics_Loop(loop),
+  0 = count: {BlockInStructuredLoop(block, loop), JumpToMany(block)},
+  1 != count : LoopNext(loop, _).
+
+.decl JumpToMany(block: Block)
+JumpToMany(block):-
+  (Statement_Opcode(jump, "JUMP");
+  Statement_Opcode(jump, "CALLPRIVATE")),
+  Statement_Block(jump, block),
+  nEdges = count : LocalBlockEdge(block, _), nEdges > 1.
+
+JumpToMany(block):-
+  Statement_Opcode(jump, "JUMPI"),
+  Statement_Block(jump, block),
+  nEdges = count : LocalBlockEdge(block, _), nEdges > 2.
 
 /**
  * Memory Modeling

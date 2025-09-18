@@ -87,8 +87,6 @@ LoopToRevert(loop, revertBlock):-
 .decl LoopExitCondPredicateTrue(condVar: Variable, loop: Block, if_head: Block)
 .decl LoopExitCondPredicateFalse(condVar: Variable, loop: Block, if_head: Block)
 
-// control flows to other block within the same function
-// TODO: need more info on consequent and alternative branches
 LoopExitCond(condVar, loop) :-
    BlockInStructuredLoopBase(jmpiBlock, loop),
    Block_Tail(jmpiBlock, jmpi),
