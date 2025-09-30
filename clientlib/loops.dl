@@ -111,7 +111,7 @@ LoopToRevertingBlock(loop, termBlock):-
   Block_Tail(jmpiBlock, jmpi),
   JUMPI(jmpi, _, _),
   LocalBlockEdge(jmpiBlock, termBlock),
-  (ThrowBlock(termBlock); BlockMustThrow(out)).
+  (ThrowBlock(termBlock); BlockMustThrow(termBlock)).
 
 LoopToExitingBlock(loop, termBlock):-
   BlockInStructuredLoopBase(jmpiBlock, loop),
