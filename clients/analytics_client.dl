@@ -14,9 +14,14 @@
 .decl Analytics_Loop(loop: Block)
 .output Analytics_Loop
 
+// Loop has not high-level control flow (i.e. many exits or jump to manys)
 .decl Analytics_NonHighLevelLoop(loop: Block)
 .output Analytics_NonHighLevelLoop
 
+/**
+  Loop has non high-level control flow (i.e. many exits), without having jump to manys 
+  This is the most useful analytic.
+*/
 .decl Analytics_LoopWithManyExits(loop: Block)
 .output Analytics_LoopWithManyExits
 

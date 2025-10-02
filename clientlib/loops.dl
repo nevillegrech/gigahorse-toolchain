@@ -199,7 +199,9 @@ LoopWithManyExitsHasAdditionalBlocks(loop, addBlock):-
   addBlock != divBlock.
 
 /**
-  Loops that can be expressed using high-level control-flow
+  Loops that can be expressed using high-level control-flow.
+  They have to have exactly 1 exit/next block or have many
+  but of the kinds that can be also part of the loop (returns, reverts, exits, etc)
 */
 .decl HighLevelLoop(loop: Block)
 HighLevelLoop(loop):-
@@ -217,6 +219,10 @@ HighLevelLoop(loop):-
   n_next_term = count : LoopToExitingBlock(loop, _),
   n_next_term = n_next.
 
+/**
+  We consider it a high-level loop if it has more than one next blocks
+  but all are reverting ones.
+*/
 HighLevelLoop(loop):-
   BlockInStructuredLoop(_, loop),
   n_next = count : LoopNext(loop, _),
