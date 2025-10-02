@@ -32,22 +32,26 @@ BlockInStructuredLoop(block, loop):-
 // If non terminating loop exit exists, consider terminating ones part of the loop
 BlockInStructuredLoop(termBlock, loop):-
   LoopNextBase(loop, _),
-  LoopToRevertingBlock(loop, termBlock).
-
-BlockInStructuredLoop(termBlock, loop):-
-  LoopNextBase(loop, _),
-  LoopToRevertingBlock(loop, termOne),
-  // reverts can span across multiple blocks (connected via direct jumps)
-  LocalBlockPath(termOne, termBlock).
-
-// If non terminating loop exit exists, consider terminating ones part of the loop
-BlockInStructuredLoop(termBlock, loop):-
-  LoopNextBase(loop, _),
   LoopToExitingBlock(loop, termBlock).
 
+// recursive case of the above
 BlockInStructuredLoop(termBlock, loop):-
   LoopNextBase(loop, _),
   LoopToExitingBlock(loop, termOne),
+  // reverts can span across multiple blocks (connected via direct jumps)
+  LocalBlockPath(termOne, termBlock).
+
+// If non-terminating or exiting loop exit exists, consider reverting ones part of the loop
+BlockInStructuredLoop(termBlock, loop):-
+  (LoopNextBase(loop, _);
+  LoopToExitingBlock(loop, _)),
+  LoopToRevertingBlock(loop, termBlock).
+
+// recursive case of the above
+BlockInStructuredLoop(termBlock, loop):-
+  (LoopNextBase(loop, _);
+  LoopToExitingBlock(loop, _)),
+  LoopToRevertingBlock(loop, termOne),
   // reverts can span across multiple blocks (connected via direct jumps)
   LocalBlockPath(termOne, termBlock).
 
@@ -115,7 +119,7 @@ LoopToRevertingBlock(loop, termBlock):-
   JUMPI(jmpi, _, _),
   LocalBlockEdge(jmpiBlock, termBlock),
   (ThrowBlock(termBlock); BlockMustThrow(termBlock)).
-
+.output LoopToExitingBlock, LoopToRevertingBlock
 LoopToExitingBlock(loop, termBlock):-
   BlockInStructuredLoopBase(jmpiBlock, loop),
   Block_Tail(jmpiBlock, jmpi),
