@@ -13,7 +13,7 @@ StructuredLoopHead(to) :-
 // Detect a loop body *without* also capturing surrounding loops (i.e., not just SCC)
 .decl BlockInStructuredLoop(s: Block, loophead: Block)
 /**
-  Base of above relation, excluding terminating statements inside the loop
+  Base of above relation, blocks that can reach the loop head
 */
 .decl BlockInStructuredLoopBase(s: Block, loophead: Block)
 
@@ -64,19 +64,20 @@ StatementInStructuredLoop(s, loop) :-
 
 /**
   Block that will be executed after the loop completes.
-  We first define `LoopNextBase` as an exit to a non-terminating block.  
+  We first define `LoopNextBase` as an exit to a non immediately terminating block.  
   If such a fact exists, we consider it `LoopNext` and "exits" to terminating blocks as part of the loop.  
   If no such fact is produced we consider exits to terminating blocks as `LoopNext` facts.
   (This mostly covers cases where a revert message is copied using a loop, followed by a `REVERT`).
 */
 .decl LoopNext(loop: Block, next: Block)
 DEBUG_OUTPUT(LoopNext)
-// Internal relation: Loop exits to a non-terminating block
+// Internal relation: Loop exits to a non immediately-terminating block
 .decl LoopNextBase(loop: Block, next: Block)
+DEBUG_OUTPUT(LoopNextBase)
 // Internal relation: Loop exits to a terminating (with regards to the current function) block 
 // (revert, exit, returnprivate, return)
 .decl LoopToExitingBlock(loop: Block, termBlock: Block)
-
+// Internal relation: Loop "exits" to a reverting block 
 .decl LoopToRevertingBlock(loop: Block, termBlock: Block)
 
 LoopNext(loop, next):-
@@ -87,10 +88,12 @@ LoopNext(loop, divBlock):-
   LoopNextBase(loop, _),
   LoopWithManyExitsHasSingleDivergingBlock(loop, divBlock).
 
+// exiting straight from a loop is the 2nd choice, if no `Base` fact exists
 LoopNext(loop, termBlock):-
   LoopToExitingBlock(loop, termBlock),
   !LoopNextBase(loop, _).
 
+// going from a loop to a revert is considered a Next if no exiting or `Base` facts exist
 LoopNext(loop, termBlock):-
   LoopToRevertingBlock(loop, termBlock),
   !LoopToExitingBlock(loop, _),
@@ -120,7 +123,13 @@ LoopToExitingBlock(loop, termBlock):-
   LocalBlockEdge(jmpiBlock, termBlock),
   BlockTerminates(termBlock).
 
+/**
+  The following relations are about 
+*/
 
+/**
+  Forward-only reachability.
+*/
 .decl LocalBlockPathExclBackEdges(from: Block, to: Block)
 LocalBlockPathExclBackEdges(block, block):-
   LocalBlockEdge(block, _);
@@ -162,12 +171,20 @@ LoopNextsDiverge(loop, divBlock):-
   Loop_BlockReachableFromNNexts(loop, otherBlock, m),
   m < n.
 
+/**
+  We try to resolve a single diverging block for loops with multiple
+  non immediately reverting/exiting exits. This is considered the `LoopNext`.
+*/
 .decl LoopWithManyExitsHasSingleDivergingBlock(loop: Block, divBlock: Block)
 LoopWithManyExitsHasSingleDivergingBlock(loop, divBlock):-
   LoopHasMultipleExitPoints(loop, _),
   LoopNextsDiverge(loop, divBlock),
   1 = count: LoopNextsDiverge(loop, _).
 
+/**
+  When `LoopWithManyExitsHasSingleDivergingBlock` holds, we find blocks from
+  `LoopNextBase` to the diverging block, to consider them part of the loop.
+*/
 .decl LoopWithManyExitsHasAdditionalBlocks(loop: Block, addBlock: Block)
 
 LoopWithManyExitsHasAdditionalBlocks(loop, addBlock):-
