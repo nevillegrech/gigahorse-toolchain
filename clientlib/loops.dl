@@ -176,7 +176,7 @@ LoopNextsConverge(loop, conBlock):-
   m < n.
 
 /**
-  We try to resolve a single diverging block for loops with multiple
+  We try to resolve a single convergence block for loops with multiple
   non immediately reverting/exiting exits. This is considered the `LoopNext`.
 */
 .decl LoopWithManyExitsHasSingleConvergenceBlock(loop: Block, conBlock: Block)
@@ -187,7 +187,7 @@ LoopWithManyExitsHasSingleConvergenceBlock(loop, conBlock):-
 
 /**
   When `LoopWithManyExitsHasSingleConvergenceBlock` holds, we find blocks from
-  `LoopNextBase` to the diverging block, to consider them part of the loop.
+  `LoopNextBase` to the convergence block, to consider them part of the loop.
 */
 .decl LoopWithManyExitsHasAdditionalBlocks(loop: Block, addBlock: Block)
 
