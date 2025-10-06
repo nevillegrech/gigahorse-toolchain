@@ -57,7 +57,7 @@ BlockInStructuredLoop(termBlock, loop):-
 
 
 BlockInStructuredLoop(addBlock, loop):-
-  LoopWithManyExitsHasSingleDivergingBlock(loop, _),
+  LoopWithManyExitsHasSingleConvergenceBlock(loop, _),
   LoopWithManyExitsHasAdditionalBlocks(loop, addBlock).
 
 .decl StatementInStructuredLoop(s: Statement, loop: Block)
@@ -86,11 +86,11 @@ DEBUG_OUTPUT(LoopNextBase)
 
 LoopNext(loop, next):-
   LoopNextBase(loop, next),
-  !LoopWithManyExitsHasSingleDivergingBlock(loop, _).
+  !LoopWithManyExitsHasSingleConvergenceBlock(loop, _).
 
-LoopNext(loop, divBlock):-
+LoopNext(loop, conBlock):-
   LoopNextBase(loop, _),
-  LoopWithManyExitsHasSingleDivergingBlock(loop, divBlock).
+  LoopWithManyExitsHasSingleConvergenceBlock(loop, conBlock).
 
 // exiting straight from a loop is the 2nd choice, if no `Base` fact exists
 LoopNext(loop, termBlock):-
@@ -166,12 +166,12 @@ Loop_BlockReachableFromNNexts(loop, block, n):-
   LoopNextReachesBlock(loop, _, block),
   n = count: LoopNextReachesBlock(loop, _, block).
 
-.decl LoopNextsDiverge(loop: Block, divBlock: Block)
-DEBUG_OUTPUT(LoopNextsDiverge)
-LoopNextsDiverge(loop, divBlock):-
+.decl LoopNextsConverge(loop: Block, conBlock: Block)
+DEBUG_OUTPUT(LoopNextsConverge)
+LoopNextsConverge(loop, conBlock):-
   LoopHasMultipleExitPoints(loop, n),
-  Loop_BlockReachableFromNNexts(loop, divBlock, n),
-  LocalBlockEdge(otherBlock, divBlock),
+  Loop_BlockReachableFromNNexts(loop, conBlock, n),
+  LocalBlockEdge(otherBlock, conBlock),
   Loop_BlockReachableFromNNexts(loop, otherBlock, m),
   m < n.
 
@@ -179,28 +179,28 @@ LoopNextsDiverge(loop, divBlock):-
   We try to resolve a single diverging block for loops with multiple
   non immediately reverting/exiting exits. This is considered the `LoopNext`.
 */
-.decl LoopWithManyExitsHasSingleDivergingBlock(loop: Block, divBlock: Block)
-LoopWithManyExitsHasSingleDivergingBlock(loop, divBlock):-
+.decl LoopWithManyExitsHasSingleConvergenceBlock(loop: Block, conBlock: Block)
+LoopWithManyExitsHasSingleConvergenceBlock(loop, conBlock):-
   LoopHasMultipleExitPoints(loop, _),
-  LoopNextsDiverge(loop, divBlock),
-  1 = count: LoopNextsDiverge(loop, _).
+  LoopNextsConverge(loop, conBlock),
+  1 = count: LoopNextsConverge(loop, _).
 
 /**
-  When `LoopWithManyExitsHasSingleDivergingBlock` holds, we find blocks from
+  When `LoopWithManyExitsHasSingleConvergenceBlock` holds, we find blocks from
   `LoopNextBase` to the diverging block, to consider them part of the loop.
 */
 .decl LoopWithManyExitsHasAdditionalBlocks(loop: Block, addBlock: Block)
 
 LoopWithManyExitsHasAdditionalBlocks(loop, addBlock):-
-  LoopWithManyExitsHasSingleDivergingBlock(loop, divBlock),
+  LoopWithManyExitsHasSingleConvergenceBlock(loop, conBlock),
   LoopNextBase(loop, addBlock),
-  addBlock != divBlock.
+  addBlock != conBlock.
 
 LoopWithManyExitsHasAdditionalBlocks(loop, addBlock):-
   LoopWithManyExitsHasAdditionalBlocks(loop, block),
-  LoopWithManyExitsHasSingleDivergingBlock(loop, divBlock),
+  LoopWithManyExitsHasSingleConvergenceBlock(loop, conBlock),
   LocalBlockEdge(block, addBlock),
-  addBlock != divBlock.
+  addBlock != conBlock.
 
 /**
   Loops that can be expressed using high-level control-flow.
