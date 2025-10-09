@@ -301,8 +301,9 @@ Variable_Function(v, f) :-
 // Basic block corresponding to a function's exit points
 .decl FunctionExit(block: Block)
 FunctionExit(block) :-
-   LocalBlockEdge(_, block),
-   !LocalBlockEdge(block, _).
+   Block_Tail(block, tail),
+   Statement_Opcode(tail, op),
+   (op = "RETURN"; op = "RETURNPRIVATE"; op = "EXIT").
 
 // Mapping `block`s to `function`s
 .decl InFunction(block: Block, function: Function)

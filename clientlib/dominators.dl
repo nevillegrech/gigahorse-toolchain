@@ -338,3 +338,48 @@ FunctionReachableFromPublic_Metadata(callee, selector, @list_append(callerStack,
   Block_Tail(callerBlock, callStmt),
   Statement_OriginalStatementList(callStmt, originalList),
   Statement_InlineInfo(callStmt, inlinedFuns).
+
+
+.decl UnconditionalLocalBlockEdge(from: Block, to: Block)
+.decl UnconditionalLocalBlockPath(from: Block, to: Block)
+
+UnconditionalLocalBlockEdge(from, to):-
+  LocalBlockEdge(from, to),
+  1 = count: LocalBlockEdge(from, _),
+  Block_Tail(from, tail),
+  !Statement_Opcode(tail, "JUMPI").
+
+UnconditionalLocalBlockEdge(from, to):-
+  LocalBlockEdge(from, to),
+  !Block_Tail(from, _).
+
+UnconditionalLocalBlockPath(block, block):-
+  Statement_Block(_, block);
+  LocalBlockEdge(block, _);
+  LocalBlockEdge(_, block).
+
+UnconditionalLocalBlockPath(from, to):-
+  UnconditionalLocalBlockPath(from, tmp),
+  UnconditionalLocalBlockEdge(tmp, to).
+
+
+.decl BlockMayThrow(block: Block)
+.decl BlockMayReturn(block: Block)
+.decl BlockMustThrow(block: Block)
+.decl BlockMustReturn(block: Block)
+
+BlockMayThrow(block):-
+  ThrowBlock(throw),
+  LocalBlockPath(block, throw).
+
+BlockMayReturn(block):-
+  FunctionExit(exit),
+  LocalBlockPath(block, exit).
+
+BlockMustThrow(block):-
+  BlockMayThrow(block),
+  !BlockMayReturn(block).
+
+BlockMustReturn(block):-
+  BlockMayReturn(block),
+  !BlockMayThrow(block).
