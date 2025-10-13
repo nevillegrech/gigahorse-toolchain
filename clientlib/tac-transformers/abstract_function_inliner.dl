@@ -75,6 +75,11 @@
     In_LocalBlockEdge(callerBlock, next2),
     next1 != next2.
 
+.decl FunCalledByDynamicCall(fun: Function)
+FunCalledByDynamicCall(fun):-
+  In_FunctionCallReturn(caller, fun, _),
+  In_DynamicPrivateCall(caller, _).
+
   /*
     Restriction ensures that the inlined functions have either a single return
     or no actual returned variables. Otherwise we'd need to add PHIs.
@@ -114,6 +119,7 @@
     (FunctionReturnRestriction(fun); FunctionMultiReturnRestriction(fun)),
     !FunHasArgMismatch(fun),
     !FunHasRetMismatch(fun),
+    !FunCalledByDynamicCall(fun),
     !FunCalledWithImpreciseControlFlow(fun).
 
   ThrowBlock(block):-
@@ -225,17 +231,50 @@
     In_IsFunction(fun),
     !FunctionToInline(fun).
 
+  .decl InliningWillResolveDynamicCall(outCall: Block, calledFun: Function)
+  DEBUG_OUTPUT(InlininangWillResolveDynamicCall)
+  InliningWillResolveDynamicCall(outCall, calledFun):-
+    In_DynamicPrivateCall(inCall, _),
+    In_FunctionCallReturn(inCall, calledFun, _),
+    ArgFlowsToDynamicPrivateCall(arg, inCall),
+    In_FormalArgs(func, arg, n),
+    FunctionToInline(func),
+    InBlock_OutBlock(inCall, inlinedCall, outCall),
+    In_ActualArgs(inlinedCall, actual, n),
+    In_Variable_Value(actual, as(calledFun, Value)).
+
   Out_CallGraphEdge(outBlock, fun):-
     In_CallGraphEdge(inBlock, fun),
     InBlock_OutBlock(inBlock, _, outBlock),
+    !InliningWillResolveDynamicCall(outBlock, _),
+    !FunctionToInline(fun).
+
+  Out_CallGraphEdge(outBlock, fun):-
+    In_CallGraphEdge(inBlock, fun),
+    InBlock_OutBlock(inBlock, _, outBlock),
+    InliningWillResolveDynamicCall(outBlock, fun),
     !FunctionToInline(fun).
 
   Out_FunctionCallReturn(outBlock, fun, outReturn):-
     In_FunctionCallReturn(inBlock, fun, inReturn),
     InBlock_OutBlock(inBlock, same, outBlock),
     InBlock_OutBlock(inReturn, same, outReturn),
+    !InliningWillResolveDynamicCall(outBlock, _),
     !FunctionToInline(fun).
-  
+
+  Out_FunctionCallReturn(outBlock, fun, outReturn):-
+    In_FunctionCallReturn(inBlock, fun, inReturn),
+    InBlock_OutBlock(inBlock, same, outBlock),
+    InBlock_OutBlock(inReturn, same, outReturn),
+    InliningWillResolveDynamicCall(outBlock, fun),
+    !FunctionToInline(fun).
+
+  Out_DynamicPrivateCall(outCaller, outTargetVar):-
+    In_DynamicPrivateCall(inCaller, inTargetVar),
+    InBlock_OutBlock(inCaller, same, outCaller),
+    InVar_OutVar(inTargetVar, same, outTargetVar),
+    !InliningWillResolveDynamicCall(outCaller, _).
+
   Out_Block_Gas(outBlock, gas):-
     In_Block_Gas(inBlock, gas),
     InBlock_OutBlock(inBlock, _, outBlock).
