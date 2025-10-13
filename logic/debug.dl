@@ -13,7 +13,7 @@
 .output PossibleNumberOfFunctionReturnArguments
 .output PossibleCombinedNumberOfFunctionReturnsAndArguments
 .output FunctionalBlockPopAndStackDelta, IRBlockStackDelta, IRBlockPopDelta
-.output FunctionalBlockInputContents, FunctionalBlockOutputContents, FunctionalStatement_Uses_Local
+
 .output InvalidIRBlockEdge
 .output NumberOfFunctionArguments
 .output NumberOfFunctionReturnArguments
