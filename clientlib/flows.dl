@@ -347,3 +347,9 @@ CallFailureControls(call, to) :-
 CallFailureControls(call, to) :-
    CallFailureControls(call, from),
    Dominates(from, to).
+
+.decl ArgFlowsToDynamicPrivateCall(arg: Variable, caller: Block)
+ArgFlowsToDynamicPrivateCall(arg, caller):-
+  DynamicPrivateCall(caller, target),
+  localFlowAnalysis.Flows(arg, target),
+  FormalArgs(_, arg, _).
