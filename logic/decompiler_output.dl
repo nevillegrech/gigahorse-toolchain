@@ -265,6 +265,18 @@ TAC_Block(phiStmt, block) :-
 .output IRPublicFunction(IO="file", filename = "PublicFunction.csv", delimiter = "\t")
 .output IsFunctionEntry(IO="file", filename="Function.csv", delimiter="\t")
 
+.decl IRDynamicPrivateCall(callerB: IRBlock, targetVar: TACVariable)
+.output IRDynamicPrivateCall
+
+IRDynamicPrivateCall(callerIRB, funcVar):-
+  IRFunctionCallReturn(callerIRB, func1, _),
+  IRFunctionCallReturn(callerIRB, func2, _),
+  func1 != func2,
+  Block_IRBlock(caller, func, callerIRB),
+  postTrans.BasicBlock_Tail(caller, callStmt),
+  Statement_IRStatement(callStmt, func, callIR),
+  TAC_Use(callIR, funcVar, 0).
+
 .decl FormalArgs(func:IRFunction, var:TACVariable, n:number)
 .output FormalArgs
 

@@ -11,6 +11,7 @@
   .decl In_FallthroughEdge(block: Block, nextBlock: Block)
   .decl In_CallGraphEdge(block: Block, function: Function)
   .decl In_FunctionCallReturn(block: Block, function: Function, return: Block)
+  .decl In_DynamicPrivateCall(caller: Block, targetVar: Variable)
   .decl In_IsFunction(func: Function)
   .decl In_Block_Gas(block:Block, gas:number)
   .decl In_Block_CodeChunkAccessed(block:Block, chunk:Chunk)
@@ -35,6 +36,7 @@
   .decl Out_FallthroughEdge(block: Block, nextBlock: Block)     //CHECK
   .decl Out_CallGraphEdge(block: Block, function: Function)            //CHECK
   .decl Out_FunctionCallReturn(block: Block, function: Function, return: Block)   //CHECK
+  .decl Out_DynamicPrivateCall(caller: Block, targetVar: Variable)
   .decl Out_IsFunction(func: Function)  //CHECK
   .decl Out_Block_Gas(block:Block, gas:number)  //CHECK
   .decl Out_Block_CodeChunkAccessed(block:Block, chunk:Chunk)  //CHECK
