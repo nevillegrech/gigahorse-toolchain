@@ -14,7 +14,7 @@ In summary, you need to have the following things installed on your system:
 
 - Z3, required for [souffle-addon](https://github.com/plast-lab/souffle-addon) (Can be installed on Debian with `apt install libz3-dev`)
 
-- Python 3.8 (Refer to standard documentation)
+- Python 3.10 (Refer to standard documentation)
 
 - Souffle 2.3 or 2.4.1 (We only test using the release versions, later development versions may work but are untested by us. The easiest way to install this is to use the release from https://github.com/souffle-lang/souffle/releases/tag/2.4.1). Refer to the Souffle [documentation](https://souffle-lang.github.io) for more information.
 
@@ -122,15 +122,21 @@ A common template for client analyses for decompiled bytecode is to create souff
 ## Uses of Gigahorse
 The Gigahorse toolchain was originally published as:
 
-- Grech, N., Brent, L., Scholz, B., Smaragdakis, Y. (2019), Gigahorse: Thorough, Declarative Decompilation of Smart Contracts. *In 41st ACM/IEEE International Conference on Software Engineering.*
+- Grech, N., Brent, L., Scholz, B., Smaragdakis, Y. (2019), Gigahorse: Thorough, Declarative Decompilation of Smart Contracts.  
+  *In 41st ACM/IEEE International Conference on Software Engineering.*
 
 Several novel developments to Gigahorse after the original publication have been published as:
 
-- Grech, N., Lagouvardos, S., Tsatiris, I., Smaragdakis, Y. (2022), Elipmoc: Advanced Decompilation of Ethereum Smart Contracts *Proceedings of the ACM in Programming Languages (OOPSLA).*
+- Grech, N., Lagouvardos, S., Tsatiris, I., Smaragdakis, Y. (2022), Elipmoc: Advanced Decompilation of Ethereum Smart Contracts  
+  *Proceedings of the ACM in Programming Languages (OOPSLA).*
+
+- Lagouvardos, S., Bollanos, Y., Grech, N., Smaragdakis, Y. (2025), The Incredible Shrinking Context... in a Decompiler Near You  
+  *Proceedings of the ACM in Software Engineering (ISSTA).*
 
 The analysis of EVM "memory" operations (`SHA3`, `xCALL`, `LOGx`, etc.) that is [bundled with Gigahorse](clientlib/memory_modeling/README.md) was published as:
 
--  Lagouvardos, S., Grech, N., Tsatiris, I., Smaragdakis, Y. (2020) Precise Static Modelling of Ethereum "Memory". *Proceedings of the ACM in Programming Languages (OOPSLA).*
+-  Lagouvardos, S., Grech, N., Tsatiris, I., Smaragdakis, Y. (2020) Precise Static Modelling of Ethereum "Memory".  
+   *Proceedings of the ACM in Programming Languages (OOPSLA).*
 
 In addition, other research tools have been developed on top of Gigahorse, including:
 

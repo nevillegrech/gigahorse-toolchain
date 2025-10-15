@@ -140,9 +140,24 @@ CastedAndShiftedVar(originVar, toVar, shiftedBy, 1):-
   BooleanCast(originVar, castedVar),
   LShiftBytes(castedVar, toVar, shiftedBy).
 
+CastedAndShiftedVar(checkedVar, toVar, shiftedBy, 1):-
+  RevertEnforcesEnum(checkedVar, _, _),
+  LShiftBytes(checkedVar, toVar, shiftedBy).
+
 HighBytesCastedAndRightShiftedVar(originVar, toVar, shiftedBy, castedTo):-
   HighBytesMaskOp(originVar, castedVar, castedTo),
   RShiftBytes(castedVar, toVar, shiftedBy).
+
+// TODO: Bounds check
+// HighBytesCastedAndRightShiftedVar(originVar, toVar, shiftedBy + moreShift, castedTo):-
+//   HighBytesCastedAndRightShiftedVar(originVar, tmpVar, shiftedBy, castedTo),
+//   RShiftBytes(tmpVar, toVar, moreShift).
+
+// TODO: Bounds check
+// HighBytesCastedAndRightShiftedVar(originVar, toVar, shiftedBy - moreShift, castedTo):-
+//   HighBytesCastedAndRightShiftedVar(originVar, tmpVar, shiftedBy, castedTo),
+//   LShiftBytes(tmpVar, toVar, moreShift).
+
 /**
   Optimized pattern like so:
     0xa4: va4 = SHL v9f(0xa0), v84
@@ -159,10 +174,19 @@ CastedAndShiftedVar(originVar, toVar, shiftedBy, castedTo):-
   castedTo = strlen(unshiftedMask)/2 - 1,
   as(@shl_256(shiftBits, unshiftedMask), Value) = shiftedMask.
 
+// Recursive case, when a variable is recasted after being shifted
+CastedAndShiftedVar(originVar, reCastedVar, shiftedBy, castedTo):-
+  CastedAndShiftedVar(originVar, castedNShifted, shiftedBy, castedTo),
+  ByteMaskOpKeepRange(castedNShifted, reCastedVar, [shiftedBy, shiftedBy + castedTo - 1]).
+
 // Hack
 CastedAndShiftedVar(caller, caller, 0, 20):-
   CALLER(_, caller).
 
+// Hack
+CastedAndShiftedVar(caller, toVar, shiftedBy, 20):-
+  CALLER(_, caller),
+  LShiftBytes(caller, toVar, shiftedBy).
 
 VarsEqualOrMasked(var1, var1):-
   isVariable(var1).
@@ -344,3 +368,92 @@ PreMask_Length(cat(mask, "ff"), bytes+1) :-
   PreMask_Length(mask, bytes),
   bytes < 32.
 
+
+.decl VarLessThanSmallNumber(var: Variable, smallNum: number, cond: Variable)
+.decl VarGreaterThanSmallNumber(var: Variable, smallNum: number, cond: Variable)
+
+VarLessThanSmallNumber(var, @hex_to_number(smallNum), cond):-
+  LT(_, var, smallNumVar, cond),
+  BasicVariable_Value(smallNumVar, smallNum),
+  @hex_to_number(smallNum) < 256.
+
+VarGreaterThanSmallNumber(var, @hex_to_number(smallNum), cond):-
+  GT(_, var, smallNumVar, cond),
+  BasicVariable_Value(smallNumVar, smallNum),
+  @hex_to_number(smallNum) < 256.
+
+VarGreaterThanSmallNumber(var, smallNum - 1, newCond):-
+  VarLessThanSmallNumber(var, smallNum, cond),
+  ISZERO(_, cond, newCond).
+
+VarLessThanSmallNumber(var, smallNum + 1, newCond):-
+  VarGreaterThanSmallNumber(var, smallNum, cond),
+  ISZERO(_, cond, newCond).
+
+.decl RevertEnforcesEnum(checkedVar: Variable, numOfValues: number, jumpiBlock: Block)
+DEBUG_OUTPUT(RevertEnforcesEnum)
+RevertEnforcesEnum(checkedVar, smallNum, checkBlock):-
+  VarLessThanSmallNumber(checkedVar, smallNum, newCond),
+  JUMPI(jumpi, _, newCond),
+  Statement_Block(jumpi, checkBlock),
+  FallthroughEdge(checkBlock, revertBlock),
+  ThrowBlock(revertBlock).
+
+// Hack, need a better way to get PHI aliases
+RevertEnforcesEnum(checkedVarAlias, smallNum, checkBlock):-
+  RevertEnforcesEnum(checkedVar, smallNum, checkBlock),
+  PHIStmtTwoUses(_, var1, var2, checkedVar),
+  PHIStmtTwoUses(_, var1, var2, checkedVarAlias).
+
+.decl RevertCastsToUint(checkedVar: Variable, jumpiBlock: Block)
+DEBUG_OUTPUT(RevertCastsToUint)
+RevertCastsToUint(checkedVar, checkBlock):-
+  SLT(_, checkedVar, zeroVar, negCont),
+  BasicVariable_Value(zeroVar, "0x0"),
+  ISZERO(_, negCont, cond),
+  JUMPI(jumpi, _, cond),
+  Statement_Block(jumpi, checkBlock),
+  FallthroughEdge(checkBlock, revertBlock),
+  ThrowBlock(revertBlock).
+
+RevertCastsToUint(def, checkBlock):-
+  (EQ(_, checkedVar, maxConst, negCont); EQ(_, maxConst, checkedVar, negCont)),
+  BasicVariable_Value(maxConst, const),
+  IntMaxConst(const, 256),
+  ISZERO(_, negCont, cond),
+  JUMPI(jumpi, _, cond),
+  Statement_Block(jumpi, checkBlock),
+  FallthroughEdge(checkBlock, revertBlock),
+  ThrowBlock(revertBlock),
+  SUB(_, zeroVar, checkedVar, posVar),
+  BasicVariable_Value(zeroVar, "0x0"),
+  PHIStmtTwoUses(_, checkedVar, posVar, def).
+
+.decl IntMaxConst(const: Value, width: number)
+IntMaxConst(as(@exp_256("0x2", @number_to_hex(typeWidth - 1)), Value), typeWidth):-
+  typeWidth = range(8, 264, 8).
+
+.decl IntMaxConstMinusOne(const: Value, width: number)
+IntMaxConstMinusOne(as(@sub_256(@exp_256("0x2", @number_to_hex(typeWidth - 1)), "0x1"), Value), typeWidth):-
+  typeWidth = range(8, 264, 8).
+
+.decl RevertCastsToInt(checkedVar: Variable, width: number, jumpiBlock: Block)
+DEBUG_OUTPUT(RevertCastsToInt)
+RevertCastsToInt(checkedVar, width, checkBlock):-
+  GT(_, checkedVar, zeroVar, negCont),
+  BasicVariable_Value(zeroVar, const),
+  IntMaxConstMinusOne(const, width),
+  ISZERO(_, negCont, cond),
+  JUMPI(jumpi, _, cond),
+  Statement_Block(jumpi, checkBlock),
+  FallthroughEdge(checkBlock, revertBlock),
+  ThrowBlock(revertBlock).
+
+.decl RevertEnforcesTypeCast(checkedVar: Variable, fromTypeKind: symbol, toTypeKind: symbol, width: number, jumpiBlock: Block)
+DEBUG_OUTPUT(RevertEnforcesTypeCast)
+
+RevertEnforcesTypeCast(checkedVar, "uint", "int", width, checkBlock):-
+  RevertCastsToInt(checkedVar, width, checkBlock).
+
+RevertEnforcesTypeCast(checkedVar, "int", "uint", 256, checkBlock):-
+  RevertCastsToUint(checkedVar, checkBlock).

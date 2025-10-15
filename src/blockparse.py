@@ -31,7 +31,7 @@
 
 import abc
 import logging
-from typing import List, Union, Iterable, Any
+from typing import Iterable, Any
 
 import src.basicblock as basicblock
 import src.opcodes as opcodes
@@ -41,7 +41,7 @@ STRICT = False
 
 class BlockParser(abc.ABC):
     _raw: object
-    _ops: List[basicblock.EVMOp]
+    _ops: list[basicblock.EVMOp]
 
     @abc.abstractmethod
     def __init__(self, raw: object):
@@ -63,7 +63,7 @@ class BlockParser(abc.ABC):
         """
 
     @abc.abstractmethod
-    def parse(self) -> List[basicblock.EVMBasicBlock]:
+    def parse(self) -> list[basicblock.EVMBasicBlock]:
         """
         Parses the raw input object and returns an iterable of BasicBlocks.
         """
@@ -128,7 +128,7 @@ class EVMDasmParser(BlockParser):
         Returns:
           basicblock.EVMOp: the constructed EVMOp
         """
-        toks: List[Any] = line.replace("=>", " ").split()
+        toks: list[Any] = line.replace("=>", " ").split()
 
         # Convert hex PCs to ints
         if toks[0].startswith("0x"):
@@ -148,7 +148,7 @@ class EVMDasmParser(BlockParser):
 
 
 class EVMBytecodeParser(BlockParser):
-    def __init__(self, bytecode: Union[str, bytes]):
+    def __init__(self, bytecode: str | bytes):
         """
         Parse EVM bytecode directly into basic blocks.
 
@@ -176,7 +176,7 @@ class EVMBytecodeParser(BlockParser):
     def __has_more_bytes(self):
         return self.__pc < len(self._raw)
 
-    def parse(self) -> List[basicblock.EVMBasicBlock]:
+    def parse(self) -> list[basicblock.EVMBasicBlock]:
         """
         Parses the raw input object containing EVM bytecode
         and returns an iterable of EVMBasicBlocks.
@@ -198,8 +198,7 @@ class EVMBytecodeParser(BlockParser):
                 if STRICT:
                     logging.warning("(strict) Invalid opcode at PC = %#02x: %s", pc, str(e))
                     raise e
-                # not strict, so just log:
-                logging.debug("Invalid opcode at PC = %#02x: %s", pc, str(e))
+                # not strict, do nothing
                 op = opcodes.missing_opcode(byte)
                 const = byte
 

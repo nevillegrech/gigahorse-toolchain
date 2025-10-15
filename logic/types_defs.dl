@@ -17,10 +17,12 @@
 #define CheckIsStackIndex(v) ((v) >= 0, (v) < MAX_STACK_HEIGHT)
 
 
+// The following 4 constants as also defined in src/common.py
 #define FUNCTION_SELECTOR "0x0"
 
 #define FALLBACK_FUNCTION_SIGHASH "0x00000000"
 #define RECEIVE_FUNCTION_SIGHASH "0xeeeeeeee"
+#define FUNCTION_SELECTOR_SIGHASH "0xff5e1ec7"
 
 
 .type Block <: symbol

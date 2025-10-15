@@ -4,140 +4,54 @@
 // compare between distant versions of the decompiler
 #include "../clientlib/decompiler_imports.dl"
 
-.decl TransferOpcode(op: Opcode)
-.decl Flows(from:Variable, to:Variable)
-    
-// Maps formals args (or locals) to formal return args
-Flows(x, x) :- isVariable(x).
-Flows(x, y) :- Flows(_, x), PHI(_, x, y).
-  Flows(x, y) :-
-  Flows(_, x),
-  Statement_Uses(stmt, x, _),
-  Statement_Defines(stmt, y, _),
-  Statement_Opcode(stmt, op),
-  TransferOpcode(op).
-
-// Case: Flows from formal to formal return
-Flows(actual, actualReturn) :-
-   FunctionFlowSummary(fn, formal, m),
-   FunctionCallReturn(block, fn, _),
-   FormalArgs(fn, formal, n),
-   ActualArgs(block, actual, n),
-   ActualReturnArgs(block, actualReturn, m).
-
-// Case: Flows from local variable to formal return
-// Flows(variable, actualReturn) :-
-//    FunctionFlowSummary(fn, variable, m),
-//    FunctionCallReturn(block, fn, _),
-//    !FormalArgs(fn, variable, _),
-//    ActualReturnArgs(block, actualReturn, m).
-
-// Recursive Case
-Flows(x, z) :- Flows(x, y), Flows(y, z).
-
-// Flows from variable to return argument
-.decl FunctionFlowSummary(fn: Function, from:Variable, n:number)
-
-// Flow from local or formal to formal return
-FunctionFlowSummary(fn, from, n) :-
-   Flows(from, to),
-   FormalReturnArgs(fn, to, n).
-
-// Case: flow within the same function, or back to local
-
-.decl GlobalFlows(from:Variable, to:Variable)
-GlobalFlows(x, y) :- Flows(x, y).
-
-// Case: forward inter-procedural assignment only
-GlobalFlows(x, y) :-
-   GlobalFlows(x, actual),
-   ActualArgs(caller, actual, n),
-   CallGraphEdge(caller, fn),
-   FormalArgs(fn, formal, n),
-   Flows(formal, y).
-
-TransferOpcode("AND").
-TransferOpcode("OR").
-TransferOpcode("XOR").
-TransferOpcode("NOT").
-TransferOpcode("PHI").
-       
-.decl Analytics_DataFlows(a: Variable, b: Variable)
-.output Analytics_DataFlows
-
-Analytics_DataFlows(a, b) :-
-   GlobalFlows(a, b).
-
-.decl Analytics_PolymorphicVariable(a: Variable)
-.output Analytics_PolymorphicVariable
-
-Analytics_PolymorphicVariable(v) :-
-   GlobalFlows(a, v),
-   GlobalFlows(b, v),
-   a != b.
-
-
-.decl Analytics_DataFlowsToSamePublicFunction(a: Variable, b: Variable)
-
-Analytics_DataFlowsToSamePublicFunction(a, b) :-
-   GlobalFlows(a, b),
-   Variable_Function(a, f),
-   Variable_Function(b, f),
-   IsPublicFunction(f).
-
-.decl StmtMissingOperand(s: Statement)
-.input StmtMissingOperand(IO="file", filename="Analytics_StmtMissingOperand.csv", delimiter="\t")
-
-.decl Analytics_MissingDataFlowsToSamePublicFunction(a: Variable, b: Variable)
-.output Analytics_MissingDataFlowsToSamePublicFunction
-       
-Analytics_MissingDataFlowsToSamePublicFunction(a, b) :-
-   StmtMissingOperand(s),
-   Statement_Defines(s, a, _),
-   Analytics_DataFlowsToSamePublicFunction(a, b).
-       
-
-.decl Analytics_DataFlowsToDifferentPublicFunction(a: Variable, b: Variable)
-.output Analytics_DataFlowsToDifferentPublicFunction
-
-Analytics_DataFlowsToDifferentPublicFunction(a, b) :-
-   GlobalFlows(a, b),
-   Variable_Function(a, fa), fa != "0x0",
-   IsPublicFunction(fa),
-   Variable_Function(b, fb), fb != "0x0",
-   IsPublicFunction(fb),
-   fa != fb.
-
-
-
-.decl SizeOfFunction(f: Function, n: number)
-
-SizeOfFunction(f, n) :-
-  InFunction(_, f),
-  n = count : InFunction(_, f).
-
-.decl FunctionIsNotLargest(f: Function)
-
-FunctionIsNotLargest(f) :-
-  SizeOfFunction(f, n),
-  SizeOfFunction(g, m), f != g,
-  ((m > n) ; (m = n, ord(g) > ord(f))).
-
-.decl Analytics_LargestFunction(f: Function, b: Block)
-.output Analytics_LargestFunction
-
-Analytics_LargestFunction(f, b) :- InFunction(b, f), !FunctionIsNotLargest(f).
-
-.decl Analytics_Variables(a: Variable)
-.output Analytics_Variables
-
-Analytics_Variables(a) :-
-   isVariable(a).
-
-
-
 // Has many dependencies, incl memory modeling and data structures
 #include "../clientlib/guards.dl"
+
+/**
+  Loop-related analytics
+*/
+
+.decl Analytics_Loop(loop: Block)
+.output Analytics_Loop
+
+// Loop has not high-level control flow (i.e. many exits or jump to manys)
+.decl Analytics_NonHighLevelLoop(loop: Block)
+.output Analytics_NonHighLevelLoop
+
+/**
+  Loop has non high-level control flow (i.e. many exits), without having jump to manys 
+  This is the most useful analytic.
+*/
+.decl Analytics_LoopWithManyExits(loop: Block)
+.output Analytics_LoopWithManyExits
+
+Analytics_Loop(loop):-
+  BlockInStructuredLoop(_, loop).
+
+Analytics_NonHighLevelLoop(loop):-
+  Analytics_Loop(loop),
+  !HighLevelLoop(loop).
+
+Analytics_NonHighLevelLoop(loop):-
+  Analytics_Loop(loop),
+  0 != count: {BlockInStructuredLoop(block, loop), JumpToMany(block)}.
+
+Analytics_LoopWithManyExits(loop):-
+  Analytics_Loop(loop),
+  !HighLevelLoop(loop),
+  0 = count: {BlockInStructuredLoop(block, loop), JumpToMany(block)}.
+
+.decl JumpToMany(block: Block)
+JumpToMany(block):-
+  (Statement_Opcode(jump, "JUMP");
+  Statement_Opcode(jump, "CALLPRIVATE")),
+  Statement_Block(jump, block),
+  nEdges = count : LocalBlockEdge(block, _), nEdges > 1.
+
+JumpToMany(block):-
+  Statement_Opcode(jump, "JUMPI"),
+  Statement_Block(jump, block),
+  nEdges = count : LocalBlockEdge(block, _), nEdges > 2.
 
 /**
  * Memory Modeling
@@ -250,6 +164,12 @@ Analytics_UselessSLOAD(stmt):-
 Verbatim_StorageOffset_Type(offset, type):-
   StorageOffset_Type(offset, type).
 
+.decl Verbatim_StorageVariableType(varId: symbol, type: symbol)
+.output Verbatim_StorageVariableType
+
+Verbatim_StorageVariableType(storVar, type):-
+  StorageVariableType(storVar, type).
+
 .decl Verbatim_StructToString(structID: symbol, stringStruct: symbol)
 .output Verbatim_StructToString
 
@@ -260,5 +180,5 @@ Verbatim_StructToString(structID, stringStruct):-
 .output Analytics_StructWithNoStringRep
 
 Analytics_StructWithNoStringRep(structID):-
-  DataStructureValueIsStruct(_, structID, _),
+  DataStructureValueIsStruct(_, _, structID, _),
   !StructToString(structID, _).

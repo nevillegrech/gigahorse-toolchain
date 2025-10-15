@@ -235,6 +235,23 @@ altLocalFlowAnalysis.TransferBoundary(block) :- IsBlock(block).
 
 #define LocalFlowsExclPHI altLocalFlowAnalysis.Flows
 
+.decl GlobalBlockCanReach(block1: Block, block2: Block)
+GlobalBlockCanReach(block, block) :-
+  IsBlock(block).
+  
+GlobalBlockCanReach(block1, block2) :-
+  GlobalBlockCanReach(block1, block3),
+  GlobalBlockEdge(block3, block2).
+
+// Intra-procedural version
+.decl LocalBlockCanReach(block1: Block, block2: Block)
+LocalBlockCanReach(block, block) :-
+  IsBlock(block).
+  
+LocalBlockCanReach(block1, block2) :-
+  LocalBlockCanReach(block1, block3),
+  LocalBlockEdge(block3, block2).
+
 // x controls whether y is executed.
 .decl Controls(x:Statement, y:Block)
 
@@ -247,10 +264,11 @@ DecisionEdge(jmpi, w1, w2) :-
   Block_Tail(x, jmpi),
   JUMPI(jmpi, _, _).
 
+// Currently intra-procedural. The way it's used, it makes no difference, but REVIEW in the future
 Controls(jmpi, y) :-
   (DecisionEdge(jmpi, w1, w2) ; DecisionEdge(jmpi, w2, w1)),
-  Dominates(w2, y),
-  !Dominates(w1, y).
+  LocalBlockCanReach(w2, y),
+  !LocalBlockCanReach(w1, y).
 
 Controls(x, z) :- Controls(x, y), Statement_Block(yjmp, y), Controls(yjmp, z). // Transitivity
 
@@ -281,6 +299,16 @@ ThrowBlock(block) :-
    GlobalBlockEdge(block, next),
    !NonLinearEdge(block),
    ThrowBlock(next).
+
+// if `block` is reached, function will execution *will* end up terminating (in a following block)
+.decl BlockTerminates(block: Block)
+BlockTerminates(block):-
+  FunctionExit(block).
+
+BlockTerminates(block) :-
+   GlobalBlockEdge(block, next),
+   !NonLinearEdge(block),
+   BlockTerminates(next).
 
 .decl AddResult(b: Variable, d: Variable)
 
@@ -319,3 +347,9 @@ CallFailureControls(call, to) :-
 CallFailureControls(call, to) :-
    CallFailureControls(call, from),
    Dominates(from, to).
+
+.decl ArgFlowsToDynamicPrivateCall(arg: Variable, caller: Block)
+ArgFlowsToDynamicPrivateCall(arg, caller):-
+  DynamicPrivateCall(caller, target),
+  localFlowAnalysis.Flows(arg, target),
+  FormalArgs(_, arg, _).

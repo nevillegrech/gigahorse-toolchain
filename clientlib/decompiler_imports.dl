@@ -105,6 +105,13 @@
 .input CallGraphEdge(IO="file", filename="IRFunctionCall.csv", delimiter="\t")
 
 /**
+  Caller `block` makes a polymorphic to __internal__ stored in `targetVar`.  
+  The identities of the possible called functions can be found in the `CallGraphEdge` relation.
+*/
+.decl DynamicPrivateCall(caller: Block, targetVar: Variable)
+.input DynamicPrivateCall(IO="file", filename="IRDynamicPrivateCall.csv", delimiter="\t")
+
+/**
   Caller `block` makes call to __internal__ `function`, then returns
   control flow back to the caller in `return`.
 */
@@ -301,8 +308,9 @@ Variable_Function(v, f) :-
 // Basic block corresponding to a function's exit points
 .decl FunctionExit(block: Block)
 FunctionExit(block) :-
-   LocalBlockEdge(_, block),
-   !LocalBlockEdge(block, _).
+   Block_Tail(block, tail),
+   Statement_Opcode(tail, op),
+   (op = "RETURN"; op = "RETURNPRIVATE"; op = "EXIT").
 
 // Mapping `block`s to `function`s
 .decl InFunction(block: Block, function: Function)

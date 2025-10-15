@@ -102,11 +102,17 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
-        python-version: 3.8
+        python-version: '3.10'
     - name: Install Dependencies
       run: |
         python -m pip install --upgrade pip
         pip install mypy
-    - name: mypy
+    - name: mypy gigahorse
       run: |
         mypy gigahorse.py
+    - name: mypy visualizeout.py
+      run: |
+        mypy clients/visualizeout.py
+    - name: mypy rest
+      run: |
+        mypy src/*.py clientlib/*.py

@@ -302,6 +302,11 @@ Analytics_FunctionWithMultipleReturns(func) :-
    IRFunction_Return(func, retBlock2),
    retBlock != retBlock2.
 
+.decl Analytics_DynamicPrivateCall(call: IRBlock)
+.output Analytics_DynamicPrivateCall
+Analytics_DynamicPrivateCall(call):-
+  IRDynamicPrivateCall(call, _).
+
 .decl Analytics_PublicFunction(func: IRFunction)
 .output Analytics_PublicFunction
 

@@ -9,7 +9,14 @@ DEFAULT_SOUFFLE_BIN = 'souffle'
 
 SOUFFLE_COMPILED_SUFFIX = '_compiled'
 
+# The following 4 constants are also defined in `logic/types_defs.dl`
+FUNCTION_SELECTOR = "0x0"
+FALLBACK_FUNCTION_SIGHASH = "0x00000000"
+RECEIVE_FUNCTION_SIGHASH = "0xeeeeeeee"
+FUNCTION_SELECTOR_SIGHASH = "0xff5e1ec7"
+
 log = lambda msg: logging.log(logging.INFO + 1, msg)
+log_debug = lambda msg: logging.log(logging.DEBUG, msg)
 
 
 def __get_sig_file(simple_filename: str) -> str:

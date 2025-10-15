@@ -10,13 +10,14 @@ import sys
 import time
 from collections import defaultdict
 from multiprocessing import Process, SimpleQueue, Manager, Event, cpu_count
-from typing import List, Tuple, Any, Dict, DefaultDict
+from typing import Any
 from os.path import join, getsize
 import os
 
 # Local project imports
 from src.common import GIGAHORSE_DIR, DEFAULT_SOUFFLE_BIN, log
-from src.runners import get_souffle_executable_path, compile_datalog, AbstractFactGenerator, DecompilerFactGenerator, CustomFactGenerator, MixedFactGenerator, AnalysisExecutor, TimeoutException
+from src.runners import MAIN_DECOMPILER_MAX_CONTEXT_DEPTH
+from src.runners import test_souffle, get_souffle_executable_path, compile_datalog, AbstractFactGenerator, DecompilerFactGenerator, CustomFactGenerator, MixedFactGenerator, AnalysisExecutor, TimeoutException, DecompilationException
 
 ## Constants
 
@@ -61,83 +62,67 @@ parser.add_argument(
 
 parser.add_argument("-S",
                     "--souffle_bin",
-                    nargs="?",
                     default=DEFAULT_SOUFFLE_BIN,
-                    const=DEFAULT_SOUFFLE_BIN,
                     metavar="BINARY",
-                    help="the location of the souffle binary.")
+                    help=f"The location of the souffle binary (default: {DEFAULT_SOUFFLE_BIN}).")
 
 parser.add_argument("-C",
                     "--client",
                     nargs="?",
                     default="",
-                    help="additional clients to run after decompilation.")
+                    help="Additional clients to run after decompilation.")
 
 parser.add_argument("-P",
                     "--pre-client",
                     nargs="?",
                     default="",
-                    help="additional clients to run before decompilation.")
+                    help="Additional clients to run before decompilation.")
 
 parser.add_argument("-r",
                     "--results_file",
-                    nargs="?",
                     default=DEFAULT_RESULTS_FILE,
-                    const=DEFAULT_RESULTS_FILE,
                     metavar="FILE",
-                    help="the location to write the results.")
+                    help=f"The location to write the results (default: {DEFAULT_RESULTS_FILE}).")
 
 parser.add_argument("-w",
                     "--working_dir",
-                    nargs="?",
                     default=TEMP_WORKING_DIR,
-                    const=TEMP_WORKING_DIR,
                     metavar="DIR",
-                    help="the location to were temporary files are placed.")
+                    help=f"The location to were temporary files are placed (default: {TEMP_WORKING_DIR}).")
 
 parser.add_argument('--cache_dir',
-                    nargs="?",
                     default=DEFAULT_CACHE_DIR,
-                    const=DEFAULT_CACHE_DIR,
                     metavar="DIR",
-                    help="the location to were temporary files are placed.")
+                    help=f"The location to were temporary files are placed (default: {DEFAULT_CACHE_DIR}).")
 
 
 parser.add_argument("-j",
                     "--jobs",
                     type=int,
-                    nargs="?",
                     default=DEFAULT_NUM_JOBS,
-                    const=DEFAULT_NUM_JOBS,
                     metavar="NUM",
-                    help="The number of subprocesses to run at once.")
+                    help=f"The number of subprocesses to run at once (default: {DEFAULT_NUM_JOBS}).")
 
 parser.add_argument("-k",
                     "--skip",
                     type=int,
-                    nargs="?",
                     default=0,
-                    const=0,
                     metavar="NUM",
-                    help="Skip the the analysis of the first NUM contracts.")
+                    help="Skip the the analysis of the first NUM contracts (default: 0).")
 
 parser.add_argument("-T",
                     "--timeout_secs",
                     type=int,
-                    nargs="?",
                     default=DEFAULT_TIMEOUT,
-                    const=DEFAULT_TIMEOUT,
                     metavar="SECONDS",
                     help="Forcibly halt decompilation/analysis of a single contact after "
-                         "the specified number of seconds. Separate timers for decompilation and anaysis.")
+                         "the specified number of seconds. Separate timers for decompilation and analysis.")
 
 parser.add_argument("--minimum_client_time",
                     type=int,
-                    nargs="?",
                     default=DEFAULT_MINIMUM_CLIENT_TIME,
-                    const=DEFAULT_MINIMUM_CLIENT_TIME,
                     metavar="SECONDS",
-                    help="Minimum time to allow each client to run.")
+                    help=f"Minimum time to allow each client to run (default: {DEFAULT_MINIMUM_CLIENT_TIME}).")
 
 parser.add_argument("-M",
                     "--souffle_macros",
@@ -159,11 +144,23 @@ parser.add_argument("--disable_inline",
                     help="Disables the inlining of small functions performed after TAC code is generated"
                     " (to increase the amount of high level inferences produced by the memory and storage modeling components).")
 
+parser.add_argument("--skip_sig_resolution",
+                    action="store_true",
+                    default=False,
+                    help="Doesn't attempt to resolve external function, event, and error signatures, reducing execution time."
+                    "To be used when benchmarking.")
+
 parser.add_argument("-q",
                     "--quiet",
-                    nargs="?",
+                    action="store_true",
                     default=False,
                     help="Silence output.")
+
+parser.add_argument("-v",
+                    "--verbose",
+                    action="store_true",
+                    default=False,
+                    help="Verbose output (for debugging purposes).")
 
 parser.add_argument("--rerun_clients",
                     action="store_true",
@@ -202,7 +199,7 @@ parser.add_argument(
 def get_working_dir(contract_name: str) -> str:
     return join(os.path.abspath(args.working_dir), os.path.split(contract_name)[1].split('.')[0])
 
-def prepare_working_dir(contract_name: str) -> Tuple[bool, str, str]:
+def prepare_working_dir(contract_name: str) -> tuple[bool, str, str]:
     newdir = get_working_dir(contract_name)
     out_dir = join(newdir, 'out')
 
@@ -228,7 +225,7 @@ def get_souffle_macros() -> str:
 
     return souffle_macros
 
-def analyze_contract(index: int, contract_filename: str, result_queue, fact_generator: AbstractFactGenerator, souffle_clients: List[str], other_clients: List[str]) -> None:
+def analyze_contract(index: int, contract_filename: str, result_queue, fact_generator: AbstractFactGenerator, souffle_clients: list[str], other_clients: list[str]) -> None:
     """
     Perform static analysis on a contract, storing the result in the queue.
     This is a worker function to be passed to a subprocess.
@@ -246,7 +243,7 @@ def analyze_contract(index: int, contract_filename: str, result_queue, fact_gene
         # prepare working directory
         exists, work_dir, out_dir = prepare_working_dir(contract_filename)
         assert not(args.restart and exists)
-        analytics: Dict[str, Any] = {}
+        analytics: dict[str, Any] = {}
         contract_name = os.path.split(contract_filename)[1]
         with open(contract_filename) as file:
             bytecode = file.read().strip()
@@ -262,8 +259,10 @@ def analyze_contract(index: int, contract_filename: str, result_queue, fact_gene
 
             inline_start = time.time()
             if not args.disable_inline:
-                # ignore timeouts and errors here
-                analysis_executor.run_clients([DEFAULT_INLINER_DL]*DEFAULT_INLINER_ROUNDS, [], out_dir, out_dir, start_time)
+                # ignore timeouts here: if it happens, just continue to the clients
+                _, inl_errors = analysis_executor.run_clients([DEFAULT_INLINER_DL]*DEFAULT_INLINER_ROUNDS, [], out_dir, out_dir, start_time)
+                if inl_errors:
+                    raise DecompilationException()
 
             inline_time = time.time() - inline_start
 
@@ -294,7 +293,7 @@ def analyze_contract(index: int, contract_filename: str, result_queue, fact_gene
         analytics['client_timeouts'] = len(timeouts)
         analytics['bytecode_size'] = (len(bytecode) - 2)//2
         analytics['decompiler_config'] = decompiler_config
-        contract_msg = "{}: {:.36} completed in {:.2f} + {:.2f} + {:.2f} + {:.2f} secs.".format(
+        contract_msg = "{}: {:.46} completed in {:.2f} + {:.2f} + {:.2f} + {:.2f} secs.".format(
             index, contract_name, analytics['disassemble_time'],
             analytics['decomp_time'], analytics['inline_time'], analytics['client_time']
         )
@@ -313,8 +312,11 @@ def analyze_contract(index: int, contract_filename: str, result_queue, fact_gene
     except TimeoutException as e:
         result_queue.put((contract_name, [], ["TIMEOUT"], {}))
         log("{} timed out.".format(contract_name))
+    except DecompilationException as e:
+        log(f"Error during execution of decompilation binary: {e}")
+        result_queue.put((contract_name, [], ["ERROR"], {}))
     except Exception as e:
-        log(f"Error: {e}")
+        log(f"Other Error: {e}")
         result_queue.put((contract_name, [], ["ERROR"], {}))
 
 
@@ -366,9 +368,9 @@ def write_results(res_list: Any, results_file: str) -> None:
     and writting them to the results_file json file
     """
     total = len(res_list)
-    vulnerability_counts: DefaultDict[str, int] = defaultdict(int)
-    analytics_sums: DefaultDict[str, int] = defaultdict(int)
-    meta_counts: DefaultDict[str, int] = defaultdict(int)
+    vulnerability_counts: defaultdict[str, int] = defaultdict(int)
+    analytics_sums: defaultdict[str, int] = defaultdict(int)
+    meta_counts: defaultdict[str, int] = defaultdict(int)
     all_files = set()
     for _, files, meta, analytics in res_list:
         for f in files:
@@ -414,7 +416,7 @@ def write_results(res_list: Any, results_file: str) -> None:
     with open(results_file, 'w') as f:
         f.write(json.dumps(list(res_list), indent=1))
 
-def batch_analysis(fact_generator: AbstractFactGenerator, souffle_clients: List[str], other_clients: List[str], contracts: List[str], num_of_jobs: int) -> Any:
+def batch_analysis(fact_generator: AbstractFactGenerator, souffle_clients: list[str], other_clients: list[str], contracts: list[str], num_of_jobs: int) -> Any:
     """
     Given a fact generator and the client lists, analyzes the contracts list, using num_of_jobs parallel jobs/processes
     """
@@ -434,7 +436,7 @@ def batch_analysis(fact_generator: AbstractFactGenerator, souffle_clients: List[
     flush_proc = Process(target=flush_queue, args=(run_signal, res_queue, res_list))
     flush_proc.start()
 
-    workers: List[Dict[str, Any]] = []
+    workers: list[dict[str, Any]] = []
     avail_jobs = list(range(num_of_jobs))
     contract_iter = enumerate(contracts)
     contracts_exhausted = False
@@ -505,8 +507,10 @@ def run_gigahorse(args, fact_generator: AbstractFactGenerator) -> None:
     """
     Run gigahorse, passing the cmd line args and fact generator type as arguments
     """
-    log_level = logging.WARNING if args.quiet else logging.INFO + 1
+    log_level = logging.WARNING if args.quiet else logging.DEBUG if (args.verbose or args.debug) else logging.INFO + 1
     logging.basicConfig(format='%(message)s', level=log_level)
+
+    test_souffle(args.souffle_bin)
 
     analysis_executor = AnalysisExecutor(args.timeout_secs, args.interpreted, args.minimum_client_time, args.debug, args.souffle_bin, args.cache_dir, get_souffle_macros())
 
@@ -572,9 +576,9 @@ if __name__ == "__main__":
     parser.add_argument("-cd",
                         "--context_depth",
                         type=int,
-                        nargs="?",
+                        default=MAIN_DECOMPILER_MAX_CONTEXT_DEPTH,
                         metavar="NUM",
-                        help="Override the maximum context depth for decompilation (default is 20).")
+                        help=f"Override the maximum context depth for decompilation (default is {MAIN_DECOMPILER_MAX_CONTEXT_DEPTH}).")
 
     parser.add_argument("--early_cloning",
                         action="store_true",

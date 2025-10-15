@@ -1,4 +1,4 @@
-pragma solidity 0.8.24;
+pragma solidity >= 0.8.29;
 
 contract MergedVars {
     address public owner;
@@ -87,6 +87,9 @@ contract SimpleArray {
         return false;
     }
 
+    function setOwners(address[] memory _owners) external {
+        owners = _owners;
+    }
 }
 
 contract SimpleMapping {
@@ -211,5 +214,68 @@ contract PrivateMergedVars {
 
     function getNonce(address ad) external view returns (uint){
         return nonces[ad];
+    }
+}
+
+
+contract Transient {
+    uint256 transient public supply;
+    address transient public owner;
+    uint8 transient public number;
+    bool transient public flag;
+
+    function update(address newOwner, uint8 newNumber, bool newFlag) external {
+        owner = newOwner;
+        number = newNumber;
+        flag = newFlag;
+    }
+
+    function update(address newOwner, bool newFlag) external {
+        owner = newOwner;
+        number = 0;
+        flag = newFlag;
+    }
+
+    function update2(address newOwner, bool newFlag) external {
+        owner = newOwner;
+        number = 131;
+        flag = newFlag;
+    }
+
+    function update(ValueProvider provider) external {
+        owner = provider.getAddr();
+        number = provider.getSmallInt();
+        flag = provider.getBool();
+    }
+}
+
+contract TransientAndStorage {
+    uint256 public supply;
+    address transient public owner;
+    uint8 transient public number;
+    bool transient public flag;
+
+    function update(address newOwner, uint8 newNumber, bool newFlag) external {
+        owner = newOwner;
+        number = newNumber;
+        flag = newFlag;
+    }
+
+    function update(address newOwner, bool newFlag) external {
+        owner = newOwner;
+        number = 0;
+        flag = newFlag;
+    }
+
+    function update2(address newOwner, bool newFlag) external {
+        owner = newOwner;
+        number = 131;
+        flag = newFlag;
+    }
+
+    function update(ValueProvider provider) external {
+        owner = provider.getAddr();
+        number = provider.getSmallInt();
+        flag = provider.getBool();
     }
 }

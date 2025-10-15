@@ -265,6 +265,7 @@ inliner.In_LocalBlockEdge(block, nextBlock):-LocalBlockEdge(block, nextBlock).
 inliner.In_FallthroughEdge(block, nextBlock):- FallthroughEdge(block, nextBlock).
 inliner.In_CallGraphEdge(block, function):- CallGraphEdge(block, function).
 inliner.In_FunctionCallReturn(block, function, return):- FunctionCallReturn(block, function, return).
+inliner.In_DynamicPrivateCall(caller, targetVar):- DynamicPrivateCall(caller, targetVar).
 inliner.In_IsFunction(func):- IsFunction(func).
 inliner.In_Block_Gas(block, gas):- Block_Gas(block, gas).
 inliner.In_Block_CodeChunkAccessed(block, chunk):- Block_CodeChunkAccessed(block, chunk).
@@ -293,6 +294,7 @@ inliner.In_ActualReturnArgs(caller, arg, pos):- ActualReturnArgs(caller, arg, po
 .output inliner.Out_FallthroughEdge(IO="file", filename="IRFallthroughEdge.csv", delimiter="\t")
 .output inliner.Out_CallGraphEdge(IO="file", filename="IRFunctionCall.csv", delimiter="\t")
 .output inliner.Out_FunctionCallReturn(IO="file", filename="IRFunctionCallReturn.csv", delimiter="\t")
+.output inliner.Out_DynamicPrivateCall(IO="file", filename="IRDynamicPrivateCall.csv", delimiter="\t")
 .output inliner.Out_IsFunction(IO="file", filename="Function.csv", delimiter="\t")
 .output inliner.Out_Block_Gas(IO="file", filename="TAC_Block_Gas.csv", delimiter="\t")
 .output inliner.Out_Block_CodeChunkAccessed(IO="file", filename="TAC_Block_CodeChunkAccessed.csv", delimiter="\t")

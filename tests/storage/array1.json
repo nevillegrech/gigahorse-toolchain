@@ -2,6 +2,7 @@
     "client_path": "clients/analytics_client.dl",
     "gigahorse_args": ["-i", "--disable_scalable_fallback"],
     "expected_analytics": [["Analytics_StorageArray", 1, 0], ["Analytics_NonModeledSSTORE", 0, 0],
-                            ["Analytics_NonModeledSLOAD", 0, 0], ["Analytics_ArrayDeleteOp", 1, 0]],
-    "expected_verbatim": [["Verbatim_StorageOffset_Type", "0x0\tuint160[]\n"]]
+                            ["Analytics_NonModeledSLOAD", 0, 0], ["Analytics_ArrayDeleteOp", 1, 0],
+                            ["Analytics_LoopWithManyExits", 0, 0]],
+    "expected_verbatim": [["Verbatim_StorageOffset_Type", "0x0\taddress[]\n"]]
 }

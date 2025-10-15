@@ -366,6 +366,43 @@
 */
 .comp IncompleteOptimizedGlobalAnalysis <AbstractContextSensitivity, LocalAnalysis> : OptimizedGlobalAnalysis <AbstractContextSensitivity, LocalAnalysis> {
   .limitsize BlockOutputContents(n=LIMITSIZE_BLOCK_OUTPUT_CONTENTS)
+
+  /**
+    The context, caller pair to be used in our computation of the last continuation.
+    We pick only one for scalability.
+  */
+  .decl PrivateFunctionContextToModel(callCtx: sens.Context, caller: Block) choice-domain(caller)
+  PrivateFunctionContextToModel(callCtx, caller):-
+    PrivateFunctionCall(caller, _, _, _),
+    ReachableContext(callCtx, caller).
+
+  /**
+    `continuation` pushed by `caller`, not visited by `currBlock` under `currCtx`
+  */
+  .decl ContinuationNotVisited(callCtx: sens.Context, caller: Block, currCtx: sens.Context, currBlock: Block, continuation: Block)
+
+  ContinuationNotVisited(callCtx, caller, newCtx, next, cont):-
+    PrivateFunctionContextToModel(callCtx, caller),
+    PrivateFunctionCall(caller, next, cont, _),
+    BlockEdge(callCtx, caller, newCtx, next).
+
+  ContinuationNotVisited(callCtx, caller, newCtx, next, cont):-
+    ContinuationNotVisited(callCtx, caller, prevCtx, prev, cont),
+    BlockEdge(prevCtx, prev, newCtx, next),
+    !PrivateFunctionReturn(prev).
+
+  ContinuationNotVisited(callCtx, caller, newCtx, next, cont):-
+    ContinuationNotVisited(callCtx, caller, prevCtx, prev, cont),
+    BlockEdge(prevCtx, prev, newCtx, next),
+    PrivateFunctionReturn(prev), next != cont.
+
+
+  .decl LastContinuation(caller: Block, lastCont: Block)
+  DEBUG_OUTPUT(LastContinuation)
+  LastContinuation(caller, lastCont):-
+    ContinuationNotVisited(callCtx, caller, prevCtx, prev, lastCont),
+    BlockEdge(prevCtx, prev, newCtx, lastCont),
+    !ContinuationNotVisited(callCtx, caller, newCtx, _, _).
 }
 
 /**

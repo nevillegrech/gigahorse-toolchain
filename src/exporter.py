@@ -2,13 +2,14 @@
 
 import abc
 import csv
+import json
 import os
 import src.opcodes as opcodes
 import src.basicblock as basicblock
 from src.common import public_function_signature_filename, event_signature_filename, error_signature_filename
 
 
-from typing import List, Tuple, Dict, Any, Optional
+from typing import Any
 
 opcode_output = {'alters_flow':bool, 'halts':bool, 'is_arithmetic':bool,
                  'is_call':bool, 'is_dup':bool, 'is_invalid':bool,
@@ -85,22 +86,26 @@ class Exporter(abc.ABC):
         Exports the source object to an implementation-specific format.
         """
 
-class TsvExporter(Exporter):
+class FactExporter(Exporter):
     def __init__(self, output_dir: str):
         super().__init__(output_dir)
 
     def get_out_file_path(self, filename):
         return os.path.join(self.output_dir, filename)
 
-    def generate(self, filename: str, entries: List[Any]):
+    def generate(self, filename: str, entries: list[Any]):
         with open(self.get_out_file_path(filename), 'w') as f:
             writer = csv.writer(f, delimiter='\t', lineterminator='\n')
             writer.writerows(entries)
 
+    def generate_json(self, filename: str, entries: Any):
+        with open(self.get_out_file_path(filename), 'w') as f:
+            json.dump(entries, f)
 
-class InstructionTsvExporter(TsvExporter):
+
+class EVMBlockExporter(FactExporter):
     """
-    Prints a textual representation of the given CFG to stdout.
+    Populates the decompiler's fact files (tsv and json) given the low-level evm blocks
 
     Args:
       blocks: low-level evm block representation to be output
@@ -109,26 +114,27 @@ class InstructionTsvExporter(TsvExporter):
       metadata: dict containing metadata output by the solidity compiler
     """
 
-    def __init__(self, output_dir: str, blocks: List[basicblock.EVMBasicBlock], ordered: bool = True,
-                 bytecode_hex: Optional[str] = None, metadata: Optional[Dict[Any, Any]] = None):
+    def __init__(self, output_dir: str, blocks: list[basicblock.EVMBasicBlock], ordered: bool = True,
+                 bytecode_hex: str | None = None, metadata: dict[Any, Any] | None = None, skip_sig_resolution: bool = False):
         super().__init__(output_dir)
         self.blocks = blocks
         self.ordered = ordered
         self.bytecode_hex = bytecode_hex
         self.process_metadata(metadata)
+        self.skip_sig_resolution = skip_sig_resolution
 
-    def process_metadata(self, metadata: Optional[Dict[Any, Any]] = None) -> None:
+    def process_metadata(self, metadata: dict[Any, Any] | None = None) -> None:
         """
         Processes metadata dicts are produced by solc, to lists of facts we can output
         """
-        def process_function_debug_data(function_debug_data: Dict[str, Dict[str, Optional[int]]]) -> List[Tuple[str, str, int, int]]:
+        def process_function_debug_data(function_debug_data: dict[str, dict[str, int | None]]) -> list[tuple[str, str, int, int]]:
             return [(function_id,
                     hex(debug_info["entryPoint"]) if debug_info["entryPoint"] else "0x0",
                     debug_info["parameterSlots"] if debug_info["parameterSlots"] else 0,
                     debug_info["returnSlots"]if debug_info["returnSlots"] else 0)
                 for function_id, debug_info in function_debug_data.items()]
 
-        def process_immutable_refs(immutable_refs: Dict[str, List[Dict[str, int]]]) -> List[Tuple[str, int]]:
+        def process_immutable_refs(immutable_refs: dict[str, list[dict[str, int]]]) -> list[tuple[str, int]]:
             res = []
             for id, accesses in immutable_refs.items():
                 # TODO: skipping this for now
@@ -140,6 +146,8 @@ class InstructionTsvExporter(TsvExporter):
 
         self.function_debug_data = process_function_debug_data(metadata.get('function_debug_info', {})) if metadata is not None else []
         self.immutable_references = process_immutable_refs(metadata.get('immutable_references', {})) if metadata is not None else []
+        self.abi = metadata.get('abi', {}) if metadata is not None else {}
+        self.storage_layout = metadata.get('storage_layout', {}) if metadata is not None else {}
 
     def export(self):
         """
@@ -153,7 +161,7 @@ class InstructionTsvExporter(TsvExporter):
 
         def link_or_output_signature_file(signatures_filename_in: str, signatures_filename_out_simple: str):
             signatures_filename_out = self.get_out_file_path(signatures_filename_out_simple)
-            if os.path.isfile(signatures_filename_in):
+            if not self.skip_sig_resolution and os.path.isfile(signatures_filename_in):
                 try:
                     os.symlink(signatures_filename_in, signatures_filename_out)
                 except FileExistsError:
@@ -198,7 +206,7 @@ class InstructionTsvExporter(TsvExporter):
         link_or_output_signature_file(public_function_signature_filename, 'PublicFunctionSignature.facts')
         link_or_output_signature_file(event_signature_filename, 'EventSignature.facts')
         link_or_output_signature_file(error_signature_filename, 'ErrorSignature.facts')
-        
+
         instructions = []
         instructions_order = []
         push_value = []
@@ -221,3 +229,5 @@ class InstructionTsvExporter(TsvExporter):
 
         self.generate('HighLevelFunctionInfo.facts', self.function_debug_data)
         self.generate('ImmutableLoads.facts', self.immutable_references)
+        self.generate_json('source-abi.json', self.abi)
+        self.generate_json('source-storage-layout.json', self.storage_layout)

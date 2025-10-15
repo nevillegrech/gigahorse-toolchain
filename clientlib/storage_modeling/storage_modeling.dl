@@ -1,17 +1,30 @@
 #pragma once
 #define DATA_STRUCTURE_SUPPORT
 
-#define MERGED_STORAGE_VAR(storVar,byteLow,byteHigh) cat(storVar, cat("_", cat(to_string(byteLow), cat("_", to_string(byteHigh)))))
+#define SIMPLE_STORAGE_VAR(storVar) cat("stor", storVar)
+
+#define SIMPLE_TSTORAGE_VAR(storVar) cat("tstor", storVar)
+
+#define MERGED_VAR_BASE(storVar,byteLow,byteHigh) cat(storVar, cat("_", cat(to_string(byteLow), cat("_", to_string(byteHigh)))))
+
+#define MERGED_STORAGE_VAR(storVar,byteLow,byteHigh) MERGED_VAR_BASE(cat("stor", storVar),byteLow,byteHigh)
+
+#define MERGED_TSTORAGE_VAR(storVar,byteLow,byteHigh) MERGED_VAR_BASE(cat("tstor", storVar),byteLow,byteHigh)
 
 #define SIMPLE_FIELD(fieldNum) cat("field", to_string(fieldNum))
 
-#define PACKED_FIELD(fieldNum,byteLow,byteHigh) MERGED_STORAGE_VAR(cat("field", to_string(fieldNum)),byteLow,byteHigh)
+#define PACKED_FIELD(fieldNum,byteLow,byteHigh) MERGED_VAR_BASE(cat("field", to_string(fieldNum)),byteLow,byteHigh)
+
+#define MISSING_VAR_PLACEHOLDER "0xNoVar"
 
 #include "../dominators.dl"
 #include "../flows.dl"
 #include "../casts_shifts.dl"
 
+#include "storage_modeling_api.dl"
 #include "data_structures.dl"
 #include "tight_packing.dl"
+#include "type_inference.dl"
+#include "clienthelpers.dl"
 #include "legacy_data_structures.dl"
 #include "metrics.dl"

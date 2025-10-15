@@ -55,13 +55,16 @@
 
   MaxContextDepth(sigHash, d) :-
     (local.PublicFunction(_, sigHash, _);
-     sigHash = FALLBACK_FUNCTION_SIGHASH),
+     sigHash = FUNCTION_SELECTOR_SIGHASH),
     InputMaxContextDepth(d).
 
-
+  /**
+    This rule will never fire if executed using `gigahorse.py` as it will always provide a context depth value.
+    Default max context depth values for different decompiler configurations are defined in `src/runners.py`.
+  */
   MaxContextDepth(sigHash, 20) :-
     (local.PublicFunction(_, sigHash, _);
-     sigHash = FALLBACK_FUNCTION_SIGHASH),
+     sigHash = FUNCTION_SELECTOR_SIGHASH),
     !InputMaxContextDepth(_).
 }
 
@@ -159,7 +162,7 @@
   // Define our universe of contexts (including partial)
   .decl IsPotentialContext(pubFun: symbol, ctx: PrivateContext)
 
-  IsPotentialContext(FALLBACK_FUNCTION_SIGHASH, ctx) :-
+  IsPotentialContext(FUNCTION_SELECTOR_SIGHASH, ctx) :-
     InitialPrivateContext(ctx).
 
   IsPotentialContext(publicFun, private) :-
@@ -195,7 +198,7 @@
 
   InitialPrivateContext(nil).
 
-  InitialContext([FALLBACK_FUNCTION_SIGHASH, initialPrivateContext]) :-
+  InitialContext([FUNCTION_SELECTOR_SIGHASH, initialPrivateContext]) :-
     InitialPrivateContext(initialPrivateContext).
 
 
@@ -297,14 +300,14 @@
   //   local.PublicFunctionJump(caller, sigHash, _),
   //   !MaxContextDepth(sigHash, -1),
   //   DecomposeContext(ctx, prevSigHash, _),
-  //   prevSigHash != FALLBACK_FUNCTION_SIGHASH.
+  //   prevSigHash != FUNCTION_SELECTOR_SIGHASH.
   // .plan 1:(3,1,2)
   // MergeContext(ctx, caller, newContext):-
   //   ReachableContext(ctx, caller),
   //   local.PublicFunctionJump(caller, sigHash, _),
   //   !MaxContextDepth(sigHash, -1),
   //   DecomposeContext(ctx, prevSigHash, pri),
-  //   prevSigHash = FALLBACK_FUNCTION_SIGHASH,
+  //   prevSigHash = FUNCTION_SELECTOR_SIGHASH,
   //   newContext = [sigHash, pri].
   // .plan 1:(3,1,2)
 
@@ -314,14 +317,14 @@
     local.PublicFunction(funcStart, sigHash, _),
     !MaxContextDepth(sigHash, -1),
     DecomposeContext(ctx, prevSigHash, _),
-    prevSigHash != FALLBACK_FUNCTION_SIGHASH.
+    prevSigHash != FUNCTION_SELECTOR_SIGHASH.
   .plan 1:(4,1,2,3)
   MergeContextResponse(ctx, caller, funcStart, newContext) :-
     MergeContextRequest(ctx, caller, funcStart),
     local.PublicFunctionJump(caller, sigHash, _),
     local.PublicFunction(funcStart, sigHash, _),
     !MaxContextDepth(sigHash, -1),
-    DecomposeContext(ctx, FALLBACK_FUNCTION_SIGHASH, pri),
+    DecomposeContext(ctx, FUNCTION_SELECTOR_SIGHASH, pri),
     newContext = [sigHash, pri].
   .plan 1:(4,1,2,3)
   MergeContextResponse(ctx, caller, funcStart, ctx) :-
