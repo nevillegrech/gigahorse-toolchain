@@ -232,7 +232,6 @@ FunCalledByDynamicCall(fun):-
     !FunctionToInline(fun).
 
   .decl InliningWillResolveDynamicCall(outCall: Block, calledFun: Function)
-  DEBUG_OUTPUT(InlininangWillResolveDynamicCall)
   InliningWillResolveDynamicCall(outCall, calledFun):-
     In_DynamicPrivateCall(inCall, _),
     In_FunctionCallReturn(inCall, calledFun, _),
