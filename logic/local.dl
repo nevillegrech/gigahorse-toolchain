@@ -69,6 +69,20 @@ clonerHelperInsertor.insertOps(fallthrough,
   beforeClonerLocal.FallthroughBlockUsedMultipleTimes(_, fallthrough),
   beforeClonerLocal.JUMPDEST(fallthrough).
 
+// If a shared public function start is a fallthrough block, make it a direct jump
+clonerHelperInsertor.insertOps(insertPoint,
+  LIST(
+    STMT(PUSH4, MAKE_LABEL_REFERENCE(functionStart)),
+    STMT(JUMP, ""),
+    STMT(JUMPDEST, MAKE_LABEL_REFERENCE(functionStart))
+  )
+) :-
+  beforeClonerLocal.PublicFunctionStartShared(_, functionStart),
+  beforeClonerLocal.Statement_Next(as(functionStart, Statement), insertPoint),
+  beforeClonerLocal.Statement_Block(jumpi, functionStart),
+  beforeClonerLocal.Statement_Opcode(jumpi, "JUMPI").
+
+
 COPY_OUTPUT(blockCloner, clonerHelperInsertor)
 // Transformation doesn't introduce new blocks, we can use revertCloner for the original block info
 blockCloner.Prev_Block_OriginalBlock(block, originalBlock):- revertCloner.Block_OriginalBlock(block, originalBlock).
