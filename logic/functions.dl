@@ -1310,12 +1310,25 @@ DUPTouchesPHIWithLoss(stmt, var):-
   DefBlockToUseBlockPathInterm(defBlock, useBlock, block, prevPath),
   IRStatement_Block(stmt, block),
   IRStatement_Opcode(stmt, opcode),
-  postTrans.SWAPN(opcode, n),
-  firstFunctional.IRBeforeLocalStackContents(stmt, n, index),
+  postTrans.SWAPN(opcode, _),
+  firstFunctional.IRBeforeLocalStackContents(stmt, 0, index),
   firstFunctional.FunctionalBlockInputContents(block, index, var),
   PHIVarInformationLoss(useBlock, otherVar, ogStackIndex),
   var != otherVar, // ensure the otherVar is not also used, i.e. there is no phi at `index`
   !firstFunctional.FunctionalBlockInputContents(block, index, otherVar).
+
+// DUPTouchesPHIWithLoss(stmt, var):-
+//   PHIVarInformationLoss(useBlock, var, ogStackIndex),
+//   PHIVar_DefBlockToUseBlock(defBlock, useBlock, var, ogStackIndex),
+//   DefBlockToUseBlockPathInterm(defBlock, useBlock, block, prevPath),
+//   IRStatement_Block(stmt, block),
+//   IRStatement_Opcode(stmt, opcode),
+//   postTrans.SWAPN(opcode, n),
+//   firstFunctional.IRBeforeLocalStackContents(stmt, n, index),
+//   firstFunctional.FunctionalBlockInputContents(block, index, var),
+//   PHIVarInformationLoss(useBlock, otherVar, ogStackIndex),
+//   var != otherVar, // ensure the otherVar is not also used, i.e. there is no phi at `index`
+//   !firstFunctional.FunctionalBlockInputContents(block, index, otherVar).
 
 .init dupIntr = PostTransLocalAnalysis
 COPY_CODE_FULL(dupIntr, postTrans)
