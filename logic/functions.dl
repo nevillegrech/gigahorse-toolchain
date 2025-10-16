@@ -1246,7 +1246,7 @@ DEBUG_OUTPUT(DefBlockToUseBlockPathInterm)
 
 DefBlockToUseBlockPathInterm(from, to, from, initPath):-
   PHIVar_DefBlockToUseBlock(from, to, _, _),
-  from != to, // REVIEW: not sure, it seems to help rn
+//   from != to, // REVIEW: not sure, it seems to help rn
   initPath = as("", Path).
   // initPath = as(from, Path).
 
@@ -1305,6 +1305,12 @@ DUPTouchesPHIWithLoss(stmt, var):-
   !firstFunctional.FunctionalBlockInputContents(block, index, otherVar).
 
 DUPTouchesPHIWithLoss(stmt, var):-
+  PHIVarInformationLoss(_, var, ogStackIndex),
+  firstFunctional.IRBeforeLocalStackContents(stmt, n - 1, var),
+  IRStatement_Opcode(stmt, opcode),
+  postTrans.DUPN(opcode, n).
+
+DUPTouchesPHIWithLoss(stmt, var):-
   PHIVarInformationLoss(useBlock, var, ogStackIndex),
   PHIVar_DefBlockToUseBlock(defBlock, useBlock, var, ogStackIndex),
   DefBlockToUseBlockPathInterm(defBlock, useBlock, block, prevPath),
@@ -1316,6 +1322,12 @@ DUPTouchesPHIWithLoss(stmt, var):-
   PHIVarInformationLoss(useBlock, otherVar, ogStackIndex),
   var != otherVar, // ensure the otherVar is not also used, i.e. there is no phi at `index`
   !firstFunctional.FunctionalBlockInputContents(block, index, otherVar).
+
+DUPTouchesPHIWithLoss(stmt, var):-
+  PHIVarInformationLoss(_, var, ogStackIndex),
+  firstFunctional.IRBeforeLocalStackContents(stmt, 0, var),
+  IRStatement_Opcode(stmt, opcode),
+  postTrans.SWAPN(opcode, _).
 
 // DUPTouchesPHIWithLoss(stmt, var):-
 //   PHIVarInformationLoss(useBlock, var, ogStackIndex),
