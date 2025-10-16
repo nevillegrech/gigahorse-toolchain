@@ -989,6 +989,16 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
     BlockComparesCallDataSizeToFour(_, _, block),
     BlockJumpsOnCallDataSize(block, jumpi, noCallDataSizeBranch, callDataSizeBranch).
 
+  .decl PublicFunctionStartShared(sigHash: symbol, functionStartBlock: Block)
+  PublicFunctionStartShared(sigHash1, as(functionStart, Block)):-
+    BlockComparesSig(block1, sigHash1, _),
+    ImmediateBlockJumpTarget(block1, var1),
+    Variable_Value(var1, functionStart),
+    Variable_Value(var2, functionStart),
+    ImmediateBlockJumpTarget(block2, var2),
+    BlockComparesSig(block2, sigHash2, _),
+    JUMPDEST(as(functionStart, Statement)),
+    sigHash1 != sigHash2.
 }
 
 /**
