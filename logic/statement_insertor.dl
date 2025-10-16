@@ -577,6 +577,9 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
     PossibleCallerWithReturn(_, var2, candidate),
     var != var2.
 
+  BlockCloningCandidate(functionStart):-
+    analysis.PublicFunctionStartShared(_, functionStart).
+
 }
 
 /**
