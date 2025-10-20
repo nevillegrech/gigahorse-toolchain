@@ -167,7 +167,9 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
     n > start + 1,
     stmt_num = @hex_to_number(stmt),
     m = range(1, n, 1),
-    res = stmt_num + m.
+    res = stmt_num + m,
+    !_StatementNum(_, -res -1).
+
 
   IsVariable(var),
   Statement_AdditionalDef(stmt, var):-
@@ -347,7 +349,7 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
   // Base case, handles most cases
   LocalStackContents(stmt, 0, var) :-
     Statement_Defines(stmt, var),
-    Statement_Opcode(stmt, opcode),
+    Statement_Opcode(stmt, _),
     !TACNOP(stmt).
     // !SWAPN(opcode, _).
 
