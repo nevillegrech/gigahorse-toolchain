@@ -1194,9 +1194,11 @@ NumberOfFunctionReturnArguments(func, n) :-
 
 #define INIT_FSTACK_FROM_LOCAL(fstack, local)\
 fstack.Variable_String(var, var_rep):- local.Statement_Defines(var_rep, var).\
+fstack.Variable_String(var, @number_to_hex(-var + 1)):- local.Statement_AdditionalDef(_, var).\
 fstack.IRBeforeLocalStackContents(irstmt, n, varOrStackIndex):- local.BeforeLocalStackContents(stmt, n, varOrStackIndex), Statement_IRStatement(stmt, _, irstmt).\
 fstack.IRLocalStackContents(irstmt, n, varOrStackIndex):- local.LocalStackContents(stmt, n, varOrStackIndex), Statement_IRStatement(stmt, _, irstmt).\
 fstack.IRStatement_Uses_Local(irstmt, varOrStackIndex, n):- local.Statement_Uses_Local(stmt, varOrStackIndex, n), Statement_IRStatement(stmt, _, irstmt).\
+fstack.FunctionalStatement_Defines(irstmt, newVar, 1):- local.Statement_AdditionalDef(stmt, newVar), Statement_IRStatement(stmt, _, irstmt).\
 fstack.FunctionalStatement_Defines(irstmt, newVar, 0):- local.Statement_Defines(stmt, newVar), Statement_IRStatement(stmt, _, irstmt).
 
 .init firstFunctional = FunctionalStackAnalysis

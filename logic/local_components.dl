@@ -138,7 +138,9 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
   
   // One to one mapping. Give every statement a unique var (negative index)
   .decl Statement_Defines(statement: Statement, variable: Variable)
-  
+
+  .decl Statement_AdditionalDef(statement: Statement, variable: Variable) choice-domain statement, variable
+
   .decl _StatementNum(statement: Statement, num: number)
   
   _StatementNum(stmt, -res-1) :-
@@ -155,6 +157,25 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
     OpcodePushWords(opcode, m), m > 0,
     !TACNOP(stmt),
     var = as(n, Variable).
+
+  .decl UnusedIndex(index: number)
+  UnusedIndex(-res -1):-
+    Statement_Opcode(stmt, opcode),
+    OpcodeIsPush(opcode),
+    OpcodeOrd("PUSH1", start),
+    OpcodeOrd(opcode, n),
+    n > start + 1,
+    stmt_num = @hex_to_number(stmt),
+    m = range(1, n, 1),
+    res = stmt_num + m.
+
+  IsVariable(var),
+  Statement_AdditionalDef(stmt, var):-
+    Statement_Opcode(stmt, opcode),
+    SWAPN(opcode, _),
+    UnusedIndex(n),
+    var = as(n, Variable),
+    !TACNOP(stmt).
 
 
   /*
@@ -327,11 +348,12 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
   LocalStackContents(stmt, 0, var) :-
     Statement_Defines(stmt, var),
     Statement_Opcode(stmt, opcode),
-    !TACNOP(stmt),
-    !SWAPN(opcode, _).
+    !TACNOP(stmt).
+    // !SWAPN(opcode, _).
 
   LocalStackContents(stmt, as(n, StackIndex), var) :-
-    Statement_Defines(stmt, var),
+    // Statement_Defines(stmt, var),
+    Statement_AdditionalDef(stmt, var),
     Statement_Opcode(stmt, opcode),
     SWAPN(opcode, n),
     !TACNOP(stmt).
@@ -385,9 +407,9 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
 
   LocalStackContents(stmt, 0, variableN) :-
     BeforeSwapLocalStackContents(stmt, n, n, variableN),
-    BeforeSwapLocalStackContents(stmt, n, 0, variable0).
-    .plan 1:(2,1)
-    // TACNOP(stmt).
+    TACNOP(stmt).
+    // BeforeSwapLocalStackContents(stmt, n, 0, variable0).
+    // .plan 1:(2,1)
     // .plan 1:(2,1,3)
 
   LocalStackContents(stmt, m, other) :-
@@ -480,6 +502,12 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
     BeforeLocalStackContents(stmt, n - 1, varOrStackIndex).
 
   Statement_Uses_Local(stmt, varOrStackIndex, 0):-
+    Statement_Opcode(stmt, opcode),
+    SWAPN(opcode, n),
+    !TACNOP(stmt),
+    BeforeLocalStackContents(stmt, n, varOrStackIndex).
+
+  Statement_Uses_Local(stmt, varOrStackIndex, 1):-
     Statement_Opcode(stmt, opcode),
     SWAPN(opcode, _),
     !TACNOP(stmt),

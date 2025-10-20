@@ -156,8 +156,14 @@ TAC_Op(irstmt, "CONST") :-
 
 TAC_Op(irstmt, "MOV") :-
    IRStatement_Opcode(irstmt, op),
-   (OpcodeIsDup(op); OpcodeIsSwap(op)),
+   OpcodeIsDup(op),
    !IRTACNOP(irstmt).
+
+TAC_Op(irstmt, "MOV2") :-
+   IRStatement_Opcode(irstmt, op),
+   OpcodeIsSwap(op),
+   !IRTACNOP(irstmt).
+
 
 
 TAC_Op(irstmt, "THROW") :-
