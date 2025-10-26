@@ -655,6 +655,14 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
     BasicBlock_Head(next, fallthrough),
     block1 != block2.
 
+  // Stack balance block is fallthrough and also used elsewhere. Make it a jump so it can be cloned.
+  FallthroughBlockUsedMultipleTimes(block, fallthrough):-
+    JumplessFalthroughBlock(block, next),
+    StackBalanceBlock(next),
+    (BlockPushesLabel(otherBlock, as(next, Value)); StaticBlockJumpTarget(otherBlock, as(next, Value))),
+    BasicBlock_Head(next, fallthrough),
+    block != otherBlock.
+
   .decl CODECOPYStatement(stmt: Statement, offset: Value, size: Value)
   CODECOPYStatement(codeCopy, codeOffsetNumHex, smallNumHex) :-
     Statement_Opcode(codeCopy, "CODECOPY"),
