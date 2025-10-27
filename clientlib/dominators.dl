@@ -365,6 +365,7 @@ UnconditionalLocalBlockPath(from, to):-
 
 .decl BlockMayThrow(block: Block)
 .decl BlockMayReturn(block: Block)
+.decl BlockMayCallOther(block: Block)
 .decl BlockMustThrow(block: Block)
 .decl BlockMustReturn(block: Block)
 
@@ -376,10 +377,16 @@ BlockMayReturn(block):-
   FunctionExit(exit),
   LocalBlockPath(block, exit).
 
+BlockMayCallOther(block):-
+  CallGraphEdge(call, _),
+  LocalBlockPath(block, call).
+
 BlockMustThrow(block):-
   BlockMayThrow(block),
+  !BlockMayCallOther(block),
   !BlockMayReturn(block).
 
 BlockMustReturn(block):-
   BlockMayReturn(block),
+  !BlockMayCallOther(block),
   !BlockMayThrow(block).
