@@ -523,3 +523,14 @@ Analytics_MissingEdgeInTAC(irBlock):-
   TAC_Block(jump, irBlock),
   TAC_Op(jump, "JUMP"),
   !LocalBlockEdge(irBlock, _).
+
+.decl Analytics_DataFlowImprecision(fun: IRFunction)
+.output Analytics_DataFlowImprecision
+
+Analytics_DataFlowImprecision(fun):-
+  PHILocation(block, stackIndex, _),
+  lastFunctional.FunctionalBlockInputContents(block, stackIndex, var),
+  lastFunctional.FunctionalBlockInputContents(block, stackIndex, otherVar),
+  lastFunctional.FunctionArgument(fun, _, var),
+  lastFunctional.FunctionArgument(fun, _, otherVar),
+  var != otherVar.
