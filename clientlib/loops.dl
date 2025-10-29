@@ -202,6 +202,11 @@ LoopWithManyExitsHasAdditionalBlocks(loop, addBlock):-
   LocalBlockEdge(block, addBlock),
   addBlock != conBlock.
 
+/**
+  Basic relation for identifying post-iteration blocks.
+  A likely continue jump is one that where the `to` block dominates the loop's BackEdge block,
+  while the `from` doesn't.
+*/
 .decl LikelyContinueJump(loop: Block, block: Block, next: Block) btree_delete
 DEBUG_OUTPUT(LikelyContinueJump)
 LikelyContinueJump(loop, block, next):-
@@ -212,10 +217,16 @@ LikelyContinueJump(loop, block, next):-
   Dominates(next, finalBlock),
   !Dominates(block, finalBlock).
 
+// Filter out inferences for the same loop if one PostDominates the other
 LikelyContinueJump(loop, otherBlock, otherNext) <= LikelyContinueJump(loop, block, next):-
   PostDominates(next, otherNext),
   next != otherNext.
 
+/**
+  Infer that a loop has post-iteration logic if:
+    * It has a single LoopBackEdge
+    * All LikelyContinueJumps have the same target
+*/
 .decl LoopHasPostIterationLogic(loop: Block, startPoint: Block)
 DEBUG_OUTPUT(LoopHasPostIterationLogic)
 LoopHasPostIterationLogic(loop, next):-
