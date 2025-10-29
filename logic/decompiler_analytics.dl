@@ -307,6 +307,16 @@ Analytics_FunctionWithMultipleReturns(func) :-
 Analytics_DynamicPrivateCall(call):-
   IRDynamicPrivateCall(call, _).
 
+
+.decl Analytics_LikelyFunctionImprecision(func: IRFunction)
+.output Analytics_LikelyFunctionImprecision
+Analytics_LikelyFunctionImprecision(func):-
+  FormalArgs(func, target, n),
+  TAC_Op(ret, "RETURNPRIVATE"),
+  TAC_Use(ret, target, 0),
+  FormalArgs(func, _, m),
+  m > n.
+
 .decl Analytics_PublicFunction(func: IRFunction)
 .output Analytics_PublicFunction
 
