@@ -286,6 +286,7 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
   .type CloneList = [pushStmt: Statement, blockToClone: Block, rest: CloneList]
   // Create a new instance of `blockToClone` for its definition in `pushStmt`
   .decl BlockToCloneRecursive(blockToClone: CloneList)
+  DEBUG_OUTPUT(BlockToCloneRecursive)
 
   /**
     After we compute the order of the inserted clone blocks,
@@ -331,7 +332,7 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
     BlockPushedToStack(pushStmt, _, pushedBlock),
     analysis.Statement_Block(pushStmt, block).
 
-
+  DEBUG_OUTPUT(BlockPushesBlockToStack)
   BlockToCloneRecursive([pushStmt, blockToClone, nil]):-
     BlockToClone(pushStmt, blockToClone).
 
@@ -567,6 +568,15 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
 
   BlockCloningCandidate(functionStart):-
     analysis.PublicFunctionStartShared(_, functionStart).
+
+  BlockCloningCandidate(caller):-
+    analysis.ImmediateBlockJumpTarget(caller, targetVar),
+    !analysis.PrivateFunctionCall(caller, _, _, _),
+    analysis.BasicBlock_Tail(caller, jump),
+    analysis.Statement_Opcode(jump, "JUMP"),
+    analysis.Variable_Value(targetVar, target),
+    analysis.JUMPDEST(as(target, symbol)),
+    analysis.StackBalanceBlock(as(target, Block)).
 
 }
 
