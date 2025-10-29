@@ -203,6 +203,56 @@ LoopWithManyExitsHasAdditionalBlocks(loop, addBlock):-
   addBlock != conBlock.
 
 /**
+  Basic relation for identifying post-iteration blocks.
+  A likely continue jump is one that where the `to` block dominates the loop's BackEdge block,
+  while the `from` doesn't.
+*/
+.decl LikelyContinueJump(loop: Block, block: Block, next: Block) btree_delete
+DEBUG_OUTPUT(LikelyContinueJump)
+LikelyContinueJump(loop, block, next):-
+  StructuredLoopBackEdge(finalBlock, loop),
+  BlockInStructuredLoopBase(block, loop),
+  BlockInStructuredLoopBase(next, loop),
+  LocalBlockEdge(block, next),
+  Dominates(next, finalBlock),
+  !Dominates(block, finalBlock).
+
+// Filter out inferences for the same loop if one PostDominates the other
+LikelyContinueJump(loop, otherBlock, otherNext) <= LikelyContinueJump(loop, block, next):-
+  PostDominates(next, otherNext),
+  next != otherNext.
+
+/**
+  Infer that a loop has post-iteration logic if:
+    * It has a single LoopBackEdge
+    * All LikelyContinueJumps have the same target
+*/
+.decl LoopHasPostIterationLogic(loop: Block, startPoint: Block)
+DEBUG_OUTPUT(LoopHasPostIterationLogic)
+LoopHasPostIterationLogic(loop, next):-
+  BlockInStructuredLoopBase(_, loop),
+  1 = count: StructuredLoopBackEdge(_, loop),
+  LikelyContinueJump(loop, _, next),
+  n = count: LikelyContinueJump(loop, _, _),
+  n = count: LikelyContinueJump(loop, _, next),
+  n > 1.
+
+.decl BlockInPostIterationBlock(loop: Block, postB: Block)
+BlockInPostIterationBlock(loop, next):-
+  LoopHasPostIterationLogic(loop, next).
+
+BlockInPostIterationBlock(loop, next):-
+  BlockInPostIterationBlock(loop, block),
+  LocalBlockEdge(block, next),
+  BlockInStructuredLoopBase(next, loop),
+  !StructuredLoopBackEdge(block, loop).
+
+.decl StatementInPostIterationBlock(loop: Block, stmt: Statement)
+StatementInPostIterationBlock(loop, stmt):-
+  BlockInPostIterationBlock(loop, block),
+  Statement_Block(stmt, block).
+
+/**
   Loops that can be expressed using high-level control-flow.
   They have to have exactly 1 exit/next block or have many
   but of the kinds that can be also part of the loop (returns, reverts, exits, etc)
