@@ -1054,6 +1054,23 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
                                              
 }
 
+// Instantiation that models the effects of all SWAPn and DUPn instructions.
+.comp AllStatementsLocalAnalysis : LocalAnalysis {
+
+  DupOrSwapNeededInTAC(stmt):-
+    Statement_Opcode(stmt, op),
+    (SWAPN(op, _); DUPN(op, _)).
+
+  .decl StatementOutSurvivesBlock(stmt: Statement)
+
+  StatementOutSurvivesBlock(stmt):-
+    (Statement_Defines(stmt, var); Statement_AdditionalDef(stmt, var)),
+    Statement_Block(statement, block),
+    BasicBlock_Tail(block, tail),
+    LocalStackContents(tail, _, var).
+
+}
+
 .comp PostIncompleteGlobalLocalAnalysis : LocalAnalysis {
   .decl ExtBlockPushesLabel(block: Block, val: Value)
 

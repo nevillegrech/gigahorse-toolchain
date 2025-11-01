@@ -1268,6 +1268,46 @@ DEBUG_OUTPUT(DefBlockToUseBlockPath)
 DefBlockToUseBlockPath(from, to, path):-
   DefBlockToUseBlockPathInterm(from, to, to, path).
 
+// .decl PHIOpTwoPathHelper(useBlock: IRBlock, stackIndex: StackIndex, defBlock1: IRBlock, defPath1: Path, defBlock2: IRBlock, defPath2: Path)
+// PHIOpTwoPathHelper(useBlock, stackIndex, defBlock1, defPath1, defBlock2, defPath2):-
+//   PHIVar_DefBlockToUseBlock(defBlock1, useBlock, var, stackIndex),
+//   DefBlockToUseBlockPath(defBlock1, useBlock, defPath1),
+//   PHIVar_DefBlockToUseBlock(defBlock2, useBlock, otherVar, stackIndex), otherVar != var,
+//   DefBlockToUseBlockPath(defBlock2, useBlock, defPath2).
+
+// .decl PHIOpWithCompatiblePaths(useBlock: IRBlock, stackIndex: StackIndex, defBlock1: IRBlock, defPath1: Path, defBlock2: IRBlock, defPath2: Path)
+// PHIOpWithCompatiblePaths(useBlock, stackIndex, defBlock1, path, defBlock2, path):-
+//   PHIOpTwoPathHelper(useBlock, stackIndex, defBlock1, path, defBlock2, path).
+
+// PHIOpWithCompatiblePaths(useBlock, stackIndex, defBlock1, defPath1, defBlock2, defPath2):-
+//   PHIOpTwoPathHelper(useBlock, stackIndex, defBlock1, defPath1, defBlock2, defPath2),
+//   defPath1 != defPath2, defPath2 != "", defPath1 != "",
+//   contains(defPath1, defPath2).
+
+.decl IRFunctionExit(exitNode: IRBlock)
+IRFunctionExit(exitNode):-
+  IRStatement_Block(stmt, exitNode),
+  IRStatement_Opcode(stmt, opcode),
+  (opcode = "EXIT"; opcode = "RETURN"; opcode = "RETURNPRIVATE").
+  
+.decl DoesNotPostDominate(candidate: IRBlock, block: IRBlock)
+DoesNotPostDominate(candidate, exitNode) :-
+  IRFunctionExit(exitNode),
+  IRInFunction(exitNode, f),
+  IRInFunction(candidate, f),
+  exitNode != candidate.
+
+DoesNotPostDominate(candidate, s) :-
+  DoesNotPostDominate(candidate, other),
+  LocalBlockEdge(s, other),
+  s != candidate.
+
+.decl PostDominates(postdominator: IRBlock, s: IRBlock)
+PostDominates(postdominator,s) :-
+  IRInFunction(postdominator, f),
+  IRInFunction(s, f),
+  !DoesNotPostDominate(postdominator,s).
+
 .decl PHIVarInformationLoss(useBlock: IRBlock, useVar: Variable, stackIndex: StackIndex)
 DEBUG_OUTPUT(PHIVarInformationLoss)
 
@@ -1290,6 +1330,17 @@ PHIVarInformationLoss(useBlock, var, stackIndex):-
   DefBlockToUseBlockPath(otherDefBlock, useBlock, otherPath), path != otherPath,
   contains(path, otherPath), otherPath != "", path != "".
 
+// PHIVarInformationLoss(useBlock, var, stackIndex):-
+//   PHIVar_DefBlockToUseBlock(defBlock1, useBlock, var, stackIndex),
+//   PHIOpTwoPathHelper(useBlock, stackIndex, defBlock1, _, defBlock2, _),
+//   n = count: PHIOpTwoPathHelper(useBlock, stackIndex, defBlock1, _, defBlock2, _),
+//   n = count: PHIOpWithCompatiblePaths(useBlock, stackIndex, defBlock1, _, defBlock2, _).
+
+// PHIVarInformationLoss(useBlock, otherVar, stackIndex),
+// PHIVarInformationLoss(useBlock, var, stackIndex):-
+//   PHIVar_DefBlockToUseBlock(defBlock, useBlock, var, stackIndex),
+//   PHIVar_DefBlockToUseBlock(otherDefBlock, useBlock, otherVar, stackIndex), otherVar != var,
+//   PostDominates(defBlock, otherDefBlock).
 
 // unused for now
 .decl PHIVarInformationLossCount(useBlock: IRBlock, stackIndex: StackIndex, nvars: number)
@@ -1297,6 +1348,9 @@ DEBUG_OUTPUT(PHIVarInformationLossCount)
 PHIVarInformationLossCount(useBlock, stackIndex, nvars):-
   PHIVarInformationLoss(useBlock, _, stackIndex),
   nvars = count: PHIVarInformationLoss(useBlock, _, stackIndex).
+
+.init allStmts = AllStatementsLocalAnalysis
+COPY_CODE_FULL(allStmts, postTrans)
 
 
 .decl DUPTouchesPHIWithLoss(dup: IRStatement, useVar: Variable)
@@ -1369,7 +1423,10 @@ DUPTouchesPHIWithLoss(stmt, var):-
 
 .init dupIntr = PostTransLocalAnalysis
 COPY_CODE_FULL(dupIntr, postTrans)
-dupIntr.DupOrSwapNeededInTAC(dup):- DUPTouchesPHIWithLoss(irDup, _), Statement_IRStatement(dup, _, irDup).
+dupIntr.DupOrSwapNeededInTAC(dup):-
+  DUPTouchesPHIWithLoss(irDup, _),
+  Statement_IRStatement(dup, _, irDup),
+  allStmts.StatementOutSurvivesBlock(dup).
 
 .init lastFunctional = FunctionalStackAnalysis
 INIT_FSTACK_FROM_LOCAL(lastFunctional, dupIntr)
