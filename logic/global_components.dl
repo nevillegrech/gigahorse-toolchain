@@ -74,15 +74,16 @@
     ReachableContext(ctx, block),
     Statement_Block(statement, block),
     Statement_Defines(statement, variable),
+    VariableInJumpTargetComputation(variable),
     Variable_Value(variable, value).
+    .plan 1:(4,3,2,1,5)
 
   // global case, highlights limitation
   GlobalVariable_Value(ctx, stackIndex, value):-
     BlockInputContents(ctx, block, stackIndex, variable),
-    Statement_Block(statement, block),
-    Statement_Uses_Local(statement, stackIndex, _),
-    CheckIsStackIndexLoose(stackIndex),
+    StackIndexInJumpTargetComputation(ctx, block, stackIndex),
     Variable_Value(variable, value).
+    .plan 1:(2,1,3)
 
 
   /**
@@ -100,6 +101,42 @@
     Statement_Uses_Local(stmt, use, _),
     CheckIsVariable(use),
     !Variable_Value(use, _).
+
+  .decl VariableInJumpTargetComputation(variable: Variable)
+  VariableInJumpTargetComputation(var):-
+    ImmediateBlockJumpTarget(_, var).
+
+  VariableInJumpTargetComputation(as(use, Variable)):-
+    VariableInJumpTargetComputation(def),
+    Statement_Defines(stmt, def),
+    Statement_Uses_Local(stmt, use, _),
+    CheckIsVariable(use).
+
+  .decl StackIndexInJumpTargetComputation(ctx: sens.Context, block: Block, index: StackIndex)
+  StackIndexInJumpTargetComputation(ctx, block, as(stackIndex, StackIndex)):-
+    ReachableContext(ctx, block),
+    Statement_Block(stmt, block),
+    Statement_Defines(stmt, def),
+    VariableInJumpTargetComputation(def),
+    Statement_Uses_Local(stmt, stackIndex, _),
+    CheckIsStackIndexLoose(stackIndex).
+    .plan 1:(4,3,2,1,5)
+
+  StackIndexInJumpTargetComputation(fromCtx, from, as(stackIndex, StackIndex)):-
+    StackIndexInJumpTargetComputation(toCtx, to, index),
+    BlockEdge(fromCtx, from, toCtx, to),
+    BasicBlock_Tail(from, stmt),
+    LocalStackContents(stmt, index, stackIndex),
+    CheckIsStackIndexLoose(stackIndex).
+    .plan 1:(2,1,3,4)
+
+  VariableInJumpTargetComputation(as(use, Variable)):-
+    StackIndexInJumpTargetComputation(toCtx, to, index),
+    BlockEdge(_, from, toCtx, to),
+    BasicBlock_Tail(from, stmt),
+    LocalStackContents(stmt, index, use),
+    CheckIsVariable(use).
+    .plan 1:(2,1,3,4)
 
   // Helper to produce all constant operation requests
   .decl GlobalBinopStatementOpAndConstantArgValues(ctx: sens.Context, stmt: Statement, op: Opcode, a_val: Value, b_val: Value)
@@ -327,6 +364,15 @@
   VariableToModel(var):-
     VariableContainsJumpTarget(var); FunctionSelectorVariable(var).
 
+  VariableToModel(var):-
+    VariableInJumpTargetComputation(var).
+
+//   .decl BadVar(var:Variable)
+//   .output BadVar
+//   BadVar(var):-
+//     VariableInJumpTargetComputation(var),
+//     !VariableToModel(var).
+
   .decl BlockOutputContentsJumpTarget(context:sens.Context, block:Block, index:StackIndex, var:Variable)
   BlockOutputContentsJumpTarget(context, block, index, var):-
     AuxBlockOutputContentsJumpTarget(context, block, index, var),
@@ -340,6 +386,7 @@
   AuxBlockOutputContentsJumpTarget(context, block, index, var) :-
     BlockOutputContents(context, block, index, var),
     VariableToModel(var).
+    .plan 1:(2,1)
 
   BlockInputContents(calleeCtx, callee, index, variable) :-
     AuxBlockOutputContentsJumpTarget(callerCtx, caller, index, variable),
