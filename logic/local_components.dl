@@ -1065,7 +1065,7 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
 
   StatementOutSurvivesBlock(stmt):-
     (Statement_Defines(stmt, var); Statement_AdditionalDef(stmt, var)),
-    Statement_Block(statement, block),
+    Statement_Block(stmt, block),
     BasicBlock_Tail(block, tail),
     LocalStackContents(tail, _, var).
 
