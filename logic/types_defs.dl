@@ -15,6 +15,9 @@
 
 #define CheckIsVariable(v) ((v) < 0)
 #define CheckIsStackIndex(v) ((v) >= 0, (v) <= MAX_STACK_HEIGHT)
+// Variant of the above that doesn't ensure the value is under the stack height
+// To be used when filtering pre-existing values, and not creating new ones
+#define CheckIsStackIndexLoose(v) ((v) >= 0)
 
 
 // The following 4 constants as also defined in src/common.py

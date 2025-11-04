@@ -829,7 +829,7 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
     EQ(eqStmt),
     Statement_Uses_Local(eqStmt, sigHashVar, n),
     Statement_Uses_Local(eqStmt, selectorVarOrIndex, 1 - n),
-    ((CheckIsStackIndex(selectorVarOrIndex), selector = $SelectorStackIndex(block, selectorVarOrIndex));
+    ((CheckIsStackIndexLoose(selectorVarOrIndex), selector = $SelectorStackIndex(block, selectorVarOrIndex));
      (CheckIsVariable(selectorVarOrIndex), selector = $SelectorVariable(selectorVarOrIndex))),
     Statement_Defines(eqStmt, pred),
     JUMPI(jumpiStmt),
@@ -872,7 +872,7 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
 
   BlockComparesSigVyper(block, sigHash, $SelectorStackIndex(block, selectorIndex)):-
     BlockComparesSigVyperBase(block, sigHash, selectorIndex),
-    CheckIsStackIndex(selectorIndex).
+    CheckIsStackIndexLoose(selectorIndex).
 
   // pattern in via-ir contracts, public function start is the block's fallthrough
   .decl BlockComparesSigFallthroughSolidity(block: Block, sigHash: Value, selectorVarOrIndex: OptionalSelector)
@@ -884,7 +884,7 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
     SUB(subStmt),
     Statement_Uses_Local(subStmt, sigHashVar, n),
     Statement_Uses_Local(subStmt, selectorVarOrIndex, 1 - n),
-    ((CheckIsStackIndex(selectorVarOrIndex), selector = $SelectorStackIndex(block, selectorVarOrIndex));
+    ((CheckIsStackIndexLoose(selectorVarOrIndex), selector = $SelectorStackIndex(block, selectorVarOrIndex));
      (CheckIsVariable(selectorVarOrIndex), selector = $SelectorVariable(selectorVarOrIndex))),
     Statement_Defines(subStmt, pred),
     JUMPI(jumpiStmt),

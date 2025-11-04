@@ -81,7 +81,7 @@
     BlockInputContents(ctx, block, stackIndex, variable),
     Statement_Block(statement, block),
     Statement_Uses_Local(statement, stackIndex, _),
-    CheckIsStackIndex(stackIndex),
+    CheckIsStackIndexLoose(stackIndex),
     Variable_Value(variable, value).
 
 
@@ -152,7 +152,7 @@
 
   BlockJumpTarget(ctx, block, realVariable) :-
     BlockInputContents(ctx, block, stackIndex, realVariable),
-    CheckIsStackIndex(stackIndex),
+    CheckIsStackIndexLoose(stackIndex),
     BasicBlock_Tail(block, stmt),
     IsJump(stmt),
     BeforeLocalStackContents(stmt, 0, stackIndex).
@@ -219,7 +219,7 @@
   // Case: variable originates elsewhere
   Statement_Uses(stmt, var, n) :-
     Statement_Uses_Local(stmt, stackIndex, n),
-    CheckIsStackIndex(stackIndex),
+    CheckIsStackIndexLoose(stackIndex),
     Statement_Block(stmt, block),
     BlockInputContents(_, block, stackIndex, var).
 

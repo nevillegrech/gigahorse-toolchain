@@ -1210,7 +1210,7 @@ FunctionalStatement_Defines(irstmt, newVar, 0) :-
 // Case: variable originates elsewhere
 FunctionalStatement_Uses(stmt, var, n) :-
    IRStatement_Uses_Local(stmt, stackIndex, n),
-   CheckIsStackIndex(stackIndex),
+   CheckIsStackIndexLoose(stackIndex),
    IRStatement_Block(stmt, block),
    FunctionalBlockInputContents(block, stackIndex, var).
 
