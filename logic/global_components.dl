@@ -58,7 +58,7 @@
   /**
     Variable or stack index `variable` has `value` under `ctx`.
   */
-  .decl GlobalVariable_Value(ctx: sens.Context, variable: VariableOrStackIndex, value: Value)
+  .decl GlobalVariable_Value(ctx: sens.Context, block: Block, variable: VariableOrStackIndex, value: Value)
   DEBUG_OUTPUT(GlobalVariable_Value)
 
   /**
@@ -70,7 +70,7 @@
   */
   .init globalVariableValueConstantOps = ConstantFolding
 
-  GlobalVariable_Value(ctx, variable, value):-
+  GlobalVariable_Value(ctx, block, variable, value):-
     ReachableContext(ctx, block),
     Statement_Block(statement, block),
     Statement_Defines(statement, variable),
@@ -79,12 +79,37 @@
     .plan 1:(4,3,2,1,5)
 
   // global case, highlights limitation
-  GlobalVariable_Value(ctx, stackIndex, value):-
+  GlobalVariable_Value(ctx, block, stackIndex, value):-
     BlockInputContents(ctx, block, stackIndex, variable),
     StackIndexInJumpTargetComputation(ctx, block, stackIndex),
     Variable_Value(variable, value).
     .plan 1:(2,1,3)
 
+  GlobalVariable_Value(toCtx, to, index, value):-
+    GlobalVariable_Value(fromCtx, from, stackIndex, value),
+    BlockEdge(fromCtx, from, toCtx, to),
+    BasicBlock_Tail(from, stmt),
+    CheckIsStackIndex(stackIndex),
+    LocalStackContents(stmt, index, stackIndex).
+    .plan 1:(2,1,3,4)
+
+  GlobalVariable_Value(toCtx, to, index, value):-
+    GlobalVariable_Value(fromCtx, from, variable, value),
+    BlockEdge(fromCtx, from, toCtx, to),
+    BasicBlock_Tail(from, stmt),
+    VariableInJumpTargetComputation(variable),
+    LocalStackContents(stmt, index, variable),
+    !Variable_Value(variable, value).
+    .plan 1:(2,1,4,3,5)
+
+
+  GlobalVariable_Value(toCtx, to, as(index, StackIndex)+delta, value):-
+    GlobalVariable_Value(fromCtx, from, index, value),
+    BlockEdge(fromCtx, from, toCtx, to),
+    BlockPopDelta(from, poplen),
+    BlockStackDelta(from, delta),
+    as(index, StackIndex) >= poplen,
+    as(index, StackIndex)+delta <= MAX_STACK_HEIGHT.
 
   /**
     The set of variables for which we need to recover their values via global-level analysis.
@@ -101,6 +126,9 @@
     Statement_Uses_Local(stmt, use, _),
     CheckIsVariable(use),
     !Variable_Value(use, _).
+
+  VariableWithoutValueUsedInJumpTargetComputation(var):-
+    VariableInJumpTargetComputation(var).
 
   .decl VariableInJumpTargetComputation(variable: Variable)
   VariableInJumpTargetComputation(var):-
@@ -144,20 +172,22 @@
     VariableWithoutValueUsedInJumpTargetComputation(targetVar),
     Statement_Defines(stmt, targetVar),
     Statement_Opcode(stmt, op),
+    Statement_Block(stmt, block),
     Statement_Uses_Local(stmt, a, 0),
     Statement_Uses_Local(stmt, b, 1),
-    GlobalVariable_Value(ctx, a, aval),
-    GlobalVariable_Value(ctx, b, bval).
-   .plan 0:(6,4,5,7,3,2,1),1:(7,5,4,6,3,2,1)
+    GlobalVariable_Value(ctx, block, a, aval),
+    GlobalVariable_Value(ctx, block, b, bval).
+   .plan 1:(7,5,4,6,8,3,2,1),2:(8,6,4,5,7,3,2,1)
 
   globalVariableValueConstantOps.RequestConstantFold2(op, a_val, b_val) :-
     GlobalBinopStatementOpAndConstantArgValues(_, _, op, a_val, b_val).
 
-  GlobalVariable_Value(ctx, to, result) :-
+  GlobalVariable_Value(ctx, block, to, result) :-
     globalVariableValueConstantOps.ConstantFoldResult2(op, a_val, b_val, result),
     GlobalBinopStatementOpAndConstantArgValues(ctx, stmt, op, a_val, b_val),
+    Statement_Block(stmt, block),
     Statement_Defines(stmt, to).
-    .plan 1:(2,1,3)
+    .plan 1:(2,1,3,4)
 
   /*
   ***********
@@ -201,7 +231,7 @@
 
   BlockJumpValidTarget(ctx, block, targetVar, as(targetValue, Block)) :-
     BlockJumpTarget(ctx, block, targetVar),
-    GlobalVariable_Value(ctx, targetVar, targetValue),
+    GlobalVariable_Value(ctx, block, targetVar, targetValue),
     JUMPDEST(as(targetValue, symbol)).
    .plan 1:(2,1,3)
 
