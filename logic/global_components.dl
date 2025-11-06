@@ -70,10 +70,28 @@
   */
   .init globalVariableValueConstantOps = ConstantFolding
 
+  .decl VariableHasNoValue(var: Variable)
+  VariableHasNoValue(variable):-
+    Statement_Defines(_, variable),
+    !Variable_Value(variable, _).
+
+  .decl Statement_DefOrUse(statement: Statement, var: Variable)
+  Statement_DefOrUse(stmt, as(use, Variable)):-
+    Statement_Uses_Local(stmt, use, _),
+    CheckIsVariable(use).
+
+  Statement_DefOrUse(stmt, def):-
+    Statement_Defines(stmt, def).
+
+  .decl VariableDefinedInBlock(var: Variable, block: Block)
+  VariableDefinedInBlock(def, block):-
+    Statement_Defines(stmt, def),
+    Statement_Block(statement, block).
+
   GlobalVariable_Value(ctx, block, variable, value):-
     ReachableContext(ctx, block),
     Statement_Block(statement, block),
-    Statement_Defines(statement, variable),
+    Statement_DefOrUse(statement, variable),
     VariableInJumpTargetComputation(variable),
     Variable_Value(variable, value).
     .plan 1:(4,3,2,1,5)
