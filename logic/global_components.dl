@@ -86,7 +86,7 @@
   .decl VariableDefinedInBlock(var: Variable, block: Block)
   VariableDefinedInBlock(def, block):-
     Statement_Defines(stmt, def),
-    Statement_Block(statement, block).
+    Statement_Block(stmt, block).
 
   GlobalVariable_Value(ctx, block, variable, value):-
     ReachableContext(ctx, block),
