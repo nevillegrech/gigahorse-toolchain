@@ -111,7 +111,7 @@
     VariableHasNoValue(var),
     VariableDefinedInBlock(var, defBlock),
     defBlock != to.
-    .plan 1:(2,1,4,3), 2:(3,4,2,1)
+    .plan 1:(2,1,4,3,5), 2:(3,4,2,1,5)
 
   /**
     The set of variables for which we need to recover their values via global-level analysis.
