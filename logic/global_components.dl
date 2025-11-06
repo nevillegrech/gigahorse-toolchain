@@ -58,7 +58,7 @@
   /**
     Variable or stack index `variable` has `value` under `ctx`.
   */
-  .decl GlobalVariable_Value(ctx: sens.Context, block: Block, variable: VariableOrStackIndex, value: Value)
+  .decl GlobalVariable_Value(ctx: sens.Context, block: Block, variable: Variable, value: Value)
   DEBUG_OUTPUT(GlobalVariable_Value)
 
   /**
@@ -96,38 +96,22 @@
     Variable_Value(variable, value).
     .plan 1:(4,3,2,1,5)
 
-  // global case, highlights limitation
-  GlobalVariable_Value(ctx, block, stackIndex, value):-
+  GlobalVariable_Value(ctx, block, variable, value):-
     BlockInputContents(ctx, block, stackIndex, variable),
-    StackIndexInJumpTargetComputation(ctx, block, stackIndex),
-    Variable_Value(variable, value).
-    .plan 1:(2,1,3)
-
-  GlobalVariable_Value(toCtx, to, index, value):-
-    GlobalVariable_Value(fromCtx, from, stackIndex, value),
-    BlockEdge(fromCtx, from, toCtx, to),
-    BasicBlock_Tail(from, stmt),
-    CheckIsStackIndex(stackIndex),
-    LocalStackContents(stmt, index, stackIndex).
-    .plan 1:(2,1,3,4)
-
-  GlobalVariable_Value(toCtx, to, index, value):-
-    GlobalVariable_Value(fromCtx, from, variable, value),
-    BlockEdge(fromCtx, from, toCtx, to),
-    BasicBlock_Tail(from, stmt),
     VariableInJumpTargetComputation(variable),
-    LocalStackContents(stmt, index, variable),
-    !Variable_Value(variable, value).
-    .plan 1:(2,1,4,3,5)
+    Statement_Block(statement, block),
+    Statement_Uses_Local(statement, stackIndex, _),
+    Variable_Value(variable, value).
+    .plan 1:(2,1,3,4,5)
 
-
-  GlobalVariable_Value(toCtx, to, as(index, StackIndex)+delta, value):-
-    GlobalVariable_Value(fromCtx, from, index, value),
+  GlobalVariable_Value(toCtx, to, var, value):-
+    GlobalVariable_Value(fromCtx, from, var, value),
     BlockEdge(fromCtx, from, toCtx, to),
-    BlockPopDelta(from, poplen),
-    BlockStackDelta(from, delta),
-    as(index, StackIndex) >= poplen,
-    as(index, StackIndex)+delta <= MAX_STACK_HEIGHT.
+    BlockInputContents(toCtx, to, _, var),
+    VariableHasNoValue(var),
+    VariableDefinedInBlock(var, defBlock),
+    defBlock != to.
+    .plan 1:(2,1,4,3), 2:(3,4,2,1)
 
   /**
     The set of variables for which we need to recover their values via global-level analysis.
@@ -195,15 +179,30 @@
   // Helper to produce all constant operation requests
   .decl GlobalBinopStatementOpAndConstantArgValues(ctx: sens.Context, stmt: Statement, op: Opcode, a_val: Value, b_val: Value)
   GlobalBinopStatementOpAndConstantArgValues(ctx, stmt, op, aval, bval) :-
+    StatementWithArgValue(ctx, stmt, aval, 0),
+    StatementWithArgValue(ctx, stmt, bval, 1),
+    Statement_Opcode(stmt, op).
+   .plan 1:(2,1,3)
+
+  .decl StatementWithArgValue(ctx: sens.Context, stmt: Statement, val: Value, index: number)
+  StatementWithArgValue(ctx, stmt, useVal, index):-
     VariableWithoutValueUsedInJumpTargetComputation(targetVar),
     Statement_Defines(stmt, targetVar),
-    Statement_Opcode(stmt, op),
     Statement_Block(stmt, block),
-    Statement_Uses_Local(stmt, a, 0),
-    Statement_Uses_Local(stmt, b, 1),
-    GlobalVariable_Value(ctx, block, a, aval),
-    GlobalVariable_Value(ctx, block, b, bval).
-   .plan 1:(7,5,4,6,8,3,2,1),2:(8,6,4,5,7,3,2,1)
+    Statement_Uses_Local(stmt, useVar, index),
+    CheckIsVariable(useVar),
+    GlobalVariable_Value(ctx, block, useVar, useVal).
+    .plan 1:(5,3,2,1,4)
+
+  StatementWithArgValue(ctx, stmt, useVal, index):-
+    VariableWithoutValueUsedInJumpTargetComputation(targetVar),
+    Statement_Defines(stmt, targetVar),
+    Statement_Block(stmt, block),
+    Statement_Uses_Local(stmt, stackIndex, index),
+    CheckIsStackIndexLoose(stackIndex),
+    BlockInputContents(ctx, block, stackIndex, useVar),
+    GlobalVariable_Value(ctx, block, useVar, useVal).
+    .plan 1:(5,6,3,2,1,4), 2:(6,5,3,2,1,4)
 
   globalVariableValueConstantOps.RequestConstantFold2(op, a_val, b_val) :-
     GlobalBinopStatementOpAndConstantArgValues(_, _, op, a_val, b_val).
