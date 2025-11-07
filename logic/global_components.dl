@@ -120,17 +120,18 @@
 
   VariableWithoutValueUsedInJumpTargetComputation(var):-
     ImmediateBlockJumpTarget(_, var),
-    !Variable_Value(var, _).
+    VariableHasNoValue(var).
 
   VariableWithoutValueUsedInJumpTargetComputation(as(use, Variable)):-
     VariableWithoutValueUsedInJumpTargetComputation(def),
     Statement_Defines(stmt, def),
     Statement_Uses_Local(stmt, use, _),
     CheckIsVariable(use),
-    !Variable_Value(use, _).
+    VariableHasNoValue(use).
 
   VariableWithoutValueUsedInJumpTargetComputation(var):-
-    VariableInJumpTargetComputation(var).
+    VariableInJumpTargetComputation(var),
+    VariableHasNoValue(var).
 
   .decl VariableInJumpTargetComputation(variable: Variable)
   VariableInJumpTargetComputation(var):-
@@ -176,8 +177,8 @@
     CheckIsVariable(use).
     .plan 1:(2,1,3,4)
 
-  // Helper to produce all constant operation requests
-  .decl GlobalBinopStatementOpAndConstantArgValues(ctx: sens.Context, stmt: Statement, op: Opcode, a_val: Value, b_val: Value)
+  // Helper to produce all constant operation requests, added choice-domain to avoid imprecision in extreme cases
+  .decl GlobalBinopStatementOpAndConstantArgValues(ctx: sens.Context, stmt: Statement, op: Opcode, a_val: Value, b_val: Value) choice-domain(ctx, stmt)
   GlobalBinopStatementOpAndConstantArgValues(ctx, stmt, op, aval, bval) :-
     StatementWithArgValue(ctx, stmt, aval, 0),
     StatementWithArgValue(ctx, stmt, bval, 1),
