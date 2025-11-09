@@ -375,6 +375,31 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
     PC(stmt),
     Statement_Defines(stmt, var).
 
+  Variable_Value(dest, val):-
+    Variable_Value(moved, val),
+    Statement_Uses_Local(stmt, moved, 0),
+    Statement_Opcode(stmt, opcode),
+    DUPN(opcode, _),
+    Statement_Defines(stmt, dest),
+    !TACNOP(stmt).
+
+  Variable_Value(dest, val):-
+    Variable_Value(moved, val),
+    Statement_Uses_Local(stmt, moved, 0),
+    Statement_Opcode(stmt, opcode),
+    (DUPN(opcode, _); SWAPN(opcode, _)),
+    Statement_Defines(stmt, dest),
+    !TACNOP(stmt).
+
+  Variable_Value(dest, val):-
+    Variable_Value(moved, val),
+    Statement_Uses_Local(stmt, moved, 1),
+    Statement_Opcode(stmt, opcode),
+    SWAPN(opcode, _),
+    Statement_AdditionalDef(stmt, dest),
+    !TACNOP(stmt).
+
+
   // DUP
   LocalStackContents(stmt, 0, duplicated) :-
     BeforeLocalStackContents(stmt, n-1, duplicated),
