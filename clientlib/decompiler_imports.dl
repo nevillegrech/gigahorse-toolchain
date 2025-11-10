@@ -310,7 +310,7 @@ Variable_Function(v, f) :-
 FunctionExit(block) :-
    Block_Tail(block, tail),
    Statement_Opcode(tail, op),
-   (op = "RETURN"; op = "RETURNPRIVATE"; op = "EXIT").
+   (op = "RETURN"; op = "RETURNPRIVATE"; op = "EXIT"; op = "STOP").
 
 // Mapping `block`s to `function`s
 .decl InFunction(block: Block, function: Function)
