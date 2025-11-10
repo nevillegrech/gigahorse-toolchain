@@ -580,6 +580,15 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
   BlockCloningCandidate(functionStart):-
     analysis.PublicFunctionStartShared(_, functionStart).
 
+  BlockCloningCandidate(caller):-
+    analysis.ImmediateBlockJumpTarget(caller, targetVar),
+    !analysis.PrivateFunctionCall(caller, _, _, _),
+    analysis.BasicBlock_Tail(caller, jump),
+    analysis.Statement_Opcode(jump, "JUMP"),
+    analysis.Variable_Value(targetVar, target),
+    analysis.JUMPDEST(as(target, symbol)),
+    analysis.StackBalanceBlock(as(target, Block)).
+
 }
 
 /**
