@@ -268,7 +268,12 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
 
   // What is the difference in stack height after the execution of this `statement`
   .decl StatementStackDelta(statement: Statement, delta: number)
-  
+
+  // block-level stack behavior predicate: After the executin of block, stack `index` will hold
+  // `variableOrIndex` which is either a variable pushed by the block or a reference to a stackindex at its beginning
+  .decl BlockOutLocalStackContents(block: Block, index: StackIndex, variableOrIndex: VariableOrStackIndex)
+  DEBUG_OUTPUT(BlockOutLocalStackContents)
+
   ImmediateBlockJumpTarget(block, as(var, Variable)) :-
     BasicBlock_Tail(block, stmt),
     IsJump(stmt),
@@ -441,6 +446,15 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
   BlockPopDelta(block, delta) :-
     BasicBlock_Tail(block, stmt),
     StatementPopDelta(stmt, delta).
+
+  BlockOutLocalStackContents(block, index, varOrIndex):-
+    BasicBlock_Tail(block, tail),
+    LocalStackContents(tail, index, varOrIndex).
+
+  BlockOutLocalStackContents(block, outIndex, as(outIndex - stackDelta, StackIndex)):-
+    BlockPopDelta(block, popDelta),
+    BlockStackDelta(block, stackDelta),
+    outIndex = range(popDelta + stackDelta + 1, MAX_STACK_HEIGHT + 1, 1).
 
   .decl Statement_Uses_Local(stmt:Statement, var:VariableOrStackIndex, n:StackIndex)
 
