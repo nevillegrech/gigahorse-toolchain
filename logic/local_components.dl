@@ -402,7 +402,7 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
     IsBasicBlockHead(stmt),
     Statement_Block(stmt, block),
     BlockPopDelta(block, delta),
-    IsStackIndexLessThan(stackIndex, delta + 10).
+    IsStackIndexLessThan(stackIndex, delta + 2).
   
    /*
    ***********

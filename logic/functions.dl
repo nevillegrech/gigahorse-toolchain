@@ -107,7 +107,7 @@ PossibleReturnAddressWithPos(targetSetter, retCtx, retBlock, retTarget, pos) :-
   postTrans.Statement_Block(targetSetStatement, targetSetter),
   postTrans.BasicBlock_Tail(targetSetter, jumpStmt),
   postTrans.JUMP(jumpStmt),
-  postTrans.BeforeLocalStackContents(jumpStmt, pos, targetVariable).
+  postTrans.BlockOutLocalStackContents(targetSetter, pos, targetVariable).
 
 /**
   This pattern is prominent in 0.8.x code:
@@ -140,7 +140,7 @@ PossibleReturnAddressWithPos(as(next, Block), retCtx, retBlock, retTarget, pos) 
   postTrans.StaticBlockJumpTarget(targetSetter, next),
   postTrans.BasicBlock_Tail(as(next, Block), jumpStmt),
   postTrans.JUMP(jumpStmt),
-  postTrans.BeforeLocalStackContents(jumpStmt, pos, stackIndex),
+  postTrans.BlockOutLocalStackContents(as(next, Block), pos, stackIndex),
   // filter out cases where the function is called directly
   !postTrans.IsJumpBlockPrivateFunctionCall(_, as(next, Block)).
 
@@ -833,6 +833,11 @@ IRLocalStackContents(irstmt, n, varOrStackIndex) :-
   Statement_IRStatement(stmt, _, irstmt).
 
 
+.decl IRBlockOutLocalStackContents(irBlock: IRBlock, n: StackIndex, varOrStackIndex: VariableOrStackIndex)
+IRBlockOutLocalStackContents(irBlock, n, varOrStackIndex) :-
+  postTrans.BlockOutLocalStackContents(block, n, varOrStackIndex),
+  Block_IRBlock(block, _, irBlock).
+
 /***********
  * Discovery of arguments accepted by a function   
  ***********/
@@ -1154,28 +1159,40 @@ BeforeFunctionCallFunctionalBlockOutputContents(block, index, realVariable) :-
   CheckIsStackIndex(stackIndex).
 
 
-// TODO, check case for function call
+// uses of the jump/call stmt
 FunctionalStatement_Uses_Local(stmt, varOrStackIndex, n) :-
   IRFunctionCall(block, func),
   IRBasicBlock_Tail(block, stmt),
   IRStatement_Opcode(stmt, opcode),
   OpcodePopWords(opcode, m),
-//// REVIEW
-//  PossibleNumberOfFunctionArguments(func, n_in),
+  NumberOfFunctionArguments(func, _),
+  IRBeforeLocalStackContents(stmt, n, varOrStackIndex), n < m.
+
+// function args
+FunctionalStatement_Uses_Local(stmt, varOrStackIndex, n + m) :-
+  IRFunctionCall(block, func),
+  IRBasicBlock_Tail(block, stmt),
+  IRStatement_Opcode(stmt, opcode),
+  OpcodePopWords(opcode, m),
   NumberOfFunctionArguments(func, n_in),
-  n < m + n_in,
-  IRBeforeLocalStackContents(stmt, n, varOrStackIndex).
+  IRBlockOutLocalStackContents(block, n, varOrStackIndex),  n < n_in.
 
 // TODO, check case for function return
 FunctionalStatement_Uses_Local(stmt, varOrStackIndex, n) :-
-//// REVIEW
+  NumberOfFunctionReturnArguments(func, _),
+  IRFunction_Return(func, retBlock),
+  IRBasicBlock_Tail(retBlock, stmt),
+  IRStatement_Opcode(stmt, opcode),
+  OpcodePopWords(opcode, m),
+  IRBeforeLocalStackContents(stmt, n, varOrStackIndex), n < m.
+
+FunctionalStatement_Uses_Local(stmt, varOrStackIndex, n + m) :-
   NumberOfFunctionReturnArguments(func, n_out),
   IRFunction_Return(func, retBlock),
   IRBasicBlock_Tail(retBlock, stmt),
   IRStatement_Opcode(stmt, opcode),
   OpcodePopWords(opcode, m),
-  n < m + n_out,
-  IRBeforeLocalStackContents(stmt, n, varOrStackIndex).
+  IRBlockOutLocalStackContents(retBlock, n, varOrStackIndex), n < n_out.
 
 FunctionalStatement_Uses_Local(irstmt, varOrStackIndex, n) :-
    postTrans.Statement_Uses_Local(stmt, varOrStackIndex, n),
