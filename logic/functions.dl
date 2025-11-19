@@ -1163,7 +1163,7 @@ FunctionalStatement_Uses_Local(stmt, varOrStackIndex, n) :-
 //// REVIEW
 //  PossibleNumberOfFunctionArguments(func, n_in),
   NumberOfFunctionArguments(func, n_in),
-  IsStackIndexLessThan(n, m+n_in),
+  n < m + n_in,
   IRBeforeLocalStackContents(stmt, n, varOrStackIndex).
 
 // TODO, check case for function return
@@ -1174,7 +1174,7 @@ FunctionalStatement_Uses_Local(stmt, varOrStackIndex, n) :-
   IRBasicBlock_Tail(retBlock, stmt),
   IRStatement_Opcode(stmt, opcode),
   OpcodePopWords(opcode, m),
-  IsStackIndexLessThan(n, m+n_out),
+  n < m + n_out,
   IRBeforeLocalStackContents(stmt, n, varOrStackIndex).
 
 FunctionalStatement_Uses_Local(irstmt, varOrStackIndex, n) :-

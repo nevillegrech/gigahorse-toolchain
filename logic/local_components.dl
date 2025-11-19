@@ -354,8 +354,7 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
   LocalStackContents(stmt, m+1, other) :-
     BeforeLocalStackContents(stmt, m, other),
     Statement_Opcode(stmt, opcode),
-    DUPN(opcode, n),
-    IsStackIndexLessThan(m, n).
+    DUPN(opcode, n), m < n.
 
   /**
     Optimization: before local stack contents for swaps
@@ -377,7 +376,7 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
   
   LocalStackContents(stmt, m, other) :-
     BeforeSwapLocalStackContents(stmt, n, m, other),
-    IsStackIndexLessThan(m, n), m > 0.
+    m < n, m > 0.
   
   /*
    ***********
@@ -462,7 +461,7 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
      Statement_Opcode(stmt, opcode),
      !TACNOP(stmt),
      OpcodePopWords(opcode, m),
-     IsStackIndexLessThan(n, m),
+     n < m,
      BeforeLocalStackContents(stmt, n, varOrStackIndex).
 
   // Identify low-level blocks that will always REVERT
