@@ -132,30 +132,18 @@
     BlockOutputContents(callerCtx, caller, index, variable),
     BlockEdge(callerCtx, caller, calleeCtx, callee).
     .plan 1:(2,1)
-    
-  // Copy the stack variables untouched by the callee basic block
-  BlockOutputContents(calleeCtx, callee, index+delta, variable) :-
-    BlockInputContents(calleeCtx, callee, index, variable),
-    BlockPopDelta(callee, calleePopLen),
-    BlockStackDelta(callee, delta),
-    index >= calleePopLen,
-    index+delta <= MAX_STACK_HEIGHT.
 
   // Handle the proper variables pushed by this basic block
   BlockOutputContents(ctx, block, index, as(var, Variable)) :-
     ReachableContext(ctx, block),
-    BasicBlock_Tail(block, stmt),
-    LocalStackContents(stmt, index, var),
+    BlockOutLocalStackContents(block, index, var),
     CheckIsVariable(var).
 
-
-  // Handle the stackIndexes pushed by this basic block
+  // Handle the indexes: stack contents pushed by previous blocks
   BlockOutputContents(ctx, block, index, as(realVariable, Variable)) :-
     BlockInputContents(ctx, block, stackIndex, realVariable),
     CheckIsStackIndex(stackIndex),
-    BasicBlock_Tail(block, stmt),
-    LocalStackContents(stmt, index, stackIndex).
-
+    BlockOutLocalStackContents(block, index, stackIndex).
 
 
   BlockJumpTarget(ctx, block, var) :-
