@@ -34,6 +34,14 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
   .decl Out_Statement_Next(stmt: Statement, next: Statement)
   .decl Out_Statement_Opcode(stmt: Statement, op: Opcode)
   .decl Out_PushValue(stmt: Statement, value: Value)
+
+  // The last `statement` in the original bytecode, start adding cloned code after it.
+  .decl MaxOriginalStatement(statement: Statement)
+
+  MaxOriginalStatement(as(maxStmt, Statement)):-
+    maxStmtNumber = max stmtNumber : { Statement_Opcode(stmt, _), stmtNumber = @hex_to_number(stmt)},
+    maxStmt = @number_to_hex(2*maxStmtNumber).
+
 }
 
 .comp StatementInsertor : CodeTransformer {
@@ -86,6 +94,30 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
    .decl MaxStmt(n: number)
    MaxStmt(n) :- n = max @hex_to_number(stmt) : Statement_Opcode(stmt, _).
 
+   .init insertOpSorter = OrdAscentingSorter <Statement>
+   insertOpSorter.Input(stmt):- insertOp(stmt, _, _, _).
+
+  .decl Insertion_Next(ins: Statement, next: Statement) choice-domain ins, next
+  Insertion_Next("nil", "head").
+  Insertion_Next(prev, next):-
+    Insertion_Next(_, prev),
+    insertOp(next, _, _, _).
+
+
+  InsertedOpNewStatement(stmt, 0, as(@add_256(maxStmt, "0x20"), Statement)):-
+    insertOp(stmt, _, _, 0),
+    Insertion_Next("head", stmt),
+    MaxOriginalStatement(maxStmt).
+
+  InsertedOpNewStatement(stmt, order + 1, as(@add_256(newPrevStmt, "0x20"), Statement)):-
+    InsertedOpNewStatement(stmt, order, newPrevStmt),
+    insertOp(stmt, _, _, order),
+    insertOp(stmt, _, _, order + 1).
+
+  InsertedOpNewStatement(stmt, 0, as(@add_256(newPrevStmt, "0xa00"), Statement)):-
+    InsertedOpNewStatement(prevStmt, 0, newPrevStmt),
+    Insertion_Next(prevStmt, stmt).
+
   .decl InsertedOpNewStatement(stmt: Statement, order: number, newStmt: Statement)
 
   .decl WastedSlots(newStmt: number, n: number)
@@ -99,10 +131,10 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
      PreInsertedOpNewStatementNum(_, _, newStmt),
      n = count : { TempPreInsertedOpNewAndMissingStatementNum(_, newStmt) }.
 
-  InsertedOpNewStatement(stmt, order, as(@number_to_hex(newStmt - n + maxStmt + 1), Statement)) :-
-    PreInsertedOpNewStatementNum(stmt, order, newStmt),
-    MaxStmt(maxStmt),
-    WastedSlots(newStmt, n).
+//   InsertedOpNewStatement(stmt, order, as(@number_to_hex(newStmt - n + maxStmt + 1), Statement)) :-
+//     PreInsertedOpNewStatementNum(stmt, order, newStmt),
+//     MaxStmt(maxStmt),
+//     WastedSlots(newStmt, n).
 
   Out_Statement_Opcode(stmt, op) :-
     Statement_Opcode(stmt, op),
@@ -250,9 +282,6 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
   .decl Prev_Block_OriginalBlock(block: Block, originalBlock: Block)
   .decl In_Block_OriginalBlock(block: Block, originalBlock: Block)
 
-  // The last `statement` in the original bytecode, start adding cloned code after it.
-  .decl MaxOriginalStatement(statement: Statement)
-
   // compute the block size to use on the cloned blocks
   .decl BlockSize(block: Block, size: number)
 
@@ -313,9 +342,6 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
   DEBUG_OUTPUT(Block_OriginalBlock)
   DEBUG_OUTPUT(BlockToClone)
 
-  MaxOriginalStatement(as(maxStmt, Statement)):-
-    maxStmtNumber = max stmtNumber : { Statement_Opcode(stmt, _), stmtNumber = @hex_to_number(stmt)},
-    maxStmt = @number_to_hex(2*maxStmtNumber).
 
   // New definition, makes it pre cloning insertion safe
   BlockSize(block, maxStmt - @hex_to_number(block)):-
