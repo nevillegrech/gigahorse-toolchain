@@ -75,34 +75,14 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
   insertOpsN(stmt, rest, n+1) :-
    insertOpsN(stmt, [[op, value], rest], n).
 
-
-  .decl PreInsertedOpNewStatementNum(stmt: Statement, order: number, newStmt: number)
-  
-  PreInsertedOpNewStatementNum(stmt, order, @hex_to_number(stmt) * MAX_INSERTS + order) :-
-    insertOp(stmt, _, _, order).
-
-  .decl PreInsertedOpMissingStmt(n : number)
-
-  PreInsertedOpMissingStmt(newStmt - 1) :-
-     PreInsertedOpNewStatementNum(_, _, newStmt), newStmt > 0,
-     !PreInsertedOpNewStatementNum(_, _, newStmt - 1).
-
-  PreInsertedOpMissingStmt(newStmt - 1) :-
-     PreInsertedOpMissingStmt(newStmt), newStmt > 0,
-     !PreInsertedOpNewStatementNum(_, _, newStmt - 1).
-
-   .decl MaxStmt(n: number)
-   MaxStmt(n) :- n = max @hex_to_number(stmt) : Statement_Opcode(stmt, _).
-
-   .init insertOpSorter = OrdAscentingSorter <Statement>
-   insertOpSorter.Input(stmt):- insertOp(stmt, _, _, _).
-
+  // Random order of the insertions using the choice-domain 
   .decl Insertion_Next(ins: Statement, next: Statement) choice-domain ins, next
   Insertion_Next("nil", "head").
   Insertion_Next(prev, next):-
     Insertion_Next(_, prev),
     insertOp(next, _, _, _).
 
+  .decl InsertedOpNewStatement(stmt: Statement, order: number, newStmt: Statement)
 
   InsertedOpNewStatement(stmt, 0, as(@add_256(maxStmt, "0x20"), Statement)):-
     insertOp(stmt, _, _, 0),
@@ -117,24 +97,6 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
   InsertedOpNewStatement(stmt, 0, as(@add_256(newPrevStmt, "0xa00"), Statement)):-
     InsertedOpNewStatement(prevStmt, 0, newPrevStmt),
     Insertion_Next(prevStmt, stmt).
-
-  .decl InsertedOpNewStatement(stmt: Statement, order: number, newStmt: Statement)
-
-  .decl WastedSlots(newStmt: number, n: number)
-
-  .decl TempPreInsertedOpNewAndMissingStatementNum(smallerThanNewStmt: number, newStmt: number)
-  TempPreInsertedOpNewAndMissingStatementNum(smallerThanNewStmt, newStmt) :-
-     PreInsertedOpNewStatementNum(_, _, newStmt),
-     PreInsertedOpMissingStmt(smallerThanNewStmt), smallerThanNewStmt < newStmt.
-     
-  WastedSlots(newStmt, n) :-
-     PreInsertedOpNewStatementNum(_, _, newStmt),
-     n = count : { TempPreInsertedOpNewAndMissingStatementNum(_, newStmt) }.
-
-//   InsertedOpNewStatement(stmt, order, as(@number_to_hex(newStmt - n + maxStmt + 1), Statement)) :-
-//     PreInsertedOpNewStatementNum(stmt, order, newStmt),
-//     MaxStmt(maxStmt),
-//     WastedSlots(newStmt, n).
 
   Out_Statement_Opcode(stmt, op) :-
     Statement_Opcode(stmt, op),
