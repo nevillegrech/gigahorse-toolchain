@@ -1,7 +1,6 @@
 #pragma once
 
 #include "global_components.dl"
-#define MAX_INSERTS 5
 
 
 #define COPY_OUTPUT(to, from)\
@@ -94,6 +93,7 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
     insertOp(stmt, _, _, order),
     insertOp(stmt, _, _, order + 1).
 
+  // Note: Insertions are placed 80 slots from each other, can make more precise
   InsertedOpNewStatement(stmt, 0, as(@add_256(newPrevStmt, "0xa00"), Statement)):-
     InsertedOpNewStatement(prevStmt, 0, newPrevStmt),
     Insertion_Next(prevStmt, stmt).
