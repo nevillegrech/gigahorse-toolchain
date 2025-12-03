@@ -364,6 +364,14 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
     // Make sure we don't break any CODECOPY stmts
     !analysis.CODECOPYStatement(_, as(to,Value), _).
 
+  // if a cloned block pushes a cloning candidate we also clone that candidate
+  BlockToClone(from, to):-
+    BlockToClone(_, blockToClone),
+    BlockPushesBlockToStack(blockToClone, from, to),
+    BlockCloningCandidate(to),
+    !FallthroughBlock(to),
+    // Make sure we don't break any CODECOPY stmts
+    !analysis.CODECOPYStatement(_, as(to,Value), _).
 
   cloneOpSorter.Input(cloneOp):- BlockToCloneRecursive(cloneOp).
 
@@ -571,12 +579,20 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
 
   BlockCloningCandidate(caller):-
     analysis.ImmediateBlockJumpTarget(caller, targetVar),
+    // try not to break program structure
     !analysis.PrivateFunctionCall(caller, _, _, _),
+    !analysis.PrivateFunctionCall(_, caller, _, _),
     analysis.BasicBlock_Tail(caller, jump),
     analysis.Statement_Opcode(jump, "JUMP"),
     analysis.Variable_Value(targetVar, target),
     analysis.JUMPDEST(as(target, symbol)),
     analysis.StackBalanceBlock(as(target, Block)).
+
+  // Add more facts to BlockCloningCandidate to enable more general cloning
+  // A continuation pushed by a cloning candidate is also a cloning candidate
+  BlockCloningCandidate(candidate):-
+    BlockCloningCandidate(caller),
+    PossibleCallerWithReturn(caller, _, candidate).
 
 }
 
