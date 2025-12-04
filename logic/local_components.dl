@@ -765,10 +765,6 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
     BasicBlock_Head(next, fallthrough),
     block != otherBlock.
 
-  FallthroughBlockUsedMultipleTimes(block, as(next, Statement)):-
-    JumplessFalthroughBlock(block, next),
-    JUMPDEST(as(next, Statement)).
-
   .decl CODECOPYStatement(stmt: Statement, offset: Value, size: Value)
   CODECOPYStatement(codeCopy, codeOffsetNumHex, smallNumHex) :-
     Statement_Opcode(codeCopy, "CODECOPY"),
