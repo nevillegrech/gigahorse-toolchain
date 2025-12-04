@@ -286,6 +286,7 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
   .type CloneList = [pushStmt: Statement, blockToClone: Block, rest: CloneList]
   // Create a new instance of `blockToClone` for its definition in `pushStmt`
   .decl BlockToCloneRecursive(blockToClone: CloneList)
+  DEBUG_OUTPUT(BlockToCloneRecursive)
 
   /**
     After we compute the order of the inserted clone blocks,
@@ -331,7 +332,7 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
     BlockPushedToStack(pushStmt, _, pushedBlock),
     analysis.Statement_Block(pushStmt, block).
 
-
+  DEBUG_OUTPUT(BlockPushesBlockToStack)
   BlockToCloneRecursive([pushStmt, blockToClone, nil]):-
     BlockToClone(pushStmt, blockToClone).
 
@@ -363,6 +364,14 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
     // Make sure we don't break any CODECOPY stmts
     !analysis.CODECOPYStatement(_, as(to,Value), _).
 
+  // if a cloned block pushes a cloning candidate we also clone that candidate
+  BlockToClone(from, to):-
+    BlockToClone(_, blockToClone),
+    BlockPushesBlockToStack(blockToClone, from, to),
+    BlockCloningCandidate(to),
+    !FallthroughBlock(to),
+    // Make sure we don't break any CODECOPY stmts
+    !analysis.CODECOPYStatement(_, as(to,Value), _).
 
   cloneOpSorter.Input(cloneOp):- BlockToCloneRecursive(cloneOp).
 
@@ -538,13 +547,6 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
     BlockPushesLabelVar(caller, var),
     analysis.Variable_Value(var, return).
 
-  // viaIR fallthrough call pattern
-  PossibleCallerWithReturn(caller, var, as(return, Block)):-
-    analysis.FallthroughBlockPushesContinuation(caller, fallthrough),
-    analysis.JUMPDEST(fallthrough),
-    BlockPushesLabelVar(caller, var),
-    analysis.Variable_Value(var, return).
-
   // SL: Too general, causes slowdown
   BlockCloningCandidate(candidate):-
     analysis.StackBalanceBlock(candidate).
@@ -567,6 +569,23 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
 
   BlockCloningCandidate(functionStart):-
     analysis.PublicFunctionStartShared(_, functionStart).
+
+  BlockCloningCandidate(caller):-
+    analysis.ImmediateBlockJumpTarget(caller, targetVar),
+    // try not to break program structure
+    !analysis.PrivateFunctionCall(caller, _, _, _),
+    !analysis.PrivateFunctionCall(_, caller, _, _),
+    analysis.BasicBlock_Tail(caller, jump),
+    analysis.Statement_Opcode(jump, "JUMP"),
+    analysis.Variable_Value(targetVar, target),
+    analysis.JUMPDEST(as(target, symbol)),
+    analysis.StackBalanceBlock(as(target, Block)).
+
+  // Add more facts to BlockCloningCandidate to enable more general cloning
+  // A continuation pushed by a cloning candidate is also a cloning candidate
+  BlockCloningCandidate(candidate):-
+    BlockCloningCandidate(caller),
+    PossibleCallerWithReturn(caller, _, candidate).
 
 }
 
