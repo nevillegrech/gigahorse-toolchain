@@ -651,14 +651,6 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
     Statement_Opcode(stmt, opcode),
     !OpcodePossiblyHalts(opcode).
 
-  // Insertor heuristic: Fallthrough block likely performs a function call
-  .decl FallthroughBlockPushesContinuation(block: Block, fallthrough: Statement)
-  FallthroughBlockPushesContinuation(block, fallthrough):-
-    BlockPushesLabel(block, _),
-    JumplessFalthroughBlock(block, next),
-    BasicBlock_Head(next, fallthrough).
-
-
   .decl CODECOPYStatement(stmt: Statement, offset: Value, size: Value)
   CODECOPYStatement(codeCopy, codeOffsetNumHex, smallNumHex) :-
     Statement_Opcode(codeCopy, "CODECOPY"),

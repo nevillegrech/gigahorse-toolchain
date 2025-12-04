@@ -547,13 +547,6 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
     BlockPushesLabelVar(caller, var),
     analysis.Variable_Value(var, return).
 
-  // viaIR fallthrough call pattern
-  PossibleCallerWithReturn(caller, var, as(return, Block)):-
-    analysis.FallthroughBlockPushesContinuation(caller, fallthrough),
-    analysis.JUMPDEST(fallthrough),
-    BlockPushesLabelVar(caller, var),
-    analysis.Variable_Value(var, return).
-
   // SL: Too general, causes slowdown
   BlockCloningCandidate(candidate):-
     analysis.StackBalanceBlock(candidate).

@@ -193,16 +193,6 @@ insertor.insertOps(insertStmt,
   ((op != "JUMPDEST", insertStmt = functionStartStmt);
   (op = "JUMPDEST", preTrans.Statement_Next(functionStartStmt, insertStmt))).
 
-// Add a jump to fallthrough blocks (excluding JUMPI blocks) that look like function calls
-// In other places (functions.dl, function_inliner.dl) we require the JUMP to exist
-insertor.insertOps(fallthrough,
-  LIST(
-    STMT(PUSH4, as(fallthrough, symbol)),
-    STMT(JUMP, "")
-  )
-):-
-  preTrans.FallthroughBlockPushesContinuation(_, fallthrough),
-  preTrans.JUMPDEST(fallthrough).
 
 // This one removes "throw jumps"
 insertor.removeOp(jmp),
