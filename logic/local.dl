@@ -60,14 +60,14 @@ clonerHelperInsertor.insertOps(dup,
   beforeClonerLocal.DUPStatementCopiesPushedLabelVar(dup, label).
 
 // We can't clone fallthrough blocks, add a jump in that case
-clonerHelperInsertor.insertOps(fallthrough,
+clonerHelperInsertor.insertOps(as(fallthrough, Statement),
   LIST(
-    STMT(PUSH4, as(fallthrough, symbol)),
+    STMT(PUSH4, as(as(fallthrough, Statement), symbol)),
     STMT(JUMP, "")
   )
 ):-
-  beforeClonerLocal.FallthroughBlockUsedMultipleTimes(_, fallthrough),
-  beforeClonerLocal.JUMPDEST(fallthrough).
+  beforeClonerLocal.JumplessFalthroughBlock(_, fallthrough),
+  beforeClonerLocal.JUMPDEST(as(fallthrough, Statement)).
 
 // If a shared public function start is a fallthrough block, make it a direct jump
 clonerHelperInsertor.insertOps(insertPoint,
@@ -193,16 +193,6 @@ insertor.insertOps(insertStmt,
   ((op != "JUMPDEST", insertStmt = functionStartStmt);
   (op = "JUMPDEST", preTrans.Statement_Next(functionStartStmt, insertStmt))).
 
-// Add a jump to fallthrough blocks (excluding JUMPI blocks) that look like function calls
-// In other places (functions.dl, function_inliner.dl) we require the JUMP to exist
-insertor.insertOps(fallthrough,
-  LIST(
-    STMT(PUSH4, as(fallthrough, symbol)),
-    STMT(JUMP, "")
-  )
-):-
-  preTrans.FallthroughBlockPushesContinuation(_, fallthrough),
-  preTrans.JUMPDEST(fallthrough).
 
 // This one removes "throw jumps"
 insertor.removeOp(jmp),
