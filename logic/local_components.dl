@@ -658,27 +658,6 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
     JumplessFalthroughBlock(block, next),
     BasicBlock_Head(next, fallthrough).
 
-  // Insertor heuristic: Fallthrough block is used multiple times and its the next is a `StackBalanceBlock`
-  .decl FallthroughBlockUsedMultipleTimes(block: Block, fallthrough: Statement)
-  FallthroughBlockUsedMultipleTimes(block, fallthrough):-
-    JumplessFalthroughBlock(block, next),
-    StackBalanceBlock(next),
-    (BlockPushesLabel(block1, as(block, Value)); StaticBlockJumpTarget(block1, as(block, Value))),
-    (BlockPushesLabel(block2, as(block, Value)); StaticBlockJumpTarget(block2, as(block, Value))),
-    BasicBlock_Head(next, fallthrough),
-    block1 != block2.
-
-  // Stack balance block is fallthrough and also used elsewhere. Make it a jump so it can be cloned.
-  FallthroughBlockUsedMultipleTimes(block, fallthrough):-
-    JumplessFalthroughBlock(block, next),
-    StackBalanceBlock(next),
-    (BlockPushesLabel(otherBlock, as(next, Value)); StaticBlockJumpTarget(otherBlock, as(next, Value))),
-    BasicBlock_Head(next, fallthrough),
-    block != otherBlock.
-
-  FallthroughBlockUsedMultipleTimes(block, as(next, Statement)):-
-    JumplessFalthroughBlock(block, next),
-    JUMPDEST(as(next, Statement)).
 
   .decl CODECOPYStatement(stmt: Statement, offset: Value, size: Value)
   CODECOPYStatement(codeCopy, codeOffsetNumHex, smallNumHex) :-
