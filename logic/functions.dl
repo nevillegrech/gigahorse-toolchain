@@ -755,11 +755,6 @@ IRStatementNum(irstmt, num) :-
   postTrans._StatementNum(stmt, num),
   Statement_IRStatement(stmt, _, irstmt).
 
-// SL: This needs changing
-.decl IRTACNOP(stmt: IRStatement)
-IRTACNOP(irstmt) :-
-  dupIntr.TACNOP(stmt),
-  Statement_IRStatement(stmt, _, irstmt).
 
 /***********
  * Identify actual function calls and returns
@@ -1241,6 +1236,15 @@ fstack.FunctionalStatement_Defines(irstmt, newVar, 0):- local.Statement_Defines(
 .init firstFunctional = FunctionalStackAnalysis
 INIT_FSTACK_FROM_LOCAL(firstFunctional, postTrans)
 
+#ifndef SSA_IMPROVEMENT
+
+// propagate previous component instantiations
+
+#define lastFunctional firstFunctional
+#define dupIntr postTrans
+
+#else
+
 .decl FunctionalBlockUsesPHIVar(block: IRBlock, var: Variable, index: StackIndex)
 DEBUG_OUTPUT(FunctionalBlockUsesPHIVar)
 
@@ -1468,6 +1472,14 @@ dupIntr.DupOrSwapNeededInTAC(dup):-
 
 .init lastFunctional = FunctionalStackAnalysis
 INIT_FSTACK_FROM_LOCAL(lastFunctional, dupIntr)
+
+#endif
+
+// SL: This needs changing
+.decl IRTACNOP(stmt: IRStatement)
+IRTACNOP(irstmt) :-
+  dupIntr.TACNOP(stmt),
+  Statement_IRStatement(stmt, _, irstmt).
 
 .decl PublicFunctionSignature(hex_signature: symbol, text_signature: symbol)
 .input PublicFunctionSignature
