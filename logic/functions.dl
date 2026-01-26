@@ -1398,8 +1398,8 @@ COPY_CODE_FULL(allStmts, postTrans)
 .decl DUPTouchesPHIWithLoss(dup: IRStatement, useVar: Variable)
 DEBUG_OUTPUT(DUPTouchesPHIWithLoss)
 
-.decl ExtraDUPTouchesPHIWithLoss(dup: IRStatement, useVar: Variable, otherUseVar: Variable)
-DEBUG_OUTPUT(ExtraDUPTouchesPHIWithLoss)
+// .decl ExtraDUPTouchesPHIWithLoss(dup: IRStatement, useVar: Variable, otherUseVar: Variable)
+// DEBUG_OUTPUT(ExtraDUPTouchesPHIWithLoss)
 
 // ExtraDUPTouchesPHIWithLoss(stmt, var, otherVar),
 DUPTouchesPHIWithLoss(stmt, var):-
