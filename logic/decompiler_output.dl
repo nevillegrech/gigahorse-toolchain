@@ -85,7 +85,7 @@ SHA3Decompositions(a, b, c, d) :- SHA3Decompositions(a, b, c, d).
 TAC_Variable_BlockValue(as(tacvar,TACVariable), irvalue) :-
   lastFunctional.FunctionalStatement_Defines(stmt, var, _),
   lastFunctional.Variable_Stmt_String(var, stmt, tacvar),
-  dupIntr.Variable_Value(var, value),
+  lastLocal.Variable_Value(var, value),
   StatementAndBlockInSameFunction(stmt, as(value, symbol), irvalue),
    // value matches address of block
    STARTSWITH(value, "0x").
@@ -100,7 +100,7 @@ StatementAndBlockInSameFunction(stmt, block, irblock) :-
 TAC_Variable_Value(as(tacvar, TACVariable), value) :-
    lastFunctional.FunctionalStatement_Defines(stmt, var, _),
    lastFunctional.Variable_Stmt_String(var, stmt, tacvar),
-   dupIntr.Variable_Value(var, value),
+   lastLocal.Variable_Value(var, value),
    STARTSWITH(value, "0x").
 
 /**
@@ -129,29 +129,29 @@ TAC_Variable_Value(formalArg, value):-
 // Non-nop instructions
 TAC_Stmt(irstmt) :-
   Statement_IRStatement(stmt, _, irstmt),
-  dupIntr.ValidStatement(stmt),
+  lastLocal.ValidStatement(stmt),
   !DeadStmt(irstmt),
   !IRTACNOP(irstmt).
 
 TAC_Op(irstmt, op) :-
    IRStatement_Opcode(irstmt, op),
    Statement_IRStatement(stmt, _, irstmt),
-   dupIntr.ValidStatement(stmt),
+   lastLocal.ValidStatement(stmt),
    !DeadStmt(irstmt),
    !IRTACNOP(irstmt),
    !OpcodeIsDup(op),
    !OpcodeIsSwap(op),
-   !dupIntr.PushValue(stmt, _),
-   !dupIntr.PC(stmt),
-   !dupIntr.PUSH0(stmt),
-   !dupIntr.INVALID(stmt).
+   !lastLocal.PushValue(stmt, _),
+   !lastLocal.PC(stmt),
+   !lastLocal.PUSH0(stmt),
+   !lastLocal.INVALID(stmt).
 
 TAC_Op(irstmt, "CONST") :-
    Statement_IRStatement(stmt, _, irstmt),
    (
-    dupIntr.PushValue(stmt, _);
-    dupIntr.PC(stmt);
-    dupIntr.PUSH0(stmt)
+    lastLocal.PushValue(stmt, _);
+    lastLocal.PC(stmt);
+    lastLocal.PUSH0(stmt)
   ).
 
 TAC_Op(irstmt, "MOV") :-
@@ -168,7 +168,7 @@ TAC_Op(irstmt, "MOV2") :-
 
 TAC_Op(irstmt, "THROW") :-
    Statement_IRStatement(stmt, _, irstmt),
-   dupIntr.INVALID(stmt).
+   lastLocal.INVALID(stmt).
 
 // Phi instructions
 TAC_Var(var),
@@ -317,12 +317,12 @@ IRInFunctionFiltered(block, func):-
 .decl PRE_TAC_Statement_Next(stmt: Statement, next: Statement)
 
 PRE_TAC_Statement_Next(stmt, next) :-
-   dupIntr.Statement_Next(stmt, next).
+   lastLocal.Statement_Next(stmt, next).
 
 PRE_TAC_Statement_Next(stmt, nextnext) :-
   PRE_TAC_Statement_Next(stmt, next),
   PRE_TAC_Statement_Next(next, nextnext),
-  dupIntr.TACNOP(next).
+  lastLocal.TACNOP(next).
 
 
 /// WARNING: This only works intra-procedurally after the Functional IR conversion.
@@ -342,7 +342,7 @@ TAC_Statement_Next(irstmt, irnext) :-
 TAC_Block_Head(block, irstmt) :-
    TAC_Block(irstmt, block),
    Statement_IRStatement(stmt, _, irstmt),
-   dupIntr.IsBasicBlockHead(stmt).
+   lastLocal.IsBasicBlockHead(stmt).
 
 // TODO: Account for cloning. Shouldn't matter as it's all low-level stuff
 .decl TAC_Statement_OriginalStatement(irstmt: IRStatement, stmt: Statement)
@@ -385,14 +385,14 @@ TAC_Statement_InlineInfo(irStmt, nil):-
 
 // unmodified statements
 TAC_OriginalStatement_Block(stmt, irblock) :-
-  dupIntr.Statement_Block(_, block),
+  lastLocal.Statement_Block(_, block),
   preTrans.Statement_Block(stmt, block),
   Block_IRBlock(block, _, irblock).
 
 
 // tracks statements that have been placed into generated blocks
 TAC_OriginalStatement_Block(stmt, irblock) :-
-  dupIntr.Statement_Block(stmt, block),
+  lastLocal.Statement_Block(stmt, block),
   !preTrans.Statement_Block(_, block),
   preTrans.Statement_Block(stmt, _),
   Block_IRBlock(block, _, irblock).
@@ -400,10 +400,10 @@ TAC_OriginalStatement_Block(stmt, irblock) :-
 // tracks deleted statements where their old block was also changed
 TAC_OriginalStatement_Block(stmt, irblock) :-
   preTrans.Statement_Block(stmt, block),
-  !dupIntr.Statement_Block(stmt, _),
-  !dupIntr.Statement_Block(_, block),
+  !lastLocal.Statement_Block(stmt, _),
+  !lastLocal.Statement_Block(_, block),
   preTrans.Statement_Block(otherStmt, block),
-  dupIntr.Statement_Block(otherStmt, genBlock),
+  lastLocal.Statement_Block(otherStmt, genBlock),
   Block_IRBlock(genBlock, _, irblock).
 
 .decl TAC_Block_CodeChunkAccessed(irblock: IRBlock, chunk_id: Chunk)

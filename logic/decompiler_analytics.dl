@@ -562,3 +562,14 @@ Analytics_DataFlowImprecision(fun):-
   lastFunctional.FunctionArgument(fun, _, var),
   lastFunctional.FunctionArgument(fun, _, otherVar),
   var != otherVar.
+
+Analytics_DataFlowImprecision(fun):-
+  PHILocation(block, stackIndex, _),
+  lastFunctional.FunctionalBlockInputContents(block, stackIndex, var),
+  lastFunctional.FunctionalBlockInputContents(block, stackIndex, otherVar),
+  lastFunctional.FunctionalStatement_Defines(stmt, var, _),
+  lastFunctional.FunctionalStatement_Defines(otherStmt, otherVar, _),
+  IRStatement_Block(stmt, block),
+  IRStatement_Block(otherStmt, block),
+  IRInFunction(block, fun),
+  var != otherVar.

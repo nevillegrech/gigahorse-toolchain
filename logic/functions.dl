@@ -1241,7 +1241,7 @@ INIT_FSTACK_FROM_LOCAL(firstFunctional, postTrans)
 // propagate previous component instantiations
 
 #define lastFunctional firstFunctional
-#define dupIntr postTrans
+#define lastLocal postTrans
 
 #else
 
@@ -1463,22 +1463,22 @@ DUPTouchesPHIWithLoss(stmt, var):-
 
 // .output firstFunctional.IRBeforeLocalStackContents, firstFunctional.FunctionalBlockInputContents, firstFunctional.FunctionalBlockOutputContents, postTrans.StatementStackDelta, NumberOfFunctionReturnArguments, NumberOfFunctionArguments
 
-.init dupIntr = PostTransLocalAnalysis
-COPY_CODE_FULL(dupIntr, postTrans)
-dupIntr.DupOrSwapNeededInTAC(dup):-
+.init lastLocal = PostTransLocalAnalysis
+COPY_CODE_FULL(lastLocal, postTrans)
+lastLocal.DupOrSwapNeededInTAC(dup):-
   DUPTouchesPHIWithLoss(irDup, _),
   Statement_IRStatement(dup, _, irDup),
   allStmts.StatementOutSurvivesBlock(dup).
 
 .init lastFunctional = FunctionalStackAnalysis
-INIT_FSTACK_FROM_LOCAL(lastFunctional, dupIntr)
+INIT_FSTACK_FROM_LOCAL(lastFunctional, lastLocal)
 
 #endif
 
 // SL: This needs changing
 .decl IRTACNOP(stmt: IRStatement)
 IRTACNOP(irstmt) :-
-  dupIntr.TACNOP(stmt),
+  lastLocal.TACNOP(stmt),
   Statement_IRStatement(stmt, _, irstmt).
 
 .decl PublicFunctionSignature(hex_signature: symbol, text_signature: symbol)
