@@ -142,6 +142,7 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
   // One to one mapping. Give every statement a unique var (negative index)
   .decl Statement_Defines(statement: Statement, variable: Variable)
 
+  // 2nd def used in SWAPx instructions. Choice domain is used to just give it a single valid value.
   .decl Statement_AdditionalDef(statement: Statement, variable: Variable) choice-domain statement, variable
 
   .decl _StatementNum(statement: Statement, num: number)
@@ -432,19 +433,13 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
     SWAPN(opcode, n).
      
   // SWAP
-  LocalStackContents(stmt, n, variable0):-
-    BeforeSwapLocalStackContents(stmt, n, n, variableN),
+  LocalStackContents(stmt, as(n, StackIndex), variable0):-
     BeforeSwapLocalStackContents(stmt, n, 0, variable0),
     TACNOP(stmt).
-    .plan 1:(2,1,3)
-    // .plan 1:(2,1)
 
   LocalStackContents(stmt, 0, variableN) :-
     BeforeSwapLocalStackContents(stmt, n, n, variableN),
     TACNOP(stmt).
-    // BeforeSwapLocalStackContents(stmt, n, 0, variable0).
-    // .plan 1:(2,1)
-    // .plan 1:(2,1,3)
 
   LocalStackContents(stmt, m, other) :-
     BeforeSwapLocalStackContents(stmt, n, m, other),

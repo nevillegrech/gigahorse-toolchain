@@ -283,27 +283,6 @@ HighLevelLoop(loop):-
   (LoopToExitingBlock(loop, _); LoopToRevertingBlock(loop, _)),
   !LoopNext(loop, _).
 
-/**
-  We consider it a high-level loop if it has more than one next blocks
-  but all are terminating ones.
-*/
-HighLevelLoop(loop):-
-  BlockInStructuredLoop(_, loop),
-  n_next = count : LoopNext(loop, _),
-  n_next > 1,1=0,
-  n_next_term = count : LoopToExitingBlock(loop, _),
-  n_next_term = n_next.
-
-/**
-  We consider it a high-level loop if it has more than one next blocks
-  but all are reverting ones.
-*/
-HighLevelLoop(loop):-
-  BlockInStructuredLoop(_, loop),
-  n_next = count : LoopNext(loop, _),
-  n_next > 1,1=0,
-  n_next_term = count : LoopToRevertingBlock(loop, _),
-  n_next_term = n_next.
 
 // condVar determines whether a loop is exited
 .decl LoopExitCond(condVar: Variable, loop: Block)
