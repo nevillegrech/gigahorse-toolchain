@@ -390,12 +390,27 @@ IsJump(s) :- Statement_Opcode(s, "JUMPI").
 
 
 // Instructions introduced by the new decompiler
-.decl PHI(s: Statement, fro: Variable, to: Variable)
+.decl PHI(s: Statement, from: Variable, to: Variable)
 
 PHI(stmt, fro, to) :-
    Statement_Opcode(stmt, "PHI"),
    Statement_Defines(stmt, to, _),
    Statement_Uses(stmt, fro, _).
+
+/**
+  Contains facts for the MOV and MOV2 IR instructions
+*/
+.decl AssignmentStmt(stmt: Statement, from: Variable, to: Variable)
+
+AssignmentStmt(stmt, from, to):-
+  (Statement_Opcode(stmt, "MOV"); Statement_Opcode(stmt, "MOV2")),
+  Statement_Defines(stmt, to, 0),
+  Statement_Uses(stmt, from, 0).
+
+AssignmentStmt(stmt, from, to):-
+  Statement_Opcode(stmt, "MOV2"),
+  Statement_Defines(stmt, to, 1),
+  Statement_Uses(stmt, from, 1).
 
 .decl CALLPRIVATE(s: Statement, f: Variable)
 
