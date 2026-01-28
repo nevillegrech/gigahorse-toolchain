@@ -305,9 +305,9 @@ insertor.VariableSubstitution(inVar, $InternalVariable(loop, exprResultIndex)):-
   VariableDefinedInLoop_Expr(loop, inVar, expr),
   ExpressionToInsertionStmtRequest(loop, expr, expr, exprResultIndex).
 
-.decl ExpressionToInsertionStmtRequest(insertionPoint:Block, expr: Expr, subExpr: Expr, reqIndex: number)
-.decl ExpressionToInsertionStmtResponse(insertionPoint:Block, expr: Expr, subExpr: Expr, reqIndex: number, instStmt: InsertedStatement)
-.decl ExpressionToDefinedVariable(insertionPoint:Block, expr: Expr, subExpr: Expr, reqIndex: number, defVar: VariableWrapper)
+.decl ExpressionToInsertionStmtRequest(insertionPoint:Block, expr: SimpleExpr, subExpr: SimpleExpr, reqIndex: number)
+.decl ExpressionToInsertionStmtResponse(insertionPoint:Block, expr: SimpleExpr, subExpr: SimpleExpr, reqIndex: number, instStmt: InsertedStatement)
+.decl ExpressionToDefinedVariable(insertionPoint:Block, expr: SimpleExpr, subExpr: SimpleExpr, reqIndex: number, defVar: VariableWrapper)
 .output ExpressionToInsertionStmtResponse, ExpressionToInsertionStmtRequest, ExpressionToDefinedVariable
 
 ExpressionToInsertionStmtRequest(loop, expr, expr, insertIndex + reqIndex - 1):-
@@ -378,7 +378,7 @@ ExpressionToInsertionStmtRequest(loop, expr, expr, reqIndex - 1):-
   VariableDefinedInLoop_Expr(loop, var, expr),
   loopExprs.Expr_StatementCount(expr, reqIndex).
 
-.init exprSorter = OrdAscendingMultiSorter<Block, Expr>
+.init exprSorter = OrdAscendingMultiSorter<Block, SimpleExpr>
 .output exprSorter.Input_Next, exprSorter.Input
 exprSorter.Input(loop, expr):-
   SimpleMemoryCopy(loop, _, _, _, _),
@@ -388,7 +388,7 @@ exprSorter.Input(loop, expr):-
   SimpleMemoryCopy(loop, _, _, _, _),
   MemoryCopyLoopLengthExpr(loop, _, expr).
 
-.decl ExpressionInsertedAtOffset(insertionBlock: Block, expr: Expr, offset: number)
+.decl ExpressionInsertedAtOffset(insertionBlock: Block, expr: SimpleExpr, offset: number)
 .output ExpressionInsertedAtOffset
 
 ExpressionInsertedAtOffset(insB, expr, 0):-
