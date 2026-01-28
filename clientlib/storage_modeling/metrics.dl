@@ -142,3 +142,34 @@ HasStorageOpsUnknown():-
 
 Analytics_ArrayDeleteOp(sstore, loop, array):-
   ArrayDeleteOp(sstore, loop, _, array).
+
+
+.decl Analytics_RepeatedLoad(firstLoad: Statement, secondLoad: Statement, cons: symbol)
+.output Analytics_RepeatedLoad
+Analytics_RepeatedLoad(firstLoad, secondLoad, storval):-
+  loadToLoad.ReachableBypassingAnyStrict(firstLoad, secondLoad, storval).
+
+.init loadToLoad = ReachableBypassingWArg
+
+loadToLoad.From(srcLoad, val),
+loadToLoad.To(srcLoad, val):-
+  LoadGlobalVariable(stmt, val, var),
+  Statement_Opcode(stmt, op),
+  op != "SLOAD",
+  VarHoldsBytesOfStorVar(var, srcLoad, _, _, _, _).
+
+
+loadToLoad.From(stmt, val),
+loadToLoad.To(stmt, val):-
+  LoadGlobalVariable(stmt, val, _),
+  SLOAD(stmt, _, _).
+
+loadToLoad.Bypassing(stmt, val):-
+  StoreGlobalVariable(stmt, val, _).
+
+loadToLoad.Bypassing(stmt, val):-
+  LoadGlobalVariable(load, val, _),
+  Statement_Function(load, fun),
+  Statement_Function(stmt, fun),
+  Statement_Opcode(stmt, op),
+  (op = "CALL"; op = "DELEGATECALL"; op = "CALLPRIVATE").

@@ -4,45 +4,25 @@
 #include "../../logic/common/sorting.dl"
 #include "insertors_common.dl"
 
-
-.comp BlockInsertor : AbstractTACTransformer {
+.comp StatementInsertor : AbstractTACTransformer {
 
   // inputs
-  .decl Insertion(insertionPoint: Block, continuation: Block)
-  .decl InsertedStatement(insertionPoint: Block, index: number, statement: InsertedStatement)
+  .decl Insertion(insertionPoint: Statement)
+  .decl InsertionRemovesStatement(insertionPoint: Statement, removedStatement: Statement)
+  .decl InsertedStatement(insertionPoint: Statement, index: number, statement: InsertedStatement)
   .decl VariableSubstitution(originalVar: Variable, newVar: VariableWrapper)
 
   // intermediate relations
-  .decl BlockToRemove(block: Block)
   .decl StatementToRemove(stmt: Statement)
   .decl VariableToRemove(var: Variable)
 
   .decl InVar_OutVar(inVar: Variable, outVar: Variable)
 
-  .decl ReachableBlock(block: Block)
-
-  ReachableBlock(block):-
-    In_FunctionEntry(block),
-    !Insertion(block, _).
-
-  ReachableBlock(block):-
-    ReachableBlock(prev),
-    In_LocalBlockEdge(prev, block),
-    !Insertion(block, _).
-
-  ReachableBlock(cont):-
-    ReachableBlock(prev),
-    In_LocalBlockEdge(prev, block),
-    Insertion(block, cont).
-
-  BlockToRemove(block):-
-    In_InFunction(block, _),
-    !ReachableBlock(block).
 
   StatementToRemove(stmt):-
-    BlockToRemove(block),
-    In_Statement_Block(stmt, block).
+    InsertionRemovesStatement(_, stmt).
 
+  // REVIEW: We should explicitly declare all statements to be removed.
   StatementToRemove(stmt):-
     VariableSubstitution(var, _),
     In_Statement_Defines(stmt, var, _).
@@ -61,9 +41,9 @@
     VariableSubstitution(inVar, outVarW),
     VariableWrapperToVariable(outVarW, outVar).
 
-  .output BlockToRemove, Insertion, InsertedStatement
+  .output Insertion, InsertedStatement, VariableSubstitution, InVar_OutVar
 
-  .decl StatementToInsert(insertionBlock: Block, index: number, stmtId: Statement, stmt: InsertedStatement)
+  .decl StatementToInsert(insertionPoint: Statement, index: number, stmtId: Statement, stmt: InsertedStatement)
 
   .output StatementToInsert, InsertedStatementUses, InsertedStatementDefines, VariableWrapperToVariable
 
@@ -80,8 +60,8 @@
     InsertedStatementDefines(_, $InternalVariable(insertion, index), _);
     InsertedStatementUses(_, $InternalVariable(insertion, index), _).
 
-  StatementToInsert(insertionBlock, index, NewStmtId(insertionBlock, index), stmt):-
-    InsertedStatement(insertionBlock, index, stmt).
+  StatementToInsert(insertionPoint, index, NewStmtId(insertionPoint, index), stmt):-
+    InsertedStatement(insertionPoint, index, stmt).
 
   Out_Statement_Opcode(stmt, opcode):-
     In_Statement_Opcode(stmt, opcode),
@@ -106,11 +86,11 @@
 
   Out_Statement_Block(stmt, block):-
     In_Statement_Block(stmt, block),
-    !BlockToRemove(block),
     !StatementToRemove(stmt).
 
   Out_Statement_Block(stmtId, block):-
-    StatementToInsert(block, _, stmtId, _).
+    StatementToInsert(insertionPoint, _, stmtId, _),
+    In_Statement_Block(insertionPoint, block).
 
   Out_Variable_Value(var, value):-
     In_Variable_Value(var, value),
@@ -125,41 +105,26 @@
     !VariableToRemove(var).
 
   Out_LocalBlockEdge(block, nextBlock):-
-    In_LocalBlockEdge(block, nextBlock),
-    ReachableBlock(block),
-    ReachableBlock(nextBlock).
+    In_LocalBlockEdge(block, nextBlock).
 
-  Out_LocalBlockEdge(block, nextBlock):-
-    In_LocalBlockEdge(block, nextBlock),
-    ReachableBlock(block),
-    Insertion(nextBlock, _).
-
-  Out_LocalBlockEdge(block, nextBlock):-
-    Insertion(block, nextBlock).
 
   Out_FallthroughEdge(block, nextBlock):-
-    In_FallthroughEdge(block, nextBlock),
-    ReachableBlock(block),
-    ReachableBlock(nextBlock).
+    In_FallthroughEdge(block, nextBlock).
 
   Out_CallGraphEdge(callerBlock, fun):-
-    In_CallGraphEdge(callerBlock, fun),
-    ReachableBlock(callerBlock).
+    In_CallGraphEdge(callerBlock, fun).
 
   Out_FunctionCallReturn(callerBlock, fun, return):-
-    In_FunctionCallReturn(callerBlock, fun, return),
-    ReachableBlock(callerBlock).
+    In_FunctionCallReturn(callerBlock, fun, return).
 
   Out_IsFunction(fun):-
     In_IsFunction(fun).
 
   Out_Block_Gas(block, gas):-
-    In_Block_Gas(block, gas),
-    ReachableBlock(block).
+    In_Block_Gas(block, gas).
 
   Out_Block_CodeChunkAccessed(block, chunk):-
-    In_Block_CodeChunkAccessed(block, chunk),
-    ReachableBlock(block).
+    In_Block_CodeChunkAccessed(block, chunk).
 
   Out_Statement_OriginalStatement(inStmt, stmt):-
     In_Statement_OriginalStatement(inStmt, stmt),
@@ -179,6 +144,12 @@
   Out_Statement_Uses(stmt, var, i):-
     In_Statement_Uses(stmt, var, i),
     !VariableSubstitution(var, _),
+    !StatementToRemove(stmt).
+
+  Out_Statement_Uses(stmt, newUse, i):-
+    In_Statement_Uses(stmt, var, i),
+    VariableSubstitution(var, _),
+    InVar_OutVar(var, newUse),
     !StatementToRemove(stmt).
 
   // Out_Statement_Uses(stmtId, use, 0):-
@@ -234,159 +205,62 @@
 
   // TODO: Find first insertion stmt
   Out_Statement_Next(stmt, stmtId):-
-    In_Statement_Next(stmt, next),
-    !StatementToRemove(stmt),
-    StatementToRemove(next),
-    In_Statement_Block(next, insertionBlock),
-    StatementToInsert(insertionBlock, 0, stmtId, _).
+    In_Statement_Next(stmt, insertionStmt),
+    StatementToRemove(insertionStmt),
+    StatementToInsert(insertionStmt, 0, stmtId, _).
+
+  Out_Statement_Next(stmt, insertionStmt):-
+    In_Statement_Next(stmt, insertionStmt),
+    !StatementToRemove(insertionStmt),
+    StatementToInsert(insertionStmt, 0, _, _).
+
+  Out_Statement_Next(insertionStmt, stmtId):-
+    Insertion(insertionStmt),
+    !StatementToRemove(insertionStmt),
+    StatementToInsert(insertionStmt, 0, stmtId, _).
 
   Out_Statement_Next(stmt, next):-
-    StatementToInsert(insertionBlock, n, stmt, _),
-    StatementToInsert(insertionBlock, n + 1, next, _).
+    StatementToInsert(insertionStmt, n, stmt, _),
+    StatementToInsert(insertionStmt, n + 1, next, _).
 
-  Out_Statement_Next(stmt, head):-
-    StatementToInsert(insertionBlock, n, stmt, _),
-    !StatementToInsert(insertionBlock, n + 1, _, _),
-    Insertion(insertionBlock, cont),
-    In_Statement_Block(head, cont),
-    In_Statement_Next(prev, head),
-    In_Statement_Block(prev, other),
-    other != cont.
+  Out_Statement_Next(stmt, next):-
+    StatementToInsert(insertionStmt, n, stmt, _),
+    !StatementToInsert(insertionStmt, n + 1, _, _),
+    In_Statement_Next(insertionStmt, next).
 
   // Review: can we ever delete an entry? perhaps we can disallow this.
   Out_FunctionEntry(entry):-
     In_FunctionEntry(entry).
 
   Out_InFunction(block, function):-
-    In_InFunction(block, function),
-    !BlockToRemove(block).
+    In_InFunction(block, function).
 
-  Out_InFunction(block, function):-
-    In_InFunction(block, function),
-    Insertion(block, _).
 
   Out_ActualReturnArgs(inCaller, inRet, pos):-
     In_ActualReturnArgs(inCaller, inRet, pos).
 
 }
 
-.init insertor = BlockInsertor
 
-.decl SimpleMemoryCopy(loop: Block, continuation: Block, fromVar: Variable, toVar: Variable, lenVar: Variable)
-DEBUG_OUTPUT(SimpleMemoryCopy)
+.init insertor = StatementInsertor
 
-insertor.Insertion(loop, cont),
-insertor.InsertedStatement(loop, lastInstrIndex + 1, $CopyStatement("MCOPY", $ExternalVariable(toVar), $ExternalVariable(fromVar), $InternalVariable(loop, lenResultIndex))):-
-  SimpleMemoryCopy(loop, cont, fromVar, toVar, _),
-  MemoryCopyLoopLengthExpr(loop, _, expr),
-  ExpressionToInsertionStmtRequest(loop, expr, expr, lenResultIndex),
-  lastInstrIndex = max instrIndex : ExpressionToInsertionStmtRequest(loop, _, _, instrIndex).
-  // loopExprs.Expr_StatementCount(expr, stmtNum).
+insertor.Insertion(secondLoad),
+insertor.InsertionRemovesStatement(secondLoad, secondLoad):-
+  ValidSubstitution(_, secondLoad).
 
-insertor.InsertedStatement(loop, index, instStmt):-
-  SimpleMemoryCopy(loop, _, _, _, _),
-  MemoryCopyLoopLengthExpr(loop, _, expr),
-  ExpressionToInsertionStmtResponse(loop, expr, _, index, instStmt).
+insertor.InsertedStatement(secondLoad, 0, $UnaryStatement("MOV", $ExternalVariable(def), $InternalVariable(secondLoad, 0))):-
+  ValidSubstitution(firstLoad, secondLoad),
+  Statement_Defines(firstLoad, def, 0).
 
-insertor.VariableSubstitution(inVar, $InternalVariable(loop, exprResultIndex)):-
-  SimpleMemoryCopy(loop, _, _, _, _),
-  VariableDefinedInLoop_Expr(loop, inVar, expr),
-  ExpressionToInsertionStmtRequest(loop, expr, expr, exprResultIndex).
+insertor.VariableSubstitution(oldDef, $InternalVariable(secondLoad, 0)):-
+  ValidSubstitution(firstLoad, secondLoad),
+  Statement_Defines(secondLoad, oldDef, 0).
 
-.decl ExpressionToInsertionStmtRequest(insertionPoint:Block, expr: SimpleExpr, subExpr: SimpleExpr, reqIndex: number)
-.decl ExpressionToInsertionStmtResponse(insertionPoint:Block, expr: SimpleExpr, subExpr: SimpleExpr, reqIndex: number, instStmt: InsertedStatement)
-.decl ExpressionToDefinedVariable(insertionPoint:Block, expr: SimpleExpr, subExpr: SimpleExpr, reqIndex: number, defVar: VariableWrapper)
-.output ExpressionToInsertionStmtResponse, ExpressionToInsertionStmtRequest, ExpressionToDefinedVariable
-
-ExpressionToInsertionStmtRequest(loop, expr, expr, insertIndex + reqIndex - 1):-
-  // MemoryCopyLoop(loop, _, _),
-  // MemoryCopyLoopLengthExpr(loop, _, expr),
-  ExpressionInsertedAtOffset(loop, expr, insertIndex),
-  loopExprs.Expr_StatementCount(expr, reqIndex).
-
-
-ExpressionToInsertionStmtRequest(loop, outterExpr, left, reqIndex - 1):-
-  ExpressionToInsertionStmtRequest(loop, outterExpr, expr, reqIndex),
-  expr = [op, left, right], op=op, right=right,
-  left != nil.
-
-ExpressionToInsertionStmtRequest(loop, outterExpr, right, reqIndex - leftInstrs - 1):-
-  ExpressionToInsertionStmtRequest(loop, outterExpr, expr, reqIndex),
-  expr = [op, left, right], op=op,
-  loopExprs.Expr_StatementCount(left, leftInstrs),
-  right != nil.
-
-ExpressionToInsertionStmtResponse(loop, outterExpr, expr, index, $ConstStatement(val, varW)):-
-  ExpressionToInsertionStmtRequest(loop, outterExpr, expr, index),
-  ExpressionToDefinedVariable(loop, outterExpr, expr, index, varW),
-  loopExprs.IsConstExpr(expr, val).
-
-ExpressionToInsertionStmtResponse(loop, outterExpr, expr, index, $BinaryStatement(op, lvarW, rvarW, varW)):-
-  ExpressionToInsertionStmtRequest(loop, outterExpr, expr, index),
-  ExpressionToDefinedVariable(loop, outterExpr, expr, index, varW),
-  expr = [op, left, right],
-  ExpressionToDefinedVariable(loop, outterExpr, left, index - 1, lvarW),
-  loopExprs.Expr_StatementCount(left, leftInstrs),
-  ExpressionToDefinedVariable(loop, outterExpr, right, index - 1 - leftInstrs, rvarW),
-  BinArith(op).
-
-ExpressionToDefinedVariable(loop, outterExpr, expr, index, $InternalVariable(loop, index)):-
-  ExpressionToInsertionStmtRequest(loop, outterExpr, expr, index),
-  !VariableToSimpleExpr(_, expr).
-
-ExpressionToDefinedVariable(loop, outterExpr, expr, index, $ExternalVariable(var)):-
-  ExpressionToInsertionStmtRequest(loop, outterExpr, expr, index),
-  VariableToSimpleExpr(var, expr).
-
-SimpleMemoryCopy(loop, cont, fromVar, toVar, lenVar):-
-  LoopWithModeledStackSideEffects(loop),
-  MemoryCopyLoop(loop, fromVar, toVar),
-  InductionVariableUpperBoundVar(loop, _, lenVar, _),
-  LoopNext(loop, cont),
-  Statement_Defines(defStmt, lenVar, _),
-  Statement_Block(defStmt, defBlock),
-  !BlockInStructuredLoop(defBlock, loop).
-
-.decl LoopWithModeledStackSideEffects(loop: Block)
-DEBUG_OUTPUT(LoopWithModeledStackSideEffects)
-LoopWithModeledStackSideEffects(loop):-
-  BlockInStructuredLoop(_, loop),
-  !VariableDefinedInLoopUsedAfterMissesExpr(loop, _).
-  // n = count: VariableDefinedInLoopUsedAfter(loop, _, _),
-  // n = count: VariableDefinedInLoop_Expr(loop, _, _).
-
-.decl VariableDefinedInLoopUsedAfterMissesExpr(loop: Block, var: Variable)
-VariableDefinedInLoopUsedAfterMissesExpr(loop, var):-
-  VariableDefinedInLoopUsedAfter(loop, var, _),
-  !VariableDefinedInLoop_Expr(loop, var, _).
-
-ExpressionToInsertionStmtRequest(loop, expr, expr, reqIndex - 1):-
-  LoopWithModeledStackSideEffects(loop),
-  VariableDefinedInLoopUsedAfter(loop, var, _),
-  VariableDefinedInLoop_Expr(loop, var, expr),
-  loopExprs.Expr_StatementCount(expr, reqIndex).
-
-.init exprSorter = OrdAscendingMultiSorter<Block, SimpleExpr>
-.output exprSorter.Input_Next, exprSorter.Input
-exprSorter.Input(loop, expr):-
-  SimpleMemoryCopy(loop, _, _, _, _),
-  VariableDefinedInLoop_Expr(loop, _, expr).
-
-exprSorter.Input(loop, expr):-
-  SimpleMemoryCopy(loop, _, _, _, _),
-  MemoryCopyLoopLengthExpr(loop, _, expr).
-
-.decl ExpressionInsertedAtOffset(insertionBlock: Block, expr: SimpleExpr, offset: number)
-.output ExpressionInsertedAtOffset
-
-ExpressionInsertedAtOffset(insB, expr, 0):-
-  exprSorter.Input(insB, expr),
-  !exprSorter.Input_Next(insB, _, expr).
-
-ExpressionInsertedAtOffset(insB, expr, prev + i):-
-  ExpressionInsertedAtOffset(insB, pexpr, prev),
-  exprSorter.Input_Next(insB, pexpr, expr),
-  loopExprs.Expr_StatementCount(pexpr, i).
+.decl ValidSubstitution(firstLoad: Statement, secondLoad: Statement)
+DEBUG_OUTPUT(ValidSubstitution)
+ValidSubstitution(firstLoad, secondLoad):-
+  Analytics_RepeatedLoad(firstLoad, secondLoad, _),
+  !Analytics_RepeatedLoad(_, firstLoad, _).
 
 insertor.In_Statement_Opcode(stmt, op):- Statement_Opcode(stmt, op).
 insertor.In_IsStatement(stmt):-IsStatement(stmt).

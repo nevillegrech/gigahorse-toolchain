@@ -1,0 +1,12 @@
+#define NewStmtId(blockId, stmtIndex) cat(cat(blockId, "0xafa"), @number_to_hex(stmtIndex))
+#define NewVarId(blockId, varIndex) cat(cat(blockId, "0xff"), @number_to_hex(varIndex))
+
+.type VariableWrapper = ExternalVariable {useVar: Variable}
+                        | InternalVariable {insertionPoint: symbol, index: number}
+
+.type InsertedStatement = NullaryStatement {opcode: Opcode, defVar: VariableWrapper}
+                        | UnaryStatement {opcode: Opcode, useVar: VariableWrapper, defVar: VariableWrapper}
+                        | BinaryStatement {opcode: Opcode, useVar1: VariableWrapper, useVar2: VariableWrapper, defVar: VariableWrapper}
+                        | StoreStatement {opcode: Opcode, useVar1: VariableWrapper, useVar2: VariableWrapper}
+                        | CopyStatement {opcode: Opcode, fromVar: VariableWrapper, toVar: VariableWrapper, lenVar: VariableWrapper}
+                        | ConstStatement {constant: Value, defVar: VariableWrapper}
