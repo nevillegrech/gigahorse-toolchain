@@ -119,28 +119,28 @@ RuntimeKnowable("TIMESTAMP").
 .decl StatementStoresMemory(stmt: Statement)
 
 StatementStoresMemory(stmt) :-
-   Statement_Opcode(stmt, "MSTORE") ;
-   Statement_Opcode(stmt, "MSTORE8") ;
-   Statement_Opcode(stmt, "CALLDATACOPY") ;
-   Statement_Opcode(stmt, "CODECOPY") ;
-   Statement_Opcode(stmt, "EXTCODECOPY") ;
-   Statement_Opcode(stmt, "RETURNDATACOPY").
-//   Statement_Opcode(stmt, "CALL") ;
-//   Statement_Opcode(stmt, "CALLCODE") ;
-//   Statement_Opcode(stmt, "DELEGATECALL") ;
-//   Statement_Opcode(stmt, "STATICCALL").
+   Statement_Opcode(stmt, "MSTORE");
+   Statement_Opcode(stmt, "MSTORE8");
+   Statement_Opcode(stmt, "CALLDATACOPY");
+   Statement_Opcode(stmt, "CODECOPY");
+   Statement_Opcode(stmt, "EXTCODECOPY");
+   Statement_Opcode(stmt, "RETURNDATACOPY");
+   Statement_Opcode(stmt, "CALL");
+   Statement_Opcode(stmt, "CALLCODE");
+   Statement_Opcode(stmt, "DELEGATECALL");
+   Statement_Opcode(stmt, "STATICCALL").
 
 .decl StatementLoadsMemory(stmt: Statement)
 
 StatementLoadsMemory(stmt) :-
-   Statement_Opcode(stmt, "MLOAD").
-//   Statement_Opcode(stmt, "SHA3") ;
-//   Statement_Opcode(stmt, "CREATE") ;
-//   Statement_Opcode(stmt, "CREATE2") ;
-//   Statement_Opcode(stmt, "CALL") ;
-//   Statement_Opcode(stmt, "CALLCODE") ;
-//   Statement_Opcode(stmt, "DELEGATECALL") ;
-//   Statement_Opcode(stmt, "STATICCALL").
+   Statement_Opcode(stmt, "MLOAD");
+   Statement_Opcode(stmt, "SHA3");
+   Statement_Opcode(stmt, "CREATE");
+   Statement_Opcode(stmt, "CREATE2");
+   Statement_Opcode(stmt, "CALL");
+   Statement_Opcode(stmt, "CALLCODE");
+   Statement_Opcode(stmt, "DELEGATECALL");
+   Statement_Opcode(stmt, "STATICCALL").
 
 .decl MSTORE(stmt: Statement, index: Variable, var: Variable)
 
@@ -391,12 +391,27 @@ IsJump(s) :- Statement_Opcode(s, "JUMPI").
 
 
 // Instructions introduced by the new decompiler
-.decl PHI(s: Statement, fro: Variable, to: Variable)
+.decl PHI(s: Statement, from: Variable, to: Variable)
 
 PHI(stmt, fro, to) :-
    Statement_Opcode(stmt, "PHI"),
    Statement_Defines(stmt, to, _),
    Statement_Uses(stmt, fro, _).
+
+/**
+  Contains facts for the MOV and MOV2 IR instructions
+*/
+.decl AssignmentStmt(stmt: Statement, from: Variable, to: Variable)
+
+AssignmentStmt(stmt, from, to):-
+  (Statement_Opcode(stmt, "MOV"); Statement_Opcode(stmt, "MOV2")),
+  Statement_Defines(stmt, to, 0),
+  Statement_Uses(stmt, from, 0).
+
+AssignmentStmt(stmt, from, to):-
+  Statement_Opcode(stmt, "MOV2"),
+  Statement_Defines(stmt, to, 1),
+  Statement_Uses(stmt, from, 1).
 
 .decl CALLPRIVATE(s: Statement, f: Variable)
 
@@ -419,8 +434,11 @@ PrecompiledCall(stmt) :-
     Variable_Value(addr, "0x3") ; Variable_Value(addr, "0x4") ; Variable_Value(addr, "0x5") ;
     Variable_Value(addr, "0x6") ; Variable_Value(addr, "0x7")).
 
-
-.decl CONST(stmt: Statement, var: Variable)
-
-CONST(stmt, var) :-
-   Statement_Opcode(stmt, "CONST"), Statement_Defines(stmt, var, _).
+.decl StatementHasSideEffects(stmt: Statement)
+StatementHasSideEffects(stmt):-
+  CALLPRIVATE(stmt, _);
+  RETURNPRIVATE(stmt, _);
+  StatementStoresMemory(stmt);
+  StatementLoadsMemory(stmt);
+  SLOAD(stmt, _, _);
+  SSTORE(stmt, _, _).

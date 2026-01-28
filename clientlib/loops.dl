@@ -31,26 +31,20 @@ BlockInStructuredLoop(block, loop):-
 
 // If non terminating loop exit exists, consider terminating ones part of the loop
 BlockInStructuredLoop(termBlock, loop):-
-  LoopNextBase(loop, _),
   LoopToExitingBlock(loop, termBlock).
 
 // recursive case of the above
 BlockInStructuredLoop(termBlock, loop):-
-  LoopNextBase(loop, _),
   LoopToExitingBlock(loop, termOne),
   // reverts can span across multiple blocks (connected via direct jumps)
   LocalBlockPath(termOne, termBlock).
 
 // If non-terminating or exiting loop exit exists, consider reverting ones part of the loop
 BlockInStructuredLoop(termBlock, loop):-
-  (LoopNextBase(loop, _);
-  LoopToExitingBlock(loop, _)),
   LoopToRevertingBlock(loop, termBlock).
 
 // recursive case of the above
 BlockInStructuredLoop(termBlock, loop):-
-  (LoopNextBase(loop, _);
-  LoopToExitingBlock(loop, _)),
   LoopToRevertingBlock(loop, termOne),
   // reverts can span across multiple blocks (connected via direct jumps)
   LocalBlockPath(termOne, termBlock).
@@ -84,6 +78,9 @@ DEBUG_OUTPUT(LoopNextBase)
 // Internal relation: Loop "exits" to a reverting block 
 .decl LoopToRevertingBlock(loop: Block, termBlock: Block)
 
+// A terminating or reverting exist can be reached from outside the loop. 
+.decl LoopToSecondaryExitReachableFromOutside(loop: Block, exit: Block)
+
 LoopNext(loop, next):-
   LoopNextBase(loop, next),
   !LoopWithManyExitsHasSingleConvergenceBlock(loop, _).
@@ -92,16 +89,10 @@ LoopNext(loop, conBlock):-
   LoopNextBase(loop, _),
   LoopWithManyExitsHasSingleConvergenceBlock(loop, conBlock).
 
-// exiting straight from a loop is the 2nd choice, if no `Base` fact exists
-LoopNext(loop, termBlock):-
-  LoopToExitingBlock(loop, termBlock),
-  !LoopNextBase(loop, _).
+LoopNextBase(loop, termBlock):-
+  (LoopToExitingBlock(loop, termBlock); LoopToRevertingBlock(loop, termBlock)),
+  LoopToSecondaryExitReachableFromOutside(loop, termBlock).
 
-// going from a loop to a revert is considered a Next if no exiting or `Base` facts exist
-LoopNext(loop, termBlock):-
-  LoopToRevertingBlock(loop, termBlock),
-  !LoopToExitingBlock(loop, _),
-  !LoopNextBase(loop, _).
 
 LoopNextBase(loop, out):-
   BlockInStructuredLoopBase(jmpiBlock, loop),
@@ -118,13 +109,38 @@ LoopToRevertingBlock(loop, termBlock):-
   Block_Tail(jmpiBlock, jmpi),
   JUMPI(jmpi, _, _),
   LocalBlockEdge(jmpiBlock, termBlock),
+  !LoopToSecondaryExitReachableFromOutside(loop, termBlock),
   (ThrowBlock(termBlock); BlockMustThrow(termBlock)).
-.output LoopToExitingBlock, LoopToRevertingBlock
+.output LoopToExitingBlock, LoopToRevertingBlock, LoopToSecondaryExitReachableFromOutside, BlockMustThrow, BlockMustReturn, BlockMayReturn, BlockMayThrow
 LoopToExitingBlock(loop, termBlock):-
   BlockInStructuredLoopBase(jmpiBlock, loop),
   Block_Tail(jmpiBlock, jmpi),
   JUMPI(jmpi, _, _),
   LocalBlockEdge(jmpiBlock, termBlock),
+  !LoopToSecondaryExitReachableFromOutside(loop, termBlock),
+  BlockTerminates(termBlock).
+
+LoopToSecondaryExitReachableFromOutside(loop, block):-
+  BlockInStructuredLoopBase(inLoop, loop),
+  LocalBlockEdge(inLoop, block),
+  LocalBlockEdge(other, block),
+  block != loop, // is not the loophead
+  !BlockInStructuredLoopBase(other, loop).
+
+LoopNextBase(loop, termBlock):-
+  BlockInStructuredLoopBase(jmpiBlock, loop),
+  Block_Tail(jmpiBlock, jmpi),
+  JUMPI(jmpi, _, _),
+  LocalBlockEdge(jmpiBlock, termBlock),
+  LoopToSecondaryExitReachableFromOutside(loop, termBlock),
+  (ThrowBlock(termBlock); BlockMustThrow(termBlock)).
+
+LoopNextBase(loop, termBlock):-
+  BlockInStructuredLoopBase(jmpiBlock, loop),
+  Block_Tail(jmpiBlock, jmpi),
+  JUMPI(jmpi, _, _),
+  LocalBlockEdge(jmpiBlock, termBlock),
+  LoopToSecondaryExitReachableFromOutside(loop, termBlock),
   BlockTerminates(termBlock).
 
 /**
@@ -262,27 +278,11 @@ HighLevelLoop(loop):-
   BlockInStructuredLoop(_, loop),
   1 = count : LoopNext(loop, _).
 
-/**
-  We consider it a high-level loop if it has more than one next blocks
-  but all are terminating ones.
-*/
 HighLevelLoop(loop):-
   BlockInStructuredLoop(_, loop),
-  n_next = count : LoopNext(loop, _),
-  n_next > 1,
-  n_next_term = count : LoopToExitingBlock(loop, _),
-  n_next_term = n_next.
+  (LoopToExitingBlock(loop, _); LoopToRevertingBlock(loop, _)),
+  !LoopNext(loop, _).
 
-/**
-  We consider it a high-level loop if it has more than one next blocks
-  but all are reverting ones.
-*/
-HighLevelLoop(loop):-
-  BlockInStructuredLoop(_, loop),
-  n_next = count : LoopNext(loop, _),
-  n_next > 1,
-  n_next_term = count : LoopToRevertingBlock(loop, _),
-  n_next_term = n_next.
 
 // condVar determines whether a loop is exited
 .decl LoopExitCond(condVar: Variable, loop: Block)
@@ -296,7 +296,7 @@ LoopExitCond(condVar, loop) :-
    LocalBlockEdge(jmpiBlock, out),
    // in many cases LoopNextBase will be different than LoopNext
    // we need it for completeness
-   (LoopNext(loop, out); LoopNextBase(loop, out)),
+   (LoopNext(loop, out); LoopNextBase(loop, out); LoopToExitingBlock(loop, out); LoopToRevertingBlock(loop, out)),
    LocalBlockEdge(jmpiBlock, in),
    BlockInStructuredLoopBase(in, loop).
 
@@ -308,7 +308,7 @@ LoopExitCondPredicateTrue(condVar, loop, jmpiBlock) :-
    LocalBlockEdge(jmpiBlock, out),
    // in many cases LoopNextBase will be different than LoopNext
    // we need it for completeness
-   (LoopNext(loop, out); LoopNextBase(loop, out)),
+   (LoopNext(loop, out); LoopNextBase(loop, out); LoopToExitingBlock(loop, out); LoopToRevertingBlock(loop, out)),
    FallthroughEdge(jmpiBlock, in),
    BlockInStructuredLoopBase(in, loop).
 
@@ -322,7 +322,7 @@ LoopExitCondPredicateFalse(condVar, loop, jmpiBlock) :-
    FallthroughEdge(jmpiBlock, out),
    // in many cases LoopNextBase will be different than LoopNext
    // we need it for completeness
-   (LoopNext(loop, out); LoopNextBase(loop, out)),
+   (LoopNext(loop, out); LoopNextBase(loop, out); LoopToExitingBlock(loop, out); LoopToRevertingBlock(loop, out)),
    LocalBlockEdge(jmpiBlock, in),
    BlockInStructuredLoopBase(in, loop).
 

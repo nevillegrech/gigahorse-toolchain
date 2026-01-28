@@ -13,12 +13,12 @@
 .output PossibleNumberOfFunctionReturnArguments
 .output PossibleCombinedNumberOfFunctionReturnsAndArguments
 .output FunctionalBlockPopAndStackDelta, IRBlockStackDelta, IRBlockPopDelta
-.output FunctionalBlockInputContents, FunctionalBlockOutputContents, FunctionalStatement_Uses_Local
+
 .output InvalidIRBlockEdge
 .output NumberOfFunctionArguments
 .output NumberOfFunctionReturnArguments
 .output Block_IRBlock
-.output Variable_String
+.output lastFunctional.Variable_String
 
 // The following relations print a number instead of a context in record form to help debugging
 // Without them looking (via grep) for a block using its id will return many contexts as well.

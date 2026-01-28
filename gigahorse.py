@@ -223,6 +223,9 @@ def get_souffle_macros() -> str:
     if args.early_cloning:
         souffle_macros += ' BLOCK_CLONING=HeuristicBlockCloner'
 
+    if args.improved_ssa:
+        souffle_macros += ' SSA_IMPROVEMENT='
+
     return souffle_macros
 
 def analyze_contract(index: int, contract_filename: str, result_queue, fact_generator: AbstractFactGenerator, souffle_clients: list[str], other_clients: list[str]) -> None:
@@ -584,6 +587,11 @@ if __name__ == "__main__":
                         action="store_true",
                         default=False,
                         help="Adds a cloning pre-process step (targetting blocks that can cause imprecision) to the decompilation pipeline.")
+
+    parser.add_argument("--improved_ssa",
+                        action="store_true",
+                        default=False,
+                        help="Enable the experimental new, more precise SSA logic. Introduces MOV and MOV2 assignment instructions.")
 
     parser.add_argument("--disable_precise_fallback",
                         action="store_true",

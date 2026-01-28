@@ -19,11 +19,11 @@
 .output Analytics_NonHighLevelLoop
 
 /**
-  Loop has non high-level control flow (i.e. many exits), without having jump to manys 
+  Loop has non high-level control flow (i.e. many or no exits), without having jump to manys 
   This is the most useful analytic.
 */
-.decl Analytics_LoopWithManyExits(loop: Block)
-.output Analytics_LoopWithManyExits
+.decl Analytics_NonHighLevelLoopFiltered(loop: Block)
+.output Analytics_NonHighLevelLoopFiltered
 
 Analytics_Loop(loop):-
   BlockInStructuredLoop(_, loop).
@@ -36,7 +36,7 @@ Analytics_NonHighLevelLoop(loop):-
   Analytics_Loop(loop),
   0 != count: {BlockInStructuredLoop(block, loop), JumpToMany(block)}.
 
-Analytics_LoopWithManyExits(loop):-
+Analytics_NonHighLevelLoopFiltered(loop):-
   Analytics_Loop(loop),
   !HighLevelLoop(loop),
   0 = count: {BlockInStructuredLoop(block, loop), JumpToMany(block)}.
