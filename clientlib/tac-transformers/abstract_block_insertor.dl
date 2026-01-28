@@ -344,11 +344,11 @@ ExpressionToInsertionStmtResponse(loop, outterExpr, expr, index, $BinaryStatemen
 
 ExpressionToDefinedVariable(loop, outterExpr, expr, index, $InternalVariable(loop, index)):-
   ExpressionToInsertionStmtRequest(loop, outterExpr, expr, index),
-  !VariableToExpr(_, expr).
+  !VariableToSimpleExpr(_, expr).
 
 ExpressionToDefinedVariable(loop, outterExpr, expr, index, $ExternalVariable(var)):-
   ExpressionToInsertionStmtRequest(loop, outterExpr, expr, index),
-  VariableToExpr(var, expr).
+  VariableToSimpleExpr(var, expr).
 
 SimpleMemoryCopy(loop, cont, fromVar, toVar, lenVar):-
   LoopWithModeledStackSideEffects(loop),

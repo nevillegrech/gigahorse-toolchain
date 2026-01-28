@@ -284,7 +284,7 @@ HighLevelLoop(loop):-
   !LoopNext(loop, _).
 
 
-.decl LoopNext(loop: Block, next: Block)
+
 // condVar determines whether a loop is exited
 .decl LoopExitCond(condVar: Variable, loop: Block)
 .decl LoopExitCondPredicateTrue(condVar: Variable, loop: Block, if_head: Block)
@@ -327,13 +327,6 @@ LoopExitCondPredicateFalse(condVar, loop, jmpiBlock) :-
    LocalBlockEdge(jmpiBlock, in),
    BlockInStructuredLoopBase(in, loop).
 
-DEBUG_OUTPUT(LoopNext)
-LoopNext(loop, next):-
-  BlockInStructuredLoop(jmpiBlock, loop),
-  LocalBlockEdge(jmpiBlock, in),
-  BlockInStructuredLoop(in, loop),
-  LocalBlockEdge(jmpiBlock, next),
-  !BlockInStructuredLoop(next, loop).
 
 .decl CanReachBlock(s:Block, t:Block)
 

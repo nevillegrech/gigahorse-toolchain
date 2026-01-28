@@ -136,21 +136,21 @@ PHIStmtOneUse(phi, var, def):-
 .decl MemoryCopyLoopConstLength(loop:Block, memAddrFrom:Variable, memAddrTo:Variable, length:number)
 
 
-.type PrimitiveExpr = symbol
+.type PrimitiveSimpleExpr = symbol
 
-.type Operator = symbol
-.type Base = PrimitiveExpr | Operator
+.type SimpleExprOperator = symbol
+.type SimpleExprBase = PrimitiveSimpleExpr | SimpleExprOperator
 
 // unary, ternary, etc. expressions are represented via binary ones
-.type Expr = [
-  base: Base,
-  left: Expr,
-  right: Expr
+.type SimpleExpr = [
+  base: SimpleExprBase,
+  left: SimpleExpr,
+  right: SimpleExpr
 ]
 
-.decl LoopIterationCountExpr(loop: Block, indVar: SimpleInductionVariable, iters: Expr)
-#define ValueToExpr(val) [val, nil, nil]
-#define VarToExpr(var) [cat("v", var), nil, nil]
+.decl LoopIterationCountExpr(loop: Block, indVar: SimpleInductionVariable, iters: SimpleExpr)
+#define ValueToSimpleExpr(val) [val, nil, nil]
+#define VarToSimpleExpr(var) [cat("v", var), nil, nil]
 
 DEBUG_OUTPUT(WellFormedLoopInductionVariable)
 DEBUG_OUTPUT(InductionVariable)
@@ -269,21 +269,21 @@ VariableDefinedInLoopUsedAfter(loop, phiVar, useStmt):-
   !BlockInStructuredLoop(useBlock, loop).
 
 
-// .decl Variable_ExprInLoop(var: Variable, expr: Expr)
+// .decl Variable_ExprInLoop(var: Variable, expr: SimpleExpr)
 // .output Variable_ExprInLoop
 
-// Variable_ExprInLoop(var, VarToExpr(var)):-
+// Variable_ExprInLoop(var, VarToSimpleExpr(var)):-
 //   StatementInStructuredLoop(useStmt, loop),
 //   Statement_Uses(useStmt, var, _),
 //   Statement_Defines(defStmt, var, _),
 //   !StatementInStructuredLoop(useStmt, loop).
 
-// Variable_ExprInLoop(var, VarToExpr(var)):-
+// Variable_ExprInLoop(var, VarToSimpleExpr(var)):-
 //   StatementInStructuredLoop(useStmt, loop),
 //   Statement_Uses(useStmt, var, _),
 //   !Statement_Defines(_, var, _).
 
-// Variable_ExprInLoop(var, ValueToExpr(val)):-
+// Variable_ExprInLoop(var, ValueToSimpleExpr(val)):-
 //   StatementInStructuredLoop(useStmt, loop),
 //   Statement_Uses(useStmt, var, _),
 //   Variable_Value(var, val).
@@ -299,51 +299,51 @@ VariableDefinedInLoopUsedAfter(loop, phiVar, useStmt):-
 //   Statement_Defines(stmt, def, 0),
 //   !Variable_Value(def, _).
 
-.decl VariableToExpr(var: Variable, expr: Expr)
-.output VariableToExpr
-VariableToExpr(var, VarToExpr(var)):-
+.decl VariableToSimpleExpr(var: Variable, expr: SimpleExpr)
+.output VariableToSimpleExpr
+VariableToSimpleExpr(var, VarToSimpleExpr(var)):-
   Statement_Defines(_, var, _);
   Statement_Uses(_, var, _);
   FormalArgs(_, var, _).
 
 .output LoopIterationCountExpr
-LoopIterationCountExpr(loop, indVar, ["ADD", ValueToExpr("0x1"), ["DIV", boundVarE, ValueToExpr(@number_to_hex(constNum))]]):-
+LoopIterationCountExpr(loop, indVar, ["ADD", ValueToSimpleExpr("0x1"), ["DIV", boundVarE, ValueToSimpleExpr(@number_to_hex(constNum))]]):-
   InductionVariableUpperBoundVar(loop, indVar, boundVar, $WithEqual()),
-  VariableToExpr(boundVar, boundVarE),
+  VariableToSimpleExpr(boundVar, boundVarE),
   InductionVariableStartsAtConst(loop, indVar, "0x0"),
   InductionVariableIncreasesByConst(loop, indVar, constNum).
 
-LoopIterationCountExpr(loop, indVar, ["DIV", ["ADD", ValueToExpr(@number_to_hex(constNum - 1)), boundVarE], ValueToExpr(@number_to_hex(constNum))]):-
+LoopIterationCountExpr(loop, indVar, ["DIV", ["ADD", ValueToSimpleExpr(@number_to_hex(constNum - 1)), boundVarE], ValueToSimpleExpr(@number_to_hex(constNum))]):-
   InductionVariableUpperBoundVar(loop, indVar, boundVar, $WithoutEqual()),
-  VariableToExpr(boundVar, boundVarE),
+  VariableToSimpleExpr(boundVar, boundVarE),
   InductionVariableStartsAtConst(loop, indVar, "0x0"),
   InductionVariableIncreasesByConst(loop, indVar, constNum),
   constNum != 1.
 
 LoopIterationCountExpr(loop, indVar, boundVarE):-
   InductionVariableUpperBoundVar(loop, indVar, boundVar, $WithoutEqual()),
-  VariableToExpr(boundVar, boundVarE),
+  VariableToSimpleExpr(boundVar, boundVarE),
   InductionVariableStartsAtConst(loop, indVar, "0x0"),
   InductionVariableIncreasesByConst(loop, indVar, 1).
 
-LoopIterationCountExpr(loop, indVar, ["ADD", boundVarE, ValueToExpr("0x1")]):-
+LoopIterationCountExpr(loop, indVar, ["ADD", boundVarE, ValueToSimpleExpr("0x1")]):-
   InductionVariableUpperBoundVar(loop, indVar, boundVar, $WithEqual()),
-  VariableToExpr(boundVar, boundVarE),
+  VariableToSimpleExpr(boundVar, boundVarE),
   InductionVariableStartsAtConst(loop, indVar, "0x0"),
   InductionVariableIncreasesByConst(loop, indVar, 1).
 
-.decl MemoryCopyLoopLengthExpr(loop: Block, indVar: SimpleInductionVariable, expr: Expr)
+.decl MemoryCopyLoopLengthExpr(loop: Block, indVar: SimpleInductionVariable, expr: SimpleExpr)
 .output MemoryCopyLoopLengthExpr
 
 // 32x the iteration number expr, because each iteration stores 32 bytes
-MemoryCopyLoopLengthExpr(loop, indVar, ["MUL", expr, ValueToExpr("0x20")]):-
+MemoryCopyLoopLengthExpr(loop, indVar, ["MUL", expr, ValueToSimpleExpr("0x20")]):-
   MemoryCopyLoop(loop, _, _),
   LoopIterationCountExpr(loop, indVar, expr).
 
-.decl VariableDefinedInLoop_Expr(loop: Block, variable: Variable, expr: Expr)
+.decl VariableDefinedInLoop_Expr(loop: Block, variable: Variable, expr: SimpleExpr)
 DEBUG_OUTPUT(VariableDefinedInLoop_Expr)
 
-VariableDefinedInLoop_Expr(loop, phiVar, ["MUL", iterExpr, ValueToExpr(@number_to_hex(const))]):-
+VariableDefinedInLoop_Expr(loop, phiVar, ["MUL", iterExpr, ValueToSimpleExpr(@number_to_hex(const))]):-
   VariableDefinedInLoopUsedAfter(loop, phiVar, _),
   PHIStmtTwoUses(_, beforeLoopVar, inLoopVar, phiVar),
   WellFormedLoopInductionVariable(loop, _, [beforeLoopVar, inLoopVar]),
@@ -351,12 +351,12 @@ VariableDefinedInLoop_Expr(loop, phiVar, ["MUL", iterExpr, ValueToExpr(@number_t
   InductionVariableIncreasesByConst(loop, [beforeLoopVar, inLoopVar], const),
   LoopIterationCountExpr(loop, _, iterExpr).
 
-VariableDefinedInLoop_Expr(loop, phiVar, ["ADD", ["MUL", iterExpr, ValueToExpr(@number_to_hex(const))], beforeLoopExpr]):-
+VariableDefinedInLoop_Expr(loop, phiVar, ["ADD", ["MUL", iterExpr, ValueToSimpleExpr(@number_to_hex(const))], beforeLoopExpr]):-
   VariableDefinedInLoopUsedAfter(loop, phiVar, _),
   PHIStmtTwoUses(_, beforeLoopVar, inLoopVar, phiVar),
   WellFormedLoopInductionVariable(loop, _, [beforeLoopVar, inLoopVar]),
   !InductionVariableStartsAtConst(loop, [beforeLoopVar, inLoopVar], "0x0"),
-  VariableToExpr(beforeLoopVar, beforeLoopExpr),
+  VariableToSimpleExpr(beforeLoopVar, beforeLoopExpr),
   InductionVariableIncreasesByConst(loop, [beforeLoopVar, inLoopVar], const),
   LoopIterationCountExpr(loop, _, iterExpr).
 
@@ -370,7 +370,7 @@ loopExprs.IsExpr(expr):-
   /**
     Given as input, then we add the subexpressions
   */
-  .decl IsExpr(expr: Expr)
+  .decl IsExpr(expr: SimpleExpr)
   DEBUG_OUTPUT(IsExpr)
   IsExpr(left):-
     IsExpr([op, left, right]),
@@ -380,21 +380,21 @@ loopExprs.IsExpr(expr):-
     IsExpr([op, left, right]),
     op=op, left=left.
 
-  .decl IsConstExpr(expr: Expr, const: Value)
+  .decl IsConstExpr(expr: SimpleExpr, const: Value)
   IsConstExpr([const, nil, nil], as(const, Value)):-
     IsExpr([const, nil, nil]),
-    !VariableToExpr(_, [const, nil, nil]).
+    !VariableToSimpleExpr(_, [const, nil, nil]).
 
-  .decl Expr_StatementCount(expr: Expr, stmtNum: number)
+  .decl Expr_StatementCount(expr: SimpleExpr, stmtNum: number)
   DEBUG_OUTPUT(Expr_StatementCount)
   Expr_StatementCount(expr, 0):-
     IsExpr(expr),
-    VariableToExpr(_, expr).
+    VariableToSimpleExpr(_, expr).
 
   // Const, case
   Expr_StatementCount([op, nil, nil], 1):-
     IsExpr([op, nil, nil]),
-    !VariableToExpr(_, [op, nil, nil]).
+    !VariableToSimpleExpr(_, [op, nil, nil]).
 
   Expr_StatementCount([op, left, right], nleft + nright + 1):-
     IsExpr([op, left, right]),
