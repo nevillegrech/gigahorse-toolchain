@@ -56,7 +56,10 @@
      sigHash = FUNCTION_SELECTOR_SIGHASH),
     InputMaxContextDepth(d).
 
-
+  /**
+    This rule will never fire if executed using `gigahorse.py` as it will always provide a context depth value.
+    Default max context depth values for different decompiler configurations are defined in `src/runners.py`.
+  */
   MaxContextDepth(sigHash, 20) :-
     (local.PublicFunction(_, sigHash, _);
      sigHash = FUNCTION_SELECTOR_SIGHASH),

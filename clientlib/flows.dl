@@ -294,11 +294,37 @@ NonLinearEdge(block) :-
    GlobalBlockEdge(block, next),
    GlobalBlockEdge(block, next2),
    next2 != next.
-   
+
+.decl NonLinearLocalEdgeFrom(block: Block)
+NonLinearLocalEdgeFrom(block) :-
+   LocalBlockEdge(block, next),
+   LocalBlockEdge(block, next2),
+   next2 != next.
+
+.decl NonLinearLocalEdgeTo(block: Block)
+NonLinearLocalEdgeTo(next) :-
+   LocalBlockEdge(from1, next),
+   LocalBlockEdge(from2, next),
+   from1 != from2.
+
 ThrowBlock(block) :-
    GlobalBlockEdge(block, next),
    !NonLinearEdge(block),
    ThrowBlock(next).
+
+// if `block` is reached, function will execution *will* end up terminating (in a following block)
+.decl BlockTerminates(block: Block)
+DEBUG_OUTPUT(BlockTerminates)
+BlockTerminates(block):-
+  FunctionExit(block).
+
+BlockTerminates(block) :-
+//    GlobalBlockEdge(block, next),
+//    !NonLinearEdge(block),
+   LocalBlockEdge(block, next),
+   !NonLinearLocalEdgeFrom(block),
+   !NonLinearLocalEdgeTo(next),
+   BlockTerminates(next).
 
 .decl AddResult(b: Variable, d: Variable)
 
@@ -337,3 +363,9 @@ CallFailureControls(call, to) :-
 CallFailureControls(call, to) :-
    CallFailureControls(call, from),
    Dominates(from, to).
+
+.decl ArgFlowsToDynamicPrivateCall(arg: Variable, caller: Block)
+ArgFlowsToDynamicPrivateCall(arg, caller):-
+  DynamicPrivateCall(caller, target),
+  localFlowAnalysis.Flows(arg, target),
+  FormalArgs(_, arg, _).

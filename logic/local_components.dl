@@ -42,6 +42,11 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
 
   #include "decompiler_input_statements.dl"
 
+  .decl DupOrSwapNeededInTAC(stmt: Statement)
+
+  // suppress "No rules/facts defined" warning
+  DupOrSwapNeededInTAC("0x0"):- 1=0.
+
   /**
     Any input opcode that should not be present in the output
     (three-address) code. These are mostly stack machine instructions,
@@ -52,10 +57,11 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
     the entire JUMP opcode.
   */
   .decl TACNOP(statement: Statement)
-  
+
   TACNOP(stmt) :-
     Statement_Opcode(stmt, opcode),
-    (OpcodeIsDup(opcode) ; OpcodeIsSwap(opcode)).
+    (OpcodeIsDup(opcode) ; OpcodeIsSwap(opcode)),
+    !DupOrSwapNeededInTAC(stmt).
 
   TACNOP(stmt) :- POP(stmt) ; JUMPDEST(stmt).
   
@@ -135,7 +141,10 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
   
   // One to one mapping. Give every statement a unique var (negative index)
   .decl Statement_Defines(statement: Statement, variable: Variable)
-  
+
+  // 2nd def used in SWAPx instructions. Choice domain is used to just give it a single valid value.
+  .decl Statement_AdditionalDef(statement: Statement, variable: Variable) choice-domain statement, variable
+
   .decl _StatementNum(statement: Statement, num: number)
   
   _StatementNum(stmt, -res-1) :-
@@ -152,6 +161,27 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
     OpcodePushWords(opcode, m), m > 0,
     !TACNOP(stmt),
     var = as(n, Variable).
+
+  .decl UnusedIndex(index: number)
+  UnusedIndex(-res -1):-
+    Statement_Opcode(stmt, opcode),
+    OpcodeIsPush(opcode),
+    OpcodeOrd("PUSH1", start),
+    OpcodeOrd(opcode, n),
+    n > start + 1,
+    stmt_num = @hex_to_number(stmt),
+    m = range(1, n, 1),
+    res = stmt_num + m,
+    !_StatementNum(_, -res -1).
+
+
+  IsVariable(var),
+  Statement_AdditionalDef(stmt, var):-
+    Statement_Opcode(stmt, opcode),
+    SWAPN(opcode, _),
+    UnusedIndex(n),
+    var = as(n, Variable),
+    !TACNOP(stmt).
 
 
   /*
@@ -268,7 +298,12 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
 
   // What is the difference in stack height after the execution of this `statement`
   .decl StatementStackDelta(statement: Statement, delta: number)
-  
+
+  // block-level stack behavior predicate: After the executin of block, stack `index` will hold
+  // `variableOrIndex` which is either a variable pushed by the block or a reference to a stackindex at its beginning
+  .decl BlockOutLocalStackContents(block: Block, index: StackIndex, variableOrIndex: VariableOrStackIndex)
+  DEBUG_OUTPUT(BlockOutLocalStackContents)
+
   ImmediateBlockJumpTarget(block, as(var, Variable)) :-
     BasicBlock_Tail(block, stmt),
     IsJump(stmt),
@@ -323,8 +358,17 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
   // Base case, handles most cases
   LocalStackContents(stmt, 0, var) :-
     Statement_Defines(stmt, var),
+    Statement_Opcode(stmt, _),
     !TACNOP(stmt).
-  
+    // !SWAPN(opcode, _).
+
+  LocalStackContents(stmt, as(n, StackIndex), var) :-
+    // Statement_Defines(stmt, var),
+    Statement_AdditionalDef(stmt, var),
+    Statement_Opcode(stmt, opcode),
+    SWAPN(opcode, n),
+    !TACNOP(stmt).
+
   // Constant values. Example of implementation of push1 to push32.
   Variable_Value(var, value) :-
     PushValue(stmt, value),
@@ -340,17 +384,42 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
     PC(stmt),
     Statement_Defines(stmt, var).
 
+  Variable_Value(dest, val):-
+    Variable_Value(moved, val),
+    Statement_Uses_Local(stmt, moved, 0),
+    Statement_Opcode(stmt, opcode),
+    DUPN(opcode, _),
+    Statement_Defines(stmt, dest),
+    !TACNOP(stmt).
+
+  Variable_Value(dest, val):-
+    Variable_Value(moved, val),
+    Statement_Uses_Local(stmt, moved, 0),
+    Statement_Opcode(stmt, opcode),
+    (DUPN(opcode, _); SWAPN(opcode, _)),
+    Statement_Defines(stmt, dest),
+    !TACNOP(stmt).
+
+  Variable_Value(dest, val):-
+    Variable_Value(moved, val),
+    Statement_Uses_Local(stmt, moved, 1),
+    Statement_Opcode(stmt, opcode),
+    SWAPN(opcode, _),
+    Statement_AdditionalDef(stmt, dest),
+    !TACNOP(stmt).
+
+
   // DUP
   LocalStackContents(stmt, 0, duplicated) :-
     BeforeLocalStackContents(stmt, n-1, duplicated),
     Statement_Opcode(stmt, opcode),
+    TACNOP(stmt),
     DUPN(opcode, n).
 
   LocalStackContents(stmt, m+1, other) :-
     BeforeLocalStackContents(stmt, m, other),
     Statement_Opcode(stmt, opcode),
-    DUPN(opcode, n),
-    IsStackIndexLessThan(m, n).
+    DUPN(opcode, n), m < n.
 
   /**
     Optimization: before local stack contents for swaps
@@ -364,15 +433,17 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
     SWAPN(opcode, n).
      
   // SWAP
-  LocalStackContents(stmt, n, variable0),
+  LocalStackContents(stmt, as(n, StackIndex), variable0):-
+    BeforeSwapLocalStackContents(stmt, n, 0, variable0),
+    TACNOP(stmt).
+
   LocalStackContents(stmt, 0, variableN) :-
     BeforeSwapLocalStackContents(stmt, n, n, variableN),
-    BeforeSwapLocalStackContents(stmt, n, 0, variable0).
-    .plan 1:(2,1)
-  
+    TACNOP(stmt).
+
   LocalStackContents(stmt, m, other) :-
     BeforeSwapLocalStackContents(stmt, n, m, other),
-    IsStackIndexLessThan(m, n), m > 0.
+    m < n, m > 0.
   
   /*
    ***********
@@ -398,7 +469,7 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
     IsBasicBlockHead(stmt),
     Statement_Block(stmt, block),
     BlockPopDelta(block, delta),
-    IsStackIndexLessThan(stackIndex, delta + 10).
+    IsStackIndexLessThan(stackIndex, delta + 2).
   
    /*
    ***********
@@ -442,14 +513,43 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
     BasicBlock_Tail(block, stmt),
     StatementPopDelta(stmt, delta).
 
+  BlockOutLocalStackContents(block, index, varOrIndex):-
+    BasicBlock_Tail(block, tail),
+    LocalStackContents(tail, index, varOrIndex).
+
+  BlockOutLocalStackContents(block, outIndex, as(outIndex - stackDelta, StackIndex)):-
+    BlockPopDelta(block, popDelta),
+    BlockStackDelta(block, stackDelta),
+    outIndex = range(popDelta + stackDelta + 1, MAX_STACK_HEIGHT + 1, 1).
+
   .decl Statement_Uses_Local(stmt:Statement, var:VariableOrStackIndex, n:StackIndex)
 
   Statement_Uses_Local(stmt, varOrStackIndex, n) :-
      Statement_Opcode(stmt, opcode),
      !TACNOP(stmt),
+     !OpcodeIsDup(opcode),
+     !OpcodeIsSwap(opcode),
      OpcodePopWords(opcode, m),
-     IsStackIndexLessThan(n, m),
+     n < m,
      BeforeLocalStackContents(stmt, n, varOrStackIndex).
+
+  Statement_Uses_Local(stmt, varOrStackIndex, 0):-
+    Statement_Opcode(stmt, opcode),
+    DUPN(opcode, n),
+    !TACNOP(stmt),
+    BeforeLocalStackContents(stmt, n - 1, varOrStackIndex).
+
+  Statement_Uses_Local(stmt, varOrStackIndex, 0):-
+    Statement_Opcode(stmt, opcode),
+    SWAPN(opcode, n),
+    !TACNOP(stmt),
+    BeforeLocalStackContents(stmt, n, varOrStackIndex).
+
+  Statement_Uses_Local(stmt, varOrStackIndex, 1):-
+    Statement_Opcode(stmt, opcode),
+    SWAPN(opcode, _),
+    !TACNOP(stmt),
+    BeforeLocalStackContents(stmt, 0, varOrStackIndex).
 
   // Identify low-level blocks that will always REVERT
   .decl BlockWillRevert(revertBlock: Block)
@@ -637,23 +737,6 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
     !JUMPI(stmt),
     Statement_Opcode(stmt, opcode),
     !OpcodePossiblyHalts(opcode).
-
-  // Insertor heuristic: Fallthrough block likely performs a function call
-  .decl FallthroughBlockPushesContinuation(block: Block, fallthrough: Statement)
-  FallthroughBlockPushesContinuation(block, fallthrough):-
-    BlockPushesLabel(block, _),
-    JumplessFalthroughBlock(block, next),
-    BasicBlock_Head(next, fallthrough).
-
-  // Insertor heuristic: Fallthrough block is used multiple times and its the next is a `StackBalanceBlock`
-  .decl FallthroughBlockUsedMultipleTimes(block: Block, fallthrough: Statement)
-  FallthroughBlockUsedMultipleTimes(block, fallthrough):-
-    JumplessFalthroughBlock(block, next),
-    StackBalanceBlock(next),
-    (BlockPushesLabel(block1, as(block, Value)); StaticBlockJumpTarget(block1, as(block, Value))),
-    (BlockPushesLabel(block2, as(block, Value)); StaticBlockJumpTarget(block2, as(block, Value))),
-    BasicBlock_Head(next, fallthrough),
-    block1 != block2.
 
   .decl CODECOPYStatement(stmt: Statement, offset: Value, size: Value)
   CODECOPYStatement(codeCopy, codeOffsetNumHex, smallNumHex) :-
@@ -955,6 +1038,16 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
     BlockComparesCallDataSizeToFour(_, _, block),
     BlockJumpsOnCallDataSize(block, jumpi, noCallDataSizeBranch, callDataSizeBranch).
 
+  .decl PublicFunctionStartShared(sigHash: symbol, functionStartBlock: Block)
+  PublicFunctionStartShared(sigHash1, as(functionStart, Block)):-
+    BlockComparesSig(block1, sigHash1, _),
+    ImmediateBlockJumpTarget(block1, var1),
+    Variable_Value(var1, functionStart),
+    Variable_Value(var2, functionStart),
+    ImmediateBlockJumpTarget(block2, var2),
+    BlockComparesSig(block2, sigHash2, _),
+    JUMPDEST(as(functionStart, Statement)),
+    sigHash1 != sigHash2.
 }
 
 /**
@@ -970,6 +1063,23 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
 
 .comp PostTransLocalAnalysis : LocalAnalysis {
                                              
+}
+
+// Instantiation that models the effects of all SWAPn and DUPn instructions.
+.comp AllStatementsLocalAnalysis : LocalAnalysis {
+
+  DupOrSwapNeededInTAC(stmt):-
+    Statement_Opcode(stmt, op),
+    (SWAPN(op, _); DUPN(op, _)).
+
+  .decl StatementOutSurvivesBlock(stmt: Statement)
+
+  StatementOutSurvivesBlock(stmt):-
+    (Statement_Defines(stmt, var); Statement_AdditionalDef(stmt, var)),
+    Statement_Block(stmt, block),
+    BasicBlock_Tail(block, tail),
+    LocalStackContents(tail, _, var).
+
 }
 
 .comp PostIncompleteGlobalLocalAnalysis : LocalAnalysis {

@@ -14,7 +14,7 @@
 #endif
 
 #define CheckIsVariable(v) ((v) < 0)
-#define CheckIsStackIndex(v) ((v) >= 0, (v) < MAX_STACK_HEIGHT)
+#define CheckIsStackIndex(v) ((v) >= 0, (v) <= MAX_STACK_HEIGHT)
 
 
 // The following 4 constants as also defined in src/common.py

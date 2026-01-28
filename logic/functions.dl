@@ -107,7 +107,7 @@ PossibleReturnAddressWithPos(targetSetter, retCtx, retBlock, retTarget, pos) :-
   postTrans.Statement_Block(targetSetStatement, targetSetter),
   postTrans.BasicBlock_Tail(targetSetter, jumpStmt),
   postTrans.JUMP(jumpStmt),
-  postTrans.BeforeLocalStackContents(jumpStmt, pos, targetVariable).
+  postTrans.BlockOutLocalStackContents(targetSetter, pos, targetVariable).
 
 /**
   This pattern is prominent in 0.8.x code:
@@ -140,7 +140,7 @@ PossibleReturnAddressWithPos(as(next, Block), retCtx, retBlock, retTarget, pos) 
   postTrans.StaticBlockJumpTarget(targetSetter, next),
   postTrans.BasicBlock_Tail(as(next, Block), jumpStmt),
   postTrans.JUMP(jumpStmt),
-  postTrans.BeforeLocalStackContents(jumpStmt, pos, stackIndex),
+  postTrans.BlockOutLocalStackContents(as(next, Block), pos, stackIndex),
   // filter out cases where the function is called directly
   !postTrans.IsJumpBlockPrivateFunctionCall(_, as(next, Block)).
 
@@ -755,10 +755,6 @@ IRStatementNum(irstmt, num) :-
   postTrans._StatementNum(stmt, num),
   Statement_IRStatement(stmt, _, irstmt).
 
-.decl IRTACNOP(stmt: IRStatement)
-IRTACNOP(irstmt) :-
-  postTrans.TACNOP(stmt),
-  Statement_IRStatement(stmt, _, irstmt).
 
 /***********
  * Identify actual function calls and returns
@@ -817,22 +813,6 @@ IRBlockStackDelta(irblock, stackDelta) :-
   postTrans.BlockStackDelta(block, stackDelta),
   Block_IRBlock(block, _, irblock).
 
-.decl IRStatement_Uses_Local(stmt: IRStatement, varOrStackIndex: VariableOrStackIndex, n: StackIndex)
-IRStatement_Uses_Local(irstmt, varOrStackIndex, n) :-
-  postTrans.Statement_Uses_Local(stmt, varOrStackIndex, n),
-  Statement_IRStatement(stmt, _, irstmt).
-
-.decl IRBeforeLocalStackContents(stmt: IRStatement, n:StackIndex, varOrStackIndex:VariableOrStackIndex)
-IRBeforeLocalStackContents(irstmt, n, varOrStackIndex) :-
-  postTrans.BeforeLocalStackContents(stmt, n, varOrStackIndex),
-  Statement_IRStatement(stmt, _, irstmt).
-
-.decl IRLocalStackContents(stmt: IRStatement, n:StackIndex, varOrStackIndex:VariableOrStackIndex)
-IRLocalStackContents(irstmt, n, varOrStackIndex) :-
-  postTrans.LocalStackContents(stmt, n, varOrStackIndex),
-  Statement_IRStatement(stmt, _, irstmt).
-
-
 /***********
  * Discovery of arguments accepted by a function   
  ***********/
@@ -883,7 +863,7 @@ FunctionalBlockPopDelta(from, newPopDelta) :-
 
 // What is the total difference in stack level during this block ?
 .decl FunctionalBlockStackDelta(from: IRBlock, delta: number)
-
+.output FunctionalBlockStackDelta
 // Not a call
 FunctionalBlockStackDelta(from, stackDelta) :-
   !IRFunctionCall(from, _),
@@ -1034,168 +1014,472 @@ NumberOfFunctionReturnArguments(func, n) :-
   n = max m : PossibleNumberOfFunctionReturnArguments(func, m).
 
 
-.decl Variable_String(var:Variable, var_rep:symbol)
 
-.decl Variable_Stmt_String(var:Variable, stmt: IRStatement, var_rep:symbol) inline
+.comp FunctionalStackAnalysis {
 
-Variable_Stmt_String(var, stmt, res) :-
-   res = cat(stmt_str, var_str),
-   IRStatement_VarString(stmt, stmt_str),
-   Variable_String(var, var_str).
-        
-.decl Variable_Block_String(var:Variable, block: IRBlock, var_rep:symbol) inline
+  // Putting this analysis in a component as it needs to be reused
 
-Variable_Block_String(var, block, res) :-
-   res = cat(block_str, var_str),
-   IRBlock_VarString(block, block_str),
-   Variable_String(var, var_str).
+  // Depends on IRBlockPopDelta, IRBlockStackDelta
 
+  // Is output
+  .decl FunctionArgument(func: IRFunction, n: StackIndex, var: Variable)
+  // Is output
+  .decl FunctionCallReturnArgument(func: IRBlock, n: StackIndex, var: Variable)
 
-.decl FunctionArgument(func: IRFunction, n: StackIndex, var: Variable)
-.decl FunctionCallReturnArgument(func: IRBlock, n: StackIndex, var: Variable)
+  // Is output
+  .decl FunctionalStatement_Uses_Local(stmt: IRStatement, var:VariableOrStackIndex, n:StackIndex)
+  // Is unused
+  // .decl FunctionalStatement_Uses(stmt:IRStatement, var:Variable, n:StackIndex)
+  // Is output
+  .decl FunctionalStatement_Defines(callStmt:IRStatement, newVar:Variable, n: number)
 
-.decl FunctionalStatement_Uses_Local(stmt: IRStatement, var:VariableOrStackIndex, n:StackIndex)
-.decl FunctionalStatement_Uses(stmt:IRStatement, var:Variable, n:StackIndex)
-.decl FunctionalStatement_Defines(callStmt:IRStatement, newVar:Variable, n: number)
+  // Is output
+  .decl Variable_String(var:Variable, var_rep:symbol)
 
-Variable_String(var, var_rep) :-
-   postTrans.Statement_Defines(var_rep, var).
+  // Is output
+  .decl Variable_Stmt_String(var:Variable, stmt: IRStatement, var_rep:symbol) inline
+  Variable_Stmt_String(var, stmt, res) :-
+    res = cat(stmt_str, var_str),
+    IRStatement_VarString(stmt, stmt_str),
+    Variable_String(var, var_str).
 
-Variable_String(var, cat(func, cat("arg", @number_to_hex(n)))),
-FunctionArgument(func, n, var) :-
-//// REVIEW
-//  PossibleNumberOfFunctionArguments(func, n_args),
-  FunctionArgumentIndices(func, n),
-  FRESH_VARIABLE(var, as(func, IRStatement), n). // TODO: use entry?
-
-.decl FunctionArgumentIndices(func: IRFunction, n: StackIndex)
-
-FunctionArgumentIndices(func, n) :-
-  NumberOfFunctionArguments(func, n_args),
-  IsStackIndexLessThan(n, n_args).
+  // Is output
+  .decl Variable_Block_String(var:Variable, block: IRBlock, var_rep:symbol) inline
+  Variable_Block_String(var, block, res) :-
+    res = cat(block_str, var_str),
+    IRBlock_VarString(block, block_str),
+    Variable_String(var, var_str).
 
 
-Variable_String(newVar, cat(callStmtBefore, cat("_", @number_to_hex(n)))),
-FunctionalStatement_Defines(callStmt, newVar, n),
-FunctionCallReturnArgument(caller, n, newVar) :-
-  IRFunctionCall(caller, func),
-//// REVIEW
-  FunctionReturnArgumentIndices(func, n),
-  IRBasicBlock_Tail(caller, callStmt),
-  Statement_IRStatement(callStmtBefore, _ ,callStmt),
-  FRESH_VARIABLE(newVar, callStmt, n).
+  Variable_String(var, cat(func, cat("arg", @number_to_hex(n)))),
+  FunctionArgument(func, n, var) :-
+  //// REVIEW
+  //  PossibleNumberOfFunctionArguments(func, n_args),
+    FunctionArgumentIndices(func, n),
+    FRESH_VARIABLE(var, as(func, IRStatement), n). // TODO: use entry?
 
-.decl FunctionReturnArgumentIndices(func: IRFunction, n: StackIndex)
+  .decl FunctionArgumentIndices(func: IRFunction, n: StackIndex)
 
-FunctionReturnArgumentIndices(func, n) :-
-  NumberOfFunctionReturnArguments(func, n_args),
-  IsStackIndexLessThan(n, n_args).
+  FunctionArgumentIndices(func, n) :-
+    NumberOfFunctionArguments(func, n_args),
+    IsStackIndexLessThan(n, n_args).
 
-// Renaming variables in functions
-// Involves Propagating variables, but doesn't require re-computing the CFG
-.decl FunctionalBlockInputContents(block: IRBlock, index: StackIndex, var: Variable)
-.decl FunctionalBlockOutputContents(block: IRBlock, index: StackIndex, var: Variable)
+  .decl IRBlockOutLocalStackContents(irBlock: IRBlock, n: StackIndex, varOrStackIndex: VariableOrStackIndex)
+  .decl IRBeforeLocalStackContents(stmt: IRStatement, n:StackIndex, varOrStackIndex:VariableOrStackIndex)
+  .decl IRLocalStackContents(stmt: IRStatement, n:StackIndex, varOrStackIndex:VariableOrStackIndex)
+  .decl IRStatement_Uses_Local(stmt: IRStatement, varOrStackIndex: VariableOrStackIndex, n: StackIndex)
 
-FunctionalBlockInputContents(entry, n, var) :-
-   IRFunctionEntry(entry),
-   IRInFunction(entry, func),
-   FunctionArgument(func, n, var).
+  Variable_String(newVar, cat(callStmtBefore, cat("_", @number_to_hex(n)))),
+  FunctionalStatement_Defines(callStmt, newVar, n),
+  FunctionCallReturnArgument(caller, n, newVar) :-
+    IRFunctionCall(caller, func),
+  //// REVIEW
+    FunctionReturnArgumentIndices(func, n),
+    IRBasicBlock_Tail(caller, callStmt),
+    Statement_IRStatement(callStmtBefore, _ ,callStmt),
+    FRESH_VARIABLE(newVar, callStmt, n).
 
-FunctionalBlockInputContents(next, index, variable) :-
-   FunctionalBlockOutputContents(from, index, variable),
-   LocalBlockEdge(from, next).
+  .decl FunctionReturnArgumentIndices(func: IRFunction, n: StackIndex)
 
-// 1) Normal block to block flow, i.e. no unconditional function calls from block to block
-FunctionalBlockOutputContents(block, index, variable) :-
-  BeforeFunctionCallFunctionalBlockOutputContents(block, index, variable),
-  LocalBlockEdge(block, next),
-  IRBlockEdge(block, next).
+  FunctionReturnArgumentIndices(func, n) :-
+    NumberOfFunctionReturnArguments(func, n_args),
+    IsStackIndexLessThan(n, n_args).
 
-// 2) First block calls a function, take return args from function call
+  // Renaming variables in functions
+  // Involves Propagating variables, but doesn't require re-computing the CFG
+  .decl FunctionalBlockInputContents(block: IRBlock, index: StackIndex, var: Variable)
+  .decl FunctionalBlockOutputContents(block: IRBlock, index: StackIndex, var: Variable)
 
-FunctionalBlockOutputContents(caller, n, newVar) :-
-   FunctionCallReturnArgument(caller, n, newVar).
+  FunctionalBlockInputContents(entry, n, var) :-
+    IRFunctionEntry(entry),
+    IRInFunction(entry, func),
+    FunctionArgument(func, n, var).
 
-// 3) First block calls a function, take any remaining variables that have
-//    not been passed as arguments, and shift
-FunctionalBlockOutputContents(caller, newIndex, variable) :-
-   BeforeFunctionCallFunctionalBlockOutputContents(caller, index, variable),
-   IRFunctionCallReturn(caller, func, _),
-//   PossibleCombinedNumberOfFunctionReturnsAndArguments(func, n_in, n_out),
-////REVIEW
-   NumberOfFunctionReturnArguments(func, n_out),
-   NumberOfFunctionArguments(func, n_in),
-   index >= n_in,
-   newIndex = index+n_out-n_in,
-   CheckIsStackIndex(newIndex).
+  FunctionalBlockInputContents(next, index, variable) :-
+    FunctionalBlockOutputContents(from, index, variable),
+    LocalBlockEdge(from, next).
 
-.decl BeforeFunctionCallFunctionalBlockOutputContents(caller: IRBlock, index: StackIndex, variable: Variable)
+  // 1) Normal block to block flow, i.e. no unconditional function calls from block to block
+  FunctionalBlockOutputContents(block, index, variable) :-
+    BeforeFunctionCallFunctionalBlockOutputContents(block, index, variable),
+    LocalBlockEdge(block, next),
+    IRBlockEdge(block, next).
 
-// Copy the stack variables untouched by the callee basic block
-BeforeFunctionCallFunctionalBlockOutputContents(callee, index+delta, variable) :-
-  FunctionalBlockInputContents(callee, index, variable),
-  index >= calleePopLen,
-  index+delta <= MAX_STACK_HEIGHT,
-  IRBlockPopDelta(callee, calleePopLen),
-  IRBlockStackDelta(callee, delta).
+  // 2) First block calls a function, take return args from function call
 
-// Handle the proper variables pushed by this basic block
-BeforeFunctionCallFunctionalBlockOutputContents(block, index, as(var, Variable)) :-
-  IRInFunction(block, _),
-  IRBasicBlock_Tail(block, stmt),
-  IRLocalStackContents(stmt, index, var),
-  CheckIsVariable(var).
+  FunctionalBlockOutputContents(caller, n, newVar) :-
+    FunctionCallReturnArgument(caller, n, newVar).
 
-// Handle the stackIndexes pushed by this basic block
-BeforeFunctionCallFunctionalBlockOutputContents(block, index, realVariable) :-
-  FunctionalBlockInputContents(block, stackIndex, realVariable),
-  IRBasicBlock_Tail(block, stmt),
-  IRLocalStackContents(stmt, index, stackIndex),
-  CheckIsStackIndex(stackIndex).
+  // 3) First block calls a function, take any remaining variables that have
+  //    not been passed as arguments, and shift
+  FunctionalBlockOutputContents(caller, newIndex, variable) :-
+    BeforeFunctionCallFunctionalBlockOutputContents(caller, index, variable),
+    IRFunctionCallReturn(caller, func, _),
+  //   PossibleCombinedNumberOfFunctionReturnsAndArguments(func, n_in, n_out),
+  ////REVIEW
+    NumberOfFunctionReturnArguments(func, n_out),
+    NumberOfFunctionArguments(func, n_in),
+    index >= n_in,
+    newIndex = index+n_out-n_in,
+    CheckIsStackIndex(newIndex).
+
+  .decl BeforeFunctionCallFunctionalBlockOutputContents(caller: IRBlock, index: StackIndex, variable: Variable)
+
+  // Copy the stack variables untouched by the callee basic block
+  BeforeFunctionCallFunctionalBlockOutputContents(callee, index+delta, variable) :-
+    FunctionalBlockInputContents(callee, index, variable),
+    index >= calleePopLen,
+    index+delta <= MAX_STACK_HEIGHT,
+    IRBlockPopDelta(callee, calleePopLen),
+    IRBlockStackDelta(callee, delta).
+
+  // Handle the proper variables pushed by this basic block
+  BeforeFunctionCallFunctionalBlockOutputContents(block, index, as(var, Variable)) :-
+    IRInFunction(block, _),
+    IRBasicBlock_Tail(block, stmt),
+    IRLocalStackContents(stmt, index, var),
+    CheckIsVariable(var).
+
+  // Handle the stackIndexes pushed by this basic block
+  BeforeFunctionCallFunctionalBlockOutputContents(block, index, realVariable) :-
+    FunctionalBlockInputContents(block, stackIndex, realVariable),
+    IRBasicBlock_Tail(block, stmt),
+    IRLocalStackContents(stmt, index, stackIndex),
+    CheckIsStackIndex(stackIndex).
 
 
-// TODO, check case for function call
-FunctionalStatement_Uses_Local(stmt, varOrStackIndex, n) :-
-  IRFunctionCall(block, func),
-  IRBasicBlock_Tail(block, stmt),
-  IRStatement_Opcode(stmt, opcode),
-  OpcodePopWords(opcode, m),
-//// REVIEW
-//  PossibleNumberOfFunctionArguments(func, n_in),
-  NumberOfFunctionArguments(func, n_in),
-  IsStackIndexLessThan(n, m+n_in),
-  IRBeforeLocalStackContents(stmt, n, varOrStackIndex).
+//   // TODO, check case for function call
+//   FunctionalStatement_Uses_Local(stmt, varOrStackIndex, n) :-
+//     IRFunctionCall(block, func),
+//     IRBasicBlock_Tail(block, stmt),
+//     IRStatement_Opcode(stmt, opcode),
+//     OpcodePopWords(opcode, m),
+//   //// REVIEW
+//   //  PossibleNumberOfFunctionArguments(func, n_in),
+//     NumberOfFunctionArguments(func, n_in),
+//     IsStackIndexLessThan(n, m+n_in),
+//     IRBeforeLocalStackContents(stmt, n, varOrStackIndex).
 
-// TODO, check case for function return
-FunctionalStatement_Uses_Local(stmt, varOrStackIndex, n) :-
-//// REVIEW
+//   // TODO, check case for function return
+//   FunctionalStatement_Uses_Local(stmt, varOrStackIndex, n) :-
+//   //// REVIEW
+//     NumberOfFunctionReturnArguments(func, n_out),
+//     IRFunction_Return(func, retBlock),
+//     IRBasicBlock_Tail(retBlock, stmt),
+//     IRStatement_Opcode(stmt, opcode),
+//     OpcodePopWords(opcode, m),
+//     IsStackIndexLessThan(n, m+n_out),
+//     IRBeforeLocalStackContents(stmt, n, varOrStackIndex).
+
+  // uses of the jump/call stmt
+  FunctionalStatement_Uses_Local(stmt, varOrStackIndex, n) :-
+    IRFunctionCall(block, func),
+    IRBasicBlock_Tail(block, stmt),
+    IRStatement_Opcode(stmt, opcode),
+    OpcodePopWords(opcode, m),
+    NumberOfFunctionArguments(func, _),
+    IRBeforeLocalStackContents(stmt, n, varOrStackIndex), n < m.
+
+  // function args
+  FunctionalStatement_Uses_Local(stmt, varOrStackIndex, n + m) :-
+    IRFunctionCall(block, func),
+    IRBasicBlock_Tail(block, stmt),
+    IRStatement_Opcode(stmt, opcode),
+    OpcodePopWords(opcode, m),
+    NumberOfFunctionArguments(func, n_in),
+    IRBlockOutLocalStackContents(block, n, varOrStackIndex),  n < n_in.
+
+  // TODO, check case for function return
+  FunctionalStatement_Uses_Local(stmt, varOrStackIndex, n) :-
+    NumberOfFunctionReturnArguments(func, _),
+    IRFunction_Return(func, retBlock),
+    IRBasicBlock_Tail(retBlock, stmt),
+    IRStatement_Opcode(stmt, opcode),
+    OpcodePopWords(opcode, m),
+    IRBeforeLocalStackContents(stmt, n, varOrStackIndex), n < m.
+
+  FunctionalStatement_Uses_Local(stmt, varOrStackIndex, n + m) :-
+    NumberOfFunctionReturnArguments(func, n_out),
+    IRFunction_Return(func, retBlock),
+    IRBasicBlock_Tail(retBlock, stmt),
+    IRStatement_Opcode(stmt, opcode),
+    OpcodePopWords(opcode, m),
+    IRBlockOutLocalStackContents(retBlock, n, varOrStackIndex), n < n_out.
+
+  FunctionalStatement_Uses_Local(irstmt, varOrStackIndex, n) :-
+    IRStatement_Uses_Local(irstmt, varOrStackIndex, n).
+
+  // FunctionalStatement_Uses(irstmt, as(var, Variable), n) :-
+  //   postTrans.Statement_Uses_Local(stmt, var, n),
+  //   CheckIsVariable(var),
+  //   Statement_IRStatement(stmt, _, irstmt).
+
+  // Case: variable originates elsewhere
+  // FunctionalStatement_Uses(stmt, var, n) :-
+  //   IRStatement_Uses_Local(stmt, stackIndex, n),
+  //   CheckIsStackIndex(stackIndex),
+  //   IRStatement_Block(stmt, block),
+  //   FunctionalBlockInputContents(block, stackIndex, var).
+
+}
+
+#define INIT_FSTACK_FROM_LOCAL(fstack, local)\
+fstack.Variable_String(var, var_rep):- local.Statement_Defines(var_rep, var).\
+fstack.Variable_String(var, @number_to_hex(-var + 1)):- local.Statement_AdditionalDef(_, var).\
+fstack.IRBlockOutLocalStackContents(irBlock, n, varOrStackIndex):-  local.BlockOutLocalStackContents(block, n, varOrStackIndex), Block_IRBlock(block, _, irBlock). \
+fstack.IRBeforeLocalStackContents(irstmt, n, varOrStackIndex):- local.BeforeLocalStackContents(stmt, n, varOrStackIndex), Statement_IRStatement(stmt, _, irstmt).\
+fstack.IRLocalStackContents(irstmt, n, varOrStackIndex):- local.LocalStackContents(stmt, n, varOrStackIndex), Statement_IRStatement(stmt, _, irstmt).\
+fstack.IRStatement_Uses_Local(irstmt, varOrStackIndex, n):- local.Statement_Uses_Local(stmt, varOrStackIndex, n), Statement_IRStatement(stmt, _, irstmt).\
+fstack.FunctionalStatement_Defines(irstmt, newVar, 1):- local.Statement_AdditionalDef(stmt, newVar), Statement_IRStatement(stmt, _, irstmt).\
+fstack.FunctionalStatement_Defines(irstmt, newVar, 0):- local.Statement_Defines(stmt, newVar), Statement_IRStatement(stmt, _, irstmt).
+
+.init firstFunctional = FunctionalStackAnalysis
+INIT_FSTACK_FROM_LOCAL(firstFunctional, postTrans)
+
+#ifndef SSA_IMPROVEMENT
+
+// propagate previous component instantiations
+
+#define lastFunctional firstFunctional
+#define lastLocal postTrans
+
+#else
+
+.decl FunctionalBlockUsesPHIVar(block: IRBlock, var: Variable, index: StackIndex)
+DEBUG_OUTPUT(FunctionalBlockUsesPHIVar)
+
+FunctionalBlockUsesPHIVar(block, var, stackIndex):-
+  IRStatement_Block(stmt, block),
+  firstFunctional.FunctionalStatement_Uses_Local(stmt, stackIndex, _),
+  CheckIsStackIndex(stackIndex),
+  firstFunctional.FunctionalBlockInputContents(block, stackIndex, var),
+  firstFunctional.FunctionalBlockInputContents(block, stackIndex, otherVar), var!= otherVar.
+
+
+FunctionalBlockUsesPHIVar(block, var, stackIndex):-
+  IRStatement_Block(stmt, block),
+  FunctionReturnStmt(stmt),
+  IRInFunction(block, func),
   NumberOfFunctionReturnArguments(func, n_out),
-  IRFunction_Return(func, retBlock),
-  IRBasicBlock_Tail(retBlock, stmt),
+  firstFunctional.IRBeforeLocalStackContents(stmt, n, stackIndex),
+  CheckIsStackIndex(stackIndex),
+  IsStackIndexLessThan(n, n_out + 1),
+  firstFunctional.FunctionalBlockInputContents(block, stackIndex, var),
+  firstFunctional.FunctionalBlockInputContents(block, stackIndex, otherVar), var!= otherVar.
+
+.decl PHIVar_DefBlockToUseBlock(defBlock: IRBlock, useBlock: IRBlock, useVar: Variable, stackIndex: StackIndex)
+DEBUG_OUTPUT(PHIVar_DefBlockToUseBlock)
+
+PHIVar_DefBlockToUseBlock(defBlock, useBlock, var, stackIndex):-
+  FunctionalBlockUsesPHIVar(useBlock, var, stackIndex),
+  firstFunctional.FunctionalStatement_Defines(defStmt, var, _),
+  IRInFunction(useBlock, func),
+  IRInFunction(defBlock, func),
+  IRStatement_Block(defStmt, defBlock).
+
+PHIVar_DefBlockToUseBlock(entry, useBlock, var, stackIndex):-
+  FunctionalBlockUsesPHIVar(useBlock, var, stackIndex),
+  !firstFunctional.FunctionalStatement_Defines(_, var, _),
+  IRInFunction(useBlock, func),
+  IRInFunction(entry, func),
+  IRFunctionEntry(entry).
+
+.decl DefBlockToUseBlockPathInterm(from: IRBlock, to: IRBlock, tmp: IRBlock, path: Path)
+DEBUG_OUTPUT(DefBlockToUseBlockPathInterm)
+
+DefBlockToUseBlockPathInterm(from, to, from, initPath):-
+  PHIVar_DefBlockToUseBlock(from, to, _, _),
+//   from != to, // REVIEW: not sure, it seems to help rn
+  initPath = as("", Path).
+  // initPath = as(from, Path).
+
+DefBlockToUseBlockPathInterm(from, to, next, newPath):-
+  DefBlockToUseBlockPathInterm(from, to, cur, prevPath),
+  PotentialCycleEntryLocalBlockEdge(cur, next),
+  newPath = as(@add_set(prevPath, next), Path),
+  newPath != prevPath.
+
+DefBlockToUseBlockPathInterm(from, to, next, prevPath):-
+  DefBlockToUseBlockPathInterm(from, to, cur, prevPath),
+  NotCycleEntryLocalBlockEdge(cur, next).
+
+.decl DefBlockToUseBlockPath(from: IRBlock, to: IRBlock, path: Path)
+DEBUG_OUTPUT(DefBlockToUseBlockPath)
+
+DefBlockToUseBlockPath(from, to, path):-
+  DefBlockToUseBlockPathInterm(from, to, to, path).
+
+// .decl PHIOpTwoPathHelper(useBlock: IRBlock, stackIndex: StackIndex, defBlock1: IRBlock, defPath1: Path, defBlock2: IRBlock, defPath2: Path)
+// PHIOpTwoPathHelper(useBlock, stackIndex, defBlock1, defPath1, defBlock2, defPath2):-
+//   PHIVar_DefBlockToUseBlock(defBlock1, useBlock, var, stackIndex),
+//   DefBlockToUseBlockPath(defBlock1, useBlock, defPath1),
+//   PHIVar_DefBlockToUseBlock(defBlock2, useBlock, otherVar, stackIndex), otherVar != var,
+//   DefBlockToUseBlockPath(defBlock2, useBlock, defPath2).
+
+// .decl PHIOpWithCompatiblePaths(useBlock: IRBlock, stackIndex: StackIndex, defBlock1: IRBlock, defPath1: Path, defBlock2: IRBlock, defPath2: Path)
+// PHIOpWithCompatiblePaths(useBlock, stackIndex, defBlock1, path, defBlock2, path):-
+//   PHIOpTwoPathHelper(useBlock, stackIndex, defBlock1, path, defBlock2, path).
+
+// PHIOpWithCompatiblePaths(useBlock, stackIndex, defBlock1, defPath1, defBlock2, defPath2):-
+//   PHIOpTwoPathHelper(useBlock, stackIndex, defBlock1, defPath1, defBlock2, defPath2),
+//   defPath1 != defPath2, defPath2 != "", defPath1 != "",
+//   contains(defPath1, defPath2).
+
+.decl IRFunctionExit(exitNode: IRBlock)
+IRFunctionExit(exitNode):-
+  IRStatement_Block(stmt, exitNode),
   IRStatement_Opcode(stmt, opcode),
-  OpcodePopWords(opcode, m),
-  IsStackIndexLessThan(n, m+n_out),
-  IRBeforeLocalStackContents(stmt, n, varOrStackIndex).
+  (opcode = "EXIT"; opcode = "RETURN"; opcode = "RETURNPRIVATE").
+  
+.decl DoesNotPostDominate(candidate: IRBlock, block: IRBlock)
+DoesNotPostDominate(candidate, exitNode) :-
+  IRFunctionExit(exitNode),
+  IRInFunction(exitNode, f),
+  IRInFunction(candidate, f),
+  exitNode != candidate.
 
-FunctionalStatement_Uses_Local(irstmt, varOrStackIndex, n) :-
-   postTrans.Statement_Uses_Local(stmt, varOrStackIndex, n),
-   Statement_IRStatement(stmt, _, irstmt).
 
-FunctionalStatement_Uses(irstmt, as(var, Variable), n) :-
-   postTrans.Statement_Uses_Local(stmt, var, n),
-   CheckIsVariable(var),
-   Statement_IRStatement(stmt, _, irstmt).
+DoesNotPostDominate(candidate, s) :-
+  DoesNotPostDominate(candidate, other),
+  LocalBlockEdge(s, other),
+  s != candidate.
 
-FunctionalStatement_Defines(irstmt, newVar, 0) :-
-   postTrans.Statement_Defines(stmt, newVar),
-   Statement_IRStatement(stmt, _, irstmt).
+.decl PostDominates(postdominator: IRBlock, s: IRBlock)
+PostDominates(postdominator,s) :-
+  IRInFunction(postdominator, f),
+  IRInFunction(s, f),
+  !DoesNotPostDominate(postdominator,s).
 
-// Case: variable originates elsewhere
-FunctionalStatement_Uses(stmt, var, n) :-
-   IRStatement_Uses_Local(stmt, stackIndex, n),
-   CheckIsStackIndex(stackIndex),
-   IRStatement_Block(stmt, block),
-   FunctionalBlockInputContents(block, stackIndex, var).
+.decl PHIVarInformationLoss(useBlock: IRBlock, useVar: Variable, stackIndex: StackIndex)
+DEBUG_OUTPUT(PHIVarInformationLoss)
+
+// both variables defined in same path
+PHIVarInformationLoss(useBlock, var, stackIndex):-
+  PHIVar_DefBlockToUseBlock(defBlock, useBlock, var, stackIndex),
+  DefBlockToUseBlockPath(defBlock, useBlock, path),
+  PHIVar_DefBlockToUseBlock(otherDefBlock, useBlock, otherVar, stackIndex), otherVar != var,
+  DefBlockToUseBlockPath(otherDefBlock, useBlock, path).
+
+/**
+  variable `otherVar` defined in subpath of `var`.
+  It can be useful but it also matches with loop induction variables.
+*/
+PHIVarInformationLoss(useBlock, otherVar, stackIndex),
+PHIVarInformationLoss(useBlock, var, stackIndex):-
+  PHIVar_DefBlockToUseBlock(defBlock, useBlock, var, stackIndex),
+  DefBlockToUseBlockPath(defBlock, useBlock, path),
+  PHIVar_DefBlockToUseBlock(otherDefBlock, useBlock, otherVar, stackIndex), otherVar != var,
+  DefBlockToUseBlockPath(otherDefBlock, useBlock, otherPath), path != otherPath,
+  contains(path, otherPath), otherPath != "", path != "".
+
+// PHIVarInformationLoss(useBlock, var, stackIndex):-
+//   PHIVar_DefBlockToUseBlock(defBlock1, useBlock, var, stackIndex),
+//   PHIOpTwoPathHelper(useBlock, stackIndex, defBlock1, _, defBlock2, _),
+//   n = count: PHIOpTwoPathHelper(useBlock, stackIndex, defBlock1, _, defBlock2, _),
+//   n = count: PHIOpWithCompatiblePaths(useBlock, stackIndex, defBlock1, _, defBlock2, _).
+
+// PHIVarInformationLoss(useBlock, otherVar, stackIndex),
+// PHIVarInformationLoss(useBlock, var, stackIndex):-
+//   PHIVar_DefBlockToUseBlock(defBlock, useBlock, var, stackIndex),
+//   PHIVar_DefBlockToUseBlock(otherDefBlock, useBlock, otherVar, stackIndex), otherVar != var,
+//   PostDominates(defBlock, otherDefBlock).
+
+// unused for now
+.decl PHIVarInformationLossCount(useBlock: IRBlock, stackIndex: StackIndex, nvars: number)
+DEBUG_OUTPUT(PHIVarInformationLossCount)
+PHIVarInformationLossCount(useBlock, stackIndex, nvars):-
+  PHIVarInformationLoss(useBlock, _, stackIndex),
+  nvars = count: PHIVarInformationLoss(useBlock, _, stackIndex).
+
+.init allStmts = AllStatementsLocalAnalysis
+COPY_CODE_FULL(allStmts, postTrans)
+
+
+.decl DUPTouchesPHIWithLoss(dup: IRStatement, useVar: Variable)
+DEBUG_OUTPUT(DUPTouchesPHIWithLoss)
+
+// .decl ExtraDUPTouchesPHIWithLoss(dup: IRStatement, useVar: Variable, otherUseVar: Variable)
+// DEBUG_OUTPUT(ExtraDUPTouchesPHIWithLoss)
+
+// ExtraDUPTouchesPHIWithLoss(stmt, var, otherVar),
+DUPTouchesPHIWithLoss(stmt, var):-
+  PHIVarInformationLoss(useBlock, var, ogStackIndex),
+  PHIVar_DefBlockToUseBlock(defBlock, useBlock, var, ogStackIndex),
+  DefBlockToUseBlockPathInterm(defBlock, useBlock, block, _),
+  IRStatement_Block(stmt, block),
+  IRStatement_Opcode(stmt, opcode),
+  postTrans.DUPN(opcode, n),
+  firstFunctional.IRBeforeLocalStackContents(stmt, n - 1, index),
+  firstFunctional.FunctionalBlockInputContents(block, index, var),
+  PHIVarInformationLoss(useBlock, otherVar, ogStackIndex),
+  var != otherVar, // ensure the otherVar is not also used, i.e. there is no phi at `index`
+  !firstFunctional.FunctionalBlockInputContents(block, index, otherVar).
+
+DUPTouchesPHIWithLoss(stmt, var):-
+  PHIVarInformationLoss(_, var, _),
+  firstFunctional.IRBeforeLocalStackContents(stmt, n - 1, var),
+  IRStatement_Opcode(stmt, opcode),
+  postTrans.DUPN(opcode, n).
+
+// ExtraDUPTouchesPHIWithLoss(stmt, var, otherVar),
+DUPTouchesPHIWithLoss(stmt, var):-
+  PHIVarInformationLoss(useBlock, var, ogStackIndex),
+  PHIVar_DefBlockToUseBlock(defBlock, useBlock, var, ogStackIndex),
+  DefBlockToUseBlockPathInterm(defBlock, useBlock, block, _),
+  IRStatement_Block(stmt, block),
+  IRStatement_Opcode(stmt, opcode),
+  postTrans.SWAPN(opcode, _),
+  firstFunctional.IRBeforeLocalStackContents(stmt, 0, index),
+  firstFunctional.FunctionalBlockInputContents(block, index, var),
+  PHIVarInformationLoss(useBlock, otherVar, ogStackIndex),
+  var != otherVar, // ensure the otherVar is not also used, i.e. there is no phi at `index`
+  !firstFunctional.FunctionalBlockInputContents(block, index, otherVar).
+
+DUPTouchesPHIWithLoss(stmt, var):-
+  PHIVarInformationLoss(_, var, _),
+  firstFunctional.IRBeforeLocalStackContents(stmt, 0, var),
+  IRStatement_Opcode(stmt, opcode),
+  postTrans.SWAPN(opcode, _).
+
+// ExtraDUPTouchesPHIWithLoss(stmt, var, otherVar),
+DUPTouchesPHIWithLoss(stmt, var):-
+  PHIVarInformationLoss(useBlock, var, ogStackIndex),
+  PHIVar_DefBlockToUseBlock(defBlock, useBlock, var, ogStackIndex),
+  DefBlockToUseBlockPathInterm(defBlock, useBlock, block, _),
+  IRStatement_Block(stmt, block),
+  IRStatement_Opcode(stmt, opcode),
+  postTrans.SWAPN(opcode, n),
+  firstFunctional.IRBeforeLocalStackContents(stmt, n, index),
+  firstFunctional.FunctionalBlockInputContents(block, index, var),
+  PHIVarInformationLoss(useBlock, otherVar, ogStackIndex),
+  var != otherVar, // ensure the otherVar is not also used, i.e. there is no phi at `index`
+  !firstFunctional.FunctionalBlockInputContents(block, index, otherVar).
+
+DUPTouchesPHIWithLoss(stmt, var):-
+  PHIVarInformationLoss(_, var, _),
+  firstFunctional.IRBeforeLocalStackContents(stmt, n, var),
+  IRStatement_Opcode(stmt, opcode),
+  postTrans.SWAPN(opcode, n).
+
+// .output firstFunctional.IRBeforeLocalStackContents, firstFunctional.FunctionalBlockInputContents, firstFunctional.FunctionalBlockOutputContents, postTrans.StatementStackDelta, NumberOfFunctionReturnArguments, NumberOfFunctionArguments
+
+.init lastLocal = PostTransLocalAnalysis
+COPY_CODE_FULL(lastLocal, postTrans)
+lastLocal.DupOrSwapNeededInTAC(dup):-
+  DUPTouchesPHIWithLoss(irDup, _),
+  Statement_IRStatement(dup, _, irDup),
+  allStmts.StatementOutSurvivesBlock(dup).
+
+.init lastFunctional = FunctionalStackAnalysis
+INIT_FSTACK_FROM_LOCAL(lastFunctional, lastLocal)
+
+#endif
+
+// SL: This needs changing
+.decl IRTACNOP(stmt: IRStatement)
+IRTACNOP(irstmt) :-
+  lastLocal.TACNOP(stmt),
+  Statement_IRStatement(stmt, _, irstmt).
 
 .decl PublicFunctionSignature(hex_signature: symbol, text_signature: symbol)
 .input PublicFunctionSignature

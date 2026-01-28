@@ -6,7 +6,7 @@ import json
 import os
 import src.opcodes as opcodes
 import src.basicblock as basicblock
-from src.common import public_function_signature_filename, event_signature_filename, error_signature_filename
+from src.common import public_function_signature_filename, event_signature_filename, error_signature_filename, COMMON_FACTS_DIR
 
 
 from typing import Any
@@ -206,6 +206,12 @@ class EVMBlockExporter(FactExporter):
         link_or_output_signature_file(public_function_signature_filename, 'PublicFunctionSignature.facts')
         link_or_output_signature_file(event_signature_filename, 'EventSignature.facts')
         link_or_output_signature_file(error_signature_filename, 'ErrorSignature.facts')
+
+        if os.path.isdir(COMMON_FACTS_DIR):
+            try:
+                os.symlink(COMMON_FACTS_DIR, os.path.join(self.output_dir, 'common-facts'))
+            except FileExistsError:
+                pass
 
         instructions = []
         instructions_order = []

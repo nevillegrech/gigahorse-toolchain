@@ -19,8 +19,9 @@ LocalAlias(stmt1, var1, stmt2, var2) :-
 
 .decl DataStructuresTempStmt(stmt: Statement)
 
-DataStructuresTempStmt(mstoreStmt),
-DataStructuresTempStmt(shaStmt),
+
+// DataStructuresTempStmt(mstoreStmt),
+// DataStructuresTempStmt(shaStmt),
 KeyToOffset(keyVar, storeOffsetVar, keySize) :-
   SHA3(shaStmt, shaStart, keySizeVar, storeOffsetVar),
   LocalAlias(mstoreStmt, shaStart2, shaStmt, shaStart),
@@ -30,8 +31,8 @@ KeyToOffset(keyVar, storeOffsetVar, keySize) :-
   StorageAccessOp($Storage(), _, index).
 
 // Same, but in this instance storage is not used
-DataStructuresTempStmt(mstoreStmt),
-DataStructuresTempStmt(shaStmt),
+// DataStructuresTempStmt(mstoreStmt),
+// DataStructuresTempStmt(shaStmt),
 KeyToOffset(keyVar, storeOffsetVar, keySize) :-
   SHA3(shaStmt, shaStart, keySizeVar, storeOffsetVar),
   LocalAlias(mstoreStmt, shaStart2, shaStmt, shaStart),
