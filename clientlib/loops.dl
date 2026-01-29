@@ -17,6 +17,8 @@ StructuredLoopHead(to) :-
 */
 .decl BlockInStructuredLoopBase(s: Block, loophead: Block)
 
+.decl StructuredLoopBase_ElementNumber(loophead: Block, blocks: number)
+
 BlockInStructuredLoopBase(backEdgeNode, loophead) :- StructuredLoopBackEdge(backEdgeNode, loophead).
 BlockInStructuredLoopBase(loophead, loophead) :- StructuredLoopHead(loophead).
 
@@ -26,25 +28,33 @@ BlockInStructuredLoopBase(s, loophead) :-
   LocalBlockEdge(s, other),
   other != loophead.
 
+StructuredLoopBase_ElementNumber(loop, blocks):-
+  BlockInStructuredLoopBase(_, loop),
+  blocks = count: BlockInStructuredLoopBase(_, loop).
+
 BlockInStructuredLoop(block, loop):-
   BlockInStructuredLoopBase(block, loop).
 
 // If non terminating loop exit exists, consider terminating ones part of the loop
 BlockInStructuredLoop(termBlock, loop):-
+  StructuredLoopBase_ElementNumber(loop, blocks), blocks > 1,
   LoopToExitingBlock(loop, termBlock).
 
 // recursive case of the above
 BlockInStructuredLoop(termBlock, loop):-
+  StructuredLoopBase_ElementNumber(loop, blocks), blocks > 1,
   LoopToExitingBlock(loop, termOne),
   // reverts can span across multiple blocks (connected via direct jumps)
   LocalBlockPath(termOne, termBlock).
 
 // If non-terminating or exiting loop exit exists, consider reverting ones part of the loop
 BlockInStructuredLoop(termBlock, loop):-
+  StructuredLoopBase_ElementNumber(loop, blocks), blocks > 1,
   LoopToRevertingBlock(loop, termBlock).
 
 // recursive case of the above
 BlockInStructuredLoop(termBlock, loop):-
+  StructuredLoopBase_ElementNumber(loop, blocks), blocks > 1,
   LoopToRevertingBlock(loop, termOne),
   // reverts can span across multiple blocks (connected via direct jumps)
   LocalBlockPath(termOne, termBlock).
@@ -143,6 +153,13 @@ LoopNextBase(loop, termBlock):-
   LoopToSecondaryExitReachableFromOutside(loop, termBlock),
   BlockTerminates(termBlock).
 
+LoopNextBase(loop, termBlock):-
+  BlockInStructuredLoopBase(jmpiBlock, loop),
+  Block_Tail(jmpiBlock, jmpi),
+  JUMPI(jmpi, _, _),
+  LocalBlockEdge(jmpiBlock, termBlock),
+  StructuredLoopBase_ElementNumber(loop, 1),
+  (ThrowBlock(termBlock); BlockMustThrow(termBlock); BlockTerminates(termBlock)).
 /**
   The following relations are about 
 */
