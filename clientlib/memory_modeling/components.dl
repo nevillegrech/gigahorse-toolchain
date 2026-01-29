@@ -124,30 +124,30 @@
   - Which is the last stmt to write to the particular address that is loaded.
    (write to that address bypassing all other writes to the same address)
  */
-.comp ReachableBypassingWArg {
+.comp ReachableBypassingWArg <ArgType> {
 
 	// Inputs
-	.decl From(stmt: Statement, arg: symbol)
-	.decl Bypassing(stmt: Statement, arg: symbol)
-	.decl To(stmt: Statement, arg: symbol)
+	.decl From(stmt: Statement, arg: ArgType)
+	.decl Bypassing(stmt: Statement, arg: ArgType)
+	.decl To(stmt: Statement, arg: ArgType)
 
 	// Outputs
-	.decl ReachableBypassingAny(stmt1: Statement, stmt2: Statement, arg: symbol)
-	.decl ReachableBypassingAnyStrict(stmt1: Statement, stmt2: Statement, arg: symbol)
+	.decl ReachableBypassingAny(stmt1: Statement, stmt2: Statement, arg: ArgType)
+	.decl ReachableBypassingAnyStrict(stmt1: Statement, stmt2: Statement, arg: ArgType)
 
 	// Helpers/intermediate relations
-	.decl BlockHasFromStmt(block: Block, stmt: Statement, arg: symbol)
-	.decl BlockHasBypassingStmt(block: Block, stmt: Statement, arg: symbol)
-	.decl BlockHasSomeBypassingStmt(block: Block, arg: symbol)
-	.decl BlockHasToStmt(block: Block, stmt: Statement, arg: symbol)
+	.decl BlockHasFromStmt(block: Block, stmt: Statement, arg: ArgType)
+	.decl BlockHasBypassingStmt(block: Block, stmt: Statement, arg: ArgType)
+	.decl BlockHasSomeBypassingStmt(block: Block, arg: ArgType)
+	.decl BlockHasToStmt(block: Block, stmt: Statement, arg: ArgType)
 
-	.decl FromStmtToStmtSameBlock(stmt1: Statement, stmt3: Statement, arg: symbol)
-	.decl FromStmtToStmtSameBlockInterrupted(stmt1: Statement, stmt3: Statement, arg: symbol)
-	.decl FromStmtToStmtSameBlockUninterrupted(stmt1: Statement, stmt3: Statement, arg: symbol)
+	.decl FromStmtToStmtSameBlock(stmt1: Statement, stmt3: Statement, arg: ArgType)
+	.decl FromStmtToStmtSameBlockInterrupted(stmt1: Statement, stmt3: Statement, arg: ArgType)
+	.decl FromStmtToStmtSameBlockUninterrupted(stmt1: Statement, stmt3: Statement, arg: ArgType)
 
-	.decl FromStmtToStmtDiffBlockHavePath(stmt1: Statement, block1: Block, stmt3: Statement, block2: Block, arg: symbol)
-	.decl FromStmtToStmtDiffBlockHavePathInterrupted(stmt1: Statement, block1: Block, stmt3: Statement, block2: Block, arg: symbol)
-	.decl FromStmtToStmtDiffBlockHavePathUninterrupted(stmt1: Statement, stmt3: Statement, arg: symbol)
+	.decl FromStmtToStmtDiffBlockHavePath(stmt1: Statement, block1: Block, stmt3: Statement, block2: Block, arg: ArgType)
+	.decl FromStmtToStmtDiffBlockHavePathInterrupted(stmt1: Statement, block1: Block, stmt3: Statement, block2: Block, arg: ArgType)
+	.decl FromStmtToStmtDiffBlockHavePathUninterrupted(stmt1: Statement, stmt3: Statement, arg: ArgType)
 
 
 	BlockHasFromStmt(block, stmt, arg):-

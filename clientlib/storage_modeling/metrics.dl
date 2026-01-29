@@ -143,13 +143,16 @@ HasStorageOpsUnknown():-
 Analytics_ArrayDeleteOp(sstore, loop, array):-
   ArrayDeleteOp(sstore, loop, _, array).
 
+/**
+   Repeated Load inference starts here.
+*/
 
 .decl Analytics_RepeatedLoad(firstLoad: Statement, secondLoad: Statement, cons: symbol)
 .output Analytics_RepeatedLoad
 Analytics_RepeatedLoad(firstLoad, secondLoad, storval):-
   loadToLoad.ReachableBypassingAnyStrict(firstLoad, secondLoad, storval).
 
-.init loadToLoad = ReachableBypassingWArg
+.init loadToLoad = ReachableBypassingWArg<symbol>
 
 loadToLoad.From(srcLoad, val),
 loadToLoad.To(srcLoad, val):-
@@ -173,3 +176,124 @@ loadToLoad.Bypassing(stmt, val):-
   Statement_Function(stmt, fun),
   Statement_Opcode(stmt, op),
   (op = "CALL"; op = "DELEGATECALL"; op = "CALLPRIVATE").
+
+.decl BinaryArithmeticOperation(stmt: Statement, op: Opcode, use1: Variable, use2: Variable, def: Variable)
+BinaryArithmeticOperation(stmt, op, use1, use2, def):-
+  Statement_Opcode(stmt, op),
+  BinArith(op),
+  Statement_Uses(stmt, use1, 0),
+  Statement_Uses(stmt, use2, 1),
+  Statement_Defines(stmt, def, 0).
+
+.decl ConstAndVarBinaryArithmeticOperation(stmt: Statement, op: Opcode, use1: Value, use2: Variable, def: Variable)
+.decl VarAndConstBinaryArithmeticOperation(stmt: Statement, op: Opcode, use1: Variable, use2: Value, def: Variable)
+
+ConstAndVarBinaryArithmeticOperation(stmt, op, useVal, use2, def):-
+  BinaryArithmeticOperation(stmt, op, use1, use2, def),
+  Variable_Value(use1, useVal),
+  !Variable_Value(use2, _).
+
+VarAndConstBinaryArithmeticOperation(stmt, op, use1, useVal, def):-
+  BinaryArithmeticOperation(stmt, op, use1, use2, def),
+  Variable_Value(use2, useVal),
+  !Variable_Value(use1, _).
+
+// StorageLoad(load, cons, loadedVar)
+
+.init structureLoadToLoad = ReachableBypassingWArg <StorageConstruct>
+
+.decl StorageOriginalLoad(load: Statement, sload: Statement, cons: StorageConstruct, var: Variable)
+
+StorageOriginalLoad(sload, sload, cons, var):-
+  StorageLoad(sload, cons, var),
+  SLOAD(sload, _, _).
+
+StorageOriginalLoad(load, srcLoad, cons, var):-
+  StorageLoad(load, cons, var),
+  Statement_Opcode(load, op),
+  op != "SLOAD",
+  VarHoldsBytesOfStorVar(var, srcLoad, _, _, _, _).
+
+structureLoadToLoad.From(sload, cons),
+structureLoadToLoad.To(sload, cons):-
+  StorageOriginalLoad(_, sload, cons, var).
+
+structureLoadToLoad.Bypassing(store, cons):-
+  StorageStore(store, cons, _).
+
+structureLoadToLoad.Bypassing(stmt, cons):-
+  StorageLoad(load, cons, _),
+  Statement_Function(load, fun),
+  Statement_Function(stmt, fun),
+  Statement_Opcode(stmt, op),
+  (op = "CALL"; op = "DELEGATECALL"; op = "CALLPRIVATE").
+
+.output structureLoadToLoad.ReachableBypassingAnyStrict, StorageStmt_HighLevelUses
+
+.decl StorageStatementsAliasingIndexes(stmt1: Statement, stmt2: Statement)
+.decl StorageStatementsSameConstruct(stmt1: Statement, stmt2: Statement)
+.decl StorageStatementsAliasingIndexesUpTo(stmt1: Statement, stmt2: Statement, index: number)
+.output StorageStatementsAliasingIndexesUpTo, StorageStatementsAliasingIndexes
+
+StorageStatementsSameConstruct(stmt1, stmt2):-
+  StorageOriginalLoad(stmt1, sload1, cons, _),
+  structureLoadToLoad.ReachableBypassingAnyStrict(sload1, sload2, cons),
+  StorageOriginalLoad(stmt2, sload2, cons, _).
+
+StorageStatementsAliasingIndexesUpTo(stmt1, stmt2, 0):-
+  StorageStatementsSameConstruct(stmt1, stmt2),
+  StorageStmt_HighLevelUses(stmt1, var1, _, 0, _),
+  StorageStmt_HighLevelUses(stmt2, var2, _, 0, _),
+  Alias(var1, var2).
+//   .plan 1:(4,3,1,2)
+
+StorageStatementsAliasingIndexesUpTo(stmt1, stmt2, n + 1):-
+  StorageStatementsAliasingIndexesUpTo(stmt1, stmt2, n),
+  StorageStmt_HighLevelUses(stmt1, var1, _, n + 1, _),
+  StorageStmt_HighLevelUses(stmt2, var2, _, n + 1, _),
+  Alias(var1, var2).
+
+StorageStatementsAliasingIndexes(stmt1, stmt2):-
+ StorageStatementsAliasingIndexesUpTo(stmt1, stmt2, n),
+  StorageStmt_HighLevelUses(stmt1, _, _, _, n + 1),
+  StorageStmt_HighLevelUses(stmt2, _, _, _, n + 1).
+
+.decl Analytics_RepeatedStoreLoad(firstLoad: Statement, secondLoad: Statement, cons: StorageConstruct)
+.output Analytics_RepeatedStoreLoad
+Analytics_RepeatedStoreLoad(firstLoad, secondLoad, cons):-
+  structureLoadToLoad.ReachableBypassingAnyStrict(firstLoad, secondLoad, cons),
+  StorageStatementsAliasingIndexes(firstLoad, secondLoad).
+
+/**
+  Basic Alias Analysis.
+*/
+.decl Alias(var1: Variable, var2: Variable)
+
+Alias(var, var):-
+  Statement_Defines(_, var, _); FormalArgs(_, var, _).
+
+Alias(def1, def2):-
+  Alias(use1, use2),
+  VarAndConstBinaryArithmeticOperation(_, op, use1, useVal, def1),
+  VarAndConstBinaryArithmeticOperation(_, op, use2, useVal, def2).
+
+Alias(def1, def2):-
+  Alias(use1, use2),
+  ConstAndVarBinaryArithmeticOperation(_, op, useVal, use1, def1),
+  ConstAndVarBinaryArithmeticOperation(_, op, useVal, use2, def2).
+
+Alias(def2, def1):-
+  (loadToLoad.ReachableBypassingAnyStrict(load1, load2, _); loadToLoad.ReachableBypassingAnyStrict(load2, load1, _)),
+  Statement_Defines(load1, def1, 0),
+  Statement_Defines(load2, def2, 0).
+
+Alias(var1, var2):-
+  RuntimeKnowable(opcode),
+  Statement_Opcode(stmt1, opcode),
+  Statement_Block(stmt1, block1),
+  InFunction(block1, fun),
+  InFunction(block2, fun),
+  Statement_Block(stmt2, block2),
+  Statement_Opcode(stmt2, opcode),
+  Statement_Defines(stmt1, var1, 0),
+  Statement_Defines(stmt2, var2, 0).

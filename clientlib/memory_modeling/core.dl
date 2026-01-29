@@ -263,7 +263,7 @@ MemWriteToMemConsStmt(mstore, memConsStmt):-
   MemWriteToMemConsStmtWithNonComputableLength(mstore, memConsStmt);
   MemWriteToMemConsStmtWithConstantLength(mstore, memConsStmt, _).
 
-.init mstoreToMemConsStmt = ReachableBypassingWArg
+.init mstoreToMemConsStmt = ReachableBypassingWArg<symbol>
 
 mstoreToMemConsStmt.From(stmt, "CONST") :-  StatementWritesMemoryOfLength(stmt, index, _), Variable_Value(index, _).
 mstoreToMemConsStmt.From(stmt, "SYMBOLIC") :-  StatementWritesMemoryOfLength(stmt, index, _), !Variable_Value(index, _).

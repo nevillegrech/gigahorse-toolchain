@@ -806,7 +806,7 @@ WriteAfterArrayContents(mstore, array):-
   ADDFix(_, arrayDataStart, arrayLenVar, memLoc),
   MSTORE(mstore, memLoc, _).
 
-.init writeAfterArrayToMemConsStmt = ReachableBypassingWArg
+.init writeAfterArrayToMemConsStmt = ReachableBypassingWArg<symbol>
 
 writeAfterArrayToMemConsStmt.From(mstore, array):-
   WriteAfterArrayContents(mstore, array),
