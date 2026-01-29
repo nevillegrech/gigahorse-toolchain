@@ -253,7 +253,7 @@ insertor.InsertedStatement(secondLoad, 0, $UnaryStatement("MOV", $ExternalVariab
   Statement_Defines(firstLoad, def, 0).
 
 insertor.VariableSubstitution(oldDef, $InternalVariable(secondLoad, 0)):-
-  ValidSubstitution(firstLoad, secondLoad),
+  ValidSubstitution(_, secondLoad),
   Statement_Defines(secondLoad, oldDef, 0).
 
 .decl ValidSubstitution(firstLoad: Statement, secondLoad: Statement)
@@ -261,6 +261,10 @@ DEBUG_OUTPUT(ValidSubstitution)
 ValidSubstitution(firstLoad, secondLoad):-
   Analytics_RepeatedLoad(firstLoad, secondLoad, _),
   !Analytics_RepeatedLoad(_, firstLoad, _).
+
+ValidSubstitution(firstLoad, secondLoad):-
+  Analytics_RepeatedStoreLoad(firstLoad, secondLoad, _),
+  !Analytics_RepeatedStoreLoad(_, firstLoad, _).
 
 insertor.In_Statement_Opcode(stmt, op):- Statement_Opcode(stmt, op).
 insertor.In_IsStatement(stmt):-IsStatement(stmt).

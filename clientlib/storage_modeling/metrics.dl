@@ -216,7 +216,7 @@ StorageOriginalLoad(load, srcLoad, cons, var):-
 
 structureLoadToLoad.From(sload, cons),
 structureLoadToLoad.To(sload, cons):-
-  StorageOriginalLoad(_, sload, cons, var).
+  StorageOriginalLoad(_, sload, cons, _).
 
 structureLoadToLoad.Bypassing(store, cons):-
   StorageStore(store, cons, _).
