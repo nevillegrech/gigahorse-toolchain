@@ -1245,6 +1245,29 @@ INIT_FSTACK_FROM_LOCAL(firstFunctional, postTrans)
 
 #else
 
+.decl DUPOrSWAPStatementUsesVar(stmt: IRStatement, var: Variable)
+
+DUPOrSWAPStatementUsesVar(stmt, var):-
+  IRStatement_Opcode(stmt, opcode),
+  postTrans.DUPN(opcode, n),
+  IRStatement_Block(stmt, block),
+  firstFunctional.IRBeforeLocalStackContents(stmt, n - 1, index),
+  firstFunctional.FunctionalBlockInputContents(block, index, var).
+
+DUPOrSWAPStatementUsesVar(stmt, var):-
+  IRStatement_Opcode(stmt, opcode),
+  postTrans.SWAPN(opcode, _),
+  IRStatement_Block(stmt, block),
+  firstFunctional.IRBeforeLocalStackContents(stmt, 0, index),
+  firstFunctional.FunctionalBlockInputContents(block, index, var).
+
+DUPOrSWAPStatementUsesVar(stmt, var):-
+  IRStatement_Opcode(stmt, opcode),
+  postTrans.SWAPN(opcode, n),
+  IRStatement_Block(stmt, block),
+  firstFunctional.IRBeforeLocalStackContents(stmt, n, index),
+  firstFunctional.FunctionalBlockInputContents(block, index, var).
+
 .decl FunctionalBlockUsesPHIVar(block: IRBlock, var: Variable, index: StackIndex)
 DEBUG_OUTPUT(FunctionalBlockUsesPHIVar)
 
@@ -1345,6 +1368,7 @@ DoesNotPostDominate(candidate, s) :-
   s != candidate.
 
 .decl PostDominates(postdominator: IRBlock, s: IRBlock)
+// .output PostDominates(IO="file", filename="FLPostDominates.csv", delimiter="\t")
 PostDominates(postdominator,s) :-
   IRInFunction(postdominator, f),
   IRInFunction(s, f),
@@ -1460,6 +1484,16 @@ DUPTouchesPHIWithLoss(stmt, var):-
   firstFunctional.IRBeforeLocalStackContents(stmt, n, var),
   IRStatement_Opcode(stmt, opcode),
   postTrans.SWAPN(opcode, n).
+
+DUPTouchesPHIWithLoss(stmt, var):-
+  FunctionalBlockUsesPHIVar(_, var, _),
+  DUPOrSWAPStatementUsesVar(stmt, var),
+  IRStatement_Block(stmt, touchBlock),
+  firstFunctional.FunctionalStatement_Defines(defStmt, var, _),
+  IRStatement_Block(defStmt, defBlock),
+  DoesNotPostDominate(touchBlock, defBlock).
+
+//   IRInFunction(defBlock, func),
 
 // .output firstFunctional.IRBeforeLocalStackContents, firstFunctional.FunctionalBlockInputContents, firstFunctional.FunctionalBlockOutputContents, postTrans.StatementStackDelta, NumberOfFunctionReturnArguments, NumberOfFunctionArguments
 
