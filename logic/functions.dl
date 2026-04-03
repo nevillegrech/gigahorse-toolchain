@@ -526,11 +526,7 @@ StackBalancingBlockJumpImprecision(block, func):-
 #define BLOCK_TO_IRBLOCK(b) as(b, IRBlock)
 #define STATEMENT_TO_IRSTATEMENT(s) as(s, IRStatement)
 #define FUNCTION_TO_IRFUNCTION(f) as(f, IRBlock)
- 
-.type IRBlock <: symbol
-// exploit type checking in new IR
-#define IRFunction IRBlock
-.type IRStatement <: symbol
+
 
 .decl Block_IRBlock(block: Block, func: Block, irblock: IRBlock)
 .decl Function_IRFunction(func: Block, irFunc: IRFunction)
