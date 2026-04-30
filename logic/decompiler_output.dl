@@ -2,8 +2,6 @@
 // PLEASE ALSO CHANGE clientlib/decompiler_imports.dl
 // Also clientlib/function_inliner.dl
 
-.type TACVariable <: symbol
-
 .output ByteCodeHex(IO="file", filename="bytecode.hex")
 
 .decl DecompilerConfig(config: symbol) btree_delete
@@ -90,6 +88,10 @@ TAC_Variable_BlockValue(as(tacvar,TACVariable), irvalue) :-
    // value matches address of block
    STARTSWITH(value, "0x").
 
+TAC_Variable_BlockValue(lVar, value):-
+  TAC_Variable_BlockValue(rVar, value),
+  SimpleAssignment(_, lVar, rVar).
+
 .decl StatementAndBlockInSameFunction(stmt: IRStatement, block: Block, irblock: IRBlock)
 StatementAndBlockInSameFunction(stmt, block, irblock) :-
   Statement_IRStatement(_, func, stmt),
@@ -102,6 +104,10 @@ TAC_Variable_Value(as(tacvar, TACVariable), value) :-
    lastFunctional.Variable_Stmt_String(var, stmt, tacvar),
    lastLocal.Variable_Value(var, value),
    STARTSWITH(value, "0x").
+
+TAC_Variable_Value(lVar, value):-
+  TAC_Variable_Value(rVar, value),
+  SimpleAssignment(_, lVar, rVar).
 
 /**
   __HACK__ to get around the patterns produced by the new `--via-ir` compilation pipeline.
@@ -258,6 +264,16 @@ TAC_Block(phiStmt, block) :-
 //TAC_Block(callStmt, block) :-
 //   BasicBlock_CALL(block, callStmt).
 
+.decl SimpleAssignment(irStmt: IRStatement, lvar: TACVariable, rvar: TACVariable)
+SimpleAssignment(irStmt, lVar, rVar):-
+  (TAC_Op(irStmt, "MOV"); TAC_Op(irStmt, "MOV2")),
+  TAC_Use(irStmt, rVar, 0),
+  TAC_Def(irStmt, lVar, 0).
+
+SimpleAssignment(irStmt, lVar, rVar):-
+  TAC_Op(irStmt, "MOV2"),
+  TAC_Use(irStmt, rVar, 1),
+  TAC_Def(irStmt, lVar, 1).
 
 /***********
  *  Function-discovery outputs to visualization scripts

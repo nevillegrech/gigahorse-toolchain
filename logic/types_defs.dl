@@ -37,3 +37,12 @@
 .type OptionalSelector = NoSelector{}
                       | SelectorVariable{selector: Variable}
                       | SelectorStackIndex{block: Block, selector: StackIndex}
+
+
+
+.type IRBlock <: symbol
+// exploit type checking in new IR
+#define IRFunction IRBlock
+.type IRStatement <: symbol
+
+.type TACVariable <: symbol

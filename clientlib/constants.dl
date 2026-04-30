@@ -16,7 +16,7 @@
   ValidConstantFoldOperation(op, arg1, arg2) :-
     RequestConstantFold2(op, arg1, arg2),
     ((op != "DIV", op != "SDIV", op != "MOD", op != "SMOD");
-     arg2 != "0x0").
+     (arg2 != "0x0", arg2 != "0x0000000000000000000000000000000000000000000000000000000000000000")).
 
   // Not the most efficient because the string matching of the operator
   // will happen last, but rule should fire rarely?
