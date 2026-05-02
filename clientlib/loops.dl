@@ -328,9 +328,9 @@ LoopExitCond(condVar, loop) :-
    LocalBlockEdge(jmpiBlock, out),
    // in many cases LoopNextBase will be different than LoopNext
    // we need it for completeness
-   (LoopNext(loop, out); LoopNextBase(loop, out);
+   (LoopNext(loop, out); LoopNextBase(loop, out)
    #ifndef OLD_LOOP_LOGIC
-   LoopToExitingBlock(loop, out); LoopToRevertingBlock(loop, out)
+   ;LoopToExitingBlock(loop, out); LoopToRevertingBlock(loop, out)
    #endif
    ),
    LocalBlockEdge(jmpiBlock, in),
@@ -344,9 +344,9 @@ LoopExitCondPredicateTrue(condVar, loop, jmpiBlock) :-
    LocalBlockEdge(jmpiBlock, out),
    // in many cases LoopNextBase will be different than LoopNext
    // we need it for completeness
-   (LoopNext(loop, out); LoopNextBase(loop, out);
+   (LoopNext(loop, out); LoopNextBase(loop, out)
    #ifndef OLD_LOOP_LOGIC
-   LoopToExitingBlock(loop, out); LoopToRevertingBlock(loop, out)
+   ;LoopToExitingBlock(loop, out); LoopToRevertingBlock(loop, out)
    #endif
    ),
    FallthroughEdge(jmpiBlock, in),
@@ -362,9 +362,9 @@ LoopExitCondPredicateFalse(condVar, loop, jmpiBlock) :-
    FallthroughEdge(jmpiBlock, out),
    // in many cases LoopNextBase will be different than LoopNext
    // we need it for completeness
-   (LoopNext(loop, out); LoopNextBase(loop, out);
+   (LoopNext(loop, out); LoopNextBase(loop, out)
    #ifndef OLD_LOOP_LOGIC
-   LoopToExitingBlock(loop, out); LoopToRevertingBlock(loop, out)
+   ;LoopToExitingBlock(loop, out); LoopToRevertingBlock(loop, out)
    #endif
    ),
    LocalBlockEdge(jmpiBlock, in),
