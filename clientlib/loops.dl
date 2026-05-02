@@ -35,6 +35,7 @@ StructuredLoopBase_ElementNumber(loop, blocks):-
 BlockInStructuredLoop(block, loop):-
   BlockInStructuredLoopBase(block, loop).
 
+#ifndef OLD_LOOP_LOGIC
 // If non terminating loop exit exists, consider terminating ones part of the loop
 BlockInStructuredLoop(termBlock, loop):-
   StructuredLoopBase_ElementNumber(loop, blocks), blocks > 1,
@@ -63,6 +64,7 @@ BlockInStructuredLoop(termBlock, loop):-
 BlockInStructuredLoop(addBlock, loop):-
   LoopWithManyExitsHasSingleConvergenceBlock(loop, _),
   LoopWithManyExitsHasAdditionalBlocks(loop, addBlock).
+#endif
 
 .decl StatementInStructuredLoop(s: Statement, loop: Block)
 StatementInStructuredLoop(s, loop) :-
@@ -95,6 +97,7 @@ LoopNext(loop, next):-
   LoopNextBase(loop, next),
   !LoopWithManyExitsHasSingleConvergenceBlock(loop, _).
 
+#ifndef OLD_LOOP_LOGIC
 LoopNext(loop, conBlock):-
   LoopNextBase(loop, _),
   LoopWithManyExitsHasSingleConvergenceBlock(loop, conBlock).
@@ -102,7 +105,6 @@ LoopNext(loop, conBlock):-
 LoopNextBase(loop, termBlock):-
   (LoopToExitingBlock(loop, termBlock); LoopToRevertingBlock(loop, termBlock)),
   LoopToSecondaryExitReachableFromOutside(loop, termBlock).
-
 
 LoopNextBase(loop, out):-
   BlockInStructuredLoopBase(jmpiBlock, loop),
@@ -163,6 +165,16 @@ LoopNextBase(loop, termBlock):-
   LocalBlockEdge(jmpiBlock, termBlock),
   StructuredLoopBase_ElementNumber(loop, 1),
   (ThrowBlock(termBlock); BlockMustThrow(termBlock); BlockTerminates(termBlock)).
+
+#else
+LoopNextBase(loop, out):-
+  BlockInStructuredLoopBase(jmpiBlock, loop),
+  Block_Tail(jmpiBlock, jmpi),
+  JUMPI(jmpi, _, _),
+  LocalBlockEdge(jmpiBlock, out),
+  !BlockInStructuredLoopBase(out, loop).
+#endif
+
 /**
   The following relations are about 
 */
@@ -316,7 +328,11 @@ LoopExitCond(condVar, loop) :-
    LocalBlockEdge(jmpiBlock, out),
    // in many cases LoopNextBase will be different than LoopNext
    // we need it for completeness
-   (LoopNext(loop, out); LoopNextBase(loop, out); LoopToExitingBlock(loop, out); LoopToRevertingBlock(loop, out)),
+   (LoopNext(loop, out); LoopNextBase(loop, out);
+   #ifndef OLD_LOOP_LOGIC
+   LoopToExitingBlock(loop, out); LoopToRevertingBlock(loop, out)
+   #endif
+   ),
    LocalBlockEdge(jmpiBlock, in),
    BlockInStructuredLoopBase(in, loop).
 
@@ -328,7 +344,11 @@ LoopExitCondPredicateTrue(condVar, loop, jmpiBlock) :-
    LocalBlockEdge(jmpiBlock, out),
    // in many cases LoopNextBase will be different than LoopNext
    // we need it for completeness
-   (LoopNext(loop, out); LoopNextBase(loop, out); LoopToExitingBlock(loop, out); LoopToRevertingBlock(loop, out)),
+   (LoopNext(loop, out); LoopNextBase(loop, out);
+   #ifndef OLD_LOOP_LOGIC
+   LoopToExitingBlock(loop, out); LoopToRevertingBlock(loop, out)
+   #endif
+   ),
    FallthroughEdge(jmpiBlock, in),
    BlockInStructuredLoopBase(in, loop).
 
@@ -342,7 +362,11 @@ LoopExitCondPredicateFalse(condVar, loop, jmpiBlock) :-
    FallthroughEdge(jmpiBlock, out),
    // in many cases LoopNextBase will be different than LoopNext
    // we need it for completeness
-   (LoopNext(loop, out); LoopNextBase(loop, out); LoopToExitingBlock(loop, out); LoopToRevertingBlock(loop, out)),
+   (LoopNext(loop, out); LoopNextBase(loop, out);
+   #ifndef OLD_LOOP_LOGIC
+   LoopToExitingBlock(loop, out); LoopToRevertingBlock(loop, out)
+   #endif
+   ),
    LocalBlockEdge(jmpiBlock, in),
    BlockInStructuredLoopBase(in, loop).
 
