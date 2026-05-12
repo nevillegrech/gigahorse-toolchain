@@ -52,8 +52,6 @@ PHILocation(block, stackIndex, cat(cat(block, "_"), stackIndexHex)) :-
 .output TAC_Use
 .decl TAC_Def(stmt: IRStatement, var: TACVariable, n: number)
 .output TAC_Def
-.decl TAC_Var(var: TACVariable)
-.output TAC_Var
 .decl TAC_Block(stmt: IRStatement, block: IRBlock)
 .output TAC_Block
 .decl TAC_Block_Head(block: IRBlock, stmt: IRStatement)
@@ -177,7 +175,6 @@ TAC_Op(irstmt, "THROW") :-
    lastLocal.INVALID(stmt).
 
 // Phi instructions
-TAC_Var(var),
 TAC_Def(stmt, var, 0),
 TAC_Stmt(stmt),
 TAC_Op(stmt, "PHI") :-
@@ -185,7 +182,6 @@ TAC_Op(stmt, "PHI") :-
    var = as(stmt, TACVariable).
 
 // Non-phi, non-call variable id same as stmt it is defined in
-TAC_Var(tac_var),
 TAC_Def(stmt, tac_var, n) :-
    lastFunctional.FunctionalStatement_Defines(stmt, var, n),
    lastFunctional.Variable_Stmt_String(var, stmt, var_rep),
@@ -286,6 +282,12 @@ SimpleAssignment(irStmt, lVar, rVar):-
 .output HighLevelFunctionName
 .output IRPublicFunction(IO="file", filename = "PublicFunction.csv", delimiter = "\t")
 .output IsFunctionEntry(IO="file", filename="Function.csv", delimiter="\t")
+
+.decl Function_Contract(function: Block, contract: symbol)
+.output Function_Contract
+
+Function_Contract(function, "Decompiled"):-
+  IsFunctionEntry(function).
 
 .decl IRDynamicPrivateCall(callerB: IRBlock, targetVar: TACVariable)
 .output IRDynamicPrivateCall

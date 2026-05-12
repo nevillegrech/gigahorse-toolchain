@@ -300,6 +300,8 @@ Variable_Function(v, f) :-
 .decl Statement_Next(stmt: Statement, next: Statement)
 .input Statement_Next(IO="file", filename="TAC_Statement_Next.csv", delimiter="\t")
 
+.decl Function_Contract(function: Function, contract: symbol)
+.input Function_Contract(IO="file", filename="Function_Contract.csv", delimiter="\t")
 
 // Basic block corresponding to the function's entry point
 .decl FunctionEntry(block: Block)
