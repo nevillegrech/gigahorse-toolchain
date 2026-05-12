@@ -10,6 +10,7 @@ import json
 import re
 
 from typing import Any
+from enum import Enum
 
 from abc import ABC, abstractmethod
 
@@ -42,6 +43,11 @@ if not os.path.isfile(join(functor_path, 'libfunctors.so')):
         f'that you have installed gigahorse correctly (see README.md)'
     )
 
+
+class FactGenEnum(str, Enum):
+    Decomp = "Decomp"
+    MultiContract = "MultiContract"
+    Custom = "Custom"
 
 class TimeoutException(Exception):
     pass
@@ -254,6 +260,10 @@ class AbstractFactGenerator(ABC):
     def match_pattern(self, contract_filename: str) -> bool:
         pass
 
+    @abstractmethod
+    def sort_inputs(self, files: list[str]) -> list[str]:
+        pass
+
 
 class MixedFactGenerator(AbstractFactGenerator):
     fact_generators: dict[re.Pattern, AbstractFactGenerator]
@@ -299,11 +309,16 @@ class MixedFactGenerator(AbstractFactGenerator):
                 return True
         return False
 
-    def add_fact_generator(self, pattern: str, scripts: list[str], is_default: bool, args):
+    def sort_inputs(self, files: list[str]) -> list[str]:
+        return sorted(files, key = lambda x: self.contract_filename_to_gen[x].priority)
+
+    def add_fact_generator(self, pattern: str, scripts: list[str], fact_gen_option: FactGenEnum, args):
         if not pattern.endswith("$"):
             pattern = pattern + "$"
-        if is_default:
+        if fact_gen_option == FactGenEnum.Decomp:
             self.fact_generators[re.compile(pattern)] = DecompilerFactGenerator(args, pattern)
+        elif fact_gen_option == FactGenEnum.MultiContract:
+            self.fact_generators[re.compile(pattern)] = ContractStitchingGenerator(args, pattern)
         else:
             self.fact_generators[re.compile(pattern)] = CustomFactGenerator(pattern, scripts)
 
@@ -326,6 +341,7 @@ class DecompilerFactGenerator(AbstractFactGenerator):
         if not pattern.endswith("$"):
             pattern = pattern + "$"
         self.pattern = re.compile(pattern)
+        self.priority = 1
 
         pre_clients_split = [a.strip() for a in args.pre_client.split(',')]
         self.souffle_pre_clients = [a for a in pre_clients_split if a.endswith('.dl')]
@@ -421,6 +437,33 @@ class DecompilerFactGenerator(AbstractFactGenerator):
         """Hacky. Needed to ensure process was not killed due to exceeding the memory limit."""
         return os.path.exists(join(out_dir, 'Analytics_JumpToMany.csv')) and os.path.exists(join(out_dir, 'TAC_Def.csv'))
 
+    def sort_inputs(self, files: list[str]) -> list[str]:
+        return files
+
+class ContractStitchingGenerator(AbstractFactGenerator):
+
+    def __init__(self, args, pattern: str):
+        if not pattern.endswith("$"):
+            pattern = pattern + "$"
+        self.pattern = re.compile(pattern)
+        self.priority = 2
+
+    def generate_facts(self, contract_filename: str, work_dir: str, out_dir: str) -> tuple[float, float, str]:
+        print("IM HERE")
+        pass
+
+    def get_datalog_files(self) -> list[str]:
+        return []
+
+    def match_pattern(self, contract_filename: str) -> bool:
+        return self.pattern.match(contract_filename) is not None
+
+    def decomp_out_produced(self, out_dir: str) -> bool:
+        """Hacky. Needed to ensure process was not killed due to exceeding the memory limit."""
+        return os.path.exists(join(out_dir, 'TAC_Def.csv'))
+    
+    def sort_inputs(self, files: list[str]) -> list[str]:
+        return files
 
 class CustomFactGenerator(AbstractFactGenerator):
     def __init__(self, pattern: str, custom_fact_gen_scripts: list[str]):
@@ -428,6 +471,7 @@ class CustomFactGenerator(AbstractFactGenerator):
             pattern = pattern + "$"
         self.pattern = re.compile(pattern)
         self.fact_generator_scripts = custom_fact_gen_scripts
+        self.priority = 1
 
     def generate_facts(self, contract_filename: str, work_dir: str, out_dir: str) -> tuple[float, float, str]:
         errors = []

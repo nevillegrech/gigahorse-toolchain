@@ -17,7 +17,7 @@ import os
 # Local project imports
 from src.common import GIGAHORSE_DIR, DEFAULT_SOUFFLE_BIN, log
 from src.runners import MAIN_DECOMPILER_MAX_CONTEXT_DEPTH
-from src.runners import test_souffle, get_souffle_executable_path, compile_datalog, AbstractFactGenerator, DecompilerFactGenerator, CustomFactGenerator, MixedFactGenerator, AnalysisExecutor, TimeoutException, DecompilationException
+from src.runners import test_souffle, get_souffle_executable_path, compile_datalog, AbstractFactGenerator, DecompilerFactGenerator, CustomFactGenerator, MixedFactGenerator, AnalysisExecutor, TimeoutException, DecompilationException, FactGenEnum
 
 ## Constants
 
@@ -569,6 +569,8 @@ def run_gigahorse(args, fact_generator: AbstractFactGenerator) -> None:
         contracts += [u for u in unfiltered if fact_generator.match_pattern(u)]
 
     contracts = contracts[args.skip:]
+    print(contracts)
+    print(fact_generator.sort_inputs(contracts))
 
     log(f"Discovered {len(contracts)} contracts. Setting up workers.")
     res_list= batch_analysis(fact_generator, souffle_clients, other_clients, contracts, args.jobs)
@@ -614,7 +616,7 @@ if __name__ == "__main__":
             run_gigahorse(args, DecompilerFactGenerator(args, ".*.hex"))
         elif len(tac_gen_config["handlers"]) == 1: # if one handler defined, can be either classic decompilation, or custom script
             tac_gen = tac_gen_config["handlers"][0]
-            if tac_gen["tacGenScripts"]["defaultDecomp"] == "true":
+            if tac_gen["tacGenScripts"]["factGen"] == FactGenEnum.Decomp:
                 run_gigahorse(args, DecompilerFactGenerator(args, tac_gen["fileRegex"]))
             else:
                 run_gigahorse(args, CustomFactGenerator(tac_gen["fileRegex"], tac_gen["tacGenScripts"]["customScripts"]))
@@ -623,6 +625,6 @@ if __name__ == "__main__":
             for tac_gen in tac_gen_config["handlers"]:
                 pattern = tac_gen["fileRegex"]
                 scripts = tac_gen["tacGenScripts"]["customScripts"]
-                is_default = tac_gen["tacGenScripts"]["defaultDecomp"] == "true"
-                fact_generator.add_fact_generator(pattern, scripts, is_default, args)
+                fact_gen_option = tac_gen["tacGenScripts"]["factGen"]
+                fact_generator.add_fact_generator(pattern, scripts, fact_gen_option, args)
             run_gigahorse(args, fact_generator)
