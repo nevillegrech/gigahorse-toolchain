@@ -13,10 +13,12 @@ from typing import Any
 from enum import Enum
 
 from abc import ABC, abstractmethod
+from pathlib import Path
 
 from .common import GIGAHORSE_DIR, SOUFFLE_COMPILED_SUFFIX, log, log_debug
 from . import exporter
 from . import blockparse
+from .tac_schema import TACRelations
 
 devnull = subprocess.DEVNULL
 
@@ -449,8 +451,33 @@ class ContractStitchingGenerator(AbstractFactGenerator):
         self.priority = 2
 
     def generate_facts(self, contract_filename: str, work_dir: str, out_dir: str) -> tuple[float, float, str]:
-        print("IM HERE")
-        pass
+        print(f"IM HERE {contract_filename} {work_dir}")
+        with open(contract_filename) as f:
+            manifest = json.load(f)
+
+            main = manifest["main"]
+            contracts = manifest["contracts"]  # Dict[str, str]
+            print(f"Main: {main}, contracts = {contracts}")
+            facts: dict[str, TACRelations] = dict()
+            for address, id in contracts.items():
+                is_main = address == main
+                path = Path(work_dir).parent / f"{id}/out"
+                print(f"{path}: is main? {is_main}")
+                print(self.decomp_out_produced(path))
+                facts[address] = TACRelations.from_dir(path)
+            print(facts)
+
+            for address in facts.keys():
+                if address == main:
+                    continue
+                print(f"Prefixing facts of {address}")
+                facts[address].prefix_identifiers(address[:8] + "_")
+                facts[address].set_contract(address)
+        
+            merged = TACRelations.merge(*list(facts.values()))
+            merged.write_dir(out_dir)
+
+        return 0, 0, ""
 
     def get_datalog_files(self) -> list[str]:
         return []

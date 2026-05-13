@@ -569,8 +569,7 @@ def run_gigahorse(args, fact_generator: AbstractFactGenerator) -> None:
         contracts += [u for u in unfiltered if fact_generator.match_pattern(u)]
 
     contracts = contracts[args.skip:]
-    print(contracts)
-    print(fact_generator.sort_inputs(contracts))
+    contracts = fact_generator.sort_inputs(contracts)
 
     log(f"Discovered {len(contracts)} contracts. Setting up workers.")
     res_list= batch_analysis(fact_generator, souffle_clients, other_clients, contracts, args.jobs)
