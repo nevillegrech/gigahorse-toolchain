@@ -11,6 +11,7 @@ import re
 
 from typing import Any
 from enum import Enum
+from itertools import groupby
 
 from abc import ABC, abstractmethod
 from pathlib import Path
@@ -29,6 +30,9 @@ MAX_CONTEXT_DEPTH_INPUT_FILE = "MaxContextDepth.csv"
 MAIN_DECOMPILER_MAX_CONTEXT_DEPTH = 20
 FALLBACK_SCALABLE_MAX_CONTEXT_DEPTH = 10
 LAST_RESORT_MAX_CONTEXT_DEPTH = 10
+
+FACT_GEN_HIGH_PRIORITY = 1
+FACT_GEN_LOW_PRIORITY = 2
 
 souffle_env = os.environ.copy()
 functor_path = join(GIGAHORSE_DIR, 'souffle-addon')
@@ -324,6 +328,12 @@ class MixedFactGenerator(AbstractFactGenerator):
         else:
             self.fact_generators[re.compile(pattern)] = CustomFactGenerator(pattern, scripts)
 
+    def partition_inputs_by_priority(self, files: list[str]) -> list[list[str]]:
+        return [list(v) for _, v in groupby(
+                sorted(files, key=lambda x: self.contract_filename_to_gen[x].priority),
+                key=lambda x: self.contract_filename_to_gen[x].priority
+            )]
+
 
 class DecompilerFactGenerator(AbstractFactGenerator):
     decompiler_dl = join(GIGAHORSE_DIR, 'logic/main.dl')
@@ -343,7 +353,7 @@ class DecompilerFactGenerator(AbstractFactGenerator):
         if not pattern.endswith("$"):
             pattern = pattern + "$"
         self.pattern = re.compile(pattern)
-        self.priority = 1
+        self.priority = FACT_GEN_HIGH_PRIORITY
 
         pre_clients_split = [a.strip() for a in args.pre_client.split(',')]
         self.souffle_pre_clients = [a for a in pre_clients_split if a.endswith('.dl')]
@@ -448,7 +458,7 @@ class ContractStitchingGenerator(AbstractFactGenerator):
         if not pattern.endswith("$"):
             pattern = pattern + "$"
         self.pattern = re.compile(pattern)
-        self.priority = 2
+        self.priority = FACT_GEN_LOW_PRIORITY
 
     def generate_facts(self, contract_filename: str, work_dir: str, out_dir: str) -> tuple[float, float, str]:
         print(f"IM HERE {contract_filename} {work_dir}")
@@ -498,7 +508,7 @@ class CustomFactGenerator(AbstractFactGenerator):
             pattern = pattern + "$"
         self.pattern = re.compile(pattern)
         self.fact_generator_scripts = custom_fact_gen_scripts
-        self.priority = 1
+        self.priority = FACT_GEN_HIGH_PRIORITY
 
     def generate_facts(self, contract_filename: str, work_dir: str, out_dir: str) -> tuple[float, float, str]:
         errors = []
