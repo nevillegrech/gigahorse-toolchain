@@ -238,6 +238,7 @@ def imprecise_decomp_out(out_dir: str) -> bool:
 class AbstractFactGenerator(ABC):
     _analysis_executor: AnalysisExecutor
     pattern: re.Pattern
+    priority: int
 
     def __init__(self, args, analysis_executor: AnalysisExecutor):
         pass
@@ -266,9 +267,8 @@ class AbstractFactGenerator(ABC):
     def match_pattern(self, contract_filename: str) -> bool:
         pass
 
-    @abstractmethod
     def sort_inputs(self, files: list[str]) -> list[str]:
-        pass
+        return files
 
 
 class MixedFactGenerator(AbstractFactGenerator):
@@ -449,8 +449,6 @@ class DecompilerFactGenerator(AbstractFactGenerator):
         """Hacky. Needed to ensure process was not killed due to exceeding the memory limit."""
         return os.path.exists(join(out_dir, 'Analytics_JumpToMany.csv')) and os.path.exists(join(out_dir, 'TAC_Def.csv'))
 
-    def sort_inputs(self, files: list[str]) -> list[str]:
-        return files
 
 class ContractStitchingGenerator(AbstractFactGenerator):
 
@@ -461,33 +459,29 @@ class ContractStitchingGenerator(AbstractFactGenerator):
         self.priority = FACT_GEN_LOW_PRIORITY
 
     def generate_facts(self, contract_filename: str, work_dir: str, out_dir: str) -> tuple[float, float, str]:
-        print(f"IM HERE {contract_filename} {work_dir}")
+        # TODO: Handle errors
+        fact_gen_time_start = time.time()
         with open(contract_filename) as f:
             manifest = json.load(f)
 
             main = manifest["main"]
             contracts = manifest["contracts"]  # Dict[str, str]
-            print(f"Main: {main}, contracts = {contracts}")
             facts: dict[str, TACRelations] = dict()
             for address, id in contracts.items():
-                is_main = address == main
                 path = Path(work_dir).parent / f"{id}/out"
-                print(f"{path}: is main? {is_main}")
-                print(self.decomp_out_produced(path))
                 facts[address] = TACRelations.from_dir(path)
-            print(facts)
 
             for address in facts.keys():
                 if address == main:
                     continue
-                print(f"Prefixing facts of {address}")
+                # TODO: ensure no clashes in the first 8 chars
                 facts[address].prefix_identifiers(address[:8] + "_")
                 facts[address].set_contract(address)
         
             merged = TACRelations.merge(*list(facts.values()))
             merged.write_dir(out_dir)
 
-        return 0, 0, ""
+        return 0, time.time() - fact_gen_time_start, ""
 
     def get_datalog_files(self) -> list[str]:
         return []
@@ -498,9 +492,7 @@ class ContractStitchingGenerator(AbstractFactGenerator):
     def decomp_out_produced(self, out_dir: str) -> bool:
         """Hacky. Needed to ensure process was not killed due to exceeding the memory limit."""
         return os.path.exists(join(out_dir, 'TAC_Def.csv'))
-    
-    def sort_inputs(self, files: list[str]) -> list[str]:
-        return files
+
 
 class CustomFactGenerator(AbstractFactGenerator):
     def __init__(self, pattern: str, custom_fact_gen_scripts: list[str]):
