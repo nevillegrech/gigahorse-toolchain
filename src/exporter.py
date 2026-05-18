@@ -189,19 +189,23 @@ class EVMBlockExporter(FactExporter):
 
             language = "unknown"
             compiler_version = "unknown"
+            try:
+                if solidity_metadata_prefix in self.bytecode_hex:
+                    language = "solidity"
+                    compiler_version = get_version_str(solidity_metadata_prefix)
+                elif solidity_metadata_prefix_old in self.bytecode_hex:
+                    language = "solidity"
+                    compiler_version = "0.4.7<=v<0.5.9"
+                elif vyper_metadata_prefix in self.bytecode_hex:
+                    language = "vyper"
+                    compiler_version = get_version_str(vyper_metadata_prefix)
 
-            if solidity_metadata_prefix in self.bytecode_hex:
-                language = "solidity"
-                compiler_version = get_version_str(solidity_metadata_prefix)
-            elif solidity_metadata_prefix_old in self.bytecode_hex:
-                language = "solidity"
-                compiler_version = "0.4.7<=v<0.5.9"
-            elif vyper_metadata_prefix in self.bytecode_hex:
-                language = "vyper"
-                compiler_version = get_version_str(vyper_metadata_prefix)
-
-            with open(self.output_dir + "/compiler_info.csv", "w") as f:
-                f.write(f"{language}\t{compiler_version}")
+                with open(self.output_dir + "/compiler_info.csv", "w") as f:
+                    f.write(f"{language}\t{compiler_version}")
+            except:
+                # in very rare cases get_version_str can fail, fall back to unknown
+                language = "unknown"
+                compiler_version = "unknown"
 
         link_or_output_signature_file(public_function_signature_filename, 'PublicFunctionSignature.facts')
         link_or_output_signature_file(event_signature_filename, 'EventSignature.facts')
