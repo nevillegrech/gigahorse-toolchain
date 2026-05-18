@@ -28,7 +28,7 @@
 .decl StorageIndex_ParentIndex(index: StorageIndex, parIndex: StorageIndex)
 
 // Same as `StorageIndex_ParentIndex` but doesn't contain results where the child `index` is an `OffsetIndex`
-.decl StorageIndex_ParentIndexExclOffset(index: StorageIndex, parIndex: StorageIndex)
+.decl StorageIndex_ParentIndexExclOffset(location: StorageLocation, index: StorageIndex, parIndex: StorageIndex)
 
 // Transitive closure over the `StorageIndex_ParentIndex` relation
 .decl StorageIndexPredecesor(index: StorageIndex, predIndex: StorageIndex)
@@ -236,8 +236,8 @@ StorageIndex_ParentIndex(index, parentIndex):-
     (index = $OffsetIndex(parentIndex, offset), offset = offset) // suppress warning
   ).
 
-StorageIndex_ParentIndexExclOffset(index, parentIndex):-
-  ActualStorageIndex(_, index),
+StorageIndex_ParentIndexExclOffset(loc, index, parentIndex):-
+  ActualStorageIndex(loc, index),
   (
     (index = $ArrayAccessIndex(parentIndex, indexVar), indexVar = indexVar); // suppress warning
     (index = $ArrayDataStartIndex(parentIndex));
@@ -263,7 +263,7 @@ StorageIndexPredecesor(index, predIndex):-
 // REVISIT
 LikelyVariableLoadingStorageIndex(loc, index):-
   ActualStorageIndex(loc, index),
-  !StorageIndex_ParentIndexExclOffset(_, index). // loss of precision here :(
+  !StorageIndex_ParentIndexExclOffset(loc, _, index). // loss of precision here :(
 
 // Goes against our logic, allows conflicts due to bad decompilation
 // LikelyVariableLoadingStorageIndex(index):-
