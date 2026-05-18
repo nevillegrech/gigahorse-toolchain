@@ -473,6 +473,9 @@ class ContractStitchingGenerator(AbstractFactGenerator):
 
             for address in facts.keys():
                 if address == main:
+                    # copy the bytecode of the main contract, as clients read it
+                    code_src = path = Path(work_dir).parent / f"{id}/out/bytecode.hex"
+                    shutil.copy2(code_src, out_dir)
                     continue
                 # TODO: ensure no clashes in the first 8 chars
                 facts[address].prefix_identifiers(address[:8] + "_")
