@@ -376,7 +376,7 @@ class TACRelations:
     @property
     def relation_names(self) -> list[str]:
         """Names of all loaded (non-empty) relations."""
-        return [k for k, v in self._data.items() if v]
+        return [k for k in self._data.keys()]
 
     @property
     def loaded_relations(self) -> list[RelationDef]:
@@ -483,8 +483,6 @@ class TACRelations:
         out_dir.mkdir(parents=True, exist_ok=True)
 
         for rel_name, rows in self._data.items():
-            if not rows:
-                continue
             path = out_dir / f"{rel_name}.csv"
             with open(path, "w", newline="") as f:
                 writer = csv.writer(f, delimiter="\t")
