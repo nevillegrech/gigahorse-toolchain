@@ -17,7 +17,7 @@ import os
 # Local project imports
 from src.common import GIGAHORSE_DIR, DEFAULT_SOUFFLE_BIN, log
 from src.runners import MAIN_DECOMPILER_MAX_CONTEXT_DEPTH
-from src.runners import test_souffle, get_souffle_executable_path, compile_datalog, AbstractFactGenerator, DecompilerFactGenerator, CustomFactGenerator, MixedFactGenerator, AnalysisExecutor, TimeoutException, DecompilationException, FactGenEnum
+from src.runners import test_souffle, get_souffle_executable_path, compile_datalog, AbstractFactGenerator, DecompilerFactGenerator, CustomFactGenerator, MixedFactGenerator, AnalysisExecutor, TimeoutException, DecompilationException, FactGenSelectionEnum, FactGenUsedEnum
 
 ## Constants
 
@@ -261,7 +261,7 @@ def analyze_contract(index: int, contract_filename: str, result_queue, fact_gene
             disassemble_time, decomp_time, decompiler_config = fact_generator.generate_facts(contract_filename, work_dir, out_dir)
 
             inline_start = time.time()
-            if not args.disable_inline:
+            if not args.disable_inline or decompiler_config == FactGenUsedEnum.MultiContract:
                 # ignore timeouts here: if it happens, just continue to the clients
                 _, inl_errors = analysis_executor.run_clients([DEFAULT_INLINER_DL]*DEFAULT_INLINER_ROUNDS, [], out_dir, out_dir, start_time)
                 if inl_errors:
@@ -624,7 +624,7 @@ if __name__ == "__main__":
             run_gigahorse(args, DecompilerFactGenerator(args, ".*.hex"))
         elif len(tac_gen_config["handlers"]) == 1: # if one handler defined, can be either classic decompilation, or custom script
             tac_gen = tac_gen_config["handlers"][0]
-            if tac_gen["tacGenScripts"]["factGen"] == FactGenEnum.Decomp:
+            if tac_gen["tacGenScripts"]["factGen"] == FactGenSelectionEnum.Decomp:
                 run_gigahorse(args, DecompilerFactGenerator(args, tac_gen["fileRegex"]))
             else:
                 run_gigahorse(args, CustomFactGenerator(tac_gen["fileRegex"], tac_gen["tacGenScripts"]["customScripts"]))

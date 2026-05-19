@@ -49,12 +49,6 @@ if not os.path.isfile(join(functor_path, 'libfunctors.so')):
         f'that you have installed gigahorse correctly (see README.md)'
     )
 
-
-class FactGenEnum(str, Enum):
-    Decomp = "Decomp"
-    MultiContract = "MultiContract"
-    Custom = "Custom"
-
 class TimeoutException(Exception):
     pass
 
@@ -234,6 +228,17 @@ def imprecise_decomp_out(out_dir: str) -> bool:
     imprecision_metric = len(open(join(out_dir, 'Analytics_JumpToMany.csv'), 'r').readlines())
     return imprecision_metric > 0
 
+class FactGenSelectionEnum(str, Enum):
+    Decomp = "Decomp"
+    MultiContract = "MultiContract"
+    Custom = "Custom"
+
+class FactGenUsedEnum(str, Enum):
+    DefaultDecomp = "DefaultDecomp"
+    ScalableDecomo = "ScalableDecomp"
+    LastResortDecomp = "LastResortDecomp"
+    MultiContract = "MultiContract"
+    Custom = "Custom"
 
 class AbstractFactGenerator(ABC):
     _analysis_executor: AnalysisExecutor
@@ -252,7 +257,7 @@ class AbstractFactGenerator(ABC):
         self._analysis_executor = analysis_executor
 
     @abstractmethod
-    def generate_facts(self, contract_filename: str, work_dir: str, out_dir: str) -> tuple[float, float, str]:
+    def generate_facts(self, contract_filename: str, work_dir: str, out_dir: str) -> tuple[float, float, FactGenUsedEnum]:
         pass
 
     @abstractmethod
@@ -291,9 +296,9 @@ class MixedFactGenerator(AbstractFactGenerator):
         for fact_gen in self.fact_generators.values():
             fact_gen.analysis_executor = analysis_executor
 
-    def generate_facts(self, contract_filename: str, work_dir: str, out_dir: str) -> tuple[float, float, str]:
+    def generate_facts(self, contract_filename: str, work_dir: str, out_dir: str) -> tuple[float, float, FactGenUsedEnum]:
         generator = self.contract_filename_to_gen[contract_filename]
-        del self.contract_filename_to_gen[contract_filename]
+        del self.contract_filename_to_gen[contract_filename] # maybe remove these
         self.out_dir_to_gen[out_dir] = generator
         return generator.generate_facts(contract_filename, work_dir, out_dir)
 
@@ -305,7 +310,7 @@ class MixedFactGenerator(AbstractFactGenerator):
 
     def decomp_out_produced(self, out_dir: str) -> bool:
         result = self.out_dir_to_gen[out_dir].decomp_out_produced(out_dir)
-        del self.out_dir_to_gen[out_dir]
+        del self.out_dir_to_gen[out_dir] # maybe remove these
         return result
 
     def match_pattern(self, contract_filename: str) -> bool:
@@ -318,12 +323,12 @@ class MixedFactGenerator(AbstractFactGenerator):
     def sort_inputs(self, files: list[str]) -> list[str]:
         return sorted(files, key = lambda x: self.contract_filename_to_gen[x].priority)
 
-    def add_fact_generator(self, pattern: str, scripts: list[str], fact_gen_option: FactGenEnum, args):
+    def add_fact_generator(self, pattern: str, scripts: list[str], fact_gen_option: FactGenSelectionEnum, args):
         if not pattern.endswith("$"):
             pattern = pattern + "$"
-        if fact_gen_option == FactGenEnum.Decomp:
+        if fact_gen_option == FactGenSelectionEnum.Decomp:
             self.fact_generators[re.compile(pattern)] = DecompilerFactGenerator(args, pattern)
-        elif fact_gen_option == FactGenEnum.MultiContract:
+        elif fact_gen_option == FactGenSelectionEnum.MultiContract:
             self.fact_generators[re.compile(pattern)] = ContractStitchingGenerator(args, pattern)
         else:
             self.fact_generators[re.compile(pattern)] = CustomFactGenerator(pattern, scripts)
@@ -364,7 +369,7 @@ class DecompilerFactGenerator(AbstractFactGenerator):
         if args.disable_precise_fallback:
             log("The use of the --disable_precise_fallback is deprecated. Its functionality is disabled.")
 
-    def generate_facts(self, contract_filename: str, work_dir: str, out_dir: str) -> tuple[float, float, str]:
+    def generate_facts(self, contract_filename: str, work_dir: str, out_dir: str) -> tuple[float, float, FactGenUsedEnum]:
         with open(contract_filename) as file:
             bytecode = file.read().strip()
 
@@ -408,8 +413,8 @@ class DecompilerFactGenerator(AbstractFactGenerator):
 
         return datalog_files
 
-    def run_decomp(self, contract_filename: str, in_dir: str, out_dir: str, start_time: float) -> str:
-        config = "default"
+    def run_decomp(self, contract_filename: str, in_dir: str, out_dir: str, start_time: float) -> FactGenUsedEnum:
+        config = FactGenUsedEnum.DefaultDecomp
         def_timeouts, def_errors = self.analysis_executor.run_clients([DecompilerFactGenerator.decompiler_dl], [], in_dir, out_dir, start_time, not self.disable_scalable_fallback)
 
         if def_errors:
@@ -432,11 +437,11 @@ class DecompilerFactGenerator(AbstractFactGenerator):
                     if last_errors:
                         raise DecompilationException()
                     elif not last_timeouts and self.decomp_out_produced(out_dir):
-                        config = "last-resort"
+                        config = FactGenUsedEnum.LastResortDecomp
                     else:
                         raise TimeoutException()
                 elif not sca_timeouts and self.decomp_out_produced(out_dir):
-                    config = "scalable"
+                    config = FactGenUsedEnum.ScalableDecomo
                 else:
                     raise TimeoutException()
 
@@ -458,7 +463,7 @@ class ContractStitchingGenerator(AbstractFactGenerator):
         self.pattern = re.compile(pattern)
         self.priority = FACT_GEN_LOW_PRIORITY
 
-    def generate_facts(self, contract_filename: str, work_dir: str, out_dir: str) -> tuple[float, float, str]:
+    def generate_facts(self, contract_filename: str, work_dir: str, out_dir: str) -> tuple[float, float, FactGenUsedEnum]:
         # TODO: Handle errors
         fact_gen_time_start = time.time()
         with open(contract_filename) as f:
@@ -484,7 +489,7 @@ class ContractStitchingGenerator(AbstractFactGenerator):
             merged = TACRelations.merge(*list(facts.values()))
             merged.write_dir(out_dir)
 
-        return 0, time.time() - fact_gen_time_start, ""
+        return 0, time.time() - fact_gen_time_start, FactGenUsedEnum.MultiContract
 
     def get_datalog_files(self) -> list[str]:
         return []
@@ -505,7 +510,7 @@ class CustomFactGenerator(AbstractFactGenerator):
         self.fact_generator_scripts = custom_fact_gen_scripts
         self.priority = FACT_GEN_HIGH_PRIORITY
 
-    def generate_facts(self, contract_filename: str, work_dir: str, out_dir: str) -> tuple[float, float, str]:
+    def generate_facts(self, contract_filename: str, work_dir: str, out_dir: str) -> tuple[float, float, FactGenUsedEnum]:
         errors = []
         timeouts = []
         fact_gen_time_start = time.time()
@@ -519,7 +524,7 @@ class CustomFactGenerator(AbstractFactGenerator):
                 e,t = self.analysis_executor.run_script_client(arguments, work_dir, out_dir, fact_gen_time_start)
                 errors.extend(e)
                 timeouts.extend(t)
-        return time.time() - fact_gen_time_start, 0.0, ""
+        return time.time() - fact_gen_time_start, 0.0, FactGenUsedEnum.Custom
 
     def get_datalog_files(self) -> list[str]:
         return [a for a in self.fact_generator_scripts if a.endswith('.dl')]
