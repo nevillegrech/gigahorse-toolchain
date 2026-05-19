@@ -7,6 +7,8 @@
 // Has many dependencies, incl memory modeling and data structures
 #include "../clientlib/guards.dl"
 
+#include "../clientlib/multi_contract.dl"
+
 /**
   Loop-related analytics
 */
@@ -182,3 +184,11 @@ Verbatim_StructToString(structID, stringStruct):-
 Analytics_StructWithNoStringRep(structID):-
   DataStructureValueIsStruct(_, _, structID, _),
   !StructToString(structID, _).
+
+/**
+  Multi-contract analytics
+*/
+.decl Analytics_ResolvedExternalCall(callStmt: Statement, target: Function)
+.output Analytics_ResolvedExternalCall
+Analytics_ResolvedExternalCall(callStmt, target):-
+  ResolvedExternalCall(callStmt, target).
