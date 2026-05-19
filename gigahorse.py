@@ -261,7 +261,7 @@ def analyze_contract(index: int, contract_filename: str, result_queue, fact_gene
             disassemble_time, decomp_time, decompiler_config = fact_generator.generate_facts(contract_filename, work_dir, out_dir)
 
             inline_start = time.time()
-            if not args.disable_inline or decompiler_config == FactGenUsedEnum.MultiContract:
+            if not args.disable_inline and decompiler_config != FactGenUsedEnum.MultiContract:
                 # ignore timeouts here: if it happens, just continue to the clients
                 _, inl_errors = analysis_executor.run_clients([DEFAULT_INLINER_DL]*DEFAULT_INLINER_ROUNDS, [], out_dir, out_dir, start_time)
                 if inl_errors:
