@@ -1,0 +1,42 @@
+#include "decompiler_imports.dl"
+#include "memory_modeling/memory_modeling.dl"
+
+.decl Function_Contract_Filtered(function: Function, contract: Contract)
+Function_Contract_Filtered(function, contract):-
+  Function_Contract(function, contract),
+  contract != "Decompiled".
+
+.decl ResolvedExternalCall(callStmt: Statement, target: Function)
+.output ResolvedExternalCall
+ResolvedExternalCall(callStmt, targetFunction):-
+  CALLReturnDataStartVar(callStmt, _),
+  Statement_Uses(callStmt, targetVar, 1),
+  Variable_Value(targetVar, target),
+  Function_Contract_Filtered(targetFunction, otherContract),
+  PublicFunctionSelector(targetFunction, selector),
+  @hex_normalized(target) = @hex_normalized(otherContract),
+  StatementUsesMemory_ActualMemoryArg(callStmt, _, 0, selectorArg),
+  Variable_Value(selectorArg, callSelector),
+  contains(selector, callSelector).
+
+.decl PossiblyResolvedExternalCall(callStmt: Statement, target: Function)
+.output PossiblyResolvedExternalCall
+
+PossiblyResolvedExternalCall(callStmt, targetFunction):-
+  CALLReturnDataStartVar(callStmt, _),
+  Statement_Uses(callStmt, targetVar, 1),
+  !Variable_Value(targetVar, _),
+  Function_Contract_Filtered(targetFunction, otherContract),
+  PublicFunctionSelector(targetFunction, selector),
+  StatementUsesMemory_ActualMemoryArg(callStmt, _, 0, selectorArg),
+  Variable_Value(selectorArg, callSelector),
+  contains(selector, callSelector).
+
+.decl ResolvedExternalCallArgs(callStmt: Statement, target: Function, formalArg: Variable, actualArg: Variable, index: number)
+.output ResolvedExternalCallArgs
+
+ResolvedExternalCallArgs(callStmt, target, formalArg, actualArg, i - 1):-
+  ResolvedExternalCall(callStmt, target),
+  StatementUsesMemory_ActualMemoryArg(callStmt, _, i, actualArg),
+  i > 0,
+  PublicFunctionArg(target, formalArg, i - 1).

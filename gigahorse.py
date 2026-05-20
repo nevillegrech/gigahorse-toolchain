@@ -17,7 +17,7 @@ import os
 # Local project imports
 from src.common import GIGAHORSE_DIR, DEFAULT_SOUFFLE_BIN, log
 from src.runners import MAIN_DECOMPILER_MAX_CONTEXT_DEPTH
-from src.runners import test_souffle, get_souffle_executable_path, compile_datalog, AbstractFactGenerator, DecompilerFactGenerator, CustomFactGenerator, MixedFactGenerator, AnalysisExecutor, TimeoutException, DecompilationException
+from src.runners import test_souffle, get_souffle_executable_path, compile_datalog, AbstractFactGenerator, DecompilerFactGenerator, CustomFactGenerator, MixedFactGenerator, AnalysisExecutor, TimeoutException, DecompilationException, FactGenSelectionEnum, FactGenUsedEnum
 
 ## Constants
 
@@ -261,7 +261,7 @@ def analyze_contract(index: int, contract_filename: str, result_queue, fact_gene
             disassemble_time, decomp_time, decompiler_config = fact_generator.generate_facts(contract_filename, work_dir, out_dir)
 
             inline_start = time.time()
-            if not args.disable_inline:
+            if not args.disable_inline and decompiler_config != FactGenUsedEnum.MultiContract:
                 # ignore timeouts here: if it happens, just continue to the clients
                 _, inl_errors = analysis_executor.run_clients([DEFAULT_INLINER_DL]*DEFAULT_INLINER_ROUNDS, [], out_dir, out_dir, start_time)
                 if inl_errors:
@@ -569,9 +569,19 @@ def run_gigahorse(args, fact_generator: AbstractFactGenerator) -> None:
         contracts += [u for u in unfiltered if fact_generator.match_pattern(u)]
 
     contracts = contracts[args.skip:]
+    if isinstance(fact_generator, MixedFactGenerator):
+        contract_lists = fact_generator.partition_inputs_by_priority(contracts)
+    else:
+        contract_lists = [contracts]
 
-    log(f"Discovered {len(contracts)} contracts. Setting up workers.")
-    res_list= batch_analysis(fact_generator, souffle_clients, other_clients, contracts, args.jobs)
+    res_list = list()
+    round_num = 1
+    for contract_list in contract_lists:
+        log(f"Round {round_num}: Discovered {len(contract_list)} contracts. Setting up workers.")
+        tmp_list = batch_analysis(fact_generator, souffle_clients, other_clients, contract_list, args.jobs)
+        res_list += tmp_list
+        round_num += 1
+
     write_results(res_list, args.results_file)
 
 if __name__ == "__main__":
@@ -614,7 +624,7 @@ if __name__ == "__main__":
             run_gigahorse(args, DecompilerFactGenerator(args, ".*.hex"))
         elif len(tac_gen_config["handlers"]) == 1: # if one handler defined, can be either classic decompilation, or custom script
             tac_gen = tac_gen_config["handlers"][0]
-            if tac_gen["tacGenScripts"]["defaultDecomp"] == "true":
+            if tac_gen["tacGenScripts"]["factGen"] == FactGenSelectionEnum.Decomp:
                 run_gigahorse(args, DecompilerFactGenerator(args, tac_gen["fileRegex"]))
             else:
                 run_gigahorse(args, CustomFactGenerator(tac_gen["fileRegex"], tac_gen["tacGenScripts"]["customScripts"]))
@@ -623,6 +633,6 @@ if __name__ == "__main__":
             for tac_gen in tac_gen_config["handlers"]:
                 pattern = tac_gen["fileRegex"]
                 scripts = tac_gen["tacGenScripts"]["customScripts"]
-                is_default = tac_gen["tacGenScripts"]["defaultDecomp"] == "true"
-                fact_generator.add_fact_generator(pattern, scripts, is_default, args)
+                fact_gen_option = tac_gen["tacGenScripts"]["factGen"]
+                fact_generator.add_fact_generator(pattern, scripts, fact_gen_option, args)
             run_gigahorse(args, fact_generator)

@@ -14,6 +14,7 @@
 .type Value <: symbol
 .type Chunk <: number
 .type OriginalStatement <: symbol
+.type Contract <: symbol
 
 // Defined in souffle-addon/functor_includes.dl
 // .type StringList = [x: symbol, y: StringList]
@@ -300,6 +301,8 @@ Variable_Function(v, f) :-
 .decl Statement_Next(stmt: Statement, next: Statement)
 .input Statement_Next(IO="file", filename="TAC_Statement_Next.csv", delimiter="\t")
 
+.decl Function_Contract(function: Function, contract: Contract)
+.input Function_Contract(IO="file", filename="Function_Contract.csv", delimiter="\t")
 
 // Basic block corresponding to the function's entry point
 .decl FunctionEntry(block: Block)
@@ -315,6 +318,20 @@ FunctionExit(block) :-
 // Mapping `block`s to `function`s
 .decl InFunction(block: Block, function: Function)
 .input InFunction(IO="file", filename="InFunction.csv", delimiter="\t")
+
+// helper predicate
+.decl Statement_Contract(statement: Statement, contract: Contract)
+Statement_Contract(statement, contract):-
+  Statement_Block(statement, block),
+  InFunction(block, function),
+  Function_Contract(function, contract).
+
+.decl Variable_Contract(var: Variable, contract: Contract)
+Variable_Contract(var, contract):-
+  (Statement_Uses(statement, var, _); Statement_Defines(statement, var, _)),
+  Statement_Block(statement, block),
+  InFunction(block, function),
+  Function_Contract(function, contract).
 
 /**
   Inter-procedural CFG edges.
