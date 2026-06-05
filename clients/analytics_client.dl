@@ -43,18 +43,6 @@ Analytics_NonHighLevelLoopFiltered(loop):-
   !HighLevelLoop(loop),
   0 = count: {BlockInStructuredLoop(block, loop), JumpToMany(block)}.
 
-.decl JumpToMany(block: Block)
-JumpToMany(block):-
-  (Statement_Opcode(jump, "JUMP");
-  Statement_Opcode(jump, "CALLPRIVATE")),
-  Statement_Block(jump, block),
-  nEdges = count : LocalBlockEdge(block, _), nEdges > 1.
-
-JumpToMany(block):-
-  Statement_Opcode(jump, "JUMPI"),
-  Statement_Block(jump, block),
-  nEdges = count : LocalBlockEdge(block, _), nEdges > 2.
-
 /**
  * Memory Modeling
  */
