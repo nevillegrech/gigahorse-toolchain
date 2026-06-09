@@ -390,3 +390,17 @@ BlockMustReturn(block):-
   BlockMayReturn(block),
   !BlockMayCallOther(block),
   !BlockMayThrow(block).
+
+
+.decl JumpToMany(block: Block)
+DEBUG_OUTPUT(JumpToMany)
+JumpToMany(block):-
+  (Statement_Opcode(jump, "JUMP");
+  Statement_Opcode(jump, "CALLPRIVATE")),
+  Statement_Block(jump, block),
+  nEdges = count : LocalBlockEdge(block, _), nEdges > 1.
+
+JumpToMany(block):-
+  Statement_Opcode(jump, "JUMPI"),
+  Statement_Block(jump, block),
+  nEdges = count : LocalBlockEdge(block, _), nEdges > 2.
