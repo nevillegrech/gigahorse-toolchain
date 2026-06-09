@@ -70,7 +70,7 @@ StatementInStructuredLoop(s, loop) :-
    BlockInStructuredLoop(b, loop),
    Statement_Block(s, b).
 
-.output LoopWithManyExitsHasAdditionalBlocks, LoopWithManyExitsHasSingleConvergenceBlock, StructuredLoopBase_ElementNumber
+// .output LoopWithManyExitsHasAdditionalBlocks, LoopWithManyExitsHasSingleConvergenceBlock, StructuredLoopBase_ElementNumber
 /**
   Block that will be executed after the loop completes.
   We first define `LoopNextBase` as an exit to a non immediately terminating block.  
@@ -92,8 +92,10 @@ DEBUG_OUTPUT(LoopNextBase)
 // A terminating or reverting exist can be reached from outside the loop. 
 .decl LoopToSecondaryExitReachableFromOutside(loop: Block, exit: Block)
 
+// A loop with at least one jump-to-many instance.
+// When this is detected some extra, precise logic is disabled to avoid spurious inferences
 .decl LoopWithCFGImprecision(loop: Block)
-.output LoopWithCFGImprecision
+DEBUG_OUTPUT(LoopWithCFGImprecision)
 
 LoopNext(loop, next):-
   LoopNextBase(loop, next),
@@ -125,11 +127,11 @@ LoopToRevertingBlock(loop, termBlock):-
   LocalBlockEdge(jmpiBlock, termBlock),
   !BlockInStructuredLoopBase(termBlock, loop), // need to specify this as blockMuchThrow captures the loop body of reverting loops
   !LoopToSecondaryExitReachableFromOutside(loop, termBlock),
-  !BlockMustThrow(loop),
+  !BlockMustThrow(loop), // ensure it is not an always-reverting loop (copy of error data, then revert)
   !ThrowBlock(loop),
   (ThrowBlock(termBlock); BlockMustThrow(termBlock)).
 
-.output LoopToExitingBlock, LoopToRevertingBlock, LoopToSecondaryExitReachableFromOutside, BlockMustThrow, BlockMustReturn, BlockMayReturn, BlockMayThrow, Dominates, PostDominates, BlockInStructuredLoopBase
+// .output LoopToExitingBlock, LoopToRevertingBlock, LoopToSecondaryExitReachableFromOutside, BlockMustThrow, BlockMustReturn, BlockMayReturn, BlockMayThrow, Dominates, PostDominates, BlockInStructuredLoopBase
 LoopToExitingBlock(loop, termBlock):-
   BlockInStructuredLoopBase(jmpiBlock, loop),
   Block_Tail(jmpiBlock, jmpi),
@@ -170,6 +172,7 @@ LoopNextBase(loop, termBlock):-
   StructuredLoopBase_ElementNumber(loop, 1),
   (ThrowBlock(termBlock); BlockMustThrow(termBlock); BlockTerminates(termBlock)).
 
+// if we find an always-reverting block, just add a `LoopNextBase` fact
 LoopNextBase(loop, termBlock):-
   BlockInStructuredLoopBase(jmpiBlock, loop),
   Block_Tail(jmpiBlock, jmpi),
@@ -177,7 +180,7 @@ LoopNextBase(loop, termBlock):-
   LocalBlockEdge(jmpiBlock, termBlock),
   !BlockInStructuredLoopBase(termBlock, loop), // need to specify this as blockMuchThrow captures the loop body of reverting loops
   !LoopToSecondaryExitReachableFromOutside(loop, termBlock),
-  (BlockMustThrow(loop); ThrowBlock(loop)),
+  (ThrowBlock(loop); BlockMustThrow(loop)),
   (ThrowBlock(termBlock); BlockMustThrow(termBlock)).
 
 LoopWithCFGImprecision(loop):-
@@ -200,7 +203,7 @@ LocalBlockPathExclBackEdges(block, block):-
 LocalBlockPathExclBackEdges(from, to):-
   LocalBlockPathExclBackEdges(from, mid),
   LocalBlockEdge(mid, to),
-  !JumpToMany(mid),
+  !JumpToMany(mid), // filter out imprecision
   !StructuredLoopBackEdge(mid, to).
 
 .decl LoopHasMultipleExitPoints(loop: Block, n_exit: number)
@@ -245,7 +248,7 @@ LoopWithManyExitsHasSingleConvergenceBlock(loop, conBlock):-
 
 /**
   When `LoopWithManyExitsHasSingleConvergenceBlock` holds, we find blocks from
-  `LoopNextBase` to the convergence bl0xdda0xbcock, to consider them part of the loop.
+  `LoopNextBase` to the convergence block, to consider them part of the loop.
 */
 .decl LoopWithManyExitsHasAdditionalBlocks(loop: Block, addBlock: Block)
 
@@ -259,7 +262,7 @@ LoopWithManyExitsHasAdditionalBlocks(loop, addBlock):-
   LoopWithManyExitsHasSingleConvergenceBlock(loop, conBlock),
   LocalBlockEdge(block, addBlock),
   addBlock != conBlock,
-  !JumpToMany(block),
+  !JumpToMany(block), // filter out imprecision
   !StructuredLoopBackEdge(block, addBlock).
 
 /**
