@@ -309,8 +309,13 @@ class MixedFactGenerator(AbstractFactGenerator):
         return datalog_files
 
     def decomp_out_produced(self, out_dir: str) -> bool:
+        if out_dir not in self.out_dir_to_gen:
+            for fact_gen in self.fact_generators.values():
+                if fact_gen.decomp_out_produced(out_dir):
+                    return True
+            return False
+
         result = self.out_dir_to_gen[out_dir].decomp_out_produced(out_dir)
-        del self.out_dir_to_gen[out_dir] # maybe remove these
         return result
 
     def match_pattern(self, contract_filename: str) -> bool:
