@@ -295,6 +295,7 @@ DEBUG_OUTPUT(LoopHasPostIterationLogic)
 LoopHasPostIterationLogic(loop, next):-
   BlockInStructuredLoopBase(_, loop),
   1 = count: StructuredLoopBackEdge(_, loop),
+  !LoopWithCFGImprecision(loop),
   LikelyContinueJump(loop, _, next),
   n = count: LikelyContinueJump(loop, _, _),
   n = count: LikelyContinueJump(loop, _, next),

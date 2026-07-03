@@ -44,6 +44,17 @@ Analytics_NonHighLevelLoopFiltered(loop):-
   0 = count: {BlockInStructuredLoop(block, loop), JumpToMany(block)}.
 
 /**
+  Instance of loop inference imprecision:
+  two loops are mutually nested
+*/
+.decl Analytics_LoopImprecision(loop: Block)
+.output Analytics_LoopImprecision
+
+Analytics_LoopImprecision(loop):-
+  BlockInStructuredLoop(otherLoop, loop),
+  BlockInStructuredLoop(loop, otherLoop), loop != otherLoop.
+
+/**
  * Memory Modeling
  */
 
