@@ -10,8 +10,7 @@ class EVMBasicBlock:
     its parent and child nodes in the graph structure.
     """
 
-    def __init__(self, entry: int | None = None, exit: int | None = None,
-                 evm_ops: list['EVMOp'] | None = None):
+    def __init__(self, entry: int | None = None, exit: int | None = None, evm_ops: list["EVMOp"] | None = None):
         """
         Creates a new basic block containing operations between the
         specified entry and exit instruction counters (inclusive).
@@ -41,7 +40,7 @@ class EVMBasicBlock:
         op_seq = "\n".join(str(op) for op in self.evm_ops)
         return "\n".join([super_str, self._STR_SEP, op_seq])
 
-    def split(self, entry: int) -> 'EVMBasicBlock':
+    def split(self, entry: int) -> "EVMBasicBlock":
         """
         Splits current block into a new block, starting at the specified
         entry op index. Returns a new EVMBasicBlock with no preds or succs.
@@ -51,13 +50,13 @@ class EVMBasicBlock:
             EVMOp at this index will become the first EVMOp of the new BasicBlock.
         """
 
-        assert(isinstance(self.entry, int))
+        assert isinstance(self.entry, int)
         # Create the new block.
-        new = type(self)(entry, self.exit, self.evm_ops[entry - self.entry:])
+        new = type(self)(entry, self.exit, self.evm_ops[entry - self.entry :])
 
         # Update the current node.
         self.exit = entry - 1
-        self.evm_ops = self.evm_ops[:entry - self.entry]
+        self.evm_ops = self.evm_ops[: entry - self.entry]
 
         # Update the block pointer in each line object
         self.__update_evmop_refs()
@@ -121,16 +120,12 @@ class EVMOp:
 
     def __str__(self):
         if self.value is None:
-            return "{0} {1}".format(hex(self.pc), self.opcode)
+            return f"{hex(self.pc)} {self.opcode}"
         else:
-            return "{0} {1} {2}".format(hex(self.pc), self.opcode, hex(self.value))
+            return f"{hex(self.pc)} {self.opcode} {hex(self.value)}"
 
     def __repr__(self):
-        return "<{0} object {1}: {2}>".format(
-            self.__class__.__name__,
-            hex(id(self)),
-            self.__str__()
-        )
+        return f"<{self.__class__.__name__} object {hex(id(self))}: {self.__str__()}>"
 
 
 def blocks_from_ops(ops: list[EVMOp]) -> list[EVMBasicBlock]:
@@ -146,8 +141,7 @@ def blocks_from_ops(ops: list[EVMOp]) -> list[EVMBasicBlock]:
     blocks = []
 
     # details for block currently being processed
-    entry, exit = (0, len(ops) - 1) if len(ops) > 0 \
-        else (None, None)
+    entry, exit = (0, len(ops) - 1) if len(ops) > 0 else (None, None)
     current = EVMBasicBlock(entry, exit)
 
     # Linear scan of all EVMOps to create initial EVMBasicBlocks
