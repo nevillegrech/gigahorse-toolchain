@@ -2,3 +2,13 @@
 cache
 .git
 Dockerfile
+
+# Local uv virtual environment — must never be copied into the image; each image
+# builds its own venv via `uv sync`. A host venv embeds interpreter paths that are
+# invalid inside the container.
+.venv
+
+# Tooling caches
+.mypy_cache
+.pytest_cache
+__pycache__

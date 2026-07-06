@@ -37,8 +37,16 @@ RUN apt-get update && apt-get install -y libssl-dev
 RUN apt-get update && apt-get install -y libz3-dev
 RUN apt-get update && apt-get install -y z3
 
-RUN python3 -m pip install --upgrade pip
-RUN python3 -m pip install pytest
+# ---- Python toolchain via uv (Astral) ----
+# Install the uv binary and provision a managed CPython 3.13 into a shared,
+# world-readable prefix so the non-root user in downstream images can use it.
+# The project's own dependencies (pytest, mypy, ...) come from pyproject.toml /
+# uv.lock via `uv sync` in the image or CI step that checks out the repository.
+ENV UV_PYTHON_INSTALL_DIR=/opt/uv/python \
+    UV_PYTHON_PREFERENCE=only-managed \
+    UV_LINK_MODE=copy
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
+RUN uv python install 3.13 && chmod -R a+rX /opt/uv
 
 RUN souffle --version
-RUN python3 --version
+RUN uv --version && uv run --no-project --python 3.13 python --version

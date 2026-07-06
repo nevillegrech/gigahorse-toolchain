@@ -1,0 +1,84 @@
+[project]
+name = "gigahorse-toolchain"
+version = "0.1.0"
+description = "A binary lifter (and related framework) from low-level EVM code to a higher-level function-based three-address representation, similar to LLVM IR or Jimple."
+readme = "README.md"
+requires-python = ">=3.13"
+license = "BSD-3-Clause"
+license-files = ["LICENSE"]
+authors = [
+    { name = "Neville Grech" },
+    { name = "Yannis Smaragdakis" },
+]
+keywords = [
+    "ethereum",
+    "evm",
+    "decompiler",
+    "static-analysis",
+    "smart-contracts",
+    "datalog",
+    "souffle",
+]
+classifiers = [
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Security",
+    "Topic :: Software Development :: Disassemblers",
+]
+
+# The core decompiler/toolchain (gigahorse.py, generatefacts, src/, clientlib/,
+# clients/visualizeout.py) uses only the Python standard library — it has no
+# third-party runtime dependencies. Optional features live under the extras below.
+dependencies = []
+
+[project.optional-dependencies]
+# `tooling/directives.py`: Datalog directive parsing (lark) + interactive
+# HTML graph visualisation of the analysis (pyvis).
+tooling = [
+    "lark>=1.1.9",
+    "pyvis>=0.3.2",
+]
+# Graphviz-based (dot) output rendering, used by the visualisation Docker image.
+viz = [
+    "pydot>=3.0.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/nevillegrech/gigahorse-toolchain"
+Repository = "https://github.com/nevillegrech/gigahorse-toolchain.git"
+Documentation = "https://github.com/nevillegrech/gigahorse-toolchain#readme"
+
+# PEP 735 development dependency group — installed by `uv sync`, never published as
+# an extra. Covers the test runner and the type checker exercised in CI.
+[dependency-groups]
+dev = [
+    "mypy>=1.13",
+    "pytest>=8.3",
+]
+
+[tool.uv]
+# Gigahorse is an application/toolchain executed in place (e.g. `./gigahorse.py`),
+# not a distributable wheel. Tell uv to manage the environment only and not attempt
+# to build & install the project itself (no build backend is defined on purpose).
+package = false
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+addopts = "-ra"
+testpaths = ["test_gigahorse.py"]
+
+[tool.mypy]
+python_version = "3.13"
+# Default targets when `mypy` is invoked without explicit paths; mirrors CI coverage.
+files = [
+    "gigahorse.py",
+    "clients/visualizeout.py",
+    "src",
+    "clientlib",
+]
+# `clientlib` has no __init__.py and is imported as `clientlib.facts_to_cfg`; anchor
+# module names at the repo root so the same file isn't discovered under two names.
+explicit_package_bases = true
+mypy_path = "."
+# pyvis/lark/pydot ship no type stubs; keep third-party imports from failing type-checks.
+ignore_missing_imports = true

@@ -1,4 +1,4 @@
-*NOTE*: you need to clone this repo using the `--recursive` flag since this repo has submodules, e.g., `git clone git@github.com:nevillegrech/gigahorse-toolchain.git --recursive`
+*NOTE*: you need to clone this repo using the `--recursive` flag since this repo has submodules, e.g., `git clone git@github.com:nevillegrech/gigahorse-toolchain.git --recursive`. If you already cloned without `--recursive`, run `git submodule update --init --recursive` to fetch the `souffle-addon` submodule.
 
 # The Gigahorse binary lifter and toolchain [![Tweet](https://img.shields.io/twitter/url/http/shields.io.svg?style=social)](https://twitter.com/intent/tweet?text=Gigahorse%20-%20Decompilation%20and%20Analysis%20for%20Ethereum%20Smart%20Contracts&url=https://www.github.com/nevillegrech/gigahorse-toolchain)
 A binary lifter (and related framework) from low-level EVM code to a higher-level function-based three-address representation, similar to LLVM IR or Jimple. 
@@ -14,7 +14,7 @@ In summary, you need to have the following things installed on your system:
 
 - Z3, required for [souffle-addon](https://github.com/plast-lab/souffle-addon) (Can be installed on Debian with `apt install libz3-dev`)
 
-- Python 3.10 (Refer to standard documentation)
+- [uv](https://docs.astral.sh/uv/), the Astral Python project manager. uv provisions the required Python interpreter (**3.13**, pinned in `.python-version`) and the project's Python dependencies for you — see the environment setup step below. (Install with `curl -LsSf https://astral.sh/uv/install.sh | sh`.)
 
 - Souffle 2.3 or 2.4.1 (We only test using the release versions, later development versions may work but are untested by us. The easiest way to install this is to use the release from https://github.com/souffle-lang/souffle/releases/tag/2.4.1). Refer to the Souffle [documentation](https://souffle-lang.github.io) for more information.
 
@@ -24,6 +24,14 @@ Now install the Souffle custom functors:
 # builds all, sets libfunctors.so as a link to libsoufflenum.so
 cd souffle-addon && make WORD_SIZE=$(souffle --version | sed -n 3p | cut -c12,13)
 ```
+
+Finally, set up the Python environment with uv, which provisions the pinned CPython 3.13 and the project's Python dependencies into a local `.venv`:
+
+```
+uv sync
+```
+
+You can then run the toolchain through uv (e.g. `uv run ./gigahorse.py examples/long_running.hex`), or activate the environment (`source .venv/bin/activate`) so that `./gigahorse.py` uses Python 3.13 directly. Optional feature sets are available as extras: `uv sync --extra tooling` (Datalog directive parsing + interactive graph visualisation) and `uv sync --extra viz` (Graphviz/`dot` rendering).
 
 You should now be ready to run Gigahorse.
 

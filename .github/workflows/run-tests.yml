@@ -1,6 +1,6 @@
 name: CI-Tests
 
-on: 
+on:
   workflow_dispatch:
   workflow_call:
   pull_request:
@@ -12,6 +12,9 @@ env:
   REGISTRY: ghcr.io
   # github.repository as nevillegrech/gigahorse-toolchain
   IMAGE_NAME: ${{ github.repository }}
+  # uv copies (rather than hardlinks) into the venv — avoids cross-filesystem
+  # hardlink warnings on the CI runners/containers.
+  UV_LINK_MODE: copy
 
 
 jobs:
@@ -32,20 +35,31 @@ jobs:
         with:
           submodules: recursive
 
+      # uv is provided by the deps image, but install it here too so the workflow
+      # is self-sufficient (e.g. before the deps image is rebuilt with uv).
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          version: "latest"
+
       - name: Test Souffle
         run: souffle --version
 
       - name: Build Souffle addon
         run: cd $GITHUB_WORKSPACE/souffle-addon && make && cd $GITHUB_WORKSPACE
 
+      # Create the project venv (managed CPython 3.13) with the dev group (pytest).
+      - name: Sync Python environment (uv, CPython 3.13)
+        run: uv sync --frozen
+
       - name: Run gigahorse help
-        run: ./gigahorse.py --help
+        run: uv run --frozen ./gigahorse.py --help
 
       - name: Run gigahorse example
-        run: ./gigahorse.py examples/long_running.hex -i --disable_inline
+        run: uv run --frozen ./gigahorse.py examples/long_running.hex -i --disable_inline
 
       - name: Run tests
-        run: pytest -v test_gigahorse.py --junitxml=test-results.xml
+        run: uv run --frozen pytest -v test_gigahorse.py --junitxml=test-results.xml
 
       - name: Publish Test Results
         uses: EnricoMi/publish-unit-test-result-action@v2
@@ -71,20 +85,31 @@ jobs:
         with:
           submodules: recursive
 
+      # uv is provided by the deps image, but install it here too so the workflow
+      # is self-sufficient (e.g. before the deps image is rebuilt with uv).
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          version: "latest"
+
       - name: Test Souffle
         run: souffle --version
 
       - name: Build Souffle addon
         run: cd $GITHUB_WORKSPACE/souffle-addon && make && cd $GITHUB_WORKSPACE
 
+      # Create the project venv (managed CPython 3.13) with the dev group (pytest).
+      - name: Sync Python environment (uv, CPython 3.13)
+        run: uv sync --frozen
+
       - name: Run gigahorse help
-        run: ./gigahorse.py --help
+        run: uv run --frozen ./gigahorse.py --help
 
       - name: Run gigahorse example
-        run: ./gigahorse.py examples/long_running.hex -i --disable_inline
+        run: uv run --frozen ./gigahorse.py examples/long_running.hex -i --disable_inline
 
       - name: Run tests
-        run: pytest -v test_gigahorse.py --junitxml=test-results.xml
+        run: uv run --frozen pytest -v test_gigahorse.py --junitxml=test-results.xml
 
       - name: Publish Test Results
         uses: EnricoMi/publish-unit-test-result-action@v2
@@ -99,20 +124,11 @@ jobs:
     - uses: actions/checkout@v4
       with:
         submodules: recursive
-    - name: Set up Python
-      uses: actions/setup-python@v5
+    - name: Install uv
+      uses: astral-sh/setup-uv@v6
       with:
-        python-version: '3.10'
-    - name: Install Dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install mypy
-    - name: mypy gigahorse
-      run: |
-        mypy gigahorse.py
-    - name: mypy visualizeout.py
-      run: |
-        mypy clients/visualizeout.py
-    - name: mypy rest
-      run: |
-        mypy src/*.py clientlib/*.py
+        version: "latest"
+    # `uv run mypy` (no args) type-checks the paths in [tool.mypy] files under the
+    # pinned CPython 3.13 — mirrors (and consolidates) the previous per-file runs.
+    - name: mypy
+      run: uv run --frozen mypy
