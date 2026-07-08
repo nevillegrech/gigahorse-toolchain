@@ -6,7 +6,7 @@ import sys
 
 # IT: Ugly hack; this can be avoided if we pull the script at the top level
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
-from clientlib.facts_to_cfg import Statement, Block, Function, construct_cfg, load_csv_map # type: ignore
+from clientlib.facts_to_cfg import Statement, Block, Function, construct_cfg, load_csv_map
 
 sys.setrecursionlimit(3000)
 
