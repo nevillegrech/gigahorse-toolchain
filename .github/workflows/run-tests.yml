@@ -132,3 +132,22 @@ jobs:
     # pinned CPython 3.13 — mirrors (and consolidates) the previous per-file runs.
     - name: mypy
       run: uv run --frozen mypy
+  ty:
+    runs-on: ubuntu-latest
+    name: Ty
+    # ty is a preview type checker: keep it as its own visible job, but never let
+    # its result fail the workflow or block merges. Advisory second opinion only;
+    # mypy remains the merge-blocking type gate.
+    continue-on-error: true
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: recursive
+    - name: Install uv
+      uses: astral-sh/setup-uv@v6
+      with:
+        version: "latest"
+    # `uv run ty check` (no args) type-checks the paths in [tool.ty] src.include
+    # under the pinned CPython 3.13 — Astral's fast second opinion alongside mypy.
+    - name: ty
+      run: uv run --frozen ty check

@@ -65,7 +65,9 @@ class OpCode:
             self.__str__()
         )
 
-    def __eq__(self, other) -> bool:
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, OpCode):
+            return NotImplemented
         return self.code == other.code
 
     def __hash__(self) -> int:

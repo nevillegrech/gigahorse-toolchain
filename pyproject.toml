@@ -54,6 +54,7 @@ Documentation = "https://github.com/nevillegrech/gigahorse-toolchain#readme"
 dev = [
     "mypy>=1.13",
     "pytest>=8.3",
+    "ty>=0.0.56",
 ]
 
 [tool.uv]
@@ -82,3 +83,34 @@ explicit_package_bases = true
 mypy_path = "."
 # pyvis/lark/pydot ship no type stubs; keep third-party imports from failing type-checks.
 ignore_missing_imports = true
+# Moderate strictness — a hygiene bump, deliberately NOT full `strict = true`
+# (this codebase has many intentionally un-annotated helpers, so the
+# disallow-untyped-defs family would be noise). check_untyped_defs is the
+# important one: without it mypy skips the *bodies* of un-annotated functions,
+# which is why ty caught bugs mypy silently passed.
+check_untyped_defs = true      # type-check bodies of un-annotated functions too
+warn_unused_ignores = true     # flag `# type: ignore` that no longer suppress anything
+warn_redundant_casts = true    # flag cast() calls that don't change the type
+warn_unused_configs = true     # flag stale mypy config sections
+warn_return_any = true         # flag Any leaking out through a typed return
+strict_equality = true         # flag == / != between non-overlapping types
+extra_checks = true            # misc. correctness checks (TypedDict, **kwargs, …)
+no_implicit_optional = true    # a param default of None does not make it Optional
+
+# Astral's `ty` type checker (preview) runs in CI as a fast second opinion
+# alongside mypy. Config mirrors [tool.mypy] above: same Python version and the
+# same first-party paths, so both checkers cover identical source.
+[tool.ty.environment]
+python-version = "3.13"
+# clientlib/src are imported from the repo root (e.g. `clientlib.facts_to_cfg`);
+# keep the root on the module search path so those first-party imports resolve.
+root = ["."]
+
+[tool.ty.src]
+# Default targets when `ty check` is invoked without explicit paths.
+include = [
+    "gigahorse.py",
+    "clients/visualizeout.py",
+    "src",
+    "clientlib",
+]

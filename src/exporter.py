@@ -9,7 +9,7 @@ import src.basicblock as basicblock
 from src.common import public_function_signature_filename, event_signature_filename, error_signature_filename, COMMON_FACTS_DIR
 
 
-from typing import Any
+from typing import Any, Iterable
 
 opcode_output = {'alters_flow':bool, 'halts':bool, 'is_arithmetic':bool,
                  'is_call':bool, 'is_dup':bool, 'is_invalid':bool,
@@ -93,7 +93,7 @@ class FactExporter(Exporter):
     def get_out_file_path(self, filename):
         return os.path.join(self.output_dir, filename)
 
-    def generate(self, filename: str, entries: list[Any]):
+    def generate(self, filename: str, entries: Iterable[Any]):
         with open(self.get_out_file_path(filename), 'w') as f:
             writer = csv.writer(f, delimiter='\t', lineterminator='\n')
             writer.writerows(entries)
@@ -155,6 +155,8 @@ class EVMBlockExporter(FactExporter):
         """
 
         def get_version_str(metadata_prefix):
+            # Only ever called under `if self.bytecode_hex:` below.
+            assert self.bytecode_hex is not None
             index = self.bytecode_hex.rindex(metadata_prefix) + len(metadata_prefix)
             version_bytes = self.bytecode_hex[index : index + 6]
             return f"{int(version_bytes[0:2], 16)}.{int(version_bytes[2:4], 16)}.{int(version_bytes[4:6], 16)}"
@@ -225,10 +227,15 @@ class EVMBlockExporter(FactExporter):
                 instructions_order.append(int(op.pc))
                 instructions.append((hex(op.pc), op.opcode.name))
                 if op.opcode.is_push():
+                    # PUSH1..PUSH32 always carry an immediate value (PUSH0 is
+                    # excluded by is_push), so op.value is never None here.
+                    assert op.value is not None
                     push_value.append((hex(op.pc), hex(op.value)))
 
-        instructions_order = list(map(hex, sorted(instructions_order)))
-        self.generate('Statement_Next.facts', zip(instructions_order, instructions_order[1:]))
+        # Statement IDs are the hex-encoded PCs in ascending order; pair each
+        # with its successor to emit the Statement_Next edges.
+        ordered_statement_ids = list(map(hex, sorted(instructions_order)))
+        self.generate('Statement_Next.facts', zip(ordered_statement_ids, ordered_statement_ids[1:]))
 
         self.generate('Statement_Opcode.facts', instructions)
                     

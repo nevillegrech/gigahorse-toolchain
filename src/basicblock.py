@@ -10,6 +10,9 @@ class EVMBasicBlock:
     its parent and child nodes in the graph structure.
     """
 
+    _STR_SEP = "---"
+    """Separator between the block header and its op listing in __str__."""
+
     def __init__(self, entry: int | None = None, exit: int | None = None,
                  evm_ops: list['EVMOp'] | None = None):
         """
