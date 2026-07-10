@@ -54,6 +54,8 @@ Documentation = "https://github.com/nevillegrech/gigahorse-toolchain#readme"
 dev = [
     "mypy>=1.13",
     "pytest>=8.3",
+    "pytest-xdist>=3.8",
+    "filelock>=3.15",
 ]
 
 [tool.uv]
