@@ -1301,6 +1301,10 @@ NumberOfFunctionReturnArguments(func, n) :-
     LocalBlockEdge(prevBlock, defBlock),
     !PHIVarUsedInBlockBackpropagatesTo(irblock, stackIndex, prevBlock, _).
 
+  PHIVarIntroductionPoint(irblock, stackIndex, defBlock, defBlockIndex):-
+    PHIVarUsedInBlockBackpropagatesTo(irblock, stackIndex, defBlock, defBlockIndex),
+    !LocalBlockEdge(_, defBlock).
+
 }
 
 #define INIT_FSTACK_FROM_LOCAL(fstack, local)\

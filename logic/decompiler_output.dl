@@ -38,6 +38,7 @@ PolymorphicStackIndex(block, stackIndex) :-
   These need phi instructions introduced at the dominance frontier
 */
 .decl PHILocation(block: IRBlock, stackIndex: StackIndex, newVarSymbol: IRStatement)
+DEBUG_OUTPUT(PHILocation)
 PHILocation(defBlock, defBlockIndex, cat(cat(defBlock, "_"), defBlockIndexHex)) :-
    PolymorphicStackIndex(block, stackIndex),
    lastFunctional.PHIVarIntroductionPoint(block, stackIndex, defBlock, defBlockIndex),
