@@ -1065,6 +1065,8 @@ NumberOfFunctionReturnArguments(func, n) :-
   .decl IRLocalStackContents(stmt: IRStatement, n:StackIndex, varOrStackIndex:VariableOrStackIndex)
   .decl IRStatement_Uses_Local(stmt: IRStatement, varOrStackIndex: VariableOrStackIndex, n: StackIndex)
 
+  .decl FunctionalBlockOutLocalStackContents(irBlock: IRBlock, n: StackIndex, varOrStackIndex: VariableOrStackIndex)
+
   Variable_String(newVar, cat(callStmtBefore, cat("_", @number_to_hex(n)))),
   FunctionalStatement_Defines(callStmt, newVar, n),
   FunctionCallReturnArgument(caller, n, newVar) :-
@@ -1216,6 +1218,88 @@ NumberOfFunctionReturnArguments(func, n) :-
   //   CheckIsStackIndex(stackIndex),
   //   IRStatement_Block(stmt, block),
   //   FunctionalBlockInputContents(block, stackIndex, var).
+
+  FunctionalBlockOutLocalStackContents(block, n, varOrStackIndex):-
+    IRInFunction(block, _),
+    LocalBlockEdge(block, _),
+    IRBlockOutLocalStackContents(block, n, varOrStackIndex),
+    !IRFunctionCall(block, _).
+
+  FunctionalBlockOutLocalStackContents(caller, n, newVar):-
+    FunctionCallReturnArgument(caller, n, newVar).
+
+  FunctionalBlockOutLocalStackContents(caller, n, varOrStackIndex):-
+    IRFunctionCall(caller, _),
+    IRBlockOutLocalStackContents(caller, n, varOrStackIndex),
+    !FunctionCallReturnArgument(caller, n, _).
+
+  .decl PolymorphicFunctionalInputIndex(block: IRBlock, stackIndex: StackIndex)
+  .decl PolymorphicFunctionalInputIndex_VarNum(block: IRBlock, stackIndex: StackIndex, varNum: number)
+  .decl PolymorphicFunctionalInputIndex_VarOrdSum(block: IRBlock, stackIndex: StackIndex, varSum: number)
+
+  PolymorphicFunctionalInputIndex(irblock, stackIndex):-
+    FunctionalBlockInputContents(irblock, stackIndex, var1),
+    FunctionalBlockInputContents(irblock, stackIndex, var2),
+    var1 != var2.
+
+  PolymorphicFunctionalInputIndex_VarNum(irblock, stackIndex, varNum):-
+    PolymorphicFunctionalInputIndex(irblock, stackIndex),
+    varNum = count: FunctionalBlockInputContents(irblock, stackIndex, _).
+
+  PolymorphicFunctionalInputIndex_VarOrdSum(irblock, stackIndex, varSum):-
+    PolymorphicFunctionalInputIndex(irblock, stackIndex),
+    varSum = sum ord(var): FunctionalBlockInputContents(irblock, stackIndex, var).
+
+  .decl PolymorphicFunctionalOutputIndex(block: IRBlock, stackIndex: StackIndex)
+  .decl PolymorphicFunctionalOutputIndex_VarNum(block: IRBlock, stackIndex: StackIndex, varNum: number)
+  .decl PolymorphicFunctionalOutputIndex_VarOrdSum(block: IRBlock, stackIndex: StackIndex, varSum: number)
+
+  PolymorphicFunctionalOutputIndex(irblock, stackIndex):-
+    FunctionalBlockOutputContents(irblock, stackIndex, var1),
+    FunctionalBlockOutputContents(irblock, stackIndex, var2),
+    var1 != var2.
+
+  PolymorphicFunctionalOutputIndex_VarNum(irblock, stackIndex, varNum):-
+    PolymorphicFunctionalOutputIndex(irblock, stackIndex),
+    varNum = count: FunctionalBlockOutputContents(irblock, stackIndex, _).
+
+  PolymorphicFunctionalOutputIndex_VarOrdSum(irblock, stackIndex, varSum):-
+    PolymorphicFunctionalOutputIndex(irblock, stackIndex),
+    varSum = sum ord(var): FunctionalBlockOutputContents(irblock, stackIndex, var).
+
+  .decl PHIVarUsedInBlock(block: IRBlock, stackIndex: StackIndex)
+  .output PHIVarUsedInBlock
+
+  PHIVarUsedInBlock(irblock, stackIndex):-
+    FunctionalStatement_Uses_Local(irstmt, stackIndex, _),
+    CheckIsStackIndex(stackIndex),
+    IRStatement_Block(irstmt, irblock),
+    FunctionalBlockInputContents(irblock, stackIndex, var1),
+    FunctionalBlockInputContents(irblock, stackIndex, var2),
+    var1 != var2.
+
+  .decl PHIVarUsedInBlockBackpropagatesTo(block: IRBlock, stackIndex: StackIndex, prevBlock: IRBlock, prevIndex: StackIndex)
+  .output PHIVarUsedInBlockBackpropagatesTo
+  PHIVarUsedInBlockBackpropagatesTo(irblock, stackIndex, irblock, stackIndex):-
+    PHIVarUsedInBlock(irblock, stackIndex).
+
+  PHIVarUsedInBlockBackpropagatesTo(irblock, stackIndex, prevBlock, prevIndex):-
+    PHIVarUsedInBlockBackpropagatesTo(irblock, stackIndex, tmpBlock, tmpIndex),
+    PolymorphicFunctionalInputIndex_VarNum(tmpBlock, tmpIndex, varNum),
+    PolymorphicFunctionalInputIndex_VarOrdSum(tmpBlock, tmpIndex, varSum),
+    LocalBlockEdge(prevBlock, tmpBlock),
+    PolymorphicFunctionalOutputIndex_VarNum(prevBlock, tmpIndex, varNum),
+    PolymorphicFunctionalOutputIndex_VarOrdSum(prevBlock, tmpIndex, varSum),
+    FunctionalBlockOutLocalStackContents(prevBlock, tmpIndex, prevIndex),
+    PolymorphicFunctionalInputIndex_VarNum(prevBlock, prevIndex, varNum),
+    PolymorphicFunctionalInputIndex_VarOrdSum(prevBlock, prevIndex, varSum).
+
+  .decl PHIVarIntroductionPoint(irblock: IRBlock, stackIndex: StackIndex, defBlock: IRBlock)
+  .output PHIVarIntroductionPoint
+  PHIVarIntroductionPoint(irblock, stackIndex, defBlock):-
+    PHIVarUsedInBlockBackpropagatesTo(irblock, stackIndex, defBlock, _),
+    LocalBlockEdge(prevBlock, defBlock),
+    !PHIVarUsedInBlockBackpropagatesTo(irblock, stackIndex, prevBlock, _).
 
 }
 
