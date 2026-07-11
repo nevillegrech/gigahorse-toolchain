@@ -1294,10 +1294,10 @@ NumberOfFunctionReturnArguments(func, n) :-
     PolymorphicFunctionalInputIndex_VarNum(prevBlock, prevIndex, varNum),
     PolymorphicFunctionalInputIndex_VarOrdSum(prevBlock, prevIndex, varSum).
 
-  .decl PHIVarIntroductionPoint(irblock: IRBlock, stackIndex: StackIndex, defBlock: IRBlock)
+  .decl PHIVarIntroductionPoint(irblock: IRBlock, stackIndex: StackIndex, defBlock: IRBlock, defBlockIndex: StackIndex)
   .output PHIVarIntroductionPoint
-  PHIVarIntroductionPoint(irblock, stackIndex, defBlock):-
-    PHIVarUsedInBlockBackpropagatesTo(irblock, stackIndex, defBlock, _),
+  PHIVarIntroductionPoint(irblock, stackIndex, defBlock, defBlockIndex):-
+    PHIVarUsedInBlockBackpropagatesTo(irblock, stackIndex, defBlock, defBlockIndex),
     LocalBlockEdge(prevBlock, defBlock),
     !PHIVarUsedInBlockBackpropagatesTo(irblock, stackIndex, prevBlock, _).
 
