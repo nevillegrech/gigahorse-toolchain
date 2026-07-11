@@ -698,6 +698,29 @@ LocalBlockEdge(block, next) :-
   IRFunctionCallReturn(block, _, next),
   ReachableFromFunHead(block).
 
+.decl DoesNotDominate(candidate: IRBlock, b: IRBlock)
+DoesNotDominate(candidate,s) :-
+  IRFunctionEntry(s),
+  IRInFunction(s, f), 
+  IRInFunction(candidate, f),
+  candidate != s.
+
+DoesNotDominate(notdom, s) :-
+  DoesNotDominate(notdom, other),
+  LocalBlockEdge(other, s), s != notdom.
+
+.decl Dominates(dominator: IRBlock, block: IRBlock)
+Dominates(dominator,s) :-
+  IRInFunction(dominator, f),
+  IRInFunction(s, f),
+  !DoesNotDominate(dominator,s).
+
+.decl LoopHead(head: IRBlock)
+LoopHead(to) :-
+  LocalBlockEdge(from, to),
+  Dominates(to, from).
+
+
 .decl DeadBlock(irblk:IRBlock)
 .decl DeadStmt(irstmt:IRStatement)
 
@@ -1305,6 +1328,10 @@ NumberOfFunctionReturnArguments(func, n) :-
     PHIVarUsedInBlockBackpropagatesTo(irblock, stackIndex, defBlock, defBlockIndex),
     !LocalBlockEdge(_, defBlock).
 
+  PHIVarIntroductionPoint(irblock, stackIndex, defBlock, defBlockIndex):-
+    PHIVarUsedInBlockBackpropagatesTo(irblock, stackIndex, defBlock, defBlockIndex),
+    LoopHead(defBlock).
+
 }
 
 #define INIT_FSTACK_FROM_LOCAL(fstack, local)\
@@ -1437,7 +1464,7 @@ IRFunctionExit(exitNode):-
   IRStatement_Block(stmt, exitNode),
   IRStatement_Opcode(stmt, opcode),
   (opcode = "EXIT"; opcode = "RETURN"; opcode = "RETURNPRIVATE").
-  
+
 .decl DoesNotPostDominate(candidate: IRBlock, block: IRBlock)
 DoesNotPostDominate(candidate, exitNode) :-
   IRFunctionExit(exitNode),
