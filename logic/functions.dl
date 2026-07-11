@@ -1242,6 +1242,7 @@ NumberOfFunctionReturnArguments(func, n) :-
   //   IRStatement_Block(stmt, block),
   //   FunctionalBlockInputContents(block, stackIndex, var).
 
+  DEBUG_OUTPUT(FunctionalBlockOutLocalStackContents)
   FunctionalBlockOutLocalStackContents(block, n, varOrStackIndex):-
     IRInFunction(block, _),
     LocalBlockEdge(block, _),
@@ -1251,14 +1252,21 @@ NumberOfFunctionReturnArguments(func, n) :-
   FunctionalBlockOutLocalStackContents(caller, n, newVar):-
     FunctionCallReturnArgument(caller, n, newVar).
 
-  FunctionalBlockOutLocalStackContents(caller, n, varOrStackIndex):-
-    IRFunctionCall(caller, _),
-    IRBlockOutLocalStackContents(caller, n, varOrStackIndex),
-    !FunctionCallReturnArgument(caller, n, _).
+  FunctionalBlockOutLocalStackContents(caller, newIndex, varOrStackIndex):-
+    IRFunctionCall(caller, func),
+    IRBlockOutLocalStackContents(caller, index, varOrStackIndex),
+    NumberOfFunctionReturnArguments(func, n_out),
+    NumberOfFunctionArguments(func, n_in),
+    index >= n_in,
+    newIndex = index+n_out-n_in,
+    CheckIsStackIndex(newIndex).
 
   .decl PolymorphicFunctionalInputIndex(block: IRBlock, stackIndex: StackIndex)
+  DEBUG_OUTPUT(PolymorphicFunctionalInputIndex)
   .decl PolymorphicFunctionalInputIndex_VarNum(block: IRBlock, stackIndex: StackIndex, varNum: number)
+  DEBUG_OUTPUT(PolymorphicFunctionalInputIndex_VarNum)
   .decl PolymorphicFunctionalInputIndex_VarOrdSum(block: IRBlock, stackIndex: StackIndex, varSum: number)
+  DEBUG_OUTPUT(PolymorphicFunctionalInputIndex_VarOrdSum)
 
   PolymorphicFunctionalInputIndex(irblock, stackIndex):-
     FunctionalBlockInputContents(irblock, stackIndex, var1),
@@ -1274,8 +1282,11 @@ NumberOfFunctionReturnArguments(func, n) :-
     varSum = sum ord(var): FunctionalBlockInputContents(irblock, stackIndex, var).
 
   .decl PolymorphicFunctionalOutputIndex(block: IRBlock, stackIndex: StackIndex)
+  DEBUG_OUTPUT(PolymorphicFunctionalOutputIndex)
   .decl PolymorphicFunctionalOutputIndex_VarNum(block: IRBlock, stackIndex: StackIndex, varNum: number)
+  DEBUG_OUTPUT(PolymorphicFunctionalOutputIndex_VarNum)
   .decl PolymorphicFunctionalOutputIndex_VarOrdSum(block: IRBlock, stackIndex: StackIndex, varSum: number)
+  DEBUG_OUTPUT(PolymorphicFunctionalOutputIndex_VarOrdSum)
 
   PolymorphicFunctionalOutputIndex(irblock, stackIndex):-
     FunctionalBlockOutputContents(irblock, stackIndex, var1),
@@ -1330,7 +1341,9 @@ NumberOfFunctionReturnArguments(func, n) :-
 
   PHIVarIntroductionPoint(irblock, stackIndex, defBlock, defBlockIndex):-
     PHIVarUsedInBlockBackpropagatesTo(irblock, stackIndex, defBlock, defBlockIndex),
-    LoopHead(defBlock).
+    LocalBlockEdge(prevBlock, defBlock),
+    PHIVarUsedInBlockBackpropagatesTo(irblock, stackIndex, prevBlock, _),
+    Dominates(defBlock, prevBlock).
 
 }
 
