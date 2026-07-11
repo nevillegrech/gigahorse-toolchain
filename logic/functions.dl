@@ -1341,9 +1341,13 @@ NumberOfFunctionReturnArguments(func, n) :-
 
   PHIVarIntroductionPoint(irblock, stackIndex, defBlock, defBlockIndex):-
     PHIVarUsedInBlockBackpropagatesTo(irblock, stackIndex, defBlock, defBlockIndex),
-    LocalBlockEdge(prevBlock, defBlock),
-    PHIVarUsedInBlockBackpropagatesTo(irblock, stackIndex, prevBlock, _),
-    Dominates(defBlock, prevBlock).
+    IRFunctionEntry(defBlock).
+  // Disable for now as it is imprecise
+//   PHIVarIntroductionPoint(irblock, stackIndex, defBlock, defBlockIndex):-
+//     PHIVarUsedInBlockBackpropagatesTo(irblock, stackIndex, defBlock, defBlockIndex),
+//     LocalBlockEdge(prevBlock, defBlock),
+//     PHIVarUsedInBlockBackpropagatesTo(irblock, stackIndex, prevBlock, _),
+//     Dominates(defBlock, prevBlock).
 
 }
 
