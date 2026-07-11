@@ -720,6 +720,32 @@ LoopHead(to) :-
   LocalBlockEdge(from, to),
   Dominates(to, from).
 
+.decl IRFunctionExit(exitNode: IRBlock)
+IRFunctionExit(exitNode):-
+  IRStatement_Block(stmt, exitNode),
+  IRStatement_Opcode(stmt, opcode),
+  (opcode = "EXIT"; opcode = "RETURN"; opcode = "RETURNPRIVATE").
+
+.decl DoesNotPostDominate(candidate: IRBlock, block: IRBlock)
+DoesNotPostDominate(candidate, exitNode) :-
+  IRFunctionExit(exitNode),
+  IRInFunction(exitNode, f),
+  IRInFunction(candidate, f),
+  exitNode != candidate.
+
+
+DoesNotPostDominate(candidate, s) :-
+  DoesNotPostDominate(candidate, other),
+  LocalBlockEdge(s, other),
+  s != candidate.
+
+.decl PostDominates(postdominator: IRBlock, s: IRBlock)
+// .output PostDominates(IO="file", filename="FLPostDominates.csv", delimiter="\t")
+PostDominates(postdominator,s) :-
+  IRInFunction(postdominator, f),
+  IRInFunction(s, f),
+  !DoesNotPostDominate(postdominator,s).
+
 
 .decl DeadBlock(irblk:IRBlock)
 .decl DeadStmt(irstmt:IRStatement)
@@ -1328,8 +1354,12 @@ NumberOfFunctionReturnArguments(func, n) :-
     PolymorphicFunctionalInputIndex_VarNum(prevBlock, prevIndex, varNum),
     PolymorphicFunctionalInputIndex_VarOrdSum(prevBlock, prevIndex, varSum).
 
-  .decl PHIVarIntroductionPoint(irblock: IRBlock, stackIndex: StackIndex, defBlock: IRBlock, defBlockIndex: StackIndex)
+  .decl PHIVarIntroductionPoint(irblock: IRBlock, stackIndex: StackIndex, defBlock: IRBlock, defBlockIndex: StackIndex) btree_delete
   .output PHIVarIntroductionPoint
+
+  PHIVarIntroductionPoint(irblock, stackIndex, otherBlock, otherIndex) <= PHIVarIntroductionPoint(irblock, stackIndex, defBlock, defBlockIndex):-
+    PostDominates(defBlock, otherBlock).
+
   PHIVarIntroductionPoint(irblock, stackIndex, defBlock, defBlockIndex):-
     PHIVarUsedInBlockBackpropagatesTo(irblock, stackIndex, defBlock, defBlockIndex),
     LocalBlockEdge(prevBlock, defBlock),
@@ -1475,32 +1505,6 @@ DefBlockToUseBlockPath(from, to, path):-
 //   PHIOpTwoPathHelper(useBlock, stackIndex, defBlock1, defPath1, defBlock2, defPath2),
 //   defPath1 != defPath2, defPath2 != "", defPath1 != "",
 //   contains(defPath1, defPath2).
-
-.decl IRFunctionExit(exitNode: IRBlock)
-IRFunctionExit(exitNode):-
-  IRStatement_Block(stmt, exitNode),
-  IRStatement_Opcode(stmt, opcode),
-  (opcode = "EXIT"; opcode = "RETURN"; opcode = "RETURNPRIVATE").
-
-.decl DoesNotPostDominate(candidate: IRBlock, block: IRBlock)
-DoesNotPostDominate(candidate, exitNode) :-
-  IRFunctionExit(exitNode),
-  IRInFunction(exitNode, f),
-  IRInFunction(candidate, f),
-  exitNode != candidate.
-
-
-DoesNotPostDominate(candidate, s) :-
-  DoesNotPostDominate(candidate, other),
-  LocalBlockEdge(s, other),
-  s != candidate.
-
-.decl PostDominates(postdominator: IRBlock, s: IRBlock)
-// .output PostDominates(IO="file", filename="FLPostDominates.csv", delimiter="\t")
-PostDominates(postdominator,s) :-
-  IRInFunction(postdominator, f),
-  IRInFunction(s, f),
-  !DoesNotPostDominate(postdominator,s).
 
 .decl PHIVarInformationLoss(useBlock: IRBlock, useVar: Variable, stackIndex: StackIndex)
 DEBUG_OUTPUT(PHIVarInformationLoss)
