@@ -54,6 +54,8 @@ Documentation = "https://github.com/nevillegrech/gigahorse-toolchain#readme"
 dev = [
     "mypy>=1.13",
     "pytest>=8.3",
+    "pytest-xdist>=3.8",
+    "filelock>=3.15",
     "ruff>=0.15",
 ]
 
@@ -83,44 +85,3 @@ explicit_package_bases = true
 mypy_path = "."
 # pyvis/lark/pydot ship no type stubs; keep third-party imports from failing type-checks.
 ignore_missing_imports = true
-
-[tool.ruff]
-# Lint/format target matches the interpreter the rest of the toolchain pins.
-target-version = "py313"
-line-length = 120
-# souffle-addon is a native (C++) submodule; nothing to lint there.
-extend-exclude = ["souffle-addon"]
-
-[tool.ruff.lint]
-# A pragmatic baseline for a working toolchain: real-bug and modernization rules,
-# not whole-codebase stylistic churn (pathlib/print/security nits are intentionally
-# left out for now — they'd rewrite large parts of a stdlib-only CLI).
-select = [
-    "E", "W",  # pycodestyle
-    "F",       # pyflakes — undefined names, unused imports/vars
-    "I",       # isort — deterministic import ordering
-    "UP",      # pyupgrade — modernize syntax for py313
-    "B",       # flake8-bugbear — likely bugs & foot-guns
-    "C4",      # flake8-comprehensions
-    "PIE",     # flake8-pie — small cleanups
-    "RUF",     # ruff-specific rules
-]
-ignore = [
-    # Line length is a formatter concern; the formatter wraps code to 120 and long
-    # strings / URLs / generated-Datalog literals are deliberately left intact.
-    "E501",
-    # `class X(str, Enum)` -> `StrEnum` changes member str() semantics, which would
-    # alter emitted Datalog / comparisons. Tracked as a separate migration.
-    "UP042",
-    # Allow domain notation (e.g. the `×` multiplication sign in gas-cost comments).
-    "RUF001", "RUF002", "RUF003",
-]
-
-[tool.ruff.lint.isort]
-# The toolchain runs in place (no installed package), and some modules under src/ are
-# imported bare (e.g. `from tac_schema import ...`) because src/ is on sys.path at
-# runtime — pin them as first-party so import grouping is stable.
-known-first-party = [
-    "src", "clientlib",
-    "common", "runners", "exporter", "blockparse", "basicblock", "opcodes", "tac_schema",
-]

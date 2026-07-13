@@ -62,7 +62,9 @@ DEFAULT_NUM_JOBS = max(int(cpu_count() * 0.9), 1)
 
 # Command Line Arguments
 
-parser = argparse.ArgumentParser(description="A batch analyzer for EVM bytecode programs.")
+parser = argparse.ArgumentParser(
+    description="A batch analyzer for EVM bytecode programs."
+)
 
 parser.add_argument(
     "filepath",
@@ -79,9 +81,21 @@ parser.add_argument(
     help=f"The location of the souffle binary (default: {DEFAULT_SOUFFLE_BIN}).",
 )
 
-parser.add_argument("-C", "--client", nargs="?", default="", help="Additional clients to run after decompilation.")
+parser.add_argument(
+    "-C",
+    "--client",
+    nargs="?",
+    default="",
+    help="Additional clients to run after decompilation.",
+)
 
-parser.add_argument("-P", "--pre-client", nargs="?", default="", help="Additional clients to run before decompilation.")
+parser.add_argument(
+    "-P",
+    "--pre-client",
+    nargs="?",
+    default="",
+    help="Additional clients to run before decompilation.",
+)
 
 parser.add_argument(
     "-r",
@@ -144,7 +158,10 @@ parser.add_argument(
 )
 
 parser.add_argument(
-    "-M", "--souffle_macros", default="", help="Prepocessor macro definitions to pass to Souffle using the -M parameter"
+    "-M",
+    "--souffle_macros",
+    default="",
+    help="Prepocessor macro definitions to pass to Souffle using the -M parameter",
 )
 
 parser.add_argument(
@@ -174,10 +191,16 @@ parser.add_argument(
     "To be used when benchmarking.",
 )
 
-parser.add_argument("-q", "--quiet", action="store_true", default=False, help="Silence output.")
+parser.add_argument(
+    "-q", "--quiet", action="store_true", default=False, help="Silence output."
+)
 
 parser.add_argument(
-    "-v", "--verbose", action="store_true", default=False, help="Verbose output (for debugging purposes)."
+    "-v",
+    "--verbose",
+    action="store_true",
+    default=False,
+    help="Verbose output (for debugging purposes).",
 )
 
 parser.add_argument(
@@ -188,7 +211,10 @@ parser.add_argument(
 )
 
 parser.add_argument(
-    "--restart", action="store_true", default=False, help="Erase working dir and decompile/analyze from scratch."
+    "--restart",
+    action="store_true",
+    default=False,
+    help="Erase working dir and decompile/analyze from scratch.",
 )
 
 parser.add_argument(
@@ -199,10 +225,19 @@ parser.add_argument(
 )
 
 parser.add_argument(
-    "--reuse_datalog_bin", action="store_true", default=False, help="Do not recompile the datalog binaries."
+    "--reuse_datalog_bin",
+    action="store_true",
+    default=False,
+    help="Do not recompile the datalog binaries.",
 )
 
-parser.add_argument("-i", "--interpreted", action="store_true", default=False, help="Run souffle in interpreted mode.")
+parser.add_argument(
+    "-i",
+    "--interpreted",
+    action="store_true",
+    default=False,
+    help="Run souffle in interpreted mode.",
+)
 
 parser.add_argument(
     "--tac_gen_config",
@@ -214,7 +249,9 @@ parser.add_argument(
 
 
 def get_working_dir(contract_name: str) -> str:
-    return join(os.path.abspath(args.working_dir), os.path.split(contract_name)[1].split(".")[0])
+    return join(
+        os.path.abspath(args.working_dir), os.path.split(contract_name)[1].split(".")[0]
+    )
 
 
 def prepare_working_dir(contract_name: str) -> tuple[bool, str, str]:
@@ -285,15 +322,22 @@ def analyze_contract(
             decompiler_config = None
         else:
             start_time = time.time()
-            disassemble_time, decomp_time, decompiler_config = fact_generator.generate_facts(
-                contract_filename, work_dir, out_dir
+            disassemble_time, decomp_time, decompiler_config = (
+                fact_generator.generate_facts(contract_filename, work_dir, out_dir)
             )
 
             inline_start = time.time()
-            if not args.disable_inline and decompiler_config != FactGenUsedEnum.MultiContract:
+            if (
+                not args.disable_inline
+                and decompiler_config != FactGenUsedEnum.MultiContract
+            ):
                 # ignore timeouts here: if it happens, just continue to the clients
                 _, inl_errors = analysis_executor.run_clients(
-                    [DEFAULT_INLINER_DL] * DEFAULT_INLINER_ROUNDS, [], out_dir, out_dir, start_time
+                    [DEFAULT_INLINER_DL] * DEFAULT_INLINER_ROUNDS,
+                    [],
+                    out_dir,
+                    out_dir,
+                    start_time,
                 )
                 if inl_errors:
                     raise DecompilationException()
@@ -309,7 +353,9 @@ def analyze_contract(
             raise TimeoutException()
 
         client_start = time.time()
-        timeouts, errors = analysis_executor.run_clients(souffle_clients, other_clients, out_dir, out_dir, client_start)
+        timeouts, errors = analysis_executor.run_clients(
+            souffle_clients, other_clients, out_dir, out_dir, client_start
+        )
 
         # Collect the results and put them in the result queue
         files = []
@@ -327,13 +373,15 @@ def analyze_contract(
         analytics["client_timeouts"] = len(timeouts)
         analytics["bytecode_size"] = (len(bytecode) - 2) // 2
         analytics["decompiler_config"] = decompiler_config
-        contract_msg = "{}: {:.46} completed in {:.2f} + {:.2f} + {:.2f} + {:.2f} secs.".format(
-            index,
-            contract_name,
-            analytics["disassemble_time"],
-            analytics["decomp_time"],
-            analytics["inline_time"],
-            analytics["client_time"],
+        contract_msg = (
+            "{}: {:.46} completed in {:.2f} + {:.2f} + {:.2f} + {:.2f} secs.".format(
+                index,
+                contract_name,
+                analytics["disassemble_time"],
+                analytics["decomp_time"],
+                analytics["inline_time"],
+                analytics["client_time"],
+            )
         )
         if errors:
             meta.append("CLIENT ERROR")
@@ -349,7 +397,7 @@ def analyze_contract(
         result_queue.put((contract_name, files, meta, analytics))
     except TimeoutException:
         result_queue.put((contract_name, [], ["TIMEOUT"], {}))
-        log(f"{contract_name} timed out.")
+        log("{} timed out.".format(contract_name))
     except DecompilationException as e:
         log(f"Error during execution of decompilation binary: {e}")
         result_queue.put((contract_name, [], ["ERROR"], {}))
@@ -360,7 +408,7 @@ def analyze_contract(
 
 def get_gigahorse_analytics(out_dir: str, analytics: dict) -> None:
     for fname in os.listdir(out_dir):
-        if not (fname.startswith(("Analytics_", "Metric_"))):
+        if not (fname.startswith("Analytics_") or fname.startswith("Metric_")):
             continue
         stat_name = fname.split(".")[0]
         analytics[stat_name] = sum(1 for line in open(join(out_dir, fname)))
@@ -423,24 +471,26 @@ def write_results(res_list: Any, results_file: str) -> None:
             if k in all_files:
                 all_files.remove(k)
 
-    analytics_sums_sorted = sorted(analytics_sums.items(), key=lambda a: a[0])
+    analytics_sums_sorted = sorted(list(analytics_sums.items()), key=lambda a: a[0])
     if analytics_sums_sorted:
         log("\n")
         log("-" * 80)
         log("Analytics")
         log("-" * 80)
         for res, sums in analytics_sums_sorted:
-            log(f"  {res}: {sums}")
+            log("  {}: {}".format(res, sums))
         log("\n")
 
-    vulnerability_counts_sorted = sorted(vulnerability_counts.items(), key=lambda a: a[0])
+    vulnerability_counts_sorted = sorted(
+        list(vulnerability_counts.items()), key=lambda a: a[0]
+    )
     if vulnerability_counts_sorted:
         log("-" * 80)
         log("Summary (flagged contracts)")
         log("-" * 80)
 
         for res, count in vulnerability_counts_sorted:
-            log(f"  {res}: {100 * count / total:.2f}%")
+            log("  {}: {:.2f}%".format(res, 100 * count / total))
 
     if meta_counts:
         log("-" * 80)
@@ -450,7 +500,7 @@ def write_results(res_list: Any, results_file: str) -> None:
             log(f"  {k}: {v} of {total} contracts")
         log("\n")
 
-    log(f"\nWriting results to {results_file}")
+    log("\nWriting results to {}".format(results_file))
     with open(results_file, "w") as f:
         f.write(json.dumps(list(res_list), indent=1))
 
@@ -502,11 +552,25 @@ def batch_analysis(
                     job_index = avail_jobs.pop()
                     proc = Process(
                         target=analyze_contract,
-                        args=(index, contract_name, res_queue, fact_generator, souffle_clients, other_clients),
+                        args=(
+                            index,
+                            contract_name,
+                            res_queue,
+                            fact_generator,
+                            souffle_clients,
+                            other_clients,
+                        ),
                     )
                     proc.start()
                     start_time = time.time()
-                    workers.append({"name": contract_name, "proc": proc, "time": start_time, "job_index": job_index})
+                    workers.append(
+                        {
+                            "name": contract_name,
+                            "proc": proc,
+                            "time": start_time,
+                            "job_index": job_index,
+                        }
+                    )
                 except StopIteration:
                     contracts_exhausted = True
 
@@ -551,7 +615,13 @@ def run_gigahorse(args, fact_generator: AbstractFactGenerator) -> None:
     """
     Run gigahorse, passing the cmd line args and fact generator type as arguments
     """
-    log_level = logging.WARNING if args.quiet else logging.DEBUG if (args.verbose or args.debug) else logging.INFO + 1
+    log_level = (
+        logging.WARNING
+        if args.quiet
+        else logging.DEBUG
+        if (args.verbose or args.debug)
+        else logging.INFO + 1
+    )
     logging.basicConfig(format="%(message)s", level=log_level)
 
     test_souffle(args.souffle_bin)
@@ -585,13 +655,19 @@ def run_gigahorse(args, fact_generator: AbstractFactGenerator) -> None:
         for file in souffle_files:
             proc = Process(
                 target=compile_datalog,
-                args=(file, args.souffle_bin, args.cache_dir, args.reuse_datalog_bin, get_souffle_macros()),
+                args=(
+                    file,
+                    args.souffle_bin,
+                    args.cache_dir,
+                    args.reuse_datalog_bin,
+                    get_souffle_macros(),
+                ),
             )
             proc.start()
             running_processes.append(proc)
 
     if args.restart:
-        log(f"Removing working directory {args.working_dir}")
+        log("Removing working directory {}".format(args.working_dir))
         shutil.rmtree(args.working_dir, ignore_errors=True)
 
     if not args.interpreted:
@@ -602,7 +678,9 @@ def run_gigahorse(args, fact_generator: AbstractFactGenerator) -> None:
 
         # check all programs have been compiled
         for file in souffle_files:
-            open(get_souffle_executable_path(args.cache_dir, file))  # check program exists
+            open(
+                get_souffle_executable_path(args.cache_dir, file), "r"
+            )  # check program exists
 
     # Extract contract filenames.
     log("Processing contract names...")
@@ -625,11 +703,15 @@ def run_gigahorse(args, fact_generator: AbstractFactGenerator) -> None:
     else:
         contract_lists = [contracts]
 
-    res_list = []
+    res_list = list()
     round_num = 1
     for contract_list in contract_lists:
-        log(f"Round {round_num}: Discovered {len(contract_list)} contracts. Setting up workers.")
-        tmp_list = batch_analysis(fact_generator, souffle_clients, other_clients, contract_list, args.jobs)
+        log(
+            f"Round {round_num}: Discovered {len(contract_list)} contracts. Setting up workers."
+        )
+        tmp_list = batch_analysis(
+            fact_generator, souffle_clients, other_clients, contract_list, args.jobs
+        )
         res_list += tmp_list
         round_num += 1
 
@@ -680,9 +762,11 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     tac_gen_config_json = args.tac_gen_config
-    with open(tac_gen_config_json) as config:
+    with open(tac_gen_config_json, "r") as config:
         tac_gen_config = json.loads(config.read())
-        if len(tac_gen_config["handlers"]) == 0:  # if no handlers defined, default to classic decompilation
+        if (
+            len(tac_gen_config["handlers"]) == 0
+        ):  # if no handlers defined, default to classic decompilation
             run_gigahorse(args, DecompilerFactGenerator(args, ".*.hex"))
         elif (
             len(tac_gen_config["handlers"]) == 1
@@ -692,7 +776,10 @@ if __name__ == "__main__":
                 run_gigahorse(args, DecompilerFactGenerator(args, tac_gen["fileRegex"]))
             else:
                 run_gigahorse(
-                    args, CustomFactGenerator(tac_gen["fileRegex"], tac_gen["tacGenScripts"]["customScripts"])
+                    args,
+                    CustomFactGenerator(
+                        tac_gen["fileRegex"], tac_gen["tacGenScripts"]["customScripts"]
+                    ),
                 )
         elif (
             len(tac_gen_config["handlers"]) > 1
@@ -702,5 +789,7 @@ if __name__ == "__main__":
                 pattern = tac_gen["fileRegex"]
                 scripts = tac_gen["tacGenScripts"]["customScripts"]
                 fact_gen_option = tac_gen["tacGenScripts"]["factGen"]
-                fact_generator.add_fact_generator(pattern, scripts, fact_gen_option, args)
+                fact_generator.add_fact_generator(
+                    pattern, scripts, fact_gen_option, args
+                )
             run_gigahorse(args, fact_generator)

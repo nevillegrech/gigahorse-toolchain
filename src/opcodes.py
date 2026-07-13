@@ -58,7 +58,9 @@ class OpCode:
         return self.name
 
     def __repr__(self) -> str:
-        return f"<{self.__class__.__name__} object {hex(id(self))}, {self.__str__()}>"
+        return "<{0} object {1}, {2}>".format(
+            self.__class__.__name__, hex(id(self)), self.__str__()
+        )
 
     def __eq__(self, other) -> bool:
         return self.code == other.code
@@ -93,7 +95,9 @@ class OpCode:
 
     def is_arithmetic(self) -> bool:
         """Predicate: opcode's result can be calculated from its inputs alone."""
-        return (ADD.code <= self.code <= SIGNEXTEND.code) or (LT.code <= self.code <= CLZ.code)
+        return (ADD.code <= self.code <= SIGNEXTEND.code) or (
+            LT.code <= self.code <= CLZ.code
+        )
 
     def is_memory(self) -> bool:
         """Predicate: opcode operates on memory"""
@@ -206,7 +210,9 @@ CODESIZE = OpCode("CODESIZE", 0x38, 0, 1, 2)
 CODECOPY = OpCode("CODECOPY", 0x39, 3, 0, 3)  # Gverylow + Gcopy × dµs[2] ÷ 32e
 GASPRICE = OpCode("GASPRICE", 0x3A, 0, 1, 2)
 EXTCODESIZE = OpCode("EXTCODESIZE", 0x3B, 1, 1, 700)
-EXTCODECOPY = OpCode("EXTCODECOPY", 0x3C, 4, 0, 700)  # Gextcode + Gcopy × dµs[3] ÷ 32e if w = EXTCODECOPY
+EXTCODECOPY = OpCode(
+    "EXTCODECOPY", 0x3C, 4, 0, 700
+)  # Gextcode + Gcopy × dµs[3] ÷ 32e if w = EXTCODECOPY
 
 # Block Information
 BLOCKHASH = OpCode("BLOCKHASH", 0x40, 1, 1, 20)
@@ -360,7 +366,7 @@ def opcode_by_name(name: str) -> OpCode:
     """
     name = name.upper()
     if name not in OPCODES:
-        raise LookupError(f"No opcode named '{name}'.")
+        raise LookupError("No opcode named '{}'.".format(name))
     return OPCODES[name]
 
 
@@ -372,7 +378,7 @@ def opcode_by_value(val: int) -> OpCode:
       LookupError: if there is no opcode defined with the given value.
     """
     if val not in BYTECODES:
-        raise LookupError(f"No opcode with value '0x{val:02X}'.")
+        raise LookupError("No opcode with value '0x{:02X}'.".format(val))
     return BYTECODES[val]
 
 

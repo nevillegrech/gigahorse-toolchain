@@ -65,7 +65,9 @@ class DirectiveVisitor(Visitor):
             print("Unknown")
 
 
-net = Network(height="100%", width="100%", bgcolor="#222222", font_color="white", directed=True)
+net = Network(
+    height="100%", width="100%", bgcolor="#222222", font_color="white", directed=True
+)
 
 if os.path.exists(DB_FILE):
     os.remove(DB_FILE)
@@ -92,18 +94,21 @@ for x in glob.glob("../**/*.dl", recursive=True):
     head, tail = os.path.split(x)
 
     temp_file = f"{x}_E"
-    c = subprocess.run(["g++", "-g", "-o", temp_file, "-E", x.replace(".dl", ".cxx")], capture_output=True)
+    c = subprocess.run(
+        ["g++", "-g", "-o", temp_file, "-E", x.replace(".dl", ".cxx")],
+        capture_output=True,
+    )
 
     os.remove(x.replace(".dl", ".cxx"))
 
-    file = open(temp_file)
+    file = open(temp_file, "r")
     lines = file.readlines()
 
-    for _index, line in enumerate(lines):
+    for index, line in enumerate(lines):
         output = False
-        if re.search(r"\.output", line):
+        if re.search("\.output", line):
             output = True
-        elif re.search(r"\.input", line):
+        elif re.search("\.input", line):
             output = False
         else:
             continue
@@ -113,7 +118,9 @@ for x in glob.glob("../**/*.dl", recursive=True):
         for relation in d_visitor.relations:
             net.add_node(relation)
             filename = (
-                d_visitor.filename if len(d_visitor.filename) != 0 else f"{relation}{'.csv' if output else '.facts'}"
+                d_visitor.filename
+                if len(d_visitor.filename) != 0
+                else f"{relation}{'.csv' if output else '.facts'}"
             )
             net.add_node(filename)
             if output:

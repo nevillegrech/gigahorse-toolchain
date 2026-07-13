@@ -58,6 +58,8 @@ class DecompilationException(Exception):
     Other errors are just output as `client_errors` on the produced json.
     """
 
+    pass
+
 
 def set_memory_limit(memory_limit: int):
     resource.setrlimit(resource.RLIMIT_AS, (memory_limit, memory_limit))
@@ -70,8 +72,12 @@ def get_souffle_executable_path(cache_dir: str, dl_filename: str) -> str:
 
 
 def test_souffle(souffle_bin: str):
-    souffle_process = subprocess.run([souffle_bin, "--version"], text=True, capture_output=True)
-    assert not (souffle_process.returncode), "Souffle binary not found at {souffle_bin}. Stopping."
+    souffle_process = subprocess.run(
+        [souffle_bin, "--version"], universal_newlines=True, capture_output=True
+    )
+    assert not (souffle_process.returncode), (
+        "Souffle binary not found at {souffle_bin}. Stopping."
+    )
     log_debug("Souffle version info:")
     log_debug(souffle_process.stdout)
 
@@ -103,7 +109,12 @@ class AnalysisExecutor:
         return max(timeout_left, self.minimum_client_time)
 
     def run_souffle_client(
-        self, souffle_client: str, in_dir: str, out_dir: str, start_time: float, half: bool
+        self,
+        souffle_client: str,
+        in_dir: str,
+        out_dir: str,
+        start_time: float,
+        half: bool,
     ) -> tuple[list[str], list[str]]:
         errors = []
         timeouts = []
@@ -126,7 +137,12 @@ class AnalysisExecutor:
                 self.souffle_macros,
             ]
 
-        if run_process(analysis_args, self.calc_timeout(start_time, half), stderr=err_file) < 0:
+        if (
+            run_process(
+                analysis_args, self.calc_timeout(start_time, half), stderr=err_file
+            )
+            < 0
+        ):
             timeouts.append(souffle_client)
         if err_file != devnull:
             souffle_err = open(err_filename).read()
@@ -134,14 +150,26 @@ class AnalysisExecutor:
             # However with souffle 2.4 they cause the program to stop so we have to report them as well
             if any(
                 s in souffle_err
-                for s in ["Error", "error", "core dumped", "Segmentation", "segmentation", "corrupted", "std::"]
+                for s in [
+                    "Error",
+                    "error",
+                    "core dumped",
+                    "Segmentation",
+                    "segmentation",
+                    "corrupted",
+                    "std::",
+                ]
             ):
                 errors.append(os.path.basename(souffle_client))
             elif len(souffle_err) > 0:
-                log(f"Unrecognized error during {souffle_client} dl execution: {souffle_err}.")
+                log(
+                    f"Unrecognized error during {souffle_client} dl execution: {souffle_err}."
+                )
         return errors, timeouts
 
-    def run_script_client(self, script_client: str, in_dir: str, out_dir: str, start_time: float):
+    def run_script_client(
+        self, script_client: str, in_dir: str, out_dir: str, start_time: float
+    ):
         errors = []
         timeouts = []
         client_split = [o for o in script_client.split(" ") if o]
@@ -149,7 +177,13 @@ class AnalysisExecutor:
         client_name = client_split[0].split("/")[-1]
         err_filename = join(out_dir, client_name + ".err")
 
-        runtime = run_process(client_split, self.calc_timeout(start_time), devnull, open(err_filename, "w"), cwd=in_dir)
+        runtime = run_process(
+            client_split,
+            self.calc_timeout(start_time),
+            devnull,
+            open(err_filename, "w"),
+            cwd=in_dir,
+        )
         if len(open(err_filename).read()) > 0:
             errors.append(client_name)
         if runtime < 0:
@@ -168,7 +202,9 @@ class AnalysisExecutor:
         errors = []
         timeouts = []
         for souffle_client in souffle_clients:
-            e, t = self.run_souffle_client(souffle_client, in_dir, out_dir, start_time, half)
+            e, t = self.run_souffle_client(
+                souffle_client, in_dir, out_dir, start_time, half
+            )
             errors.extend(e)
             timeouts.extend(t)
 
@@ -180,7 +216,12 @@ class AnalysisExecutor:
 
 
 def run_process(
-    process_args, timeout: float, stdout=devnull, stderr=devnull, cwd: str = ".", memory_limit=DEFAULT_MEMORY_LIMIT
+    process_args,
+    timeout: float,
+    stdout=devnull,
+    stderr=devnull,
+    cwd: str = ".",
+    memory_limit=DEFAULT_MEMORY_LIMIT,
 ) -> float:
     """Runs process described by args, for a specific time period
     as specified by the timeout.
@@ -210,7 +251,13 @@ def run_process(
     return time.time() - start_time
 
 
-def compile_datalog(spec: str, souffle_bin: str, cache_dir: str, reuse_datalog_bin: bool, souffle_macros: str) -> None:
+def compile_datalog(
+    spec: str,
+    souffle_bin: str,
+    cache_dir: str,
+    reuse_datalog_bin: bool,
+    souffle_macros: str,
+) -> None:
     pathlib.Path(cache_dir).mkdir(exist_ok=True)
     executable_path = get_souffle_executable_path(cache_dir, spec)
 
@@ -222,9 +269,13 @@ def compile_datalog(spec: str, souffle_bin: str, cache_dir: str, reuse_datalog_b
         cpp_macros.append("-D")
         cpp_macros.append(macro_def)
 
-    preproc_command = ["cpp", "-P", spec, *cpp_macros]
-    preproc_process = subprocess.run(preproc_command, text=True, capture_output=True)
-    assert not (preproc_process.returncode), f"Preprocessing for {spec} failed. Stopping."
+    preproc_command = ["cpp", "-P", spec] + cpp_macros
+    preproc_process = subprocess.run(
+        preproc_command, universal_newlines=True, capture_output=True
+    )
+    assert not (preproc_process.returncode), (
+        f"Preprocessing for {spec} failed. Stopping."
+    )
 
     hasher = hashlib.md5()
     hasher.update(preproc_process.stdout.encode("utf-8"))
@@ -239,15 +290,30 @@ def compile_datalog(spec: str, souffle_bin: str, cache_dir: str, reuse_datalog_b
     else:
         comp_start = time.time()
         log(f"Compiling {spec} to C++ program and executable")
-        compilation_command = [souffle_bin, "-M", souffle_macros, "-o", cache_path, spec, "-L", functor_path]
-        process = subprocess.run(compilation_command, text=True, env=souffle_env)
+        compilation_command = [
+            souffle_bin,
+            "-M",
+            souffle_macros,
+            "-o",
+            cache_path,
+            spec,
+            "-L",
+            functor_path,
+        ]
+        process = subprocess.run(
+            compilation_command, universal_newlines=True, env=souffle_env
+        )
         assert not (process.returncode), f"Compilation for {spec} failed. Stopping."
-        log(f"Compilation of {spec} successful after {time.time() - comp_start} seconds.")
+        log(
+            f"Compilation of {spec} successful after {time.time() - comp_start} seconds."
+        )
 
     shutil.copy2(cache_path, executable_path)
 
 
-def write_context_depth_file(filename: str, max_context_depth: int | None = None) -> None:
+def write_context_depth_file(
+    filename: str, max_context_depth: int | None = None
+) -> None:
     context_depth_file = open(filename, "w")
     if max_context_depth is not None:
         context_depth_file.write(f"{max_context_depth}\n")
@@ -256,7 +322,9 @@ def write_context_depth_file(filename: str, max_context_depth: int | None = None
 
 def imprecise_decomp_out(out_dir: str) -> bool:
     """Used to check if decompilation output is imprecise, currently only checks Analytics_JumpToMany"""
-    imprecision_metric = len(open(join(out_dir, "Analytics_JumpToMany.csv")).readlines())
+    imprecision_metric = len(
+        open(join(out_dir, "Analytics_JumpToMany.csv"), "r").readlines()
+    )
     return imprecision_metric > 0
 
 
@@ -279,9 +347,7 @@ class AbstractFactGenerator(ABC):
     pattern: re.Pattern
     priority: int
 
-    # Intentional no-op base initializer so concrete generators can call
-    # super().__init__(...); each subclass provides its own construction logic.
-    def __init__(self, args, analysis_executor: AnalysisExecutor):  # noqa: B027
+    def __init__(self, args, analysis_executor: AnalysisExecutor):
         pass
 
     @property
@@ -368,15 +434,27 @@ class MixedFactGenerator(AbstractFactGenerator):
     def sort_inputs(self, files: list[str]) -> list[str]:
         return sorted(files, key=lambda x: self.contract_filename_to_gen[x].priority)
 
-    def add_fact_generator(self, pattern: str, scripts: list[str], fact_gen_option: FactGenSelectionEnum, args):
+    def add_fact_generator(
+        self,
+        pattern: str,
+        scripts: list[str],
+        fact_gen_option: FactGenSelectionEnum,
+        args,
+    ):
         if not pattern.endswith("$"):
             pattern = pattern + "$"
         if fact_gen_option == FactGenSelectionEnum.Decomp:
-            self.fact_generators[re.compile(pattern)] = DecompilerFactGenerator(args, pattern)
+            self.fact_generators[re.compile(pattern)] = DecompilerFactGenerator(
+                args, pattern
+            )
         elif fact_gen_option == FactGenSelectionEnum.MultiContract:
-            self.fact_generators[re.compile(pattern)] = ContractStitchingGenerator(args, pattern)
+            self.fact_generators[re.compile(pattern)] = ContractStitchingGenerator(
+                args, pattern
+            )
         else:
-            self.fact_generators[re.compile(pattern)] = CustomFactGenerator(pattern, scripts)
+            self.fact_generators[re.compile(pattern)] = CustomFactGenerator(
+                pattern, scripts
+            )
 
     def partition_inputs_by_priority(self, files: list[str]) -> list[list[str]]:
         return [
@@ -409,12 +487,16 @@ class DecompilerFactGenerator(AbstractFactGenerator):
 
         pre_clients_split = [a.strip() for a in args.pre_client.split(",")]
         self.souffle_pre_clients = [a for a in pre_clients_split if a.endswith(".dl")]
-        self.other_pre_clients = [a for a in pre_clients_split if not (a.endswith(".dl") or a == "")]
+        self.other_pre_clients = [
+            a for a in pre_clients_split if not (a.endswith(".dl") or a == "")
+        ]
 
         self.skip_sig_resolution = args.skip_sig_resolution
 
         if args.disable_precise_fallback:
-            log("The use of the --disable_precise_fallback is deprecated. Its functionality is disabled.")
+            log(
+                "The use of the --disable_precise_fallback is deprecated. Its functionality is disabled."
+            )
 
     def generate_facts(
         self, contract_filename: str, work_dir: str, out_dir: str
@@ -429,7 +511,9 @@ class DecompilerFactGenerator(AbstractFactGenerator):
 
         disassemble_start = time.time()
         blocks = blockparse.EVMBytecodeParser(bytecode).parse()
-        exporter.EVMBlockExporter(work_dir, blocks, True, bytecode, metadata, self.skip_sig_resolution).export()
+        exporter.EVMBlockExporter(
+            work_dir, blocks, True, bytecode, metadata, self.skip_sig_resolution
+        ).export()
 
         os.symlink(join(work_dir, "bytecode.hex"), join(out_dir, "bytecode.hex"))
 
@@ -438,10 +522,17 @@ class DecompilerFactGenerator(AbstractFactGenerator):
 
         if os.path.exists(join(work_dir, "compiler_info.csv")):
             # Create a symlink with a name starting with 'Verbatim_' to be added to results json
-            os.symlink(join(work_dir, "compiler_info.csv"), join(out_dir, "Verbatim_compiler_info.csv"))
+            os.symlink(
+                join(work_dir, "compiler_info.csv"),
+                join(out_dir, "Verbatim_compiler_info.csv"),
+            )
 
         timeouts, errors = self.analysis_executor.run_clients(
-            self.souffle_pre_clients, self.other_pre_clients, work_dir, work_dir, disassemble_start
+            self.souffle_pre_clients,
+            self.other_pre_clients,
+            work_dir,
+            work_dir,
+            disassemble_start,
         )
         if timeouts:
             # pre clients should be very light, should never happen
@@ -449,16 +540,26 @@ class DecompilerFactGenerator(AbstractFactGenerator):
         if errors:
             raise DecompilationException()
 
-        write_context_depth_file(os.path.join(work_dir, MAX_CONTEXT_DEPTH_INPUT_FILE), self.context_depth)
+        write_context_depth_file(
+            os.path.join(work_dir, MAX_CONTEXT_DEPTH_INPUT_FILE), self.context_depth
+        )
 
         decomp_start = time.time()
 
-        decompiler_config = self.run_decomp(contract_filename, work_dir, out_dir, disassemble_start)
+        decompiler_config = self.run_decomp(
+            contract_filename, work_dir, out_dir, disassemble_start
+        )
 
-        return decomp_start - disassemble_start, time.time() - decomp_start, decompiler_config
+        return (
+            decomp_start - disassemble_start,
+            time.time() - decomp_start,
+            decompiler_config,
+        )
 
     def get_datalog_files(self) -> list[str]:
-        datalog_files = [*self.souffle_pre_clients, DecompilerFactGenerator.decompiler_dl]
+        datalog_files = self.souffle_pre_clients + [
+            DecompilerFactGenerator.decompiler_dl
+        ]
         if not self.disable_scalable_fallback:
             datalog_files += [
                 DecompilerFactGenerator.fallback_scalable_decompiler_dl,
@@ -467,10 +568,17 @@ class DecompilerFactGenerator(AbstractFactGenerator):
 
         return datalog_files
 
-    def run_decomp(self, contract_filename: str, in_dir: str, out_dir: str, start_time: float) -> FactGenUsedEnum:
+    def run_decomp(
+        self, contract_filename: str, in_dir: str, out_dir: str, start_time: float
+    ) -> FactGenUsedEnum:
         config = FactGenUsedEnum.DefaultDecomp
         def_timeouts, def_errors = self.analysis_executor.run_clients(
-            [DecompilerFactGenerator.decompiler_dl], [], in_dir, out_dir, start_time, not self.disable_scalable_fallback
+            [DecompilerFactGenerator.decompiler_dl],
+            [],
+            in_dir,
+            out_dir,
+            start_time,
+            not self.disable_scalable_fallback,
         )
 
         if def_errors:
@@ -484,7 +592,8 @@ class DecompilerFactGenerator(AbstractFactGenerator):
                     f"Using the scalable fallback decompilation configuration for {os.path.split(contract_filename)[1]}"
                 )
                 write_context_depth_file(
-                    os.path.join(in_dir, MAX_CONTEXT_DEPTH_INPUT_FILE), FALLBACK_SCALABLE_MAX_CONTEXT_DEPTH
+                    os.path.join(in_dir, MAX_CONTEXT_DEPTH_INPUT_FILE),
+                    FALLBACK_SCALABLE_MAX_CONTEXT_DEPTH,
                 )
 
                 sca_timeouts, sca_errors = self.analysis_executor.run_clients(
@@ -502,10 +611,15 @@ class DecompilerFactGenerator(AbstractFactGenerator):
                         f"Using the last resort ultra scalable decompilation configuration for {os.path.split(contract_filename)[1]}"
                     )
                     write_context_depth_file(
-                        os.path.join(in_dir, MAX_CONTEXT_DEPTH_INPUT_FILE), LAST_RESORT_MAX_CONTEXT_DEPTH
+                        os.path.join(in_dir, MAX_CONTEXT_DEPTH_INPUT_FILE),
+                        LAST_RESORT_MAX_CONTEXT_DEPTH,
                     )
                     last_timeouts, last_errors = self.analysis_executor.run_clients(
-                        [DecompilerFactGenerator.last_resort_decompiler_dl], [], in_dir, out_dir, start_time
+                        [DecompilerFactGenerator.last_resort_decompiler_dl],
+                        [],
+                        in_dir,
+                        out_dir,
+                        start_time,
                     )
                     if last_errors:
                         raise DecompilationException()
@@ -525,9 +639,9 @@ class DecompilerFactGenerator(AbstractFactGenerator):
 
     def decomp_out_produced(self, out_dir: str) -> bool:
         """Hacky. Needed to ensure process was not killed due to exceeding the memory limit."""
-        return os.path.exists(join(out_dir, "Analytics_JumpToMany.csv")) and os.path.exists(
-            join(out_dir, "TAC_Def.csv")
-        )
+        return os.path.exists(
+            join(out_dir, "Analytics_JumpToMany.csv")
+        ) and os.path.exists(join(out_dir, "TAC_Def.csv"))
 
 
 class ContractStitchingGenerator(AbstractFactGenerator):
@@ -547,7 +661,7 @@ class ContractStitchingGenerator(AbstractFactGenerator):
 
             main = manifest["main"]
             contracts = manifest["contracts"]  # Dict[str, str]
-            facts: dict[str, TACRelations] = {}
+            facts: dict[str, TACRelations] = dict()
             for address, id in contracts.items():
                 path = Path(work_dir).parent / f"{id}/out"
                 facts[address] = TACRelations.from_dir(path)
@@ -594,12 +708,24 @@ class CustomFactGenerator(AbstractFactGenerator):
         fact_gen_time_start = time.time()
         for script in self.fact_generator_scripts:
             if script.endswith("dl"):
-                e, t = self.analysis_executor.run_souffle_client(script, out_dir, out_dir, fact_gen_time_start, False)
+                e, t = self.analysis_executor.run_souffle_client(
+                    script, out_dir, out_dir, fact_gen_time_start, False
+                )
                 errors.extend(e)
                 timeouts.extend(t)
             else:
-                arguments = " ".join([script, "-i", os.path.join(os.getcwd(), contract_filename), "-o", out_dir])
-                e, t = self.analysis_executor.run_script_client(arguments, work_dir, out_dir, fact_gen_time_start)
+                arguments = " ".join(
+                    [
+                        script,
+                        "-i",
+                        os.path.join(os.getcwd(), contract_filename),
+                        "-o",
+                        out_dir,
+                    ]
+                )
+                e, t = self.analysis_executor.run_script_client(
+                    arguments, work_dir, out_dir, fact_gen_time_start
+                )
                 errors.extend(e)
                 timeouts.extend(t)
         return time.time() - fact_gen_time_start, 0.0, FactGenUsedEnum.Custom

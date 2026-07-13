@@ -29,7 +29,9 @@ def log_debug(msg):
 
 
 def __get_sig_file(simple_filename: str) -> str:
-    preferred_dest = join(join(dirname(abspath(__file__)), "../../common-facts"), simple_filename)
+    preferred_dest = join(
+        join(dirname(abspath(__file__)), "../../common-facts"), simple_filename
+    )
     fallback_dest = join(join(dirname(abspath(__file__)), ".."), simple_filename)
     return preferred_dest if exists(preferred_dest) else fallback_dest
 

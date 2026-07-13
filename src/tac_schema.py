@@ -20,10 +20,10 @@ Schema derived from:
 from __future__ import annotations
 
 import csv
-from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum, auto
 from pathlib import Path
+from typing import Callable, Optional, Union
 
 # ---------------------------------------------------------------------------
 # Column kinds — what role a column plays in the schema
@@ -102,7 +102,9 @@ class RelationDef:
 
 # Config / metadata
 decompiler_config = RelationDef("DecompilerConfig", (Column("config", ColKind.SYMBOL),))
-global_entry_block = RelationDef("GlobalEntryBlock", (Column("block", ColKind.BLOCK_ID),))
+global_entry_block = RelationDef(
+    "GlobalEntryBlock", (Column("block", ColKind.BLOCK_ID),)
+)
 
 # Variables
 tac_variable_value = RelationDef(
@@ -325,14 +327,18 @@ constant_possible_sig_hash = RelationDef(
         Column("name", ColKind.SYMBOL),
     ),
 )
-unmapped_statements = RelationDef("UnmappedStatements", (Column("stmt", ColKind.STMT_ID),))
+unmapped_statements = RelationDef(
+    "UnmappedStatements", (Column("stmt", ColKind.STMT_ID),)
+)
 
 
 # ---------------------------------------------------------------------------
 # Collected set of all relations
 # ---------------------------------------------------------------------------
 
-ALL_RELATIONS: frozenset[RelationDef] = frozenset(v for v in globals().values() if isinstance(v, RelationDef))
+ALL_RELATIONS: frozenset[RelationDef] = frozenset(
+    v for v in globals().values() if isinstance(v, RelationDef)
+)
 
 # Name -> RelationDef lookup
 _RELATION_BY_NAME: dict[str, RelationDef] = {r.name: r for r in ALL_RELATIONS}
@@ -345,7 +351,7 @@ _ID_KINDS = frozenset(k for k in ColKind if k.is_identifier)
 # Key type for TACRelations access
 # ---------------------------------------------------------------------------
 
-RelKey = RelationDef | str
+RelKey = Union[RelationDef, str]
 
 
 def _resolve_key(key: RelKey) -> str:
@@ -355,7 +361,7 @@ def _resolve_key(key: RelKey) -> str:
     return key
 
 
-def _resolve_def(key: RelKey) -> RelationDef | None:
+def _resolve_def(key: RelKey) -> Optional[RelationDef]:
     """Resolve a key to a RelationDef, if known."""
     if isinstance(key, RelationDef):
         return key
@@ -382,7 +388,7 @@ class TACRelations:
 
     def __init__(
         self,
-        data: dict[str, list[tuple[str, ...]]] | None = None,
+        data: Optional[dict[str, list[tuple[str, ...]]]] = None,
     ):
         self._data: dict[str, list[tuple[str, ...]]] = data or {}
 
@@ -417,14 +423,14 @@ class TACRelations:
         return cls(data=data)
 
     @staticmethod
-    def _read_csv(out_dir: Path, name: str) -> list[tuple[str, ...]] | None:
+    def _read_csv(out_dir: Path, name: str) -> Optional[list[tuple[str, ...]]]:
         """Read a single Souffle relation file (tab-separated, no header)."""
         path = out_dir / f"{name}.csv"
         if not path.exists():
             path = out_dir / name
             if not path.exists():
                 return None
-        with open(path) as f:
+        with open(path, "r") as f:
             return [tuple(row) for row in csv.reader(f, delimiter="\t")]
 
     # -------------------------------------------------------------------
@@ -448,12 +454,12 @@ class TACRelations:
     @property
     def relation_names(self) -> list[str]:
         """Names of all loaded (non-empty) relations."""
-        return list(self._data.keys())
+        return [k for k in self._data.keys()]
 
     @property
     def loaded_relations(self) -> list[RelationDef]:
         """RelationDefs of all loaded (non-empty) known relations."""
-        return [r for r in ALL_RELATIONS if self._data.get(r.name)]
+        return [r for r in ALL_RELATIONS if r.name in self._data and self._data[r.name]]
 
     # -------------------------------------------------------------------
     # Transformations
@@ -466,7 +472,7 @@ class TACRelations:
     def map_identifiers(
         self,
         fn: Callable[[str], str],
-        kinds: frozenset[ColKind] | None = None,
+        kinds: Optional[frozenset[ColKind]] = None,
     ) -> None:
         """Apply a function to all identifier columns in-place.
 
@@ -481,7 +487,9 @@ class TACRelations:
             if rel_def is None:
                 continue
 
-            id_indices = [i for i, c in enumerate(rel_def.columns) if c.kind in target_kinds]
+            id_indices = [
+                i for i, c in enumerate(rel_def.columns) if c.kind in target_kinds
+            ]
             if not id_indices:
                 continue
 

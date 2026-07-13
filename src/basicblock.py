@@ -10,7 +10,12 @@ class EVMBasicBlock:
     its parent and child nodes in the graph structure.
     """
 
-    def __init__(self, entry: int | None = None, exit: int | None = None, evm_ops: list["EVMOp"] | None = None):
+    def __init__(
+        self,
+        entry: int | None = None,
+        exit: int | None = None,
+        evm_ops: list["EVMOp"] | None = None,
+    ):
         """
         Creates a new basic block containing operations between the
         specified entry and exit instruction counters (inclusive).
@@ -120,12 +125,14 @@ class EVMOp:
 
     def __str__(self):
         if self.value is None:
-            return f"{hex(self.pc)} {self.opcode}"
+            return "{0} {1}".format(hex(self.pc), self.opcode)
         else:
-            return f"{hex(self.pc)} {self.opcode} {hex(self.value)}"
+            return "{0} {1} {2}".format(hex(self.pc), self.opcode, hex(self.value))
 
     def __repr__(self):
-        return f"<{self.__class__.__name__} object {hex(id(self))}: {self.__str__()}>"
+        return "<{0} object {1}: {2}>".format(
+            self.__class__.__name__, hex(id(self)), self.__str__()
+        )
 
 
 def blocks_from_ops(ops: list[EVMOp]) -> list[EVMBasicBlock]:

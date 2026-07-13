@@ -13,7 +13,14 @@ class Block:
 
 
 class Function:
-    def __init__(self, ident: str, name: str, head_block: Block, is_public: bool, formals: list[str]):
+    def __init__(
+        self,
+        ident: str,
+        name: str,
+        head_block: Block,
+        is_public: bool,
+        formals: list[str],
+    ):
         self.ident = ident
         self.name = name
         self.formals = formals
@@ -26,11 +33,19 @@ def load_csv(path: str, seperator: str = "\t") -> list[list[str]]:
         return [line.split(seperator) for line in f.read().splitlines()]
 
 
-def load_csv_map(path: str, seperator: str = "\t", reverse: bool = False) -> dict[str, str]:
-    return {y: x for x, y in load_csv(path, seperator)} if reverse else dict(load_csv(path, seperator))
+def load_csv_map(
+    path: str, seperator: str = "\t", reverse: bool = False
+) -> dict[str, str]:
+    return (
+        {y: x for x, y in load_csv(path, seperator)}
+        if reverse
+        else {x: y for x, y in load_csv(path, seperator)}
+    )
 
 
-def load_csv_multimap(path: str, seperator: str = "\t", reverse: bool = False) -> defaultdict[str, list[str]]:
+def load_csv_multimap(
+    path: str, seperator: str = "\t", reverse: bool = False
+) -> defaultdict[str, list[str]]:
     ret = defaultdict(list)
 
     if reverse:
@@ -109,12 +124,20 @@ def construct_cfg() -> tuple[dict[str, Block], dict[str, Function]]:
         func_id = tac_block_function[block_id]
 
         high_level_name = (
-            "fallback()" if tac_func_id_to_public.get(func_id, "_") == "0x0" else tac_high_level_func_name[func_id]
+            "fallback()"
+            if tac_func_id_to_public.get(func_id, "_") == "0x0"
+            else tac_high_level_func_name[func_id]
         )
-        formals = [var for var, _ in sorted(tac_formal_args[func_id], key=lambda x: x[1])]
+        formals = [
+            var for var, _ in sorted(tac_formal_args[func_id], key=lambda x: x[1])
+        ]
 
         functions[func_id] = Function(
-            func_id, high_level_name, blocks[block_id], func_id in tac_func_id_to_public or func_id == "0x0", formals
+            func_id,
+            high_level_name,
+            blocks[block_id],
+            func_id in tac_func_id_to_public or func_id == "0x0",
+            formals,
         )
 
     return blocks, functions

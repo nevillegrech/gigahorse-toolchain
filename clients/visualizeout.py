@@ -5,7 +5,13 @@ from typing import TextIO
 
 # IT: Ugly hack; this can be avoided if we pull the script at the top level
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
-from clientlib.facts_to_cfg import Block, Function, Statement, construct_cfg, load_csv_map  # type: ignore
+from clientlib.facts_to_cfg import (
+    Block,
+    Function,
+    Statement,
+    construct_cfg,
+    load_csv_map,
+)  # type: ignore
 
 sys.setrecursionlimit(3000)
 
@@ -34,7 +40,9 @@ def emit_stmt(stmt: Statement, var_val: dict[str, str], out: TextIO):
         emit(f"{stmt.ident}: {stmt.op} {', '.join(uses)}", out, 1)
 
 
-def pretty_print_block(block: Block, visited: set[str], var_val: dict[str, str], out: TextIO):
+def pretty_print_block(
+    block: Block, visited: set[str], var_val: dict[str, str], out: TextIO
+):
     emit(f"Begin block {block.ident}", out, 1)
 
     prev = [p.ident for p in block.predecessors]
@@ -48,13 +56,15 @@ def pretty_print_block(block: Block, visited: set[str], var_val: dict[str, str],
 
     emit("", out)
 
-    for successor in block.successors:
-        if successor.ident not in visited:
-            visited.add(successor.ident)
-            pretty_print_block(successor, visited, var_val, out)
+    for block in block.successors:
+        if block.ident not in visited:
+            visited.add(block.ident)
+            pretty_print_block(block, visited, var_val, out)
 
 
-def pretty_print_tac(functions: dict[str, Function], var_val: dict[str, str], out: TextIO):
+def pretty_print_tac(
+    functions: dict[str, Function], var_val: dict[str, str], out: TextIO
+):
     for function in sorted(functions.values(), key=lambda x: x.ident):
         visibility = "public" if function.is_public else "private"
         formals = [render_var(v, var_val) for v in function.formals]
