@@ -745,7 +745,6 @@ LoopHead(to) :-
   LocalBlockEdge(from, to),
   Dominates(to, from).
 
-<<<<<<< Updated upstream
 .decl IRFunctionExit(exitNode: IRBlock)
 IRFunctionExit(exitNode):-
   IRStatement_Block(stmt, exitNode),
@@ -771,7 +770,6 @@ PostDominates(postdominator,s) :-
   IRInFunction(postdominator, f),
   IRInFunction(s, f),
   !DoesNotPostDominate(postdominator,s).
-=======
 .decl JumpToMany(block: IRBlock)
 JumpToMany(blk):-
   (IRStatement_Opcode(jump, "JUMP") ; IRStatement_Opcode(jump, "CALLPRIVATE")),
@@ -795,7 +793,6 @@ JumpToMany(blk):-
 FunctionHasImpreciseControlFlow(fun):-
   JumpToMany(blk),
   IRInFunction(blk, fun).
->>>>>>> Stashed changes
 
 
 .decl DeadBlock(irblk:IRBlock)
@@ -1570,15 +1567,6 @@ DefBlockToUseBlockPath(from, to, path):-
 //   defPath1 != defPath2, defPath2 != "", defPath1 != "",
 //   contains(defPath1, defPath2).
 
-<<<<<<< Updated upstream
-=======
-.decl IRFunctionExit(exitNode: IRBlock)
-IRFunctionExit(exitNode):-
-  IRStatement_Block(stmt, exitNode),
-  IRStatement_Opcode(stmt, opcode),
-  (opcode = "EXIT"; opcode = "RETURN"; opcode = "RETURNPRIVATE").
-
->>>>>>> Stashed changes
 .decl PHIVarInformationLoss(useBlock: IRBlock, useVar: Variable, stackIndex: StackIndex)
 DEBUG_OUTPUT(PHIVarInformationLoss)
 
