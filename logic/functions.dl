@@ -698,6 +698,10 @@ LocalBlockEdge(block, next) :-
   IRFunctionCallReturn(block, _, next),
   ReachableFromFunHead(block).
 
+/**
+  DOMINATES-POSTDOMINATES
+*/
+
 .decl DoesNotDominate(candidate: IRBlock, b: IRBlock)
 DoesNotDominate(candidate,s) :-
   IRFunctionEntry(s),
@@ -715,11 +719,33 @@ Dominates(dominator,s) :-
   IRInFunction(s, f),
   !DoesNotDominate(dominator,s).
 
+.decl DoesNotPostDominate(candidate: IRBlock, block: IRBlock)
+DoesNotPostDominate(candidate, exitNode) :-
+  IRFunctionExit(exitNode),
+  IRInFunction(exitNode, f),
+  IRInFunction(candidate, f),
+  exitNode != candidate.
+
+
+DoesNotPostDominate(candidate, s) :-
+  DoesNotPostDominate(candidate, other),
+  LocalBlockEdge(s, other),
+  s != candidate.
+
+.decl PostDominates(postdominator: IRBlock, s: IRBlock)
+// .output PostDominates(IO="file", filename="FLPostDominates.csv", delimiter="\t")
+PostDominates(postdominator,s) :-
+  IRInFunction(postdominator, f),
+  IRInFunction(s, f),
+  !DoesNotPostDominate(postdominator,s).
+
+
 .decl LoopHead(head: IRBlock)
 LoopHead(to) :-
   LocalBlockEdge(from, to),
   Dominates(to, from).
 
+<<<<<<< Updated upstream
 .decl IRFunctionExit(exitNode: IRBlock)
 IRFunctionExit(exitNode):-
   IRStatement_Block(stmt, exitNode),
@@ -745,6 +771,31 @@ PostDominates(postdominator,s) :-
   IRInFunction(postdominator, f),
   IRInFunction(s, f),
   !DoesNotPostDominate(postdominator,s).
+=======
+.decl JumpToMany(block: IRBlock)
+JumpToMany(blk):-
+  (IRStatement_Opcode(jump, "JUMP") ; IRStatement_Opcode(jump, "CALLPRIVATE")),
+  IRStatement_Block(jump, blk),
+  LocalBlockEdge(blk, one),
+  LocalBlockEdge(blk, two),
+  one != two.
+
+JumpToMany(blk):-
+  IRStatement_Opcode(jump, "JUMPI"),
+  IRStatement_Block(jump, blk),
+  LocalBlockEdge(blk, one),
+  LocalBlockEdge(blk, two),
+  LocalBlockEdge(blk, three),
+  one != two,
+  one != three,
+  two != three.
+
+.decl FunctionHasImpreciseControlFlow(fun: Function)
+
+FunctionHasImpreciseControlFlow(fun):-
+  JumpToMany(blk),
+  IRInFunction(blk, fun).
+>>>>>>> Stashed changes
 
 
 .decl DeadBlock(irblk:IRBlock)
@@ -1363,15 +1414,28 @@ NumberOfFunctionReturnArguments(func, n) :-
   PHIVarIntroductionPoint(irblock, stackIndex, defBlock, defBlockIndex):-
     PHIVarUsedInBlockBackpropagatesTo(irblock, stackIndex, defBlock, defBlockIndex),
     LocalBlockEdge(prevBlock, defBlock),
+    IRInFunction(defBlock, fun),
+    !FunctionHasImpreciseControlFlow(fun),
     !PHIVarUsedInBlockBackpropagatesTo(irblock, stackIndex, prevBlock, _).
 
   PHIVarIntroductionPoint(irblock, stackIndex, defBlock, defBlockIndex):-
     PHIVarUsedInBlockBackpropagatesTo(irblock, stackIndex, defBlock, defBlockIndex),
+    IRInFunction(defBlock, fun),
+    !FunctionHasImpreciseControlFlow(fun),
     !LocalBlockEdge(_, defBlock).
 
   PHIVarIntroductionPoint(irblock, stackIndex, defBlock, defBlockIndex):-
     PHIVarUsedInBlockBackpropagatesTo(irblock, stackIndex, defBlock, defBlockIndex),
+    IRInFunction(defBlock, fun),
+    !FunctionHasImpreciseControlFlow(fun),
     IRFunctionEntry(defBlock).
+
+  // For functions with imprecision, we just insert the PHI statements at the use block
+  PHIVarIntroductionPoint(irblock, stackIndex, irblock, stackIndex):-
+    PHIVarUsedInBlockBackpropagatesTo(irblock, stackIndex, irblock, stackIndex),
+    IRInFunction(irblock, fun),
+    FunctionHasImpreciseControlFlow(fun).
+
   // Disable for now as it is imprecise
 //   PHIVarIntroductionPoint(irblock, stackIndex, defBlock, defBlockIndex):-
 //     PHIVarUsedInBlockBackpropagatesTo(irblock, stackIndex, defBlock, defBlockIndex),
@@ -1506,6 +1570,15 @@ DefBlockToUseBlockPath(from, to, path):-
 //   defPath1 != defPath2, defPath2 != "", defPath1 != "",
 //   contains(defPath1, defPath2).
 
+<<<<<<< Updated upstream
+=======
+.decl IRFunctionExit(exitNode: IRBlock)
+IRFunctionExit(exitNode):-
+  IRStatement_Block(stmt, exitNode),
+  IRStatement_Opcode(stmt, opcode),
+  (opcode = "EXIT"; opcode = "RETURN"; opcode = "RETURNPRIVATE").
+
+>>>>>>> Stashed changes
 .decl PHIVarInformationLoss(useBlock: IRBlock, useVar: Variable, stackIndex: StackIndex)
 DEBUG_OUTPUT(PHIVarInformationLoss)
 
