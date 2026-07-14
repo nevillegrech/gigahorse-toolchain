@@ -769,7 +769,7 @@ JumpToMany(blk):-
   one != three,
   two != three.
 
-.decl FunctionHasImpreciseControlFlow(fun: Function)
+.decl FunctionHasImpreciseControlFlow(fun: IRFunction)
 
 FunctionHasImpreciseControlFlow(fun):-
   JumpToMany(blk),
