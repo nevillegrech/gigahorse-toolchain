@@ -746,10 +746,11 @@ LoopHead(to) :-
   Dominates(to, from).
 
 .decl IRFunctionExit(exitNode: IRBlock)
+// .output IRFunctionExit
 IRFunctionExit(exitNode):-
   IRStatement_Block(stmt, exitNode),
   IRStatement_Opcode(stmt, opcode),
-  (opcode = "EXIT"; opcode = "RETURN"; opcode = "RETURNPRIVATE").
+  (opcode = "EXIT"; opcode = "RETURN"; opcode = "RETURNPRIVATE"; opcode = "STOP").
 
 .decl JumpToMany(block: IRBlock)
 JumpToMany(blk):-
