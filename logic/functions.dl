@@ -751,25 +751,6 @@ IRFunctionExit(exitNode):-
   IRStatement_Opcode(stmt, opcode),
   (opcode = "EXIT"; opcode = "RETURN"; opcode = "RETURNPRIVATE").
 
-.decl DoesNotPostDominate(candidate: IRBlock, block: IRBlock)
-DoesNotPostDominate(candidate, exitNode) :-
-  IRFunctionExit(exitNode),
-  IRInFunction(exitNode, f),
-  IRInFunction(candidate, f),
-  exitNode != candidate.
-
-
-DoesNotPostDominate(candidate, s) :-
-  DoesNotPostDominate(candidate, other),
-  LocalBlockEdge(s, other),
-  s != candidate.
-
-.decl PostDominates(postdominator: IRBlock, s: IRBlock)
-// .output PostDominates(IO="file", filename="FLPostDominates.csv", delimiter="\t")
-PostDominates(postdominator,s) :-
-  IRInFunction(postdominator, f),
-  IRInFunction(s, f),
-  !DoesNotPostDominate(postdominator,s).
 .decl JumpToMany(block: IRBlock)
 JumpToMany(blk):-
   (IRStatement_Opcode(jump, "JUMP") ; IRStatement_Opcode(jump, "CALLPRIVATE")),
