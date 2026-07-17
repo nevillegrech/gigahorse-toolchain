@@ -714,6 +714,7 @@ DoesNotDominate(notdom, s) :-
   LocalBlockEdge(other, s), s != notdom.
 
 .decl Dominates(dominator: IRBlock, block: IRBlock)
+.output Dominates(IO="file", filename="FLDominates.csv", delimiter="\t")
 Dominates(dominator,s) :-
   IRInFunction(dominator, f),
   IRInFunction(s, f),
@@ -1399,6 +1400,7 @@ NumberOfFunctionReturnArguments(func, n) :-
   PHIVarIntroductionPoint(irblock, stackIndex, defBlock, defBlockIndex):-
     PHIVarUsedInBlockBackpropagatesTo(irblock, stackIndex, defBlock, defBlockIndex),
     LocalBlockEdge(prevBlock, defBlock),
+    !Dominates(defBlock, prevBlock),
     !ContractHasIRQualityIssue(),
     !PHIVarUsedInBlockBackpropagatesTo(irblock, stackIndex, prevBlock, _).
 
