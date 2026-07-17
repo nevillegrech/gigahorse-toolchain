@@ -733,7 +733,7 @@ DoesNotPostDominate(candidate, s) :-
   s != candidate.
 
 .decl PostDominates(postdominator: IRBlock, s: IRBlock)
-// .output PostDominates(IO="file", filename="FLPostDominates.csv", delimiter="\t")
+.output PostDominates(IO="file", filename="FLPostDominates.csv", delimiter="\t")
 PostDominates(postdominator,s) :-
   IRInFunction(postdominator, f),
   IRInFunction(s, f),
@@ -776,6 +776,9 @@ FunctionHasImpreciseControlFlow(fun):-
   JumpToMany(blk),
   IRInFunction(blk, fun).
 
+.decl ContractHasIRQualityIssue()
+ContractHasIRQualityIssue():-
+  JumpToMany(_).
 
 .decl DeadBlock(irblk:IRBlock)
 .decl DeadStmt(irstmt:IRStatement)
@@ -1298,6 +1301,8 @@ NumberOfFunctionReturnArguments(func, n) :-
   //   IRStatement_Block(stmt, block),
   //   FunctionalBlockInputContents(block, stackIndex, var).
 
+  DEBUG_OUTPUT(FunctionalBlockOutputContents)
+  DEBUG_OUTPUT(FunctionalBlockInputContents)
   DEBUG_OUTPUT(FunctionalBlockOutLocalStackContents)
   FunctionalBlockOutLocalStackContents(block, n, varOrStackIndex):-
     IRInFunction(block, _),
@@ -1393,27 +1398,23 @@ NumberOfFunctionReturnArguments(func, n) :-
   PHIVarIntroductionPoint(irblock, stackIndex, defBlock, defBlockIndex):-
     PHIVarUsedInBlockBackpropagatesTo(irblock, stackIndex, defBlock, defBlockIndex),
     LocalBlockEdge(prevBlock, defBlock),
-    IRInFunction(defBlock, fun),
-    !FunctionHasImpreciseControlFlow(fun),
+    !ContractHasIRQualityIssue(),
     !PHIVarUsedInBlockBackpropagatesTo(irblock, stackIndex, prevBlock, _).
 
   PHIVarIntroductionPoint(irblock, stackIndex, defBlock, defBlockIndex):-
     PHIVarUsedInBlockBackpropagatesTo(irblock, stackIndex, defBlock, defBlockIndex),
-    IRInFunction(defBlock, fun),
-    !FunctionHasImpreciseControlFlow(fun),
+    !ContractHasIRQualityIssue(),
     !LocalBlockEdge(_, defBlock).
 
   PHIVarIntroductionPoint(irblock, stackIndex, defBlock, defBlockIndex):-
     PHIVarUsedInBlockBackpropagatesTo(irblock, stackIndex, defBlock, defBlockIndex),
-    IRInFunction(defBlock, fun),
-    !FunctionHasImpreciseControlFlow(fun),
+    !ContractHasIRQualityIssue(),
     IRFunctionEntry(defBlock).
 
   // For functions with imprecision, we just insert the PHI statements at the use block
   PHIVarIntroductionPoint(irblock, stackIndex, irblock, stackIndex):-
     PHIVarUsedInBlockBackpropagatesTo(irblock, stackIndex, irblock, stackIndex),
-    IRInFunction(irblock, fun),
-    FunctionHasImpreciseControlFlow(fun).
+    ContractHasIRQualityIssue().
 
   // Disable for now as it is imprecise
 //   PHIVarIntroductionPoint(irblock, stackIndex, defBlock, defBlockIndex):-
