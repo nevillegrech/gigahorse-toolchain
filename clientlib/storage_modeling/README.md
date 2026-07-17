@@ -2,6 +2,8 @@
 Recovers the contract's storage layout and information about statements that deal with storage.
 This documentation currently covers the core parts of the storage modeling functionality.
 See the [API](storage_modeling_api.dl) and [clienthelpers](clienthelpers.dl) for additional functionality.
+You can also read our [ICSE26 paper](https://sifislag.github.io/assets/papers/storage-modeling-full.pdf) presenting our storage modeling techniques.
+An earlier version of this codebase is also available in our [peer-reviewed artifact](https://zenodo.org/records/18153851).
 
 ## Type Declarations
 ## `StorageConstruct`
