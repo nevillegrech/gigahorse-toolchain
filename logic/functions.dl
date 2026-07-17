@@ -1387,7 +1387,8 @@ NumberOfFunctionReturnArguments(func, n) :-
     PolymorphicFunctionalOutputIndex_VarOrdSum(prevBlock, tmpIndex, varSum),
     FunctionalBlockOutLocalStackContents(prevBlock, tmpIndex, prevIndex),
     PolymorphicFunctionalInputIndex_VarNum(prevBlock, prevIndex, varNum),
-    PolymorphicFunctionalInputIndex_VarOrdSum(prevBlock, prevIndex, varSum).
+    PolymorphicFunctionalInputIndex_VarOrdSum(prevBlock, prevIndex, varSum),
+    !Dominates(tmpBlock, prevBlock).
 
   .decl PHIVarIntroductionPoint(irblock: IRBlock, stackIndex: StackIndex, defBlock: IRBlock, defBlockIndex: StackIndex) btree_delete
   .output PHIVarIntroductionPoint
