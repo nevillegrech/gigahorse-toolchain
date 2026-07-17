@@ -736,6 +736,8 @@ DoesNotPostDominate(candidate, s) :-
 .decl PostDominates(postdominator: IRBlock, s: IRBlock)
 .output PostDominates(IO="file", filename="FLPostDominates.csv", delimiter="\t")
 PostDominates(postdominator,s) :-
+  IRFunctionExit(exitNode), // initial filter to ensure any exit exists
+  IRInFunction(exitNode, f),
   IRInFunction(postdominator, f),
   IRInFunction(s, f),
   !DoesNotPostDominate(postdominator,s).
@@ -1394,30 +1396,41 @@ NumberOfFunctionReturnArguments(func, n) :-
   .decl PHIVarIntroductionPoint(irblock: IRBlock, stackIndex: StackIndex, defBlock: IRBlock, defBlockIndex: StackIndex) btree_delete
   .output PHIVarIntroductionPoint
 
-  PHIVarIntroductionPoint(irblock, stackIndex, otherBlock, otherIndex) <= PHIVarIntroductionPoint(irblock, stackIndex, defBlock, defBlockIndex):-
+  .decl PHIVarIntroductionPointUnfiltered(irblock: IRBlock, stackIndex: StackIndex, defBlock: IRBlock, defBlockIndex: StackIndex) btree_delete
+  .output PHIVarIntroductionPointUnfiltered
+
+  PHIVarIntroductionPointUnfiltered(irblock, stackIndex, otherBlock, otherIndex) <= PHIVarIntroductionPointUnfiltered(irblock, stackIndex, defBlock, defBlockIndex):-
     PostDominates(defBlock, otherBlock).
 
-  PHIVarIntroductionPoint(irblock, stackIndex, defBlock, defBlockIndex):-
+  PHIVarIntroductionPointUnfiltered(irblock, stackIndex, defBlock, defBlockIndex):-
     PHIVarUsedInBlockBackpropagatesTo(irblock, stackIndex, defBlock, defBlockIndex),
     LocalBlockEdge(prevBlock, defBlock),
     !Dominates(defBlock, prevBlock),
     !ContractHasIRQualityIssue(),
     !PHIVarUsedInBlockBackpropagatesTo(irblock, stackIndex, prevBlock, _).
 
-  PHIVarIntroductionPoint(irblock, stackIndex, defBlock, defBlockIndex):-
-    PHIVarUsedInBlockBackpropagatesTo(irblock, stackIndex, defBlock, defBlockIndex),
-    !ContractHasIRQualityIssue(),
-    !LocalBlockEdge(_, defBlock).
+//   PHIVarIntroductionPoint(irblock, stackIndex, defBlock, defBlockIndex):-
+//     PHIVarUsedInBlockBackpropagatesTo(irblock, stackIndex, defBlock, defBlockIndex),
+//     !ContractHasIRQualityIssue(),
+//     !LocalBlockEdge(_, defBlock).
 
-  PHIVarIntroductionPoint(irblock, stackIndex, defBlock, defBlockIndex):-
+  PHIVarIntroductionPointUnfiltered(irblock, stackIndex, defBlock, defBlockIndex):-
     PHIVarUsedInBlockBackpropagatesTo(irblock, stackIndex, defBlock, defBlockIndex),
     !ContractHasIRQualityIssue(),
     IRFunctionEntry(defBlock).
 
   // For functions with imprecision, we just insert the PHI statements at the use block
-  PHIVarIntroductionPoint(irblock, stackIndex, irblock, stackIndex):-
+  PHIVarIntroductionPointUnfiltered(irblock, stackIndex, irblock, stackIndex):-
     PHIVarUsedInBlockBackpropagatesTo(irblock, stackIndex, irblock, stackIndex),
     ContractHasIRQualityIssue().
+
+  PHIVarIntroductionPoint(irblock, stackIndex, irblock, stackIndex):-
+    PHIVarUsedInBlockBackpropagatesTo(irblock, stackIndex, irblock, stackIndex),
+    1 != count: PHIVarIntroductionPointUnfiltered(irblock, stackIndex, _, _).
+
+  PHIVarIntroductionPoint(irblock, stackIndex, defBlock, defBlockIndex):-
+    PHIVarIntroductionPointUnfiltered(irblock, stackIndex, defBlock, defBlockIndex),
+    1 = count: PHIVarIntroductionPointUnfiltered(irblock, stackIndex, _, _).
 
   // Disable for now as it is imprecise
 //   PHIVarIntroductionPoint(irblock, stackIndex, defBlock, defBlockIndex):-
