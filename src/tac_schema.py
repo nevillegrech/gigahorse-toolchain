@@ -25,20 +25,21 @@ from enum import Enum, auto
 from pathlib import Path
 from typing import Callable, Optional, Union
 
-
 # ---------------------------------------------------------------------------
 # Column kinds — what role a column plays in the schema
 # ---------------------------------------------------------------------------
 
+
 class ColKind(Enum):
     """The semantic role of a column in a TAC relation."""
-    STMT_ID = auto()    # Statement identifier
-    BLOCK_ID = auto()   # Basic block identifier (also used for function entry IDs)
-    VAR_ID = auto()     # Variable identifier
-    OPCODE = auto()     # EVM/TAC opcode string
-    VALUE = auto()      # Hex constant, hash, gas value, selector, etc.
-    INDEX = auto()      # Numeric positional index (e.g. TAC_Def index, FormalArgs n)
-    SYMBOL = auto()     # Free-form string (function names, config names, signatures)
+
+    STMT_ID = auto()  # Statement identifier
+    BLOCK_ID = auto()  # Basic block identifier (also used for function entry IDs)
+    VAR_ID = auto()  # Variable identifier
+    OPCODE = auto()  # EVM/TAC opcode string
+    VALUE = auto()  # Hex constant, hash, gas value, selector, etc.
+    INDEX = auto()  # Numeric positional index (e.g. TAC_Def index, FormalArgs n)
+    SYMBOL = auto()  # Free-form string (function names, config names, signatures)
 
     @property
     def is_identifier(self) -> bool:
@@ -51,9 +52,11 @@ class ColKind(Enum):
 # Column descriptor
 # ---------------------------------------------------------------------------
 
+
 @dataclass(frozen=True)
 class Column:
     """A named, typed column in a TAC relation."""
+
     name: str
     kind: ColKind
 
@@ -65,9 +68,11 @@ class Column:
 # Relation definition
 # ---------------------------------------------------------------------------
 
+
 @dataclass(frozen=True)
 class RelationDef:
     """A relation's name and column schema, defined once and used as a key."""
+
     name: str
     columns: tuple[Column, ...]
 
@@ -96,161 +101,235 @@ class RelationDef:
 # ---------------------------------------------------------------------------
 
 # Config / metadata
-decompiler_config = RelationDef("DecompilerConfig", (
-    Column("config", ColKind.SYMBOL),
-))
-global_entry_block = RelationDef("GlobalEntryBlock", (
-    Column("block", ColKind.BLOCK_ID),
-))
+decompiler_config = RelationDef("DecompilerConfig", (Column("config", ColKind.SYMBOL),))
+global_entry_block = RelationDef(
+    "GlobalEntryBlock", (Column("block", ColKind.BLOCK_ID),)
+)
 
 # Variables
-tac_variable_value = RelationDef("TAC_Variable_Value", (
-    Column("var", ColKind.VAR_ID),
-    Column("value", ColKind.VALUE),
-))
-tac_variable_block_value = RelationDef("TAC_Variable_BlockValue", (
-    Column("var", ColKind.VAR_ID),
-    Column("value", ColKind.VALUE),
-))
+tac_variable_value = RelationDef(
+    "TAC_Variable_Value",
+    (
+        Column("var", ColKind.VAR_ID),
+        Column("value", ColKind.VALUE),
+    ),
+)
+tac_variable_block_value = RelationDef(
+    "TAC_Variable_BlockValue",
+    (
+        Column("var", ColKind.VAR_ID),
+        Column("value", ColKind.VALUE),
+    ),
+)
 
 # Statements
-tac_stmt = RelationDef("TAC_Stmt", (
-    Column("stmt", ColKind.STMT_ID),
-))
-tac_op = RelationDef("TAC_Op", (
-    Column("stmt", ColKind.STMT_ID),
-    Column("opcode", ColKind.OPCODE),
-))
-tac_def = RelationDef("TAC_Def", (
-    Column("stmt", ColKind.STMT_ID),
-    Column("var", ColKind.VAR_ID),
-    Column("index", ColKind.INDEX),
-))
-tac_use = RelationDef("TAC_Use", (
-    Column("stmt", ColKind.STMT_ID),
-    Column("var", ColKind.VAR_ID),
-    Column("index", ColKind.INDEX),
-))
-tac_statement_next = RelationDef("TAC_Statement_Next", (
-    Column("stmt", ColKind.STMT_ID),
-    Column("next", ColKind.STMT_ID),
-))
-tac_statement_original_statement = RelationDef("TAC_Statement_OriginalStatement", (
-    Column("tac_stmt", ColKind.STMT_ID),
-    Column("orig_stmt", ColKind.STMT_ID),
-))
-tac_statement_original_statement_list = RelationDef("TAC_Statement_OriginalStatementList", (
-    Column("tac_stmt", ColKind.STMT_ID),
-    Column("stmt_list", ColKind.SYMBOL),
-))
-tac_statement_inline_info = RelationDef("TAC_Statement_InlineInfo", (
-    Column("tac_stmt", ColKind.STMT_ID),
-    Column("function_list", ColKind.SYMBOL),
-))
-original_statement_block = RelationDef("TAC_OriginalStatement_Block", (
-    Column("stmt", ColKind.SYMBOL),
-    Column("block", ColKind.BLOCK_ID),
-))
+tac_stmt = RelationDef("TAC_Stmt", (Column("stmt", ColKind.STMT_ID),))
+tac_op = RelationDef(
+    "TAC_Op",
+    (
+        Column("stmt", ColKind.STMT_ID),
+        Column("opcode", ColKind.OPCODE),
+    ),
+)
+tac_def = RelationDef(
+    "TAC_Def",
+    (
+        Column("stmt", ColKind.STMT_ID),
+        Column("var", ColKind.VAR_ID),
+        Column("index", ColKind.INDEX),
+    ),
+)
+tac_use = RelationDef(
+    "TAC_Use",
+    (
+        Column("stmt", ColKind.STMT_ID),
+        Column("var", ColKind.VAR_ID),
+        Column("index", ColKind.INDEX),
+    ),
+)
+tac_statement_next = RelationDef(
+    "TAC_Statement_Next",
+    (
+        Column("stmt", ColKind.STMT_ID),
+        Column("next", ColKind.STMT_ID),
+    ),
+)
+tac_statement_original_statement = RelationDef(
+    "TAC_Statement_OriginalStatement",
+    (
+        Column("tac_stmt", ColKind.STMT_ID),
+        Column("orig_stmt", ColKind.STMT_ID),
+    ),
+)
+tac_statement_original_statement_list = RelationDef(
+    "TAC_Statement_OriginalStatementList",
+    (
+        Column("tac_stmt", ColKind.STMT_ID),
+        Column("stmt_list", ColKind.SYMBOL),
+    ),
+)
+tac_statement_inline_info = RelationDef(
+    "TAC_Statement_InlineInfo",
+    (
+        Column("tac_stmt", ColKind.STMT_ID),
+        Column("function_list", ColKind.SYMBOL),
+    ),
+)
+original_statement_block = RelationDef(
+    "TAC_OriginalStatement_Block",
+    (
+        Column("stmt", ColKind.SYMBOL),
+        Column("block", ColKind.BLOCK_ID),
+    ),
+)
 
 # Blocks
-tac_block = RelationDef("TAC_Block", (
-    Column("stmt", ColKind.STMT_ID),
-    Column("block", ColKind.BLOCK_ID),
-))
-tac_block_head = RelationDef("TAC_Block_Head", (
-    Column("block", ColKind.BLOCK_ID),
-    Column("stmt", ColKind.STMT_ID),
-))
-tac_block_gas = RelationDef("TAC_Block_Gas", (
-    Column("block", ColKind.BLOCK_ID),
-    Column("gas", ColKind.VALUE),
-))
-tac_block_code_chunk_accessed = RelationDef("TAC_Block_CodeChunkAccessed", (
-    Column("block", ColKind.BLOCK_ID),
-    Column("chunk", ColKind.VALUE),
-))
+tac_block = RelationDef(
+    "TAC_Block",
+    (
+        Column("stmt", ColKind.STMT_ID),
+        Column("block", ColKind.BLOCK_ID),
+    ),
+)
+tac_block_head = RelationDef(
+    "TAC_Block_Head",
+    (
+        Column("block", ColKind.BLOCK_ID),
+        Column("stmt", ColKind.STMT_ID),
+    ),
+)
+tac_block_gas = RelationDef(
+    "TAC_Block_Gas",
+    (
+        Column("block", ColKind.BLOCK_ID),
+        Column("gas", ColKind.VALUE),
+    ),
+)
+tac_block_code_chunk_accessed = RelationDef(
+    "TAC_Block_CodeChunkAccessed",
+    (
+        Column("block", ColKind.BLOCK_ID),
+        Column("chunk", ColKind.VALUE),
+    ),
+)
 
 # CFG edges
-local_block_edge = RelationDef("LocalBlockEdge", (
-    Column("from", ColKind.BLOCK_ID),
-    Column("to", ColKind.BLOCK_ID),
-))
-ir_fallthrough_edge = RelationDef("IRFallthroughEdge", (
-    Column("from", ColKind.BLOCK_ID),
-    Column("to", ColKind.BLOCK_ID),
-))
+local_block_edge = RelationDef(
+    "LocalBlockEdge",
+    (
+        Column("from", ColKind.BLOCK_ID),
+        Column("to", ColKind.BLOCK_ID),
+    ),
+)
+ir_fallthrough_edge = RelationDef(
+    "IRFallthroughEdge",
+    (
+        Column("from", ColKind.BLOCK_ID),
+        Column("to", ColKind.BLOCK_ID),
+    ),
+)
 
 # Functions
-ir_function_entry = RelationDef("IRFunctionEntry", (
-    Column("func", ColKind.BLOCK_ID),
-))
-function = RelationDef("Function", (
-    Column("func", ColKind.BLOCK_ID),
-))
-high_level_function_name = RelationDef("HighLevelFunctionName", (
-    Column("func", ColKind.BLOCK_ID),
-    Column("name", ColKind.SYMBOL),
-))
-public_function = RelationDef("PublicFunction", (
-    Column("func", ColKind.BLOCK_ID),
-    Column("selector", ColKind.VALUE),
-))
-in_function = RelationDef("InFunction", (
-    Column("block", ColKind.BLOCK_ID),
-    Column("func", ColKind.BLOCK_ID),
-))
-function_is_inner = RelationDef("FunctionIsInner", (
-    Column("func", ColKind.BLOCK_ID),
-))
-formal_args = RelationDef("FormalArgs", (
-    Column("func", ColKind.BLOCK_ID),
-    Column("var", ColKind.VAR_ID),
-    Column("index", ColKind.INDEX),
-))
-ir_function_return = RelationDef("IRFunction_Return", (
-    Column("func", ColKind.BLOCK_ID),
-    Column("block", ColKind.BLOCK_ID),
-))
-function_contract = RelationDef("Function_Contract", (
-    Column("func", ColKind.BLOCK_ID),
-    Column("contract", ColKind.SYMBOL),
-))
+ir_function_entry = RelationDef("IRFunctionEntry", (Column("func", ColKind.BLOCK_ID),))
+function = RelationDef("Function", (Column("func", ColKind.BLOCK_ID),))
+high_level_function_name = RelationDef(
+    "HighLevelFunctionName",
+    (
+        Column("func", ColKind.BLOCK_ID),
+        Column("name", ColKind.SYMBOL),
+    ),
+)
+public_function = RelationDef(
+    "PublicFunction",
+    (
+        Column("func", ColKind.BLOCK_ID),
+        Column("selector", ColKind.VALUE),
+    ),
+)
+in_function = RelationDef(
+    "InFunction",
+    (
+        Column("block", ColKind.BLOCK_ID),
+        Column("func", ColKind.BLOCK_ID),
+    ),
+)
+function_is_inner = RelationDef("FunctionIsInner", (Column("func", ColKind.BLOCK_ID),))
+formal_args = RelationDef(
+    "FormalArgs",
+    (
+        Column("func", ColKind.BLOCK_ID),
+        Column("var", ColKind.VAR_ID),
+        Column("index", ColKind.INDEX),
+    ),
+)
+ir_function_return = RelationDef(
+    "IRFunction_Return",
+    (
+        Column("func", ColKind.BLOCK_ID),
+        Column("block", ColKind.BLOCK_ID),
+    ),
+)
+function_contract = RelationDef(
+    "Function_Contract",
+    (
+        Column("func", ColKind.BLOCK_ID),
+        Column("contract", ColKind.SYMBOL),
+    ),
+)
 
 # Function calls
-ir_function_call = RelationDef("IRFunctionCall", (
-    Column("caller_block", ColKind.BLOCK_ID),
-    Column("callee_func", ColKind.BLOCK_ID),
-))
-ir_function_call_return = RelationDef("IRFunctionCallReturn", (
-    Column("caller_block", ColKind.BLOCK_ID),
-    Column("callee_func", ColKind.BLOCK_ID),
-    Column("return_block", ColKind.BLOCK_ID),
-))
-actual_return_args = RelationDef("ActualReturnArgs", (
-    Column("caller_block", ColKind.BLOCK_ID),
-    Column("var", ColKind.VAR_ID),
-    Column("index", ColKind.INDEX),
-))
-ir_dynamic_private_call = RelationDef("IRDynamicPrivateCall", (
-    Column("caller_block", ColKind.BLOCK_ID),
-    Column("target_var", ColKind.VAR_ID),
-))
+ir_function_call = RelationDef(
+    "IRFunctionCall",
+    (
+        Column("caller_block", ColKind.BLOCK_ID),
+        Column("callee_func", ColKind.BLOCK_ID),
+    ),
+)
+ir_function_call_return = RelationDef(
+    "IRFunctionCallReturn",
+    (
+        Column("caller_block", ColKind.BLOCK_ID),
+        Column("callee_func", ColKind.BLOCK_ID),
+        Column("return_block", ColKind.BLOCK_ID),
+    ),
+)
+actual_return_args = RelationDef(
+    "ActualReturnArgs",
+    (
+        Column("caller_block", ColKind.BLOCK_ID),
+        Column("var", ColKind.VAR_ID),
+        Column("index", ColKind.INDEX),
+    ),
+)
+ir_dynamic_private_call = RelationDef(
+    "IRDynamicPrivateCall",
+    (
+        Column("caller_block", ColKind.BLOCK_ID),
+        Column("target_var", ColKind.VAR_ID),
+    ),
+)
 
 # Events
-event_signature_in_contract = RelationDef("EventSignatureInContract", (
-    Column("sig_hash", ColKind.VALUE),
-    Column("text_sig", ColKind.SYMBOL),
-))
+event_signature_in_contract = RelationDef(
+    "EventSignatureInContract",
+    (
+        Column("sig_hash", ColKind.VALUE),
+        Column("text_sig", ColKind.SYMBOL),
+    ),
+)
 
 # Misc
-constant_possible_sig_hash = RelationDef("ConstantPossibleSigHash", (
-    Column("const", ColKind.VALUE),
-    Column("canonical", ColKind.SYMBOL),
-    Column("name", ColKind.SYMBOL),
-))
-unmapped_statements = RelationDef("UnmappedStatements", (
-    Column("stmt", ColKind.STMT_ID),
-))
+constant_possible_sig_hash = RelationDef(
+    "ConstantPossibleSigHash",
+    (
+        Column("const", ColKind.VALUE),
+        Column("canonical", ColKind.SYMBOL),
+        Column("name", ColKind.SYMBOL),
+    ),
+)
+unmapped_statements = RelationDef(
+    "UnmappedStatements", (Column("stmt", ColKind.STMT_ID),)
+)
 
 
 # ---------------------------------------------------------------------------
@@ -292,6 +371,7 @@ def _resolve_def(key: RelKey) -> Optional[RelationDef]:
 # ---------------------------------------------------------------------------
 # TACRelations — low-level relational TAC container
 # ---------------------------------------------------------------------------
+
 
 class TACRelations:
     """Low-level container for Gigahorse TAC output as raw tuples.
@@ -338,9 +418,7 @@ class TACRelations:
 
         if missing:
             names = ", ".join(sorted(missing))
-            raise FileNotFoundError(
-                f"Missing relation files in {out_dir}: {names}"
-            )
+            raise FileNotFoundError(f"Missing relation files in {out_dir}: {names}")
 
         return cls(data=data)
 
@@ -410,8 +488,7 @@ class TACRelations:
                 continue
 
             id_indices = [
-                i for i, c in enumerate(rel_def.columns)
-                if c.kind in target_kinds
+                i for i, c in enumerate(rel_def.columns) if c.kind in target_kinds
             ]
             if not id_indices:
                 continue
@@ -443,7 +520,6 @@ class TACRelations:
         """Set the contract name for all functions in Function_Contract."""
         rows = self[function_contract]
         self[function_contract] = [(func_id, contract) for func_id, _ in rows]
-
 
     # -------------------------------------------------------------------
     # Merging

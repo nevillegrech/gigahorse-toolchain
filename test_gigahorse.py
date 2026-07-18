@@ -1,39 +1,50 @@
 #!/usr/bin/env python3
 
-import subprocess
-import pytest
-import re
 import json
-from os.path import abspath, dirname, join, isdir, isfile
+import re
+import subprocess
 from os import listdir, makedirs
-from typing import Mapping, MutableMapping, Any, Iterator
+from os.path import abspath, dirname, isdir, isfile, join
+from typing import Any, Iterator, Mapping, MutableMapping
+
+import pytest
 
 GIGAHORSE_TOOLCHAIN_ROOT = dirname(abspath(__file__))
 
-DEFAULT_TEST_DIR = join(GIGAHORSE_TOOLCHAIN_ROOT, 'tests')
+DEFAULT_TEST_DIR = join(GIGAHORSE_TOOLCHAIN_ROOT, "tests")
 
-TEST_WORKING_DIR = join(GIGAHORSE_TOOLCHAIN_ROOT, '.tests')
+TEST_WORKING_DIR = join(GIGAHORSE_TOOLCHAIN_ROOT, ".tests")
 
 
-class LogicTestCase():
-    def __init__(self, name: str, test_root:str, test_path: str, test_config: Mapping[str, Any]):
+class LogicTestCase:
+    def __init__(
+        self, name: str, test_root: str, test_path: str, test_config: Mapping[str, Any]
+    ):
         super(LogicTestCase, self).__init__()
 
         self.name = name
 
-        client_path = test_config.get('client_path', None)
-        self.client_path = abspath(join(dirname(test_root), client_path)) if client_path else None
+        client_path = test_config.get("client_path", None)
+        self.client_path = (
+            abspath(join(dirname(test_root), client_path)) if client_path else None
+        )
 
         self.test_path = test_path
 
-        self.working_dir = abspath(f'{TEST_WORKING_DIR}/{self.name}')
-        self.results_file = join(self.working_dir, f'results.json')
+        self.working_dir = abspath(f"{TEST_WORKING_DIR}/{self.name}")
+        self.results_file = join(self.working_dir, "results.json")
 
-        self.gigahorse_args = test_config.get('gigahorse_args', [])
-        self.contract_specific: dict[str, list[tuple[Any, ...]]] = test_config.get('contract_specific', dict())
+        self.gigahorse_args = test_config.get("gigahorse_args", [])
+        self.contract_specific: dict[str, list[tuple[Any, ...]]] = test_config.get(
+            "contract_specific", dict()
+        )
 
-        self.expected_analytics: list[tuple[str, int, float]] = test_config.get("expected_analytics", [])
-        self.expected_verbatim: list[tuple[str, str]] = test_config.get("expected_verbatim", [])
+        self.expected_analytics: list[tuple[str, int, float]] = test_config.get(
+            "expected_analytics", []
+        )
+        self.expected_verbatim: list[tuple[str, str]] = test_config.get(
+            "expected_verbatim", []
+        )
 
     def id(self) -> str:
         return self.name
@@ -45,30 +56,33 @@ class LogicTestCase():
         return self.name
 
     def __run(self) -> subprocess.CompletedProcess:
-        client_arg = ['-C', self.client_path] if self.client_path else []
+        client_arg = ["-C", self.client_path] if self.client_path else []
 
         return subprocess.run(
             [
-                'python3',
-                join(GIGAHORSE_TOOLCHAIN_ROOT, 'gigahorse.py'),
+                "python3",
+                join(GIGAHORSE_TOOLCHAIN_ROOT, "gigahorse.py"),
                 self.test_path,
-                '--restart',
-                '--jobs', '1',
-                '--results_file', self.results_file,
-                '--working_dir', self.working_dir,
+                "--restart",
+                "--jobs",
+                "1",
+                "--results_file",
+                self.results_file,
+                "--working_dir",
+                self.working_dir,
                 *client_arg,
-                *self.gigahorse_args
+                *self.gigahorse_args,
             ],
-            capture_output=True
+            capture_output=True,
         )
 
     def __relation_size(self, name: str) -> int:
-        hex_name = self.test_path.split('/')[-1].split('.')[-2]
+        hex_name = self.test_path.split("/")[-1].split(".")[-2]
 
-        if isfile(join(self.working_dir, hex_name, 'out', f'{name}.csv')):
-            path = join(self.working_dir, hex_name, 'out', f'{name}.csv')
+        if isfile(join(self.working_dir, hex_name, "out", f"{name}.csv")):
+            path = join(self.working_dir, hex_name, "out", f"{name}.csv")
         else:
-            path = join(self.working_dir, hex_name, f'{name}.csv')
+            path = join(self.working_dir, hex_name, f"{name}.csv")
 
         with open(path) as f:
             return len(f.readlines())
@@ -83,18 +97,24 @@ class LogicTestCase():
                 analytics[x] = y
 
             for metric, expected, margin in expected_analytics:
-                assert within_margin(analytics[metric], expected, margin), f"Value for {metric} ({analytics[metric]}) not within margin of expected value ({expected})."
+                assert within_margin(analytics[metric], expected, margin), (
+                    f"Value for {metric} ({analytics[metric]}) not within margin of expected value ({expected})."
+                )
 
         def check_verbatim(result_analytics, expected_verbatim):
             analytics = {}
             for x, y in result_analytics.items():
                 analytics[x] = y
             for metric, expected in expected_verbatim:
-                if '*' not in expected:
-                    assert analytics[metric] == expected, f"Value for {metric} ({analytics[metric]}) not the expected value ({expected})."
+                if "*" not in expected:
+                    assert analytics[metric] == expected, (
+                        f"Value for {metric} ({analytics[metric]}) not the expected value ({expected})."
+                    )
                 else:
                     regex = re.compile(expected)
-                    assert regex.match(analytics[metric]), f"Value for {metric} ({analytics[metric]}) not the expected value ({expected})."
+                    assert regex.match(analytics[metric]), (
+                        f"Value for {metric} ({analytics[metric]}) not the expected value ({expected})."
+                    )
 
         result = self.__run()
 
@@ -104,30 +124,36 @@ class LogicTestCase():
                     return contract[3]
             return None
 
-        with open(join(self.working_dir, 'stdout'), 'wb') as f:
+        with open(join(self.working_dir, "stdout"), "wb") as f:
             f.write(result.stdout)
 
-        with open(join(self.working_dir, 'stderr'), 'wb') as f:
+        with open(join(self.working_dir, "stderr"), "wb") as f:
             f.write(result.stderr)
 
-        assert result.returncode == 0, f"Gigahorse exited with an error code: {result.returncode}"
+        assert result.returncode == 0, (
+            f"Gigahorse exited with an error code: {result.returncode}"
+        )
 
         with open(self.results_file) as f:
             res_contents = json.load(f)
             if not self.contract_specific:
-                (_, _, _, temp_analytics), = res_contents
+                ((_, _, _, temp_analytics),) = res_contents
                 check_analytics(temp_analytics, self.expected_analytics)
                 check_verbatim(temp_analytics, self.expected_verbatim)
             else:
                 for contract, contract_res in self.contract_specific.items():
                     temp_analytics = get_analytics_for_file(res_contents, contract)
-                    check_analytics(temp_analytics, contract_res.get("expected_analytics", dict()))
-                    check_verbatim(temp_analytics, contract_res.get("expected_verbatim", dict()))
-                
+                    check_analytics(
+                        temp_analytics, contract_res.get("expected_analytics", dict())
+                    )
+                    check_verbatim(
+                        temp_analytics, contract_res.get("expected_verbatim", dict())
+                    )
 
 
-
-def discover_logic_tests(current_config: MutableMapping[str, Any], directory: str) -> Iterator[tuple[Mapping[str, Any], str]]:
+def discover_logic_tests(
+    current_config: MutableMapping[str, Any], directory: str
+) -> Iterator[tuple[Mapping[str, Any], str]]:
     def update_config(config_path: str) -> MutableMapping:
         if isfile(config_path):
             with open(config_path) as f:
@@ -138,15 +164,15 @@ def discover_logic_tests(current_config: MutableMapping[str, Any], directory: st
         else:
             return current_config
 
-    current_config = update_config(join(directory, 'config.json'))
+    current_config = update_config(join(directory, "config.json"))
 
     for entry in listdir(directory):
         entry_path = join(directory, entry)
 
-        if entry.endswith('.hex') and isfile(entry_path):
-            yield update_config(join(directory, f'{entry[:-4]}.json')), entry_path
+        if entry.endswith(".hex") and isfile(entry_path):
+            yield update_config(join(directory, f"{entry[:-4]}.json")), entry_path
         elif isdir(entry_path) and isfile(join(directory, f"{entry}.json")):
-            yield update_config(join(directory, f'{entry}.json')), entry_path
+            yield update_config(join(directory, f"{entry}.json")), entry_path
         elif isdir(entry_path):
             yield from discover_logic_tests(current_config, entry_path)
 
@@ -155,13 +181,16 @@ def collect_tests(test_dirs: list[str]):
     makedirs(TEST_WORKING_DIR, exist_ok=True)
 
     for test_dir in (abspath(x) for x in test_dirs):
-        print(f'Running testcases under {test_dir}')
+        print(f"Running testcases under {test_dir}")
 
         for config, hex_path in discover_logic_tests({}, test_dir):
-            test_id = hex_path[len(test_dir) + 1:-4].replace('/', '.')
+            test_id = hex_path[len(test_dir) + 1 : -4].replace("/", ".")
             if config:
-                testdata.append(pytest.param(LogicTestCase(test_id, test_dir, hex_path, config), id=test_id))
-
+                testdata.append(
+                    pytest.param(
+                        LogicTestCase(test_id, test_dir, hex_path, config), id=test_id
+                    )
+                )
 
 
 testdata = []
