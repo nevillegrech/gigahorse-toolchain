@@ -368,7 +368,7 @@ def flush_queue(run_sig: Any, result_queue: SimpleQueue, result_list: Any) -> No
 def write_results(res_list: Any, results_file: str) -> None:
     """
     Filters the results in res_list, logging the appropriate messages
-    and writting them to the results_file json file
+    and writing them to the results_file json file
     """
     total = len(res_list)
     vulnerability_counts: defaultdict[str, int] = defaultdict(int)
