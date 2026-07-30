@@ -10,7 +10,14 @@ import shutil
 import sys
 import time
 from collections import defaultdict
-from multiprocessing import Event, Manager, Process, SimpleQueue, cpu_count
+from multiprocessing import (
+    Event,
+    Manager,
+    Process,
+    SimpleQueue,
+    cpu_count,
+    set_start_method,
+)
 from os.path import getsize, join
 from typing import Any
 
@@ -719,6 +726,8 @@ def run_gigahorse(args, fact_generator: AbstractFactGenerator) -> None:
 
 
 if __name__ == "__main__":
+    set_start_method("fork")
+
     # Decompiler tuning
     parser.add_argument(
         "-cd",
