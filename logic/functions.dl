@@ -714,7 +714,7 @@ DoesNotDominate(notdom, s) :-
   LocalBlockEdge(other, s), s != notdom.
 
 .decl Dominates(dominator: IRBlock, block: IRBlock)
-.output Dominates(IO="file", filename="FLDominates.csv", delimiter="\t")
+// .output Dominates(IO="file", filename="FLDominates.csv", delimiter="\t")
 Dominates(dominator,s) :-
   IRInFunction(dominator, f),
   IRInFunction(s, f),
@@ -733,8 +733,12 @@ DoesNotPostDominate(candidate, s) :-
   LocalBlockEdge(s, other),
   s != candidate.
 
+/**
+  Intra-function post dominates relation.
+  It only works for functions with successful exits (i.e., fails for public functions that always revert).
+*/
 .decl PostDominates(postdominator: IRBlock, s: IRBlock)
-.output PostDominates(IO="file", filename="FLPostDominates.csv", delimiter="\t")
+// .output PostDominates(IO="file", filename="FLPostDominates.csv", delimiter="\t")
 PostDominates(postdominator,s) :-
   IRFunctionExit(exitNode), // initial filter to ensure any exit exists
   IRInFunction(exitNode, f),
@@ -779,6 +783,10 @@ FunctionHasImpreciseControlFlow(fun):-
   JumpToMany(blk),
   IRInFunction(blk, fun).
 
+/**
+  General IR quality filter.
+  It is currently contract-wide as imprecision is not always easily isolated in a single function.
+*/
 .decl ContractHasIRQualityIssue()
 ContractHasIRQualityIssue():-
   JumpToMany(_).
@@ -1150,6 +1158,9 @@ NumberOfFunctionReturnArguments(func, n) :-
   .decl IRLocalStackContents(stmt: IRStatement, n:StackIndex, varOrStackIndex:VariableOrStackIndex)
   .decl IRStatement_Uses_Local(stmt: IRStatement, varOrStackIndex: VariableOrStackIndex, n: StackIndex)
 
+  /**
+    Block-level behavior summary (like BlockOutLocalStackContents, IRBlockOutLocalStackContents), after introducing function calls.
+  */
   .decl FunctionalBlockOutLocalStackContents(irBlock: IRBlock, n: StackIndex, varOrStackIndex: VariableOrStackIndex)
 
   Variable_String(newVar, cat(callStmtBefore, cat("_", @number_to_hex(n)))),
@@ -1366,7 +1377,7 @@ NumberOfFunctionReturnArguments(func, n) :-
     varSum = sum ord(var): FunctionalBlockOutputContents(irblock, stackIndex, var).
 
   .decl PHIVarUsedInBlock(block: IRBlock, stackIndex: StackIndex)
-  .output PHIVarUsedInBlock
+  DEBUG_OUTPUT(PHIVarUsedInBlock)
 
   PHIVarUsedInBlock(irblock, stackIndex):-
     FunctionalStatement_Uses_Local(irstmt, stackIndex, _),
@@ -1377,7 +1388,7 @@ NumberOfFunctionReturnArguments(func, n) :-
     var1 != var2.
 
   .decl PHIVarUsedInBlockBackpropagatesTo(block: IRBlock, stackIndex: StackIndex, prevBlock: IRBlock, prevIndex: StackIndex)
-  .output PHIVarUsedInBlockBackpropagatesTo
+  DEBUG_OUTPUT(PHIVarUsedInBlockBackpropagatesTo)
   PHIVarUsedInBlockBackpropagatesTo(irblock, stackIndex, irblock, stackIndex):-
     PHIVarUsedInBlock(irblock, stackIndex).
 
@@ -1393,15 +1404,23 @@ NumberOfFunctionReturnArguments(func, n) :-
     PolymorphicFunctionalInputIndex_VarOrdSum(prevBlock, prevIndex, varSum),
     !Dominates(tmpBlock, prevBlock).
 
-  .decl PHIVarIntroductionPoint(irblock: IRBlock, stackIndex: StackIndex, defBlock: IRBlock, defBlockIndex: StackIndex) btree_delete
+  /**
+    Polymorphic `stackIndex` at `irblock` holds PHI variable defined in `defBlockIndex` of `defBlock`.
+    Uses results of the "unfiltered" variant. If they are precise (with only one introduction point) they are used,
+    otherwise it falls back to the old logic, introducing a new phi variable at the same block.
+  */
+  .decl PHIVarIntroductionPoint(irblock: IRBlock, stackIndex: StackIndex, defBlock: IRBlock, defBlockIndex: StackIndex)
   .output PHIVarIntroductionPoint
 
   .decl PHIVarIntroductionPointUnfiltered(irblock: IRBlock, stackIndex: StackIndex, defBlock: IRBlock, defBlockIndex: StackIndex) btree_delete
   .output PHIVarIntroductionPointUnfiltered
 
+  // subsumptive rule: remove post dominated inferences for the same (irblock, stackIndex) pair
+  // Is limited by PostDominates. See rel definition.
   PHIVarIntroductionPointUnfiltered(irblock, stackIndex, otherBlock, otherIndex) <= PHIVarIntroductionPointUnfiltered(irblock, stackIndex, defBlock, defBlockIndex):-
     PostDominates(defBlock, otherBlock).
 
+  // main rule: add introduction point when a (non-dominated) previous block does not include
   PHIVarIntroductionPointUnfiltered(irblock, stackIndex, defBlock, defBlockIndex):-
     PHIVarUsedInBlockBackpropagatesTo(irblock, stackIndex, defBlock, defBlockIndex),
     LocalBlockEdge(prevBlock, defBlock),

@@ -25,8 +25,10 @@ FunctionalBlock_Uses_Local(block, as(stackIndex, StackIndex)) :-
   lastFunctional.FunctionalStatement_Uses_Local(stmt, stackIndex, _),
   CheckIsStackIndex(stackIndex).
 
+/**
+  `stackIndex` at `block` uses more than one variable: need to introduce phi statement
+*/
 .decl PolymorphicStackIndex(block: IRBlock, stackIndex: StackIndex)
-
 PolymorphicStackIndex(block, stackIndex) :-
   FunctionalBlock_Uses_Local(block, stackIndex),
   lastFunctional.FunctionalBlockInputContents(block, stackIndex, var1),
@@ -34,8 +36,9 @@ PolymorphicStackIndex(block, stackIndex) :-
   var1 != var2.
 
 /**
-  Find all polymorphic stackIndexes
-  These need phi instructions introduced at the dominance frontier
+  Phi instructions introduced at the dominance frontier.
+  We use `lastFunctional.PHIVarIntroductionPoint` to approximate that and match the
+  `PolymorphicStackIndex` facts.
 */
 .decl PHILocation(block: IRBlock, stackIndex: StackIndex, newVarSymbol: IRStatement)
 DEBUG_OUTPUT(PHILocation)
