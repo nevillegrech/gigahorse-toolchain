@@ -1747,13 +1747,13 @@ DEBUG_OUTPUT(DUPTouchesPHIWithLoss)
 //   IRStatement_Opcode(stmt, opcode),
 //   postTrans.SWAPN(opcode, n).
 
-// DUPTouchesPHIWithLoss(stmt, var):-
-//   FunctionalBlockUsesPHIVar(_, var, _),
-//   DUPOrSWAPStatementUsesVar(stmt, var),
-//   IRStatement_Block(stmt, touchBlock),
-//   firstFunctional.FunctionalStatement_Defines(defStmt, var, _),
-//   IRStatement_Block(defStmt, defBlock),
-//   DoesNotPostDominate(touchBlock, defBlock).
+DUPTouchesPHIWithLoss(stmt, var):-
+  FunctionalBlockUsesPHIVar(_, var, _),
+  DUPOrSWAPStatementUsesVar(stmt, var),
+  IRStatement_Block(stmt, touchBlock),
+  firstFunctional.FunctionalStatement_Defines(defStmt, var, _),
+  IRStatement_Block(defStmt, defBlock),
+  DoesNotPostDominate(touchBlock, defBlock).
 
 DUPTouchesPHIWithLoss(stmt, var):-
   FunctionalBlockUsesPHIVar(_, var, _),
