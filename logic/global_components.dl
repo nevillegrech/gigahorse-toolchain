@@ -162,12 +162,13 @@
     Variable_Value(targetVar, targetValue),
     JUMPDEST(as(targetValue, symbol)).
 
+#ifndef NO_GLOBAL_VAR_VAL
   BlockJumpValidTarget(ctx, block, targetVar, as(targetValue, Block)) :-
     BlockJumpTarget(ctx, block, targetVar),
     GlobalVariable_Value(ctx, targetVar, targetValue),
     JUMPDEST(as(targetValue, symbol)).
    .plan 1:(2,1,3)
-
+#endif
 
   /*
   ***********
