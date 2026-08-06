@@ -1136,6 +1136,7 @@ NumberOfFunctionReturnArguments(func, n) :-
 
   // Is output
   .decl Variable_String(var:Variable, var_rep:symbol)
+  DEBUG_OUTPUT(Variable_String)
 
   // Is output
   .decl Variable_Stmt_String(var:Variable, stmt: IRStatement, var_rep:symbol) inline
@@ -1276,6 +1277,9 @@ NumberOfFunctionReturnArguments(func, n) :-
 //     OpcodePopWords(opcode, m),
 //     IsStackIndexLessThan(n, m+n_out),
 //     IRBeforeLocalStackContents(stmt, n, varOrStackIndex).
+
+  DEBUG_OUTPUT(FunctionalStatement_Uses_Local)
+  DEBUG_OUTPUT(IRBeforeLocalStackContents)
 
   // uses of the jump/call stmt
   FunctionalStatement_Uses_Local(stmt, varOrStackIndex, n) :-
@@ -1457,6 +1461,7 @@ NumberOfFunctionReturnArguments(func, n) :-
   // subsumptive rule: remove post dominated inferences for the same (irblock, stackIndex) pair
   // Is limited by PostDominates. See rel definition.
   PHIVarIntroductionPointUnfiltered(irblock, stackIndex, otherBlock, otherIndex) <= PHIVarIntroductionPointUnfiltered(irblock, stackIndex, defBlock, defBlockIndex):-
+    // Dominates(defBlock, otherBlock).
     PostDominates(defBlock, otherBlock).
 
   // main rule: add introduction point when a (non-dominated) previous block does not include
@@ -1531,6 +1536,7 @@ DUPOrSWAPStatementUsesVar(stmt, var):-
   postTrans.DUPN(opcode, n),
   IRStatement_Block(stmt, block),
   firstFunctional.IRBeforeLocalStackContents(stmt, n - 1, index),
+  firstFunctional.PHIVarUsedInBlockBackpropagatesTo(_, _, block, index),
   firstFunctional.FunctionalBlockInputContents(block, index, var).
 
 DUPOrSWAPStatementUsesVar(stmt, var):-
@@ -1538,6 +1544,7 @@ DUPOrSWAPStatementUsesVar(stmt, var):-
   postTrans.SWAPN(opcode, _),
   IRStatement_Block(stmt, block),
   firstFunctional.IRBeforeLocalStackContents(stmt, 0, index),
+  firstFunctional.PHIVarUsedInBlockBackpropagatesTo(_, _, block, index),
   firstFunctional.FunctionalBlockInputContents(block, index, var).
 
 DUPOrSWAPStatementUsesVar(stmt, var):-
@@ -1545,6 +1552,7 @@ DUPOrSWAPStatementUsesVar(stmt, var):-
   postTrans.SWAPN(opcode, n),
   IRStatement_Block(stmt, block),
   firstFunctional.IRBeforeLocalStackContents(stmt, n, index),
+  firstFunctional.PHIVarUsedInBlockBackpropagatesTo(_, _, block, index),
   firstFunctional.FunctionalBlockInputContents(block, index, var).
 
 DUPOrSWAPStatementUsesVar(stmt, as(var, Variable)):-
@@ -1604,148 +1612,29 @@ PHIVar_DefBlockToUseBlock(entry, useBlock, var, stackIndex):-
   IRInFunction(entry, func),
   IRFunctionEntry(entry).
 
-.decl DefBlockToUseBlockPathInterm(from: IRBlock, to: IRBlock, tmp: IRBlock, path: Path)
-DEBUG_OUTPUT(DefBlockToUseBlockPathInterm)
-
-DefBlockToUseBlockPathInterm(from, to, from, initPath):-
-  PHIVar_DefBlockToUseBlock(from, to, _, _),
-//   from != to, // REVIEW: not sure, it seems to help rn
-  initPath = as("", Path).
-  // initPath = as(from, Path).
-
-DefBlockToUseBlockPathInterm(from, to, next, newPath):-
-  DefBlockToUseBlockPathInterm(from, to, cur, prevPath),
-  PotentialCycleEntryLocalBlockEdge(cur, next),
-  newPath = as(@add_set(prevPath, next), Path),
-  newPath != prevPath.
-
-DefBlockToUseBlockPathInterm(from, to, next, prevPath):-
-  DefBlockToUseBlockPathInterm(from, to, cur, prevPath),
-  NotCycleEntryLocalBlockEdge(cur, next).
-
-.decl DefBlockToUseBlockPath(from: IRBlock, to: IRBlock, path: Path)
-DEBUG_OUTPUT(DefBlockToUseBlockPath)
-
-DefBlockToUseBlockPath(from, to, path):-
-  DefBlockToUseBlockPathInterm(from, to, to, path).
-
-
-// .decl PHIVarInformationLoss(useBlock: IRBlock, useVar: Variable, stackIndex: StackIndex)
-// DEBUG_OUTPUT(PHIVarInformationLoss)
-
-// both variables defined in same path
-// PHIVarInformationLoss(useBlock, var, stackIndex):-
-//   PHIVar_DefBlockToUseBlock(defBlock, useBlock, var, stackIndex),
-//   DefBlockToUseBlockPath(defBlock, useBlock, path),
-//   PHIVar_DefBlockToUseBlock(otherDefBlock, useBlock, otherVar, stackIndex), otherVar != var,
-//   DefBlockToUseBlockPath(otherDefBlock, useBlock, path).
-
-/**
-  variable `otherVar` defined in subpath of `var`.
-  It can be useful but it also matches with loop induction variables.
-*/
-// PHIVarInformationLoss(useBlock, otherVar, stackIndex),
-// PHIVarInformationLoss(useBlock, var, stackIndex):-
-//   PHIVar_DefBlockToUseBlock(defBlock, useBlock, var, stackIndex),
-//   DefBlockToUseBlockPath(defBlock, useBlock, path),
-//   PHIVar_DefBlockToUseBlock(otherDefBlock, useBlock, otherVar, stackIndex), otherVar != var,
-//   DefBlockToUseBlockPath(otherDefBlock, useBlock, otherPath), path != otherPath,
-//   contains(path, otherPath), otherPath != "", path != "".
-
-// PHIVarInformationLoss(useBlock, var, stackIndex):-
-//   PHIVar_DefBlockToUseBlock(defBlock1, useBlock, var, stackIndex),
-//   PHIOpTwoPathHelper(useBlock, stackIndex, defBlock1, _, defBlock2, _),
-//   n = count: PHIOpTwoPathHelper(useBlock, stackIndex, defBlock1, _, defBlock2, _),
-//   n = count: PHIOpWithCompatiblePaths(useBlock, stackIndex, defBlock1, _, defBlock2, _).
-
-// PHIVarInformationLoss(useBlock, otherVar, stackIndex),
-// PHIVarInformationLoss(useBlock, var, stackIndex):-
-//   PHIVar_DefBlockToUseBlock(defBlock, useBlock, var, stackIndex),
-//   PHIVar_DefBlockToUseBlock(otherDefBlock, useBlock, otherVar, stackIndex), otherVar != var,
-//   PostDominates(defBlock, otherDefBlock),
-//   !Dominates(defBlock, useBlock).
-
-// PHIVarInformationLoss(useBlock, otherVar, stackIndex),
-// PHIVarInformationLoss(useBlock, var, stackIndex):-
-//   PHIVar_DefBlockToUseBlock(defBlock, useBlock, var, stackIndex),
-//   PHIVar_DefBlockToUseBlock(defBlock, useBlock, otherVar, stackIndex), otherVar != var.
-
-// unused for now
-// .decl PHIVarInformationLossCount(useBlock: IRBlock, stackIndex: StackIndex, nvars: number)
-// DEBUG_OUTPUT(PHIVarInformationLossCount)
-// PHIVarInformationLossCount(useBlock, stackIndex, nvars):-
-//   PHIVarInformationLoss(useBlock, _, stackIndex),
-//   nvars = count: PHIVarInformationLoss(useBlock, _, stackIndex).
 
 .init allStmts = AllStatementsLocalAnalysis
 COPY_CODE_FULL(allStmts, postTrans)
 
+// .decl StatementCanSafelyReplace(dup: IRStatement, dup2: IRStatement)
+// DEBUG_OUTPUT(StatementCanSafelyReplace)
+// DEBUG_OUTPUT(IRBlockInLoop)
+// StatementCanSafelyReplace(postDominatedStmt, postDominatorStmt):-
+//   FunctionalBlockUsesPHIVar(_, var, _),
+//   DUPOrSWAPStatementUsesVar(postDominatorStmt, var),
+//   DUPOrSWAPStatementUsesVar(postDominatedStmt, var),
+//   IRStatement_Block(postDominatorStmt, postDominator),
+//   IRStatement_Block(postDominatedStmt, postDominated),
+//   postDominated != postDominator,
+//   PostDominates(postDominator, postDominated),
+//   !IRBlockInLoop(postDominator, _),
+//   !IRBlockInLoop(postDominated, _).
 
-.decl DUPTouchesPHIWithLoss(dup: IRStatement, useVar: Variable)
+.decl DUPTouchesPHIWithLoss(dup: IRStatement, useVar: Variable) //btree_delete
 DEBUG_OUTPUT(DUPTouchesPHIWithLoss)
 
-// .decl ExtraDUPTouchesPHIWithLoss(dup: IRStatement, useVar: Variable, otherUseVar: Variable)
-// DEBUG_OUTPUT(ExtraDUPTouchesPHIWithLoss)
-
-// ExtraDUPTouchesPHIWithLoss(stmt, var, otherVar),
-// DUPTouchesPHIWithLoss(stmt, var):-
-//   PHIVarInformationLoss(useBlock, var, ogStackIndex),
-//   PHIVar_DefBlockToUseBlock(defBlock, useBlock, var, ogStackIndex),
-//   DefBlockToUseBlockPathInterm(defBlock, useBlock, block, _),
-//   IRStatement_Block(stmt, block),
-//   IRStatement_Opcode(stmt, opcode),
-//   postTrans.DUPN(opcode, n),
-//   firstFunctional.IRBeforeLocalStackContents(stmt, n - 1, index),
-//   firstFunctional.FunctionalBlockInputContents(block, index, var),
-//   PHIVarInformationLoss(useBlock, otherVar, ogStackIndex),
-//   var != otherVar, // ensure the otherVar is not also used, i.e. there is no phi at `index`
-//   !firstFunctional.FunctionalBlockInputContents(block, index, otherVar).
-
-// DUPTouchesPHIWithLoss(stmt, var):-
-//   PHIVarInformationLoss(_, var, _),
-//   firstFunctional.IRBeforeLocalStackContents(stmt, n - 1, var),
-//   IRStatement_Opcode(stmt, opcode),
-//   postTrans.DUPN(opcode, n).
-
-// // ExtraDUPTouchesPHIWithLoss(stmt, var, otherVar),
-// DUPTouchesPHIWithLoss(stmt, var):-
-//   PHIVarInformationLoss(useBlock, var, ogStackIndex),
-//   PHIVar_DefBlockToUseBlock(defBlock, useBlock, var, ogStackIndex),
-//   DefBlockToUseBlockPathInterm(defBlock, useBlock, block, _),
-//   IRStatement_Block(stmt, block),
-//   IRStatement_Opcode(stmt, opcode),
-//   postTrans.SWAPN(opcode, _),
-//   firstFunctional.IRBeforeLocalStackContents(stmt, 0, index),
-//   firstFunctional.FunctionalBlockInputContents(block, index, var),
-//   PHIVarInformationLoss(useBlock, otherVar, ogStackIndex),
-//   var != otherVar, // ensure the otherVar is not also used, i.e. there is no phi at `index`
-//   !firstFunctional.FunctionalBlockInputContents(block, index, otherVar).
-
-// DUPTouchesPHIWithLoss(stmt, var):-
-//   PHIVarInformationLoss(_, var, _),
-//   firstFunctional.IRBeforeLocalStackContents(stmt, 0, var),
-//   IRStatement_Opcode(stmt, opcode),
-//   postTrans.SWAPN(opcode, _).
-
-// // ExtraDUPTouchesPHIWithLoss(stmt, var, otherVar),
-// DUPTouchesPHIWithLoss(stmt, var):-
-//   PHIVarInformationLoss(useBlock, var, ogStackIndex),
-//   PHIVar_DefBlockToUseBlock(defBlock, useBlock, var, ogStackIndex),
-//   DefBlockToUseBlockPathInterm(defBlock, useBlock, block, _),
-//   IRStatement_Block(stmt, block),
-//   IRStatement_Opcode(stmt, opcode),
-//   postTrans.SWAPN(opcode, n),
-//   firstFunctional.IRBeforeLocalStackContents(stmt, n, index),
-//   firstFunctional.FunctionalBlockInputContents(block, index, var),
-//   PHIVarInformationLoss(useBlock, otherVar, ogStackIndex),
-//   var != otherVar, // ensure the otherVar is not also used, i.e. there is no phi at `index`
-//   !firstFunctional.FunctionalBlockInputContents(block, index, otherVar).
-
-// DUPTouchesPHIWithLoss(stmt, var):-
-//   PHIVarInformationLoss(_, var, _),
-//   firstFunctional.IRBeforeLocalStackContents(stmt, n, var),
-//   IRStatement_Opcode(stmt, opcode),
-//   postTrans.SWAPN(opcode, n).
+// DUPTouchesPHIWithLoss(postDominatorStmt, useVar) <= DUPTouchesPHIWithLoss(postDominatedStmt, useVar):-
+//   StatementCanSafelyReplace(postDominatedStmt, postDominatorStmt).
 
 DUPTouchesPHIWithLoss(stmt, var):-
   FunctionalBlockUsesPHIVar(_, var, _),
@@ -1772,9 +1661,10 @@ DUPTouchesPHIWithLoss(stmt, var):-
   firstFunctional.FunctionalStatement_Defines(defStmt, var, _),
   IRStatement_Block(defStmt, defBlock).
 
-DUPTouchesPHIWithLoss(stmt, var):-
-  firstFunctional.VarUsedInMultiplePHIs(var),
-  DUPOrSWAPStatementUsesVar(stmt, var).
+// Commented out, doesn't seem needed.
+// DUPTouchesPHIWithLoss(stmt, var):-
+//   firstFunctional.VarUsedInMultiplePHIs(var),
+//   DUPOrSWAPStatementUsesVar(stmt, var).
 
 DUPTouchesPHIWithLoss(stmt, var):-
   FunctionalBlockUsesPHIVar(_, var, _),
@@ -1786,6 +1676,15 @@ DUPTouchesPHIWithLoss(stmt, var):-
   IRBlockInLoop(touchBlock, loop),
   !IRBlockInLoop(defBlock, loop).
 
+DUPTouchesPHIWithLoss(stmt, var):-
+  FunctionalBlockUsesPHIVar(_, var, _),
+  DUPOrSWAPStatementUsesVar(stmt, var),
+  IRStatement_Block(stmt, touchBlock),
+  firstFunctional.FunctionalStatement_Defines(defStmt, var, _),
+  IRStatement_Block(defStmt, defBlock),
+  Dominates(defBlock, touchBlock),
+  IRBlockInLoop(touchBlock, loop),
+  IRBlockInLoop(defBlock, loop).
 
 // .output firstFunctional.IRBeforeLocalStackContents, firstFunctional.FunctionalBlockInputContents, firstFunctional.FunctionalBlockOutputContents, postTrans.StatementStackDelta, NumberOfFunctionReturnArguments, NumberOfFunctionArguments
 
