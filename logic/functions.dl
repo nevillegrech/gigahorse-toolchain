@@ -1637,29 +1637,15 @@ DEBUG_OUTPUT(DUPTouchesPHIWithLoss)
 //   StatementCanSafelyReplace(postDominatedStmt, postDominatorStmt).
 
 DUPTouchesPHIWithLoss(stmt, var):-
-  FunctionalBlockUsesPHIVar(_, var, _),
+  PHIVar_DefBlockToUseBlock(defBlock, _, var, _),
   DUPOrSWAPStatementUsesVar(stmt, var),
   IRStatement_Block(stmt, touchBlock),
-  firstFunctional.FunctionalStatement_Defines(defStmt, var, _),
-  IRStatement_Block(defStmt, defBlock),
   DoesNotPostDominate(touchBlock, defBlock).
 
 DUPTouchesPHIWithLoss(stmt, var):-
-  FunctionalBlockUsesPHIVar(_, var, _),
+  PHIVar_DefBlockToUseBlock(defBlock, _, var, _),
   DUPOrSWAPStatementUsesVar(stmt, var),
-  IRStatement_Block(stmt, touchBlock),
-  !firstFunctional.FunctionalStatement_Defines(_, var, _),
-  IRInFunction(touchBlock, func),
-  IRInFunction(entry, func),
-  IRFunctionEntry(entry),
-  DoesNotPostDominate(touchBlock, entry).
-
-DUPTouchesPHIWithLoss(stmt, var):-
-  FunctionalBlockUsesPHIVar(_, var, _),
-  DUPOrSWAPStatementUsesVar(stmt, var),
-  IRStatement_Block(stmt, defBlock),
-  firstFunctional.FunctionalStatement_Defines(defStmt, var, _),
-  IRStatement_Block(defStmt, defBlock).
+  IRStatement_Block(stmt, defBlock).
 
 // Commented out, doesn't seem needed.
 // DUPTouchesPHIWithLoss(stmt, var):-
@@ -1667,21 +1653,17 @@ DUPTouchesPHIWithLoss(stmt, var):-
 //   DUPOrSWAPStatementUsesVar(stmt, var).
 
 DUPTouchesPHIWithLoss(stmt, var):-
-  FunctionalBlockUsesPHIVar(_, var, _),
+  PHIVar_DefBlockToUseBlock(defBlock, _, var, _),
   DUPOrSWAPStatementUsesVar(stmt, var),
   IRStatement_Block(stmt, touchBlock),
-  firstFunctional.FunctionalStatement_Defines(defStmt, var, _),
-  IRStatement_Block(defStmt, defBlock),
   PostDominates(touchBlock, defBlock),
   IRBlockInLoop(touchBlock, loop),
   !IRBlockInLoop(defBlock, loop).
 
 DUPTouchesPHIWithLoss(stmt, var):-
-  FunctionalBlockUsesPHIVar(_, var, _),
+  PHIVar_DefBlockToUseBlock(defBlock, _, var, _),
   DUPOrSWAPStatementUsesVar(stmt, var),
   IRStatement_Block(stmt, touchBlock),
-  firstFunctional.FunctionalStatement_Defines(defStmt, var, _),
-  IRStatement_Block(defStmt, defBlock),
   Dominates(defBlock, touchBlock),
   IRBlockInLoop(touchBlock, loop),
   IRBlockInLoop(defBlock, loop).
