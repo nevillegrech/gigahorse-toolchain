@@ -7,6 +7,8 @@
 // Has many dependencies, incl memory modeling and data structures
 #include "../clientlib/guards.dl"
 
+#include "../clientlib/multi_contract.dl"
+
 /**
   Loop-related analytics
 */
@@ -19,11 +21,11 @@
 .output Analytics_NonHighLevelLoop
 
 /**
-  Loop has non high-level control flow (i.e. many exits), without having jump to manys 
+  Loop has non high-level control flow (i.e. many or no exits), without having jump to manys 
   This is the most useful analytic.
 */
-.decl Analytics_LoopWithManyExits(loop: Block)
-.output Analytics_LoopWithManyExits
+.decl Analytics_NonHighLevelLoopFiltered(loop: Block)
+.output Analytics_NonHighLevelLoopFiltered
 
 Analytics_Loop(loop):-
   BlockInStructuredLoop(_, loop).
@@ -36,22 +38,21 @@ Analytics_NonHighLevelLoop(loop):-
   Analytics_Loop(loop),
   0 != count: {BlockInStructuredLoop(block, loop), JumpToMany(block)}.
 
-Analytics_LoopWithManyExits(loop):-
+Analytics_NonHighLevelLoopFiltered(loop):-
   Analytics_Loop(loop),
   !HighLevelLoop(loop),
   0 = count: {BlockInStructuredLoop(block, loop), JumpToMany(block)}.
 
-.decl JumpToMany(block: Block)
-JumpToMany(block):-
-  (Statement_Opcode(jump, "JUMP");
-  Statement_Opcode(jump, "CALLPRIVATE")),
-  Statement_Block(jump, block),
-  nEdges = count : LocalBlockEdge(block, _), nEdges > 1.
+/**
+  Instance of loop inference imprecision:
+  two loops are mutually nested
+*/
+.decl Analytics_LoopImprecision(loop: Block)
+.output Analytics_LoopImprecision
 
-JumpToMany(block):-
-  Statement_Opcode(jump, "JUMPI"),
-  Statement_Block(jump, block),
-  nEdges = count : LocalBlockEdge(block, _), nEdges > 2.
+Analytics_LoopImprecision(loop):-
+  BlockInStructuredLoop(otherLoop, loop),
+  BlockInStructuredLoop(loop, otherLoop), loop != otherLoop.
 
 /**
  * Memory Modeling
@@ -182,3 +183,11 @@ Verbatim_StructToString(structID, stringStruct):-
 Analytics_StructWithNoStringRep(structID):-
   DataStructureValueIsStruct(_, _, structID, _),
   !StructToString(structID, _).
+
+/**
+  Multi-contract analytics
+*/
+.decl Analytics_ResolvedExternalCall(callStmt: Statement, target: Function)
+.output Analytics_ResolvedExternalCall
+Analytics_ResolvedExternalCall(callStmt, target):-
+  ResolvedExternalCall(callStmt, target).

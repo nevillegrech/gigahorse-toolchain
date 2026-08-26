@@ -99,7 +99,7 @@ class OpCode:
     def is_arithmetic(self) -> bool:
         """Predicate: opcode's result can be calculated from its inputs alone."""
         return (ADD.code <= self.code <= SIGNEXTEND.code) or \
-               (LT.code <= self.code <= SAR.code)
+               (LT.code <= self.code <= CLZ.code)
 
     def is_memory(self) -> bool:
         """Predicate: opcode operates on memory"""
@@ -184,6 +184,7 @@ BYTE   = OpCode("BYTE",   0x1a, 2, 1, 3)
 SHL    = OpCode("SHL", 0x1b, 2, 1, 3)
 SHR    = OpCode("SHR", 0x1c, 2, 1, 3)
 SAR    = OpCode("SAR", 0x1d, 2, 1, 3)
+CLZ    = OpCode("CLZ", 0x1e, 1, 1, 3) # TODO: Fix gas cost
 
 SHA3 = OpCode("SHA3", 0x20, 2, 1, 30)
 

@@ -30,6 +30,7 @@ class LogicTestCase():
         self.results_file = join(self.working_dir, f'results.json')
 
         self.gigahorse_args = test_config.get('gigahorse_args', [])
+        self.contract_specific: dict[str, list[tuple[Any, ...]]] = test_config.get('contract_specific', dict())
 
         self.expected_analytics: list[tuple[str, int, float]] = test_config.get("expected_analytics", [])
         self.expected_verbatim: list[tuple[str, str]] = test_config.get("expected_verbatim", [])
@@ -75,7 +76,33 @@ class LogicTestCase():
     def run(self):
         def within_margin(actual: int, expected: int, margin: float) -> bool:
             return (1 - margin) * expected <= actual <= (1 + margin) * expected
+
+        def check_analytics(result_analytics, expected_analytics):
+            analytics = {}
+            for x, y in result_analytics.items():
+                analytics[x] = y
+
+            for metric, expected, margin in expected_analytics:
+                assert within_margin(analytics[metric], expected, margin), f"Value for {metric} ({analytics[metric]}) not within margin of expected value ({expected})."
+
+        def check_verbatim(result_analytics, expected_verbatim):
+            analytics = {}
+            for x, y in result_analytics.items():
+                analytics[x] = y
+            for metric, expected in expected_verbatim:
+                if '*' not in expected:
+                    assert analytics[metric] == expected, f"Value for {metric} ({analytics[metric]}) not the expected value ({expected})."
+                else:
+                    regex = re.compile(expected)
+                    assert regex.match(analytics[metric]), f"Value for {metric} ({analytics[metric]}) not the expected value ({expected})."
+
         result = self.__run()
+
+        def get_analytics_for_file(res_file, file_name):
+            for contract in res_file:
+                if contract[0] == file_name:
+                    return contract[3]
+            return None
 
         with open(join(self.working_dir, 'stdout'), 'wb') as f:
             f.write(result.stdout)
@@ -86,21 +113,18 @@ class LogicTestCase():
         assert result.returncode == 0, f"Gigahorse exited with an error code: {result.returncode}"
 
         with open(self.results_file) as f:
-            (_, _, _, temp_analytics), = json.load(f)
-
-        analytics = {}
-        for x, y in temp_analytics.items():
-            analytics[x] = y
-
-        for metric, expected, margin in self.expected_analytics:
-            assert within_margin(analytics[metric], expected, margin), f"Value for {metric} ({analytics[metric]}) not within margin of expected value ({expected})."
-
-        for metric, expected in self.expected_verbatim:
-            if '*' not in expected:
-                assert analytics[metric] == expected, f"Value for {metric} ({analytics[metric]}) not the expected value ({expected})."
+            res_contents = json.load(f)
+            if not self.contract_specific:
+                (_, _, _, temp_analytics), = res_contents
+                check_analytics(temp_analytics, self.expected_analytics)
+                check_verbatim(temp_analytics, self.expected_verbatim)
             else:
-                regex = re.compile(expected)
-                assert regex.match(analytics[metric]), f"Value for {metric} ({analytics[metric]}) not the expected value ({expected})."
+                for contract, contract_res in self.contract_specific.items():
+                    temp_analytics = get_analytics_for_file(res_contents, contract)
+                    check_analytics(temp_analytics, contract_res.get("expected_analytics", dict()))
+                    check_verbatim(temp_analytics, contract_res.get("expected_verbatim", dict()))
+                
+
 
 
 def discover_logic_tests(current_config: MutableMapping[str, Any], directory: str) -> Iterator[tuple[Mapping[str, Any], str]]:
@@ -121,6 +145,8 @@ def discover_logic_tests(current_config: MutableMapping[str, Any], directory: st
 
         if entry.endswith('.hex') and isfile(entry_path):
             yield update_config(join(directory, f'{entry[:-4]}.json')), entry_path
+        elif isdir(entry_path) and isfile(join(directory, f"{entry}.json")):
+            yield update_config(join(directory, f'{entry}.json')), entry_path
         elif isdir(entry_path):
             yield from discover_logic_tests(current_config, entry_path)
 

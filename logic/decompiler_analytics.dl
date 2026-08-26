@@ -307,6 +307,28 @@ Analytics_FunctionWithMultipleReturns(func) :-
 Analytics_DynamicPrivateCall(call):-
   IRDynamicPrivateCall(call, _).
 
+
+.decl Analytics_LikelyFunctionImprecision(func: IRFunction)
+.output Analytics_LikelyFunctionImprecision
+Analytics_LikelyFunctionImprecision(func):-
+  FormalArgs(func, target, n),
+  TAC_Op(ret, "RETURNPRIVATE"),
+  TAC_Use(ret, target, 0),
+  FormalArgs(func, _, m),
+  m > n.
+
+.decl Analytics_FunctionCallReturnNotConstant(callblock: IRBlock)
+.output Analytics_FunctionCallReturnNotConstant
+Analytics_FunctionCallReturnNotConstant(callblock):-
+  IRFunctionCallReturn(callblock, func, _),
+  FormalArgs(func, target, n),
+  TAC_Op(ret, "RETURNPRIVATE"),
+  TAC_Use(ret, target, 0),
+  TAC_Block(call, callblock),
+  TAC_Op(call, "CALLPRIVATE"),
+  TAC_Use(call, arg, n + 1),
+  !TAC_Variable_Value(arg, _).
+
 .decl Analytics_PublicFunction(func: IRFunction)
 .output Analytics_PublicFunction
 
@@ -423,7 +445,7 @@ Analytics_UnknownOperand(stmt) :-
    TAC_Op(stmt, opcode),
    OpcodePopWords(opcode, words),
    IsStackIndexLessThan(n, words),
-   !FunctionalStatement_Uses_Local(stmt, _, n).
+   !firstFunctional.FunctionalStatement_Uses_Local(stmt, _, n).
 
 .decl ReachableStatement(stmt: IRStatement)
 ReachableStatement(stmt) :-
@@ -523,3 +545,31 @@ Analytics_MissingEdgeInTAC(irBlock):-
   TAC_Block(jump, irBlock),
   TAC_Op(jump, "JUMP"),
   !LocalBlockEdge(irBlock, _).
+
+Analytics_MissingEdgeInTAC(irBlock):-
+  Block_IRBlock(_, _, irBlock),
+  TAC_Block(jump, irBlock),
+  TAC_Op(jump, "JUMPI"),
+  2 != count: LocalBlockEdge(irBlock, _).
+
+.decl Analytics_DataFlowImprecision(fun: IRFunction)
+.output Analytics_DataFlowImprecision
+
+Analytics_DataFlowImprecision(fun):-
+  PHILocation(block, stackIndex, _),
+  lastFunctional.FunctionalBlockInputContents(block, stackIndex, var),
+  lastFunctional.FunctionalBlockInputContents(block, stackIndex, otherVar),
+  lastFunctional.FunctionArgument(fun, _, var),
+  lastFunctional.FunctionArgument(fun, _, otherVar),
+  var != otherVar.
+
+Analytics_DataFlowImprecision(fun):-
+  PHILocation(block, stackIndex, _),
+  lastFunctional.FunctionalBlockInputContents(block, stackIndex, var),
+  lastFunctional.FunctionalBlockInputContents(block, stackIndex, otherVar),
+  lastFunctional.FunctionalStatement_Defines(stmt, var, _),
+  lastFunctional.FunctionalStatement_Defines(otherStmt, otherVar, _),
+  IRStatement_Block(stmt, block),
+  IRStatement_Block(otherStmt, block),
+  IRInFunction(block, fun),
+  var != otherVar.

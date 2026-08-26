@@ -295,11 +295,17 @@ NonLinearEdge(block) :-
    GlobalBlockEdge(block, next2),
    next2 != next.
 
-.decl NonLinearLocalEdge(block: Block)
-NonLinearLocalEdge(block) :-
+.decl NonLinearLocalEdgeFrom(block: Block)
+NonLinearLocalEdgeFrom(block) :-
    LocalBlockEdge(block, next),
    LocalBlockEdge(block, next2),
    next2 != next.
+
+.decl NonLinearLocalEdgeTo(block: Block)
+NonLinearLocalEdgeTo(next) :-
+   LocalBlockEdge(from1, next),
+   LocalBlockEdge(from2, next),
+   from1 != from2.
 
 ThrowBlock(block) :-
    GlobalBlockEdge(block, next),
@@ -316,7 +322,8 @@ BlockTerminates(block) :-
 //    GlobalBlockEdge(block, next),
 //    !NonLinearEdge(block),
    LocalBlockEdge(block, next),
-   !NonLinearLocalEdge(block),
+   !NonLinearLocalEdgeFrom(block),
+   !NonLinearLocalEdgeTo(next),
    BlockTerminates(next).
 
 .decl AddResult(b: Variable, d: Variable)

@@ -231,6 +231,10 @@ FunCalledByDynamicCall(fun):-
     In_IsFunction(fun),
     !FunctionToInline(fun).
 
+  Out_Function_Contract(fun, contract):-
+    In_Function_Contract(fun, contract),
+    !FunctionToInline(fun).
+
   .decl InliningWillResolveDynamicCall(outCall: Block, calledFun: Function)
   InliningWillResolveDynamicCall(outCall, calledFun):-
     In_DynamicPrivateCall(inCall, _),

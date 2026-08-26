@@ -78,6 +78,9 @@ SHR(stmt) :- Statement_Opcode(stmt, "SHR").
 .decl SAR(stmt: Statement)
 SAR(stmt) :- Statement_Opcode(stmt, "SAR").
 
+.decl CLZ(stmt: Statement)
+CLZ(stmt) :- Statement_Opcode(stmt, "CLZ").
+
 .decl SHA3(stmt: Statement)
 SHA3(stmt) :- Statement_Opcode(stmt, "SHA3").
 

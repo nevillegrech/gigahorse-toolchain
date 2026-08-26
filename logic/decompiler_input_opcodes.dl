@@ -99,6 +99,7 @@ OpcodeIsArithmetic("BYTE").
 OpcodeIsArithmetic("SHL").
 OpcodeIsArithmetic("SHR").
 OpcodeIsArithmetic("SAR").
+OpcodeIsArithmetic("CLZ").
 
 OpcodeIsCall("CALL").
 OpcodeIsCall("CALLCODE").
@@ -214,6 +215,7 @@ OpcodeLogLen("BYTE", 0).
 OpcodeLogLen("SHL", 0).
 OpcodeLogLen("SHR", 0).
 OpcodeLogLen("SAR", 0).
+OpcodeLogLen("CLZ", 0).
 OpcodeLogLen("SHA3", 0).
 OpcodeLogLen("ADDRESS", 0).
 OpcodeLogLen("BALANCE", 0).
@@ -371,6 +373,7 @@ OpcodePushLen("BYTE", 0).
 OpcodePushLen("SHL", 0).
 OpcodePushLen("SHR", 0).
 OpcodePushLen("SAR", 0).
+OpcodePushLen("CLZ", 0).
 OpcodePushLen("SHA3", 0).
 OpcodePushLen("ADDRESS", 0).
 OpcodePushLen("BALANCE", 0).
@@ -522,6 +525,7 @@ OpcodeStackDelta("BYTE", -1).
 OpcodeStackDelta("SHL", -1).
 OpcodeStackDelta("SHR", -1).
 OpcodeStackDelta("SAR", -1).
+OpcodeStackDelta("CLZ", 0).
 OpcodeStackDelta("SHA3", -1).
 OpcodeStackDelta("ADDRESS", 1).
 OpcodeStackDelta("BALANCE", 0).
@@ -673,6 +677,7 @@ OpcodePopWords("BYTE", 2).
 OpcodePopWords("SHL", 2).
 OpcodePopWords("SHR", 2).
 OpcodePopWords("SAR", 2).
+OpcodePopWords("CLZ", 1).
 OpcodePopWords("SHA3", 2).
 OpcodePopWords("ADDRESS", 0).
 OpcodePopWords("BALANCE", 1).
@@ -824,6 +829,7 @@ OpcodePushWords("BYTE", 1).
 OpcodePushWords("SHL", 1).
 OpcodePushWords("SHR", 1).
 OpcodePushWords("SAR", 1).
+OpcodePushWords("CLZ", 1).
 OpcodePushWords("SHA3", 1).
 OpcodePushWords("ADDRESS", 1).
 OpcodePushWords("BALANCE", 1).
@@ -975,6 +981,7 @@ OpcodeGas("BYTE", 3).
 OpcodeGas("SHL", 3).
 OpcodeGas("SHR", 3).
 OpcodeGas("SAR", 3).
+OpcodeGas("CLZ", 3).
 OpcodeGas("SHA3", 30).
 OpcodeGas("ADDRESS", 2).
 OpcodeGas("BALANCE", 400).
@@ -1126,6 +1133,7 @@ OpcodeOrd("BYTE", 26).
 OpcodeOrd("SHL", 27).
 OpcodeOrd("SHR", 28).
 OpcodeOrd("SAR", 29).
+OpcodeOrd("CLZ", 30).
 OpcodeOrd("SHA3", 32).
 OpcodeOrd("ADDRESS", 48).
 OpcodeOrd("BALANCE", 49).

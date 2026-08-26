@@ -3,7 +3,14 @@
         {
             "fileRegex": ".*.hex",
             "tacGenScripts": {
-                "defaultDecomp": "true",
+                "factGen": "Decomp",
+                "customScripts": []
+            }
+        },
+        {
+            "fileRegex": ".*_multi.json",
+            "tacGenScripts": {
+                "factGen": "MultiContract",
                 "customScripts": []
             }
         }
