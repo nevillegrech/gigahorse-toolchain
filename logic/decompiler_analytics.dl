@@ -474,6 +474,30 @@ Analytics_LocalBlockEdge(from, to):-
   LocalBlockEdge(from, to).
 
 /**
+  SSA-Related analytics
+*/
+
+.decl Analytics_PHIStmt(phi: IRStatement)
+.output Analytics_PHIStmt
+
+Analytics_PHIStmt(phi):-
+  TAC_Op(phi, "PHI").
+
+.decl Analytics_MissingPHIStatement(block: IRBlock, stackIndex: StackIndex)
+.output Analytics_MissingPHIStatement
+
+Analytics_MissingPHIStatement(irblock, stackIndex):-
+  lastFunctional.PHIVarUsedInBlock(irblock, stackIndex),
+  !lastFunctional.PHIVarIntroductionPoint(irblock, stackIndex, _, _).
+
+.decl Analytics_MultiplePHIStatements(block: IRBlock, stackIndex: StackIndex)
+.output Analytics_MultiplePHIStatements
+
+Analytics_MultiplePHIStatements(irblock, stackIndex):-
+  lastFunctional.PHIVarUsedInBlock(irblock, stackIndex),
+  x = count: lastFunctional.PHIVarIntroductionPoint(irblock, stackIndex, _, _), x > 1.
+
+/**
   Mostly obscure metrics after this point.
   Some are things that don't really matter,
   others have been fixed for years and are no longer relevant

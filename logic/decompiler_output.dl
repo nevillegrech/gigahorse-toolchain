@@ -25,8 +25,10 @@ FunctionalBlock_Uses_Local(block, as(stackIndex, StackIndex)) :-
   lastFunctional.FunctionalStatement_Uses_Local(stmt, stackIndex, _),
   CheckIsStackIndex(stackIndex).
 
+/**
+  `stackIndex` at `block` uses more than one variable: need to introduce phi statement
+*/
 .decl PolymorphicStackIndex(block: IRBlock, stackIndex: StackIndex)
-
 PolymorphicStackIndex(block, stackIndex) :-
   FunctionalBlock_Uses_Local(block, stackIndex),
   lastFunctional.FunctionalBlockInputContents(block, stackIndex, var1),
@@ -34,13 +36,16 @@ PolymorphicStackIndex(block, stackIndex) :-
   var1 != var2.
 
 /**
-  Find all polymorphic stackIndexes
-  These need phi instructions introduced at the dominance frontier
+  Phi instructions introduced at the dominance frontier.
+  We use `lastFunctional.PHIVarIntroductionPoint` to approximate that and match the
+  `PolymorphicStackIndex` facts.
 */
 .decl PHILocation(block: IRBlock, stackIndex: StackIndex, newVarSymbol: IRStatement)
-PHILocation(block, stackIndex, cat(cat(block, "_"), stackIndexHex)) :-
+DEBUG_OUTPUT(PHILocation)
+PHILocation(defBlock, defBlockIndex, cat(cat(defBlock, "_"), defBlockIndexHex)) :-
    PolymorphicStackIndex(block, stackIndex),
-   stackIndexHex = @number_to_hex(stackIndex).
+   lastFunctional.PHIVarIntroductionPoint(block, stackIndex, defBlock, defBlockIndex),
+   defBlockIndexHex = @number_to_hex(defBlockIndex).
 
 
 // Final decompiler outputs
@@ -202,7 +207,7 @@ TAC_Use(stmt, as(var_rep, TACVariable), n) :-
   CheckIsStackIndex(stackIndex),
   IRStatement_Block(stmt, block),
   IRInFunction(block, fun),
-  !PHILocation(block, stackIndex, _),
+  !PolymorphicStackIndex(block, stackIndex),
   lastFunctional.FunctionalBlockInputContents(block, stackIndex, var),
   lastFunctional.FunctionalStatement_Defines(defstmt, var, _),
   IRStatement_Block(defstmt, defBlock),
@@ -214,7 +219,7 @@ TAC_Use(stmt, as(var_rep, TACVariable), n) :-
   lastFunctional.FunctionalStatement_Uses_Local(stmt, stackIndex, n),
   CheckIsStackIndex(stackIndex),
   IRStatement_Block(stmt, block),
-  !PHILocation(block, stackIndex, _),
+  !PolymorphicStackIndex(block, stackIndex),
   lastFunctional.FunctionalBlockInputContents(block, stackIndex, var),
   lastFunctional.FunctionArgument(_, _, var),
   lastFunctional.Variable_String(var, var_rep).
@@ -243,7 +248,9 @@ TAC_Use(stmt, as(phiStmt, TACVariable), n) :-
   lastFunctional.FunctionalStatement_Uses_Local(stmt, stackIndex, n),
   CheckIsStackIndex(stackIndex),
   IRStatement_Block(stmt, block),
-  PHILocation(block, stackIndex, phiStmt).
+  PolymorphicStackIndex(block, stackIndex),
+  lastFunctional.PHIVarIntroductionPoint(block, stackIndex, defBlock, defBlockIndex),
+  PHILocation(defBlock, defBlockIndex, phiStmt).
 
 TAC_Block(stmt, block) :-
   IRStatement_Block(stmt, block),
