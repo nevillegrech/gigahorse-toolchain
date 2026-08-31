@@ -58,8 +58,6 @@ class DecompilationException(Exception):
     Other errors are just output as `client_errors` on the produced json.
     """
 
-    pass
-
 
 def set_memory_limit(memory_limit: int):
     resource.setrlimit(resource.RLIMIT_AS, (memory_limit, memory_limit))
@@ -72,12 +70,8 @@ def get_souffle_executable_path(cache_dir: str, dl_filename: str) -> str:
 
 
 def test_souffle(souffle_bin: str):
-    souffle_process = subprocess.run(
-        [souffle_bin, "--version"], universal_newlines=True, capture_output=True
-    )
-    assert not (souffle_process.returncode), (
-        "Souffle binary not found at {souffle_bin}. Stopping."
-    )
+    souffle_process = subprocess.run([souffle_bin, "--version"], text=True, capture_output=True)
+    assert not (souffle_process.returncode), f"Souffle binary not found at {souffle_bin}. Stopping."
     log_debug("Souffle version info:")
     log_debug(souffle_process.stdout)
 
@@ -137,12 +131,7 @@ class AnalysisExecutor:
                 self.souffle_macros,
             ]
 
-        if (
-            run_process(
-                analysis_args, self.calc_timeout(start_time, half), stderr=err_file
-            )
-            < 0
-        ):
+        if run_process(analysis_args, self.calc_timeout(start_time, half), stderr=err_file) < 0:
             timeouts.append(souffle_client)
         if err_file != devnull:
             souffle_err = open(err_filename).read()
@@ -162,14 +151,10 @@ class AnalysisExecutor:
             ):
                 errors.append(os.path.basename(souffle_client))
             elif len(souffle_err) > 0:
-                log(
-                    f"Unrecognized error during {souffle_client} dl execution: {souffle_err}."
-                )
+                log(f"Unrecognized error during {souffle_client} dl execution: {souffle_err}.")
         return errors, timeouts
 
-    def run_script_client(
-        self, script_client: str, in_dir: str, out_dir: str, start_time: float
-    ):
+    def run_script_client(self, script_client: str, in_dir: str, out_dir: str, start_time: float):
         errors = []
         timeouts = []
         client_split = [o for o in script_client.split(" ") if o]
@@ -202,9 +187,7 @@ class AnalysisExecutor:
         errors = []
         timeouts = []
         for souffle_client in souffle_clients:
-            e, t = self.run_souffle_client(
-                souffle_client, in_dir, out_dir, start_time, half
-            )
+            e, t = self.run_souffle_client(souffle_client, in_dir, out_dir, start_time, half)
             errors.extend(e)
             timeouts.extend(t)
 
@@ -269,13 +252,9 @@ def compile_datalog(
         cpp_macros.append("-D")
         cpp_macros.append(macro_def)
 
-    preproc_command = ["cpp", "-P", spec] + cpp_macros
-    preproc_process = subprocess.run(
-        preproc_command, universal_newlines=True, capture_output=True
-    )
-    assert not (preproc_process.returncode), (
-        f"Preprocessing for {spec} failed. Stopping."
-    )
+    preproc_command = ["cpp", "-P", spec, *cpp_macros]
+    preproc_process = subprocess.run(preproc_command, text=True, capture_output=True)
+    assert not (preproc_process.returncode), f"Preprocessing for {spec} failed. Stopping."
 
     hasher = hashlib.md5()
     hasher.update(preproc_process.stdout.encode("utf-8"))
@@ -300,20 +279,14 @@ def compile_datalog(
             "-L",
             functor_path,
         ]
-        process = subprocess.run(
-            compilation_command, universal_newlines=True, env=souffle_env
-        )
+        process = subprocess.run(compilation_command, text=True, env=souffle_env)
         assert not (process.returncode), f"Compilation for {spec} failed. Stopping."
-        log(
-            f"Compilation of {spec} successful after {time.time() - comp_start} seconds."
-        )
+        log(f"Compilation of {spec} successful after {time.time() - comp_start} seconds.")
 
     shutil.copy2(cache_path, executable_path)
 
 
-def write_context_depth_file(
-    filename: str, max_context_depth: int | None = None
-) -> None:
+def write_context_depth_file(filename: str, max_context_depth: int | None = None) -> None:
     context_depth_file = open(filename, "w")
     if max_context_depth is not None:
         context_depth_file.write(f"{max_context_depth}\n")
@@ -322,9 +295,7 @@ def write_context_depth_file(
 
 def imprecise_decomp_out(out_dir: str) -> bool:
     """Used to check if decompilation output is imprecise, currently only checks Analytics_JumpToMany"""
-    imprecision_metric = len(
-        open(join(out_dir, "Analytics_JumpToMany.csv"), "r").readlines()
-    )
+    imprecision_metric = len(open(join(out_dir, "Analytics_JumpToMany.csv")).readlines())
     return imprecision_metric > 0
 
 
@@ -347,7 +318,9 @@ class AbstractFactGenerator(ABC):
     pattern: re.Pattern
     priority: int
 
-    def __init__(self, args, analysis_executor: AnalysisExecutor):
+    # Intentional no-op base initializer so concrete generators can call
+    # super().__init__(...); each subclass provides its own construction logic.
+    def __init__(self, args, analysis_executor: AnalysisExecutor):  # noqa: B027
         pass
 
     @property
@@ -444,17 +417,11 @@ class MixedFactGenerator(AbstractFactGenerator):
         if not pattern.endswith("$"):
             pattern = pattern + "$"
         if fact_gen_option == FactGenSelectionEnum.Decomp:
-            self.fact_generators[re.compile(pattern)] = DecompilerFactGenerator(
-                args, pattern
-            )
+            self.fact_generators[re.compile(pattern)] = DecompilerFactGenerator(args, pattern)
         elif fact_gen_option == FactGenSelectionEnum.MultiContract:
-            self.fact_generators[re.compile(pattern)] = ContractStitchingGenerator(
-                args, pattern
-            )
+            self.fact_generators[re.compile(pattern)] = ContractStitchingGenerator(args, pattern)
         else:
-            self.fact_generators[re.compile(pattern)] = CustomFactGenerator(
-                pattern, scripts
-            )
+            self.fact_generators[re.compile(pattern)] = CustomFactGenerator(pattern, scripts)
 
     def partition_inputs_by_priority(self, files: list[str]) -> list[list[str]]:
         return [
@@ -546,9 +513,7 @@ class DecompilerFactGenerator(AbstractFactGenerator):
 
         decomp_start = time.time()
 
-        decompiler_config = self.run_decomp(
-            contract_filename, work_dir, out_dir, disassemble_start
-        )
+        decompiler_config = self.run_decomp(contract_filename, work_dir, out_dir, disassemble_start)
 
         return (
             decomp_start - disassemble_start,
@@ -557,9 +522,7 @@ class DecompilerFactGenerator(AbstractFactGenerator):
         )
 
     def get_datalog_files(self) -> list[str]:
-        datalog_files = self.souffle_pre_clients + [
-            DecompilerFactGenerator.decompiler_dl
-        ]
+        datalog_files = [*self.souffle_pre_clients, DecompilerFactGenerator.decompiler_dl]
         if not self.disable_scalable_fallback:
             datalog_files += [
                 DecompilerFactGenerator.fallback_scalable_decompiler_dl,
@@ -639,9 +602,9 @@ class DecompilerFactGenerator(AbstractFactGenerator):
 
     def decomp_out_produced(self, out_dir: str) -> bool:
         """Hacky. Needed to ensure process was not killed due to exceeding the memory limit."""
-        return os.path.exists(
-            join(out_dir, "Analytics_JumpToMany.csv")
-        ) and os.path.exists(join(out_dir, "TAC_Def.csv"))
+        return os.path.exists(join(out_dir, "Analytics_JumpToMany.csv")) and os.path.exists(
+            join(out_dir, "TAC_Def.csv")
+        )
 
 
 class ContractStitchingGenerator(AbstractFactGenerator):
@@ -661,7 +624,7 @@ class ContractStitchingGenerator(AbstractFactGenerator):
 
             main = manifest["main"]
             contracts = manifest["contracts"]  # Dict[str, str]
-            facts: dict[str, TACRelations] = dict()
+            facts: dict[str, TACRelations] = {}
             for address, id in contracts.items():
                 path = Path(work_dir).parent / f"{id}/out"
                 facts[address] = TACRelations.from_dir(path)

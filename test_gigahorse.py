@@ -3,9 +3,10 @@
 import json
 import re
 import subprocess
+from collections.abc import Iterator, Mapping, MutableMapping
 from os import listdir, makedirs
 from os.path import abspath, dirname, isdir, isfile, join
-from typing import Any, Iterator, Mapping, MutableMapping
+from typing import Any
 
 import pytest
 
@@ -17,17 +18,13 @@ TEST_WORKING_DIR = join(GIGAHORSE_TOOLCHAIN_ROOT, ".tests")
 
 
 class LogicTestCase:
-    def __init__(
-        self, name: str, test_root: str, test_path: str, test_config: Mapping[str, Any]
-    ):
-        super(LogicTestCase, self).__init__()
+    def __init__(self, name: str, test_root: str, test_path: str, test_config: Mapping[str, Any]):
+        super().__init__()
 
         self.name = name
 
         client_path = test_config.get("client_path", None)
-        self.client_path = (
-            abspath(join(dirname(test_root), client_path)) if client_path else None
-        )
+        self.client_path = abspath(join(dirname(test_root), client_path)) if client_path else None
 
         self.test_path = test_path
 
@@ -36,15 +33,13 @@ class LogicTestCase:
 
         self.gigahorse_args = test_config.get("gigahorse_args", [])
         self.contract_specific: dict[str, list[tuple[Any, ...]]] = test_config.get(
-            "contract_specific", dict()
+            "contract_specific", {}
         )
 
         self.expected_analytics: list[tuple[str, int, float]] = test_config.get(
             "expected_analytics", []
         )
-        self.expected_verbatim: list[tuple[str, str]] = test_config.get(
-            "expected_verbatim", []
-        )
+        self.expected_verbatim: list[tuple[str, str]] = test_config.get("expected_verbatim", [])
 
     def id(self) -> str:
         return self.name
@@ -130,9 +125,7 @@ class LogicTestCase:
         with open(join(self.working_dir, "stderr"), "wb") as f:
             f.write(result.stderr)
 
-        assert result.returncode == 0, (
-            f"Gigahorse exited with an error code: {result.returncode}"
-        )
+        assert result.returncode == 0, f"Gigahorse exited with an error code: {result.returncode}"
 
         with open(self.results_file) as f:
             res_contents = json.load(f)
@@ -143,12 +136,8 @@ class LogicTestCase:
             else:
                 for contract, contract_res in self.contract_specific.items():
                     temp_analytics = get_analytics_for_file(res_contents, contract)
-                    check_analytics(
-                        temp_analytics, contract_res.get("expected_analytics", dict())
-                    )
-                    check_verbatim(
-                        temp_analytics, contract_res.get("expected_verbatim", dict())
-                    )
+                    check_analytics(temp_analytics, contract_res.get("expected_analytics", {}))
+                    check_verbatim(temp_analytics, contract_res.get("expected_verbatim", {}))
 
 
 def discover_logic_tests(
@@ -187,9 +176,7 @@ def collect_tests(test_dirs: list[str]):
             test_id = hex_path[len(test_dir) + 1 : -4].replace("/", ".")
             if config:
                 testdata.append(
-                    pytest.param(
-                        LogicTestCase(test_id, test_dir, hex_path, config), id=test_id
-                    )
+                    pytest.param(LogicTestCase(test_id, test_dir, hex_path, config), id=test_id)
                 )
 
 

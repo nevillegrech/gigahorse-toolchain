@@ -33,13 +33,9 @@ def load_csv(path: str, seperator: str = "\t") -> list[list[str]]:
         return [line.split(seperator) for line in f.read().splitlines()]
 
 
-def load_csv_map(
-    path: str, seperator: str = "\t", reverse: bool = False
-) -> dict[str, str]:
+def load_csv_map(path: str, seperator: str = "\t", reverse: bool = False) -> dict[str, str]:
     return (
-        {y: x for x, y in load_csv(path, seperator)}
-        if reverse
-        else {x: y for x, y in load_csv(path, seperator)}
+        {y: x for x, y in load_csv(path, seperator)} if reverse else dict(load_csv(path, seperator))
     )
 
 
@@ -128,9 +124,7 @@ def construct_cfg() -> tuple[dict[str, Block], dict[str, Function]]:
             if tac_func_id_to_public.get(func_id, "_") == "0x0"
             else tac_high_level_func_name[func_id]
         )
-        formals = [
-            var for var, _ in sorted(tac_formal_args[func_id], key=lambda x: x[1])
-        ]
+        formals = [var for var, _ in sorted(tac_formal_args[func_id], key=lambda x: x[1])]
 
         functions[func_id] = Function(
             func_id,

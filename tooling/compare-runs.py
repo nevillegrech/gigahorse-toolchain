@@ -114,7 +114,7 @@ args = parser.parse_args()
 
 
 def process_result_file(filename, output_set=None):
-    filemap = dict()
+    filemap = {}
 
     for rel in rels:
         filemap[rel] = set()
@@ -132,7 +132,7 @@ def process_result_file(filename, output_set=None):
             have_output = set(contract[1])
             client_success = "CLIENT TIMEOUT" not in contract[2]
 
-            filemap[name] = dict()
+            filemap[name] = {}
             filemap[name]["rels"] = have_output
             filemap[name]["analytics"] = contract[3]
             if output_set and name not in output_set:
@@ -186,22 +186,18 @@ output_in_all = set.intersection(*has_out)
 
 timeout_in_all = set.intersection(*has_timeout)
 
-results_processed_common = [
-    process_result_file(file, output_in_all) for file in result_files
-]
+results_processed_common = [process_result_file(file, output_in_all) for file in result_files]
 
 print(f"{len(timeout_in_all) + len(output_in_any)} total contracts")
 print("")
-for i in range(0, len(result_files)):
+for i in range(len(result_files)):
     solo = has_out[i] - set.union(*[has_out[j] for j in range(len(has_out)) if j != i])
     print(
         f"{len(has_out[i])} contracts decompiled/analyzed by {result_files_simple[i]} ({len(solo)} exclusively)"
     )
 print("")
 print(f"{len(output_in_any)} contracts decompiled/analyzed by some config")
-print(
-    f"{len(output_in_all)} contracts decompiled/analyzed by all configs \033[1m(common)\033[0m"
-)
+print(f"{len(output_in_all)} contracts decompiled/analyzed by all configs \033[1m(common)\033[0m")
 
 if args.verbose:
     print("Contracts that timed out for all configs:")
@@ -209,7 +205,7 @@ if args.verbose:
         print(contract)
 
 if len(result_files) == 2:
-    for rel in rels + ["has_output"]:
+    for rel in [*rels, "has_output"]:
         not_in_file1 = results_processed[1][rel] - results_processed[0][rel]
         not_in_file2 = results_processed[0][rel] - results_processed[1][rel]
         print(len(results_processed[0][rel]), len(results_processed[1][rel]))
@@ -223,20 +219,16 @@ if len(result_files) == 2:
 for analytic, kind in analytics.items():
     print(f"\n\033[1mANALYTIC: {analytic}\033[0m")
     if args.verbose:
-        for i in range(0, len(result_files)):
+        for i in range(len(result_files)):
             print(f"{result_files_simple[i]}: {results_processed[i][analytic]}")
 
     pref = sorted(
         [result[analytic] for result in results_processed_common],
         key=analytic_comp[kind],
     )[0]
-    for i in range(0, len(result_files)):
+    for i in range(len(result_files)):
         diff = results_processed_common[i][analytic] - pref
-        percentage = (
-            100 * (results_processed_common[i][analytic] - pref) / pref
-            if pref > 0
-            else 0
-        )
+        percentage = 100 * (results_processed_common[i][analytic] - pref) / pref if pref > 0 else 0
         extra = f" \x1b[31m({percentage:+.4g}%)\x1b[0m" if diff != 0 else ""
         print(
             f"{result_files_simple[i]} \033[1m(common)\033[0m: {results_processed_common[i][analytic]}{extra}"
@@ -246,13 +238,12 @@ for analytic, kind in analytics.items():
 if args.point_to_point:
     print(args.point_to_point)
     format_row = "{:>30}" * (len(result_files_simple) + 2)
-    print(format_row.format("", *(["Contract"] + result_files_simple)))
+    print(format_row.format("", *(["Contract", *result_files_simple])))
     for file in output_in_all:
         # vals = [res[file]["analytics"][args.point_to_point].replace('\n', '') for res in results_processed_common]
         vals = [
-            res[file]["analytics"].get(args.point_to_point, 0)
-            for res in results_processed_common
+            res[file]["analytics"].get(args.point_to_point, 0) for res in results_processed_common
         ]
         if len(set(vals)) == 1:
             continue
-        print(format_row.format("", *([file] + vals)))
+        print(format_row.format("", *([file, *vals])))

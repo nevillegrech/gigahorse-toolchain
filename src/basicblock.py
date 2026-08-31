@@ -125,14 +125,12 @@ class EVMOp:
 
     def __str__(self):
         if self.value is None:
-            return "{0} {1}".format(hex(self.pc), self.opcode)
+            return f"{hex(self.pc)} {self.opcode}"
         else:
-            return "{0} {1} {2}".format(hex(self.pc), self.opcode, hex(self.value))
+            return f"{hex(self.pc)} {self.opcode} {hex(self.value)}"
 
     def __repr__(self):
-        return "<{0} object {1}: {2}>".format(
-            self.__class__.__name__, hex(id(self)), self.__str__()
-        )
+        return f"<{self.__class__.__name__} object {hex(id(self))}: {self.__str__()}>"
 
 
 def blocks_from_ops(ops: list[EVMOp]) -> list[EVMBasicBlock]:

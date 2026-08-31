@@ -65,9 +65,7 @@ class DirectiveVisitor(Visitor):
             print("Unknown")
 
 
-net = Network(
-    height="100%", width="100%", bgcolor="#222222", font_color="white", directed=True
-)
+net = Network(height="100%", width="100%", bgcolor="#222222", font_color="white", directed=True)
 
 if os.path.exists(DB_FILE):
     os.remove(DB_FILE)
@@ -86,7 +84,9 @@ cur.execute(
 """
 )
 
-INSERT_STR = "INSERT OR IGNORE INTO io_directives (r_from, r_to, filename, type) VALUES (?, ?, ?, ?)"
+INSERT_STR = (
+    "INSERT OR IGNORE INTO io_directives (r_from, r_to, filename, type) VALUES (?, ?, ?, ?)"
+)
 
 for x in glob.glob("../**/*.dl", recursive=True):
     shutil.copyfile(x, x.replace(".dl", ".cxx"))
@@ -101,14 +101,14 @@ for x in glob.glob("../**/*.dl", recursive=True):
 
     os.remove(x.replace(".dl", ".cxx"))
 
-    file = open(temp_file, "r")
+    file = open(temp_file)
     lines = file.readlines()
 
-    for index, line in enumerate(lines):
+    for _index, line in enumerate(lines):
         output = False
-        if re.search("\.output", line):
+        if re.search(r"\.output", line):
             output = True
-        elif re.search("\.input", line):
+        elif re.search(r"\.input", line):
             output = False
         else:
             continue
