@@ -18,8 +18,28 @@ env:
 
 
 jobs:
+  # Fast lint/format gate. Every job below declares `needs: ruff`, so a lint or
+  # formatting failure blocks the (expensive) Souffle test jobs and the type-checker
+  # from running at all. Mark this check "Required" in branch protection to also
+  # block merges to master.
+  ruff:
+    runs-on: ubuntu-latest
+    name: Ruff (lint + format)
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          version: "latest"
+      - name: Ruff lint
+        run: uv run --frozen ruff check --output-format=github
+      - name: Ruff format check
+        run: uv run --frozen ruff format --check
+
   test_souffle23:
     runs-on: ubuntu-latest
+    needs: ruff
     permissions:
       contents: read
       packages: write
@@ -70,6 +90,7 @@ jobs:
 
   test_souffle24:
     runs-on: ubuntu-latest
+    needs: ruff
     permissions:
       contents: read
       packages: write
@@ -120,6 +141,7 @@ jobs:
   mypy:
     runs-on: ubuntu-latest
     name: Mypy
+    needs: ruff
     steps:
     - uses: actions/checkout@v4
       with:

@@ -35,6 +35,21 @@ You can then run the toolchain through uv (e.g. `uv run ./gigahorse.py examples/
 
 You should now be ready to run Gigahorse.
 
+### Development checks (lint, format, types, tests)
+
+`uv sync` also installs the dev tooling (ruff, mypy, pytest). Before pushing, run the same
+checks CI does. The **ruff lint + format check is a required gate** — in CI it runs first and
+blocks the test and type-check jobs if it fails.
+
+```
+uv run ruff check      # lint            (add --fix to auto-fix)
+uv run ruff format     # auto-format     (CI runs `ruff format --check` to verify only)
+uv run mypy            # type-check
+uv run pytest          # test suite      (needs Souffle + the built souffle-addon)
+```
+
+Ruff's rules and formatting are configured under `[tool.ruff]` in `pyproject.toml`.
+
 ### Installing Gigahorse via docker
 
 Alternatively, you can use Gigahorse via our pre-built docker images using the following instructions:

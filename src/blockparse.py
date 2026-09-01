@@ -31,24 +31,23 @@
 
 import abc
 import logging
-from typing import Iterable, Any, Generic, TypeVar
+from collections.abc import Iterable
+from typing import Any
 
 import src.basicblock as basicblock
 import src.opcodes as opcodes
 
 STRICT = False
 
-# Raw input type each concrete parser consumes: disassembly lines
+
+# `Raw` is the raw input type each concrete parser consumes: disassembly lines
 # (`Iterable[str]`) for EVMDasmParser, raw `bytes` for EVMBytecodeParser.
-_Raw = TypeVar("_Raw")
-
-
-class BlockParser(abc.ABC, Generic[_Raw]):
-    _raw: _Raw
+class BlockParser[Raw](abc.ABC):
+    _raw: Raw
     _ops: list[basicblock.EVMOp]
 
     @abc.abstractmethod
-    def __init__(self, raw: _Raw):
+    def __init__(self, raw: Raw):
         """
         Constructs a new BlockParser for parsing the given raw input object.
 
@@ -100,22 +99,22 @@ class EVMDasmParser(BlockParser[Iterable[str]]):
         # representation when using Ethereum's disasm tool). Any line which does
         # not produce enough tokens to be valid disassembly after being split() is
         # also ignored.
-        for i, l in enumerate(self._raw):
-            if len(l.split()) == 1:
-                logging.debug("Line %s: invalid disassembly:\n   %s", i + 1, l.rstrip())
+        for i, line in enumerate(self._raw):
+            if len(line.split()) == 1:
+                logging.debug("Line %s: invalid disassembly:\n   %s", i + 1, line.rstrip())
                 if STRICT:
-                    raise RuntimeError("Line {}: invalid disassembly {}".format(i + 1, l))
+                    raise RuntimeError(f"Line {i + 1}: invalid disassembly {line}")
                 continue
-            elif len(l.split()) < 1:
+            elif len(line.split()) < 1:
                 if STRICT:
                     logging.warning("Line %s: empty disassembly.", i + 1)
-                    raise RuntimeError("Line {}: empty disassembly.".format(i + 1))
+                    raise RuntimeError(f"Line {i + 1}: empty disassembly.")
                 continue
 
             try:
-                self._ops.append(self.evm_op_from_dasm(l))
+                self._ops.append(self.evm_op_from_dasm(line))
             except (ValueError, LookupError, NotImplementedError) as e:
-                logging.debug("Line %s: invalid disassembly:\n   %s", i + 1, l.rstrip())
+                logging.debug("Line %s: invalid disassembly:\n   %s", i + 1, line.rstrip())
                 if STRICT:
                     raise e
 
@@ -142,13 +141,14 @@ class EVMDasmParser(BlockParser[Iterable[str]]):
             val = int(toks[2], 16)
             try:
                 return basicblock.EVMOp(int(toks[0]), opcodes.opcode_by_name(toks[1]), val)
-            except LookupError as e:
+            except LookupError:
                 return basicblock.EVMOp(int(toks[0]), opcodes.missing_opcode(val), val)
         elif len(toks) > 1:
             return basicblock.EVMOp(int(toks[0]), opcodes.opcode_by_name(toks[1]))
         else:
-            raise NotImplementedError("Could not parse unknown disassembly format:" +
-                                      "\n    {}".format(line))
+            raise NotImplementedError(
+                "Could not parse unknown disassembly format:" + f"\n    {line}"
+            )
 
 
 class EVMBytecodeParser(BlockParser[bytes]):
@@ -171,7 +171,7 @@ class EVMBytecodeParser(BlockParser[bytes]):
         self.__pc = 0
 
     def __consume(self, n):
-        bytes_ = self._raw[self.__pc: self.__pc + n]
+        bytes_ = self._raw[self.__pc : self.__pc + n]
         self.__pc += n
         return bytes_
 

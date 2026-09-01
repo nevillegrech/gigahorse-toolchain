@@ -30,11 +30,10 @@
 """opcodes.py: Definitions of all EVM opcodes, and related utility functions with associated gas costs"""
 
 
-
 class OpCode:
     """An EVM opcode."""
 
-    def __init__(self, name:str, code:int, pop:int, push:int, gas:int):
+    def __init__(self, name: str, code: int, pop: int, push: int, gas: int):
         """
         Args:
           name (str): Human-readable opcode.
@@ -59,11 +58,7 @@ class OpCode:
         return self.name
 
     def __repr__(self) -> str:
-        return "<{0} object {1}, {2}>".format(
-            self.__class__.__name__,
-            hex(id(self)),
-            self.__str__()
-        )
+        return f"<{self.__class__.__name__} object {hex(id(self))}, {self.__str__()}>"
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, OpCode):
@@ -100,8 +95,7 @@ class OpCode:
 
     def is_arithmetic(self) -> bool:
         """Predicate: opcode's result can be calculated from its inputs alone."""
-        return (ADD.code <= self.code <= SIGNEXTEND.code) or \
-               (LT.code <= self.code <= CLZ.code)
+        return (ADD.code <= self.code <= SIGNEXTEND.code) or (LT.code <= self.code <= CLZ.code)
 
     def is_memory(self) -> bool:
         """Predicate: opcode operates on memory"""
@@ -113,16 +107,26 @@ class OpCode:
 
     def is_call(self) -> bool:
         """Predicate: opcode calls an external contract"""
-        return self in (CALL, CALLCODE, DELEGATECALL, STATICCALL,)
+        return self in (
+            CALL,
+            CALLCODE,
+            DELEGATECALL,
+            STATICCALL,
+        )
 
     def alters_flow(self) -> bool:
         """Predicate: opcode alters EVM control flow."""
-        return (self.code in (JUMP.code, JUMPI.code,)) or self.possibly_halts()
-    
+        return (
+            self.code
+            in (
+                JUMP.code,
+                JUMPI.code,
+            )
+        ) or self.possibly_halts()
+
     def is_exception(self) -> bool:
         """Predicate: opcode causes the EVM to throw an exception."""
-        return (self.code in (INVALID.code, REVERT.code)) \
-                or self.is_invalid()
+        return (self.code in (INVALID.code, REVERT.code)) or self.is_invalid()
 
     def halts(self) -> bool:
         """Predicate: opcode causes the EVM to halt."""
@@ -155,6 +159,11 @@ class OpCode:
     def ord(self) -> int:
         return self.code
 
+
+# fmt: off
+# The opcode table below is column-aligned on purpose: the alignment lets the
+# name / code / pop / push / gas columns be read as a table. `ruff format` would
+# collapse that alignment, so the formatter is disabled for this section.
 # Construct all EVM opcodes
 
 # Arithmetic Ops and STOP
@@ -327,7 +336,7 @@ INVALID      = OpCode("INVALID",      0xfe, 0, 0, 0)
 SELFDESTRUCT = OpCode("SELFDESTRUCT", 0xff, 1, 0, 5000)
 
 # New Byzantinium OpCodes for block.number >= BYZANTIUM_FORK_BLKNUM
-REVERT = OpCode("REVERT", 0xfd, 2, 0, 0) #TODO gas 
+REVERT = OpCode("REVERT", 0xfd, 2, 0, 0) #TODO gas
 RETURNDATASIZE = OpCode("RETURNDATASIZE", 0x3d, 0, 1, 2)
 RETURNDATACOPY = OpCode("RETURNDATACOPY", 0x3e, 3, 0, 3)
 STATICCALL = OpCode("STATICCALL", 0xfa, 6, 1, 40)
@@ -336,13 +345,10 @@ STATICCALL = OpCode("STATICCALL", 0xfa, 6, 1, 40)
 EXTCODEHASH = OpCode("EXTCODEHASH", 0x3f, 1, 1, 700)
 CHAINID = OpCode("CHAINID", 0x46, 0, 1, 2)
 SELFBALANCE = OpCode("SELFBALANCE", 0x47, 0, 1, 5)
+# fmt: on
 
 # Produce mappings from names and instruction codes to opcode objects
-OPCODES = {
-    code.name: code
-    for code in globals().values()
-    if isinstance(code, OpCode)
-}
+OPCODES = {code.name: code for code in globals().values() if isinstance(code, OpCode)}
 """Dictionary mapping of opcode string names to EVM OpCode objects"""
 
 # Handle incorrect opcode name from go-ethereum disasm
@@ -361,7 +367,7 @@ def opcode_by_name(name: str) -> OpCode:
     """
     name = name.upper()
     if name not in OPCODES:
-        raise LookupError("No opcode named '{}'.".format(name))
+        raise LookupError(f"No opcode named '{name}'.")
     return OPCODES[name]
 
 
@@ -373,7 +379,7 @@ def opcode_by_value(val: int) -> OpCode:
       LookupError: if there is no opcode defined with the given value.
     """
     if val not in BYTECODES:
-        raise LookupError("No opcode with value '0x{:02X}'.".format(val))
+        raise LookupError(f"No opcode with value '0x{val:02X}'.")
     return BYTECODES[val]
 
 
