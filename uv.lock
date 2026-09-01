@@ -83,8 +83,8 @@ dev = [
     { name = "filelock", specifier = ">=3.15" },
     { name = "pytest", specifier = ">=8.3" },
     { name = "pytest-xdist", specifier = ">=3.8" },
-    { name = "ruff", specifier = ">=0.15" },
-    { name = "ty", specifier = ">=0.0.56,<0.1" },
+    { name = "ruff", specifier = ">=0.16.5" },
+    { name = "ty", specifier = ">=0.0.77,<0.1" },
 ]
 
 [[package]]

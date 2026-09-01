@@ -55,8 +55,8 @@ dev = [
     "pytest>=8.3",
     "pytest-xdist>=3.8",
     "filelock>=3.15",
-    "ruff>=0.15",
-    "ty>=0.0.56,<0.1",
+    "ruff>=0.16.5",
+    "ty>=0.0.77,<0.1",
 ]
 
 [tool.uv]
@@ -77,11 +77,12 @@ testpaths = ["test_gigahorse.py"]
 #
 # Known gap vs the mypy config this replaced: ty has no equivalent of mypy's
 # `strict_equality`, so a non-overlapping comparison such as `"a" == 3` is not
-# reported (verified against ty 0.0.56 with every rule promoted to error).
+# reported (re-verified on ty 0.0.77 with every rule promoted to error).
 #
-# Off by default and left off for now — each needs a cleanup pass first:
-#   possibly-unresolved-reference (4 hits in gigahorse.py), missing-type-argument
-#   (5 hits), missing-override-decorator (31 hits).
+# Off by default and left off for now — each needs a cleanup pass first. Counts
+# are for the full include set below, on ty 0.0.77:
+#   missing-override-decorator (33), possibly-unresolved-reference (9),
+#   missing-type-argument (7), unsound-return-statement (3).
 [tool.ty.environment]
 python-version = "3.13"
 # clientlib/src are imported from the repo root (e.g. `clientlib.facts_to_cfg`);
