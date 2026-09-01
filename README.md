@@ -51,19 +51,7 @@ uv run pytest          # test suite      (needs Souffle + the built souffle-addo
 Ruff's rules and formatting are configured under `[tool.ruff]` in `pyproject.toml`;
 ty's target paths under `[tool.ty.src]`. `make check` runs the whole gate at once.
 
-`[tool.ty.src] include` deliberately tracks what ruff lints, so no file is linted
-but silently left un-type-checked. If you add a Python file outside those paths,
-add it there too.
-
-To silence a ty diagnostic, always name the rule — a bare `# ty: ignore` hides
-every future diagnostic on that line as well:
-
-```python
-foo()  # ty: ignore[deprecated]   # and a comment saying *why*
-```
-
-For editor feedback matching CI, point your LSP client at `uv run ty server`
-(VS Code: the Astral "ty" extension).
+For in-editor feedback matching CI, point your LSP client at `uv run ty server`.
 
 ### Installing Gigahorse via docker
 
