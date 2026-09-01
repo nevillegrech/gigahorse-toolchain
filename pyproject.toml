@@ -56,7 +56,7 @@ dev = [
     "pytest-xdist>=3.8",
     "filelock>=3.15",
     "ruff>=0.15",
-    "ty>=0.0.56",
+    "ty>=0.0.56,<0.1",
 ]
 
 [tool.uv]
@@ -89,13 +89,27 @@ python-version = "3.13"
 root = ["."]
 
 [tool.ty.src]
-# Default targets when `ty check` is invoked without explicit paths.
+# Default targets when `ty check` is invoked without explicit paths. This tracks
+# what ruff lints, so a file cannot be linted but silently left un-type-checked.
+# `generatefacts` has a shebang and no .py suffix; ty reads it as Python anyway
+# (ruff needs [tool.ruff] extend-include for the same reason).
 include = [
     "gigahorse.py",
+    "generatefacts",
     "clients/visualizeout.py",
     "src",
     "clientlib",
+    "conftest.py",
+    "test_gigahorse.py",
 ]
+# Not yet covered: tooling/. compare-runs.py builds a heterogeneous `filemap`
+# (str -> set | dict depending on the key), which needs restructuring before it
+# type-checks, and directives.py imports lark/pyvis from the optional `tooling`
+# extra, which CI does not install. To add it later, install the extra and:
+#     [[tool.ty.overrides]]
+#     include = ["tooling/**"]
+#     [tool.ty.overrides.rules]
+#     unresolved-import = "ignore"
 
 [tool.ruff]
 # Lint/format target matches the interpreter the rest of the toolchain pins.

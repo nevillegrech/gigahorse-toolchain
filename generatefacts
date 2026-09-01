@@ -59,7 +59,11 @@ if __name__ == "__main__":
     parser.add_argument(
         "infile",
         nargs="?",
-        type=argparse.FileType("r"),
+        # argparse.FileType is deprecated in 3.14, but main() consumes `infile`
+        # as an open file object (.name, .read(), line iteration) and defaults it
+        # to sys.stdin. Migrating to a path argument is a CLI change, tracked
+        # separately from type-checking.
+        type=argparse.FileType("r"),  # ty: ignore[deprecated]
         default=sys.stdin,
         help="file from which decompiler input should be read (stdin by default).",
     )

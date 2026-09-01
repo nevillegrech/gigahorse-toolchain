@@ -97,7 +97,7 @@ dev = [
     { name = "pytest", specifier = ">=8.3" },
     { name = "pytest-xdist", specifier = ">=3.8" },
     { name = "ruff", specifier = ">=0.15" },
-    { name = "ty", specifier = ">=0.0.56" },
+    { name = "ty", specifier = ">=0.0.56,<0.1" },
 ]
 
 [[package]]
