@@ -202,11 +202,9 @@ class EVMBlockExporter(FactExporter):
         Print basic block info to tsv.
         """
 
-        def get_version_str(metadata_prefix):
-            # Only ever called under `if self.bytecode_hex:` below.
-            assert self.bytecode_hex is not None
-            index = self.bytecode_hex.rindex(metadata_prefix) + len(metadata_prefix)
-            version_bytes = self.bytecode_hex[index : index + 6]
+        def get_version_str(bytecode_hex: str, metadata_prefix: str) -> str:
+            index = bytecode_hex.rindex(metadata_prefix) + len(metadata_prefix)
+            version_bytes = bytecode_hex[index : index + 6]
             return f"{int(version_bytes[0:2], 16)}.{int(version_bytes[2:4], 16)}.{int(version_bytes[4:6], 16)}"
 
         def link_or_output_signature_file(
@@ -244,13 +242,13 @@ class EVMBlockExporter(FactExporter):
             try:
                 if solidity_metadata_prefix in self.bytecode_hex:
                     language = "solidity"
-                    compiler_version = get_version_str(solidity_metadata_prefix)
+                    compiler_version = get_version_str(self.bytecode_hex, solidity_metadata_prefix)
                 elif solidity_metadata_prefix_old in self.bytecode_hex:
                     language = "solidity"
                     compiler_version = "0.4.7<=v<0.5.9"
                 elif vyper_metadata_prefix in self.bytecode_hex:
                     language = "vyper"
-                    compiler_version = get_version_str(vyper_metadata_prefix)
+                    compiler_version = get_version_str(self.bytecode_hex, vyper_metadata_prefix)
 
                 with open(self.output_dir + "/compiler_info.csv", "w") as f:
                     f.write(f"{language}\t{compiler_version}")
