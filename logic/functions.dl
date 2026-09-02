@@ -891,9 +891,13 @@ FunctionalBlockPopAndStackDelta(from, popDelta, stackDelta) :-
   FunctionalBlockStackDelta(from, stackDelta).
 .plan 1:(2,1)
 
+// PossibleFunctionalBlockPopAndStackDelta(from, from, initPath, 0, 0) :-
+//    IRFunctionEntry(from),
+//    initPath = as(from, Path).
+
 PossibleFunctionalBlockPopAndStackDelta(from, from, initPath, 0, 0) :-
    IRFunctionEntry(from),
-   initPath = as(from, Path).
+   initPath = as(@add_set(@empty_set(), from), Path).
 
 .decl PotentialCycleEntry(block: IRBlock)
 
