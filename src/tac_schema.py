@@ -20,25 +20,26 @@ Schema derived from:
 from __future__ import annotations
 
 import csv
+from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum, auto
 from pathlib import Path
-from typing import Callable, Optional, Union
-
 
 # ---------------------------------------------------------------------------
 # Column kinds — what role a column plays in the schema
 # ---------------------------------------------------------------------------
 
+
 class ColKind(Enum):
     """The semantic role of a column in a TAC relation."""
-    STMT_ID = auto()    # Statement identifier
-    BLOCK_ID = auto()   # Basic block identifier (also used for function entry IDs)
-    VAR_ID = auto()     # Variable identifier
-    OPCODE = auto()     # EVM/TAC opcode string
-    VALUE = auto()      # Hex constant, hash, gas value, selector, etc.
-    INDEX = auto()      # Numeric positional index (e.g. TAC_Def index, FormalArgs n)
-    SYMBOL = auto()     # Free-form string (function names, config names, signatures)
+
+    STMT_ID = auto()  # Statement identifier
+    BLOCK_ID = auto()  # Basic block identifier (also used for function entry IDs)
+    VAR_ID = auto()  # Variable identifier
+    OPCODE = auto()  # EVM/TAC opcode string
+    VALUE = auto()  # Hex constant, hash, gas value, selector, etc.
+    INDEX = auto()  # Numeric positional index (e.g. TAC_Def index, FormalArgs n)
+    SYMBOL = auto()  # Free-form string (function names, config names, signatures)
 
     @property
     def is_identifier(self) -> bool:
@@ -51,9 +52,11 @@ class ColKind(Enum):
 # Column descriptor
 # ---------------------------------------------------------------------------
 
+
 @dataclass(frozen=True)
 class Column:
     """A named, typed column in a TAC relation."""
+
     name: str
     kind: ColKind
 
@@ -65,9 +68,11 @@ class Column:
 # Relation definition
 # ---------------------------------------------------------------------------
 
+
 @dataclass(frozen=True)
 class RelationDef:
     """A relation's name and column schema, defined once and used as a key."""
+
     name: str
     columns: tuple[Column, ...]
 
@@ -95,6 +100,11 @@ class RelationDef:
 # Souffle filename for disk I/O.
 # ---------------------------------------------------------------------------
 
+# fmt: off
+# Each RelationDef mirrors one Souffle relation, so the name is kept on the same
+# line as the call and the columns are listed one per line below it. That layout
+# makes the schema readable next to the Datalog it mirrors; `ruff format` would
+# split every definition over 4-8 extra lines, so the formatter is disabled here.
 # Config / metadata
 decompiler_config = RelationDef("DecompilerConfig", (
     Column("config", ColKind.SYMBOL),
@@ -251,6 +261,7 @@ constant_possible_sig_hash = RelationDef("ConstantPossibleSigHash", (
 unmapped_statements = RelationDef("UnmappedStatements", (
     Column("stmt", ColKind.STMT_ID),
 ))
+# fmt: on
 
 
 # ---------------------------------------------------------------------------
@@ -272,7 +283,7 @@ _ID_KINDS = frozenset(k for k in ColKind if k.is_identifier)
 # Key type for TACRelations access
 # ---------------------------------------------------------------------------
 
-RelKey = Union[RelationDef, str]
+RelKey = RelationDef | str
 
 
 def _resolve_key(key: RelKey) -> str:
@@ -282,7 +293,7 @@ def _resolve_key(key: RelKey) -> str:
     return key
 
 
-def _resolve_def(key: RelKey) -> Optional[RelationDef]:
+def _resolve_def(key: RelKey) -> RelationDef | None:
     """Resolve a key to a RelationDef, if known."""
     if isinstance(key, RelationDef):
         return key
@@ -292,6 +303,7 @@ def _resolve_def(key: RelKey) -> Optional[RelationDef]:
 # ---------------------------------------------------------------------------
 # TACRelations — low-level relational TAC container
 # ---------------------------------------------------------------------------
+
 
 class TACRelations:
     """Low-level container for Gigahorse TAC output as raw tuples.
@@ -308,7 +320,7 @@ class TACRelations:
 
     def __init__(
         self,
-        data: Optional[dict[str, list[tuple[str, ...]]]] = None,
+        data: dict[str, list[tuple[str, ...]]] | None = None,
     ):
         self._data: dict[str, list[tuple[str, ...]]] = data or {}
 
@@ -338,21 +350,19 @@ class TACRelations:
 
         if missing:
             names = ", ".join(sorted(missing))
-            raise FileNotFoundError(
-                f"Missing relation files in {out_dir}: {names}"
-            )
+            raise FileNotFoundError(f"Missing relation files in {out_dir}: {names}")
 
         return cls(data=data)
 
     @staticmethod
-    def _read_csv(out_dir: Path, name: str) -> Optional[list[tuple[str, ...]]]:
+    def _read_csv(out_dir: Path, name: str) -> list[tuple[str, ...]] | None:
         """Read a single Souffle relation file (tab-separated, no header)."""
         path = out_dir / f"{name}.csv"
         if not path.exists():
             path = out_dir / name
             if not path.exists():
                 return None
-        with open(path, "r") as f:
+        with open(path) as f:
             return [tuple(row) for row in csv.reader(f, delimiter="\t")]
 
     # -------------------------------------------------------------------
@@ -376,12 +386,12 @@ class TACRelations:
     @property
     def relation_names(self) -> list[str]:
         """Names of all loaded (non-empty) relations."""
-        return [k for k in self._data.keys()]
+        return list(self._data.keys())
 
     @property
     def loaded_relations(self) -> list[RelationDef]:
         """RelationDefs of all loaded (non-empty) known relations."""
-        return [r for r in ALL_RELATIONS if r.name in self._data and self._data[r.name]]
+        return [r for r in ALL_RELATIONS if self._data.get(r.name)]
 
     # -------------------------------------------------------------------
     # Transformations
@@ -394,7 +404,7 @@ class TACRelations:
     def map_identifiers(
         self,
         fn: Callable[[str], str],
-        kinds: Optional[frozenset[ColKind]] = None,
+        kinds: frozenset[ColKind] | None = None,
     ) -> None:
         """Apply a function to all identifier columns in-place.
 
@@ -409,10 +419,7 @@ class TACRelations:
             if rel_def is None:
                 continue
 
-            id_indices = [
-                i for i, c in enumerate(rel_def.columns)
-                if c.kind in target_kinds
-            ]
+            id_indices = [i for i, c in enumerate(rel_def.columns) if c.kind in target_kinds]
             if not id_indices:
                 continue
 
@@ -443,7 +450,6 @@ class TACRelations:
         """Set the contract name for all functions in Function_Contract."""
         rows = self[function_contract]
         self[function_contract] = [(func_id, contract) for func_id, _ in rows]
-
 
     # -------------------------------------------------------------------
     # Merging

@@ -2,15 +2,15 @@
 
 # Standard lib imports
 import argparse
-import logging
-import sys
-import os
 import json
-
+import logging
+import os
+import sys
 
 # Local project imports
-import src.exporter as exporter
 import src.blockparse as blockparse
+import src.exporter as exporter
+
 
 def main(args):
     # Parse bytecode
@@ -24,7 +24,7 @@ def main(args):
         metadata = {}
     else:
         bytecode = args.infile.read().strip()
-        if os.path.exists(metad:= f"{args.infile.name[:-4]}_metadata.json"):
+        if os.path.exists(metad := f"{args.infile.name[:-4]}_metadata.json"):
             metadata = json.load(open(metad))
         else:
             metadata = {}
@@ -32,41 +32,47 @@ def main(args):
     logging.info("Initial parsing completed.")
 
     logging.info("Writing facts to disk.")
-    exporter.EVMBlockExporter(args.outdir, blocks, bytecode_hex=bytecode, metadata=metadata).export()
+    exporter.EVMBlockExporter(
+        args.outdir, blocks, bytecode_hex=bytecode, metadata=metadata
+    ).export()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     # Configure argparse
-    parser = argparse.ArgumentParser(
-        description="Fact generation for EVM bytecode disassembly.")
+    parser = argparse.ArgumentParser(description="Fact generation for EVM bytecode disassembly.")
 
-    parser.add_argument("-a",
-                    "--disassembly",
-                    action="store_true",
-                    default=False,
-                    help="decompile dissassembled input.")
+    parser.add_argument(
+        "-a",
+        "--disassembly",
+        action="store_true",
+        default=False,
+        help="decompile dissassembled input.",
+    )
 
-    parser.add_argument("--generate_interface",
-                    action="store_true",
-                    default=False,
-                    help="generate .dl decompiler input interface.")
-    
+    parser.add_argument(
+        "--generate_interface",
+        action="store_true",
+        default=False,
+        help="generate .dl decompiler input interface.",
+    )
 
-    parser.add_argument("infile",
-                    nargs="?",
-                    type=argparse.FileType("r"),
-                    default=sys.stdin,
-                    help="file from which decompiler input should be read "
-                         "(stdin by default).")
+    parser.add_argument(
+        "infile",
+        nargs="?",
+        type=argparse.FileType("r"),
+        default=sys.stdin,
+        help="file from which decompiler input should be read (stdin by default).",
+    )
 
-    parser.add_argument("outdir",
-                    nargs="?",
-                    const="",
-                    metavar="DIR",
-                    default="",
-                    help="produce facts for original bytecode input.")
+    parser.add_argument(
+        "outdir",
+        nargs="?",
+        const="",
+        metavar="DIR",
+        default="",
+        help="produce facts for original bytecode input.",
+    )
 
     # Parse the arguments.
     args = parser.parse_args()
     main(args)
-
-
