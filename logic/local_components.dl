@@ -162,6 +162,11 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
     !TACNOP(stmt),
     var = as(n, Variable).
 
+  /**
+    REVIEW: We use `min(n,7)` in the `range` to limit the unused indexes.
+    More `UnusedIndex` facts lead to significant slowdown by the choice-domain
+    Increase the limit if more are needed
+  */
   .decl UnusedIndex(index: number)
   UnusedIndex(-res -1):-
     Statement_Opcode(stmt, opcode),
@@ -170,7 +175,7 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
     OpcodeOrd(opcode, n),
     n > start + 1,
     stmt_num = @hex_to_number(stmt),
-    m = range(1, n, 1),
+    m = range(1, min(n,7), 1),
     res = stmt_num + m,
     !_StatementNum(_, -res -1).
 
@@ -787,6 +792,14 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
     Variable_Value(castConst, "0xffffffff"),
     Statement_Defines(cast, castedSelector).
 
+  .decl StatementOutSurvivesBlock(stmt: Statement)
+  StatementOutSurvivesBlock(stmt):-
+    (Statement_Defines(stmt, var); Statement_AdditionalDef(stmt, var)),
+    Statement_Block(stmt, block),
+    BasicBlock_Tail(block, tail),
+    LocalStackContents(tail, _, var).
+
+
 }
 
 .comp PreTransLocalAnalysis : LocalAnalysis {
@@ -1065,22 +1078,6 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
                                              
 }
 
-// Instantiation that models the effects of all SWAPn and DUPn instructions.
-.comp AllStatementsLocalAnalysis : LocalAnalysis {
-
-  DupOrSwapNeededInTAC(stmt):-
-    Statement_Opcode(stmt, op),
-    (SWAPN(op, _); DUPN(op, _)).
-
-  .decl StatementOutSurvivesBlock(stmt: Statement)
-
-  StatementOutSurvivesBlock(stmt):-
-    (Statement_Defines(stmt, var); Statement_AdditionalDef(stmt, var)),
-    Statement_Block(stmt, block),
-    BasicBlock_Tail(block, tail),
-    LocalStackContents(tail, _, var).
-
-}
 
 .comp PostIncompleteGlobalLocalAnalysis : LocalAnalysis {
   .decl ExtBlockPushesLabel(block: Block, val: Value)

@@ -1410,7 +1410,8 @@ NumberOfFunctionReturnArguments(func, n) :-
   .decl PHIVarUsedInBlockFullyBackpropagatesTo(block: IRBlock, stackIndex: StackIndex, prevBlock: IRBlock, prevIndex: StackIndex)
   DEBUG_OUTPUT(PHIVarUsedInBlockFullyBackpropagatesTo)
   PHIVarUsedInBlockFullyBackpropagatesTo(irblock, stackIndex, irblock, stackIndex):-
-    PHIVarUsedInBlock(irblock, stackIndex).
+    PHIVarUsedInBlock(irblock, stackIndex),
+    !ContractHasIRQualityIssue(). // optimization: Skip computing this potentially expensive relation when it will never be used
 
   PHIVarUsedInBlockFullyBackpropagatesTo(irblock, stackIndex, prevBlock, prevIndex):-
     PHIVarUsedInBlockFullyBackpropagatesTo(irblock, stackIndex, tmpBlock, tmpIndex),
@@ -1439,7 +1440,7 @@ NumberOfFunctionReturnArguments(func, n) :-
     CheckIsStackIndex(prevIndex).
 
   .decl VarUsedInMultiplePHIs(var: Variable)
-  DEBUG_OUTPUT(VarUsedInMultiplePHIs)
+//   DEBUG_OUTPUT(VarUsedInMultiplePHIs)
 
   VarUsedInMultiplePHIs(var):-
     PHIVarUsedInBlockFullyBackpropagatesTo(_, _, block, index1),
@@ -1484,7 +1485,7 @@ NumberOfFunctionReturnArguments(func, n) :-
 
   // For functions with imprecision, we just insert the PHI statements at the use block
   PHIVarIntroductionPointUnfiltered(irblock, stackIndex, irblock, stackIndex):-
-    PHIVarUsedInBlockFullyBackpropagatesTo(irblock, stackIndex, irblock, stackIndex),
+    PHIVarUsedInBlock(irblock, stackIndex),
     ContractHasIRQualityIssue().
 
   PHIVarIntroductionPoint(irblock, stackIndex, irblock, stackIndex):-
@@ -1613,7 +1614,16 @@ PHIVar_DefBlockToUseBlock(entry, useBlock, var, stackIndex):-
   IRFunctionEntry(entry).
 
 
-.init allStmts = AllStatementsLocalAnalysis
+/**
+  Local analysis that keeps all dup or swap statements that touch a phi var as assignments.
+*/
+.init allStmts = LocalAnalysis
+
+allStmts.DupOrSwapNeededInTAC(stmt):-
+  DUPOrSWAPStatementUsesVar(irstmt, var),
+  FunctionalBlockUsesPHIVar(_, var, _),
+  Statement_IRStatement(stmt, _, irstmt).
+
 COPY_CODE_FULL(allStmts, postTrans)
 
 // .decl StatementCanSafelyReplace(dup: IRStatement, dup2: IRStatement)
@@ -1672,6 +1682,7 @@ DUPTouchesPHIWithLoss(stmt, var):-
 
 .init lastLocal = PostTransLocalAnalysis
 COPY_CODE_FULL(lastLocal, postTrans)
+// Going from ir to evm stmts introduces some imprecision (more assignments are created, analysis precision is not hurt).
 lastLocal.DupOrSwapNeededInTAC(dup):-
   DUPTouchesPHIWithLoss(irDup, _),
   Statement_IRStatement(dup, _, irDup),
