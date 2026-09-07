@@ -1655,6 +1655,8 @@ DUPTouchesPHIWithLoss(stmt, var):-
 DUPTouchesPHIWithLoss(stmt, var):-
   PHIVar_DefBlockToUseBlock(defBlock, _, var, _),
   DUPOrSWAPStatementUsesVar(stmt, var),
+  IRStatement_Opcode(stmt, opcode),
+  postTrans.DUPN(opcode, _),
   IRStatement_Block(stmt, defBlock).
 
 // Commented out, doesn't seem needed.
