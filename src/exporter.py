@@ -5,6 +5,7 @@ import csv
 import itertools
 import json
 import os
+from collections.abc import Iterable
 from typing import Any
 
 import src.basicblock as basicblock
@@ -116,7 +117,7 @@ class FactExporter(Exporter):
     def get_out_file_path(self, filename):
         return os.path.join(self.output_dir, filename)
 
-    def generate(self, filename: str, entries: list[Any]):
+    def generate(self, filename: str, entries: Iterable[Any]):
         with open(self.get_out_file_path(filename), "w") as f:
             writer = csv.writer(f, delimiter="\t", lineterminator="\n")
             writer.writerows(entries)
@@ -201,9 +202,9 @@ class EVMBlockExporter(FactExporter):
         Print basic block info to tsv.
         """
 
-        def get_version_str(metadata_prefix):
-            index = self.bytecode_hex.rindex(metadata_prefix) + len(metadata_prefix)
-            version_bytes = self.bytecode_hex[index : index + 6]
+        def get_version_str(bytecode_hex: str, metadata_prefix: str) -> str:
+            index = bytecode_hex.rindex(metadata_prefix) + len(metadata_prefix)
+            version_bytes = bytecode_hex[index : index + 6]
             return f"{int(version_bytes[0:2], 16)}.{int(version_bytes[2:4], 16)}.{int(version_bytes[4:6], 16)}"
 
         def link_or_output_signature_file(
@@ -241,13 +242,13 @@ class EVMBlockExporter(FactExporter):
             try:
                 if solidity_metadata_prefix in self.bytecode_hex:
                     language = "solidity"
-                    compiler_version = get_version_str(solidity_metadata_prefix)
+                    compiler_version = get_version_str(self.bytecode_hex, solidity_metadata_prefix)
                 elif solidity_metadata_prefix_old in self.bytecode_hex:
                     language = "solidity"
                     compiler_version = "0.4.7<=v<0.5.9"
                 elif vyper_metadata_prefix in self.bytecode_hex:
                     language = "vyper"
-                    compiler_version = get_version_str(vyper_metadata_prefix)
+                    compiler_version = get_version_str(self.bytecode_hex, vyper_metadata_prefix)
 
                 with open(self.output_dir + "/compiler_info.csv", "w") as f:
                     f.write(f"{language}\t{compiler_version}")
@@ -276,10 +277,15 @@ class EVMBlockExporter(FactExporter):
                 instructions_order.append(int(op.pc))
                 instructions.append((hex(op.pc), op.opcode.name))
                 if op.opcode.is_push():
+                    # PUSH1..PUSH32 always carry an immediate value (PUSH0 is
+                    # excluded by is_push), so op.value is never None here.
+                    assert op.value is not None
                     push_value.append((hex(op.pc), hex(op.value)))
 
-        instructions_order = list(map(hex, sorted(instructions_order)))
-        self.generate("Statement_Next.facts", itertools.pairwise(instructions_order))
+        # Statement IDs are the hex-encoded PCs in ascending order; pair each
+        # with its successor to emit the Statement_Next edges.
+        ordered_statement_ids = list(map(hex, sorted(instructions_order)))
+        self.generate("Statement_Next.facts", itertools.pairwise(ordered_statement_ids))
 
         self.generate("Statement_Opcode.facts", instructions)
 

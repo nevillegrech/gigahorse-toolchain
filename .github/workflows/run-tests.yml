@@ -138,9 +138,9 @@ jobs:
         with:
           files: test-results.xml
           check_name: "Test Results (Souffle 2.4)"
-  mypy:
+  ty:
     runs-on: ubuntu-latest
-    name: Mypy
+    name: Ty
     needs: ruff
     steps:
     - uses: actions/checkout@v4
@@ -150,7 +150,9 @@ jobs:
       uses: astral-sh/setup-uv@v6
       with:
         version: "latest"
-    # `uv run mypy` (no args) type-checks the paths in [tool.mypy] files under the
-    # pinned CPython 3.13 — mirrors (and consolidates) the previous per-file runs.
-    - name: mypy
-      run: uv run --frozen mypy
+    # `uv run ty check` (no args) type-checks the paths in [tool.ty] src.include
+    # under the pinned CPython 3.13. ty replaces mypy as the blocking type gate.
+    # --error-on-warning also fails the job on warn-level diagnostics, so nothing
+    # lands as a silent warning.
+    - name: ty
+      run: uv run --frozen ty check --error-on-warning

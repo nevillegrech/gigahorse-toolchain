@@ -40,12 +40,14 @@ import src.opcodes as opcodes
 STRICT = False
 
 
-class BlockParser(abc.ABC):
-    _raw: object
+# `Raw` is the raw input type each concrete parser consumes: disassembly lines
+# (`Iterable[str]`) for EVMDasmParser, raw `bytes` for EVMBytecodeParser.
+class BlockParser[Raw](abc.ABC):
+    _raw: Raw
     _ops: list[basicblock.EVMOp]
 
     @abc.abstractmethod
-    def __init__(self, raw: object):
+    def __init__(self, raw: Raw):
         """
         Constructs a new BlockParser for parsing the given raw input object.
 
@@ -72,7 +74,7 @@ class BlockParser(abc.ABC):
         return []
 
 
-class EVMDasmParser(BlockParser):
+class EVMDasmParser(BlockParser[Iterable[str]]):
     def __init__(self, dasm: Iterable[str]):
         """
         Parses raw EVM disassembly lines and creates corresponding EVMBasicBlocks.
@@ -149,7 +151,7 @@ class EVMDasmParser(BlockParser):
             )
 
 
-class EVMBytecodeParser(BlockParser):
+class EVMBytecodeParser(BlockParser[bytes]):
     def __init__(self, bytecode: str | bytes):
         """
         Parse EVM bytecode directly into basic blocks.
@@ -158,14 +160,12 @@ class EVMBytecodeParser(BlockParser):
           bytecode: EVM bytecode, either as a hexadecimal string or a bytes
             object. If given as a hex string, it may optionally start with 0x.
         """
-        super().__init__(bytecode)
-
         if isinstance(bytecode, str):
-            bytecode = bytes.fromhex(bytecode.replace("0x", ""))
+            raw = bytes.fromhex(bytecode.replace("0x", ""))
         else:
-            bytecode = bytes(bytecode)
+            raw = bytes(bytecode)
 
-        self._raw = bytecode
+        super().__init__(raw)
 
         # Track the program counter as we traverse the bytecode
         self.__pc = 0

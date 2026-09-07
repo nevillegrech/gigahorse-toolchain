@@ -52,11 +52,11 @@ Documentation = "https://github.com/nevillegrech/gigahorse-toolchain#readme"
 # an extra. Covers the test runner and the type checker exercised in CI.
 [dependency-groups]
 dev = [
-    "mypy>=1.13",
     "pytest>=8.3",
     "pytest-xdist>=3.8",
     "filelock>=3.15",
-    "ruff>=0.15",
+    "ruff>=0.16.5",
+    "ty>=0.0.77,<0.1",
 ]
 
 [tool.uv]
@@ -70,21 +70,47 @@ minversion = "8.0"
 addopts = "-ra"
 testpaths = ["test_gigahorse.py"]
 
-[tool.mypy]
-python_version = "3.13"
-# Default targets when `mypy` is invoked without explicit paths; mirrors CI coverage.
-files = [
+# Astral's `ty` is the project's type checker. It replaces mypy: ty checks the
+# bodies of un-annotated functions unconditionally (mypy needed check_untyped_defs
+# for that, and skipped them by default), and it shares the ruff/uv toolchain the
+# rest of the project already pins.
+#
+# Known gap vs the mypy config this replaced: ty has no equivalent of mypy's
+# `strict_equality`, so a non-overlapping comparison such as `"a" == 3` is not
+# reported (re-verified on ty 0.0.77 with every rule promoted to error).
+#
+# Off by default and left off for now — each needs a cleanup pass first. Counts
+# are for the full include set below, on ty 0.0.77:
+#   missing-override-decorator (33), possibly-unresolved-reference (9),
+#   missing-type-argument (7), unsound-return-statement (3).
+[tool.ty.environment]
+python-version = "3.13"
+# clientlib/src are imported from the repo root (e.g. `clientlib.facts_to_cfg`);
+# keep the root on the module search path so those first-party imports resolve.
+root = ["."]
+
+[tool.ty.src]
+# Default targets when `ty check` is invoked without explicit paths. This tracks
+# what ruff lints, so a file cannot be linted but silently left un-type-checked.
+# `generatefacts` has a shebang and no .py suffix; ty reads it as Python anyway
+# (ruff needs [tool.ruff] extend-include for the same reason).
+include = [
     "gigahorse.py",
+    "generatefacts",
     "clients/visualizeout.py",
     "src",
     "clientlib",
+    "conftest.py",
+    "test_gigahorse.py",
 ]
-# `clientlib` has no __init__.py and is imported as `clientlib.facts_to_cfg`; anchor
-# module names at the repo root so the same file isn't discovered under two names.
-explicit_package_bases = true
-mypy_path = "."
-# pyvis/lark/pydot ship no type stubs; keep third-party imports from failing type-checks.
-ignore_missing_imports = true
+# Not yet covered: tooling/. compare-runs.py builds a heterogeneous `filemap`
+# (str -> set | dict depending on the key), which needs restructuring before it
+# type-checks, and directives.py imports lark/pyvis from the optional `tooling`
+# extra, which CI does not install. To add it later, install the extra and:
+#     [[tool.ty.overrides]]
+#     include = ["tooling/**"]
+#     [tool.ty.overrides.rules]
+#     unresolved-import = "ignore"
 
 [tool.ruff]
 # Lint/format target matches the interpreter the rest of the toolchain pins.

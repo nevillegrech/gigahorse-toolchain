@@ -32,9 +32,7 @@ class LogicTestCase:
         self.results_file = join(self.working_dir, "results.json")
 
         self.gigahorse_args = test_config.get("gigahorse_args", [])
-        self.contract_specific: dict[str, list[tuple[Any, ...]]] = test_config.get(
-            "contract_specific", {}
-        )
+        self.contract_specific: dict[str, dict[str, Any]] = test_config.get("contract_specific", {})
 
         self.expected_analytics: list[tuple[str, int, float]] = test_config.get(
             "expected_analytics", []
