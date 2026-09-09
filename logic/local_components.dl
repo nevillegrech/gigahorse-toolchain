@@ -956,6 +956,7 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
     StaticBlockJumpTarget(block, _),
     SmallValuePush(pushStmt, sigHash),
     Statement_Defines(pushStmt, sigHashVar),
+    Statement_Block(subStmt, block),
     SUB(subStmt),
     Statement_Uses_Local(subStmt, sigHashVar, n),
     Statement_Uses_Local(subStmt, selectorVarOrIndex, 1 - n),
