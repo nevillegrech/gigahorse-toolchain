@@ -1130,7 +1130,7 @@ NumberOfFunctionReturnArguments(func, n) :-
   // Is output
   .decl FunctionalStatement_Uses_Local(stmt: IRStatement, var:VariableOrStackIndex, n:StackIndex)
   // Is unused
-  // .decl FunctionalStatement_Uses(stmt:IRStatement, var:Variable, n:StackIndex)
+  .decl FunctionalStatement_Uses(stmt:IRStatement, var:Variable, n:StackIndex)
   // Is output
   .decl FunctionalStatement_Defines(callStmt:IRStatement, newVar:Variable, n: number)
 
@@ -1319,17 +1319,16 @@ NumberOfFunctionReturnArguments(func, n) :-
   FunctionalStatement_Uses_Local(irstmt, varOrStackIndex, n) :-
     IRStatement_Uses_Local(irstmt, varOrStackIndex, n).
 
-  // FunctionalStatement_Uses(irstmt, as(var, Variable), n) :-
-  //   postTrans.Statement_Uses_Local(stmt, var, n),
-  //   CheckIsVariable(var),
-  //   Statement_IRStatement(stmt, _, irstmt).
+  FunctionalStatement_Uses(irstmt, as(var, Variable), n):-
+    FunctionalStatement_Uses_Local(irstmt, var, n),
+    CheckIsVariable(var).
 
   // Case: variable originates elsewhere
-  // FunctionalStatement_Uses(stmt, var, n) :-
-  //   IRStatement_Uses_Local(stmt, stackIndex, n),
-  //   CheckIsStackIndex(stackIndex),
-  //   IRStatement_Block(stmt, block),
-  //   FunctionalBlockInputContents(block, stackIndex, var).
+  FunctionalStatement_Uses(stmt, var, n):-
+    FunctionalStatement_Uses_Local(stmt, stackIndex, n),
+    CheckIsStackIndex(stackIndex),
+    IRStatement_Block(stmt, block),
+    FunctionalBlockInputContents(block, stackIndex, var).
 
   DEBUG_OUTPUT(FunctionalBlockOutputContents)
   DEBUG_OUTPUT(FunctionalBlockInputContents)
@@ -1652,6 +1651,10 @@ DUPTouchesPHIWithLoss(stmt, var):-
   IRStatement_Block(stmt, touchBlock),
   DoesNotPostDominate(touchBlock, defBlock).
 
+/**
+  Inside the basic block defining an rvar of a phi op, we only introduce assignments for DUPx statements.
+  Swaps are not needed inside the same basic block as their behavior is modeled precisely.
+*/
 DUPTouchesPHIWithLoss(stmt, var):-
   PHIVar_DefBlockToUseBlock(defBlock, _, var, _),
   DUPOrSWAPStatementUsesVar(stmt, var),
@@ -1672,11 +1675,24 @@ DUPTouchesPHIWithLoss(stmt, var):-
   IRBlockInLoop(touchBlock, loop),
   !IRBlockInLoop(defBlock, loop).
 
+/**
+  We introduce assignments for a statement `stmt` touching a variable `var` assigned
+  inside a loop, when `var` is used _before_ `stmt`.
+  This helps when the previous iteration's version of a variable is used in an iteration before its assignment.
+  Example: 5427FEFA711EFF984124BFBB1AB6FBF5E3DA1820
+*/
 DUPTouchesPHIWithLoss(stmt, var):-
   PHIVar_DefBlockToUseBlock(defBlock, _, var, _),
   DUPOrSWAPStatementUsesVar(stmt, var),
   IRStatement_Block(stmt, touchBlock),
   Dominates(defBlock, touchBlock),
+  firstFunctional.FunctionalStatement_Uses(useStmt, var, _),
+  IRStatement_Block(useStmt, useBlock),
+  (
+    Dominates(useBlock, touchBlock);
+    PostDominates(touchBlock, useBlock);
+    touchBlock = useBlock
+  ),
   IRBlockInLoop(touchBlock, loop),
   IRBlockInLoop(defBlock, loop).
 
