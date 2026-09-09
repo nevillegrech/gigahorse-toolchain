@@ -1686,15 +1686,15 @@ DUPTouchesPHIWithLoss(stmt, var):-
   DUPOrSWAPStatementUsesVar(stmt, var),
   IRStatement_Block(stmt, touchBlock),
   Dominates(defBlock, touchBlock),
+  IRBlockInLoop(touchBlock, loop),
+  IRBlockInLoop(defBlock, loop),
   firstFunctional.FunctionalStatement_Uses(useStmt, var, _),
   IRStatement_Block(useStmt, useBlock),
   (
     Dominates(useBlock, touchBlock);
     PostDominates(touchBlock, useBlock);
     touchBlock = useBlock
-  ),
-  IRBlockInLoop(touchBlock, loop),
-  IRBlockInLoop(defBlock, loop).
+  ).
 
 // .output firstFunctional.IRBeforeLocalStackContents, firstFunctional.FunctionalBlockInputContents, firstFunctional.FunctionalBlockOutputContents, postTrans.StatementStackDelta, NumberOfFunctionReturnArguments, NumberOfFunctionArguments
 
