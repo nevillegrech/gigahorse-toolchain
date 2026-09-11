@@ -239,6 +239,7 @@ OpcodeLogLen("GASLIMIT", 0).
 OpcodeLogLen("BASEFEE", 0).
 OpcodeLogLen("BLOBHASH", 0).
 OpcodeLogLen("BLOBBASEFEE", 0).
+OpcodeLogLen("SLOTNUM", 0).
 OpcodeLogLen("POP", 0).
 OpcodeLogLen("MLOAD", 0).
 OpcodeLogLen("MSTORE", 0).
@@ -397,6 +398,7 @@ OpcodePushLen("GASLIMIT", 0).
 OpcodePushLen("BASEFEE", 0).
 OpcodePushLen("BLOBHASH", 0).
 OpcodePushLen("BLOBBASEFEE", 0).
+OpcodePushLen("SLOTNUM", 0).
 OpcodePushLen("POP", 0).
 OpcodePushLen("MLOAD", 0).
 OpcodePushLen("MSTORE", 0).
@@ -549,6 +551,7 @@ OpcodeStackDelta("GASLIMIT", 1).
 OpcodeStackDelta("BASEFEE", 1).
 OpcodeStackDelta("BLOBHASH", 0).
 OpcodeStackDelta("BLOBBASEFEE", 1).
+OpcodeStackDelta("SLOTNUM", 1).
 OpcodeStackDelta("POP", -1).
 OpcodeStackDelta("MLOAD", 0).
 OpcodeStackDelta("MSTORE", -2).
@@ -701,6 +704,7 @@ OpcodePopWords("GASLIMIT", 0).
 OpcodePopWords("BASEFEE", 0).
 OpcodePopWords("BLOBHASH", 1).
 OpcodePopWords("BLOBBASEFEE", 0).
+OpcodePopWords("SLOTNUM", 0).
 OpcodePopWords("POP", 1).
 OpcodePopWords("MLOAD", 1).
 OpcodePopWords("MSTORE", 2).
@@ -853,6 +857,7 @@ OpcodePushWords("GASLIMIT", 1).
 OpcodePushWords("BASEFEE", 1).
 OpcodePushWords("BLOBHASH", 1).
 OpcodePushWords("BLOBBASEFEE", 1).
+OpcodePushWords("SLOTNUM", 1).
 OpcodePushWords("POP", 0).
 OpcodePushWords("MLOAD", 1).
 OpcodePushWords("MSTORE", 0).
@@ -1005,6 +1010,7 @@ OpcodeGas("GASLIMIT", 2).
 OpcodeGas("BASEFEE", 2).
 OpcodeGas("BLOBHASH", 3).
 OpcodeGas("BLOBBASEFEE", 2).
+OpcodeGas("SLOTNUM", 2).
 OpcodeGas("POP", 2).
 OpcodeGas("MLOAD", 3).
 OpcodeGas("MSTORE", 3).
@@ -1157,6 +1163,7 @@ OpcodeOrd("GASLIMIT", 69).
 OpcodeOrd("BASEFEE", 72).
 OpcodeOrd("BLOBHASH", 73).
 OpcodeOrd("BLOBBASEFEE", 74).
+OpcodeOrd("SLOTNUM", 75).
 OpcodeOrd("POP", 80).
 OpcodeOrd("MLOAD", 81).
 OpcodeOrd("MSTORE", 82).

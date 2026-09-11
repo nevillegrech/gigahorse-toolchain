@@ -150,6 +150,9 @@ BLOBHASH(stmt) :- Statement_Opcode(stmt, "BLOBHASH").
 .decl BLOBBASEFEE(stmt: Statement)
 BLOBBASEFEE(stmt) :- Statement_Opcode(stmt, "BLOBBASEFEE").
 
+.decl SLOTNUM(stmt: Statement)
+SLOTNUM(stmt) :- Statement_Opcode(stmt, "SLOTNUM").
+
 .decl POP(stmt: Statement)
 POP(stmt) :- Statement_Opcode(stmt, "POP").
 

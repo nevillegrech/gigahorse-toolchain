@@ -251,6 +251,7 @@ UintVar(var):-
   TIMESTAMP(_, var);
   DIFFICULTY(_, var);
   NUMBER(_, var);
+  SLOTNUM(_, var);
   BALANCE(_, _, var).
 
 UintVar(var):-
@@ -443,6 +444,7 @@ VariableUsedAsBase(var, "uint"):-
   TIMESTAMP(_, var);
   DIFFICULTY(_, var);
   NUMBER(_, var);
+  SLOTNUM(_, var);
   BALANCE(_, _, var).
 
 VariableUsedAsBase(var, "uint"):-

@@ -227,6 +227,9 @@ BLOBHASH    = OpCode("BLOBHASH",  0x49, 1, 1, 3)
 # EIP-7516
 BLOBBASEFEE    = OpCode("BLOBBASEFEE",  0x4a, 0, 1, 2)
 
+# EIP-7843
+SLOTNUM        = OpCode("SLOTNUM",       0x4b, 0, 1, 2)
+
 # Stack, Memory, Storage, Flow
 POP      = OpCode("POP",      0x50, 1, 0, 2)
 MLOAD    = OpCode("MLOAD",    0x51, 1, 1, 3)
