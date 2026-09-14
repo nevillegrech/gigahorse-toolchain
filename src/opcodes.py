@@ -60,7 +60,9 @@ class OpCode:
     def __repr__(self) -> str:
         return f"<{self.__class__.__name__} object {hex(id(self))}, {self.__str__()}>"
 
-    def __eq__(self, other) -> bool:
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, OpCode):
+            return NotImplemented
         return self.code == other.code
 
     def __hash__(self) -> int:

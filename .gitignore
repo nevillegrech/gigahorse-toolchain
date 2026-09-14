@@ -20,7 +20,6 @@ doc/source/modules
 .venv/
 
 # Tooling caches
-.mypy_cache/
 .pytest_cache/
 
 # Cache dir used for souffle executables

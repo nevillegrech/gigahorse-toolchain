@@ -1,6 +1,6 @@
 # Python tooling for gigahorse-toolchain.
 #
-# ruff and mypy are uv-managed dev dependencies (see [dependency-groups] in
+# ruff and ty are uv-managed dev dependencies (see [dependency-groups] in
 # pyproject.toml), so everything runs through `uv run --frozen` — no manual venv
 # activation required, and the exact locked tool versions are used. souffle-addon
 # is excluded from ruff via [tool.ruff] extend-exclude (it's a native C++ submodule
@@ -17,9 +17,10 @@ lint:
 	uv run --frozen ruff check .
 	uv run --frozen ruff format --check .
 
-# Static type checking over the paths configured in [tool.mypy].
+# Static type checking with ty over the paths configured in [tool.ty.src].
+# --error-on-warning matches CI: warn-level diagnostics fail too.
 typecheck:
-	uv run --frozen mypy
+	uv run --frozen ty check --error-on-warning
 
-# Full local gate: lint + format check + type check.
+# Full local gate: lint + format check + type check. Mirrors CI exactly.
 check: lint typecheck

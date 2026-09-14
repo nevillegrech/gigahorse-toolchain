@@ -40,7 +40,7 @@ RUN apt-get update && apt-get install -y z3
 # ---- Python toolchain via uv (Astral) ----
 # Install the uv binary and provision a managed CPython 3.13 into a shared,
 # world-readable prefix so the non-root user in downstream images can use it.
-# The project's own dependencies (pytest, mypy, ...) come from pyproject.toml /
+# The project's own dependencies (pytest, ty, ...) come from pyproject.toml /
 # uv.lock via `uv sync` in the image or CI step that checks out the repository.
 ENV UV_PYTHON_INSTALL_DIR=/opt/uv/python \
     UV_PYTHON_PREFERENCE=only-managed \

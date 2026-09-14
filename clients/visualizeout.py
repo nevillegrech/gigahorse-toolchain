@@ -11,7 +11,7 @@ from clientlib.facts_to_cfg import (
     Statement,
     construct_cfg,
     load_csv_map,
-)  # type: ignore
+)
 
 sys.setrecursionlimit(3000)
 
