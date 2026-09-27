@@ -1,0 +1,6 @@
+{
+    "client_path": "tests/client-inputs/client_inputs.dl",
+    "gigahorse_args": ["--disable_scalable_fallback"],
+    "expected_analytics": [["errors", 0, 0], ["Analytics_HaltingStatement", 26, 0]],
+    "expected_verbatim": [["Verbatim_ClientInputs", "20\t0\t0\n"]]
+}

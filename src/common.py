@@ -10,6 +10,9 @@ DEFAULT_SOUFFLE_BIN = "souffle"
 
 SOUFFLE_COMPILED_SUFFIX = "_compiled"
 
+MAX_CONTEXT_DEPTH_INPUT_FILE = "MaxContextDepth.csv"
+MAIN_DECOMPILER_MAX_CONTEXT_DEPTH = 20
+
 # The following 4 constants are also defined in `logic/types_defs.dl`
 FUNCTION_SELECTOR = "0x0"
 FALLBACK_FUNCTION_SIGHASH = "0x00000000"

@@ -19,7 +19,13 @@ from pathlib import Path
 from typing import Any, NamedTuple
 
 from . import blockparse, exporter
-from .common import GIGAHORSE_DIR, SOUFFLE_COMPILED_SUFFIX, log, log_debug
+from .common import (
+    GIGAHORSE_DIR,
+    MAX_CONTEXT_DEPTH_INPUT_FILE,
+    SOUFFLE_COMPILED_SUFFIX,
+    log,
+    log_debug,
+)
 from .tac_schema import TACRelations, missing_relation_files
 
 devnull = subprocess.DEVNULL
@@ -27,10 +33,11 @@ devnull = subprocess.DEVNULL
 DEFAULT_MEMORY_LIMIT = 50 * 1_000_000_000
 """Hard capped memory limit for analyses processes (50 GB)"""
 
-MAX_CONTEXT_DEPTH_INPUT_FILE = "MaxContextDepth.csv"
-MAIN_DECOMPILER_MAX_CONTEXT_DEPTH = 20
 FALLBACK_SCALABLE_MAX_CONTEXT_DEPTH = 10
 LAST_RESORT_MAX_CONTEXT_DEPTH = 10
+
+# Empty at fact generation. Clients that include clientlib/vulnerability_macros.dl add rows.
+VULNERABILITY_FILES = ("proto_vulnerability.csv", "vulnerability.csv")
 
 FACT_GEN_HIGH_PRIORITY = 1
 FACT_GEN_LOW_PRIORITY = 2
@@ -697,8 +704,8 @@ class DecompilerFactGenerator(AbstractFactGenerator):
 
         os.symlink(join(work_dir, "bytecode.hex"), join(out_dir, "bytecode.hex"))
 
-        open(join(out_dir, "proto_vulnerability.csv"), "w").close()
-        open(join(out_dir, "vulnerability.csv"), "w").close()
+        for fname in VULNERABILITY_FILES:
+            open(join(out_dir, fname), "w").close()
 
         if os.path.exists(join(work_dir, "compiler_info.csv")):
             # Create a symlink with a name starting with 'Verbatim_' to be added to results json
@@ -851,7 +858,8 @@ class ContractStitchingGenerator(AbstractFactGenerator):
                 facts[address] = TACRelations.from_dir(path)
 
             # copy the bytecode of the main contract, as clients read it
-            shutil.copy2(Path(work_dir).parent / f"{contracts[main]}/out/bytecode.hex", out_dir)
+            main_dir = Path(work_dir).parent / contracts[main]
+            shutil.copy2(main_dir / "out/bytecode.hex", out_dir)
 
             for address in facts.keys():
                 if address == main:
@@ -862,6 +870,21 @@ class ContractStitchingGenerator(AbstractFactGenerator):
 
             merged = TACRelations.merge(*list(facts.values()))
             merged.write_dir(out_dir)
+
+            # Client inputs with no contract column: take them from the main contract
+            for fname in (
+                "StorageContents.csv",
+                "SHA3Decompositions.csv",
+                MAX_CONTEXT_DEPTH_INPUT_FILE,
+            ):
+                # Older working dirs have MaxContextDepth.csv only in the fact dir
+                sources = [p for p in (main_dir / "out" / fname, main_dir / fname) if p.is_file()]
+                if sources:
+                    shutil.copy2(sources[0], out_dir)
+                else:
+                    open(join(out_dir, fname), "w").close()
+            for fname in VULNERABILITY_FILES:
+                open(join(out_dir, fname), "w").close()
 
         return 0, time.time() - fact_gen_time_start, FactGenUsedEnum.MultiContract
 

@@ -221,8 +221,8 @@ class EVMBlockExporter(FactExporter):
         if self.output_dir != "":
             os.makedirs(self.output_dir, exist_ok=True)
 
-        if self.bytecode_hex:
-            with open(self.output_dir + "/bytecode.hex", "w") as f:
+        if self.bytecode_hex is not None:
+            with open(self.get_out_file_path("bytecode.hex"), "w") as f:
                 assert "\n" not in self.bytecode_hex
                 f.write(self.bytecode_hex)
 
@@ -249,7 +249,7 @@ class EVMBlockExporter(FactExporter):
                     language = "vyper"
                     compiler_version = get_version_str(vyper_metadata_prefix)
 
-                with open(self.output_dir + "/compiler_info.csv", "w") as f:
+                with open(self.get_out_file_path("compiler_info.csv"), "w") as f:
                     f.write(f"{language}\t{compiler_version}")
             except Exception:
                 # in very rare cases get_version_str can fail, fall back to unknown

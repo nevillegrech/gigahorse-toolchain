@@ -10,6 +10,7 @@ import multiprocessing
 import os
 import re
 import signal
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -534,3 +535,80 @@ def test_batch_analysis_reports_a_worker_that_dies(tmp_path, monkeypatch):
         ("dies.hex", ["ERROR"]),
         ("b.hex", []),
     ]
+
+
+def make_decompiled_contract(contract_dir: Path, files: dict[str, str]) -> None:
+    """The working dir of a decompiled contract: empty TAC relations plus `files`."""
+    (contract_dir / "out").mkdir(parents=True)
+    for relation in ALL_RELATIONS:
+        (contract_dir / "out" / f"{relation.name}.csv").write_text("")
+    for path, content in files.items():
+        (contract_dir / path).write_text(content)
+
+
+def stitch(tmp_path: Path, contracts: dict[str, str], main: str) -> Path:
+    manifest = tmp_path / "stitched_multi.json"
+    manifest.write_text(json.dumps({"main": main, "contracts": contracts}))
+    out_dir = tmp_path / "stitched_multi" / "out"
+    out_dir.mkdir(parents=True)
+    ContractStitchingGenerator(None, ".*_multi.json").generate_facts(
+        str(manifest), str(out_dir.parent), str(out_dir)
+    )
+    return out_dir
+
+
+def test_contract_stitching_writes_the_client_inputs_of_the_main_contract(tmp_path):
+    main, other = "0xaaaaaaaa11", "0xbbbbbbbb22"
+    for contract_id, depth, storage in [("main_id", "20", "0x0\t0x1\n"), ("other_id", "10", "")]:
+        make_decompiled_contract(
+            tmp_path / contract_id,
+            {
+                "out/bytecode.hex": "6001",
+                "out/StorageContents.csv": storage,
+                "out/MaxContextDepth.csv": f"{depth}\n",
+            },
+        )
+
+    out_dir = stitch(tmp_path, {main: "main_id", other: "other_id"}, main)
+
+    assert (out_dir / "StorageContents.csv").read_text() == "0x0\t0x1\n"
+    assert (out_dir / "SHA3Decompositions.csv").read_text() == ""
+    assert (out_dir / "MaxContextDepth.csv").read_text() == "20\n"
+    assert (out_dir / "vulnerability.csv").read_text() == ""
+    assert (out_dir / "proto_vulnerability.csv").read_text() == ""
+
+
+def test_contract_stitching_reads_the_context_depth_of_an_older_working_dir(tmp_path):
+    main = "0xaaaaaaaa11"
+    # An older version wrote MaxContextDepth.csv only to the fact dir
+    make_decompiled_contract(
+        tmp_path / "main_id", {"out/bytecode.hex": "6001", "MaxContextDepth.csv": "20\n"}
+    )
+
+    out_dir = stitch(tmp_path, {main: "main_id"}, main)
+
+    assert (out_dir / "MaxContextDepth.csv").read_text() == "20\n"
+    assert (out_dir / "StorageContents.csv").read_text() == ""
+
+
+GENERATEFACTS = str(Path(gigahorse.GIGAHORSE_DIR) / "generatefacts")
+
+
+def test_generatefacts_writes_the_facts_that_the_decompiler_reads(tmp_path):
+    (tmp_path / "c.hex").write_text("6001")
+
+    subprocess.run([sys.executable, GENERATEFACTS, "c.hex"], cwd=tmp_path, check=True)
+
+    assert (tmp_path / "bytecode.hex").read_text() == "6001"
+    assert (tmp_path / "MaxContextDepth.csv").read_text() == "20\n"
+
+
+def test_generatefacts_reads_disassembly(tmp_path):
+    (tmp_path / "c.dasm").write_text("0x0 PUSH1 => 0x1\n0x2 STOP\n")
+
+    subprocess.run(
+        [sys.executable, GENERATEFACTS, "-a", "c.dasm", "facts"], cwd=tmp_path, check=True
+    )
+
+    assert (tmp_path / "facts" / "Statement_Opcode.facts").read_text() == "0x0\tPUSH1\n0x2\tSTOP\n"
+    assert (tmp_path / "facts" / "bytecode.hex").read_text() == ""

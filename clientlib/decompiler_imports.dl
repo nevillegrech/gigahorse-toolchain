@@ -35,9 +35,15 @@
 .decl ByteCodeHex(bytecode: symbol)
 .input ByteCodeHex(IO="file", filename="bytecode.hex")
 
- 
+
+// Same as in logic/decompiler_input_opcodes.dl, plus THROW (INVALID in the TAC)
 .decl OpcodePossiblyHalts(op: Opcode)
-.input OpcodePossiblyHalts(IO="file", filename="OpcodePossiblyHalts.csv", delimiter="\t")
+OpcodePossiblyHalts("STOP").
+OpcodePossiblyHalts("RETURN").
+OpcodePossiblyHalts("INVALID").
+OpcodePossiblyHalts("THROW").
+OpcodePossiblyHalts("SELFDESTRUCT").
+OpcodePossiblyHalts("REVERT").
 
 // Final decompiler outputs, code
 
@@ -230,7 +236,8 @@ DEBUG_OUTPUT(PublicFunctionId)
 .decl Block_CodeChunkAccessed(block: Block, chunk_id: Chunk)
 .input Block_CodeChunkAccessed(IO="file", filename="TAC_Block_CodeChunkAccessed.csv", delimiter="\t")
 
-// Export max context depth of decompilation, possibly useful for client analysis tuning
+// Export max context depth of decompilation, possibly useful for client analysis tuning.
+// For merged multi-contract IR: the depth of the main contract.
 .decl MaxContextDepth(n: number)
 .input MaxContextDepth(IO="file", filename="MaxContextDepth.csv", delimiter="\t")
 

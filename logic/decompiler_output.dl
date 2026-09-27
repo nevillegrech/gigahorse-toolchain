@@ -13,6 +13,11 @@ DecompilerConfig(default) <= DecompilerConfig(other):-
   default = "default",
   other != default.
 
+// Copies the depth that this configuration used (src/runners.py writes it) to the output
+.decl DecompilerMaxContextDepth(n: number)
+.input DecompilerMaxContextDepth(IO="file", filename="MaxContextDepth.csv", delimiter="\t")
+.output DecompilerMaxContextDepth(IO="file", filename="MaxContextDepth.csv", delimiter="\t")
+
 .decl GlobalEntryBlock(block: IRBlock)
 .output GlobalEntryBlock
 

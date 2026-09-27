@@ -1,0 +1,20 @@
+// Reads the client inputs that are not TAC relations. A missing input file stops the client.
+#include "../../clientlib/decompiler_imports.dl"
+#include "../../clientlib/flows.dl"
+#include "../../clientlib/dominators.dl"
+#include "../../clientlib/vulnerability_macros.dl"
+
+.decl Verbatim_ClientInputs(maxContextDepth: number, storageContents: number, sha3Decompositions: number)
+.output Verbatim_ClientInputs
+
+Verbatim_ClientInputs(depth, storageContents, sha3Decompositions) :-
+  MaxContextDepth(depth),
+  storageContents = count : StorageContents(_, _),
+  sha3Decompositions = count : SHA3Decompositions(_, _, _, _).
+
+.decl Analytics_HaltingStatement(stmt: Statement)
+.output Analytics_HaltingStatement
+
+Analytics_HaltingStatement(stmt) :-
+  Statement_Opcode(stmt, op),
+  OpcodePossiblyHalts(op).

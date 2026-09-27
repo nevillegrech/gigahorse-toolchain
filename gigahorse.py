@@ -22,9 +22,8 @@ from os.path import getsize, join
 from typing import Any
 
 # Local project imports
-from src.common import DEFAULT_SOUFFLE_BIN, GIGAHORSE_DIR, log
+from src.common import DEFAULT_SOUFFLE_BIN, GIGAHORSE_DIR, MAIN_DECOMPILER_MAX_CONTEXT_DEPTH, log
 from src.runners import (
-    MAIN_DECOMPILER_MAX_CONTEXT_DEPTH,
     AbstractFactGenerator,
     AnalysisExecutor,
     DatalogCompilationError,

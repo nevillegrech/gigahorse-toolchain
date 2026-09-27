@@ -10,6 +10,7 @@ import sys
 # Local project imports
 import src.blockparse as blockparse
 import src.exporter as exporter
+from src.common import MAIN_DECOMPILER_MAX_CONTEXT_DEPTH, MAX_CONTEXT_DEPTH_INPUT_FILE
 
 
 def main(args):
@@ -22,6 +23,8 @@ def main(args):
     if args.disassembly:
         blocks = blockparse.EVMDasmParser(args.infile).parse()
         metadata = {}
+        # The decompiler reads bytecode.hex, thus write it empty
+        bytecode = ""
     else:
         bytecode = args.infile.read().strip()
         if os.path.exists(metad := f"{args.infile.name[:-4]}_metadata.json"):
@@ -35,6 +38,8 @@ def main(args):
     exporter.EVMBlockExporter(
         args.outdir, blocks, bytecode_hex=bytecode, metadata=metadata
     ).export()
+    with open(os.path.join(args.outdir, MAX_CONTEXT_DEPTH_INPUT_FILE), "w") as f:
+        f.write(f"{MAIN_DECOMPILER_MAX_CONTEXT_DEPTH}\n")
 
 
 if __name__ == "__main__":
