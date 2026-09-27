@@ -72,17 +72,6 @@ class LogicTestCase:
             capture_output=True,
         )
 
-    def __relation_size(self, name: str) -> int:
-        hex_name = self.test_path.split("/")[-1].split(".")[-2]
-
-        if isfile(join(self.working_dir, hex_name, "out", f"{name}.csv")):
-            path = join(self.working_dir, hex_name, "out", f"{name}.csv")
-        else:
-            path = join(self.working_dir, hex_name, f"{name}.csv")
-
-        with open(path) as f:
-            return len(f.readlines())
-
     def run(self):
         stderr_path = join(self.working_dir, "stderr")
 

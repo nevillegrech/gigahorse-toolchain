@@ -32,6 +32,8 @@ def gigahorse_prereqs(tmp_path_factory, worker_id):
                 "1",
                 "--working_dir",
                 str(working_dir),
+                "--results_file",
+                str(working_dir / "results.json"),
                 "--disable_scalable_fallback",
                 *common_clients,
             ],
