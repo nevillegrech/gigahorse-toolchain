@@ -16,7 +16,7 @@ AuxStatementOpAndArgs(stmt, op, a, b) :-
 .decl AuxUnopStatementAndArg(stmt: Statement, op: Opcode, arg: Variable)
 AuxUnopStatementAndArg(stmt, op, arg):-
   Statement_Opcode(stmt, op),
-  (op = "NOT"; op = "ISZERO"),
+  (op = "NOT"; op = "ISZERO"; op = "CLZ"),
   Statement_Uses(stmt, arg, 0).
 
 .decl AuxStatementOpAndConstantArgValues(stmt:Statement, op:Opcode, a_val:Value, b_val:Value)

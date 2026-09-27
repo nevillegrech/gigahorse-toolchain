@@ -56,5 +56,35 @@
   ConstantFoldResult1("ISZERO", arg, as(result, Value)) :-
     RequestConstantFold1("ISZERO", arg),
     result = @eq_256(arg, "0x0").
+
+  // BYTE(i, x): byte i of x, byte 0 is the most significant. 0 when i >= 32.
+  ConstantFoldResult2("BYTE", i, x, as(result, Value)) :-
+    RequestConstantFold2("BYTE", i, x),
+    @lt_256(i, "0x20") = "0x1",
+    result = @and_256(@shr_256(@sub_256("0xf8", @shl_256("0x3", i)), x), "0xff").
+
+  ConstantFoldResult2("BYTE", i, x, "0x0") :-
+    RequestConstantFold2("BYTE", i, x),
+    @lt_256(i, "0x20") = "0x0".
+
+  // SIGNEXTEND(b, x): extends the sign bit of the low b + 1 bytes. x when b >= 31.
+  ConstantFoldResult2("SIGNEXTEND", b, x, as(result, Value)) :-
+    RequestConstantFold2("SIGNEXTEND", b, x),
+    @lt_256(b, "0x1f") = "0x1",
+    shift = @sub_256("0xf8", @shl_256("0x3", b)),
+    result = @sar_256(shift, @shl_256(shift, x)).
+
+  ConstantFoldResult2("SIGNEXTEND", b, x, as(result, Value)) :-
+    RequestConstantFold2("SIGNEXTEND", b, x),
+    @lt_256(b, "0x1f") = "0x0",
+    result = @hex_normalized(x).
+
+  // CLZ(x) (EIP-7939): 256 - bit length. The normalized hex has no leading zero digits.
+  ConstantFoldResult1("CLZ", x, as(result, Value)) :-
+    RequestConstantFold1("CLZ", x),
+    hex = @hex_normalized(x),
+    top = @hex_to_number(cat("0x", substr(hex, 2, 1))),
+    bitLength = 4 * (strlen(hex) - 3) + min(top, 1) + min(top / 2, 1) + min(top / 4, 1) + min(top / 8, 1),
+    result = @number_to_hex(256 - bitLength).
 }
 
