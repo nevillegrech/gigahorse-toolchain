@@ -10,6 +10,7 @@ import shutil
 import sys
 import time
 from collections import defaultdict
+from concurrent.futures import Future, ThreadPoolExecutor
 from multiprocessing import (
     Event,
     Manager,
@@ -28,6 +29,7 @@ from src.runners import (
     AbstractFactGenerator,
     AnalysisExecutor,
     CustomFactGenerator,
+    DatalogCompilationError,
     DecompilationException,
     DecompilerFactGenerator,
     FactGenSelectionEnum,
@@ -35,7 +37,6 @@ from src.runners import (
     MixedFactGenerator,
     TimeoutException,
     compile_datalog,
-    get_souffle_executable_path,
     test_souffle,
 )
 
@@ -224,7 +225,7 @@ parser.add_argument(
     "--debug",
     action="store_true",
     default=False,
-    help="Various minor changes to aid development. Halts on souffle compilation failure.",
+    help="Various minor changes to aid development.",
 )
 
 parser.add_argument(
@@ -307,12 +308,12 @@ def analyze_contract(
         other_clients: list of other clients (language agnostic)
     """
     analysis_executor = fact_generator.analysis_executor
+    contract_name = os.path.split(contract_filename)[1]
     try:
         # prepare working directory
         exists, work_dir, out_dir = prepare_working_dir(contract_filename)
         assert not (args.restart and exists)
         analytics: dict[str, Any] = {}
-        contract_name = os.path.split(contract_filename)[1]
         with open(contract_filename) as file:
             bytecode = file.read().strip()
 
@@ -329,16 +330,14 @@ def analyze_contract(
 
             inline_start = time.time()
             if not args.disable_inline and decompiler_config != FactGenUsedEnum.MultiContract:
-                # ignore timeouts here: if it happens, just continue to the clients
-                _, inl_errors = analysis_executor.run_clients(
-                    [DEFAULT_INLINER_DL] * DEFAULT_INLINER_ROUNDS,
-                    [],
+                # A timeout stops the inlining, and the clients use the IR of the last complete round
+                analysis_executor.run_transformer_rounds(
+                    DEFAULT_INLINER_DL,
+                    DEFAULT_INLINER_ROUNDS,
                     out_dir,
-                    out_dir,
+                    join(work_dir, "inliner_round"),
                     start_time,
                 )
-                if inl_errors:
-                    raise DecompilationException()
 
             inline_time = time.time() - inline_start
 
@@ -636,43 +635,37 @@ def run_gigahorse(args, fact_generator: AbstractFactGenerator) -> None:
     souffle_clients = [a for a in clients_split if a.endswith(".dl")]
     other_clients = [a for a in clients_split if not (a.endswith(".dl") or a == "")]
 
-    if not args.interpreted:
-        # Here we compile the decompiler and any of its clients in parallel :)
-        souffle_files = fact_generator.get_datalog_files()
+    compile_jobs: dict[str, Future[str]] = {}
+    # The pool is shut down (its threads joined) before the analysis forks worker processes
+    with ThreadPoolExecutor() as compile_pool:
+        if not args.interpreted:
+            # Here we compile the decompiler and any of its clients in parallel :)
+            souffle_files = fact_generator.get_datalog_files()
 
-        if not args.disable_inline:
-            souffle_files.append(DEFAULT_INLINER_DL)
+            if not args.disable_inline:
+                souffle_files.append(DEFAULT_INLINER_DL)
 
-        souffle_files += souffle_clients
+            souffle_files += souffle_clients
 
-        running_processes = []
-        for file in souffle_files:
-            proc = Process(
-                target=compile_datalog,
-                args=(
+            for file in souffle_files:
+                compile_jobs[file] = compile_pool.submit(
+                    compile_datalog,
                     file,
                     args.souffle_bin,
                     args.cache_dir,
                     args.reuse_datalog_bin,
                     get_souffle_macros(),
-                ),
-            )
-            proc.start()
-            running_processes.append(proc)
+                )
 
-    if args.restart:
-        log(f"Removing working directory {args.working_dir}")
-        shutil.rmtree(args.working_dir, ignore_errors=True)
+        if args.restart:
+            log(f"Removing working directory {args.working_dir}")
+            shutil.rmtree(args.working_dir, ignore_errors=True)
 
-    if not args.interpreted:
-        for p in running_processes:
-            p.join()
-            if args.debug and p.exitcode:
-                raise Exception("Souffle binary compilation failed, stopping.")
-
-        # check all programs have been compiled
-        for file in souffle_files:
-            open(get_souffle_executable_path(args.cache_dir, file))  # check program exists
+        for file, job in compile_jobs.items():
+            try:
+                analysis_executor.set_executable(file, job.result())
+            except DatalogCompilationError as e:
+                sys.exit(str(e))
 
     # Extract contract filenames.
     log("Processing contract names...")

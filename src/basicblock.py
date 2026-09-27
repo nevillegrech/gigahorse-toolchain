@@ -175,8 +175,9 @@ def blocks_from_ops(ops: list[EVMOp]) -> list[EVMBasicBlock]:
             blocks.append(current)
             current = new
 
-        # Always add last block if its last instruction does not alter flow
-        elif i == len(ops) - 1:
-            blocks.append(current)
+    # Always add last block if its last instruction does not alter flow.
+    # This includes a block that has only a JUMPDEST at the end of the code.
+    if current.evm_ops:
+        blocks.append(current)
 
     return blocks

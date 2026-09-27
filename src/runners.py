@@ -1,3 +1,4 @@
+import fcntl
 import hashlib
 import json
 import os
@@ -5,14 +6,16 @@ import pathlib
 import re
 import resource
 import shutil
+import signal
 import subprocess
 import time
+import uuid
 from abc import ABC, abstractmethod
 from enum import Enum
 from itertools import groupby
 from os.path import join
 from pathlib import Path
-from typing import Any
+from typing import Any, NamedTuple
 
 from . import blockparse, exporter
 from .common import GIGAHORSE_DIR, SOUFFLE_COMPILED_SUFFIX, log, log_debug
@@ -64,6 +67,10 @@ def set_memory_limit(memory_limit: int):
 
 
 def get_souffle_executable_path(cache_dir: str, dl_filename: str) -> str:
+    """
+    Path of the most recently compiled executable of `dl_filename`: a link to a binary in the
+    cache. The pipeline itself runs the content-addressed binary that `compile_datalog` returns.
+    """
     executable_filename = os.path.basename(dl_filename) + SOUFFLE_COMPILED_SUFFIX
     executable_path = join(cache_dir, executable_filename)
     return executable_path
@@ -94,6 +101,8 @@ class AnalysisExecutor:
         self.souffle_bin = souffle_bin
         self.cache_dir = cache_dir
         self.souffle_macros = souffle_macros
+        self.executables: dict[str, str] = {}
+        """Absolute path of each compiled datalog program -> path of its binary in the cache."""
 
     def calc_timeout(self, start_time: float, half: bool = False) -> float:
         timeout_left = self.timeout - time.time() + start_time
@@ -101,6 +110,15 @@ class AnalysisExecutor:
             timeout_left = timeout_left / 2
 
         return max(timeout_left, self.minimum_client_time)
+
+    def set_executable(self, souffle_client: str, executable: str) -> None:
+        self.executables[os.path.abspath(souffle_client)] = executable
+
+    def get_executable(self, souffle_client: str) -> str:
+        return self.executables.get(
+            os.path.abspath(souffle_client),
+            get_souffle_executable_path(self.cache_dir, souffle_client),
+        )
 
     def run_souffle_client(
         self,
@@ -116,7 +134,7 @@ class AnalysisExecutor:
         if not self.interpreted:
             err_file: Any = open(err_filename, "w")
             analysis_args = [
-                get_souffle_executable_path(self.cache_dir, souffle_client),
+                self.get_executable(souffle_client),
                 f"--facts={in_dir}",
                 f"--output={out_dir}",
             ]
@@ -131,10 +149,16 @@ class AnalysisExecutor:
                 self.souffle_macros,
             ]
 
-        if run_process(analysis_args, self.calc_timeout(start_time, half), stderr=err_file) < 0:
+        result = run_process(analysis_args, self.calc_timeout(start_time, half), stderr=err_file)
+        if result.timed_out:
             timeouts.append(souffle_client)
+        # A crash (for example a segmentation fault) often writes nothing to stderr,
+        # thus the exit status is the only sign of it.
+        failed = not result.timed_out and result.returncode != 0
         if err_file != devnull:
-            souffle_err = open(err_filename).read()
+            err_file.close()
+            with open(err_filename) as f:
+                souffle_err = f.read()
             # Used to be "Error:" to avoid reporting the file not found errors of souffle
             # However with souffle 2.4 they cause the program to stop so we have to report them as well
             if any(
@@ -149,9 +173,11 @@ class AnalysisExecutor:
                     "std::",
                 ]
             ):
-                errors.append(os.path.basename(souffle_client))
+                failed = True
             elif len(souffle_err) > 0:
                 log(f"Unrecognized error during {souffle_client} dl execution: {souffle_err}.")
+        if failed:
+            errors.append(os.path.basename(souffle_client))
         return errors, timeouts
 
     def run_script_client(self, script_client: str, in_dir: str, out_dir: str, start_time: float):
@@ -162,18 +188,57 @@ class AnalysisExecutor:
         client_name = client_split[0].split("/")[-1]
         err_filename = join(out_dir, client_name + ".err")
 
-        runtime = run_process(
-            client_split,
-            self.calc_timeout(start_time),
-            devnull,
-            open(err_filename, "w"),
-            cwd=in_dir,
-        )
-        if len(open(err_filename).read()) > 0:
+        with open(err_filename, "w") as err_file:
+            result = run_process(
+                client_split,
+                self.calc_timeout(start_time),
+                devnull,
+                err_file,
+                cwd=in_dir,
+            )
+        with open(err_filename) as f:
+            client_err = f.read()
+        if len(client_err) > 0 or (not result.timed_out and result.returncode != 0):
             errors.append(client_name)
-        if runtime < 0:
+        if result.timed_out:
             timeouts.append(script_client)
         return errors, timeouts
+
+    def run_transformer_rounds(
+        self,
+        souffle_transformer: str,
+        rounds: int,
+        out_dir: str,
+        scratch_dir: str,
+        start_time: float,
+    ) -> None:
+        """
+        Runs `rounds` times a souffle client that rewrites the IR in `out_dir` (e.g. the inliner).
+
+        Souffle writes each output relation as soon as the relation is complete. Thus a round
+        that stops at the timeout can leave a mix of new and old relations. To prevent this,
+        each round writes to `scratch_dir`, and its files replace the ones in `out_dir` only
+        after the round completes. After a timeout, the IR of the last complete round stays,
+        and no more rounds run.
+
+        Raises DecompilationException if a round fails.
+        """
+        for _ in range(rounds):
+            shutil.rmtree(scratch_dir, ignore_errors=True)
+            os.makedirs(scratch_dir)
+            timeouts, errors = self.run_clients(
+                [souffle_transformer], [], out_dir, scratch_dir, start_time
+            )
+            completed = not (timeouts or errors)
+            for fname in os.listdir(scratch_dir):
+                # Always keep the .err file of the round, for debugging
+                if completed or fname.endswith(".err"):
+                    os.replace(join(scratch_dir, fname), join(out_dir, fname))
+            if errors:
+                raise DecompilationException()
+            if timeouts:
+                break
+        shutil.rmtree(scratch_dir, ignore_errors=True)
 
     def run_clients(
         self,
@@ -198,6 +263,22 @@ class AnalysisExecutor:
         return timeouts, errors
 
 
+class ProcessResult(NamedTuple):
+    runtime: float
+    """Seconds the process ran for, -1 if it was stopped at the timeout."""
+    returncode: int
+    """Exit status of the process. A negative value -N means that signal N stopped it."""
+
+    @property
+    def timed_out(self) -> bool:
+        """
+        True if the process was stopped at the timeout or with SIGKILL.
+        The kernel also uses SIGKILL when the system runs out of memory,
+        and for gigahorse this has the same meaning as a timeout.
+        """
+        return self.runtime < 0 or self.returncode == -signal.SIGKILL
+
+
 def run_process(
     process_args,
     timeout: float,
@@ -205,21 +286,21 @@ def run_process(
     stderr=devnull,
     cwd: str = ".",
     memory_limit=DEFAULT_MEMORY_LIMIT,
-) -> float:
+) -> ProcessResult:
     """Runs process described by args, for a specific time period
     as specified by the timeout.
 
-    Returns the time it took to run the process and -1 if the process
-    times out
+    Returns the time it took to run the process (-1 if the process
+    times out) and its exit status.
     """
     if timeout < 0:
         # This can theoretically happen
-        return -1
+        return ProcessResult(-1, -signal.SIGKILL)
 
     start_time = time.time()
 
     try:
-        subprocess.run(
+        process = subprocess.run(
             process_args,
             timeout=timeout,
             stdout=stdout,
@@ -229,9 +310,19 @@ def run_process(
             preexec_fn=lambda: set_memory_limit(memory_limit),
         )
     except subprocess.TimeoutExpired:
-        return -1
+        # subprocess.run kills the process with SIGKILL when the timeout expires
+        return ProcessResult(-1, -signal.SIGKILL)
 
-    return time.time() - start_time
+    return ProcessResult(time.time() - start_time, process.returncode)
+
+
+class DatalogCompilationError(Exception):
+    """Preprocessing or compilation of a datalog program failed."""
+
+
+def _temp_path(path: str) -> str:
+    """A unique temporary path next to `path`. Renaming it to `path` is atomic."""
+    return f"{path}.{os.getpid()}.{uuid.uuid4().hex}.tmp"
 
 
 def compile_datalog(
@@ -240,12 +331,22 @@ def compile_datalog(
     cache_dir: str,
     reuse_datalog_bin: bool,
     souffle_macros: str,
-) -> None:
-    pathlib.Path(cache_dir).mkdir(exist_ok=True)
+) -> str:
+    """
+    Compiles `spec` with `souffle_macros`, unless the cache already has a binary for them.
+    Returns the path of the binary.
+
+    Binaries are content-addressed (the name is the md5 of the preprocessed program), and the
+    pipeline runs them from that path. Thus concurrent runs of gigahorse that share a cache can
+    use different macros, and a run never writes a binary that another run executes.
+
+    Raises DatalogCompilationError if preprocessing or compilation fails.
+    """
+    pathlib.Path(cache_dir).mkdir(parents=True, exist_ok=True)
     executable_path = get_souffle_executable_path(cache_dir, spec)
 
     if reuse_datalog_bin and os.path.isfile(executable_path):
-        return
+        return os.path.realpath(executable_path)
 
     cpp_macros = []
     for macro_def in souffle_macros.split(" "):
@@ -254,7 +355,10 @@ def compile_datalog(
 
     preproc_command = ["cpp", "-P", spec, *cpp_macros]
     preproc_process = subprocess.run(preproc_command, text=True, capture_output=True)
-    assert not (preproc_process.returncode), f"Preprocessing for {spec} failed. Stopping."
+    if preproc_process.returncode:
+        raise DatalogCompilationError(
+            f"Preprocessing for {spec} failed. Stopping.\n{preproc_process.stderr}"
+        )
 
     hasher = hashlib.md5()
     hasher.update(preproc_process.stdout.encode("utf-8"))
@@ -264,26 +368,44 @@ def compile_datalog(
 
     cache_path = join(cache_dir, md5_hash)
 
-    if os.path.exists(cache_path):
-        log(f"Found cached executable for {spec}")
-    else:
-        comp_start = time.time()
-        log(f"Compiling {spec} to C++ program and executable")
-        compilation_command = [
-            souffle_bin,
-            "-M",
-            souffle_macros,
-            "-o",
-            cache_path,
-            spec,
-            "-L",
-            functor_path,
-        ]
-        process = subprocess.run(compilation_command, text=True, env=souffle_env)
-        assert not (process.returncode), f"Compilation for {spec} failed. Stopping."
-        log(f"Compilation of {spec} successful after {time.time() - comp_start} seconds.")
+    # The lock makes a concurrent run that needs the same binary wait for it, not compile it again
+    with open(f"{cache_path}.lock", "w") as lock_file:
+        fcntl.flock(lock_file, fcntl.LOCK_EX)
+        if os.path.exists(cache_path):
+            log(f"Found cached executable for {spec}")
+        else:
+            comp_start = time.time()
+            log(f"Compiling {spec} to C++ program and executable")
+            # Compile to a temporary path. Then an interrupted compilation cannot leave
+            # a partial binary at `cache_path`.
+            tmp_path = _temp_path(cache_path)
+            compilation_command = [
+                souffle_bin,
+                "-M",
+                souffle_macros,
+                "-o",
+                tmp_path,
+                spec,
+                "-L",
+                functor_path,
+            ]
+            process = subprocess.run(compilation_command, text=True, env=souffle_env)
+            if process.returncode:
+                for leftover in (tmp_path, f"{tmp_path}.cpp"):
+                    if os.path.exists(leftover):
+                        os.remove(leftover)
+                raise DatalogCompilationError(f"Compilation for {spec} failed. Stopping.")
+            if os.path.exists(f"{tmp_path}.cpp"):
+                os.replace(f"{tmp_path}.cpp", f"{cache_path}.cpp")
+            os.replace(tmp_path, cache_path)
+            log(f"Compilation of {spec} successful after {time.time() - comp_start} seconds.")
 
-    shutil.copy2(cache_path, executable_path)
+    # Point the `<spec>_compiled` link to the new binary (for --reuse_datalog_bin)
+    tmp_link = _temp_path(executable_path)
+    os.symlink(md5_hash, tmp_link)
+    os.replace(tmp_link, executable_path)
+
+    return cache_path
 
 
 def write_context_depth_file(filename: str, max_context_depth: int | None = None) -> None:
@@ -625,15 +747,15 @@ class ContractStitchingGenerator(AbstractFactGenerator):
             main = manifest["main"]
             contracts = manifest["contracts"]  # Dict[str, str]
             facts: dict[str, TACRelations] = {}
-            for address, id in contracts.items():
-                path = Path(work_dir).parent / f"{id}/out"
+            for address, contract_id in contracts.items():
+                path = Path(work_dir).parent / f"{contract_id}/out"
                 facts[address] = TACRelations.from_dir(path)
+
+            # copy the bytecode of the main contract, as clients read it
+            shutil.copy2(Path(work_dir).parent / f"{contracts[main]}/out/bytecode.hex", out_dir)
 
             for address in facts.keys():
                 if address == main:
-                    # copy the bytecode of the main contract, as clients read it
-                    code_src = path = Path(work_dir).parent / f"{id}/out/bytecode.hex"
-                    shutil.copy2(code_src, out_dir)
                     continue
                 # TODO: ensure no clashes in the first 8 chars
                 facts[address].prefix_identifiers(address[:8] + "_")

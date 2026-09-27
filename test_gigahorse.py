@@ -3,6 +3,7 @@
 import json
 import re
 import subprocess
+import sys
 from collections.abc import Iterator, Mapping, MutableMapping
 from os import listdir, makedirs
 from os.path import abspath, dirname, isdir, isfile, join
@@ -55,7 +56,7 @@ class LogicTestCase:
 
         return subprocess.run(
             [
-                "python3",
+                sys.executable,
                 join(GIGAHORSE_TOOLCHAIN_ROOT, "gigahorse.py"),
                 self.test_path,
                 "--restart",
@@ -83,24 +84,40 @@ class LogicTestCase:
             return len(f.readlines())
 
     def run(self):
+        stderr_path = join(self.working_dir, "stderr")
+
         def within_margin(actual: int, expected: int, margin: float) -> bool:
             return (1 - margin) * expected <= actual <= (1 + margin) * expected
 
-        def check_analytics(result_analytics, expected_analytics):
+        def check_finished(contract: str, flags: list[str]):
+            failures = [flag for flag in flags if flag in ("ERROR", "TIMEOUT")]
+            assert not failures, (
+                f"Analysis of {contract} finished with {', '.join(failures)}. See {stderr_path}."
+            )
+
+        def check_has_metric(analytics, metric: str, contract: str, flags: list[str]):
+            assert metric in analytics, (
+                f"No value for {metric} in the results of {contract} (flags: {flags}). "
+                f"See {stderr_path}."
+            )
+
+        def check_analytics(result_analytics, expected_analytics, contract, flags):
             analytics = {}
             for x, y in result_analytics.items():
                 analytics[x] = y
 
             for metric, expected, margin in expected_analytics:
+                check_has_metric(analytics, metric, contract, flags)
                 assert within_margin(analytics[metric], expected, margin), (
                     f"Value for {metric} ({analytics[metric]}) not within margin of expected value ({expected})."
                 )
 
-        def check_verbatim(result_analytics, expected_verbatim):
+        def check_verbatim(result_analytics, expected_verbatim, contract, flags):
             analytics = {}
             for x, y in result_analytics.items():
                 analytics[x] = y
             for metric, expected in expected_verbatim:
+                check_has_metric(analytics, metric, contract, flags)
                 if "*" not in expected:
                     assert analytics[metric] == expected, (
                         f"Value for {metric} ({analytics[metric]}) not the expected value ({expected})."
@@ -113,16 +130,10 @@ class LogicTestCase:
 
         result = self.__run()
 
-        def get_analytics_for_file(res_file, file_name):
-            for contract in res_file:
-                if contract[0] == file_name:
-                    return contract[3]
-            return None
-
         with open(join(self.working_dir, "stdout"), "wb") as f:
             f.write(result.stdout)
 
-        with open(join(self.working_dir, "stderr"), "wb") as f:
+        with open(stderr_path, "wb") as f:
             f.write(result.stderr)
 
         assert result.returncode == 0, f"Gigahorse exited with an error code: {result.returncode}"
@@ -130,14 +141,24 @@ class LogicTestCase:
         with open(self.results_file) as f:
             res_contents = json.load(f)
             if not self.contract_specific:
-                ((_, _, _, temp_analytics),) = res_contents
-                check_analytics(temp_analytics, self.expected_analytics)
-                check_verbatim(temp_analytics, self.expected_verbatim)
+                ((contract, _, flags, temp_analytics),) = res_contents
+                check_finished(contract, flags)
+                check_analytics(temp_analytics, self.expected_analytics, contract, flags)
+                check_verbatim(temp_analytics, self.expected_verbatim, contract, flags)
             else:
+                results_by_contract = {entry[0]: entry for entry in res_contents}
                 for contract, contract_res in self.contract_specific.items():
-                    temp_analytics = get_analytics_for_file(res_contents, contract)
-                    check_analytics(temp_analytics, contract_res.get("expected_analytics", {}))
-                    check_verbatim(temp_analytics, contract_res.get("expected_verbatim", {}))
+                    assert contract in results_by_contract, (
+                        f"No results for {contract}. See {stderr_path}."
+                    )
+                    _, _, flags, temp_analytics = results_by_contract[contract]
+                    check_finished(contract, flags)
+                    check_analytics(
+                        temp_analytics, contract_res.get("expected_analytics", {}), contract, flags
+                    )
+                    check_verbatim(
+                        temp_analytics, contract_res.get("expected_verbatim", {}), contract, flags
+                    )
 
 
 def discover_logic_tests(
@@ -172,11 +193,13 @@ def collect_tests(test_dirs: list[str]):
     for test_dir in (abspath(x) for x in test_dirs):
         print(f"Running testcases under {test_dir}")
 
-        for config, hex_path in discover_logic_tests({}, test_dir):
-            test_id = hex_path[len(test_dir) + 1 : -4].replace("/", ".")
+        for config, test_path in discover_logic_tests({}, test_dir):
+            # A test is a .hex file, or a directory of contracts (e.g. for multi-contract tests)
+            relative_path = test_path[len(test_dir) + 1 :]
+            test_id = relative_path.removesuffix(".hex").replace("/", ".")
             if config:
                 testdata.append(
-                    pytest.param(LogicTestCase(test_id, test_dir, hex_path, config), id=test_id)
+                    pytest.param(LogicTestCase(test_id, test_dir, test_path, config), id=test_id)
                 )
 
 
@@ -185,6 +208,7 @@ testdata = []
 collect_tests([DEFAULT_TEST_DIR])
 
 
+@pytest.mark.usefixtures("gigahorse_prereqs")
 @pytest.mark.parametrize("gigahorse_test", testdata)
 def test_gigahorse(gigahorse_test):
     gigahorse_test.run()

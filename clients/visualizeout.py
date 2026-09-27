@@ -13,8 +13,6 @@ from clientlib.facts_to_cfg import (
     load_csv_map,
 )  # type: ignore
 
-sys.setrecursionlimit(3000)
-
 
 def emit(s: str, out: TextIO, indent: int = 0):
     # 4 spaces
@@ -40,7 +38,7 @@ def emit_stmt(stmt: Statement, var_val: dict[str, str], out: TextIO):
         emit(f"{stmt.ident}: {stmt.op} {', '.join(uses)}", out, 1)
 
 
-def pretty_print_block(block: Block, visited: set[str], var_val: dict[str, str], out: TextIO):
+def pretty_print_block(block: Block, var_val: dict[str, str], out: TextIO):
     emit(f"Begin block {block.ident}", out, 1)
 
     prev = [p.ident for p in block.predecessors]
@@ -54,10 +52,21 @@ def pretty_print_block(block: Block, visited: set[str], var_val: dict[str, str],
 
     emit("", out)
 
-    for successor in block.successors:
-        if successor.ident not in visited:
+
+def pretty_print_blocks(head_block: Block, var_val: dict[str, str], out: TextIO):
+    """Prints each block reachable from `head_block` once, in depth-first preorder."""
+    # An explicit stack instead of recursion: a long chain of blocks can exceed the recursion limit
+    visited = {head_block.ident}
+    pretty_print_block(head_block, var_val, out)
+    successors_to_visit = [iter(head_block.successors)]
+    while successors_to_visit:
+        successor = next(successors_to_visit[-1], None)
+        if successor is None:
+            successors_to_visit.pop()
+        elif successor.ident not in visited:
             visited.add(successor.ident)
-            pretty_print_block(successor, visited, var_val, out)
+            pretty_print_block(successor, var_val, out)
+            successors_to_visit.append(iter(successor.successors))
 
 
 def pretty_print_tac(functions: dict[str, Function], var_val: dict[str, str], out: TextIO):
@@ -65,7 +74,7 @@ def pretty_print_tac(functions: dict[str, Function], var_val: dict[str, str], ou
         visibility = "public" if function.is_public else "private"
         formals = [render_var(v, var_val) for v in function.formals]
         emit(f"function {function.name}({', '.join(formals)}) {visibility} {{", out)
-        pretty_print_block(function.head_block, set(), var_val, out)
+        pretty_print_blocks(function.head_block, var_val, out)
 
         emit("}", out)
         emit("", out)

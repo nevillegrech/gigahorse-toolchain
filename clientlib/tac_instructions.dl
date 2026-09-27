@@ -127,6 +127,7 @@ StatementStoresMemory(stmt) :-
    Statement_Opcode(stmt, "CODECOPY");
    Statement_Opcode(stmt, "EXTCODECOPY");
    Statement_Opcode(stmt, "RETURNDATACOPY");
+   Statement_Opcode(stmt, "MCOPY");
    Statement_Opcode(stmt, "CALL");
    Statement_Opcode(stmt, "CALLCODE");
    Statement_Opcode(stmt, "DELEGATECALL");
@@ -137,12 +138,16 @@ StatementStoresMemory(stmt) :-
 StatementLoadsMemory(stmt) :-
    Statement_Opcode(stmt, "MLOAD");
    Statement_Opcode(stmt, "SHA3");
+   Statement_Opcode(stmt, "MCOPY");
    Statement_Opcode(stmt, "CREATE");
    Statement_Opcode(stmt, "CREATE2");
    Statement_Opcode(stmt, "CALL");
    Statement_Opcode(stmt, "CALLCODE");
    Statement_Opcode(stmt, "DELEGATECALL");
-   Statement_Opcode(stmt, "STATICCALL").
+   Statement_Opcode(stmt, "STATICCALL");
+   Statement_Opcode(stmt, "RETURN");
+   Statement_Opcode(stmt, "REVERT");
+   LOGStatement(stmt, _).
 
 .decl MSTORE(stmt: Statement, index: Variable, var: Variable)
 
@@ -443,4 +448,7 @@ StatementHasSideEffects(stmt):-
   StatementStoresMemory(stmt);
   StatementLoadsMemory(stmt);
   SLOAD(stmt, _, _);
-  SSTORE(stmt, _, _).
+  SSTORE(stmt, _, _);
+  TLOAD(stmt, _, _);
+  TSTORE(stmt, _, _);
+  SELFDESTRUCT(stmt, _).

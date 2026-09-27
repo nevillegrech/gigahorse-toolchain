@@ -79,7 +79,7 @@ jobs:
         run: uv run --frozen ./gigahorse.py examples/long_running.hex -i --disable_inline
 
       - name: Run tests
-        run: uv run --frozen pytest -v test_gigahorse.py --junitxml=test-results.xml
+        run: uv run --frozen pytest -v test_harness.py test_gigahorse.py --junitxml=test-results.xml
 
       - name: Publish Test Results
         uses: EnricoMi/publish-unit-test-result-action@v2
@@ -130,7 +130,7 @@ jobs:
         run: uv run --frozen ./gigahorse.py examples/long_running.hex -i --disable_inline
 
       - name: Run tests
-        run: uv run --frozen pytest -v test_gigahorse.py --junitxml=test-results.xml
+        run: uv run --frozen pytest -v test_harness.py test_gigahorse.py --junitxml=test-results.xml
 
       - name: Publish Test Results
         uses: EnricoMi/publish-unit-test-result-action@v2

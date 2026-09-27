@@ -491,7 +491,8 @@ class TACRelations:
         for rel_name, rows in self._data.items():
             path = out_dir / f"{rel_name}.csv"
             with open(path, "w", newline="") as f:
-                writer = csv.writer(f, delimiter="\t")
+                # Same line ends as the files that souffle writes (csv uses "\r\n" by default)
+                writer = csv.writer(f, delimiter="\t", lineterminator="\n")
                 for row in rows:
                     writer.writerow(row)
 

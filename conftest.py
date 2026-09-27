@@ -9,25 +9,22 @@ from filelock import FileLock
 GIGAHORSE_TOOLCHAIN_ROOT = dirname(abspath(__file__))
 
 
-def pytest_sessionstart(session):
-    print(
-        "\n[gigahorse] Running analysis binary compilation before tests begin...\n",
-        file=sys.stderr,
-    )
-
-
-@pytest.fixture(scope="session", autouse=True)
+@pytest.fixture(scope="session")
 def gigahorse_prereqs(tmp_path_factory, worker_id):
     """Compiles core .dl files exactly once, shared across all workers."""
 
     def _run_prereq(working_dir: Path):
+        print(
+            "\n[gigahorse] Running analysis binary compilation before tests begin...\n",
+            file=sys.stderr,
+        )
         common_clients = [
             "-C",
             join(GIGAHORSE_TOOLCHAIN_ROOT, "clients/analytics_client.dl"),
         ]
         result = subprocess.run(
             [
-                "python3",
+                sys.executable,
                 join(GIGAHORSE_TOOLCHAIN_ROOT, "gigahorse.py"),
                 join(GIGAHORSE_TOOLCHAIN_ROOT, "examples/long_running.hex"),
                 "--restart",
