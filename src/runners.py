@@ -1,3 +1,4 @@
+import contextlib
 import fcntl
 import hashlib
 import json
@@ -292,6 +293,9 @@ def run_process(
 
     Returns the time it took to run the process (-1 if the process
     times out) and its exit status.
+
+    The process runs in a new session. At the timeout, SIGKILL stops the process and
+    all the processes that it started, thus none of them can write output later.
     """
     if timeout < 0:
         # This can theoretically happen
@@ -299,21 +303,34 @@ def run_process(
 
     start_time = time.time()
 
+    process = subprocess.Popen(
+        process_args,
+        stdout=stdout,
+        stderr=stderr,
+        cwd=cwd,
+        env=souffle_env,
+        preexec_fn=lambda: set_memory_limit(memory_limit),
+        start_new_session=True,
+    )
     try:
-        process = subprocess.run(
-            process_args,
-            timeout=timeout,
-            stdout=stdout,
-            stderr=stderr,
-            cwd=cwd,
-            env=souffle_env,
-            preexec_fn=lambda: set_memory_limit(memory_limit),
-        )
+        returncode = process.wait(timeout=timeout)
     except subprocess.TimeoutExpired:
-        # subprocess.run kills the process with SIGKILL when the timeout expires
+        _kill_process_group(process)
         return ProcessResult(-1, -signal.SIGKILL)
+    except BaseException:
+        # For example KeyboardInterrupt. The new session does not get the signals of the
+        # terminal, thus stop its processes here.
+        _kill_process_group(process)
+        raise
 
-    return ProcessResult(time.time() - start_time, process.returncode)
+    return ProcessResult(time.time() - start_time, returncode)
+
+
+def _kill_process_group(process: subprocess.Popen) -> None:
+    """Sends SIGKILL to the process group of `process` (a session leader), then reaps it."""
+    with contextlib.suppress(ProcessLookupError):
+        os.killpg(process.pid, signal.SIGKILL)
+    process.wait()
 
 
 class DatalogCompilationError(Exception):

@@ -122,6 +122,16 @@ def test_run_process_reports_exit_status_and_timeout():
     assert slow.timed_out
 
 
+def test_timeout_also_stops_the_processes_that_the_process_started(tmp_path):
+    late_file = tmp_path / "late_write"
+    parent = make_executable(tmp_path / "parent", f'(sleep 2; touch "{late_file}") &\nsleep 30\n')
+
+    assert run_process([parent], 0.5).timed_out
+
+    time.sleep(2.5)
+    assert not late_file.exists()
+
+
 def test_crash_of_a_souffle_client_is_an_error_without_stderr_output(tmp_path):
     executor = make_executor(tmp_path)
     executor.set_executable("client.dl", make_executable(tmp_path / "crash", "kill -SEGV $$\n"))
