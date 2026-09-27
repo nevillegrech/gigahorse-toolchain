@@ -612,3 +612,33 @@ def test_generatefacts_reads_disassembly(tmp_path):
 
     assert (tmp_path / "facts" / "Statement_Opcode.facts").read_text() == "0x0\tPUSH1\n0x2\tSTOP\n"
     assert (tmp_path / "facts" / "bytecode.hex").read_text() == ""
+
+
+class OutputFactGenerator(StubFactGenerator):
+    """Also writes bytecode.hex (with a 0x prefix) and a relation with dots in its name."""
+
+    def generate_facts(self, contract_filename: str, work_dir: str, out_dir: str):
+        (Path(out_dir) / "bytecode.hex").write_text("0x600160")
+        (Path(out_dir) / "global.sens.DropLast.csv").write_text("row\n")
+        return super().generate_facts(contract_filename, work_dir, out_dir)
+
+
+def test_results_keep_relation_names_and_measure_the_bytecode(tmp_path, monkeypatch):
+    name, properties, _, analytics = analyze(
+        tmp_path, monkeypatch, OutputFactGenerator(make_executor(tmp_path))
+    )
+
+    assert name == "c.hex"
+    assert "global.sens.DropLast" in properties
+    assert analytics["bytecode_size"] == 3
+
+
+def test_analytics_of_the_output_relations(tmp_path):
+    (tmp_path / "Analytics_Jumps.csv").write_text("0x1\n0x2\n")
+    (tmp_path / "Verbatim_a.b.csv").write_text("text\n")
+    (tmp_path / "vulnerability.csv").write_text("Reentrancy\tHigh\tPUBLIC\n\n")
+    analytics: dict = {}
+
+    gigahorse.get_gigahorse_analytics(str(tmp_path), analytics)
+
+    assert analytics == {"Analytics_Jumps": 2, "Verbatim_a.b": "text\n", "High: Reentrancy": 1}

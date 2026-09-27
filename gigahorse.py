@@ -356,8 +356,6 @@ def analyze_contract(
         exists, work_dir, out_dir = prepare_working_dir(contract_filename)
         assert not (args.restart and exists)
         analytics: dict[str, Any] = {}
-        with open(contract_filename) as file:
-            bytecode = file.read().strip()
 
         if exists:
             disassemble_time = 0.0
@@ -406,7 +404,7 @@ def analyze_contract(
         for fname in os.listdir(out_dir):
             fpath = join(out_dir, fname)
             if getsize(fpath) != 0:
-                files.append(fname.split(".")[0])
+                files.append(os.path.splitext(fname)[0])
         meta = []
         # Decompile + Analysis time
         analytics["disassemble_time"] = disassemble_time
@@ -415,7 +413,7 @@ def analyze_contract(
         analytics["client_time"] = time.time() - client_start
         analytics["errors"] = len(errors)
         analytics["client_timeouts"] = len(timeouts)
-        analytics["bytecode_size"] = (len(bytecode) - 2) // 2
+        analytics["bytecode_size"] = get_bytecode_size(out_dir)
         analytics["decompiler_config"] = decompiler_config
         contract_msg = "{}: {:.46} completed in {:.2f} + {:.2f} + {:.2f} + {:.2f} secs.".format(
             index,
@@ -451,27 +449,41 @@ def analyze_contract(
         save_result(results_dir, index, [contract_name, [], ["ERROR"], {}])
 
 
+def get_bytecode_size(out_dir: str) -> int | None:
+    """The size of out/bytecode.hex in bytes. For a multi-contract manifest: the main contract."""
+    path = join(out_dir, "bytecode.hex")
+    if not os.path.isfile(path):
+        return None
+    with open(path) as f:
+        return len(f.read().strip().removeprefix("0x")) // 2
+
+
 def get_gigahorse_analytics(out_dir: str, analytics: dict) -> None:
     for fname in os.listdir(out_dir):
         if not fname.startswith(("Analytics_", "Metric_")):
             continue
-        stat_name = fname.split(".")[0]
-        analytics[stat_name] = sum(1 for line in open(join(out_dir, fname)))
+        stat_name = os.path.splitext(fname)[0]
+        with open(join(out_dir, fname)) as f:
+            analytics[stat_name] = sum(1 for line in f)
 
     for fname in os.listdir(out_dir):
         if not fname.startswith("Verbatim_"):
             continue
-        stat_name = fname.split(".")[0]
-        analytics[stat_name] = open(join(out_dir, fname)).read()
+        stat_name = os.path.splitext(fname)[0]
+        with open(join(out_dir, fname)) as f:
+            analytics[stat_name] = f.read()
 
     try:
         f = open(join(out_dir, "vulnerability.csv"))
     except FileNotFoundError:
         return
-    for raw_line in f:
-        line_split = raw_line.split("\t")
-        if line_split:
-            vulnerability_type, confidence, *_ = line_split
+    with f:
+        for raw_line in f:
+            fields = raw_line.rstrip("\n").split("\t")
+            # For example a blank line
+            if len(fields) < 2:
+                continue
+            vulnerability_type, confidence = fields[:2]
             key = f"{confidence}: {vulnerability_type}"
             analytics[key] = analytics.get(key, 0) + 1
 
