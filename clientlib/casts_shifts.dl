@@ -179,13 +179,13 @@ CastedAndShiftedVar(originVar, reCastedVar, shiftedBy, castedTo):-
   CastedAndShiftedVar(originVar, castedNShifted, shiftedBy, castedTo),
   ByteMaskOpKeepRange(castedNShifted, reCastedVar, [shiftedBy, shiftedBy + castedTo - 1]).
 
-// Hack
+// Hack: optimized solc stores these 20-byte values in packed slots with no mask
 CastedAndShiftedVar(caller, caller, 0, 20):-
-  CALLER(_, caller).
+  CALLER(_, caller); ORIGIN(_, caller); ADDRESS(_, caller); COINBASE(_, caller).
 
 // Hack
 CastedAndShiftedVar(caller, toVar, shiftedBy, 20):-
-  CALLER(_, caller),
+  (CALLER(_, caller); ORIGIN(_, caller); ADDRESS(_, caller); COINBASE(_, caller)),
   LShiftBytes(caller, toVar, shiftedBy).
 
 VarsEqualOrMasked(var1, var1):-
