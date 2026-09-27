@@ -38,6 +38,22 @@ __WARNING:__ Using limitsize will also stop the execution of other relations in 
 By default, the gigahorse pipeline contains a stage inlining small functions, in order to produce a more high-level IR for subsequent client analyses.
 The inlining stage can be disabled using the `--disable_inline` flag.
 
+## TAC generation handlers
+
+The file that `--tac_gen_config` names (default: `tac_gen_config.json`) selects how gigahorse makes the IR (TAC) of each input file. Each handler applies to the input files that match its `fileRegex`:
+
+* `"factGen": "Decomp"`: the decompiler, for bytecode files.
+* `"factGen": "MultiContract"`: merges the IR of contracts that another handler made in the same run. The input is a JSON manifest: `{"main": <address>, "contracts": {<address>: <name of the contract file up to the first ".">}}`. The run makes these contracts first.
+* `"factGen": "Custom"`: runs the `customScripts` in order. A `.dl` script runs as a Souffle program that reads and writes the output directory. Another script runs as `<script> -i <input file> -o <output directory>`, in the working directory of the contract.
+
+The rules for custom scripts:
+
+* The scripts must write the TAC relations to the output directory. If there is no `TAC_Def.csv`, the contract gets the `ERROR` flag. For each other relation of `src/tac_schema.py` that has no file, gigahorse writes a message, because the inliner and the clients that read the relation will fail.
+* A script that exits with a non-zero status gives the `ERROR` flag. A script that runs past the timeout gives the `TIMEOUT` flag. The next scripts do not run.
+* Output on stderr is not an error, thus a script can write its progress there. gigahorse keeps it in `<output directory>/<script name>.err`.
+
+Two handlers must not have the same `fileRegex`.
+
 # Development and Debugging
 
 ## Development using `gigahorse.py`

@@ -29,7 +29,6 @@ from src.runners import (
     MAIN_DECOMPILER_MAX_CONTEXT_DEPTH,
     AbstractFactGenerator,
     AnalysisExecutor,
-    CustomFactGenerator,
     DatalogCompilationError,
     DecompilationException,
     DecompilationStatus,
@@ -657,6 +656,35 @@ def batch_analysis(
         sys.exit(1)
 
 
+def build_fact_generator(tac_gen_config: dict, args) -> AbstractFactGenerator:
+    """
+    The fact generator for the handlers of a TAC generation config (tac_gen_config.json).
+    Each handler selects the input files that match its fileRegex.
+    Raises ValueError for an invalid config.
+    """
+    handlers = tac_gen_config["handlers"]
+    if not handlers:
+        # With no handlers, use the decompiler for .hex files
+        return DecompilerFactGenerator(args, ".*.hex")
+
+    kinds = {handler["tacGenScripts"]["factGen"] for handler in handlers}
+    if kinds == {FactGenSelectionEnum.MultiContract.value}:
+        raise ValueError(
+            "a MultiContract handler merges contracts that another handler (Decomp or Custom) "
+            "decompiled in the same run, thus the config needs such a handler"
+        )
+
+    fact_generator = MixedFactGenerator(args)
+    for handler in handlers:
+        fact_generator.add_fact_generator(
+            handler["fileRegex"],
+            handler["tacGenScripts"]["customScripts"],
+            handler["tacGenScripts"]["factGen"],
+            args,
+        )
+    return fact_generator
+
+
 def run_gigahorse(args, fact_generator: AbstractFactGenerator) -> None:
     """
     Run gigahorse, passing the cmd line args and fact generator type as arguments
@@ -801,33 +829,10 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    tac_gen_config_json = args.tac_gen_config
-    with open(tac_gen_config_json) as config:
+    with open(args.tac_gen_config) as config:
         tac_gen_config = json.loads(config.read())
-        if (
-            len(tac_gen_config["handlers"]) == 0
-        ):  # if no handlers defined, default to classic decompilation
-            run_gigahorse(args, DecompilerFactGenerator(args, ".*.hex"))
-        elif (
-            len(tac_gen_config["handlers"]) == 1
-        ):  # if one handler defined, can be either classic decompilation, or custom script
-            tac_gen = tac_gen_config["handlers"][0]
-            if tac_gen["tacGenScripts"]["factGen"] == FactGenSelectionEnum.Decomp:
-                run_gigahorse(args, DecompilerFactGenerator(args, tac_gen["fileRegex"]))
-            else:
-                run_gigahorse(
-                    args,
-                    CustomFactGenerator(
-                        tac_gen["fileRegex"], tac_gen["tacGenScripts"]["customScripts"]
-                    ),
-                )
-        elif (
-            len(tac_gen_config["handlers"]) > 1
-        ):  # if multiple handlers have been defined, they will be selected based on the file regex
-            fact_generator = MixedFactGenerator(args)
-            for tac_gen in tac_gen_config["handlers"]:
-                pattern = tac_gen["fileRegex"]
-                scripts = tac_gen["tacGenScripts"]["customScripts"]
-                fact_gen_option = tac_gen["tacGenScripts"]["factGen"]
-                fact_generator.add_fact_generator(pattern, scripts, fact_gen_option, args)
-            run_gigahorse(args, fact_generator)
+    try:
+        fact_generator = build_fact_generator(tac_gen_config, args)
+    except ValueError as e:
+        sys.exit(f"Invalid TAC generation config {args.tac_gen_config}: {e}")
+    run_gigahorse(args, fact_generator)

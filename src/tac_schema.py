@@ -279,6 +279,16 @@ _RELATION_BY_NAME: dict[str, RelationDef] = {r.name: r for r in ALL_RELATIONS}
 _ID_KINDS = frozenset(k for k in ColKind if k.is_identifier)
 
 
+def missing_relation_files(out_dir: str | Path) -> list[str]:
+    """Names of the relations in ALL_RELATIONS that have no file in `out_dir`."""
+    out_dir = Path(out_dir)
+    return sorted(
+        rel.name
+        for rel in ALL_RELATIONS
+        if not (out_dir / f"{rel.name}.csv").exists() and not (out_dir / rel.name).exists()
+    )
+
+
 # ---------------------------------------------------------------------------
 # Key type for TACRelations access
 # ---------------------------------------------------------------------------

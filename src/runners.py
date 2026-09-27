@@ -20,7 +20,7 @@ from typing import Any, NamedTuple
 
 from . import blockparse, exporter
 from .common import GIGAHORSE_DIR, SOUFFLE_COMPILED_SUFFIX, log, log_debug
-from .tac_schema import TACRelations
+from .tac_schema import TACRelations, missing_relation_files
 
 devnull = subprocess.DEVNULL
 
@@ -181,7 +181,19 @@ class AnalysisExecutor:
             errors.append(os.path.basename(souffle_client))
         return errors, timeouts
 
-    def run_script_client(self, script_client: str, in_dir: str, out_dir: str, start_time: float):
+    def run_script_client(
+        self,
+        script_client: str,
+        in_dir: str,
+        out_dir: str,
+        start_time: float,
+        stderr_is_error: bool = True,
+    ):
+        """
+        Runs a script client with `in_dir` as its working directory. Its stderr goes to
+        `<out_dir>/<script name>.err`. A non-zero exit status is an error. Output on stderr
+        is also an error, unless `stderr_is_error` is False.
+        """
         errors = []
         timeouts = []
         client_split = [o for o in script_client.split(" ") if o]
@@ -199,7 +211,10 @@ class AnalysisExecutor:
             )
         with open(err_filename) as f:
             client_err = f.read()
-        if len(client_err) > 0 or (not result.timed_out and result.returncode != 0):
+        failed = not result.timed_out and result.returncode != 0
+        if client_err and not stderr_is_error:
+            log_debug(f"{client_name} wrote to stderr (see {err_filename})")
+        if failed or (client_err and stderr_is_error):
             errors.append(client_name)
         if result.timed_out:
             timeouts.append(script_client)
@@ -610,12 +625,16 @@ class MixedFactGenerator(AbstractFactGenerator):
     ):
         if not pattern.endswith("$"):
             pattern = pattern + "$"
+        compiled_pattern = re.compile(pattern)
+        if compiled_pattern in self.fact_generators:
+            # The later handler would silently replace the earlier one
+            raise ValueError(f"Two TAC generation handlers have the fileRegex {pattern}")
         if fact_gen_option == FactGenSelectionEnum.Decomp:
-            self.fact_generators[re.compile(pattern)] = DecompilerFactGenerator(args, pattern)
+            self.fact_generators[compiled_pattern] = DecompilerFactGenerator(args, pattern)
         elif fact_gen_option == FactGenSelectionEnum.MultiContract:
-            self.fact_generators[re.compile(pattern)] = ContractStitchingGenerator(args, pattern)
+            self.fact_generators[compiled_pattern] = ContractStitchingGenerator(args, pattern)
         else:
-            self.fact_generators[re.compile(pattern)] = CustomFactGenerator(pattern, scripts)
+            self.fact_generators[compiled_pattern] = CustomFactGenerator(pattern, scripts)
 
     def partition_inputs_by_priority(self, files: list[str]) -> list[list[str]]:
         return [
@@ -868,16 +887,20 @@ class CustomFactGenerator(AbstractFactGenerator):
     def generate_facts(
         self, contract_filename: str, work_dir: str, out_dir: str
     ) -> tuple[float, float, FactGenUsedEnum]:
-        errors = []
-        timeouts = []
+        """
+        Runs the custom scripts in order. They must write the TAC relations to `out_dir`.
+
+        Raises TimeoutException if the timeout (or the kernel) stops a script. Raises
+        DecompilationException if a script exits with a non-zero status, or if the scripts
+        write no TAC_Def.csv. Output on stderr alone is not an error, thus the scripts can log
+        their progress. Each script keeps its stderr in `<out_dir>/<script name>.err`.
+        """
         fact_gen_time_start = time.time()
         for script in self.fact_generator_scripts:
-            if script.endswith("dl"):
-                e, t = self.analysis_executor.run_souffle_client(
+            if script.endswith(".dl"):
+                errors, timeouts = self.analysis_executor.run_souffle_client(
                     script, out_dir, out_dir, fact_gen_time_start, False
                 )
-                errors.extend(e)
-                timeouts.extend(t)
             else:
                 arguments = " ".join(
                     [
@@ -888,12 +911,27 @@ class CustomFactGenerator(AbstractFactGenerator):
                         out_dir,
                     ]
                 )
-                e, t = self.analysis_executor.run_script_client(
-                    arguments, work_dir, out_dir, fact_gen_time_start
+                errors, timeouts = self.analysis_executor.run_script_client(
+                    arguments, work_dir, out_dir, fact_gen_time_start, stderr_is_error=False
                 )
-                errors.extend(e)
-                timeouts.extend(t)
-        return time.time() - fact_gen_time_start, 0.0, FactGenUsedEnum.Custom
+            if timeouts:
+                raise TimeoutException(f"custom fact generation script {script} timed out")
+            if errors:
+                raise DecompilationException(
+                    f"custom fact generation script {failure_message([script], out_dir)}"
+                )
+        if not self.decomp_out_produced(out_dir):
+            raise DecompilationException(
+                f"the custom fact generation scripts wrote no TAC_Def.csv to {out_dir}"
+            )
+        missing = missing_relation_files(out_dir)
+        if missing:
+            log(
+                f"The custom fact generation scripts wrote no {', '.join(missing)} to {out_dir}. "
+                "The inliner and the clients that read these relations will fail."
+            )
+        # The scripts take the place of the decompiler, as in ContractStitchingGenerator
+        return 0.0, time.time() - fact_gen_time_start, FactGenUsedEnum.Custom
 
     def get_datalog_files(self) -> list[str]:
         return [a for a in self.fact_generator_scripts if a.endswith(".dl")]

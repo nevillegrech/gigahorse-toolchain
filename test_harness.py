@@ -20,6 +20,7 @@ from src import blockparse
 from src.runners import (
     AnalysisExecutor,
     ContractStitchingGenerator,
+    CustomFactGenerator,
     DatalogCompilationError,
     DecompilationException,
     DecompilationStatus,
@@ -388,3 +389,119 @@ def test_contract_stitching_refuses_a_contract_with_no_complete_decompilation(tm
         ContractStitchingGenerator(None, ".*_multi.json").generate_facts(
             str(manifest), str(out_dir.parent), str(out_dir)
         )
+
+
+# A custom fact generation script is called as `<script> -i <input file> -o <out dir>`
+def run_custom_fact_gen(tmp_path: Path, script: str, name: str = "factgen.sh"):
+    work_dir = tmp_path / "contract"
+    out_dir = work_dir / "out"
+    out_dir.mkdir(parents=True)
+    contract = tmp_path / "contract.custom"
+    contract.write_text("input")
+    generator = CustomFactGenerator(r".*\.custom", [make_executable(tmp_path / name, script)])
+    generator.analysis_executor = make_executor(tmp_path)
+    return generator.generate_facts(str(contract), str(work_dir), str(out_dir)), out_dir
+
+
+WRITE_TAC = 'printf "0x1\\tv1\\t0\\n" > "$4/TAC_Def.csv"\n'
+
+
+def test_custom_fact_gen_script_that_fails_raises(tmp_path):
+    with pytest.raises(DecompilationException, match=r"factgen\.sh failed"):
+        run_custom_fact_gen(tmp_path, WRITE_TAC + 'echo "fatal: bad input" >&2\nexit 1\n')
+
+    assert "bad input" in (tmp_path / "contract" / "out" / "factgen.sh.err").read_text()
+
+
+def test_custom_fact_gen_script_that_crashes_without_stderr_output_raises(tmp_path):
+    with pytest.raises(DecompilationException):
+        run_custom_fact_gen(tmp_path, WRITE_TAC + "kill -SEGV $$\n")
+
+
+def test_custom_fact_gen_script_stopped_by_timeout_raises_timeout(tmp_path):
+    with pytest.raises(TimeoutException):
+        run_custom_fact_gen(tmp_path, WRITE_TAC + "exec sleep 30\n")
+
+
+def test_custom_fact_gen_script_can_log_progress_on_stderr(tmp_path):
+    (_, _, config), out_dir = run_custom_fact_gen(
+        tmp_path, 'echo "50%" >&2\n' + WRITE_TAC + 'echo "100%" >&2\n'
+    )
+
+    assert config == FactGenUsedEnum.Custom
+    assert (out_dir / "factgen.sh.err").read_text() == "50%\n100%\n"
+
+
+def test_custom_fact_gen_time_is_decompilation_time(tmp_path):
+    (disassemble_time, decomp_time, _), _ = run_custom_fact_gen(tmp_path, WRITE_TAC)
+
+    assert disassemble_time == 0.0
+    assert decomp_time > 0.0
+
+
+def test_custom_fact_gen_that_writes_no_tac_raises(tmp_path):
+    with pytest.raises(DecompilationException, match=r"TAC_Def\.csv"):
+        run_custom_fact_gen(tmp_path, "exit 0\n")
+
+
+def test_custom_fact_gen_stops_at_the_first_failed_script(tmp_path):
+    work_dir = tmp_path / "contract"
+    (work_dir / "out").mkdir(parents=True)
+    (tmp_path / "contract.custom").write_text("input")
+    first = make_executable(tmp_path / "first.sh", "exit 2\n")
+    second = make_executable(tmp_path / "second.sh", f"touch {tmp_path}/second-ran\n" + WRITE_TAC)
+    generator = CustomFactGenerator(r".*\.custom", [first, second])
+    generator.analysis_executor = make_executor(tmp_path)
+
+    with pytest.raises(DecompilationException, match=r"first\.sh"):
+        generator.generate_facts(
+            str(tmp_path / "contract.custom"), str(work_dir), str(work_dir / "out")
+        )
+    assert not (tmp_path / "second-ran").exists()
+
+
+def test_stderr_output_of_a_script_client_stays_an_error(tmp_path):
+    client = make_executable(tmp_path / "client.sh", 'echo "warning" >&2\n')
+
+    errors, timeouts = make_executor(tmp_path).run_script_client(
+        client, str(tmp_path), str(tmp_path), time.time()
+    )
+
+    assert errors == ["client.sh"]
+    assert timeouts == []
+
+
+def handler(file_regex: str, fact_gen: str) -> dict:
+    return {"fileRegex": file_regex, "tacGenScripts": {"factGen": fact_gen, "customScripts": []}}
+
+
+GENERATOR_ARGS = argparse.Namespace(
+    context_depth=20,
+    disable_scalable_fallback=False,
+    pre_client="",
+    skip_sig_resolution=False,
+    disable_precise_fallback=False,
+)
+
+
+def test_default_tac_generation_config_selects_hex_and_manifest_files():
+    with open(Path(gigahorse.GIGAHORSE_DIR) / "tac_gen_config.json") as f:
+        generator = gigahorse.build_fact_generator(json.load(f), GENERATOR_ARGS)
+
+    assert generator.match_pattern("in/a.hex")
+    assert generator.match_pattern("in/b_multi.json")
+    assert not generator.match_pattern("in/c.txt")
+
+
+def test_tac_generation_config_with_only_a_multi_contract_handler_is_invalid():
+    config = {"handlers": [handler(".*_multi.json", "MultiContract")]}
+
+    with pytest.raises(ValueError, match="MultiContract"):
+        gigahorse.build_fact_generator(config, GENERATOR_ARGS)
+
+
+def test_tac_generation_handlers_with_the_same_file_regex_are_invalid():
+    config = {"handlers": [handler(".*.hex", "Decomp"), handler(".*.hex", "Custom")]}
+
+    with pytest.raises(ValueError, match="fileRegex"):
+        gigahorse.build_fact_generator(config, GENERATOR_ARGS)
