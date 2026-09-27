@@ -9,14 +9,12 @@ import logging
 import os
 import shutil
 import sys
+import tempfile
 import time
 from collections import defaultdict
 from concurrent.futures import Future, ThreadPoolExecutor
 from multiprocessing import (
-    Event,
-    Manager,
     Process,
-    SimpleQueue,
     cpu_count,
     set_start_method,
 )
@@ -326,19 +324,19 @@ def get_souffle_macros() -> str:
 def analyze_contract(
     index: int,
     contract_filename: str,
-    result_queue,
+    results_dir: str,
     fact_generator: AbstractFactGenerator,
     souffle_clients: list[str],
     other_clients: list[str],
 ) -> None:
     """
-    Perform static analysis on a contract, storing the result in the queue.
+    Perform static analysis on a contract, storing the result in results_dir.
     This is a worker function to be passed to a subprocess.
 
     Args:
         index: the number of the particular contract being analyzed
         contract_filename: the absolute path of the contract bytecode file to process
-        result_queue: a multiprocessing queue in which to store the analysis results
+        results_dir: the directory in which to store the analysis result (see save_result)
         fact_generator: the fact generator to be used (decompiler is used by default)
         souffle_clients: list of souffle datalog clients
         other_clients: list of other clients (language agnostic)
@@ -392,6 +390,7 @@ def analyze_contract(
             decompiling_in = None
             # end decompilation
         if exists and not args.rerun_clients:
+            save_result(results_dir, index, None)
             return
 
         if exists:
@@ -438,19 +437,19 @@ def analyze_contract(
 
         get_gigahorse_analytics(out_dir, analytics)
 
-        result_queue.put((contract_name, files, meta, analytics))
+        save_result(results_dir, index, [contract_name, files, meta, analytics])
     except TimeoutException as e:
         record_failure(DecompilationStatus.TIMEOUT)
-        result_queue.put((contract_name, [], ["TIMEOUT"], {}))
+        save_result(results_dir, index, [contract_name, [], ["TIMEOUT"], {}])
         log(f"{contract_name} timed out. {e}".rstrip())
     except DecompilationException as e:
         record_failure(DecompilationStatus.ERROR)
         log(f"{contract_name}: error during execution of decompilation binary. {e}".rstrip())
-        result_queue.put((contract_name, [], ["ERROR"], {}))
+        save_result(results_dir, index, [contract_name, [], ["ERROR"], {}])
     except Exception as e:
         record_failure(DecompilationStatus.ERROR)
         log(f"{contract_name}: other error: {type(e).__name__}: {e}")
-        result_queue.put((contract_name, [], ["ERROR"], {}))
+        save_result(results_dir, index, [contract_name, [], ["ERROR"], {}])
 
 
 def get_gigahorse_analytics(out_dir: str, analytics: dict) -> None:
@@ -478,21 +477,21 @@ def get_gigahorse_analytics(out_dir: str, analytics: dict) -> None:
             analytics[key] = analytics.get(key, 0) + 1
 
 
-def flush_queue(run_sig: Any, result_queue: SimpleQueue, result_list: Any) -> None:
-    """
-    For flushing the queue periodically to a list so it doesn't fill up.
+def save_result(results_dir: str, index: int, result: list | None) -> None:
+    """Writes the result of contract `index` (None for a skipped contract) with an atomic rename."""
+    path = join(results_dir, f"{index}.json")
+    with open(f"{path}.tmp", "w") as f:
+        json.dump(result, f)
+    os.replace(f"{path}.tmp", path)
 
-    Args:
-        period: flush the result_queue to result_list every period seconds
-        run_sig: terminate when the Event run_sig is cleared.
-        result_queue: the queue in which results accumulate before being flushed
-        result_list: the final list of results.
-    """
-    while run_sig.is_set():
-        time.sleep(0.1)
-        while not result_queue.empty():
-            item = result_queue.get()
-            result_list.append(item)
+
+def load_result(results_dir: str, index: int, contract_name: str) -> list | None:
+    try:
+        with open(join(results_dir, f"{index}.json")) as f:
+            return json.load(f)
+    except FileNotFoundError:
+        log(f"{contract_name}: the analysis process stopped with no result.")
+        return [contract_name, [], ["ERROR"], {}]
 
 
 def write_results(res_list: Any, results_file: str) -> None:
@@ -560,21 +559,10 @@ def batch_analysis(
     """
     Given a fact generator and the client lists, analyzes the contracts list, using num_of_jobs parallel jobs/processes
     """
-    # Set up multiprocessing result list and queue.
-    manager = Manager()
-
-    # This list contains analysis results as
-    # (filename, category, meta, analytics) quadruples.
-    res_list: Any = manager.list()
-
-    # Holds results transiently before flushing to res_list
-    res_queue: SimpleQueue = SimpleQueue()
-
-    # Start the periodic flush process, only run while run_signal is set.
-    run_signal = Event()
-    run_signal.set()
-    flush_proc = Process(target=flush_queue, args=(run_signal, res_queue, res_list))
-    flush_proc.start()
+    # Each worker writes its result to a file. A worker that dies leaves no file.
+    results_dir = tempfile.mkdtemp(prefix="gigahorse-results-")
+    # (filename, properties, meta, analytics) quadruples, by contract index
+    results: dict[int, list] = {}
 
     workers: list[dict[str, Any]] = []
     avail_jobs = list(range(num_of_jobs))
@@ -600,7 +588,7 @@ def batch_analysis(
                         args=(
                             index,
                             contract_name,
-                            res_queue,
+                            results_dir,
                             fact_generator,
                             souffle_clients,
                             other_clients,
@@ -611,6 +599,7 @@ def batch_analysis(
                     workers.append(
                         {
                             "name": contract_name,
+                            "index": index,
                             "proc": proc,
                             "time": start_time,
                             "job_index": job_index,
@@ -632,6 +621,13 @@ def batch_analysis(
                         to_remove.append(i)
                         proc.join()
                         avail_jobs.append(job_index)
+                        result = load_result(
+                            results_dir,
+                            workers[i]["index"],
+                            os.path.split(workers[i]["name"])[1],
+                        )
+                        if result is not None:
+                            results[workers[i]["index"]] = result
 
                 # Reverse index order so as to pop elements correctly
                 for i in reversed(to_remove):
@@ -639,21 +635,17 @@ def batch_analysis(
 
                 time.sleep(0.01)
 
-        # Conclude and write results to file.
-        run_signal.clear()
-        flush_proc.join(1)
-        # it's important to count the total after proc.join
-
-        log(f"\nFinished {len(res_list)} contracts...\n")
-        return res_list
+        log(f"\nFinished {len(results)} contracts...\n")
+        return [results[index] for index in sorted(results)]
 
     except Exception:
         import traceback
 
         traceback.print_exc()
-        flush_proc.terminate()
 
         sys.exit(1)
+    finally:
+        shutil.rmtree(results_dir, ignore_errors=True)
 
 
 def build_fact_generator(tac_gen_config: dict, args) -> AbstractFactGenerator:

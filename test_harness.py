@@ -6,6 +6,7 @@ thus these tests do not compile any datalog.
 
 import argparse
 import json
+import multiprocessing
 import os
 import re
 import signal
@@ -309,11 +310,6 @@ class StubFactGenerator:
         return (Path(out_dir) / "TAC_Def.csv").exists()
 
 
-class ResultList(list):
-    def put(self, item):
-        self.append(item)
-
-
 def analyze(tmp_path: Path, monkeypatch, generator: StubFactGenerator, rerun_clients=False):
     """Runs gigahorse.analyze_contract on a small contract, with no inliner and no clients."""
     run_args = argparse.Namespace(
@@ -325,19 +321,20 @@ def analyze(tmp_path: Path, monkeypatch, generator: StubFactGenerator, rerun_cli
     monkeypatch.setattr(gigahorse, "args", run_args, raising=False)
     contract = tmp_path / "c.hex"
     contract.write_text("6001")
-    results = ResultList()
-    gigahorse.analyze_contract(0, str(contract), results, generator, [], [])
-    return results
+    results_dir = tmp_path / "results"
+    results_dir.mkdir(exist_ok=True)
+    gigahorse.analyze_contract(0, str(contract), str(results_dir), generator, [], [])
+    return gigahorse.load_result(str(results_dir), 0, contract.name)
 
 
 def test_rerun_does_not_use_a_decompilation_that_timed_out(tmp_path, monkeypatch):
     generator = StubFactGenerator(make_executor(tmp_path), TimeoutException("too slow"))
 
-    [(_, _, flags, _)] = analyze(tmp_path, monkeypatch, generator)
+    _, _, flags, _ = analyze(tmp_path, monkeypatch, generator)
     assert flags == ["TIMEOUT"]
     assert read_decompilation_status(str(tmp_path / "work" / "c")) == DecompilationStatus.TIMEOUT
 
-    [(_, _, flags, _)] = analyze(tmp_path, monkeypatch, generator, rerun_clients=True)
+    _, _, flags, _ = analyze(tmp_path, monkeypatch, generator, rerun_clients=True)
     assert flags == ["TIMEOUT"]
     assert generator.calls == 1
 
@@ -345,11 +342,11 @@ def test_rerun_does_not_use_a_decompilation_that_timed_out(tmp_path, monkeypatch
 def test_rerun_uses_a_complete_decompilation(tmp_path, monkeypatch):
     generator = StubFactGenerator(make_executor(tmp_path))
 
-    [(_, _, flags, _)] = analyze(tmp_path, monkeypatch, generator)
+    _, _, flags, _ = analyze(tmp_path, monkeypatch, generator)
     assert flags == []
     assert read_decompilation_status(str(tmp_path / "work" / "c")) == DecompilationStatus.OK
 
-    [(_, _, flags, _)] = analyze(tmp_path, monkeypatch, generator, rerun_clients=True)
+    _, _, flags, _ = analyze(tmp_path, monkeypatch, generator, rerun_clients=True)
     assert flags == []
     assert generator.calls == 1
 
@@ -362,7 +359,7 @@ def test_rerun_does_not_use_a_decompilation_that_stopped_before_it_completed(tmp
     write_decompilation_status(str(work_dir), DecompilationStatus.RUNNING)
     generator = StubFactGenerator(make_executor(tmp_path))
 
-    [(_, _, flags, _)] = analyze(tmp_path, monkeypatch, generator, rerun_clients=True)
+    _, _, flags, _ = analyze(tmp_path, monkeypatch, generator, rerun_clients=True)
     assert flags == ["ERROR"]
     assert generator.calls == 0
 
@@ -372,7 +369,7 @@ def test_rerun_checks_the_output_of_a_working_dir_with_no_status(tmp_path, monke
     (tmp_path / "work" / "c" / "out").mkdir(parents=True)
     generator = StubFactGenerator(make_executor(tmp_path))
 
-    [(_, _, flags, _)] = analyze(tmp_path, monkeypatch, generator, rerun_clients=True)
+    _, _, flags, _ = analyze(tmp_path, monkeypatch, generator, rerun_clients=True)
     assert flags == ["TIMEOUT"]
 
 
@@ -505,3 +502,35 @@ def test_tac_generation_handlers_with_the_same_file_regex_are_invalid():
 
     with pytest.raises(ValueError, match="fileRegex"):
         gigahorse.build_fact_generator(config, GENERATOR_ARGS)
+
+
+class DyingFactGenerator(StubFactGenerator):
+    def generate_facts(self, contract_filename: str, work_dir: str, out_dir: str):
+        if contract_filename.endswith("dies.hex"):
+            os.kill(os.getpid(), signal.SIGKILL)
+        return super().generate_facts(contract_filename, work_dir, out_dir)
+
+
+def test_batch_analysis_reports_a_worker_that_dies(tmp_path, monkeypatch):
+    monkeypatch.setattr(gigahorse, "Process", multiprocessing.get_context("fork").Process)
+    run_args = argparse.Namespace(
+        working_dir=str(tmp_path / "work"),
+        restart=False,
+        disable_inline=True,
+        rerun_clients=False,
+    )
+    monkeypatch.setattr(gigahorse, "args", run_args, raising=False)
+    contracts = []
+    for name in ["a.hex", "dies.hex", "b.hex"]:
+        (tmp_path / name).write_text("6001")
+        contracts.append(str(tmp_path / name))
+
+    results = gigahorse.batch_analysis(
+        DyingFactGenerator(make_executor(tmp_path)), [], [], contracts, 2
+    )
+
+    assert [(name, flags) for name, _, flags, _ in results] == [
+        ("a.hex", []),
+        ("dies.hex", ["ERROR"]),
+        ("b.hex", []),
+    ]
