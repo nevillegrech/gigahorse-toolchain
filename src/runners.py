@@ -236,7 +236,7 @@ class AnalysisExecutor:
                 if completed or fname.endswith(".err"):
                     os.replace(join(scratch_dir, fname), join(out_dir, fname))
             if errors:
-                raise DecompilationException()
+                raise DecompilationException(failure_message(errors, out_dir))
             if timeouts:
                 break
         shutil.rmtree(scratch_dir, ignore_errors=True)
@@ -423,6 +423,61 @@ def compile_datalog(
     os.replace(tmp_link, executable_path)
 
     return cache_path
+
+
+DECOMPILATION_STATUS_FILE = "decompilation_status"
+"""A file in the working directory of a contract: how its decompilation step ended."""
+
+
+class DecompilationStatus(str, Enum):
+    RUNNING = "RUNNING"
+    OK = "OK"
+    TIMEOUT = "TIMEOUT"
+    ERROR = "ERROR"
+
+
+def write_decompilation_status(work_dir: str, status: DecompilationStatus) -> None:
+    path = join(work_dir, DECOMPILATION_STATUS_FILE)
+    tmp_path = _temp_path(path)
+    with open(tmp_path, "w") as f:
+        f.write(f"{status.value}\n")
+    os.replace(tmp_path, path)
+
+
+def read_decompilation_status(work_dir: str) -> DecompilationStatus | None:
+    """The recorded status, or None for a working directory of an older gigahorse version."""
+    try:
+        with open(join(work_dir, DECOMPILATION_STATUS_FILE)) as f:
+            return DecompilationStatus(f.read().strip())
+    except FileNotFoundError:
+        return None
+
+
+def check_earlier_decompilation(
+    work_dir: str, out_dir: str, fact_generator: "AbstractFactGenerator"
+) -> None:
+    """
+    For --rerun_clients. Raises TimeoutException or DecompilationException if the decompilation
+    of an earlier run did not complete. A decompiler that was stopped late can leave most of
+    its output files, thus the clients must not use them.
+    """
+    status = read_decompilation_status(work_dir)
+    if status is None:
+        # No status file: only the output files can tell
+        if not fact_generator.decomp_out_produced(out_dir):
+            raise TimeoutException("the decompilation of an earlier run did not complete")
+    elif status == DecompilationStatus.TIMEOUT:
+        raise TimeoutException("the decompilation timed out in an earlier run")
+    elif status == DecompilationStatus.ERROR:
+        raise DecompilationException("the decompilation failed in an earlier run")
+    elif status == DecompilationStatus.RUNNING:
+        raise DecompilationException(
+            "the decompilation of an earlier run stopped before it completed (use --restart)"
+        )
+
+
+def failure_message(programs: list[str], err_dir: str) -> str:
+    return f"{', '.join(programs)} failed, see the .err file in {err_dir}"
 
 
 def write_context_depth_file(filename: str, max_context_depth: int | None = None) -> None:
@@ -642,9 +697,9 @@ class DecompilerFactGenerator(AbstractFactGenerator):
         )
         if timeouts:
             # pre clients should be very light, should never happen
-            raise TimeoutException()
+            raise TimeoutException(f"pre-client {', '.join(timeouts)} timed out")
         if errors:
-            raise DecompilationException()
+            raise DecompilationException(failure_message(errors, work_dir))
 
         write_context_depth_file(
             os.path.join(work_dir, MAX_CONTEXT_DEPTH_INPUT_FILE), self.context_depth
@@ -684,10 +739,10 @@ class DecompilerFactGenerator(AbstractFactGenerator):
         )
 
         if def_errors:
-            raise DecompilationException()
+            raise DecompilationException(failure_message(def_errors, out_dir))
         elif def_timeouts or not self.decomp_out_produced(out_dir):
             if self.disable_scalable_fallback:
-                raise TimeoutException()
+                raise TimeoutException("the decompiler timed out or wrote no output")
             else:
                 # Default using scalable fallback config
                 log(
@@ -707,7 +762,7 @@ class DecompilerFactGenerator(AbstractFactGenerator):
                     half=True,
                 )
                 if sca_errors:
-                    raise DecompilationException()
+                    raise DecompilationException(failure_message(sca_errors, out_dir))
                 elif sca_timeouts:
                     log(
                         f"Using the last resort ultra scalable decompilation configuration for {os.path.split(contract_filename)[1]}"
@@ -724,15 +779,17 @@ class DecompilerFactGenerator(AbstractFactGenerator):
                         start_time,
                     )
                     if last_errors:
-                        raise DecompilationException()
+                        raise DecompilationException(failure_message(last_errors, out_dir))
                     elif not last_timeouts and self.decomp_out_produced(out_dir):
                         config = FactGenUsedEnum.LastResortDecomp
                     else:
-                        raise TimeoutException()
+                        raise TimeoutException(
+                            "the last resort decompiler configuration timed out or wrote no output"
+                        )
                 elif not sca_timeouts and self.decomp_out_produced(out_dir):
                     config = FactGenUsedEnum.ScalableDecomo
                 else:
-                    raise TimeoutException()
+                    raise TimeoutException("the scalable decompiler configuration wrote no output")
 
         return config
 
@@ -765,6 +822,12 @@ class ContractStitchingGenerator(AbstractFactGenerator):
             contracts = manifest["contracts"]  # Dict[str, str]
             facts: dict[str, TACRelations] = {}
             for address, contract_id in contracts.items():
+                status = read_decompilation_status(str(Path(work_dir).parent / contract_id))
+                if status is not None and status != DecompilationStatus.OK:
+                    raise DecompilationException(
+                        f"contract {contract_id} of the manifest has no complete decompilation "
+                        f"({status.value})"
+                    )
                 path = Path(work_dir).parent / f"{contract_id}/out"
                 facts[address] = TACRelations.from_dir(path)
 

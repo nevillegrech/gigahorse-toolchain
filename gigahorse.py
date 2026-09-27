@@ -3,6 +3,7 @@
 ## IMPORTS
 
 import argparse
+import contextlib
 import json
 import logging
 import os
@@ -31,13 +32,16 @@ from src.runners import (
     CustomFactGenerator,
     DatalogCompilationError,
     DecompilationException,
+    DecompilationStatus,
     DecompilerFactGenerator,
     FactGenSelectionEnum,
     FactGenUsedEnum,
     MixedFactGenerator,
     TimeoutException,
+    check_earlier_decompilation,
     compile_datalog,
     test_souffle,
+    write_decompilation_status,
 )
 
 ## Constants
@@ -342,6 +346,15 @@ def analyze_contract(
     """
     analysis_executor = fact_generator.analysis_executor
     contract_name = os.path.split(contract_filename)[1]
+    # The working directory, while this process decompiles the contract (facts, decompiler and
+    # inliner). An exception in that step records its kind as the decompilation status.
+    decompiling_in: str | None = None
+
+    def record_failure(status: DecompilationStatus) -> None:
+        if decompiling_in is not None:
+            with contextlib.suppress(OSError):
+                write_decompilation_status(decompiling_in, status)
+
     try:
         # prepare working directory
         exists, work_dir, out_dir = prepare_working_dir(contract_filename)
@@ -356,6 +369,8 @@ def analyze_contract(
             inline_time = 0.0
             decompiler_config = None
         else:
+            decompiling_in = work_dir
+            write_decompilation_status(work_dir, DecompilationStatus.RUNNING)
             start_time = time.time()
             disassemble_time, decomp_time, decompiler_config = fact_generator.generate_facts(
                 contract_filename, work_dir, out_dir
@@ -374,13 +389,15 @@ def analyze_contract(
 
             inline_time = time.time() - inline_start
 
+            write_decompilation_status(work_dir, DecompilationStatus.OK)
+            decompiling_in = None
             # end decompilation
         if exists and not args.rerun_clients:
             return
 
-        # Do not attempt to decompile for earlier timeouts when using --rerun_clients
-        if args.rerun_clients and not fact_generator.decomp_out_produced(out_dir):
-            raise TimeoutException()
+        if exists:
+            # --rerun_clients: the clients use the IR of an earlier run, if it is complete
+            check_earlier_decompilation(work_dir, out_dir, fact_generator)
 
         client_start = time.time()
         timeouts, errors = analysis_executor.run_clients(
@@ -423,14 +440,17 @@ def analyze_contract(
         get_gigahorse_analytics(out_dir, analytics)
 
         result_queue.put((contract_name, files, meta, analytics))
-    except TimeoutException:
+    except TimeoutException as e:
+        record_failure(DecompilationStatus.TIMEOUT)
         result_queue.put((contract_name, [], ["TIMEOUT"], {}))
-        log(f"{contract_name} timed out.")
+        log(f"{contract_name} timed out. {e}".rstrip())
     except DecompilationException as e:
-        log(f"Error during execution of decompilation binary: {e}")
+        record_failure(DecompilationStatus.ERROR)
+        log(f"{contract_name}: error during execution of decompilation binary. {e}".rstrip())
         result_queue.put((contract_name, [], ["ERROR"], {}))
     except Exception as e:
-        log(f"Other Error: {e}")
+        record_failure(DecompilationStatus.ERROR)
+        log(f"{contract_name}: other error: {type(e).__name__}: {e}")
         result_queue.put((contract_name, [], ["ERROR"], {}))
 
 

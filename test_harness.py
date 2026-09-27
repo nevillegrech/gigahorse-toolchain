@@ -4,6 +4,7 @@ and the multi-contract stitching. Stub programs stand in for souffle and its bin
 thus these tests do not compile any datalog.
 """
 
+import argparse
 import json
 import os
 import re
@@ -21,9 +22,14 @@ from src.runners import (
     ContractStitchingGenerator,
     DatalogCompilationError,
     DecompilationException,
+    DecompilationStatus,
+    FactGenUsedEnum,
+    TimeoutException,
     compile_datalog,
     get_souffle_executable_path,
+    read_decompilation_status,
     run_process,
+    write_decompilation_status,
 )
 from src.tac_schema import ALL_RELATIONS, TACRelations
 
@@ -211,7 +217,10 @@ def test_transformer_round_that_fails_raises(tmp_path):
         make_executable(tmp_path / "inliner", 'echo "Error: bad input" >&2\nexit 1\n'),
     )
 
-    with pytest.raises(DecompilationException):
+    with pytest.raises(
+        DecompilationException,
+        match=re.escape(f"inliner.dl failed, see the .err file in {out_dir}"),
+    ):
         executor.run_transformer_rounds(
             "inliner.dl", 6, str(out_dir), str(tmp_path / "round"), time.time()
         )
@@ -278,3 +287,104 @@ def test_failed_compilation_raises_and_leaves_no_binary(tmp_path, datalog_spec):
         compile_datalog(datalog_spec, souffle, str(cache_dir), False, "GIGAHORSE_DIR=/x")
 
     assert [p.name for p in cache_dir.iterdir() if not p.name.endswith(".lock")] == []
+
+
+class StubFactGenerator:
+    """Stands in for a fact generator: writes one TAC file, or raises `error`."""
+
+    def __init__(self, analysis_executor: AnalysisExecutor, error: Exception | None = None):
+        self.analysis_executor = analysis_executor
+        self.error = error
+        self.calls = 0
+
+    def generate_facts(self, contract_filename: str, work_dir: str, out_dir: str):
+        self.calls += 1
+        if self.error:
+            raise self.error
+        (Path(out_dir) / "TAC_Def.csv").write_text("")
+        return 0.0, 0.0, FactGenUsedEnum.Custom
+
+    def decomp_out_produced(self, out_dir: str) -> bool:
+        return (Path(out_dir) / "TAC_Def.csv").exists()
+
+
+class ResultList(list):
+    def put(self, item):
+        self.append(item)
+
+
+def analyze(tmp_path: Path, monkeypatch, generator: StubFactGenerator, rerun_clients=False):
+    """Runs gigahorse.analyze_contract on a small contract, with no inliner and no clients."""
+    run_args = argparse.Namespace(
+        working_dir=str(tmp_path / "work"),
+        restart=False,
+        disable_inline=True,
+        rerun_clients=rerun_clients,
+    )
+    monkeypatch.setattr(gigahorse, "args", run_args, raising=False)
+    contract = tmp_path / "c.hex"
+    contract.write_text("6001")
+    results = ResultList()
+    gigahorse.analyze_contract(0, str(contract), results, generator, [], [])
+    return results
+
+
+def test_rerun_does_not_use_a_decompilation_that_timed_out(tmp_path, monkeypatch):
+    generator = StubFactGenerator(make_executor(tmp_path), TimeoutException("too slow"))
+
+    [(_, _, flags, _)] = analyze(tmp_path, monkeypatch, generator)
+    assert flags == ["TIMEOUT"]
+    assert read_decompilation_status(str(tmp_path / "work" / "c")) == DecompilationStatus.TIMEOUT
+
+    [(_, _, flags, _)] = analyze(tmp_path, monkeypatch, generator, rerun_clients=True)
+    assert flags == ["TIMEOUT"]
+    assert generator.calls == 1
+
+
+def test_rerun_uses_a_complete_decompilation(tmp_path, monkeypatch):
+    generator = StubFactGenerator(make_executor(tmp_path))
+
+    [(_, _, flags, _)] = analyze(tmp_path, monkeypatch, generator)
+    assert flags == []
+    assert read_decompilation_status(str(tmp_path / "work" / "c")) == DecompilationStatus.OK
+
+    [(_, _, flags, _)] = analyze(tmp_path, monkeypatch, generator, rerun_clients=True)
+    assert flags == []
+    assert generator.calls == 1
+
+
+def test_rerun_does_not_use_a_decompilation_that_stopped_before_it_completed(tmp_path, monkeypatch):
+    # A worker that was killed leaves the RUNNING status and can leave most of the output
+    work_dir = tmp_path / "work" / "c"
+    (work_dir / "out").mkdir(parents=True)
+    (work_dir / "out" / "TAC_Def.csv").write_text("")
+    write_decompilation_status(str(work_dir), DecompilationStatus.RUNNING)
+    generator = StubFactGenerator(make_executor(tmp_path))
+
+    [(_, _, flags, _)] = analyze(tmp_path, monkeypatch, generator, rerun_clients=True)
+    assert flags == ["ERROR"]
+    assert generator.calls == 0
+
+
+def test_rerun_checks_the_output_of_a_working_dir_with_no_status(tmp_path, monkeypatch):
+    # A working directory from a gigahorse version with no status file
+    (tmp_path / "work" / "c" / "out").mkdir(parents=True)
+    generator = StubFactGenerator(make_executor(tmp_path))
+
+    [(_, _, flags, _)] = analyze(tmp_path, monkeypatch, generator, rerun_clients=True)
+    assert flags == ["TIMEOUT"]
+
+
+def test_contract_stitching_refuses_a_contract_with_no_complete_decompilation(tmp_path):
+    main = "0xaaaaaaaa11"
+    (tmp_path / "main_id" / "out").mkdir(parents=True)
+    write_decompilation_status(str(tmp_path / "main_id"), DecompilationStatus.TIMEOUT)
+    manifest = tmp_path / "stitched_multi.json"
+    manifest.write_text(json.dumps({"main": main, "contracts": {main: "main_id"}}))
+    out_dir = tmp_path / "stitched_multi" / "out"
+    out_dir.mkdir(parents=True)
+
+    with pytest.raises(DecompilationException, match=r"main_id .*\(TIMEOUT\)"):
+        ContractStitchingGenerator(None, ".*_multi.json").generate_facts(
+            str(manifest), str(out_dir.parent), str(out_dir)
+        )
