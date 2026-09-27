@@ -245,14 +245,42 @@ UintVar(var):-
   ActualBinArithStmt(stmt),
   Statement_Defines(stmt, var, _).
 
+// Opcodes with a uint or a 32-byte hash result. Names, not instruction relations, thus no
+// new relation names for clients. No size opcodes: RETURNDATASIZE also pushes zero.
+.decl TypeInference_UintValuedOpcode(op: Opcode)
+TypeInference_UintValuedOpcode("GAS").
+TypeInference_UintValuedOpcode("CALLVALUE").
+TypeInference_UintValuedOpcode("TIMESTAMP").
+TypeInference_UintValuedOpcode("DIFFICULTY").
+TypeInference_UintValuedOpcode("NUMBER").
+TypeInference_UintValuedOpcode("SLOTNUM").
+TypeInference_UintValuedOpcode("BALANCE").
+TypeInference_UintValuedOpcode("SELFBALANCE").
+TypeInference_UintValuedOpcode("CHAINID").
+TypeInference_UintValuedOpcode("BASEFEE").
+TypeInference_UintValuedOpcode("BLOBBASEFEE").
+TypeInference_UintValuedOpcode("GASLIMIT").
+TypeInference_UintValuedOpcode("GASPRICE").
+
+.decl TypeInference_BytesValuedOpcode(op: Opcode)
+TypeInference_BytesValuedOpcode("SHA3").
+TypeInference_BytesValuedOpcode("BLOCKHASH").
+TypeInference_BytesValuedOpcode("EXTCODEHASH").
+TypeInference_BytesValuedOpcode("BLOBHASH").
+
+.decl TypeInference_OpcodeResultKind(var: Variable, typeKind: symbol)
+TypeInference_OpcodeResultKind(var, "uint"):-
+  TypeInference_UintValuedOpcode(op),
+  Statement_Opcode(stmt, op),
+  Statement_Defines(stmt, var, 0).
+
+TypeInference_OpcodeResultKind(var, "bytes"):-
+  TypeInference_BytesValuedOpcode(op),
+  Statement_Opcode(stmt, op),
+  Statement_Defines(stmt, var, 0).
+
 UintVar(var):-
-  GAS(_, var);
-  CALLVALUE(_, var);
-  TIMESTAMP(_, var);
-  DIFFICULTY(_, var);
-  NUMBER(_, var);
-  SLOTNUM(_, var);
-  BALANCE(_, _, var).
+  TypeInference_OpcodeResultKind(var, "uint").
 
 UintVar(var):-
   Variable_Value(var, value),
@@ -438,14 +466,8 @@ DEBUG_OUTPUT(VariableUsedAs)
 .decl VariableUsedAsBase(var: Variable, typeKind: symbol)
 DEBUG_OUTPUT(VariableUsedAsBase)
 
-VariableUsedAsBase(var, "uint"):-
-  GAS(_, var);
-  CALLVALUE(_, var);
-  TIMESTAMP(_, var);
-  DIFFICULTY(_, var);
-  NUMBER(_, var);
-  SLOTNUM(_, var);
-  BALANCE(_, _, var).
+VariableUsedAsBase(var, typeKind):-
+  TypeInference_OpcodeResultKind(var, typeKind).
 
 VariableUsedAsBase(var, "uint"):-
   ActualBinArithStmt(stmt),
@@ -458,11 +480,6 @@ VariableUsedAsBase(var, "uint"):-
 VariableUsedAsBase(lenVar, "uint"):-
   ArrayLengthVar(_, lenVar);
   ArrayAllocation(_, _, lenVar).
-
-VariableUsedAsBase(var, "bytes"):-
-  SHA3(_, _, _, var);
-  BLOCKHASH(_, _, var);
-  EXTCODEHASH(_, _, var).
 
 VariableUsedAsBase(var, "uint"):-
   ComparisonOperation(_, var, otherVar),

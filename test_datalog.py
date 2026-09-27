@@ -3,6 +3,8 @@
 import re
 from pathlib import Path
 
+from src import opcodes
+
 ROOT = Path(__file__).parent
 
 DIRECTIVE = re.compile(r"^\s*\.(input|output)\s+([^\n(]+?)\s*(\(([^)]*)\))?\s*$", re.M)
@@ -41,3 +43,34 @@ def test_clients_know_every_opcode_that_can_halt():
     assert decompiler
     # THROW is the TAC opcode for INVALID
     assert clients == decompiler | {"THROW"}
+
+
+# No type evidence. The size opcodes are here because RETURNDATASIZE also pushes zero.
+UNTYPED_OPCODES = {"PC", "CALLDATALOAD", "MLOAD", "SLOAD", "TLOAD", "CALLDATASIZE", "CODESIZE"}
+UNTYPED_OPCODES |= {"RETURNDATASIZE", "EXTCODESIZE", "MSIZE"}
+# Addresses: clientlib/casts_shifts.dl handles them
+ADDRESS_OPCODES = {"ADDRESS", "ORIGIN", "CALLER", "COINBASE"}
+
+
+def environment_opcodes() -> set[str]:
+    """Opcodes (not aliases) that push one value from the environment or from at most one input."""
+    return {
+        name
+        for name, op in opcodes.OPCODES.items()
+        if name == op.name
+        and op.push == 1
+        and op.pop <= 1
+        and not op.is_push()
+        and op is not opcodes.PUSH0
+        and not op.is_arithmetic()
+    }
+
+
+def test_storage_type_inference_knows_every_environment_opcode():
+    text = (ROOT / "clientlib/storage_modeling/type_inference.dl").read_text()
+    classified = set(
+        re.findall(r'^TypeInference_(?:Uint|Bytes)ValuedOpcode\("(\w+)"\)\.', text, re.M)
+    )
+
+    assert classified <= set(opcodes.OPCODES)
+    assert environment_opcodes() - classified - UNTYPED_OPCODES - ADDRESS_OPCODES == set()
