@@ -6,6 +6,7 @@ thus these tests do not compile any datalog.
 
 import json
 import os
+import re
 import signal
 import sys
 import time
@@ -13,6 +14,7 @@ from pathlib import Path
 
 import pytest
 
+import gigahorse
 from src import blockparse
 from src.runners import (
     AnalysisExecutor,
@@ -70,6 +72,22 @@ echo round >> "$out/TAC_Op.csv"
 def test_bytecode_parser_keeps_all_ops(bytecode, expected_ops):
     blocks = blockparse.EVMBytecodeParser(bytecode).parse()
     assert [(op.pc, op.opcode.name) for block in blocks for op in block.evm_ops] == expected_ops
+
+
+def test_input_files_that_share_a_working_directory_stop_the_run():
+    contracts = ["in/a.b.hex", "in/a.c.hex", "in/x.hex", "other/x.hex", "in/y.hex"]
+
+    assert gigahorse.find_working_dir_collisions(contracts) == {
+        "a": ["in/a.b.hex", "in/a.c.hex"],
+        "x": ["in/x.hex", "other/x.hex"],
+    }
+    with pytest.raises(SystemExit, match=re.escape("in/a.b.hex, in/a.c.hex")):
+        gigahorse.unique_contracts(contracts)
+
+
+def test_a_repeated_input_file_is_analyzed_once():
+    contracts = ["in/a.hex", "in/./a.hex", "in/b.hex"]
+    assert gigahorse.unique_contracts(contracts) == ["in/a.hex", "in/b.hex"]
 
 
 def test_tac_relations_are_written_with_souffle_line_ends(tmp_path):

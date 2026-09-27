@@ -76,7 +76,7 @@ parser.add_argument(
     "filepath",
     metavar="DIR",
     nargs="+",
-    help="The location to grab contracts from (as bytecode files). Accepts both filenames and directories. All contract filenames should be unique.",
+    help="The location to grab contracts from (as bytecode files). Accepts both filenames and directories. All contract filenames must be unique up to the first '.'.",
 )
 
 parser.add_argument(
@@ -252,8 +252,41 @@ parser.add_argument(
 )
 
 
+def get_working_dir_name(contract_filename: str) -> str:
+    """The name of the working directory of a contract: its file name up to the first '.'."""
+    return os.path.split(contract_filename)[1].split(".")[0]
+
+
 def get_working_dir(contract_name: str) -> str:
-    return join(os.path.abspath(args.working_dir), os.path.split(contract_name)[1].split(".")[0])
+    return join(os.path.abspath(args.working_dir), get_working_dir_name(contract_name))
+
+
+def find_working_dir_collisions(contracts: list[str]) -> dict[str, list[str]]:
+    """Groups of input files that would share one working directory, by directory name."""
+    files_by_dir: defaultdict[str, list[str]] = defaultdict(list)
+    for contract in contracts:
+        files_by_dir[get_working_dir_name(contract)].append(contract)
+    return {name: files for name, files in files_by_dir.items() if len(files) > 1}
+
+
+def unique_contracts(contracts: list[str]) -> list[str]:
+    """
+    Removes repeated input files. Stops the run if two different files would share a
+    working directory: one analysis would then skip or overwrite the other.
+    """
+    contracts_by_path: dict[str, str] = {}
+    for contract in contracts:
+        contracts_by_path.setdefault(os.path.abspath(contract), contract)
+    contracts = list(contracts_by_path.values())
+
+    collisions = find_working_dir_collisions(contracts)
+    if collisions:
+        details = "; ".join(f"{name}: {', '.join(files)}" for name, files in collisions.items())
+        sys.exit(
+            "Each input file name up to the first '.' selects a working directory, thus it must "
+            f"be unique. These files share a working directory: {details}"
+        )
+    return contracts
 
 
 def prepare_working_dir(contract_name: str) -> tuple[bool, str, str]:
@@ -682,6 +715,8 @@ def run_gigahorse(args, fact_generator: AbstractFactGenerator) -> None:
 
         contracts += [u for u in unfiltered if fact_generator.match_pattern(u)]
 
+    # Before --skip: a skipped contract can also share a working directory with a kept one
+    contracts = unique_contracts(contracts)
     contracts = contracts[args.skip :]
     if isinstance(fact_generator, MixedFactGenerator):
         contract_lists = fact_generator.partition_inputs_by_priority(contracts)
