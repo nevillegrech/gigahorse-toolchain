@@ -115,14 +115,14 @@ parser.add_argument(
     "--working_dir",
     default=TEMP_WORKING_DIR,
     metavar="DIR",
-    help=f"The location to were temporary files are placed (default: {TEMP_WORKING_DIR}).",
+    help=f"The location of temporary files (default: {TEMP_WORKING_DIR}).",
 )
 
 parser.add_argument(
     "--cache_dir",
     default=DEFAULT_CACHE_DIR,
     metavar="DIR",
-    help=f"The location to were temporary files are placed (default: {DEFAULT_CACHE_DIR}).",
+    help=f"The location of compiled datalog programs (default: {DEFAULT_CACHE_DIR}).",
 )
 
 
@@ -453,10 +453,7 @@ def write_results(res_list: Any, results_file: str) -> None:
     vulnerability_counts: defaultdict[str, int] = defaultdict(int)
     analytics_sums: defaultdict[str, int] = defaultdict(int)
     meta_counts: defaultdict[str, int] = defaultdict(int)
-    all_files = set()
-    for _, files, meta, analytics in res_list:
-        for f in files:
-            all_files.add(f)
+    for _, _, meta, analytics in res_list:
         for m in meta:
             meta_counts[m] += 1
         for k, a in analytics.items():
@@ -464,8 +461,6 @@ def write_results(res_list: Any, results_file: str) -> None:
                 vulnerability_counts[k] += 1
             if isinstance(a, int):
                 analytics_sums[k] += a
-            if k in all_files:
-                all_files.remove(k)
 
     analytics_sums_sorted = sorted(analytics_sums.items(), key=lambda a: a[0])
     if analytics_sums_sorted:

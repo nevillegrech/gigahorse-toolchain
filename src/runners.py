@@ -293,12 +293,6 @@ def write_context_depth_file(filename: str, max_context_depth: int | None = None
     context_depth_file.close()
 
 
-def imprecise_decomp_out(out_dir: str) -> bool:
-    """Used to check if decompilation output is imprecise, currently only checks Analytics_JumpToMany"""
-    imprecision_metric = len(open(join(out_dir, "Analytics_JumpToMany.csv")).readlines())
-    return imprecision_metric > 0
-
-
 class FactGenSelectionEnum(str, Enum):
     Decomp = "Decomp"
     MultiContract = "MultiContract"
@@ -307,7 +301,7 @@ class FactGenSelectionEnum(str, Enum):
 
 class FactGenUsedEnum(str, Enum):
     DefaultDecomp = "DefaultDecomp"
-    ScalableDecomo = "ScalableDecomp"
+    ScalableDecomp = "ScalableDecomp"
     LastResortDecomp = "LastResortDecomp"
     MultiContract = "MultiContract"
     Custom = "Custom"
@@ -348,9 +342,6 @@ class AbstractFactGenerator(ABC):
     @abstractmethod
     def match_pattern(self, contract_filename: str) -> bool:
         pass
-
-    def sort_inputs(self, files: list[str]) -> list[str]:
-        return files
 
 
 class MixedFactGenerator(AbstractFactGenerator):
@@ -403,9 +394,6 @@ class MixedFactGenerator(AbstractFactGenerator):
                 self.contract_filename_to_gen[contract_filename] = gen
                 return True
         return False
-
-    def sort_inputs(self, files: list[str]) -> list[str]:
-        return sorted(files, key=lambda x: self.contract_filename_to_gen[x].priority)
 
     def add_fact_generator(
         self,
@@ -591,7 +579,7 @@ class DecompilerFactGenerator(AbstractFactGenerator):
                     else:
                         raise TimeoutException()
                 elif not sca_timeouts and self.decomp_out_produced(out_dir):
-                    config = FactGenUsedEnum.ScalableDecomo
+                    config = FactGenUsedEnum.ScalableDecomp
                 else:
                     raise TimeoutException()
 
