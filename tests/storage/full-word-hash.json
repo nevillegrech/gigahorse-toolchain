@@ -2,5 +2,5 @@
     "client_path": "clients/analytics_client.dl",
     "gigahorse_args": ["--disable_inline", "--disable_scalable_fallback"],
     "expected_analytics": [["Analytics_NonModeledSSTORE", 0, 0]],
-    "expected_verbatim": [["Verbatim_StorageVariableType", "(?sm)(?=.*^stor0x9\tbytes32$)(?!.*^stor0x9\tuint256$)"]]
+    "expected_verbatim": [["Verbatim_StorageVariableType", "(?sm)(?=.*^stor0x0\tbytes32$)(?!.*^stor0x0\tuint256$)"]]
 }
