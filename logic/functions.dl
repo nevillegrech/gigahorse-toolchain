@@ -1206,54 +1206,13 @@ NumberOfFunctionReturnArguments(func, n) :-
     FunctionalBlockOutputContents(from, index, variable),
     LocalBlockEdge(from, next).
 
-  // 1) Normal block to block flow, i.e. no unconditional function calls from block to block
-  FunctionalBlockOutputContents(block, index, variable) :-
-    BeforeFunctionCallFunctionalBlockOutputContents(block, index, variable),
-    LocalBlockEdge(block, next),
-    IRBlockEdge(block, next).
+  FunctionalBlockOutputContents(block, outIndex, variable):-
+    FunctionalBlockInputContents(block, inIndex, variable),
+    FunctionalBlockOutLocalStackContents(block, outIndex, inIndex).
 
-  // 2) First block calls a function, take return args from function call
-
-  FunctionalBlockOutputContents(caller, n, newVar) :-
-    FunctionCallReturnArgument(caller, n, newVar).
-
-  // 3) First block calls a function, take any remaining variables that have
-  //    not been passed as arguments, and shift
-  FunctionalBlockOutputContents(caller, newIndex, variable) :-
-    BeforeFunctionCallFunctionalBlockOutputContents(caller, index, variable),
-    IRFunctionCallReturn(caller, func, _),
-  //   PossibleCombinedNumberOfFunctionReturnsAndArguments(func, n_in, n_out),
-  ////REVIEW
-    NumberOfFunctionReturnArguments(func, n_out),
-    NumberOfFunctionArguments(func, n_in),
-    index >= n_in,
-    newIndex = index+n_out-n_in,
-    CheckIsStackIndex(newIndex).
-
-  .decl BeforeFunctionCallFunctionalBlockOutputContents(caller: IRBlock, index: StackIndex, variable: Variable)
-
-  // Copy the stack variables untouched by the callee basic block
-  BeforeFunctionCallFunctionalBlockOutputContents(callee, index+delta, variable) :-
-    FunctionalBlockInputContents(callee, index, variable),
-    index >= calleePopLen,
-    index+delta <= MAX_STACK_HEIGHT,
-    IRBlockPopDelta(callee, calleePopLen),
-    IRBlockStackDelta(callee, delta).
-
-  // Handle the proper variables pushed by this basic block
-  BeforeFunctionCallFunctionalBlockOutputContents(block, index, as(var, Variable)) :-
-    IRInFunction(block, _),
-    IRBasicBlock_Tail(block, stmt),
-    IRLocalStackContents(stmt, index, var),
-    CheckIsVariable(var).
-
-  // Handle the stackIndexes pushed by this basic block
-  BeforeFunctionCallFunctionalBlockOutputContents(block, index, realVariable) :-
-    FunctionalBlockInputContents(block, stackIndex, realVariable),
-    IRBasicBlock_Tail(block, stmt),
-    IRLocalStackContents(stmt, index, stackIndex),
-    CheckIsStackIndex(stackIndex).
-
+  FunctionalBlockOutputContents(block, outIndex, as(variable, Variable)):-
+    FunctionalBlockOutLocalStackContents(block, outIndex, variable),
+    CheckIsVariable(variable).
 
 //   // TODO, check case for function call
 //   FunctionalStatement_Uses_Local(stmt, varOrStackIndex, n) :-
