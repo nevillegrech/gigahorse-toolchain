@@ -1,6 +1,5 @@
 """Checks of the Datalog sources. The tests that run souffle skip when it is not installed."""
 
-import os
 import re
 import shutil
 import subprocess
@@ -39,6 +38,7 @@ def test_the_decompiler_writes_every_file_that_clients_read():
     client_inputs = directive_files("clientlib/decompiler_imports.dl", "input")
     decompiler_outputs = directive_files("logic/decompiler_output.dl", "output")
 
+    assert client_inputs
     assert client_inputs - decompiler_outputs == set()
 
 
@@ -135,11 +135,13 @@ def test_constant_folding_of_byte_signextend_and_clz(tmp_path):
             "".join("\t".join(k) + "\n" for k in requests)
         )
     (tmp_path / "driver.dl").write_text(FOLD_DRIVER)
+    from src.runners import souffle_env
+
     addon = str(ROOT / "souffle-addon")
     subprocess.run(
         ["souffle", "-I", str(ROOT), "-L", addon, "-F", tmp_path, "-D", tmp_path, "driver.dl"],
         cwd=tmp_path,
-        env={**os.environ, "LD_LIBRARY_PATH": addon},
+        env=souffle_env,
         check=True,
     )
 
@@ -147,6 +149,7 @@ def test_constant_folding_of_byte_signextend_and_clz(tmp_path):
     for arity in (1, 2):
         for line in (tmp_path / f"Result{arity}.csv").read_text().splitlines():
             *key, result = line.split("\t")
-            results[tuple(key)].append(int(result, 16))
+            results[tuple(key)].append(result)
     assert results.keys() == expected.keys()
-    assert {key: found for key, found in results.items() if found != [expected[key]]} == {}
+    # Normalized hex: the decompiler compares values as text
+    assert {key: found for key, found in results.items() if found != [hex(expected[key])]} == {}

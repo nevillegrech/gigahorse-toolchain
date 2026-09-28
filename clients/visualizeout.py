@@ -55,7 +55,7 @@ def pretty_print_block(block: Block, var_val: dict[str, str], out: TextIO):
 
 def pretty_print_blocks(head_block: Block, var_val: dict[str, str], out: TextIO):
     """Prints each block reachable from `head_block` once, in depth-first preorder."""
-    # An explicit stack instead of recursion: a long chain of blocks can exceed the recursion limit
+    # No recursion: a long chain of blocks can exceed the recursion limit
     visited = {head_block.ident}
     pretty_print_block(head_block, var_val, out)
     successors_to_visit = [iter(head_block.successors)]

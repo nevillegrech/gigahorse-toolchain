@@ -14,10 +14,6 @@ def gigahorse_prereqs(tmp_path_factory, worker_id):
     """Compiles core .dl files exactly once, shared across all workers."""
 
     def _run_prereq(working_dir: Path):
-        print(
-            "\n[gigahorse] Running analysis binary compilation before tests begin...\n",
-            file=sys.stderr,
-        )
         common_clients = [
             "-C",
             join(GIGAHORSE_TOOLCHAIN_ROOT, "clients/analytics_client.dl"),

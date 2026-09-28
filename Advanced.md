@@ -43,16 +43,17 @@ The inlining stage can be disabled using the `--disable_inline` flag.
 The file that `--tac_gen_config` names (default: `tac_gen_config.json`) selects how gigahorse makes the IR (TAC) of each input file. Each handler applies to the input files that match its `fileRegex`:
 
 * `"factGen": "Decomp"`: the decompiler, for bytecode files.
-* `"factGen": "MultiContract"`: merges the IR of contracts that another handler made in the same run. The input is a JSON manifest: `{"main": <address>, "contracts": {<address>: <name of the contract file up to the first ".">}}`. The run makes these contracts first.
-* `"factGen": "Custom"`: runs the `customScripts` in order. A `.dl` script runs as a Souffle program that reads and writes the output directory. Another script runs as `<script> -i <input file> -o <output directory>`, in the working directory of the contract.
+* `"factGen": "MultiContract"`: merges the IR of contracts that another handler made in the same run. The input is a JSON manifest: `{"main": <address>, "contracts": {<address>: <name of the contract file up to the first ".">}}`. The run makes the IR of these contracts first.
+* `"factGen": "Custom"`: runs the `customScripts` in order. A `.dl` script runs as a Souffle program that reads and writes the output directory. Other scripts run as `<script> -i <input file> -o <output directory>` in the working directory of the contract.
 
 The rules for custom scripts:
 
-* The scripts must write the TAC relations to the output directory. If there is no `TAC_Def.csv`, the contract gets the `ERROR` flag. For each other relation of `src/tac_schema.py` that has no file, gigahorse writes a message, because the inliner and the clients that read the relation will fail.
+* The scripts must write the TAC relations and `bytecode.hex` to the output directory. If there is no `TAC_Def.csv`, the contract gets the `ERROR` flag. For each other file that is missing, gigahorse writes a message. The inliner and the clients that read that file will fail.
+* If the scripts do not write `StorageContents.csv`, `SHA3Decompositions.csv` or `MaxContextDepth.csv`, gigahorse writes an empty file.
 * A script that exits with a non-zero status gives the `ERROR` flag. A script that runs past the timeout gives the `TIMEOUT` flag. The next scripts do not run.
 * Output on stderr is not an error, thus a script can write its progress there. gigahorse keeps it in `<output directory>/<script name>.err`.
 
-Two handlers must not have the same `fileRegex`.
+Two handlers must not have the same `fileRegex`. A `Custom` handler needs at least one script in `customScripts`. The other handlers do not need the key.
 
 # Development and Debugging
 

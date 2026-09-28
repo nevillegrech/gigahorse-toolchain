@@ -36,7 +36,7 @@
 .input ByteCodeHex(IO="file", filename="bytecode.hex")
 
 
-// Same as in logic/decompiler_input_opcodes.dl, plus THROW (INVALID in the TAC)
+// Same as in logic/decompiler_input_opcodes.dl, plus THROW (the TAC opcode of INVALID)
 .decl OpcodePossiblyHalts(op: Opcode)
 OpcodePossiblyHalts("STOP").
 OpcodePossiblyHalts("RETURN").

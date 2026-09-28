@@ -79,9 +79,8 @@ class LogicTestCase:
             return (1 - margin) * expected <= actual <= (1 + margin) * expected
 
         def check_finished(contract: str, flags: list[str]):
-            failures = [flag for flag in flags if flag in ("ERROR", "TIMEOUT")]
-            assert not failures, (
-                f"Analysis of {contract} finished with {', '.join(failures)}. See {stderr_path}."
+            assert not flags, (
+                f"Analysis of {contract} finished with {', '.join(flags)}. See {stderr_path}."
             )
 
         def check_has_metric(analytics, metric: str, contract: str, flags: list[str]):
@@ -119,13 +118,17 @@ class LogicTestCase:
 
         result = self.__run()
 
+        # gigahorse can stop after it removes the working dir
+        makedirs(self.working_dir, exist_ok=True)
         with open(join(self.working_dir, "stdout"), "wb") as f:
             f.write(result.stdout)
 
         with open(stderr_path, "wb") as f:
             f.write(result.stderr)
 
-        assert result.returncode == 0, f"Gigahorse exited with an error code: {result.returncode}"
+        assert result.returncode == 0, (
+            f"Gigahorse exited with an error code: {result.returncode}. See {stderr_path}."
+        )
 
         with open(self.results_file) as f:
             res_contents = json.load(f)
@@ -183,7 +186,7 @@ def collect_tests(test_dirs: list[str]):
         print(f"Running testcases under {test_dir}")
 
         for config, test_path in discover_logic_tests({}, test_dir):
-            # A test is a .hex file, or a directory of contracts (e.g. for multi-contract tests)
+            # A test is a .hex file or a directory of contracts (for a multi-contract test)
             relative_path = test_path[len(test_dir) + 1 :]
             test_id = relative_path.removesuffix(".hex").replace("/", ".")
             if config:

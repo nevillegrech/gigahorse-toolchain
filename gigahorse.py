@@ -8,9 +8,11 @@ import json
 import logging
 import os
 import shutil
+import signal
 import sys
 import tempfile
 import time
+import traceback
 from collections import defaultdict
 from concurrent.futures import Future, ThreadPoolExecutor
 from multiprocessing import (
@@ -22,7 +24,14 @@ from os.path import getsize, join
 from typing import Any
 
 # Local project imports
-from src.common import DEFAULT_SOUFFLE_BIN, GIGAHORSE_DIR, MAIN_DECOMPILER_MAX_CONTEXT_DEPTH, log
+from src.common import (
+    DEFAULT_SOUFFLE_BIN,
+    GIGAHORSE_DIR,
+    MAIN_DECOMPILER_MAX_CONTEXT_DEPTH,
+    MAX_CONTEXT_DEPTH_INPUT_FILE,
+    log,
+    log_debug,
+)
 from src.runners import (
     AbstractFactGenerator,
     AnalysisExecutor,
@@ -116,14 +125,14 @@ parser.add_argument(
     "--working_dir",
     default=TEMP_WORKING_DIR,
     metavar="DIR",
-    help=f"The location where temporary files are placed (default: {TEMP_WORKING_DIR}).",
+    help=f"The location of temporary files (default: {TEMP_WORKING_DIR}).",
 )
 
 parser.add_argument(
     "--cache_dir",
     default=DEFAULT_CACHE_DIR,
     metavar="DIR",
-    help=f"The location where compiled datalog programs are cached (default: {DEFAULT_CACHE_DIR}).",
+    help=f"The location of compiled datalog programs (default: {DEFAULT_CACHE_DIR}).",
 )
 
 
@@ -329,7 +338,7 @@ def analyze_contract(
     other_clients: list[str],
 ) -> None:
     """
-    Perform static analysis on a contract, storing the result in results_dir.
+    Perform static analysis on a contract and store the result in results_dir.
     This is a worker function to be passed to a subprocess.
 
     Args:
@@ -342,8 +351,8 @@ def analyze_contract(
     """
     analysis_executor = fact_generator.analysis_executor
     contract_name = os.path.split(contract_filename)[1]
-    # The working directory, while this process decompiles the contract (facts, decompiler and
-    # inliner). An exception in that step records its kind as the decompilation status.
+    # The working directory while the decompilation step runs (facts, decompiler and inliner).
+    # If that step fails, record_failure writes TIMEOUT or ERROR as its status.
     decompiling_in: str | None = None
 
     def record_failure(status: DecompilationStatus) -> None:
@@ -372,7 +381,7 @@ def analyze_contract(
 
             inline_start = time.time()
             if not args.disable_inline and decompiler_config != FactGenUsedEnum.MultiContract:
-                # A timeout stops the inlining, and the clients use the IR of the last complete round
+                # After a timeout, the clients use the IR of the last complete round
                 analysis_executor.run_transformer_rounds(
                     DEFAULT_INLINER_DL,
                     DEFAULT_INLINER_ROUNDS,
@@ -393,13 +402,19 @@ def analyze_contract(
         if exists:
             # --rerun_clients: the clients use the IR of an earlier run, if it is complete
             check_earlier_decompilation(work_dir, out_dir, fact_generator)
+            # Older working dirs have MaxContextDepth.csv only in the fact dir
+            depth_file = join(work_dir, MAX_CONTEXT_DEPTH_INPUT_FILE)
+            if os.path.isfile(depth_file) and not os.path.exists(
+                join(out_dir, MAX_CONTEXT_DEPTH_INPUT_FILE)
+            ):
+                shutil.copy2(depth_file, out_dir)
 
         client_start = time.time()
         timeouts, errors = analysis_executor.run_clients(
             souffle_clients, other_clients, out_dir, out_dir, client_start
         )
 
-        # Collect the results and put them in the result queue
+        # Collect the results
         files = []
         for fname in os.listdir(out_dir):
             fpath = join(out_dir, fname)
@@ -438,19 +453,20 @@ def analyze_contract(
     except TimeoutException as e:
         record_failure(DecompilationStatus.TIMEOUT)
         save_result(results_dir, index, [contract_name, [], ["TIMEOUT"], {}])
-        log(f"{contract_name} timed out. {e}".rstrip())
+        log(f"{contract_name} timed out: {e}")
     except DecompilationException as e:
         record_failure(DecompilationStatus.ERROR)
-        log(f"{contract_name}: error during execution of decompilation binary. {e}".rstrip())
+        log(f"{contract_name}: decompilation failed: {e}")
         save_result(results_dir, index, [contract_name, [], ["ERROR"], {}])
     except Exception as e:
         record_failure(DecompilationStatus.ERROR)
         log(f"{contract_name}: other error: {type(e).__name__}: {e}")
+        log_debug(traceback.format_exc())
         save_result(results_dir, index, [contract_name, [], ["ERROR"], {}])
 
 
 def get_bytecode_size(out_dir: str) -> int | None:
-    """The size of out/bytecode.hex in bytes. For a multi-contract manifest: the main contract."""
+    """The size in bytes of the code in out/bytecode.hex (for a manifest: the main contract)."""
     path = join(out_dir, "bytecode.hex")
     if not os.path.isfile(path):
         return None
@@ -645,24 +661,26 @@ def batch_analysis(
         return [results[index] for index in sorted(results)]
 
     except Exception:
-        import traceback
-
         traceback.print_exc()
 
         sys.exit(1)
     finally:
+        # A signal to the main process alone must also stop the workers
+        for worker in workers:
+            if worker["proc"].is_alive():
+                worker["proc"].terminate()
+        for worker in workers:
+            worker["proc"].join()
         shutil.rmtree(results_dir, ignore_errors=True)
 
 
 def build_fact_generator(tac_gen_config: dict, args) -> AbstractFactGenerator:
     """
     The fact generator for the handlers of a TAC generation config (tac_gen_config.json).
-    Each handler selects the input files that match its fileRegex.
     Raises ValueError for an invalid config.
     """
     handlers = tac_gen_config["handlers"]
     if not handlers:
-        # With no handlers, use the decompiler for .hex files
         return DecompilerFactGenerator(args, ".*.hex")
 
     kinds = {handler["tacGenScripts"]["factGen"] for handler in handlers}
@@ -676,7 +694,7 @@ def build_fact_generator(tac_gen_config: dict, args) -> AbstractFactGenerator:
     for handler in handlers:
         fact_generator.add_fact_generator(
             handler["fileRegex"],
-            handler["tacGenScripts"]["customScripts"],
+            handler["tacGenScripts"].get("customScripts", []),
             handler["tacGenScripts"]["factGen"],
             args,
         )
@@ -715,7 +733,7 @@ def run_gigahorse(args, fact_generator: AbstractFactGenerator) -> None:
     other_clients = [a for a in clients_split if not (a.endswith(".dl") or a == "")]
 
     compile_jobs: dict[str, Future[str]] = {}
-    # The pool is shut down (its threads joined) before the analysis forks worker processes
+    # The pool joins its threads at the end of this block, before the analysis forks workers
     with ThreadPoolExecutor() as compile_pool:
         if not args.interpreted:
             # Here we compile the decompiler and any of its clients in parallel :)
@@ -782,8 +800,22 @@ def run_gigahorse(args, fact_generator: AbstractFactGenerator) -> None:
     write_results(res_list, args.results_file)
 
 
+def exit_on_signal(signum: int, frame: Any) -> None:
+    """Raises SystemExit, thus the cleanup code runs, as for SIGINT."""
+    sys.exit(128 + signum)
+
+
+def install_signal_handlers() -> None:
+    """The workers inherit the handlers. run_process then kills the process group of its child."""
+    signal.signal(signal.SIGTERM, exit_on_signal)
+    # Keep the SIG_IGN of nohup
+    if signal.getsignal(signal.SIGHUP) is not signal.SIG_IGN:
+        signal.signal(signal.SIGHUP, exit_on_signal)
+
+
 if __name__ == "__main__":
     set_start_method("fork")
+    install_signal_handlers()
 
     # Decompiler tuning
     parser.add_argument(

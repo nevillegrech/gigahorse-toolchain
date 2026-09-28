@@ -1,11 +1,11 @@
 """
-Unit tests for the Python harness: fact generation, process runs, datalog compilation
-and the multi-contract stitching. Stub programs stand in for souffle and its binaries,
-thus these tests do not compile any datalog.
+Unit tests for the Python harness. Stub programs stand in for souffle and its binaries,
+thus these tests compile no datalog.
 """
 
 import argparse
 import json
+import logging
 import multiprocessing
 import os
 import re
@@ -13,6 +13,7 @@ import signal
 import subprocess
 import sys
 import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pytest
@@ -104,27 +105,34 @@ def test_tac_relations_are_written_with_souffle_line_ends(tmp_path):
     assert (tmp_path / "TAC_Op.csv").read_bytes() == b"0x1\tADD\n0x2\tSTOP\n"
 
 
+def make_decompiled_contract(contract_dir: Path, files: dict[str, str]) -> None:
+    """The working dir of a decompiled contract: empty TAC relations plus `files`."""
+    (contract_dir / "out").mkdir(parents=True)
+    for relation in ALL_RELATIONS:
+        (contract_dir / "out" / f"{relation.name}.csv").write_text("")
+    for path, content in files.items():
+        (contract_dir / path).write_text(content)
+
+
+def stitch(tmp_path: Path, contracts: dict[str, str], main: str) -> Path:
+    manifest = tmp_path / "stitched_multi.json"
+    manifest.write_text(json.dumps({"main": main, "contracts": contracts}))
+    out_dir = tmp_path / "stitched_multi" / "out"
+    out_dir.mkdir(parents=True)
+    ContractStitchingGenerator(None, ".*_multi.json").generate_facts(
+        str(manifest), str(out_dir.parent), str(out_dir)
+    )
+    return out_dir
+
+
 def test_contract_stitching_copies_the_bytecode_of_the_main_contract(tmp_path):
     main, other = "0xaaaaaaaa11", "0xbbbbbbbb22"
     for contract_id, bytecode in [("main_id", "6001"), ("other_id", "6002")]:
-        contract_out = tmp_path / contract_id / "out"
-        contract_out.mkdir(parents=True)
-        for relation in ALL_RELATIONS:
-            (contract_out / f"{relation.name}.csv").write_text("")
-        (contract_out / "TAC_Op.csv").write_text("0x1\tSTOP\n")
-        (contract_out / "bytecode.hex").write_text(bytecode)
+        make_decompiled_contract(
+            tmp_path / contract_id, {"out/TAC_Op.csv": "0x1\tSTOP\n", "out/bytecode.hex": bytecode}
+        )
 
-    manifest = tmp_path / "stitched_multi.json"
-    manifest.write_text(
-        json.dumps({"main": main, "contracts": {main: "main_id", other: "other_id"}})
-    )
-    work_dir = tmp_path / "stitched_multi"
-    out_dir = work_dir / "out"
-    out_dir.mkdir(parents=True)
-
-    ContractStitchingGenerator(None, ".*_multi.json").generate_facts(
-        str(manifest), str(work_dir), str(out_dir)
-    )
+    out_dir = stitch(tmp_path, {main: "main_id", other: "other_id"}, main)
 
     assert (out_dir / "bytecode.hex").read_text() == "6001"
     assert (out_dir / "TAC_Op.csv").read_text() == f"0x1\tSTOP\n{other[:8]}_0x1\tSTOP\n"
@@ -145,6 +153,12 @@ def test_run_process_reports_exit_status_and_timeout():
     assert crashed.returncode == -signal.SIGSEGV
     assert not crashed.timed_out
 
+    killed = run_process(
+        [sys.executable, "-c", "import os, signal; os.kill(os.getpid(), signal.SIGKILL)"], 10
+    )
+    assert killed.returncode == -signal.SIGKILL
+    assert killed.timed_out
+
     slow = run_process([sys.executable, "-c", "import time; time.sleep(30)"], 0.5)
     assert slow.timed_out
 
@@ -157,6 +171,71 @@ def test_timeout_also_stops_the_processes_that_the_process_started(tmp_path):
 
     time.sleep(2.5)
     assert not late_file.exists()
+
+
+def run_and_signal(tmp_path: Path, code: str, sig: signal.Signals) -> Path:
+    """
+    Runs `code` in a new Python process, with `child` set to a script that writes a file after
+    2 s. Sends `sig` to that process when the script starts. Returns the path of that file.
+    """
+    started, late_file = tmp_path / "started", tmp_path / "late_write"
+    child = make_executable(
+        tmp_path / "child", f'touch "{started}"\nsleep 2\ntouch "{late_file}"\n'
+    )
+    parent = subprocess.Popen(
+        [sys.executable, "-c", f"child = {child!r}\n{code}"], cwd=gigahorse.GIGAHORSE_DIR
+    )
+    deadline = time.time() + 10
+    while not started.exists() and time.time() < deadline:
+        time.sleep(0.05)
+    parent.send_signal(sig)
+    parent.wait(10)
+    time.sleep(2.5)
+    return late_file
+
+
+@pytest.mark.parametrize("sig", [signal.SIGTERM, signal.SIGKILL])
+def test_a_signal_to_the_parent_also_stops_the_processes_that_run_process_started(tmp_path, sig):
+    code = (
+        "import gigahorse\n"
+        "from src.runners import run_process\n"
+        "gigahorse.install_signal_handlers()\n"
+        "run_process([child], 30)\n"
+    )
+
+    assert not run_and_signal(tmp_path, code, sig).exists()
+
+
+def test_sigterm_to_the_main_process_alone_also_stops_the_workers(tmp_path):
+    (tmp_path / "c.custom").write_text("input")
+    code = f"""
+import argparse, multiprocessing, gigahorse
+from src.runners import AnalysisExecutor, CustomFactGenerator
+multiprocessing.set_start_method("fork")
+gigahorse.install_signal_handlers()
+gigahorse.args = argparse.Namespace(
+    working_dir={str(tmp_path / "work")!r}, restart=False, disable_inline=True, rerun_clients=False
+)
+generator = CustomFactGenerator(r".*\\.custom", [child])
+generator.analysis_executor = AnalysisExecutor(
+    timeout=60, interpreted=False, minimum_client_time=1, debug=False,
+    souffle_bin="souffle", cache_dir={str(tmp_path)!r}, souffle_macros="",
+)
+gigahorse.batch_analysis(generator, [], [], [{str(tmp_path / "c.custom")!r}], 1)
+"""
+
+    assert not run_and_signal(tmp_path, code, signal.SIGTERM).exists()
+
+
+def test_signal_handlers_keep_the_ignored_sighup_of_nohup():
+    code = (
+        "import signal, gigahorse\n"
+        "signal.signal(signal.SIGHUP, signal.SIG_IGN)\n"
+        "gigahorse.install_signal_handlers()\n"
+        "assert signal.getsignal(signal.SIGHUP) is signal.SIG_IGN\n"
+    )
+
+    subprocess.run([sys.executable, "-c", code], cwd=gigahorse.GIGAHORSE_DIR, check=True)
 
 
 def test_crash_of_a_souffle_client_is_an_error_without_stderr_output(tmp_path):
@@ -264,7 +343,7 @@ def test_compiled_binaries_are_content_addressed_and_cached(tmp_path, datalog_sp
     link = get_souffle_executable_path(cache_dir, datalog_spec)
     assert os.path.realpath(link) == binary
 
-    # Same program and macros: the cached binary is used
+    # Same program and macros: compile_datalog uses the cached binary
     assert compile_datalog(datalog_spec, souffle, cache_dir, False, "GIGAHORSE_DIR=/x") == binary
     assert count_compilations(tmp_path) == 1
 
@@ -277,6 +356,18 @@ def test_compiled_binaries_are_content_addressed_and_cached(tmp_path, datalog_sp
 
     # --reuse_datalog_bin: the most recent binary, with no preprocessing or compilation
     assert compile_datalog(datalog_spec, "/no/such/souffle", cache_dir, True, "") == other
+
+
+def test_concurrent_runs_compile_a_program_once(tmp_path, datalog_spec):
+    souffle = make_executable(tmp_path / "souffle", "sleep 0.5\n" + STUB_SOUFFLE)
+    cache_dir = str(tmp_path / "cache")
+
+    def compile_once(_):
+        return compile_datalog(datalog_spec, souffle, cache_dir, False, "GIGAHORSE_DIR=/x")
+
+    with ThreadPoolExecutor(4) as pool:
+        assert len(set(pool.map(compile_once, range(4)))) == 1
+    assert count_compilations(tmp_path) == 1
 
 
 def test_failed_compilation_raises_and_leaves_no_binary(tmp_path, datalog_spec):
@@ -311,12 +402,18 @@ class StubFactGenerator:
         return (Path(out_dir) / "TAC_Def.csv").exists()
 
 
-def analyze(tmp_path: Path, monkeypatch, generator: StubFactGenerator, rerun_clients=False):
-    """Runs gigahorse.analyze_contract on a small contract, with no inliner and no clients."""
+def analyze(
+    tmp_path: Path,
+    monkeypatch,
+    generator: StubFactGenerator,
+    rerun_clients=False,
+    disable_inline=True,
+):
+    """Runs gigahorse.analyze_contract on a small contract, with no clients."""
     run_args = argparse.Namespace(
         working_dir=str(tmp_path / "work"),
         restart=False,
-        disable_inline=True,
+        disable_inline=disable_inline,
         rerun_clients=rerun_clients,
     )
     monkeypatch.setattr(gigahorse, "args", run_args, raising=False)
@@ -324,6 +421,8 @@ def analyze(tmp_path: Path, monkeypatch, generator: StubFactGenerator, rerun_cli
     contract.write_text("6001")
     results_dir = tmp_path / "results"
     results_dir.mkdir(exist_ok=True)
+    # The result of an earlier call must not stand in for a missing result
+    (results_dir / "0.json").unlink(missing_ok=True)
     gigahorse.analyze_contract(0, str(contract), str(results_dir), generator, [], [])
     return gigahorse.load_result(str(results_dir), 0, contract.name)
 
@@ -352,12 +451,27 @@ def test_rerun_uses_a_complete_decompilation(tmp_path, monkeypatch):
     assert generator.calls == 1
 
 
-def test_rerun_does_not_use_a_decompilation_that_stopped_before_it_completed(tmp_path, monkeypatch):
-    # A worker that was killed leaves the RUNNING status and can leave most of the output
+def test_inliner_that_fails_leaves_the_error_status(tmp_path, monkeypatch):
+    executor = make_executor(tmp_path)
+    executor.set_executable(
+        gigahorse.DEFAULT_INLINER_DL, make_executable(tmp_path / "inliner", "exit 1\n")
+    )
+
+    _, _, flags, _ = analyze(
+        tmp_path, monkeypatch, StubFactGenerator(executor), disable_inline=False
+    )
+
+    assert flags == ["ERROR"]
+    assert read_decompilation_status(str(tmp_path / "work" / "c")) == DecompilationStatus.ERROR
+
+
+# A killed worker leaves RUNNING and a failed step leaves ERROR. Both can leave most of the output.
+@pytest.mark.parametrize("status", [DecompilationStatus.RUNNING, DecompilationStatus.ERROR])
+def test_rerun_does_not_use_a_decompilation_that_failed_or_stopped(tmp_path, monkeypatch, status):
     work_dir = tmp_path / "work" / "c"
     (work_dir / "out").mkdir(parents=True)
     (work_dir / "out" / "TAC_Def.csv").write_text("")
-    write_decompilation_status(str(work_dir), DecompilationStatus.RUNNING)
+    write_decompilation_status(str(work_dir), status)
     generator = StubFactGenerator(make_executor(tmp_path))
 
     _, _, flags, _ = analyze(tmp_path, monkeypatch, generator, rerun_clients=True)
@@ -374,22 +488,30 @@ def test_rerun_checks_the_output_of_a_working_dir_with_no_status(tmp_path, monke
     assert flags == ["TIMEOUT"]
 
 
+def test_rerun_copies_the_context_depth_of_an_older_working_dir(tmp_path, monkeypatch):
+    # An older version wrote no status file, and MaxContextDepth.csv only to the fact dir
+    work_dir = tmp_path / "work" / "c"
+    (work_dir / "out").mkdir(parents=True)
+    (work_dir / "out" / "TAC_Def.csv").write_text("")
+    (work_dir / "MaxContextDepth.csv").write_text("20\n")
+    generator = StubFactGenerator(make_executor(tmp_path))
+
+    _, _, flags, _ = analyze(tmp_path, monkeypatch, generator, rerun_clients=True)
+
+    assert flags == []
+    assert (work_dir / "out" / "MaxContextDepth.csv").read_text() == "20\n"
+
+
 def test_contract_stitching_refuses_a_contract_with_no_complete_decompilation(tmp_path):
     main = "0xaaaaaaaa11"
     (tmp_path / "main_id" / "out").mkdir(parents=True)
     write_decompilation_status(str(tmp_path / "main_id"), DecompilationStatus.TIMEOUT)
-    manifest = tmp_path / "stitched_multi.json"
-    manifest.write_text(json.dumps({"main": main, "contracts": {main: "main_id"}}))
-    out_dir = tmp_path / "stitched_multi" / "out"
-    out_dir.mkdir(parents=True)
 
     with pytest.raises(DecompilationException, match=r"main_id .*\(TIMEOUT\)"):
-        ContractStitchingGenerator(None, ".*_multi.json").generate_facts(
-            str(manifest), str(out_dir.parent), str(out_dir)
-        )
+        stitch(tmp_path, {main: "main_id"}, main)
 
 
-# A custom fact generation script is called as `<script> -i <input file> -o <out dir>`
+# gigahorse runs a custom fact generation script as `<script> -i <input file> -o <out dir>`
 def run_custom_fact_gen(tmp_path: Path, script: str, name: str = "factgen.sh"):
     work_dir = tmp_path / "contract"
     out_dir = work_dir / "out"
@@ -442,6 +564,22 @@ def test_custom_fact_gen_that_writes_no_tac_raises(tmp_path):
         run_custom_fact_gen(tmp_path, "exit 0\n")
 
 
+def test_custom_fact_gen_reports_a_missing_bytecode_file(tmp_path, caplog):
+    caplog.set_level(logging.INFO)
+
+    run_custom_fact_gen(tmp_path, WRITE_TAC)
+
+    assert "bytecode.hex" in caplog.text
+
+
+def test_custom_fact_gen_adds_the_client_inputs_that_the_scripts_do_not_write(tmp_path):
+    _, out_dir = run_custom_fact_gen(tmp_path, WRITE_TAC + 'echo 20 > "$4/MaxContextDepth.csv"\n')
+
+    assert (out_dir / "MaxContextDepth.csv").read_text() == "20\n"
+    for fname in ["StorageContents.csv", "SHA3Decompositions.csv", "vulnerability.csv"]:
+        assert (out_dir / fname).read_text() == ""
+
+
 def test_custom_fact_gen_stops_at_the_first_failed_script(tmp_path):
     work_dir = tmp_path / "contract"
     (work_dir / "out").mkdir(parents=True)
@@ -491,6 +629,22 @@ def test_default_tac_generation_config_selects_hex_and_manifest_files():
     assert not generator.match_pattern("in/c.txt")
 
 
+def test_decomp_handler_needs_no_custom_scripts():
+    config = {"handlers": [{"fileRegex": ".*.hex", "tacGenScripts": {"factGen": "Decomp"}}]}
+
+    assert gigahorse.build_fact_generator(config, GENERATOR_ARGS).match_pattern("in/a.hex")
+
+
+@pytest.mark.parametrize(
+    "tac_gen_scripts", [{"factGen": "Decompiler"}, {"factGen": "Custom", "customScripts": []}]
+)
+def test_tac_generation_handler_with_no_valid_fact_generator_is_invalid(tac_gen_scripts):
+    config = {"handlers": [{"fileRegex": ".*.hex", "tacGenScripts": tac_gen_scripts}]}
+
+    with pytest.raises(ValueError):
+        gigahorse.build_fact_generator(config, GENERATOR_ARGS)
+
+
 def test_tac_generation_config_with_only_a_multi_contract_handler_is_invalid():
     config = {"handlers": [handler(".*_multi.json", "MultiContract")]}
 
@@ -512,6 +666,8 @@ class DyingFactGenerator(StubFactGenerator):
         return super().generate_facts(contract_filename, work_dir, out_dir)
 
 
+# pytest-xdist starts these threads. gigahorse forks from a process with one thread.
+@pytest.mark.filterwarnings("ignore:This process .* is multi-threaded:DeprecationWarning")
 def test_batch_analysis_reports_a_worker_that_dies(tmp_path, monkeypatch):
     monkeypatch.setattr(gigahorse, "Process", multiprocessing.get_context("fork").Process)
     run_args = argparse.Namespace(
@@ -535,26 +691,6 @@ def test_batch_analysis_reports_a_worker_that_dies(tmp_path, monkeypatch):
         ("dies.hex", ["ERROR"]),
         ("b.hex", []),
     ]
-
-
-def make_decompiled_contract(contract_dir: Path, files: dict[str, str]) -> None:
-    """The working dir of a decompiled contract: empty TAC relations plus `files`."""
-    (contract_dir / "out").mkdir(parents=True)
-    for relation in ALL_RELATIONS:
-        (contract_dir / "out" / f"{relation.name}.csv").write_text("")
-    for path, content in files.items():
-        (contract_dir / path).write_text(content)
-
-
-def stitch(tmp_path: Path, contracts: dict[str, str], main: str) -> Path:
-    manifest = tmp_path / "stitched_multi.json"
-    manifest.write_text(json.dumps({"main": main, "contracts": contracts}))
-    out_dir = tmp_path / "stitched_multi" / "out"
-    out_dir.mkdir(parents=True)
-    ContractStitchingGenerator(None, ".*_multi.json").generate_facts(
-        str(manifest), str(out_dir.parent), str(out_dir)
-    )
-    return out_dir
 
 
 def test_contract_stitching_writes_the_client_inputs_of_the_main_contract(tmp_path):

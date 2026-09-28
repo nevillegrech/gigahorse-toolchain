@@ -1,4 +1,5 @@
 import contextlib
+import ctypes
 import fcntl
 import hashlib
 import json
@@ -9,6 +10,7 @@ import resource
 import shutil
 import signal
 import subprocess
+import sys
 import time
 import uuid
 from abc import ABC, abstractmethod
@@ -38,6 +40,13 @@ LAST_RESORT_MAX_CONTEXT_DEPTH = 10
 
 # Empty at fact generation. Clients that include clientlib/vulnerability_macros.dl add rows.
 VULNERABILITY_FILES = ("proto_vulnerability.csv", "vulnerability.csv")
+
+# Client inputs that are not TAC relations
+NON_TAC_CLIENT_INPUTS = (
+    "StorageContents.csv",
+    "SHA3Decompositions.csv",
+    MAX_CONTEXT_DEPTH_INPUT_FILE,
+)
 
 FACT_GEN_HIGH_PRIORITY = 1
 FACT_GEN_LOW_PRIORITY = 2
@@ -72,6 +81,20 @@ class DecompilationException(Exception):
 
 def set_memory_limit(memory_limit: int):
     resource.setrlimit(resource.RLIMIT_AS, (memory_limit, memory_limit))
+
+
+# Loaded here, because run_process calls prctl in a forked child
+_prctl = ctypes.CDLL(None, use_errno=True).prctl if sys.platform == "linux" else None
+PR_SET_PDEATHSIG = 1
+
+
+def _prepare_child(memory_limit: int, parent_pid: int) -> None:
+    set_memory_limit(memory_limit)
+    if _prctl is not None:
+        _prctl(PR_SET_PDEATHSIG, signal.SIGKILL)
+        # The parent can die before the prctl call
+        if os.getppid() != parent_pid:
+            os._exit(1)
 
 
 def get_souffle_executable_path(cache_dir: str, dl_filename: str) -> str:
@@ -165,7 +188,7 @@ class AnalysisExecutor:
         failed = not result.timed_out and result.returncode != 0
         if err_file != devnull:
             err_file.close()
-            with open(err_filename) as f:
+            with open(err_filename, errors="replace") as f:
                 souffle_err = f.read()
             # Used to be "Error:" to avoid reporting the file not found errors of souffle
             # However with souffle 2.4 they cause the program to stop so we have to report them as well
@@ -185,6 +208,7 @@ class AnalysisExecutor:
             elif len(souffle_err) > 0:
                 log(f"Unrecognized error during {souffle_client} dl execution: {souffle_err}.")
         if failed:
+            log(f"{souffle_client} exited with status {result.returncode}")
             errors.append(os.path.basename(souffle_client))
         return errors, timeouts
 
@@ -216,9 +240,11 @@ class AnalysisExecutor:
                 err_file,
                 cwd=in_dir,
             )
-        with open(err_filename) as f:
+        with open(err_filename, errors="replace") as f:
             client_err = f.read()
         failed = not result.timed_out and result.returncode != 0
+        if failed:
+            log(f"{client_name} exited with status {result.returncode}")
         if client_err and not stderr_is_error:
             log_debug(f"{client_name} wrote to stderr (see {err_filename})")
         if failed or (client_err and stderr_is_error):
@@ -236,15 +262,10 @@ class AnalysisExecutor:
         start_time: float,
     ) -> None:
         """
-        Runs `rounds` times a souffle client that rewrites the IR in `out_dir` (e.g. the inliner).
-
-        Souffle writes each output relation as soon as the relation is complete. Thus a round
-        that stops at the timeout can leave a mix of new and old relations. To prevent this,
-        each round writes to `scratch_dir`, and its files replace the ones in `out_dir` only
-        after the round completes. After a timeout, the IR of the last complete round stays,
-        and no more rounds run.
-
-        Raises DecompilationException if a round fails.
+        Runs `souffle_transformer` (for example the inliner) `rounds` times on the IR in `out_dir`.
+        A stopped round can leave a mix of old and new relations. Thus each round writes to
+        `scratch_dir`, and its files replace the `out_dir` files only when it completes.
+        A timeout stops the rounds. Raises DecompilationException if a round fails.
         """
         for _ in range(rounds):
             shutil.rmtree(scratch_dir, ignore_errors=True)
@@ -288,16 +309,15 @@ class AnalysisExecutor:
 
 class ProcessResult(NamedTuple):
     runtime: float
-    """Seconds the process ran for, -1 if it was stopped at the timeout."""
+    """Seconds the process ran for, or -1 if the timeout stopped it."""
     returncode: int
     """Exit status of the process. A negative value -N means that signal N stopped it."""
 
     @property
     def timed_out(self) -> bool:
         """
-        True if the process was stopped at the timeout or with SIGKILL.
-        The kernel also uses SIGKILL when the system runs out of memory,
-        and for gigahorse this has the same meaning as a timeout.
+        True if the timeout or a SIGKILL stopped the process. The kernel also sends SIGKILL
+        when the system runs out of memory, and gigahorse counts that as a timeout.
         """
         return self.runtime < 0 or self.returncode == -signal.SIGKILL
 
@@ -318,12 +338,14 @@ def run_process(
 
     The process runs in a new session. At the timeout, SIGKILL stops the process and
     all the processes that it started, thus none of them can write output later.
+    On Linux, the process also stops when its parent dies.
     """
     if timeout < 0:
         # This can theoretically happen
         return ProcessResult(-1, -signal.SIGKILL)
 
     start_time = time.time()
+    parent_pid = os.getpid()
 
     process = subprocess.Popen(
         process_args,
@@ -331,7 +353,7 @@ def run_process(
         stderr=stderr,
         cwd=cwd,
         env=souffle_env,
-        preexec_fn=lambda: set_memory_limit(memory_limit),
+        preexec_fn=lambda: _prepare_child(memory_limit, parent_pid),
         start_new_session=True,
     )
     try:
@@ -349,7 +371,7 @@ def run_process(
 
 
 def _kill_process_group(process: subprocess.Popen) -> None:
-    """Sends SIGKILL to the process group of `process` (a session leader), then reaps it."""
+    """Sends SIGKILL to the process group of `process` (a session leader), then waits for it."""
     with contextlib.suppress(ProcessLookupError):
         os.killpg(process.pid, signal.SIGKILL)
     process.wait()
@@ -372,13 +394,9 @@ def compile_datalog(
     souffle_macros: str,
 ) -> str:
     """
-    Compiles `spec` with `souffle_macros`, unless the cache already has a binary for them.
-    Returns the path of the binary.
-
-    Binaries are content-addressed (the name is the md5 of the preprocessed program), and the
-    pipeline runs them from that path. Thus concurrent runs of gigahorse that share a cache can
-    use different macros, and a run never writes a binary that another run executes.
-
+    Compiles `spec` with `souffle_macros` unless the cache has the binary. Returns its path.
+    The name of the binary is the md5 of the preprocessed program. Thus runs that share a cache
+    can use different macros, and a run never writes a binary that another run executes.
     Raises DatalogCompilationError if preprocessing or compilation fails.
     """
     pathlib.Path(cache_dir).mkdir(parents=True, exist_ok=True)
@@ -415,8 +433,7 @@ def compile_datalog(
         else:
             comp_start = time.time()
             log(f"Compiling {spec} to C++ program and executable")
-            # Compile to a temporary path. Then an interrupted compilation cannot leave
-            # a partial binary at `cache_path`.
+            # An interrupted compilation must not leave a partial binary at `cache_path`
             tmp_path = _temp_path(cache_path)
             compilation_command = [
                 souffle_bin,
@@ -439,7 +456,7 @@ def compile_datalog(
             os.replace(tmp_path, cache_path)
             log(f"Compilation of {spec} successful after {time.time() - comp_start} seconds.")
 
-    # Point the `<spec>_compiled` link to the new binary (for --reuse_datalog_bin)
+    # Point the `<spec>_compiled` link to this binary (for --reuse_datalog_bin)
     tmp_link = _temp_path(executable_path)
     os.symlink(md5_hash, tmp_link)
     os.replace(tmp_link, executable_path)
@@ -448,7 +465,7 @@ def compile_datalog(
 
 
 DECOMPILATION_STATUS_FILE = "decompilation_status"
-"""A file in the working directory of a contract: how its decompilation step ended."""
+"""A file in the working directory of a contract: the state of its decompilation step."""
 
 
 class DecompilationStatus(str, Enum):
@@ -479,9 +496,8 @@ def check_earlier_decompilation(
     work_dir: str, out_dir: str, fact_generator: "AbstractFactGenerator"
 ) -> None:
     """
-    For --rerun_clients. Raises TimeoutException or DecompilationException if the decompilation
-    of an earlier run did not complete. A decompiler that was stopped late can leave most of
-    its output files, thus the clients must not use them.
+    For --rerun_clients. Raises TimeoutException or DecompilationException if the earlier
+    decompilation did not complete. A stopped decompiler can leave most of its output files.
     """
     status = read_decompilation_status(work_dir)
     if status is None:
@@ -494,7 +510,8 @@ def check_earlier_decompilation(
         raise DecompilationException("the decompilation failed in an earlier run")
     elif status == DecompilationStatus.RUNNING:
         raise DecompilationException(
-            "the decompilation of an earlier run stopped before it completed (use --restart)"
+            "the decompilation of an earlier run stopped before it completed "
+            f"(remove {work_dir} to decompile it again)"
         )
 
 
@@ -624,6 +641,9 @@ class MixedFactGenerator(AbstractFactGenerator):
         if compiled_pattern in self.fact_generators:
             # The later handler would silently replace the earlier one
             raise ValueError(f"Two TAC generation handlers have the fileRegex {pattern}")
+        fact_gen_option = FactGenSelectionEnum(fact_gen_option)
+        if fact_gen_option == FactGenSelectionEnum.Custom and not scripts:
+            raise ValueError(f"the Custom handler for {pattern} has no customScripts")
         if fact_gen_option == FactGenSelectionEnum.Decomp:
             self.fact_generators[compiled_pattern] = DecompilerFactGenerator(args, pattern)
         elif fact_gen_option == FactGenSelectionEnum.MultiContract:
@@ -860,11 +880,7 @@ class ContractStitchingGenerator(AbstractFactGenerator):
             merged.write_dir(out_dir)
 
             # Client inputs with no contract column: take them from the main contract
-            for fname in (
-                "StorageContents.csv",
-                "SHA3Decompositions.csv",
-                MAX_CONTEXT_DEPTH_INPUT_FILE,
-            ):
+            for fname in NON_TAC_CLIENT_INPUTS:
                 # Older working dirs have MaxContextDepth.csv only in the fact dir
                 sources = [p for p in (main_dir / "out" / fname, main_dir / fname) if p.is_file()]
                 if sources:
@@ -899,12 +915,10 @@ class CustomFactGenerator(AbstractFactGenerator):
         self, contract_filename: str, work_dir: str, out_dir: str
     ) -> tuple[float, float, FactGenUsedEnum]:
         """
-        Runs the custom scripts in order. They must write the TAC relations to `out_dir`.
-
-        Raises TimeoutException if the timeout (or the kernel) stops a script. Raises
-        DecompilationException if a script exits with a non-zero status, or if the scripts
-        write no TAC_Def.csv. Output on stderr alone is not an error, thus the scripts can log
-        their progress. Each script keeps its stderr in `<out_dir>/<script name>.err`.
+        Runs the custom scripts in order. They must write the TAC relations and bytecode.hex
+        to `out_dir`. Raises TimeoutException if the timeout or the kernel stops a script, and
+        DecompilationException if a script exits with a non-zero status or no TAC_Def.csv exists.
+        Output on stderr alone is not an error.
         """
         fact_gen_time_start = time.time()
         for script in self.fact_generator_scripts:
@@ -936,11 +950,16 @@ class CustomFactGenerator(AbstractFactGenerator):
                 f"the custom fact generation scripts wrote no TAC_Def.csv to {out_dir}"
             )
         missing = missing_relation_files(out_dir)
+        if not os.path.exists(join(out_dir, "bytecode.hex")):
+            missing.append("bytecode.hex")
         if missing:
             log(
                 f"The custom fact generation scripts wrote no {', '.join(missing)} to {out_dir}. "
-                "The inliner and the clients that read these relations will fail."
+                "The inliner and the clients that read these files will fail."
             )
+        for fname in (*NON_TAC_CLIENT_INPUTS, *VULNERABILITY_FILES):
+            if not os.path.exists(join(out_dir, fname)):
+                open(join(out_dir, fname), "w").close()
         # The scripts take the place of the decompiler, as in ContractStitchingGenerator
         return 0.0, time.time() - fact_gen_time_start, FactGenUsedEnum.Custom
 

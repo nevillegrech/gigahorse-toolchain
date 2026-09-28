@@ -85,15 +85,15 @@ Example (individual contract):
 
 Contracts that take too long to analyse will be skipped after a configurable timeout.
 
-The decompilation results are placed in the directory `.temp`, whereas metadata about the execution, e.g., metrics are placed in a `results.json` file, as a list of entries in the form:
+The decompilation results are placed in the directory `.temp`, whereas metadata about the execution, for example metrics, are placed in a `results.json` file, as a list of entries in the form:
 
 ```[filename, properties, flags, analytics]```
 
-Here, `properties` is a list of the names of the non-empty output relations of the contract in filename:
+Here, `properties` lists the names of the non-empty output relations of the contract:
 those of the decompiler, the inliner and the client analyses.
 `flags` is a list indicating auxiliary or exceptional information. It may include
 `"ERROR"` and `"TIMEOUT"`, which are self-explanatory, and `"CLIENT ERROR"` and `"CLIENT TIMEOUT"` for the client analyses.
-`analytics` maps the names of the `Analytics_` and `Metric_` relations to their sizes, the names of the `Verbatim_` relations to their contents, and also holds the times and the bytecode size.
+`analytics` maps each `Analytics_` and `Metric_` relation to its size and each `Verbatim_` relation to its contents. It also holds the times and the bytecode size.
 
 `gigahorse.py --help` for invocation instructions.
 

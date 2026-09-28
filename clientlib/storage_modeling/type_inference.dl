@@ -245,8 +245,8 @@ UintVar(var):-
   ActualBinArithStmt(stmt),
   Statement_Defines(stmt, var, _).
 
-// Opcodes with a uint or a 32-byte hash result. Names, not instruction relations, thus no
-// new relation names for clients. No size opcodes: RETURNDATASIZE also pushes zero.
+// Opcodes that give a uint or a 32-byte hash, as names: a new instruction relation could clash
+// with a client relation. No size opcodes: RETURNDATASIZE also pushes zero.
 .decl TypeInference_UintValuedOpcode(op: Opcode)
 TypeInference_UintValuedOpcode("GAS").
 TypeInference_UintValuedOpcode("CALLVALUE").
