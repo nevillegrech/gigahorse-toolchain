@@ -804,6 +804,8 @@ ConstWrittenToBytesOfStorVarProcessed(MISSING_VAR_PLACEHOLDER, "0x0", store, sto
 StorageVariableType(storVar, type):-
   StorageVariableInfo(storVar, loc, slot, byteLow, byteHigh),
   widthBytes = 1 + byteHigh - byteLow,
+  // Full-word variables get their type from the rules below
+  widthBytes < 32,
   !StorageVariable_Type(loc, $TightlyPackedVariable($Constant(slot), byteLow, byteHigh), _),
   type = cat("uint", to_string(widthBytes * 8)).
 
