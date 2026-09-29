@@ -453,7 +453,10 @@ def write_results(res_list: Any, results_file: str) -> None:
     vulnerability_counts: defaultdict[str, int] = defaultdict(int)
     analytics_sums: defaultdict[str, int] = defaultdict(int)
     meta_counts: defaultdict[str, int] = defaultdict(int)
-    for _, _, meta, analytics in res_list:
+    all_files = set()
+    for _, files, meta, analytics in res_list:
+        for f in files:
+            all_files.add(f)
         for m in meta:
             meta_counts[m] += 1
         for k, a in analytics.items():
@@ -461,6 +464,8 @@ def write_results(res_list: Any, results_file: str) -> None:
                 vulnerability_counts[k] += 1
             if isinstance(a, int):
                 analytics_sums[k] += a
+            if k in all_files:
+                all_files.remove(k)
 
     analytics_sums_sorted = sorted(analytics_sums.items(), key=lambda a: a[0])
     if analytics_sums_sorted:
