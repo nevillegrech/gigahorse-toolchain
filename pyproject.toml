@@ -68,7 +68,7 @@ package = false
 [tool.pytest.ini_options]
 minversion = "8.0"
 addopts = "-ra"
-testpaths = ["test_gigahorse.py"]
+testpaths = ["test_*.py"]
 
 [tool.mypy]
 python_version = "3.13"

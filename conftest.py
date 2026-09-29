@@ -6,17 +6,12 @@ from pathlib import Path
 import pytest
 from filelock import FileLock
 
+from src.runners import AnalysisExecutor
+
 GIGAHORSE_TOOLCHAIN_ROOT = dirname(abspath(__file__))
 
 
-def pytest_sessionstart(session):
-    print(
-        "\n[gigahorse] Running analysis binary compilation before tests begin...\n",
-        file=sys.stderr,
-    )
-
-
-@pytest.fixture(scope="session", autouse=True)
+@pytest.fixture(scope="session")
 def gigahorse_prereqs(tmp_path_factory, worker_id):
     """Compiles core .dl files exactly once, shared across all workers."""
 
@@ -27,7 +22,7 @@ def gigahorse_prereqs(tmp_path_factory, worker_id):
         ]
         result = subprocess.run(
             [
-                "python3",
+                sys.executable,
                 join(GIGAHORSE_TOOLCHAIN_ROOT, "gigahorse.py"),
                 join(GIGAHORSE_TOOLCHAIN_ROOT, "examples/long_running.hex"),
                 "--restart",
@@ -35,6 +30,8 @@ def gigahorse_prereqs(tmp_path_factory, worker_id):
                 "1",
                 "--working_dir",
                 str(working_dir),
+                "--results_file",
+                str(working_dir / "results.json"),
                 "--disable_scalable_fallback",
                 *common_clients,
             ],
@@ -59,3 +56,30 @@ def gigahorse_prereqs(tmp_path_factory, worker_id):
                 done_path.write_text("done")
 
     yield
+
+
+@pytest.fixture
+def make_script(tmp_path):
+    """Writes an executable /bin/sh script into tmp_path and returns its path."""
+
+    def _make_script(name: str, body: str) -> str:
+        path = tmp_path / name
+        path.write_text("#!/bin/sh\n" + body)
+        path.chmod(0o755)
+        return str(path)
+
+    return _make_script
+
+
+@pytest.fixture
+def analysis_executor(tmp_path):
+    """An AnalysisExecutor with a 1 s timeout. The stub clients need no Souffle."""
+    return AnalysisExecutor(
+        timeout=1,
+        interpreted=False,
+        minimum_client_time=1,
+        debug=False,
+        souffle_bin="souffle",
+        cache_dir=str(tmp_path),
+        souffle_macros="",
+    )
