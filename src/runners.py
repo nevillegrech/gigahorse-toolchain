@@ -307,7 +307,9 @@ class FactGenSelectionEnum(str, Enum):
 
 class FactGenUsedEnum(str, Enum):
     DefaultDecomp = "DefaultDecomp"
-    ScalableDecomo = "ScalableDecomp"
+    ScalableDecomp = "ScalableDecomp"
+    # The old name, with a typo. It stays as an alias, because code outside this repo can use it.
+    ScalableDecomo = "ScalableDecomp"  # noqa: PIE796
     LastResortDecomp = "LastResortDecomp"
     MultiContract = "MultiContract"
     Custom = "Custom"
@@ -591,7 +593,7 @@ class DecompilerFactGenerator(AbstractFactGenerator):
                     else:
                         raise TimeoutException()
                 elif not sca_timeouts and self.decomp_out_produced(out_dir):
-                    config = FactGenUsedEnum.ScalableDecomo
+                    config = FactGenUsedEnum.ScalableDecomp
                 else:
                     raise TimeoutException()
 

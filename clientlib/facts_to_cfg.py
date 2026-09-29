@@ -96,19 +96,16 @@ def construct_cfg() -> tuple[dict[str, Block], dict[str, Function]]:
     # Construct blocks
     blocks: dict[str, Block] = {}
     for block_id in chain(*tac_function_blocks.values()):
-        try:
-            statements = [
-                Statement(
-                    s_id,
-                    tac_op[s_id],
-                    [var for var, _ in sorted(tac_uses[s_id], key=lambda x: x[1])],
-                    [var for var, _ in sorted(tac_defs[s_id], key=lambda x: x[1])],
-                )
-                for s_id in sorted(tac_block_stmts[block_id], key=stmt_sort_key)
-            ]
-            blocks[block_id] = Block(block_id, statements)
-        except Exception:
-            __import__("pdb").set_trace()
+        statements = [
+            Statement(
+                s_id,
+                tac_op[s_id],
+                [var for var, _ in sorted(tac_uses[s_id], key=lambda x: x[1])],
+                [var for var, _ in sorted(tac_defs[s_id], key=lambda x: x[1])],
+            )
+            for s_id in sorted(tac_block_stmts[block_id], key=stmt_sort_key)
+        ]
+        blocks[block_id] = Block(block_id, statements)
 
     # Link blocks together
     for block in blocks.values():

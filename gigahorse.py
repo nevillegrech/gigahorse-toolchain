@@ -115,14 +115,14 @@ parser.add_argument(
     "--working_dir",
     default=TEMP_WORKING_DIR,
     metavar="DIR",
-    help=f"The location to were temporary files are placed (default: {TEMP_WORKING_DIR}).",
+    help=f"The location of temporary files (default: {TEMP_WORKING_DIR}).",
 )
 
 parser.add_argument(
     "--cache_dir",
     default=DEFAULT_CACHE_DIR,
     metavar="DIR",
-    help=f"The location to were temporary files are placed (default: {DEFAULT_CACHE_DIR}).",
+    help=f"The location of compiled datalog programs (default: {DEFAULT_CACHE_DIR}).",
 )
 
 
