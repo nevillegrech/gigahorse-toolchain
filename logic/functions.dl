@@ -1214,28 +1214,45 @@ NumberOfFunctionReturnArguments(func, n) :-
     FunctionalBlockOutLocalStackContents(block, outIndex, variable),
     CheckIsVariable(variable).
 
-//   // TODO, check case for function call
-//   FunctionalStatement_Uses_Local(stmt, varOrStackIndex, n) :-
-//     IRFunctionCall(block, func),
-//     IRBasicBlock_Tail(block, stmt),
-//     IRStatement_Opcode(stmt, opcode),
-//     OpcodePopWords(opcode, m),
-//   //// REVIEW
-//   //  PossibleNumberOfFunctionArguments(func, n_in),
-//     NumberOfFunctionArguments(func, n_in),
-//     IsStackIndexLessThan(n, m+n_in),
-//     IRBeforeLocalStackContents(stmt, n, varOrStackIndex).
+  .decl PHIStmtAndVariable(defBlock: IRBlock, defIndex: StackIndex, phiStmt: IRStatement, phiVar: Variable)
+  .decl PostFunctionalBlockInputContents(block: IRBlock, index: StackIndex, var: Variable)
+  .decl PostFunctionalBlockOutputContents(block: IRBlock, index: StackIndex, var: Variable)
 
-//   // TODO, check case for function return
-//   FunctionalStatement_Uses_Local(stmt, varOrStackIndex, n) :-
-//   //// REVIEW
-//     NumberOfFunctionReturnArguments(func, n_out),
-//     IRFunction_Return(func, retBlock),
-//     IRBasicBlock_Tail(retBlock, stmt),
-//     IRStatement_Opcode(stmt, opcode),
-//     OpcodePopWords(opcode, m),
-//     IsStackIndexLessThan(n, m+n_out),
-//     IRBeforeLocalStackContents(stmt, n, varOrStackIndex).
+  .output PHIStmtAndVariable, PostFunctionalBlockInputContents, PostFunctionalBlockOutputContents
+
+  FunctionalStatement_Defines(cat(cat(defBlock, "_"), @number_to_hex(phiIndex)), phiVar, 0),
+  Variable_String(phiVar, cat(cat(defBlock, "_"), @number_to_hex(phiIndex))),
+  PHIStmtAndVariable(defBlock, phiIndex, cat(cat(defBlock, "_"), @number_to_hex(phiIndex)), phiVar):-
+    PHIVarIntroductionPointUnfiltered(_, _, defBlock, phiIndex),
+    FRESH_VARIABLE(phiVar, as(defBlock, IRStatement), phiIndex).
+
+  PostFunctionalBlockInputContents(entry, n, var) :-
+    IRFunctionEntry(entry),
+    IRInFunction(entry, func),
+    FunctionArgument(func, n, var).
+
+  PostFunctionalBlockInputContents(next, index, variable) :-
+    PostFunctionalBlockOutputContents(from, index, variable),
+    LocalBlockEdge(from, next),
+    !PHIVarIntroductionPointUnfiltered(_, _, next, index).
+
+  PostFunctionalBlockInputContents(defBlock, phiIndex, phiVar) :-
+    PHIStmtAndVariable(defBlock, phiIndex, _, phiVar).
+
+  PostFunctionalBlockOutputContents(block, outIndex, variable):-
+    PostFunctionalBlockInputContents(block, inIndex, variable),
+    FunctionalBlockOutLocalStackContents(block, outIndex, inIndex).
+
+  PostFunctionalBlockOutputContents(block, outIndex, as(variable, Variable)):-
+    FunctionalBlockOutLocalStackContents(block, outIndex, variable),
+    CheckIsVariable(variable).
+
+  .decl PolymorphicIndexRemains(block: IRBlock, index: StackIndex)
+  .output PolymorphicIndexRemains
+  PolymorphicIndexRemains(block, index):-
+    PostFunctionalBlockInputContents(block, index, var1),
+    PostFunctionalBlockInputContents(block, index, var2),
+    var1 != var2.
 
   DEBUG_OUTPUT(FunctionalStatement_Uses_Local)
   DEBUG_OUTPUT(IRBeforeLocalStackContents)
@@ -1380,8 +1397,25 @@ NumberOfFunctionReturnArguments(func, n) :-
     PolymorphicFunctionalOutputIndex_VarOrdSum(prevBlock, tmpIndex, varSum),
     FunctionalBlockOutLocalStackContents(prevBlock, tmpIndex, prevIndex),
     PolymorphicFunctionalInputIndex_VarNum(prevBlock, prevIndex, varNum),
-    PolymorphicFunctionalInputIndex_VarOrdSum(prevBlock, prevIndex, varSum),
-    !Dominates(tmpBlock, prevBlock).
+    PolymorphicFunctionalInputIndex_VarOrdSum(prevBlock, prevIndex, varSum).
+    // !Dominates(tmpBlock, prevBlock).
+
+  .decl PHIVarUsedInBlockStopsPropagatingAt(block: IRBlock, stackIndex: StackIndex, stopBlock: IRBlock, stopIndex: StackIndex)
+  DEBUG_OUTPUT(PHIVarUsedInBlockStopsPropagatingAt)
+
+  PHIVarUsedInBlockStopsPropagatingAt(block, stackIndex, stopBlock, stopIndex):-
+    PHIVarUsedInBlockFullyBackpropagatesTo(block, stackIndex, stopBlock, stopIndex),
+    LocalBlockEdge(prevBlock, stopBlock),
+    !PolymorphicFunctionalOutputIndex(prevBlock, stopIndex).
+
+  PHIVarUsedInBlock(prevBlock, stopIndex),
+  PHIVarUsedInBlockStopsPropagatingAt(block, stackIndex, stopBlock, stopIndex):-
+    PHIVarUsedInBlockFullyBackpropagatesTo(block, stackIndex, stopBlock, stopIndex),
+    PolymorphicFunctionalInputIndex_VarNum(stopBlock, stopIndex, varNum),
+    LocalBlockEdge(prevBlock, stopBlock),
+    PolymorphicFunctionalOutputIndex_VarNum(prevBlock, stopIndex, otherVarNum),
+    varNum != otherVarNum.
+
 
   /**
     Version of the previous predicate that tracks all individual variables
@@ -1405,16 +1439,18 @@ NumberOfFunctionReturnArguments(func, n) :-
   .decl PHIVarIntroductionPoint(irblock: IRBlock, stackIndex: StackIndex, defBlock: IRBlock, defBlockIndex: StackIndex)
   .output PHIVarIntroductionPoint
 
-  .decl PHIVarIntroductionPointUnfiltered(irblock: IRBlock, stackIndex: StackIndex, defBlock: IRBlock, defBlockIndex: StackIndex) btree_delete
+  .decl PHIVarIntroductionPointUnfiltered(irblock: IRBlock, stackIndex: StackIndex, defBlock: IRBlock, defBlockIndex: StackIndex) // btree_delete
   .output PHIVarIntroductionPointUnfiltered
+
+  .decl PHIVar_Pred(irblock: IRBlock, stackIndex: StackIndex, prev: IRBlock, var: Variable)
 
   .decl PlacementFellBack(irblock: IRBlock, stackIndex: StackIndex)
 
   // subsumptive rule: remove post dominated inferences for the same (irblock, stackIndex) pair
   // Is limited by PostDominates. See rel definition.
-  PHIVarIntroductionPointUnfiltered(irblock, stackIndex, otherBlock, otherIndex) <= PHIVarIntroductionPointUnfiltered(irblock, stackIndex, defBlock, defBlockIndex):-
-    // Dominates(defBlock, otherBlock).
-    PostDominates(defBlock, otherBlock).
+//   PHIVarIntroductionPointUnfiltered(irblock, stackIndex, otherBlock, otherIndex) <= PHIVarIntroductionPointUnfiltered(irblock, stackIndex, defBlock, defBlockIndex):-
+//     // Dominates(defBlock, otherBlock).
+//     PostDominates(defBlock, otherBlock).
 
   // main rule: add introduction point when a (non-dominated) previous block does not include
   PHIVarIntroductionPointUnfiltered(irblock, stackIndex, defBlock, defBlockIndex):-
@@ -1423,6 +1459,11 @@ NumberOfFunctionReturnArguments(func, n) :-
     !Dominates(defBlock, prevBlock),
     !ContractHasIRQualityIssue(),
     !PHIVarUsedInBlockFullyBackpropagatesTo(irblock, stackIndex, prevBlock, _).
+
+  PHIVar_Pred(defBlock, defBlockIndex, prevBlock, var):-
+    PHIVarIntroductionPointUnfiltered(_, _, defBlock, defBlockIndex),
+    LocalBlockEdge(prevBlock, defBlock),
+    PostFunctionalBlockOutputContents(prevBlock, defBlockIndex, var).
 
 //   PHIVarIntroductionPoint(irblock, stackIndex, defBlock, defBlockIndex):-
 //     PHIVarUsedInBlockFullyBackpropagatesTo(irblock, stackIndex, defBlock, defBlockIndex),

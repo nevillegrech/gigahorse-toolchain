@@ -31,8 +31,8 @@ FunctionalBlock_Uses_Local(block, as(stackIndex, StackIndex)) :-
 .decl PolymorphicStackIndex(block: IRBlock, stackIndex: StackIndex)
 PolymorphicStackIndex(block, stackIndex) :-
   FunctionalBlock_Uses_Local(block, stackIndex),
-  lastFunctional.FunctionalBlockInputContents(block, stackIndex, var1),
-  lastFunctional.FunctionalBlockInputContents(block, stackIndex, var2),
+  lastFunctional.PostFunctionalBlockInputContents(block, stackIndex, var1),
+  lastFunctional.PostFunctionalBlockInputContents(block, stackIndex, var2),
   var1 != var2.
 
 /**
@@ -46,6 +46,9 @@ PHILocation(defBlock, defBlockIndex, cat(cat(defBlock, "_"), defBlockIndexHex)) 
    PolymorphicStackIndex(block, stackIndex),
    lastFunctional.PHIVarIntroductionPoint(block, stackIndex, defBlock, defBlockIndex),
    defBlockIndexHex = @number_to_hex(defBlockIndex).
+
+PHILocation(defBlock, defIndex, phiStmt) :-
+   lastFunctional.PHIStmtAndVariable(defBlock, defIndex, phiStmt, phiVar).
 
 
 // Final decompiler outputs
@@ -205,12 +208,12 @@ TAC_Use(stmt, as(var_rep, TACVariable), n) :-
 TAC_Use(stmt, as(var_rep, TACVariable), n) :-
   lastFunctional.FunctionalStatement_Uses_Local(stmt, stackIndex, n),
   CheckIsStackIndex(stackIndex),
-  IRStatement_Block(stmt, block),
+  TAC_Block(stmt, block),
   IRInFunction(block, fun),
   !PolymorphicStackIndex(block, stackIndex),
-  lastFunctional.FunctionalBlockInputContents(block, stackIndex, var),
+  lastFunctional.PostFunctionalBlockInputContents(block, stackIndex, var),
   lastFunctional.FunctionalStatement_Defines(defstmt, var, _),
-  IRStatement_Block(defstmt, defBlock),
+  TAC_Block(defstmt, defBlock),
   IRInFunction(defBlock, fun),
   lastFunctional.Variable_Block_String(var, defBlock, var_rep).
 
@@ -218,9 +221,9 @@ TAC_Use(stmt, as(var_rep, TACVariable), n) :-
 TAC_Use(stmt, as(var_rep, TACVariable), n) :-
   lastFunctional.FunctionalStatement_Uses_Local(stmt, stackIndex, n),
   CheckIsStackIndex(stackIndex),
-  IRStatement_Block(stmt, block),
+  TAC_Block(stmt, block),
   !PolymorphicStackIndex(block, stackIndex),
-  lastFunctional.FunctionalBlockInputContents(block, stackIndex, var),
+  lastFunctional.PostFunctionalBlockInputContents(block, stackIndex, var),
   lastFunctional.FunctionArgument(_, _, var),
   lastFunctional.Variable_String(var, var_rep).
 
@@ -228,17 +231,36 @@ TAC_Use(stmt, as(var_rep, TACVariable), n) :-
 // Case 3: Is a PHI statement
 TAC_Use(phiStmt, as(var_rep, TACVariable), -1) :-
   PHILocation(block, stackIndex, phiStmt),
-  lastFunctional.FunctionalBlockInputContents(block, stackIndex, var),
+  !lastFunctional.PHIVar_Pred(block, stackIndex, _, _),
+  lastFunctional.PostFunctionalBlockInputContents(block, stackIndex, var),
   IRInFunction(block, fun),
   lastFunctional.FunctionalStatement_Defines(defstmt, var, _),
-  IRStatement_Block(defstmt, defBlock),
+  TAC_Block(defstmt, defBlock),
   IRInFunction(defBlock, fun),
   lastFunctional.Variable_Block_String(var, defBlock, var_rep).
 
 // Case 3.1: Phis using args
 TAC_Use(phiStmt, as(var_rep, TACVariable), -1) :-
   PHILocation(block, stackIndex, phiStmt),
-  lastFunctional.FunctionalBlockInputContents(block, stackIndex, var),
+  !lastFunctional.PHIVar_Pred(block, stackIndex, _, _),
+  lastFunctional.PostFunctionalBlockInputContents(block, stackIndex, var),
+  lastFunctional.FunctionArgument(_, _, var),
+  lastFunctional.Variable_String(var, var_rep).
+
+// PHIS using the new relations
+TAC_Use(phiStmt, as(var_rep, TACVariable), -1) :-
+  PHILocation(block, stackIndex, phiStmt),
+  lastFunctional.PHIVar_Pred(block, stackIndex, _, var),
+  IRInFunction(block, fun),
+  lastFunctional.FunctionalStatement_Defines(defstmt, var, _),
+  TAC_Block(defstmt, defBlock),
+  IRInFunction(defBlock, fun),
+  lastFunctional.Variable_Block_String(var, defBlock, var_rep).
+
+// Case 3.1: Phis using args
+TAC_Use(phiStmt, as(var_rep, TACVariable), -1) :-
+  PHILocation(block, stackIndex, phiStmt),
+  lastFunctional.PHIVar_Pred(block, stackIndex, _, var),
   lastFunctional.FunctionArgument(_, _, var),
   lastFunctional.Variable_String(var, var_rep).
 
@@ -247,7 +269,7 @@ TAC_Use(phiStmt, as(var_rep, TACVariable), -1) :-
 TAC_Use(stmt, as(phiStmt, TACVariable), n) :-
   lastFunctional.FunctionalStatement_Uses_Local(stmt, stackIndex, n),
   CheckIsStackIndex(stackIndex),
-  IRStatement_Block(stmt, block),
+  TAC_Block(stmt, block),
   PolymorphicStackIndex(block, stackIndex),
   lastFunctional.PHIVarIntroductionPoint(block, stackIndex, defBlock, defBlockIndex),
   PHILocation(defBlock, defBlockIndex, phiStmt).
