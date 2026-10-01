@@ -1408,13 +1408,14 @@ NumberOfFunctionReturnArguments(func, n) :-
     LocalBlockEdge(prevBlock, stopBlock),
     !PolymorphicFunctionalOutputIndex(prevBlock, stopIndex).
 
-  PHIVarUsedInBlock(prevBlock, stopIndex),
+  PHIVarUsedInBlock(prevBlock, as(prevIndex, StackIndex)),
   PHIVarUsedInBlockStopsPropagatingAt(block, stackIndex, stopBlock, stopIndex):-
     PHIVarUsedInBlockFullyBackpropagatesTo(block, stackIndex, stopBlock, stopIndex),
     PolymorphicFunctionalInputIndex_VarNum(stopBlock, stopIndex, varNum),
     LocalBlockEdge(prevBlock, stopBlock),
     PolymorphicFunctionalOutputIndex_VarNum(prevBlock, stopIndex, otherVarNum),
-    varNum != otherVarNum.
+    varNum != otherVarNum,
+    FunctionalBlockOutLocalStackContents(prevBlock, stopIndex, prevIndex).
 
 
   /**
