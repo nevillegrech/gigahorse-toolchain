@@ -274,6 +274,29 @@ insertor.insertOps(codeCopy,
 ) :-
   preTrans.CODECOPYSmallConstNoLoad(codeCopy, const).
 
+
+// We must synthesize a new function Entry for a proper SSA transformation
+// This can be incomplete as functions can appear without `PrivateFunctionCall` facts
+// We associate it with the function later on, breaking an invariant we kept since the original version:
+// That the function entry is the function ID.
+insertor.insertOps(as(functionStart, Statement),
+  LIST(
+    STMT(JUMPDEST, MAKE_LABEL_REFERENCE(as(functionStart, Statement))),
+    STMT(PUSH4, as(functionStart, symbol)),
+    STMT(JUMP, "")
+  )
+) :-
+  preTrans.PrivateFunctionCall(_, functionStart, _, _).
+
+.decl SynthesizedFunctionEntry(oldEntry: Block, newEntry: Block)
+SynthesizedFunctionEntry(oldEntry, newEntry):-
+   insertor.MetaData(stmt, meta),
+   postTrans.JUMPDEST(stmt),
+   postTrans.Statement_Block(stmt, newEntry),
+   preTrans.PrivateFunctionCall(_, oldEntry, _, _),
+   ISLABEL(meta), oldEntry = GET_LABEL_REFERENCE(meta).
+
+
 .init postTrans = PostTransLocalAnalysis
 
 // For Solidity, Vyper

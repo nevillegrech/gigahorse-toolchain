@@ -407,10 +407,13 @@ PublicFunctionFiltered(func, sigHash):-
 
 /// Let's try something dead simple for assigning blocks to functions.
 
-.decl IsFunctionEntry(entry:Block)
+.decl IsFunctionEntry(entry: Block)
 IsFunctionEntry(block) :- PublicFunctionFiltered(block, _).
 IsFunctionEntry("0x0").
-IsFunctionEntry(func) :- IsFunctionCallReturn(_, _, func, _, _, _).
+IsFunctionEntry(entry) :- IsPrivateFunctionEntry(entry).
+
+.decl IsPrivateFunctionEntry(entry: Block)
+IsPrivateFunctionEntry(entry):-  IsFunctionCallReturn(_, _, entry, _, _, _).
 
 .decl IsFunctionCall(block:Block, func:Block)
 
@@ -536,10 +539,29 @@ StackBalancingBlockJumpImprecision(block, func):-
 // Let's first settle what belongs in which function,
 // i.e., the nodes of our graph. Clone blocks as needed.
 
-Function_IRFunction(funcentry, irEntry),
+Block_IRBlock(newEntry, oldEntry, irEntry),
+IRInFunction(irEntry, irFunction),
+Function_IRFunction(oldEntry, irFunction),
 IRFunctionEntry(irEntry) :-
-  IsFunctionEntry(funcentry),
-  irEntry = FUNCTION_TO_IRFUNCTION(funcentry).
+  IsPrivateFunctionEntry(oldEntry),
+  SynthesizedFunctionEntry(oldEntry, newEntry),
+  irEntry = BLOCK_TO_IRBLOCK(newEntry),
+  irFunction = FUNCTION_TO_IRFUNCTION(oldEntry).
+
+IRInFunction(irEntry, irFunction),
+Function_IRFunction(entry, irFunction),
+IRFunctionEntry(irEntry) :-
+  IsPrivateFunctionEntry(entry),
+  !SynthesizedFunctionEntry(entry, _),
+  irEntry = BLOCK_TO_IRBLOCK(entry),
+  irFunction = FUNCTION_TO_IRFUNCTION(entry).
+
+IRInFunction(irEntry, irFunction),
+Function_IRFunction(entry, irFunction),
+IRFunctionEntry(irEntry) :-
+  PublicFunctionFiltered(entry, _),
+  irEntry = BLOCK_TO_IRBLOCK(entry),
+  irFunction = FUNCTION_TO_IRFUNCTION(entry).
 
 // Be loose in our demands for accepting a block as being in the same
 // function.
@@ -679,6 +701,9 @@ ReachableFromFunHead(irblk):-
   Block_IRBlock(func, func, irfunHead),
   IRBlockPath(irfunHead, irblk).
 
+ReachableFromFunHead(irEntry):-
+  IRFunctionEntry(irEntry).
+
 .decl InvalidIRBlockEdge(from: IRBlock, to: IRBlock)
 
 InvalidIRBlockEdge(irfrom, irto):-
@@ -697,6 +722,10 @@ LocalBlockEdge(irfrom, irto) :-
 LocalBlockEdge(block, next) :-
   IRFunctionCallReturn(block, _, next),
   ReachableFromFunHead(block).
+
+LocalBlockEdge(irEntry, as(irFunction, IRBlock)):-
+  IRFunctionEntry(irEntry),
+  IRInFunction(irEntry, irFunction).
 
 /**
   DOMINATES-POSTDOMINATES
@@ -996,9 +1025,10 @@ FunctionalBlockPopAndStackDelta(from, popDelta, stackDelta) :-
   FunctionalBlockStackDelta(from, stackDelta).
 .plan 1:(2,1)
 
-PossibleFunctionalBlockPopAndStackDelta(from, from, initPath, 0, 0) :-
-   IRFunctionEntry(from),
-   initPath = as(@add_set(@empty_set(), from), Path).
+PossibleFunctionalBlockPopAndStackDelta(func, entry, initPath, 0, 0) :-
+   IRFunctionEntry(entry),
+   IRInFunction(entry, func),
+   initPath = as(@add_set(@empty_set(), entry), Path).
 
 .decl PotentialCycleEntry(block: IRBlock)
 
@@ -1101,17 +1131,20 @@ PossibleNumberOfFunctionReturnArguments(func, n) :-
 // long as we are taking the max.
 PossibleNumberOfFunctionArguments(func, 0),
 PossibleNumberOfFunctionReturnArguments(func, 0) :-
-  IRFunctionEntry(func).
+  IRInFunction(_, func).
+//   IRFunctionEntry(func).
 
 NumberOfFunctionArguments("0x0", 0).
 
 NumberOfFunctionArguments(func, n) :-
-  IRFunctionEntry(func),
+//   IRFunctionEntry(func),
+  IRInFunction(_, func),
   func != "0x0",
   n = max m : PossibleNumberOfFunctionArguments(func, m).
 
 NumberOfFunctionReturnArguments(func, n) :-
-  IRFunctionEntry(func),
+//   IRFunctionEntry(func),
+  IRInFunction(_, func),
   n = max m : PossibleNumberOfFunctionReturnArguments(func, m).
 
 
@@ -1214,22 +1247,26 @@ NumberOfFunctionReturnArguments(func, n) :-
     FunctionalBlockOutLocalStackContents(block, outIndex, variable),
     CheckIsVariable(variable).
 
-  .decl PHIStmtAndVariable(defBlock: IRBlock, defIndex: StackIndex, phiStmt: IRStatement, phiVar: Variable)
+  .decl PHIStmtAndVariable(defBlock: IRBlock, defIndex: StackIndex, phiStmt: IRStatement, phiVarId: symbol, phiVar: Variable)
   .decl PostFunctionalBlockInputContents(block: IRBlock, index: StackIndex, var: Variable)
   .decl PostFunctionalBlockOutputContents(block: IRBlock, index: StackIndex, var: Variable)
 
   .output PHIStmtAndVariable, PostFunctionalBlockInputContents, PostFunctionalBlockOutputContents
 
-  FunctionalStatement_Defines(cat(cat(defBlock, "_"), @number_to_hex(phiIndex)), phiVar, 0),
-  Variable_String(phiVar, cat(cat(defBlock, "_"), @number_to_hex(phiIndex))),
-  PHIStmtAndVariable(defBlock, phiIndex, cat(cat(defBlock, "_"), @number_to_hex(phiIndex)), phiVar):-
+  FunctionalStatement_Defines(stmt_id, phiVar, 0),
+  Variable_String(phiVar, var_id),
+  PHIStmtAndVariable(defBlock, phiIndex, stmt_id, var_id, phiVar):-
     PHIVarIntroductionPointUnfiltered(_, _, defBlock, phiIndex),
+    Statement_IRStatement(defStmtBefore, _ ,as(defBlock, IRStatement)),
+    var_id = cat(cat(defStmtBefore, "_"), @number_to_hex(phiIndex)),
+    stmt_id = cat(cat(defBlock, "_"), @number_to_hex(phiIndex)),
     FRESH_VARIABLE(phiVar, as(defBlock, IRStatement), phiIndex).
 
   PostFunctionalBlockInputContents(entry, n, var) :-
     IRFunctionEntry(entry),
     IRInFunction(entry, func),
-    FunctionArgument(func, n, var).
+    FunctionArgument(func, n, var),
+    !PHIVarIntroductionPointUnfiltered(_, _, entry, n).
 
   PostFunctionalBlockInputContents(next, index, variable) :-
     PostFunctionalBlockOutputContents(from, index, variable),
@@ -1237,7 +1274,7 @@ NumberOfFunctionReturnArguments(func, n) :-
     !PHIVarIntroductionPointUnfiltered(_, _, next, index).
 
   PostFunctionalBlockInputContents(defBlock, phiIndex, phiVar) :-
-    PHIStmtAndVariable(defBlock, phiIndex, _, phiVar).
+    PHIStmtAndVariable(defBlock, phiIndex, _, _, phiVar).
 
   PostFunctionalBlockOutputContents(block, outIndex, variable):-
     PostFunctionalBlockInputContents(block, inIndex, variable),
@@ -1758,14 +1795,14 @@ HighLevelFunctionName(func, name) :-
    !PublicFunctionSignature(name, _).
 
 HighLevelFunctionName(irFunc, irFunc) :-
-   IRFunctionEntry(irFunc),
+//    IRFunctionEntry(irFunc),
    Function_IRFunction(func, irFunc),
    irFunc != "0x0",
    !HighLevelFunctionInfo(_, func, _, _),
    !IRPublicFunction(irFunc, _).
 
 HighLevelFunctionName(irFunc, id) :-
-   IRFunctionEntry(irFunc),
+//    IRFunctionEntry(irFunc),
    func != "0x0",
    Function_IRFunction(func, irFunc),
    HighLevelFunctionInfo(id, func, _, _),

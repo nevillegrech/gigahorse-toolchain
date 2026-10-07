@@ -48,7 +48,7 @@ PHILocation(defBlock, defBlockIndex, cat(cat(defBlock, "_"), defBlockIndexHex)) 
    defBlockIndexHex = @number_to_hex(defBlockIndex).
 
 PHILocation(defBlock, defIndex, phiStmt) :-
-   lastFunctional.PHIStmtAndVariable(defBlock, defIndex, phiStmt, phiVar).
+   lastFunctional.PHIStmtAndVariable(defBlock, defIndex, phiStmt, _, phiVar).
 
 
 // Final decompiler outputs
@@ -183,11 +183,13 @@ TAC_Op(irstmt, "THROW") :-
    lastLocal.INVALID(stmt).
 
 // Phi instructions
-TAC_Def(stmt, var, 0),
+TAC_Def(stmt, as(var_rep, TACVariable), 0),
 TAC_Stmt(stmt),
 TAC_Op(stmt, "PHI") :-
    PHILocation(_, _, stmt),
-   var = as(stmt, TACVariable).
+   lastFunctional.FunctionalStatement_Defines(stmt, var, _),
+   TAC_Block(stmt, block),
+   lastFunctional.Variable_Block_String(var, block, var_rep).
 
 // Non-phi, non-call variable id same as stmt it is defined in
 TAC_Def(stmt, tac_var, n) :-
@@ -213,9 +215,24 @@ TAC_Use(stmt, as(var_rep, TACVariable), n) :-
   !PolymorphicStackIndex(block, stackIndex),
   lastFunctional.PostFunctionalBlockInputContents(block, stackIndex, var),
   lastFunctional.FunctionalStatement_Defines(defstmt, var, _),
+//   !lastFunctional.PHIStmtAndVariable(_, _, defstmt, var),
   TAC_Block(defstmt, defBlock),
   IRInFunction(defBlock, fun),
   lastFunctional.Variable_Block_String(var, defBlock, var_rep).
+
+// // case 2.0.1
+// TAC_Use(stmt, as(var_rep, TACVariable), n) :-
+//   lastFunctional.FunctionalStatement_Uses_Local(stmt, stackIndex, n),
+//   CheckIsStackIndex(stackIndex),
+//   TAC_Block(stmt, block),
+//   IRInFunction(block, fun),
+//   !PolymorphicStackIndex(block, stackIndex),
+//   lastFunctional.PostFunctionalBlockInputContents(block, stackIndex, var),
+//   lastFunctional.FunctionalStatement_Defines(defstmt, var, _),
+//   lastFunctional.PHIStmtAndVariable(defBlock, _, defstmt, var),
+//   TAC_Block(defstmt, defBlock),
+//   IRInFunction(defBlock, fun),
+//   lastFunctional.Variable_String(var, var_rep).
 
 //Case 2.1: Uses arg(like the above case, but not defined)
 TAC_Use(stmt, as(var_rep, TACVariable), n) :-
