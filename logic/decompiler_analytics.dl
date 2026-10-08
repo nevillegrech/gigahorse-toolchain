@@ -497,6 +497,14 @@ Analytics_MultiplePHIStatements(irblock, stackIndex):-
   lastFunctional.PHIVarUsedInBlock(irblock, stackIndex),
   x = count: lastFunctional.PHIVarIntroductionPoint(irblock, stackIndex, _, _), x > 1.
 
+.decl Analytics_PHIPredMissing(intrBlock: IRBlock, prev: IRBlock)
+.output Analytics_PHIPredMissing
+
+Analytics_PHIPredMissing(defBlock, prevBlock):-
+  lastFunctional.PHIVarIntroductionPointUnfiltered(_, _, defBlock, defBlockIndex),
+  LocalBlockEdge(prevBlock, defBlock),
+  !lastFunctional.PHIVar_Pred(defBlock, defBlockIndex, prevBlock, _).
+
 /**
   Mostly obscure metrics after this point.
   Some are things that don't really matter,
