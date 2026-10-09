@@ -725,7 +725,7 @@ LocalBlockEdge(block, next) :-
 
 LocalBlockEdge(irEntry, as(irFunction, IRBlock)):-
   IRFunctionEntry(irEntry),
-  IRInFunction(irEntry, irFunction).
+  IRInFunction(irEntry, irFunction), irEntry != irFunction.
 
 /**
   DOMINATES-POSTDOMINATES
@@ -1191,7 +1191,9 @@ NumberOfFunctionReturnArguments(func, n) :-
   //// REVIEW
   //  PossibleNumberOfFunctionArguments(func, n_args),
     FunctionArgumentIndices(func, n),
-    FRESH_VARIABLE(var, as(func, IRStatement), n). // TODO: use entry?
+    IRFunctionEntry(entry),
+    IRInFunction(entry, func),
+    FRESH_VARIABLE(var, as(entry, IRStatement), n).
 
   .decl FunctionArgumentIndices(func: IRFunction, n: StackIndex)
 
