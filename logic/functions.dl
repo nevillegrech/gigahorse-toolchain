@@ -559,7 +559,7 @@ IRFunctionEntry(irEntry) :-
 IRInFunction(irEntry, irFunction),
 Function_IRFunction(entry, irFunction),
 IRFunctionEntry(irEntry) :-
-  PublicFunctionFiltered(entry, _),
+  (PublicFunctionFiltered(entry, _); entry = "0x0"),
   irEntry = BLOCK_TO_IRBLOCK(entry),
   irFunction = FUNCTION_TO_IRFUNCTION(entry).
 
