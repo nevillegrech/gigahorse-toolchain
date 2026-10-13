@@ -281,6 +281,29 @@ TAC_Use(phiStmt, as(var_rep, TACVariable), -1) :-
   lastFunctional.FunctionArgument(_, _, var),
   lastFunctional.Variable_String(var, var_rep).
 
+/**
+  `var` is the operand of `phiStmt` flowing in from predecessor block `pred`.
+  Only populated when precise SSA recovery computed `PHIVar_Pred`; mirrors the
+  two `TAC_Use` rules above. Used by out-of-SSA translation (src/out_of_ssa.py).
+*/
+.decl TAC_PhiOperand(phiStmt: IRStatement, var: TACVariable, pred: IRBlock)
+.output TAC_PhiOperand
+
+TAC_PhiOperand(phiStmt, as(var_rep, TACVariable), pred) :-
+  PHILocation(block, stackIndex, phiStmt),
+  lastFunctional.PHIVar_Pred(block, stackIndex, pred, var),
+  IRInFunction(block, fun),
+  lastFunctional.FunctionalStatement_Defines(defstmt, var, _),
+  TAC_Block(defstmt, defBlock),
+  IRInFunction(defBlock, fun),
+  lastFunctional.Variable_Block_String(var, defBlock, var_rep).
+
+TAC_PhiOperand(phiStmt, as(var_rep, TACVariable), pred) :-
+  PHILocation(block, stackIndex, phiStmt),
+  lastFunctional.PHIVar_Pred(block, stackIndex, pred, var),
+  lastFunctional.FunctionArgument(_, _, var),
+  lastFunctional.Variable_String(var, var_rep).
+
 
 // Case 4: Uses polymorphic variable
 TAC_Use(stmt, as(phiStmt, TACVariable), n) :-
