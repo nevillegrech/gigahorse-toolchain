@@ -503,6 +503,7 @@ Analytics_MultiplePHIStatements(irblock, stackIndex):-
 Analytics_PHIPredMissing(defBlock, prevBlock):-
   lastFunctional.PHIVarIntroductionPointUnfiltered(_, _, defBlock, defBlockIndex),
   LocalBlockEdge(prevBlock, defBlock),
+  !ContractHasIRQualityIssue(),
   !lastFunctional.PHIVar_Pred(defBlock, defBlockIndex, prevBlock, _).
 
 .decl Analytics_PHIMultiplePreds(intrBlock: IRBlock, prev: IRBlock)
