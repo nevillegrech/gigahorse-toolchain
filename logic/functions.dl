@@ -1413,6 +1413,10 @@ NumberOfFunctionReturnArguments(func, n) :-
   .decl PHIVarUsedInBlock(block: IRBlock, stackIndex: StackIndex)
   DEBUG_OUTPUT(PHIVarUsedInBlock)
 
+  // only the phi vars discovered by the recursive analysis
+  .decl RecursivePHIVarUsedInBlock(block: IRBlock, stackIndex: StackIndex)
+  DEBUG_OUTPUT(RecursivePHIVarUsedInBlock)
+
   PHIVarUsedInBlock(irblock, stackIndex):-
     FunctionalStatement_Uses_Local(irstmt, stackIndex, _),
     CheckIsStackIndex(stackIndex),
@@ -1420,6 +1424,9 @@ NumberOfFunctionReturnArguments(func, n) :-
     FunctionalBlockInputContents(irblock, stackIndex, var1),
     FunctionalBlockInputContents(irblock, stackIndex, var2),
     var1 != var2.
+
+  PHIVarUsedInBlock(irblock, stackIndex):-
+    RecursivePHIVarUsedInBlock(irblock, stackIndex).
 
   .decl PHIVarUsedInBlockFullyBackpropagatesTo(block: IRBlock, stackIndex: StackIndex, prevBlock: IRBlock, prevIndex: StackIndex)
   DEBUG_OUTPUT(PHIVarUsedInBlockFullyBackpropagatesTo)
@@ -1447,7 +1454,7 @@ NumberOfFunctionReturnArguments(func, n) :-
     LocalBlockEdge(prevBlock, stopBlock),
     !PolymorphicFunctionalOutputIndex(prevBlock, stopIndex).
 
-  PHIVarUsedInBlock(prevBlock, as(prevIndex, StackIndex)),
+  RecursivePHIVarUsedInBlock(prevBlock, as(prevIndex, StackIndex)),
   PHIVarUsedInBlockStopsPropagatingAt(block, stackIndex, stopBlock, stopIndex):-
     PHIVarUsedInBlockFullyBackpropagatesTo(block, stackIndex, stopBlock, stopIndex),
     PolymorphicFunctionalInputIndex_VarNum(stopBlock, stopIndex, varNum),
@@ -1496,7 +1503,7 @@ NumberOfFunctionReturnArguments(func, n) :-
   PHIVarIntroductionPointUnfiltered(irblock, stackIndex, defBlock, defBlockIndex):-
     PHIVarUsedInBlockFullyBackpropagatesTo(irblock, stackIndex, defBlock, defBlockIndex),
     LocalBlockEdge(prevBlock, defBlock),
-    !Dominates(defBlock, prevBlock),
+    // !Dominates(defBlock, prevBlock),
     !ContractHasIRQualityIssue(),
     !PHIVarUsedInBlockFullyBackpropagatesTo(irblock, stackIndex, prevBlock, _).
 
@@ -1504,6 +1511,7 @@ NumberOfFunctionReturnArguments(func, n) :-
     PHIVarIntroductionPointUnfiltered(_, _, defBlock, defBlockIndex),
     LocalBlockEdge(prevBlock, defBlock),
     PostFunctionalBlockOutputContents(prevBlock, defBlockIndex, var).
+    // !PHIStmtAndVariable(defBlock, defBlockIndex, _, _, var).
 
 //   PHIVarIntroductionPoint(irblock, stackIndex, defBlock, defBlockIndex):-
 //     PHIVarUsedInBlockFullyBackpropagatesTo(irblock, stackIndex, defBlock, defBlockIndex),
