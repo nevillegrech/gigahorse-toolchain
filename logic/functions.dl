@@ -1454,6 +1454,9 @@ NumberOfFunctionReturnArguments(func, n) :-
     LocalBlockEdge(prevBlock, stopBlock),
     !PolymorphicFunctionalOutputIndex(prevBlock, stopIndex).
 
+  /**
+    Recursively introduce phi vars when more than 3 original vars are unified in multiple "stages".
+  */
   RecursivePHIVarUsedInBlock(prevBlock, as(prevIndex, StackIndex)),
   PHIVarUsedInBlockStopsPropagatingAt(block, stackIndex, stopBlock, stopIndex):-
     PHIVarUsedInBlockFullyBackpropagatesTo(block, stackIndex, stopBlock, stopIndex),
@@ -1510,7 +1513,8 @@ NumberOfFunctionReturnArguments(func, n) :-
   PHIVar_Pred(defBlock, defBlockIndex, prevBlock, var):-
     PHIVarIntroductionPointUnfiltered(_, _, defBlock, defBlockIndex),
     LocalBlockEdge(prevBlock, defBlock),
-    PostFunctionalBlockOutputContents(prevBlock, defBlockIndex, var).
+    PostFunctionalBlockOutputContents(prevBlock, defBlockIndex, var),
+    !ContractHasIRQualityIssue().
     // !PHIStmtAndVariable(defBlock, defBlockIndex, _, _, var).
 
 //   PHIVarIntroductionPoint(irblock, stackIndex, defBlock, defBlockIndex):-
