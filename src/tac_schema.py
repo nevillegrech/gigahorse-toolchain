@@ -162,6 +162,12 @@ original_statement_block = RelationDef("TAC_OriginalStatement_Block", (
     Column("block", ColKind.BLOCK_ID),
 ))
 
+tac_phi_operand = RelationDef("TAC_PhiOperand", (
+    Column("phi_stmt", ColKind.STMT_ID),
+    Column("var", ColKind.VAR_ID),
+    Column("pred", ColKind.BLOCK_ID),
+))
+
 # Blocks
 tac_block = RelationDef("TAC_Block", (
     Column("stmt", ColKind.STMT_ID),
@@ -491,7 +497,7 @@ class TACRelations:
         for rel_name, rows in self._data.items():
             path = out_dir / f"{rel_name}.csv"
             with open(path, "w", newline="") as f:
-                writer = csv.writer(f, delimiter="\t")
+                writer = csv.writer(f, delimiter="\t", lineterminator="\n")
                 for row in rows:
                     writer.writerow(row)
 
