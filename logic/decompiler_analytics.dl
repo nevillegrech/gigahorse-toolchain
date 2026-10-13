@@ -505,6 +505,15 @@ Analytics_PHIPredMissing(defBlock, prevBlock):-
   LocalBlockEdge(prevBlock, defBlock),
   !lastFunctional.PHIVar_Pred(defBlock, defBlockIndex, prevBlock, _).
 
+.decl Analytics_PHIMultiplePreds(intrBlock: IRBlock, prev: IRBlock)
+.output Analytics_PHIMultiplePreds
+
+Analytics_PHIMultiplePreds(defBlock, prevBlock):-
+  lastFunctional.PHIVarIntroductionPointUnfiltered(_, _, defBlock, defBlockIndex),
+  LocalBlockEdge(prevBlock, defBlock),
+  lastFunctional.PHIVar_Pred(defBlock, defBlockIndex, prevBlock, pred1),
+  lastFunctional.PHIVar_Pred(defBlock, defBlockIndex, prevBlock, pred2), pred1 != pred2.
+
 /**
   Mostly obscure metrics after this point.
   Some are things that don't really matter,
