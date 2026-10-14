@@ -286,14 +286,25 @@ insertor.insertOps(as(functionStart, Statement),
     STMT(JUMP, "")
   )
 ) :-
-  preTrans.PrivateFunctionCall(_, functionStart, _, _).
+  LikelyFunctionStart(functionStart).
 
+.decl LikelyFunctionStart(functionStart: Block)
+LikelyFunctionStart(as(functionStart, Block)):-
+  preTrans.PrivateFunctionCall(_, functionStart, _, _);
+  (
+    preTrans.PrivateFunctionCall(_, _, cont, _),
+    preTrans.Statement_Block(jump, cont),
+    preTrans.Statement_Opcode(jump, "JUMP"),
+    preTrans.StaticBlockJumpTarget(cont, functionStart)
+  ).
+
+.output SynthesizedFunctionEntry
 .decl SynthesizedFunctionEntry(oldEntry: Block, newEntry: Block)
 SynthesizedFunctionEntry(oldEntry, newEntry):-
    insertor.MetaData(stmt, meta),
    postTrans.JUMPDEST(stmt),
    postTrans.Statement_Block(stmt, newEntry),
-   preTrans.PrivateFunctionCall(_, oldEntry, _, _),
+   LikelyFunctionStart(oldEntry),
    ISLABEL(meta), oldEntry = GET_LABEL_REFERENCE(meta).
 
 
