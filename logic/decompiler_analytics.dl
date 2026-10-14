@@ -615,3 +615,10 @@ Analytics_DataFlowImprecision(fun):-
   IRStatement_Block(otherStmt, block),
   IRInFunction(block, fun),
   var != otherVar.
+
+Analytics_DataFlowImprecision(fun):-
+  TAC_Op(ret, "RETURNPRIVATE"),
+  TAC_Use(ret, targetRep, 0),
+  lastFunctional.FunctionArgument(fun, _, target),
+  lastFunctional.PHIVar_Pred(_, _, _, target),
+  lastFunctional.Variable_String(target, targetRep).
