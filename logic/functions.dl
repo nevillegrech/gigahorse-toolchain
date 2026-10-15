@@ -1482,6 +1482,37 @@ NumberOfFunctionReturnArguments(func, n) :-
     CheckIsStackIndex(prevIndex).
 
   /**
+    The following code is meant to place new phi nodes (aka new PHIVarIntroductionPointUnfiltered facts)
+    in places where our basic addition criteria (back-propagating polymorphic index stops) does not fire.
+    This can happen in loops with complex data flow and variable update patterns.
+    (example: function processRouteInternal/0xe67 in 0xf2614A233c7C3e7f08b1F887Ba133a13f1eb2c55)
+    Due to recursion, all previous blocks of 0x1017 have all values propgated in the relevant polymorphic index.
+    However we can detect that, different newly introduced phi variables are front propagated into that index,
+    and therefore the phi node is needed to maintain program semantics.
+    The current logic is hacky. Will refine it.
+  */
+  .decl PHIVarFrontPropagatesTo(defBlock: IRBlock, defIndex: StackIndex, phivar: Variable, currBlock: IRBlock, currIndex: StackIndex)
+  DEBUG_OUTPUT(PHIVarFrontPropagatesTo)
+
+  PHIVarFrontPropagatesTo(defBlock, phiIndex, phiVar, defBlock, phiIndex):-
+    PHIStmtAndVariable(defBlock, phiIndex, _, _, phiVar).
+
+  PHIVarFrontPropagatesTo(defBlock, phiIndex, phiVar, nextBlock, nextIndex):-
+    PHIVarFrontPropagatesTo(defBlock, phiIndex, phiVar, currBlock, currIndex),
+    LocalBlockEdge(currBlock, nextBlock),
+    FunctionalBlockOutLocalStackContents(currBlock, nextIndex, currIndex),
+    1 = count: LocalBlockEdge(_, nextBlock).
+
+  PHIVarIntroductionPointUnfiltered(joinBlock, joinIndex, joinBlock, joinIndex):-
+   PHIVarFrontPropagatesTo(defBlock, defIndex, phiVar1, prevBlock1, prevIndex1),
+   PolymorphicFunctionalInputIndex_VarOrdSum(defBlock, defIndex, varSum),
+   PolymorphicFunctionalInputIndex_VarOrdSum(prevBlock1, prevIndex1, varSum),
+   LocalBlockEdge(prevBlock1, joinBlock),
+   LocalBlockEdge(prevBlock2, joinBlock), prevBlock1 != prevBlock2,
+   FunctionalBlockOutLocalStackContents(prevBlock1, joinIndex, prevIndex1),
+   PolymorphicFunctionalInputIndex_VarOrdSum(joinBlock, joinIndex, varSum).
+
+  /**
     Polymorphic `stackIndex` at `irblock` holds PHI variable defined in `defBlockIndex` of `defBlock`.
     Uses results of the "unfiltered" variant. If they are precise (with only one introduction point) they are used,
     otherwise it falls back to the old logic, introducing a new phi variable at the same block.

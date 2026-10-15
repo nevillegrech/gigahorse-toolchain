@@ -298,7 +298,7 @@ LikelyFunctionStart(as(functionStart, Block)):-
     preTrans.StaticBlockJumpTarget(cont, functionStart)
   ).
 
-.output SynthesizedFunctionEntry
+// .output SynthesizedFunctionEntry
 .decl SynthesizedFunctionEntry(oldEntry: Block, newEntry: Block)
 SynthesizedFunctionEntry(oldEntry, newEntry):-
    insertor.MetaData(stmt, meta),
