@@ -685,6 +685,7 @@ def single_use_inline(state: FunctionState) -> None:
                     and stmt.targets[0].name.startswith("v")
                     and uses[stmt.targets[0].name] == 1
                     and not stmt.uncertain
+                    and "inline-size-limit" not in stmt.rules
                     and not has_effect(stmt.value)
                     and following is not None
                     and not isinstance(following, (While, RawBlock))

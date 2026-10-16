@@ -71,6 +71,21 @@ VALIDATED = (
 )
 
 Form = tuple
+# Forms share subterms; hashing, comparing or printing one walks every path, so
+# chained reuse (v2 = v1 * v1, ...) is exponential. A form larger than this is
+# replaced by a fresh atom: equal to nothing, so a recognizer can only miss.
+FORM_LIMIT = 256
+
+
+def _form_exceeds(form: Form) -> bool:
+    count, todo = 0, [form]
+    while todo:
+        node = todo.pop()
+        count += 1
+        if count > FORM_LIMIT:
+            return True
+        todo.extend(item for item in node if isinstance(item, tuple))
+    return False
 
 
 # --- canonical forms ----------------------------------------------------------
@@ -151,6 +166,13 @@ class Tracker:
         return self.fp
 
     def canon(self, expr: Expr) -> Form:
+        form = self._canon(expr)
+        if form[0] in {"const", "var", "fp", "opaque", "large"} or not _form_exceeds(form):
+            return form
+        self.fresh += 1
+        return ("large", self.fresh)
+
+    def _canon(self, expr: Expr) -> Form:
         if isinstance(expr, Const):
             return ("const", expr.value & WORD)
         if isinstance(expr, Var):

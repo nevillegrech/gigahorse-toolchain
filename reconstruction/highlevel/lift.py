@@ -101,6 +101,11 @@ CALLS = {"CALL", "CALLCODE", "STATICCALL", "DELEGATECALL"}
 BOOLEAN_OPS = {"ISZERO", "EQ", "LT", "GT", "SLT", "SGT"}
 TERMINATORS = {"RETURN", "REVERT", "STOP", "INVALID", "THROW", "SELFDESTRUCT"}
 MEM = Env("MEM")
+# Pure values are inlined into every use. A value used several times is copied
+# into each, so chained reuse (e.g. Newton steps in mulDiv) doubles the printed
+# size per step. Past this many nodes the value is printed once as a local.
+# The largest inlined value in the fixtures has 72 nodes.
+INLINE_SIZE_LIMIT = 128
 
 
 def number(text: str) -> int:
@@ -237,6 +242,8 @@ class FunctionLifter:
         # MLOAD statement id -> external call whose returned word it reads.
         self.returned_words: dict[str, str] = {}
         self._proven: dict[str, tuple[Expr, frozenset[str]] | None] = {}
+        # Pure values printed as locals because their inlined form is too large.
+        self.size_limited: set[str] = set()
         self._bind_arguments()
 
     # --- naming -----------------------------------------------------------
@@ -356,14 +363,24 @@ class FunctionLifter:
             return self.local(variable)
         if self.proven_read(variable) is not None:
             return Var(self.local(variable).name, variable, evidence=evidence)
-        if stmt.opcode not in PURE or len(stmt.definitions) != 1 or depth > 40:
+        if (
+            stmt.opcode not in PURE
+            or len(stmt.definitions) != 1
+            or depth > 40
+            or variable in self.size_limited
+        ):
             return Var(self.local(variable).name, variable, evidence=evidence)
         if variable in self.names:
             return Var(self.names[variable], variable, evidence=evidence)
         node = self.pure_node(stmt, [self.expr(v, depth + 1) for v in stmt.operands])
         if node is None:
             return Var(self.local(variable).name, variable, evidence=evidence)
-        return simplify(node)
+        # Operands are at most INLINE_SIZE_LIMIT nodes each, so this stays bounded.
+        result = simplify(node)
+        if result.size() > INLINE_SIZE_LIMIT:
+            self.size_limited.add(variable)
+            return Var(self.local(variable).name, variable, evidence=evidence)
+        return result
 
     def proven_read(self, variable: str) -> tuple[Expr, frozenset[str]] | None:
         """A pure extraction (AND/shift of an SLOAD) proven to equal a storage field read."""
@@ -771,6 +788,16 @@ class FunctionLifter:
                 # A pure value that could not be expressed inline.
                 fallback = self.pure_node(stmt, args)
                 if fallback is not None:
+                    if stmt.definitions[0] in self.size_limited:
+                        return [
+                            Assign(
+                                (node,),
+                                simplify(fallback),
+                                evidence=ev,
+                                rules=frozenset({"inline-size-limit"}),
+                                note=f"not inlined: over {INLINE_SIZE_LIMIT} nodes",
+                            )
+                        ]
                     return [Assign((node,), simplify(fallback), evidence=ev)]
             return []
         if op == "CONST":
