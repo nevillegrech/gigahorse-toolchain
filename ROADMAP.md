@@ -67,7 +67,7 @@ that gives Dedaub's Morpho output 192 (the table above left out closing braces).
 | Held-out accuracy | Run 2, first scores before any Dedaub export was opened (`results/run2.json`): 5 of 7 produced output, 112/113 selectors, 99 names correct, 12 wrong claims (V3 `uint160` as `address`, Seaport collision names); Curve and 1inch failed (fixed afterwards: `results/run2-after-fixes.json`). The five run-1 contracts: still 0 wrong claims | Static-struct arguments (1inch arity), `uint160` vs `address`, signature coverage |
 | Dedaub parity | Same-bytecode comparison on all seven (`results/run2-dedaub-comparison.json`): 22,012 vs 12,671 code lines, raw share 38% vs 26%, names 120 vs 154 of 196, wrong claims 17 vs 19 (payability 0 vs 26), decoded revert reasons 103 vs 73 | **Not at parity**: memory allocations as objects, custom error/event/parameter names, Vyper, large assembly-heavy contracts |
 
-### Status update 2026-10-17: held-out run 3 and three wrong-claim causes
+### Status update 2026-10-16 (late): held-out run 3 and three wrong-claim causes
 
 | Requirement | New evidence | Still open |
 | --- | --- | --- |
