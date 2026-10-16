@@ -673,15 +673,15 @@ remaining cETH functions in three ways:
 - the dispatcher's jumps into the fallback.
 
 **Re-rendered from run 1's saved relations** (`results/run1-rerendered.json`,
-code a5783e8; no new native run). Because run 1 informed these fixes, these
+code ddda645; no new native run). Because run 1 informed these fixes, these
 numbers are no longer held-out measurements:
 
 | Contract | Wrong claims | Code lines | UNCERTAIN | Unstructured fns | Returns unresolved |
 | --- | --- | --- | --- | --- | --- |
 | tether-usdt | 0 | 399 | 1 | 0 | 0/32 |
 | dai | 0 | 296 | 3 | 0 | 6/22 |
-| compound-ceth | 0 | 1,971 | 1 | 0 | 0/45 |
-| uniswap-v2-router02 | 0 | 1,848 | 1 | 0 | 8/24 |
+| compound-ceth | 0 | 1,894 | 1 | 0 | 0/45 |
+| uniswap-v2-router02 | 0 | 1,658 | 1 | 0 | 8/24 |
 | chainlink-eth-usd-proxy | 0 | 488 | 10 | 0 | 8/23 |
 
 DAI's two extra UNCERTAIN lines mark the reconciled arity of `rely`/`deny`. The
@@ -689,6 +689,15 @@ unresolved returns are mostly dynamic values (`string`, arrays) whose ABI
 encoding is not recognized, and these are printed without a return type. The
 Chainlink proxy's UNCERTAIN lines are ABI calls whose input length could not be
 verified.
+
+Router02 reads close to its source after these changes:
+
+- `TransferHelper.safeTransferETH` reads `to.call{value: v}("")`.
+- The pair swaps read `pair.swap(a0, a1, to, "")`, decoded from memory.
+- All 27 code-copied revert reasons are decoded, e.g.
+  `require(..., Error("UniswapV2Router: EXPIRED"))`. These carry rule
+  `error-padding-not-modeled`: the unwritten padding after a copied reason is
+  assumed zero. 6 such reverts are executed by tests and match the EVM bytes.
 
 Still to do: analyze the remaining seven contracts. Run them one at a time to
 limit memory use (`--only <id> --resume`). Saved Dedaub output for the same

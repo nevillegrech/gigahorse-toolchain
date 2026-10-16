@@ -38,7 +38,7 @@ general equivalence, and an analysis timeout must remain a visible failure.
 
 | Requirement | New evidence | Still open |
 | --- | --- | --- |
-| Readable code | `decompiled.sol.txt`: corpus code lines 4,917 vs 9,996 in `structured.sol.txt`; WETH9 106 lines, close to its source; shared regions without a recovered function are split per caller (pair `skim`), and dispatch jumps into the fallback are printed as tail calls (cETH) | 0.8 `abi.decode`/`abi.encode` of structs, returned words of calls decoded from memory, dynamic argument contents (`bytesAt(p)`), loop idioms |
+| Readable code | `decompiled.sol.txt`: corpus code lines 4,861 vs 9,996 in `structured.sol.txt`; WETH9 106 lines, close to its source; shared regions without a recovered function are split per caller (pair `skim`), and dispatch jumps into the fallback are printed as tail calls (cETH) | 0.8 `abi.decode`/`abi.encode` of structs, returned words of calls decoded from memory, dynamic argument contents (`bytesAt(p)`), loop idioms |
 | Interfaces | Typed signatures from masks/validators, `nonpayable`, return types, dynamic-argument accessors, hash-checked names, opt-in openchain cache | Names of tuple/array elements, return types of dynamic values |
 | Authorization/effects | Per-function summaries: caller checks, writes, calls, ETH sends, events, transitive private effects | Reentrancy/lock idioms, proxy summaries in the new view |
 | Evidence | Every IR statement accounted (printed, absorbed, elided with reason, argument decode, structural) on 24 fixtures | — |

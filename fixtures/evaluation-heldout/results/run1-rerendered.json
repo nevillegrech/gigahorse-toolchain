@@ -1,13 +1,13 @@
 {
  "selection_id": "heldout-2026-10-16",
  "run": "run1-rerendered",
- "code_commit": "a5783e8",
+ "code_commit": "ddda645",
  "status": "re-rendered from run1's saved native relations (no new Gigahorse run) after fixes that run1 informed (arity, payability, argument labels, shared-region splitting, dispatcher tail jumps) and later readability passes; these five are therefore no longer held-out measurements. The seven remaining contracts have not been analyzed.",
  "contracts": [
   {
    "id": "tether-usdt",
    "bytecode_sha256": "6d967f98f2f3843065688dc2065248e3686b56fc0b6ddfa82007df016148becb",
-   "decompiled_sha256": "4c102b61faefb19f35e3053d1fd4e75d75dd99b74655ccc738f66b31fbc00b08",
+   "decompiled_sha256": "87c570aad2bd7c84763fdbd7a1e8472e8d41665f6c443d591d84b43da5b80a4c",
    "decompiled_code_lines": 399,
    "structured_code_lines": 1133,
    "unaccounted_ir_statements": 0,
@@ -50,7 +50,7 @@
   {
    "id": "dai",
    "bytecode_sha256": "5ce810033426a017721777f241665c27bdd4663ca8a1c27558b4b372a1731f4e",
-   "decompiled_sha256": "664b9a36f82efa9ae121b9e6bdc17492a22e97309e6880e1208b0ff323e5e2ef",
+   "decompiled_sha256": "4c9554a988da273daa1b674e7b9dc1d57268e65194023708739fb65b8586c04f",
    "decompiled_code_lines": 296,
    "structured_code_lines": 679,
    "unaccounted_ir_statements": 0,
@@ -93,8 +93,8 @@
   {
    "id": "compound-ceth",
    "bytecode_sha256": "5b883cd2234f79475a140807df82e9e3faee02b4bb35d032b0810705152ad78b",
-   "decompiled_sha256": "e5ff8ea608929bd21846aaf9ff15d2d2643e0b5931b545562ab18760de833caa",
-   "decompiled_code_lines": 1971,
+   "decompiled_sha256": "1b513325342deeda8d3d8a3e71dc4ace628187a5f0842ef0c108f1fa6a6fc8fa",
+   "decompiled_code_lines": 1894,
    "structured_code_lines": 5137,
    "unaccounted_ir_statements": 0,
    "uncertain_lines": 1,
@@ -136,8 +136,8 @@
   {
    "id": "uniswap-v2-router02",
    "bytecode_sha256": "ccef50da4af021b09ada39d78db5d281fffff81a57969c7028bccc1f50d37854",
-   "decompiled_sha256": "d3c5d9306799bef4df8bef8a43b98e75b549a33af51e61385a404da272d88ae3",
-   "decompiled_code_lines": 1848,
+   "decompiled_sha256": "7b6b10cb08917ee8e7bb0c0ede6d7b1eb1a8b6582062baa33e0846d43d843749",
+   "decompiled_code_lines": 1658,
    "structured_code_lines": 4598,
    "unaccounted_ir_statements": 0,
    "uncertain_lines": 1,
@@ -179,7 +179,7 @@
   {
    "id": "chainlink-eth-usd-proxy",
    "bytecode_sha256": "ed698309290de3517c7201fcad9a9dbd4b8cde4a72c9add23129201f299c6f2b",
-   "decompiled_sha256": "2fc512646ae09a1f94d61d568df010d94b45e45e79baea6d4379c01617bd575a",
+   "decompiled_sha256": "30d2b64efbb5a251163c617b2629d1f481f1e28491cc6d86ba3f06d076f67174",
    "decompiled_code_lines": 488,
    "structured_code_lines": 1673,
    "unaccounted_ir_statements": 0,
