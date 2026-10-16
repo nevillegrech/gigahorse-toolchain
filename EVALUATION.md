@@ -584,7 +584,7 @@ so it is a calibration case, not a held-out test. Code lines exclude comments.
 | Function | Dedaub | `decompiled.sol.txt` | previous `structured.sol.txt` |
 | --- | --- | --- | --- |
 | sweep | 12 | 14 | 62 |
-| onMorphoFlashLoan | 84 | ~125 | 288 |
+| onMorphoFlashLoan | 84 | 127 | 288 |
 | MORPHO / owner / fallback | 6 | 6 | 15 |
 | 0x441c1495 | 63 | 69 | 217 |
 | selector dispatch | 17 | 22 | 24 |
