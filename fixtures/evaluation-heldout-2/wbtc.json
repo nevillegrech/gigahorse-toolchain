@@ -1,0 +1,14 @@
+{
+  "id": "wbtc",
+  "chain_id": 1,
+  "address": "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599",
+  "bytecode_sha256": "1377b93c57d7373bf87a742b4783deff88599e7a1bcca58f0a5d6a93e8a2973b",
+  "bytecode_size": 4582,
+  "compiler": "0.4.24+commit.e67f0147",
+  "language": "Solidity",
+  "runtime_match": "match",
+  "retrieved_at": "2026-10-16T19:14:15.062588+00:00",
+  "response_sha256": "36926c001167f9a04ca7087524434961aaf663a837c80e3a085fb4ac5453d0e8",
+  "source": "https://sourcify.dev/server/v2/contract/1/0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599?fields=runtimeBytecode,compilation,abi",
+  "ground_truth_note": "ABI is scoring ground truth only; never supplied to analysis"
+}

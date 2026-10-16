@@ -1,0 +1,14 @@
+{
+  "id": "permit2",
+  "chain_id": 1,
+  "address": "0x000000000022D473030F116dDEE9F6B43aC78BA3",
+  "bytecode_sha256": "62f01f46295c143ebea4d1cf12be2085d8b93d53f86d95afba4f016ee2d694ba",
+  "bytecode_size": 9152,
+  "compiler": "0.8.17+commit.8df45f5f",
+  "language": "Solidity",
+  "runtime_match": "match",
+  "retrieved_at": "2026-10-16T19:14:17.200357+00:00",
+  "response_sha256": "02735e522a38aa37410975fdfb36b36095e9ca9b5d55cddb2db4c187888a82a6",
+  "source": "https://sourcify.dev/server/v2/contract/1/0x000000000022D473030F116dDEE9F6B43aC78BA3?fields=runtimeBytecode,compilation,abi",
+  "ground_truth_note": "ABI is scoring ground truth only; never supplied to analysis"
+}

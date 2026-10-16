@@ -1,0 +1,15 @@
+{
+  "selection_id": "heldout-2-2026-10-16",
+  "selected_at": "2026-10-16",
+  "rule": "Chosen and committed before any analysis and before the memory-object and custom-error work. Not analyzed until that work is finished; Dedaub exports are requested only afterwards.",
+  "contracts": [
+    {"id": "wbtc", "chain_id": 1, "address": "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599", "why": "solc 0.4.24 token with owner, minter roles, pause and claimable ownership"},
+    {"id": "wsteth", "chain_id": 1, "address": "0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0", "why": "solc 0.6.12 wrapped token with EIP-2612 permit and an external rebasing token"},
+    {"id": "uniswap-v3-position-manager", "chain_id": 1, "address": "0xC36442b4a4522E871399CD717aBDD847Ab11FE88", "why": "solc 0.7.6 large ERC721 with multicall, permit and struct parameters"},
+    {"id": "balancer-v2-vault", "chain_id": 1, "address": "0xBA12222222228d8Ba445958a75a0704d566BF2C8", "why": "solc 0.7.1 very large vault: batch swaps, struct and array arguments, many revert codes"},
+    {"id": "ens-public-resolver", "chain_id": 1, "address": "0x231b0Ee14048e9dCcD1d247744d114a4EB5E8E63", "why": "solc 0.8.17 (legacy pipeline) resolver heavy on bytes/string records and multicall"},
+    {"id": "permit2", "chain_id": 1, "address": "0x000000000022D473030F116dDEE9F6B43aC78BA3", "why": "solc 0.8.17 via-IR: signature transfers, allowances, structs and custom errors"},
+    {"id": "uniswap-v4-pool-manager", "chain_id": 1, "address": "0x000000000004444c5dc75cB358380D2e3dE08A90", "why": "solc 0.8.26 via-IR singleton AMM with transient storage and custom errors"},
+    {"id": "curve-steth-pool", "chain_id": 1, "address": "0xDC24316b9AE028F1497c275EB9192a3Ea0f67022", "why": "Vyper 0.2.8 stableswap pool with ETH (a different Vyper version from the 3pool)"}
+  ]
+}

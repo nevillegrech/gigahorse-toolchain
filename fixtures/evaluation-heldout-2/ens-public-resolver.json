@@ -1,0 +1,14 @@
+{
+  "id": "ens-public-resolver",
+  "chain_id": 1,
+  "address": "0x231b0Ee14048e9dCcD1d247744d114a4EB5E8E63",
+  "bytecode_sha256": "551e8c4160bbfa2774428872be45de313fd7ff005b8741dfbc76be240cab8904",
+  "bytecode_size": 12336,
+  "compiler": "0.8.17+commit.8df45f5f",
+  "language": "Solidity",
+  "runtime_match": "exact_match",
+  "retrieved_at": "2026-10-16T19:14:16.922990+00:00",
+  "response_sha256": "b437ca2a4699a6540d5f9637978718a58cf9f35f8cb16d20f076be391d3eb181",
+  "source": "https://sourcify.dev/server/v2/contract/1/0x231b0Ee14048e9dCcD1d247744d114a4EB5E8E63?fields=runtimeBytecode,compilation,abi",
+  "ground_truth_note": "ABI is scoring ground truth only; never supplied to analysis"
+}

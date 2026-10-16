@@ -1,0 +1,14 @@
+{
+  "id": "balancer-v2-vault",
+  "chain_id": 1,
+  "address": "0xBA12222222228d8Ba445958a75a0704d566BF2C8",
+  "bytecode_sha256": "8b81438580d3b34c1d68a498ef9de9ee6869391280ae3b47c352cf1b363d1c11",
+  "bytecode_size": 24512,
+  "compiler": "0.7.1+commit.f4a555be",
+  "language": "Solidity",
+  "runtime_match": "exact_match",
+  "retrieved_at": "2026-10-16T19:14:16.555669+00:00",
+  "response_sha256": "0c96ff0aaaa59cf506dd83f7bcec3b5e8f296afbf938580b48c82324f429740e",
+  "source": "https://sourcify.dev/server/v2/contract/1/0xBA12222222228d8Ba445958a75a0704d566BF2C8?fields=runtimeBytecode,compilation,abi",
+  "ground_truth_note": "ABI is scoring ground truth only; never supplied to analysis"
+}

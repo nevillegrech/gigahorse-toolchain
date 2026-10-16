@@ -1,0 +1,14 @@
+{
+  "id": "curve-steth-pool",
+  "chain_id": 1,
+  "address": "0xDC24316b9AE028F1497c275EB9192a3Ea0f67022",
+  "bytecode_sha256": "3a4e671f0d4c269a4d09a5ad616455d28f64fedeecc0044a44c00a5185041183",
+  "bytecode_size": 15735,
+  "compiler": "0.2.8+commit.069936f",
+  "language": "Vyper",
+  "runtime_match": "match",
+  "retrieved_at": "2026-10-16T19:14:18.271234+00:00",
+  "response_sha256": "4d7a5b6e649bf6613805d0c45580b9c1b2e3bf337a129d5c3904b947dd4e5875",
+  "source": "https://sourcify.dev/server/v2/contract/1/0xDC24316b9AE028F1497c275EB9192a3Ea0f67022?fields=runtimeBytecode,compilation,abi",
+  "ground_truth_note": "ABI is scoring ground truth only; never supplied to analysis"
+}

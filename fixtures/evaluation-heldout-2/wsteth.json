@@ -1,0 +1,14 @@
+{
+  "id": "wsteth",
+  "chain_id": 1,
+  "address": "0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0",
+  "bytecode_sha256": "5719e354e2cf1a08674d0034c090fdc03e25162d8f1d99830a2d95aba54fbd97",
+  "bytecode_size": 6492,
+  "compiler": "0.6.12+commit.27d51765",
+  "language": "Solidity",
+  "runtime_match": "match",
+  "retrieved_at": "2026-10-16T19:14:15.329790+00:00",
+  "response_sha256": "fa877f4919e4b403b4bc6f980c1048d8273b363d12b6b9790bd9db6da31fc7ae",
+  "source": "https://sourcify.dev/server/v2/contract/1/0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0?fields=runtimeBytecode,compilation,abi",
+  "ground_truth_note": "ABI is scoring ground truth only; never supplied to analysis"
+}

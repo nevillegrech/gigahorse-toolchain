@@ -1,0 +1,515 @@
+[
+ {
+  "name": "mintingFinished",
+  "type": "function",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "bool"
+   }
+  ],
+  "payable": false,
+  "constant": true,
+  "stateMutability": "view"
+ },
+ {
+  "name": "name",
+  "type": "function",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "string"
+   }
+  ],
+  "payable": false,
+  "constant": true,
+  "stateMutability": "view"
+ },
+ {
+  "name": "approve",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "_spender",
+    "type": "address"
+   },
+   {
+    "name": "_value",
+    "type": "uint256"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "bool"
+   }
+  ],
+  "payable": false,
+  "constant": false,
+  "stateMutability": "nonpayable"
+ },
+ {
+  "name": "reclaimToken",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "_token",
+    "type": "address"
+   }
+  ],
+  "outputs": [],
+  "payable": false,
+  "constant": false,
+  "stateMutability": "nonpayable"
+ },
+ {
+  "name": "totalSupply",
+  "type": "function",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint256"
+   }
+  ],
+  "payable": false,
+  "constant": true,
+  "stateMutability": "view"
+ },
+ {
+  "name": "transferFrom",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "_from",
+    "type": "address"
+   },
+   {
+    "name": "_to",
+    "type": "address"
+   },
+   {
+    "name": "_value",
+    "type": "uint256"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "bool"
+   }
+  ],
+  "payable": false,
+  "constant": false,
+  "stateMutability": "nonpayable"
+ },
+ {
+  "name": "decimals",
+  "type": "function",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint8"
+   }
+  ],
+  "payable": false,
+  "constant": true,
+  "stateMutability": "view"
+ },
+ {
+  "name": "unpause",
+  "type": "function",
+  "inputs": [],
+  "outputs": [],
+  "payable": false,
+  "constant": false,
+  "stateMutability": "nonpayable"
+ },
+ {
+  "name": "mint",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "_to",
+    "type": "address"
+   },
+   {
+    "name": "_amount",
+    "type": "uint256"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "bool"
+   }
+  ],
+  "payable": false,
+  "constant": false,
+  "stateMutability": "nonpayable"
+ },
+ {
+  "name": "burn",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "value",
+    "type": "uint256"
+   }
+  ],
+  "outputs": [],
+  "payable": false,
+  "constant": false,
+  "stateMutability": "nonpayable"
+ },
+ {
+  "name": "claimOwnership",
+  "type": "function",
+  "inputs": [],
+  "outputs": [],
+  "payable": false,
+  "constant": false,
+  "stateMutability": "nonpayable"
+ },
+ {
+  "name": "paused",
+  "type": "function",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "bool"
+   }
+  ],
+  "payable": false,
+  "constant": true,
+  "stateMutability": "view"
+ },
+ {
+  "name": "decreaseApproval",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "_spender",
+    "type": "address"
+   },
+   {
+    "name": "_subtractedValue",
+    "type": "uint256"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "success",
+    "type": "bool"
+   }
+  ],
+  "payable": false,
+  "constant": false,
+  "stateMutability": "nonpayable"
+ },
+ {
+  "name": "balanceOf",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "_owner",
+    "type": "address"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint256"
+   }
+  ],
+  "payable": false,
+  "constant": true,
+  "stateMutability": "view"
+ },
+ {
+  "name": "renounceOwnership",
+  "type": "function",
+  "inputs": [],
+  "outputs": [],
+  "payable": false,
+  "constant": false,
+  "stateMutability": "nonpayable"
+ },
+ {
+  "name": "finishMinting",
+  "type": "function",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "bool"
+   }
+  ],
+  "payable": false,
+  "constant": false,
+  "stateMutability": "nonpayable"
+ },
+ {
+  "name": "pause",
+  "type": "function",
+  "inputs": [],
+  "outputs": [],
+  "payable": false,
+  "constant": false,
+  "stateMutability": "nonpayable"
+ },
+ {
+  "name": "owner",
+  "type": "function",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "address"
+   }
+  ],
+  "payable": false,
+  "constant": true,
+  "stateMutability": "view"
+ },
+ {
+  "name": "symbol",
+  "type": "function",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "string"
+   }
+  ],
+  "payable": false,
+  "constant": true,
+  "stateMutability": "view"
+ },
+ {
+  "name": "transfer",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "_to",
+    "type": "address"
+   },
+   {
+    "name": "_value",
+    "type": "uint256"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "bool"
+   }
+  ],
+  "payable": false,
+  "constant": false,
+  "stateMutability": "nonpayable"
+ },
+ {
+  "name": "increaseApproval",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "_spender",
+    "type": "address"
+   },
+   {
+    "name": "_addedValue",
+    "type": "uint256"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "success",
+    "type": "bool"
+   }
+  ],
+  "payable": false,
+  "constant": false,
+  "stateMutability": "nonpayable"
+ },
+ {
+  "name": "allowance",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "_owner",
+    "type": "address"
+   },
+   {
+    "name": "_spender",
+    "type": "address"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint256"
+   }
+  ],
+  "payable": false,
+  "constant": true,
+  "stateMutability": "view"
+ },
+ {
+  "name": "pendingOwner",
+  "type": "function",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "address"
+   }
+  ],
+  "payable": false,
+  "constant": true,
+  "stateMutability": "view"
+ },
+ {
+  "name": "transferOwnership",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "newOwner",
+    "type": "address"
+   }
+  ],
+  "outputs": [],
+  "payable": false,
+  "constant": false,
+  "stateMutability": "nonpayable"
+ },
+ {
+  "name": "Pause",
+  "type": "event",
+  "inputs": [],
+  "anonymous": false
+ },
+ {
+  "name": "Unpause",
+  "type": "event",
+  "inputs": [],
+  "anonymous": false
+ },
+ {
+  "name": "Burn",
+  "type": "event",
+  "inputs": [
+   {
+    "name": "burner",
+    "type": "address",
+    "indexed": true
+   },
+   {
+    "name": "value",
+    "type": "uint256",
+    "indexed": false
+   }
+  ],
+  "anonymous": false
+ },
+ {
+  "name": "Mint",
+  "type": "event",
+  "inputs": [
+   {
+    "name": "to",
+    "type": "address",
+    "indexed": true
+   },
+   {
+    "name": "amount",
+    "type": "uint256",
+    "indexed": false
+   }
+  ],
+  "anonymous": false
+ },
+ {
+  "name": "MintFinished",
+  "type": "event",
+  "inputs": [],
+  "anonymous": false
+ },
+ {
+  "name": "OwnershipRenounced",
+  "type": "event",
+  "inputs": [
+   {
+    "name": "previousOwner",
+    "type": "address",
+    "indexed": true
+   }
+  ],
+  "anonymous": false
+ },
+ {
+  "name": "OwnershipTransferred",
+  "type": "event",
+  "inputs": [
+   {
+    "name": "previousOwner",
+    "type": "address",
+    "indexed": true
+   },
+   {
+    "name": "newOwner",
+    "type": "address",
+    "indexed": true
+   }
+  ],
+  "anonymous": false
+ },
+ {
+  "name": "Approval",
+  "type": "event",
+  "inputs": [
+   {
+    "name": "owner",
+    "type": "address",
+    "indexed": true
+   },
+   {
+    "name": "spender",
+    "type": "address",
+    "indexed": true
+   },
+   {
+    "name": "value",
+    "type": "uint256",
+    "indexed": false
+   }
+  ],
+  "anonymous": false
+ },
+ {
+  "name": "Transfer",
+  "type": "event",
+  "inputs": [
+   {
+    "name": "from",
+    "type": "address",
+    "indexed": true
+   },
+   {
+    "name": "to",
+    "type": "address",
+    "indexed": true
+   },
+   {
+    "name": "value",
+    "type": "uint256",
+    "indexed": false
+   }
+  ],
+  "anonymous": false
+ }
+]

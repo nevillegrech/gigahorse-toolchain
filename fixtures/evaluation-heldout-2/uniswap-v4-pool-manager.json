@@ -1,0 +1,14 @@
+{
+  "id": "uniswap-v4-pool-manager",
+  "chain_id": 1,
+  "address": "0x000000000004444c5dc75cB358380D2e3dE08A90",
+  "bytecode_sha256": "3316c7b1c67095ef6fc9b7e62fc754ad1e46e1c9119564ea4f5615a252af893e",
+  "bytecode_size": 24009,
+  "compiler": "0.8.26+commit.8a97fa7a",
+  "language": "Solidity",
+  "runtime_match": "match",
+  "retrieved_at": "2026-10-16T19:14:17.612937+00:00",
+  "response_sha256": "eeaaad5fa8e465c8a4b9668fa87727edd87018d484430320cfc4e9b74989dd1f",
+  "source": "https://sourcify.dev/server/v2/contract/1/0x000000000004444c5dc75cB358380D2e3dE08A90?fields=runtimeBytecode,compilation,abi",
+  "ground_truth_note": "ABI is scoring ground truth only; never supplied to analysis"
+}

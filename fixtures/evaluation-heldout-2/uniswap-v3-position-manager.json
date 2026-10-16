@@ -1,0 +1,14 @@
+{
+  "id": "uniswap-v3-position-manager",
+  "chain_id": 1,
+  "address": "0xC36442b4a4522E871399CD717aBDD847Ab11FE88",
+  "bytecode_sha256": "041f86b3949f420cabdb0a466c06ddd5639ffea1e1eaff906aa62cce18ecae20",
+  "bytecode_size": 24384,
+  "compiler": "0.7.6+commit.7338295f",
+  "language": "Solidity",
+  "runtime_match": "match",
+  "retrieved_at": "2026-10-16T19:14:15.728182+00:00",
+  "response_sha256": "231b15a8a773455bf4e79e44a99905aa1a14c59d1edf12c66b38fc1ebfc8f1fe",
+  "source": "https://sourcify.dev/server/v2/contract/1/0xC36442b4a4522E871399CD717aBDD847Ab11FE88?fields=runtimeBytecode,compilation,abi",
+  "ground_truth_note": "ABI is scoring ground truth only; never supplied to analysis"
+}
