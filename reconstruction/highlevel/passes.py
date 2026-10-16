@@ -45,6 +45,12 @@ from .simplify import is_boolean, simplify
 
 # Calls/builtins whose evaluation has no effect on state, memory or control.
 PURE_CALLS = {
+    # Printed markers for dynamic ABI call arguments (a pointer to the encoded value).
+    "bytesAt",
+    "stringAt",
+    "arrayAt",
+    "tupleAt",
+    "dataAt",
     "keccak256",
     "blockhash",
     "blobhash",
@@ -108,6 +114,10 @@ def read_expressions(stmt: Stmt) -> tuple[Expr, ...]:
         result: list[Expr] = [stmt.value]
         # A call's output buffer is an operand: the EVM writes returned bytes there.
         result.extend(stmt.meta.get("output", ()))
+        if stmt.uncertain:
+            # An ABI call whose printed arguments may not cover its input: the
+            # input bytes in memory are what it sends.
+            result.extend(stmt.meta.get("input", ()))
         for target in stmt.targets:
             if isinstance(target, Index):
                 result.append(target.key)
@@ -147,8 +157,9 @@ def substitute(expr: Expr, mapping: dict[str, Expr]) -> Expr:
 def substitute_statement(stmt: Stmt, mapping: dict[str, Expr]) -> None:
     if isinstance(stmt, Assign):
         stmt.value = substitute(stmt.value, mapping)
-        if "output" in stmt.meta:
-            stmt.meta["output"] = tuple(substitute(e, mapping) for e in stmt.meta["output"])
+        for key in ("output", "input"):
+            if key in stmt.meta:
+                stmt.meta[key] = tuple(substitute(e, mapping) for e in stmt.meta[key])
         stmt.targets = tuple(
             t if isinstance(t, Var) else substitute(t, mapping) for t in stmt.targets
         )
@@ -1265,7 +1276,8 @@ def tidy_branches(state: FunctionState) -> None:
 
 
 def refresh_output_notes(state: FunctionState) -> None:
-    """Re-render `output buffer MEM[...]` notes after passes renamed or propagated locals."""
+    """Re-render `output buffer MEM[...]` notes after passes renamed or propagated locals,
+    and name the input bytes of ABI calls whose printed arguments are not verified."""
     from .printer import expression
 
     for stmt in iter_statements(state.body):
@@ -1277,6 +1289,16 @@ def refresh_output_notes(state: FunctionState) -> None:
         ):
             start, size = stmt.meta["output"]
             stmt.note = f"output buffer MEM[{expression(start)}:+{expression(size)}]"
+        if (
+            isinstance(stmt, Assign)
+            and stmt.uncertain
+            and "input" in stmt.meta
+            and isinstance(stmt.value, ExternalCallExpr)
+            and stmt.value.method is not None
+        ):
+            start, end = stmt.meta["input"]
+            text = f"input MEM[{expression(start)}:{expression(end)}]"
+            stmt.note = f"{stmt.note}; {text}" if stmt.note else text
 
 
 def empty_memory_operations(state: FunctionState, callees: frozenset[str]) -> int:
@@ -1350,6 +1372,57 @@ def empty_memory_operations(state: FunctionState, callees: frozenset[str]) -> in
         return result
 
     state.body = map_bodies(state.body, visit)
+    return changed
+
+
+def mark_encoded_arguments(state: FunctionState, callees: frozenset[str]) -> int:
+    """An ABI-call argument pointing into the call's own input past its head words
+    is the encoded tail of a dynamic argument (bytes, string, array), not a word.
+
+    Applies when the signature is unknown (known signatures mark dynamic types at
+    lift time). Pointers are compared through free-pointer versions; the argument
+    is printed as dataAt(p).
+    """
+    from .lift import DYNAMIC_MARKERS
+    from .memory_liveness import FreePointerVersions
+
+    versions = FreePointerVersions(state.body, callees).var_version
+
+    def resolve(expr: Expr) -> tuple[str, int] | None:
+        if isinstance(expr, Var) and expr.name in versions:
+            return versions[expr.name], 0
+        if isinstance(expr, Binary) and expr.op == "+":
+            for base, offset in ((expr.left, expr.right), (expr.right, expr.left)):
+                if isinstance(offset, Const):
+                    inner = resolve(base)
+                    if inner is not None:
+                        return inner[0], inner[1] + offset.value
+        return None
+
+    changed = 0
+    for stmt in iter_statements(state.body):
+        call = stmt.value if isinstance(stmt, Assign) else None
+        if not (
+            isinstance(call, ExternalCallExpr)
+            and call.method is not None
+            and stmt.uncertain
+            and "input" in stmt.meta
+        ):
+            continue
+        start = resolve(stmt.meta["input"][0])
+        if start is None:
+            continue
+        head_end = start[1] + 4 + 32 * len(call.args)
+        args = list(call.args)
+        for index, arg in enumerate(args):
+            if isinstance(arg, Call) and arg.name in DYNAMIC_MARKERS | {"dataAt"}:
+                continue
+            place = resolve(arg)
+            if place is not None and place[0] == start[0] and place[1] >= head_end:
+                args[index] = Call("dataAt", (arg,), rules=frozenset({"encoded-tail-pointer"}))
+                changed += 1
+        if tuple(args) != call.args:
+            stmt.value = replace(call, args=tuple(args))
     return changed
 
 

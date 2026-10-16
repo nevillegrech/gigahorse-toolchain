@@ -562,18 +562,24 @@ class FreePointerVersions:
                 terms.append(node)
 
         collect(expr)
-        constant = sum(t.value for t in terms if isinstance(t, Const))
+        versions = [self.version_of(t) for t in terms]
+        # Non-pointer terms contribute at least their own lower bound (>= 0).
+        constant = sum(
+            _term_floor(t) for t, version in zip(terms, versions, strict=True) if version is None
+        )
         result: dict[str, int] = {}
-        for term in terms:
-            version = None
-            if isinstance(term, Var):
-                version = self.var_version.get(term.name)
-            elif _is_free_pointer_read(term):
-                version = self.node_version.get(id(term))
+        for version in versions:
             if version is not None:
                 for other, delta in self.above(version, constant).items():
                     result[other] = max(result.get(other, delta), delta)
         return result
+
+    def version_of(self, term: Expr) -> str | None:
+        if isinstance(term, Var):
+            return self.var_version.get(term.name)
+        if _is_free_pointer_read(term):
+            return self.node_version.get(id(term))
+        return None
 
     def lower_bound(self, expr: Expr) -> int | None:
         from .ir import Binary
@@ -591,17 +597,12 @@ class FreePointerVersions:
         best: int | None = None
         constant = 0
         for term in terms:
-            if isinstance(term, Const):
-                constant += term.value
+            version = self.version_of(term)
+            if version is None:
+                constant += _term_floor(term)
                 continue
-            version = None
-            if isinstance(term, Var):
-                version = self.var_version.get(term.name)
-            elif _is_free_pointer_read(term):
-                version = self.node_version.get(id(term))
-            if version is not None:
-                bound = self.constant.get(version, self.floor.get(version, HEAP_FLOOR))
-                best = bound if best is None else max(best, bound)
+            bound = self.constant.get(version, self.floor.get(version, HEAP_FLOOR))
+            best = bound if best is None else max(best, bound)
         if best is None:
             return None
         return best + constant
@@ -650,6 +651,28 @@ class FreePointerVersions:
         if _is_free_pointer_read(base):
             return True
         return isinstance(base, Var) and base.name in self.var_version
+
+
+def _term_floor(term: Expr) -> int:
+    """A lower bound of a size term in a pointer update, under the allocator discipline.
+
+    Allocation sizes do not wrap (the same assumption as pointer + non-negative
+    terms): constants count fully, sums add up, and rounding with a mask that
+    clears low bits keeps a bound, (x + 63) & ~31 >= (lb(x) + 63) & ~31.
+    """
+    from .ir import Binary
+
+    if isinstance(term, Const):
+        return term.value
+    if isinstance(term, Binary) and term.op == "+":
+        return _term_floor(term.left) + _term_floor(term.right)
+    if isinstance(term, Binary) and term.op == "&":
+        for mask, value in ((term.right, term.left), (term.left, term.right)):
+            if isinstance(mask, Const):
+                low = (~mask.value) & ((1 << 256) - 1)
+                if low & (low + 1) == 0:  # mask = ~(2^k - 1)
+                    return _term_floor(value) & mask.value
+    return 0
 
 
 def observes_under_discipline(live: Live, write: Range) -> bool:

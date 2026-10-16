@@ -53,6 +53,7 @@ from .ir import (
     While,
     is_local,
 )
+from .lift import DYNAMIC_MARKERS
 from .view import DecompiledProgram, FunctionView
 
 MASK = (1 << 256) - 1
@@ -69,6 +70,10 @@ ENVIRONMENT_OPCODES = {
     "block.blobbasefee": "BLOBBASEFEE",
     "tx.gasprice": "GASPRICE",
 }
+
+
+class ViewMismatch(AssertionError):
+    """A printed claim contradicts what the printed statements execute."""
 
 
 class _Halt(Exception):
@@ -459,6 +464,15 @@ class DecompiledMachine:
             data = b""
         elif call.raw_input is not None:
             data = self.payload_bytes(call.raw_input, frame)
+        elif stmt.meta.get("input") is not None and (
+            stmt.uncertain
+            or any(isinstance(a, Call) and a.name in DYNAMIC_MARKERS for a in call.args)
+        ):
+            # Arguments shown may not cover the input: send the printed memory bytes,
+            # and require every printed argument to agree with them.
+            start, end = (self.eval(e, frame) for e in stmt.meta["input"])
+            data = self.read(start, (end - start) & MASK)
+            self.check_arguments(call, stmt, data, start, frame)
         else:
             selector = self.selector_of(stmt)
             data = selector + b"".join(self.eval(a, frame).to_bytes(32, "big") for a in call.args)
@@ -489,6 +503,27 @@ class DecompiledMachine:
             word = outcome.data[32 * (index - 1) : 32 * index].ljust(32, b"\0")
             results.append(int.from_bytes(word, "big"))
         return results
+
+    def check_arguments(
+        self, call: ExternalCallExpr, stmt: Stmt, data: bytes, start: int, frame: _Frame
+    ) -> None:
+        """Printed selector and arguments must match the bytes the call sends."""
+        info = self.program.context.externals.get(stmt.origin or "")
+        if info is not None and len(info.selector_candidates) == 1:
+            selector = bytes.fromhex(info.selector_candidates[0][2:])
+            if data[:4] != selector:
+                raise ViewMismatch(f"call {call.method}: selector differs from its input")
+        for index, arg in enumerate(call.args):
+            head = data[4 + 32 * index : 36 + 32 * index].ljust(32, b"\0")
+            word = int.from_bytes(head, "big")
+            if isinstance(arg, Call) and arg.name in DYNAMIC_MARKERS:
+                expected = (self.eval(arg.args[0], frame) - start - 4) & MASK
+            else:
+                expected = self.eval(arg, frame) & MASK
+            if word != expected:
+                raise ViewMismatch(
+                    f"call {call.method}: printed argument {index} differs from its input"
+                )
 
     def selector_of(self, stmt: Stmt) -> bytes:
         info = self.program.context.externals.get(stmt.origin or "")

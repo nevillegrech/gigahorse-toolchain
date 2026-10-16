@@ -32,6 +32,7 @@ from .passes import (
     iter_statements,
     leading_callvalue_check,
     loop_conditions,
+    mark_encoded_arguments,
     memcpy_loops,
     read_expressions,
     refresh_output_notes,
@@ -64,6 +65,8 @@ LEGEND = [
     "  MEM[p] / msg.data[p] are 32-byte words at byte offset p; `if (x)` tests x != 0; msg.sig is the 4-byte selector;",
     "  require(c, returndata) reverts with the callee's revert data; stor_<slot>[_<bytes>] are inferred storage fields.",
     "  For a dynamic calldata argument x: x.length = msg.data[x], x.data = x + 32, x.word(k) = msg.data[x.data + k].",
+    "  bytesAt(p) / stringAt(p) / arrayAt(p) / tupleAt(p) / dataAt(p): a dynamic call argument encoded in memory at p",
+    "  (its length word first); dataAt when the argument's type is unknown.",
     "Names marked [dict] come from hash-checked local signature dictionaries: hints, not proof of the original source.",
     "UNCERTAIN marks constructs that were not fully recovered; raw EVM operations are kept in those places.",
     "Hidden memory writes: proven unread, or ABI temporaries of a represented call/event/return that are not",
@@ -380,6 +383,7 @@ def finish_function(
     lifter.abstracted |= forward_memory(state, callees)
     copy_propagation(state)
     empty_memory_operations(state, callees)
+    mark_encoded_arguments(state, callees)
     remove_unused_reads(state)
     absorb_memory_plumbing(
         state,

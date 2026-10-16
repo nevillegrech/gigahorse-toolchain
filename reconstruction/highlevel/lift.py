@@ -921,7 +921,8 @@ class FunctionLifter:
         selector = info.selector_candidates[0]
         signature = self.context.external_signatures.get(selector)
         method = signature.split("(", 1)[0] if signature else selector
-        params = signature_params(signature) if signature else None
+        # One entry per head word: static tuples/fixed arrays are inlined word by word.
+        params = head_params(signature_params(signature)) if signature else None
         static = params is not None and all(is_static_abi(p) for p in params)
         uncertain = None
         if info.input_word_count == len(arguments):
@@ -932,6 +933,13 @@ class FunctionLifter:
             size_rule = "abi-words-unverified"
             uncertain = "ABI input length not verified; arguments beyond those shown may exist"
         args = tuple(self.expr(a.variables[0]) for a in arguments)
+        if params is not None and len(params) == len(args):
+            # The native model gives a dynamic argument as a pointer to its encoded
+            # value (length word first), not as a word: print it as such.
+            args = tuple(
+                arg if is_static_abi(param) else Call(dynamic_marker(param), (arg,))
+                for arg, param in zip(args, params, strict=True)
+            )
         returns = sorted((i, v) for i, v in info.return_variables.items() if i >= 0)
         low_level = -1 in info.return_variables and not returns
         if [i for i, _ in returns] != list(range(len(returns))) or any(
@@ -1164,6 +1172,51 @@ def signature_params(signature: str) -> list[str]:
     from .naming import split_signature
 
     return split_signature(signature)[1]
+
+
+DYNAMIC_MARKERS = {"bytesAt", "stringAt", "arrayAt", "tupleAt", "dataAt"}
+
+
+def static_words(param: str) -> list[str] | None:
+    """Head-word types of a statically encoded ABI type; None for a dynamic type."""
+    from .naming import split_signature
+
+    if is_static_abi(param):
+        return [param]
+    if param.startswith("(") and param.endswith(")"):
+        words: list[str] = []
+        for component in split_signature("tuple" + param)[1]:
+            inner = static_words(component)
+            if inner is None:
+                return None
+            words += inner
+        return words
+    if param.endswith("]") and "[" in param:
+        element, _, count = param[:-1].rpartition("[")
+        inner = static_words(element)
+        if count.isdigit() and inner is not None:
+            return inner * int(count)
+    return None
+
+
+def head_params(params: list[str]) -> list[str]:
+    """Parameters as head words: static aggregates flattened, dynamic types kept whole."""
+    result: list[str] = []
+    for param in params:
+        words = static_words(param)
+        result += words if words is not None else [param]
+    return result
+
+
+def dynamic_marker(param: str) -> str:
+    """Printed form of a dynamic ABI argument given by its memory pointer."""
+    if param == "bytes":
+        return "bytesAt"
+    if param == "string":
+        return "stringAt"
+    if param.endswith("]"):
+        return "arrayAt"
+    return "tupleAt"
 
 
 def is_static_abi(param: str) -> bool:

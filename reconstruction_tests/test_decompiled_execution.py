@@ -203,3 +203,159 @@ def test_pair_skim_split_shared_regions_match_evm(tmp_path, monkeypatch, record_
     assert calls >= 4 * 4 and 0 < reverts < cases
     record_property("decompiled_pair_skim_cases", cases)
     record_property("decompiled_pair_skim_external_calls", calls)
+
+
+MORPHO = 0xD50F2DFFFD62F94EE4AED9CA05C61D0753268ABC
+
+
+def returning(blob: bytes) -> bytes:
+    """Runtime that returns `blob` for every call (CODECOPY of its own tail)."""
+    size = len(blob).to_bytes(2)
+    return (
+        b"\x61"
+        + size
+        + bytes.fromhex("600e600039")
+        + b"\x61"
+        + size
+        + bytes.fromhex("6000f3")
+        + blob
+    )
+
+
+def words(*values: int) -> bytes:
+    return b"".join(v.to_bytes(32) for v in values)
+
+
+class StubbedReference(EVMReference):
+    """Py-EVM with stub contracts placed at fixed addresses (e.g. a hard-coded Morpho)."""
+
+    def __init__(self, codes: dict[int, bytes]):
+        from eth_tester import EthereumTester, PyEVMBackend
+
+        state = PyEVMBackend.generate_genesis_state(num_accounts=4)
+        for address, code in codes.items():
+            # Funded: spoofed senders (e.g. Morpho's address) pay for gas.
+            state[address.to_bytes(20)] = {
+                "balance": 10**21,
+                "nonce": 0,
+                "code": code,
+                "storage": {},
+            }
+        self.backend = PyEVMBackend(genesis_state=state)
+        self.tester = EthereumTester(backend=self.backend)
+        self.sender = self.tester.get_accounts()[0]
+
+
+def test_morpho_liquidator_view_matches_evm(tmp_path, monkeypatch, record_property):
+    """The Dedaub-comparison contract: callback ABI decoding, approvals, liquidate and swap
+    calls, the owner entry point with flash loan and min-profit check, and sweep.
+
+    Morpho and the tokens are stubs that return a fixed blob for every call; the
+    other parties are code-less accounts (calls to them succeed with no data).
+    None of these functions writes storage, so cases are compared without commits.
+    """
+    from reconstruction_tests.decompiled_support import DEDAUB
+
+    _, decompiled, runtime = deployed_fixture(DEDAUB, "morpho-liquidator", tmp_path / "relations")
+    token_one, token_zero, token_seven = 0x1001, 0x1000, 0x1007
+    reverter, swapper, borrower, collateral = 0xDEAD, 0xBEEF, 0xB0B, 0xC011
+    tuple_type = "(bytes32,address,uint256,address,bytes,address,address)"
+    stats = {"cases": 0, "calls": 0, "reverts": 0}
+
+    def a(address: int) -> bytes:
+        return address.to_bytes(20)
+
+    def run(reference, data, sender, sizes):
+        reference.sender = "0x" + sender.to_bytes(20).hex()
+        output, reverted, observed, _gas = trace_call(reference, data, 0, monkeypatch)
+        pending = iter(observed)
+
+        def replay(invocation):
+            actual = next(pending)
+            for name in ("opcode", "target", "value", "calldata"):
+                assert getattr(invocation, name) == actual[name], (data.hex(), name)
+            return ExternalOutcome(actual["returndata"], actual["success"])
+
+        machine = DecompiledMachine(decompiled, external_handler=replay)
+        result = machine.execute(
+            data,
+            storage=dict(initial),
+            caller=sender,
+            address=int(reference.address, 16),
+            code_sizes=sizes,
+        )
+        assert next(pending, None) is None, data.hex()
+        assert (result.output, result.reverted) == (output, reverted), data.hex()
+        assert result.logs == [] and not reference.logs
+        stats["cases"] += 1
+        stats["calls"] += len(observed)
+        stats["reverts"] += reverted
+
+    blobs = {
+        "valid": words(token_one, collateral, 0x0AC1E, 0x1A4, 86 * 10**16),
+        "dirty-address": words((1 << 200) | token_one, collateral, 0, 0, 0),
+        "short": words(token_one, collateral),
+    }
+    for blob in blobs.values():
+        codes = {
+            MORPHO: returning(blob),
+            token_one: returning(words(1)),
+            token_zero: returning(words(0)),
+            token_seven: returning(words(7)),
+            reverter: bytes.fromhex("60006000fd"),
+            borrower: b"",  # a funded account without code (also a non-owner sender)
+        }
+        reference = StubbedReference(codes)
+        owner = int(reference.tester.get_accounts()[1], 16)
+        initial = {0: owner}
+        deploy_runtime(reference, runtime, initial)
+        sizes = {address: len(code) for address, code in codes.items()}
+        sizes |= {swapper: 0, collateral: 0, owner: 0}
+
+        # onMorphoFlashLoan(uint256 assets, bytes data): only Morpho may call it.
+        for swap_data in (b"", b"\x01" * 5, bytes(range(40)), bytes(range(100))):
+            for target, token_a, token_b in (
+                (swapper, swapper, collateral),
+                (reverter, swapper, collateral),  # swap fails
+                (swapper, reverter, collateral),  # first approve fails
+                (swapper, swapper, reverter),  # second approve fails
+            ):
+                callback = encode(
+                    [tuple_type],
+                    [(b"\x11" * 32, a(borrower), 77, a(target), swap_data, a(token_a), a(token_b))],
+                )
+                data = bytes.fromhex("31f57072") + encode(["uint256", "bytes"], [5, callback])
+                run(reference, data, MORPHO, sizes)
+            run(reference, data, owner, sizes)  # !morpho
+        # Malformed callbacks: truncated tuple head, offset past the end.
+        good = encode(
+            [tuple_type],
+            [(b"\x11" * 32, a(borrower), 77, a(swapper), b"ab", a(swapper), a(swapper))],
+        )
+        for callback in (good[:200], words(0x1000) + good[32:]):
+            data = bytes.fromhex("31f57072") + encode(["uint256", "bytes"], [5, callback])
+            run(reference, data, MORPHO, sizes)
+
+        # 0x441c1495(id, borrower, seized, flash amount, swap target, swap data, min profit).
+        for sender in (owner, borrower):
+            for min_profit in (0, 1, 2):
+                for swap_data in (b"", bytes(range(37))):
+                    data = bytes.fromhex("441c1495") + encode(
+                        ["bytes32", "address", "uint256", "uint256", "address", "bytes", "uint256"],
+                        [b"\x22" * 32, a(borrower), 9, 1000, a(swapper), swap_data, min_profit],
+                    )
+                    run(reference, data, sender, sizes)
+
+        # sweep(token): balance and transfer through stub tokens.
+        for token in (token_one, token_zero, token_seven, reverter):
+            for sender in (owner, borrower):
+                data = bytes.fromhex("01681a62") + encode(["address"], [a(token)])
+                run(reference, data, sender, sizes)
+        run(reference, bytes.fromhex("8da5cb5b"), owner, sizes)  # owner()
+        run(reference, bytes.fromhex("3acb5624"), owner, sizes)  # MORPHO()
+        run(reference, b"", owner, sizes)
+
+    assert stats["calls"] > 100 and 0 < stats["reverts"] < stats["cases"]
+    record_property("decompiled_morpho_cases", stats["cases"])
+    record_property("decompiled_morpho_external_calls", stats["calls"])
+    record_property("decompiled_morpho_reverted_cases", stats["reverts"])
