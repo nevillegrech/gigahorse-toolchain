@@ -441,9 +441,9 @@ def _fold(op: str, a: int, b: int) -> int | None:
 
 def _effect_free(expr: Expr) -> bool:
     """Evaluating expr has no effect (no calls other than pure builtins and casts)."""
-    from .ir import ExternalCallExpr
+    from .ir import AbiCodec, ExternalCallExpr
 
-    if isinstance(expr, ExternalCallExpr):
+    if isinstance(expr, (ExternalCallExpr, AbiCodec)):
         return False
     if isinstance(expr, Call) and not (
         expr.name.startswith(("uint", "int", "bytes", "address", "bool"))

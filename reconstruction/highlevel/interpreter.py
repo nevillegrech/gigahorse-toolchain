@@ -25,6 +25,7 @@ from ..validation import (
     signed,
 )
 from .ir import (
+    AbiCodec,
     Assign,
     Binary,
     Call,
@@ -40,6 +41,7 @@ from .ir import (
     Index,
     Jump,
     Member,
+    MemoryBytes,
     ParallelAssign,
     Raw,
     RawBlock,
@@ -52,12 +54,15 @@ from .ir import (
     Var,
     While,
     is_local,
+    struct_fields,
 )
 from .lift import DYNAMIC_MARKERS
 from .view import DecompiledProgram, FunctionView
 
 MASK = (1 << 256) - 1
 ADDRESS = (1 << 160) - 1
+U64 = (1 << 64) - 1
+PANIC = bytes.fromhex("4e487b71")
 # Printed environment names -> the opcode keys used by observed block values.
 ENVIRONMENT_OPCODES = {
     "block.number": "NUMBER",
@@ -122,6 +127,27 @@ def _cast(name: str, value: int) -> int:
             value |= MASK ^ ((1 << bits) - 1)
         return value
     raise UnsupportedExecution(f"Unknown cast {name}")
+
+
+def _packed_width(kind: str) -> int:
+    if kind == "address":
+        return 20
+    if kind.startswith("bytes") and kind[5:].isdigit():
+        return int(kind[5:])
+    if kind.startswith("uint") and kind[4:].isdigit():
+        return int(kind[4:]) // 8
+    raise UnsupportedExecution(f"Packed type {kind}")
+
+
+def _member_path(expr: Expr) -> str | None:
+    """`v0.f4.length` for a member chain over a local (values bound by abi.decode)."""
+    names = []
+    while isinstance(expr, Member):
+        names.append(expr.name)
+        expr = expr.base
+    if not isinstance(expr, Var):
+        return None
+    return ".".join([expr.name, *reversed(names)])
 
 
 def encode_error(text: str) -> bytes:
@@ -294,6 +320,13 @@ class DecompiledMachine:
                 elif argument.enforcement == "revert" and _cast(argument.type, word) != word:
                     raise _Halt(b"", True)
                 frame.values[argument.name] = word
+        else:
+            # A private parameter typed from masks: the callee cleans every use of it,
+            # so the printed type stands for that cast (e.g. `address varg1`).
+            for argument in view.arguments:
+                if argument.enforcement == "mask" and argument.name in frame.values:
+                    value = frame.values[argument.name]
+                    frame.values[argument.name] = _cast(argument.type, value)
         try:
             self.block(view.body, frame)
         except _Return as result:
@@ -324,6 +357,12 @@ class DecompiledMachine:
         if isinstance(stmt, Comment):
             return
         if isinstance(stmt, Assign):
+            if isinstance(stmt.value, AbiCodec) and stmt.value.op == "decode":
+                self.abi_decode(stmt.value, stmt.targets, frame)
+                return
+            if isinstance(stmt.value, AbiCodec) and len(stmt.targets) == 1:
+                self.assign(stmt.targets[0], self.abi_encode(stmt.value, frame), frame)
+                return
             if isinstance(stmt.value, ExternalCallExpr):
                 results = self.external(stmt.value, frame, stmt)
                 for target, value in zip(stmt.targets, results, strict=False):
@@ -447,6 +486,176 @@ class DecompiledMachine:
         old = self.storage.get(slot, 0)
         self.storage[slot] = (old & (MASK ^ mask)) | ((value << (8 * low)) & mask)
 
+    # --- ABI coders (as solc compiles them) ------------------------------------
+
+    def free_pointer(self) -> int:
+        return int.from_bytes(self.read(0x40, 32), "big")
+
+    def allocate(self, pointer: int, size: int) -> None:
+        """finalize_allocation: Panic(0x41) when the new pointer overflows 64 bits."""
+        end = (pointer + size) & MASK
+        if end > U64 or end < pointer:
+            raise _Halt(PANIC + (0x41).to_bytes(32, "big"), True)
+        self.write(0x40, end.to_bytes(32, "big"))
+
+    def abi_decode(self, codec: AbiCodec, targets: tuple[Expr, ...], frame: _Frame) -> None:
+        """abi.decode(data, (S)) of calldata bytes: solc 0.8's checked Yul decoder.
+
+        Any malformed input reverts without data, except oversized lengths and
+        allocations, which raise Panic(0x41), exactly in the decoder's order.
+        """
+        (source,) = codec.args
+        (kind,) = codec.types
+        struct = struct_fields(kind)
+        layout = dict(codec.layout)
+        if struct is None or len(targets) != 1 or not is_local(targets[0]):
+            raise UnsupportedExecution(f"abi.decode to {kind}")
+        fields = struct[1]
+        target = targets[0].name
+        position = self.eval(source, frame)
+        start = (position + 32) & MASK
+        end = (start + self.calldata_word(position)) & MASK
+        if signed((end - start) & MASK) < 32:
+            raise _Halt(b"", True)
+        offset = self.calldata_word(start)
+        if offset > U64:
+            raise _Halt(b"", True)
+        base = (start + offset) & MASK
+        size = 32 * len(fields)
+        if signed((end - base) & MASK) < size:
+            raise _Halt(b"", True)
+        pointer = self.free_pointer()
+        expected = layout.get("struct_pointer")
+        if expected is not None and pointer != expected:
+            raise ViewMismatch(f"abi.decode: free pointer {pointer:#x}, expected {expected:#x}")
+        self.allocate(pointer, size)
+        frame.values[target] = pointer
+        for index, field in enumerate(fields):
+            head = (base + 32 * index) & MASK
+            if field in {"bytes", "string"}:
+                offset = self.calldata_word(head)
+                if offset > U64:
+                    raise _Halt(b"", True)
+                tail = (base + offset) & MASK
+                if not signed((tail + 31) & MASK) < signed(end):
+                    raise _Halt(b"", True)
+                length = self.calldata_word(tail)
+                if length > U64:
+                    raise _Halt(PANIC + (0x41).to_bytes(32, "big"), True)
+                array = self.free_pointer()
+                self.allocate(array, ((length + 31) & ~31) + 32)
+                self.write(array, length.to_bytes(32, "big"))
+                source_start = (tail + 32) & MASK
+                if (source_start + length) & MASK > end:
+                    raise _Halt(b"", True)
+                if length > self.max_memory:
+                    raise UnsupportedExecution("Decoded bytes too long")
+                data = self.calldata[source_start : source_start + length].ljust(length, b"\0")
+                self.write(array + 32, data)
+                self.write(array + 32 + length, bytes(32))
+                value = array
+                frame.values[f"{target}.f{index}.length"] = length
+            else:
+                value = self.calldata_word(head)
+                if field != "uint256" and _cast(field, value) != value:
+                    raise _Halt(b"", True)
+            self.write(pointer + 32 * index, value.to_bytes(32, "big"))
+            frame.values[f"{target}.f{index}"] = value
+
+    def abi_encode(self, codec: AbiCodec, frame: _Frame) -> int:
+        """A `bytes memory` encoding at the free pointer; returns its pointer."""
+        layout = dict(codec.layout)
+        if codec.op == "encode" and layout.get("solc") == "0.8-legacy-struct-literal":
+            return self.encode_struct_literal(codec, layout, frame)
+        raise UnsupportedExecution(f"abi.{codec.op} layout {layout.get('solc')}")
+
+    def encode_struct_literal(self, codec: AbiCodec, layout: dict, frame: _Frame) -> int:
+        """abi.encode(S(...)): allocate S (unchecked), copy its calldata bytes member to
+        memory, then write offset word, heads, the member's length, data and a zero
+        word, the length word and the new free pointer (solc 0.8 legacy codegen)."""
+        (literal,) = codec.args
+        (kind,) = codec.types
+        struct = struct_fields(kind)
+        if (
+            struct is None
+            or not isinstance(literal, Call)
+            or layout.get("calldata_members") is None
+        ):
+            raise UnsupportedExecution(f"abi.encode of {kind}")
+        fields = struct[1]
+        (member,) = layout["calldata_members"]
+        size = 32 * len(fields)
+        pointer = self.free_pointer()
+        self.write(0x40, ((pointer + size) & MASK).to_bytes(32, "big"))
+        heads: list[int] = []
+        copy = 0
+        for index, (field, value) in enumerate(zip(fields, literal.args, strict=True)):
+            if index != member:
+                heads.append(self.eval(value, frame))
+                continue
+            if field != "bytes":
+                raise UnsupportedExecution(f"abi.encode member {field}")
+            position = self.eval(value, frame)
+            length = self.calldata_word(position)
+            if length > self.max_memory:
+                raise UnsupportedExecution("Encoded bytes too long")
+            data = self.calldata[position + 32 : position + 32 + length].ljust(length, b"\0")
+            copy = self.free_pointer()
+            self.write(0x40, ((copy + (length + 31) // 32 * 32 + 32) & MASK).to_bytes(32, "big"))
+            self.write(copy, length.to_bytes(32, "big"))
+            self.write(copy + 32, data)
+            self.write(copy + 32 + length, bytes(32))
+            heads.append(size)
+        buffer = self.free_pointer()
+        out = buffer + 32
+        self.write(out, (32).to_bytes(32, "big"))
+        for index, head in enumerate(heads):
+            self.write(out + 32 + 32 * index, (head & MASK).to_bytes(32, "big"))
+        length = int.from_bytes(self.read(copy, 32), "big")
+        if length > self.max_memory:
+            raise UnsupportedExecution("Encoded bytes too long")
+        tail = out + 32 + size
+        self.write(tail, length.to_bytes(32, "big"))
+        self.write(tail + 32, self.read(copy + 32, length))
+        self.write(tail + 32 + length, bytes(32))
+        total = 32 + size + 32 + (length + 31) // 32 * 32
+        self.write(buffer, total.to_bytes(32, "big"))
+        self.write(0x40, ((out + total) & MASK).to_bytes(32, "big"))
+        return buffer
+
+    def encode_packed(self, codec: AbiCodec, frame: _Frame) -> bytes:
+        """abi.encodePacked of static values (legacy codegen): each value is written as a
+        left-aligned word at its offset after the length word, the length at the free
+        pointer, and the pointer moves to the end of the data (not rounded)."""
+        layout = dict(codec.layout)
+        if layout.get("solc") != "legacy-packed":
+            raise UnsupportedExecution(f"abi.encodePacked layout {layout.get('solc')}")
+        pointer = self.free_pointer()
+        expected = layout.get("buffer_pointer")
+        if expected is not None and pointer != expected:
+            raise ViewMismatch(
+                f"abi.encodePacked: free pointer {pointer:#x}, expected {expected:#x}"
+            )
+        data = b""
+        for value, kind in zip(codec.args, codec.types, strict=True):
+            width = _packed_width(kind)
+            chunk = (self.eval(value, frame) & ((1 << (8 * width)) - 1)).to_bytes(width, "big")
+            self.write(pointer + 32 + len(data), chunk.ljust(32, b"\0"))
+            data += chunk
+        self.write(pointer, len(data).to_bytes(32, "big"))
+        self.write(0x40, ((pointer + 32 + len(data)) & MASK).to_bytes(32, "big"))
+        return data
+
+    def memory_bytes(self, value: MemoryBytes, frame: _Frame) -> bytes:
+        pointer = self.eval(value.pointer, frame)
+        if value.length is not None:
+            length = self.eval(value.length, frame)
+        else:
+            length = int.from_bytes(self.read(pointer, 32), "big")
+        if length > self.max_memory:
+            raise UnsupportedExecution("Memory bytes too long")
+        return self.read(pointer + 32, length)
+
     # --- calls ---------------------------------------------------------------
 
     def private(self, call: Call, frame: _Frame) -> list[int]:
@@ -477,14 +686,33 @@ class DecompiledMachine:
             selector = self.selector_of(stmt)
             assert selector is not None
             heads, tails = [], b""
+            staged: list[tuple[int, bytes]] = []
             for arg in call.args:
                 if isinstance(arg, Call) and arg.name == "emptyBytes":
                     # ABI: an offset in the head, a zero length word in the tail.
                     heads.append(32 * len(call.args) + len(tails))
                     tails += bytes(32)
+                elif isinstance(arg, MemoryBytes):
+                    # A `bytes memory` value: offset head; length, data, zero padding.
+                    payload = self.memory_bytes(arg, frame)
+                    heads.append(32 * len(call.args) + len(tails))
+                    staged.append((heads[-1], payload))
+                    tails += len(payload).to_bytes(32, "big") + payload
+                    tails += b"\0" * (-len(payload) % 32)
                 else:
                     heads.append(self.eval(arg, frame))
             data = selector + b"".join(h.to_bytes(32, "big") for h in heads) + tails
+            if "staged-at-free-pointer" in stmt.rules:
+                # solc writes the input at the free pointer (without moving it):
+                # selector word, heads, then each tail's length, data and a zero word.
+                start = self.free_pointer()
+                self.write(start, selector.ljust(32, b"\0"))
+                for index, head in enumerate(heads):
+                    self.write(start + 4 + 32 * index, (head & MASK).to_bytes(32, "big"))
+                for offset, payload in staged:
+                    self.write(start + 4 + offset, len(payload).to_bytes(32, "big"))
+                    self.write(start + 36 + offset, payload)
+                    self.write(start + 36 + offset + len(payload), bytes(32))
         opcode = {
             "call": "CALL",
             "staticcall": "STATICCALL",
@@ -718,6 +946,9 @@ class DecompiledMachine:
             slot, _, _ = self.storage_slot(expr, frame)
             return self.storage.get(slot, 0)
         if isinstance(expr, Member):
+            path = _member_path(expr)
+            if path is not None and path in frame.values:
+                return frame.values[path]
             if (
                 expr.name == "length"
                 and isinstance(expr.base, Env)
@@ -798,6 +1029,8 @@ class DecompiledMachine:
         name = expr.name
         if name == "keccak256":
             (data,) = expr.args
+            if isinstance(data, AbiCodec) and data.op == "encodePacked":
+                return int.from_bytes(keccak256(self.encode_packed(data, frame)), "big")
             assert isinstance(data, Slice)
             return int.from_bytes(keccak256(self.slice(data, frame)), "big")
         if name.startswith("packed_bytes_") and len(expr.args) == 1:

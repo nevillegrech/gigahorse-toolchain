@@ -13,6 +13,7 @@ from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field, replace
 
 from .ir import (
+    AbiCodec,
     Assign,
     Binary,
     Call,
@@ -200,7 +201,8 @@ def substitute_statement(stmt: Stmt, mapping: dict[str, Expr]) -> None:
 def has_effect(expr: Expr) -> bool:
     """Evaluating expr can change state, memory, control or call another contract."""
     for node in iter_expr(expr):
-        if isinstance(node, ExternalCallExpr):
+        if isinstance(node, (ExternalCallExpr, AbiCodec)):
+            # ABI coders allocate memory and may revert.
             return True
         if isinstance(node, Call) and not (
             node.name in PURE_CALLS
@@ -1229,6 +1231,19 @@ def repeated_checks(state: FunctionState) -> None:
     state.body = map_bodies(state.body, visit)
 
 
+def _decoded_field(expr: Expr, assignments: Counter[str]) -> bool:
+    """`s.f3` or `s.f4.length` of a struct local assigned once (abi.decode binds them)."""
+    if isinstance(expr, Member) and expr.name == "length":
+        expr = expr.base
+    return (
+        isinstance(expr, Member)
+        and expr.name[:1] == "f"
+        and expr.name[1:].isdigit()
+        and is_local(expr.base)
+        and assignments[expr.base.name] == 1
+    )
+
+
 def copy_propagation(state: FunctionState) -> None:
     """`a = b` (a local or a constant) with both assigned once: print b at a's uses."""
     assignments: Counter[str] = Counter()
@@ -1248,6 +1263,7 @@ def copy_propagation(state: FunctionState) -> None:
             and (
                 (is_local(stmt.value) and assignments[stmt.value.name] <= 1)
                 or isinstance(stmt.value, Const)
+                or _decoded_field(stmt.value, assignments)
             )
             and not stmt.uncertain
         ):

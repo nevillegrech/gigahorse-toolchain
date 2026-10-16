@@ -135,6 +135,8 @@ class ProgramContext:
     external_signatures: dict[str, str] = field(default_factory=dict)
     # Public function id -> its unique hash-checked signature text.
     function_signatures: dict[str, str] = field(default_factory=dict)
+    # Field types of ABI-coded structs -> printed struct name (shared by all functions).
+    structs: dict[tuple[str, ...], str] = field(default_factory=dict)
 
     @classmethod
     def build(cls, program: Program, relations: Path | None = None) -> ProgramContext:

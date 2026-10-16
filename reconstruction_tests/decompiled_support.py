@@ -15,6 +15,7 @@ COMPILER = ROOT / "fixtures/reconstruction"
 DEPLOYED = ROOT / "fixtures/evaluation"
 DEPLOYED_NEXT = ROOT / "fixtures/evaluation-next"
 DEDAUB = ROOT / "fixtures/dedaub"
+CALIBRATION = ROOT / "fixtures/calibration"
 
 COMPILER_STEMS = sorted(
     p.name.removesuffix(".relations.json") for p in COMPILER.glob("*.relations.json")
@@ -27,6 +28,7 @@ DEPLOYED_IDS = [
     (DEPLOYED_NEXT, "weth9"),
     (DEPLOYED_NEXT, "ens-registry"),
     (DEPLOYED_NEXT, "erc721-collection"),
+    (CALIBRATION, "uniswap-v2-router02"),
     (DEDAUB, "morpho-liquidator"),
 ]
 

@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "bytecode_sha256": "ccef50da4af021b09ada39d78db5d281fffff81a57969c7028bccc1f50d37854",
+  "semantic_schema": 3,
+  "tables": {
+    "relations": "cdf078f20371c2ff6d278cb8ffb8b1b50fcb2241a6b9ef51d2fc927b31d10850",
+    "semantic": "253e2f8e4c1715a74d3e389fb2eac567d15aad52e55ae78775f60f131528b845"
+  },
+  "source_bundle": "/mnt/model-ssd/scratch/gigahorse-decompiler/heldout-run1/uniswap-v2-router02",
+  "evaluation_scope": "Calibration regression snapshot, not a new unseen contract"
+}

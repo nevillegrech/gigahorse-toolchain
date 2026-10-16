@@ -211,6 +211,53 @@ class ExternalCallExpr(Expr):
         return replace(self, target=target, args=args, value=value, gas=gas, raw_input=raw_input)
 
 
+@dataclass(frozen=True)
+class AbiCodec(Expr):
+    """abi.decode / abi.encode / abi.encodePacked, executed as solc compiles them.
+
+    `types` holds each value's ABI type; a struct is `Name(t0,t1,...)` and its
+    fields print as `.f0`, `.f1`, ... `layout` records the compiler's allocation
+    details (e.g. a constant struct address), which the interpreter reproduces.
+    """
+
+    op: str  # "decode" | "encode" | "encodePacked"
+    args: tuple[Expr, ...]
+    types: tuple[str, ...]
+    layout: tuple[tuple[str, object], ...] = ()
+
+    def children(self) -> tuple[Expr, ...]:
+        return self.args
+
+    def with_children(self, children: tuple[Expr, ...]) -> Expr:
+        return replace(self, args=tuple(children))
+
+
+@dataclass(frozen=True)
+class MemoryBytes(Expr):
+    """A `bytes memory` value: length word at `pointer`, then the data.
+
+    Printed as the pointer alone. `length`, when known, is the expression the
+    compiled code used for the length (it equals the word at `pointer`).
+    """
+
+    pointer: Expr
+    length: Expr | None = None
+
+    def children(self) -> tuple[Expr, ...]:
+        return (self.pointer,) if self.length is None else (self.pointer, self.length)
+
+    def with_children(self, children: tuple[Expr, ...]) -> Expr:
+        return replace(self, pointer=children[0], length=children[1] if len(children) > 1 else None)
+
+
+def struct_fields(type_name: str) -> tuple[str, list[str]] | None:
+    """`S0(uint256,bytes)` -> ("S0", ["uint256", "bytes"]); None for other types."""
+    if not type_name.endswith(")") or "(" not in type_name:
+        return None
+    name, rest = type_name.split("(", 1)
+    return name, rest[:-1].split(",") if rest[:-1] else []
+
+
 def render_number(value: int) -> str:
     if value < 0:
         return "-" + render_number(-value)

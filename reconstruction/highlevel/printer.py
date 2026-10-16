@@ -6,6 +6,7 @@ import json
 from dataclasses import dataclass, field
 
 from .ir import (
+    AbiCodec,
     Assign,
     Binary,
     Call,
@@ -21,6 +22,7 @@ from .ir import (
     Index,
     Jump,
     Member,
+    MemoryBytes,
     ParallelAssign,
     Raw,
     RawBlock,
@@ -32,6 +34,7 @@ from .ir import (
     Unary,
     Var,
     While,
+    struct_fields,
 )
 
 # Solidity precedence, larger binds tighter.
@@ -146,6 +149,10 @@ def _expr(expr: Expr, context: int) -> str:
         if expr.name == "emptyBytes" and not expr.args:
             return '""'
         return f"{expr.name}({', '.join(_expr(arg, 0) for arg in expr.args)})"
+    if isinstance(expr, AbiCodec):
+        return _codec(expr)
+    if isinstance(expr, MemoryBytes):
+        return _expr(expr.pointer, context)
     if isinstance(expr, Index):
         return f"{_postfix(expr.base)}[{_expr(expr.key, 0)}]"
     if isinstance(expr, Member):
@@ -175,6 +182,24 @@ def _expr(expr: Expr, context: int) -> str:
             payload = '""'  # no input bytes
         return f"{target}.{expr.kind}{braces}({payload})"
     raise TypeError(f"Unprintable expression: {expr!r}")
+
+
+def _codec(expr: AbiCodec) -> str:
+    if expr.op == "decode":
+        names = []
+        for name in expr.types:
+            struct = struct_fields(name)
+            names.append(struct[0] if struct else name)
+        return f"abi.decode({_expr(expr.args[0], 0)}, ({', '.join(names)}))"
+    items = []
+    for arg, kind in zip(expr.args, expr.types, strict=True):
+        width = int(kind[5:]) if kind.startswith("bytes") and kind[5:].isdigit() else None
+        if expr.op == "encodePacked" and width and width < 32 and isinstance(arg, Const):
+            # A packed bytesN constant: exactly these bytes (Solidity hex literal).
+            items.append(f'hex"{arg.value:0{2 * width}x}"')
+        else:
+            items.append(_expr(arg, 0))
+    return f"abi.{expr.op}({', '.join(items)})"
 
 
 def _postfix(expr: Expr) -> str:

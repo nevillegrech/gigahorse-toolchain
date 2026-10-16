@@ -6,13 +6,14 @@ from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
 
 from ..model import Function, Program
+from .abi_codec import recognize_abi_coders
 from .idioms import (
     recognize_arithmetic_helpers,
     recognize_bytes_returns,
     recognize_memory_helpers,
     recognize_string_getters,
 )
-from .ir import Assign, Emit, Expr, Require, Return, Stmt, Var, is_local
+from .ir import AbiCodec, Assign, Emit, Expr, Require, Return, Stmt, Var, is_local, struct_fields
 from .lift import FunctionLifter, ProgramContext, is_static_abi
 from .memory_forwarding import forward_memory
 from .memory_liveness import AddressModel, FreePointerVersions, Summaries, compute_summaries
@@ -249,6 +250,12 @@ def build_decompiled(
         for text, evidence in declarations:
             out.emit(text, 1, evidence=evidence, kind="storage-declaration")
         out.emit("", 0)
+    structs = used_structs(views)
+    if structs:
+        out.emit("// Structs inferred from ABI coding; members are named by position.", 1)
+        for text in structs:
+            out.emit(text, 1, kind="struct-declaration")
+        out.emit("", 0)
     events = used_events(views, names)
     for text in events:
         out.emit(text, 1, kind="event-declaration")
@@ -442,6 +449,12 @@ def finish_function(
     dynamic = {name for name, value in typed.items() if value.kind in {"array", "struct"}}
     if dynamic:
         present_dynamic_arguments(state, dynamic)
+    decoded = recognize_abi_coders(
+        state,
+        frozenset(dynamic),
+        context.structs,
+        {name: value.type for name, value in typed.items()},
+    )
     common_subexpressions(state)
     copy_propagation(state)
     if signature and function.selectors:
@@ -460,6 +473,11 @@ def finish_function(
                 value.reason = (
                     f"not read by the code; type from the hash-matched signature {signature} [dict]"
                 )
+    for name in decoded:
+        value = typed[name]
+        if value.type == "dynamic":
+            value.type = "bytes"
+            value.reason += "; decoded with abi.decode, whose source is bytes"
     remove_unused_reads(state)
     loop_conditions(state)
     # Loop conditions are formed last; a constant one (e.g. a copy loop over 0
@@ -710,6 +728,23 @@ def _scalar_type(candidates: list[str], written: set[str], width: int) -> str:
     if width == 20 and "address" in candidates:
         return "address"
     return f"uint{8 * width}" if width < 32 else "uint256"
+
+
+def used_structs(views: list[FunctionView]) -> list[str]:
+    found: dict[str, list[str]] = {}
+    for view in views:
+        for stmt in iter_statements(view.body):
+            for expr in stmt.expressions():
+                for node in iter_expr(expr):
+                    if isinstance(node, AbiCodec):
+                        for kind in node.types:
+                            struct = struct_fields(kind)
+                            if struct is not None:
+                                found[struct[0]] = struct[1]
+    return [
+        f"struct {name} {{ {' '.join(f'{t} f{i};' for i, t in enumerate(fields))} }}"
+        for name, fields in sorted(found.items(), key=lambda item: int(item[0][1:]))
+    ]
 
 
 def used_events(views: list[FunctionView], names: Names) -> list[str]:

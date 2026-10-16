@@ -187,7 +187,7 @@ def test_weth_reads_like_its_source(tmp_path):
     assert "MEM[" not in body and "keccak256" not in body
 
 
-def test_morpho_view_keeps_unverified_call_inputs_and_decodes_reasons(tmp_path):
+def test_morpho_view_decodes_struct_coding_and_reasons(tmp_path):
     corpus, ident = DEPLOYED_IDS[-1]
     assert ident == "morpho-liquidator"
     _, decompiled, _ = deployed_fixture(corpus, ident, tmp_path / "relations")
@@ -197,11 +197,28 @@ def test_morpho_view_keeps_unverified_call_inputs_and_decodes_reasons(tmp_path):
         assert f'Error("{reason}")' in text, reason
     assert "address _owner; // STORAGE[0x0] bytes 0..19; named after getter owner()" in text
     assert "function MORPHO() public nonpayable returns (address) {" in text
-    # flashLoan(address,uint256,bytes) has an undecoded dynamic argument: the
-    # memory that builds it must stay printed, not be absorbed into the call.
-    body = text.split("// 0x441c1495")[1].split("\n    }\n")[0]
-    assert "flashLoan(" in body and "UNCERTAIN" in body
-    assert "CALLDATACOPY(" in body and "= varg0;" in body and "= varg4;" in body
+    # The flash-loan data is one struct: encoded by the owner entry point and
+    # decoded by the callback, so both name the same declaration.
+    struct = "struct S0 { uint256 f0; address f1; uint256 f2; address f3; bytes f4; address f5; address f6; }"
+    assert struct in text
+    callback = text.split("// 0x31f57072")[1].split("\n    }\n")[0]
+    assert "function 0x31f57072(uint256 varg0, bytes varg1)" in callback
+    assert "v0 = abi.decode(varg1, (S0));" in callback
+    assert "CALLDATACOPY(" not in callback and "msg.data[varg1.data" not in callback
+    assert ".0x2c3c9157(v0.f0); // staticcall\n" in callback  # its input is verified
+    owner = text.split("// 0x441c1495")[1].split("\n    }\n")[0]
+    encode = "v31 = abi.encode(S0(varg0, varg1, varg2, varg4, varg5, address(v7), address(v8)));"
+    assert encode in owner
+    assert (
+        ".flashLoan(address(v7), varg3, v31); // flashLoan(address,uint256,bytes) [dict]\n" in owner
+    )
+    assert "UNCERTAIN" not in owner and "CALLDATACOPY(" not in owner and "MCOPY(" not in owner
+    lines = [
+        entry
+        for entry in decompiled.mapping["lines"]
+        if "solc-abi-decode" in entry.get("rules", [])
+    ]
+    assert len(lines) == 1 and len(lines[0]["abstracted_ir_statements"]) > 50
 
 
 def test_output_and_map_do_not_depend_on_hash_seed(tmp_path):

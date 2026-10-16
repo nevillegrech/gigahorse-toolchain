@@ -19,7 +19,7 @@ from reconstruction.highlevel.interpreter import DecompiledMachine
 from reconstruction.validation import ExternalOutcome
 from reconstruction_tests.decompiled_support import DEPLOYED_NEXT, deployed_fixture
 from reconstruction_tests.test_execution import EVMReference
-from reconstruction_tests.test_interaction_execution import trace_call
+from reconstruction_tests.test_interaction_execution import stack_number, trace_call
 from reconstruction_tests.test_weth_execution import deploy_runtime
 
 MASK = (1 << 256) - 1
@@ -336,6 +336,29 @@ def test_morpho_liquidator_view_matches_evm(tmp_path, monkeypatch, record_proper
             data = bytes.fromhex("31f57072") + encode(["uint256", "bytes"], [5, callback])
             run(reference, data, MORPHO, sizes)
 
+        # The printed `abi.decode(varg1, (S0))` executes solc's decoder itself: each
+        # check below fails in the EVM and in the view at the same point.
+        def word_at(blob: bytes, position: int, value: int) -> bytes:
+            return blob[:position] + value.to_bytes(32) + blob[position + 32 :]
+
+        tail = 32 + 224  # the swap bytes' length word in `good`
+        for callback in (
+            b"",  # shorter than the offset word
+            good[:31],
+            word_at(good, 0, 1 << 64),  # tuple offset beyond 64 bits
+            word_at(good, 32 + 32, (1 << 160) | borrower),  # dirty address before the bytes
+            word_at(good, 32 + 160, (1 << 255) | swapper),  # dirty address after the bytes
+            word_at(good, 32 + 128, 1 << 64),  # bytes offset beyond 64 bits
+            word_at(good, 32 + 128, len(good) - 32),  # bytes length word past the end
+            word_at(good, tail, 1 << 64),  # length beyond 64 bits: Panic(0x41)
+            word_at(good, tail, (1 << 64) - 11),  # allocation overflows: Panic(0x41)
+            word_at(good, tail, 1000),  # bytes run past the end
+            words(64, 0) + good[32:],  # a valid non-standard offset
+            good + bytes(range(7)),  # trailing data is ignored
+        ):
+            data = bytes.fromhex("31f57072") + encode(["uint256", "bytes"], [5, callback])
+            run(reference, data, MORPHO, sizes)
+
         # 0x441c1495(id, borrower, seized, flash amount, swap target, swap data, min profit).
         for sender in (owner, borrower):
             for min_profit in (0, 1, 2):
@@ -359,3 +382,158 @@ def test_morpho_liquidator_view_matches_evm(tmp_path, monkeypatch, record_proper
     record_property("decompiled_morpho_cases", stats["cases"])
     record_property("decompiled_morpho_external_calls", stats["calls"])
     record_property("decompiled_morpho_reverted_cases", stats["reverts"])
+
+
+UNISWAP_FACTORY = 0x5C69BEE701EF814A2B6A3EDD4B1652CB9CC5AA6F
+PAIR_INIT_CODE_HASH = bytes.fromhex(
+    "96e8ac4277198ff8b6f785478aa9a39f403cb768dd02cbee326c3e7da348845f"
+)
+
+
+def pair_for(token_a: int, token_b: int) -> int:
+    """UniswapV2Library.pairFor: the CREATE2 address of the pair of two tokens."""
+    low, high = sorted((token_a, token_b))
+    salt = keccak(low.to_bytes(20) + high.to_bytes(20))
+    digest = keccak(b"\xff" + UNISWAP_FACTORY.to_bytes(20) + salt + PAIR_INIT_CODE_HASH)
+    return int.from_bytes(digest[12:])
+
+
+def test_router02_pair_addresses_and_swaps_match_evm(tmp_path, monkeypatch, record_property):
+    """Uniswap V2 Router02 (solc 0.6.6): `keccak256(abi.encodePacked(...))` computes each
+    pair's CREATE2 address (pairFor), so every getReserves/swap target the view derives
+    is compared with the EVM's. Pairs and tokens are stubs returning a fixed blob; the
+    swaps also run TransferHelper's staged transferFrom and the pairs' swap calls.
+    """
+    from reconstruction_tests.decompiled_support import CALIBRATION
+
+    _, decompiled, runtime = deployed_fixture(
+        CALIBRATION, "uniswap-v2-router02", tmp_path / "relations"
+    )
+    text = decompiled.text
+    assert "keccak256(MEM[" not in text
+    assert (
+        'keccak256(abi.encodePacked(hex"ff", address(0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f)'
+        in text
+    )
+    token_a, token_b, token_c, token_d = 0x1000, 0x2000, 0x3000, 0x4000
+    pairs = {
+        pair_for(token_a, token_b): words(10**21, 4 * 10**21, 1),
+        pair_for(token_b, token_c): words(7 * 10**20, 3 * 10**18, 1),
+        pair_for(token_c, token_d): words(0, 0, 1),  # empty pool
+    }
+    codes = {address: returning(blob) for address, blob in pairs.items()}
+    codes |= {token: returning(words(1)) for token in (token_a, token_b, token_c, token_d)}
+    # The factory answers getPair with the A/B pair (addLiquidity looks it up).
+    codes[UNISWAP_FACTORY] = returning(words(pair_for(token_a, token_b)))
+    reference = StubbedReference(codes)
+    deploy_runtime(reference, runtime, {})
+    user = reference.tester.get_accounts()[1]
+    recipient = 0xBEEF
+    sizes = {address: len(code) for address, code in codes.items()}
+    sizes[pair_for(token_a, token_d)] = 0  # no pool deployed
+    computation_type = reference.backend.chain.get_vm().state.computation_class
+    stats = {"cases": 0, "calls": 0, "reverts": 0}
+
+    def run(selector, types, arguments):
+        data = bytes.fromhex(selector) + encode(types, arguments)
+        reference.sender = user
+        environment = {}
+
+        class Timestamp:
+            def __init__(self, original):
+                self.original, self.mnemonic = original, original.mnemonic
+
+            def __call__(self, computation):
+                self.original(computation=computation)
+                if computation.msg.depth == 0:
+                    environment["TIMESTAMP"] = stack_number(computation._stack.values[-1])
+
+        with monkeypatch.context() as patch:
+            patch.setitem(computation_type.opcodes, 0x42, Timestamp(computation_type.opcodes[0x42]))
+            output, reverted, observed, _gas = trace_call(reference, data, 0, monkeypatch)
+        pending = iter(observed)
+
+        def replay(invocation):
+            actual = next(pending)
+            for name in ("opcode", "target", "value", "calldata"):
+                assert getattr(invocation, name) == actual[name], (data.hex(), name)
+            return ExternalOutcome(actual["returndata"], actual["success"])
+
+        machine = DecompiledMachine(decompiled, external_handler=replay)
+        result = machine.execute(
+            data,
+            caller=int(user, 16),
+            address=int(reference.address, 16),
+            code_sizes=sizes,
+            block_environment=environment,
+        )
+        assert next(pending, None) is None, data.hex()
+        assert (result.output, result.reverted) == (output, reverted), data.hex()
+        stats["cases"] += 1
+        stats["calls"] += len(observed)
+        stats["reverts"] += reverted
+        return observed
+
+    a = [token.to_bytes(20) for token in (token_a, token_b, token_c, token_d)]
+    paths = (
+        [a[0], a[1]],
+        [a[1], a[0]],
+        [a[0], a[1], a[2]],
+        [a[2], a[1], a[0]],
+        [a[0]],  # INVALID_PATH
+        [a[2], a[3]],  # INSUFFICIENT_LIQUIDITY
+        [a[0], a[3]],  # no pair contract
+    )
+    for path in paths:
+        for amount in (0, 997, 10**18):
+            observed = run("d06ca61f", ["uint256", "address[]"], [amount, path])  # getAmountsOut
+            run("1f00ca74", ["uint256", "address[]"], [amount, path])  # getAmountsIn
+        if len(path) > 1 and observed:
+            assert observed[0]["target"] == pair_for(*(int.from_bytes(t) for t in path[:2]))
+    deadline = 2**40
+    for path in paths[:4]:
+        for minimum in (0, 10**30):
+            # swapExactTokensForTokens(amountIn, amountOutMin, path, to, deadline)
+            run(
+                "38ed1739",
+                ["uint256", "uint256", "address[]", "address", "uint256"],
+                [10**18, minimum, path, recipient.to_bytes(20), deadline],
+            )
+            # swapTokensForExactTokens(amountOut, amountInMax, path, to, deadline)
+            run(
+                "8803dbee",
+                ["uint256", "uint256", "address[]", "address", "uint256"],
+                [10**15, 10**30 - minimum, path, recipient.to_bytes(20), deadline],
+            )
+    run(
+        "38ed1739",
+        ["uint256", "uint256", "address[]", "address", "uint256"],
+        [10**18, 0, paths[0], recipient.to_bytes(20), 1],  # EXPIRED
+    )
+    # These compute pairFor with the buffer folded to a constant address (0x80, or
+    # 317 after an earlier hash); the executed view checks that assumption.
+    to = recipient.to_bytes(20)
+    for path in (paths[0], paths[2]):
+        # swapExactTokensForTokensSupportingFeeOnTransferTokens(amountIn, min, path, to, deadline)
+        run(
+            "5c11d795",
+            ["uint256", "uint256", "address[]", "address", "uint256"],
+            [10**18, 0, path, to, deadline],
+        )
+    for minimum in (0, 10**30):
+        # addLiquidity(tokenA, tokenB, desiredA, desiredB, minA, minB, to, deadline)
+        run(
+            "e8e33700",
+            ["address"] * 2 + ["uint256"] * 4 + ["address", "uint256"],
+            [a[0], a[1], 10**18, 4 * 10**18, 0, minimum, to, deadline],
+        )
+        # removeLiquidity(tokenA, tokenB, liquidity, minA, minB, to, deadline)
+        run(
+            "baa2abde",
+            ["address"] * 2 + ["uint256"] * 3 + ["address", "uint256"],
+            [a[0], a[1], 10**18, minimum, 0, to, deadline],
+        )
+    assert stats["calls"] > 50 and 0 < stats["reverts"] < stats["cases"]
+    record_property("decompiled_router02_cases", stats["cases"])
+    record_property("decompiled_router02_external_calls", stats["calls"])
+    record_property("decompiled_router02_reverted_cases", stats["reverts"])
