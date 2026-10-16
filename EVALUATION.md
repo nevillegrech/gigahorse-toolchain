@@ -1065,3 +1065,50 @@ The 23 wrong claims by cause:
   prints its `uint160` price as `address`.
 - **2 return widths:** values returned as `uint128` or `uint112` where the ABI
   declares `uint256` (or `address`).
+
+**After fixing three wrong-claim causes** (adcf6e5, made after the first
+scores above; re-rendered from saved relations, no new native runs):
+
+- **Dictionary names the decoder contradicts.** solc never requires more
+  argument bytes than the head of the declared parameters, so a hash-matched
+  name with fewer head bytes than the decoder checks is rejected. The
+  rejection is shown as a note under the selector. This removes Seaport's
+  three spam names (`SubToJunionOnYoutubeXD...`). Code-derived arity is also
+  capped at that head, since further words are tail reads.
+- **Static struct parameters.** The decoder checks each static struct
+  separately (`msg.data.length - H >= S`, as a require or a branch). Those
+  words print as one `S<n> varg<i>` parameter with fields `varg<i>.f<j>`; with
+  a hash-matched signature, its tuples decide.
+- **uint160 printed as address.** A 160-bit mask or validator cannot tell the
+  two apart:
+  - a hash-matched signature decides;
+  - a mask-only word declared wider keeps its masks at each use;
+  - without a signature, `numeric.py` retypes arguments and returned values
+    that are used in arithmetic, and address uses always win.
+
+| Set | Wrong claims (before -> after) | Remaining |
+| --- | --- | --- |
+| Run 1 (5 contracts) | 0 -> 0 | - |
+| Run 2 (7 contracts) | 17 -> 1 | Seaport `getOrderStatus` returns `uint120` (a packed field) where the ABI says `uint256` |
+| Run 3 (8 contracts) | 23 -> 10 | 8 argument counts of structs decoded by helper functions (V3 position manager, Balancer: no arguments recovered); 2 return widths (`uint128` / `uint112` against `uint256`) |
+
+No new wrong claims in any set (`results/run1-rerendered-parameters.json`,
+`results/run2-parameters.json`, `evaluation-heldout-2/results/run3-after-fixes.json`).
+Names in run 2: Seaport goes from 3 wrong to 3 unnamed. Existing fixture
+renders are byte-identical, except two DAI comment lines ("head word(s)"
+instead of "parameter(s)"). Struct parameters add one declaration line each
+in the held-out outputs (Permit2 +3, V4 +3, 1inch +2, Balancer +1).
+
+**Tests.** A new compiler fixture, `ParameterFixture` (solc 0.8.30,
+optimized and via-IR), has calldata and memory structs, a `uint160`
+parameter and storage, a computed `uint160` return, a `uint256` used as an
+address, and a read past the head.
+
+- Both variants score 0 wrong claims against the compiler ABI.
+- Both run against Py-EVM: struct words with dirty address bits, owner checks,
+  and dirty `uint160` and `uint256` words.
+- A colliding name is rejected and the real one kept; the signature settles
+  `uint160`; the scorer compares struct types word by word.
+- Turning off the truth-test exclusion, or not keeping the masks, fails the
+  tests.
+- 434 passed, 17 skipped; the cross-check is unchanged at 1,079 agreeing.

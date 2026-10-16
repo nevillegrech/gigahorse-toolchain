@@ -67,6 +67,13 @@ that gives Dedaub's Morpho output 192 (the table above left out closing braces).
 | Held-out accuracy | Run 2, first scores before any Dedaub export was opened (`results/run2.json`): 5 of 7 produced output, 112/113 selectors, 99 names correct, 12 wrong claims (V3 `uint160` as `address`, Seaport collision names); Curve and 1inch failed (fixed afterwards: `results/run2-after-fixes.json`). The five run-1 contracts: still 0 wrong claims | Static-struct arguments (1inch arity), `uint160` vs `address`, signature coverage |
 | Dedaub parity | Same-bytecode comparison on all seven (`results/run2-dedaub-comparison.json`): 22,012 vs 12,671 code lines, raw share 38% vs 26%, names 120 vs 154 of 196, wrong claims 17 vs 19 (payability 0 vs 26), decoded revert reasons 103 vs 73 | **Not at parity**: memory allocations as objects, custom error/event/parameter names, Vyper, large assembly-heavy contracts |
 
+### Status update 2026-10-17: held-out run 3 and three wrong-claim causes
+
+| Requirement | New evidence | Still open |
+| --- | --- | --- |
+| Held-out accuracy | Run 3 (8 contracts frozen in 354be8c, first scores in fb0870a before tuning): 8/8 produced output, 141 names correct, 0 wrong, 23 wrong claims. After fixing collision names, flattened struct parameters and uint160-as-address (adcf6e5): run 1 0 -> 0, run 2 17 -> 1, run 3 23 -> 10, no new wrong claims | Structs decoded by helper functions (no arguments recovered), return widths of packed fields, via-IR validators for typing, Curve/Vyper dispatch (0/39 selectors) |
+| Useful function interfaces | Static struct parameters from the decoder's own checks (`S<n> varg<i>`, fields `.f<j>`); argument counts capped at the decoder's head; dictionary names rejected when the decoder needs more bytes; `uint160` from signatures or numeric use | Nested struct types, dynamic tuples |
+
 ### Status update 2026-10-16 (night): memory objects and custom errors
 
 | Requirement | New evidence | Still open |
