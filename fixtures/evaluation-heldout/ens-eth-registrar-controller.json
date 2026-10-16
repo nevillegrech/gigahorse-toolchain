@@ -1,0 +1,14 @@
+{
+  "id": "ens-eth-registrar-controller",
+  "chain_id": 1,
+  "address": "0x253553366Da8546fC250F225fe3d25d0C782303b",
+  "bytecode_sha256": "e987b7d78e298df788d693ab554a65bd06460d7e36bf8d20e28be7ce1ee33ad1",
+  "bytecode_size": 7633,
+  "compiler": "0.8.17+commit.8df45f5f",
+  "language": "Solidity",
+  "runtime_match": "exact_match",
+  "retrieved_at": "2026-10-16T08:36:11.338646+00:00",
+  "response_sha256": "798a50d8c92b0d4d88dc2f0ccde2b616b19bd868ccae1dc93983d23170a2bdef",
+  "source": "https://sourcify.dev/server/v2/contract/1/0x253553366Da8546fC250F225fe3d25d0C782303b?fields=runtimeBytecode,compilation,abi",
+  "ground_truth_note": "ABI is scoring ground truth only; never supplied to analysis"
+}

@@ -1,0 +1,14 @@
+{
+  "id": "uniswap-v3-pool-usdc-weth",
+  "chain_id": 1,
+  "address": "0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640",
+  "bytecode_sha256": "92ba07e5b9a121271e3cb6ff1984114eab00dd64f05bd5701682da1a0f3d6afb",
+  "bytecode_size": 22142,
+  "compiler": "0.7.6+commit.7338295f",
+  "language": "Solidity",
+  "runtime_match": "match",
+  "retrieved_at": "2026-10-16T08:36:10.455262+00:00",
+  "response_sha256": "a83aa60fe6c8dd65918f247177b6bb0f2e1da48750db5d1617cfde3e1dab52a1",
+  "source": "https://sourcify.dev/server/v2/contract/1/0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640?fields=runtimeBytecode,compilation,abi",
+  "ground_truth_note": "ABI is scoring ground truth only; never supplied to analysis"
+}

@@ -1,0 +1,14 @@
+{
+  "id": "chainlink-eth-usd-proxy",
+  "chain_id": 1,
+  "address": "0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419",
+  "bytecode_sha256": "ed698309290de3517c7201fcad9a9dbd4b8cde4a72c9add23129201f299c6f2b",
+  "bytecode_size": 9571,
+  "compiler": "0.6.6+commit.6c089d02",
+  "language": "Solidity",
+  "runtime_match": "match",
+  "retrieved_at": "2026-10-16T08:36:10.055651+00:00",
+  "response_sha256": "a169fd6f38866134207f84947b5eca140cc5c79c4e247a22aec7cdbe0cbf35af",
+  "source": "https://sourcify.dev/server/v2/contract/1/0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419?fields=runtimeBytecode,compilation,abi",
+  "ground_truth_note": "ABI is scoring ground truth only; never supplied to analysis"
+}

@@ -1,0 +1,14 @@
+{
+  "id": "seaport-1-5",
+  "chain_id": 1,
+  "address": "0x00000000000000ADc04C56Bf30aC9d3c0aAF14dC",
+  "bytecode_sha256": "4a60fba4eb9357db13a46f6da61074c58521f4869427acf1435b9d0e9d06b4d6",
+  "bytecode_size": 24367,
+  "compiler": "0.8.17+commit.8df45f5f",
+  "language": "Solidity",
+  "runtime_match": "match",
+  "retrieved_at": "2026-10-16T08:36:12.244876+00:00",
+  "response_sha256": "4ac8222880a68f16e5d500d24b8207d78062881b865c2f5167f667585ae7187d",
+  "source": "https://sourcify.dev/server/v2/contract/1/0x00000000000000ADc04C56Bf30aC9d3c0aAF14dC?fields=runtimeBytecode,compilation,abi",
+  "ground_truth_note": "ABI is scoring ground truth only; never supplied to analysis"
+}

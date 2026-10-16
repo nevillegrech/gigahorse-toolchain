@@ -1,0 +1,838 @@
+[
+ {
+  "name": "TokenExchange",
+  "type": "event",
+  "inputs": [
+   {
+    "name": "buyer",
+    "type": "address",
+    "indexed": true
+   },
+   {
+    "name": "sold_id",
+    "type": "int128",
+    "indexed": false
+   },
+   {
+    "name": "tokens_sold",
+    "type": "uint256",
+    "indexed": false
+   },
+   {
+    "name": "bought_id",
+    "type": "int128",
+    "indexed": false
+   },
+   {
+    "name": "tokens_bought",
+    "type": "uint256",
+    "indexed": false
+   }
+  ],
+  "anonymous": false
+ },
+ {
+  "name": "AddLiquidity",
+  "type": "event",
+  "inputs": [
+   {
+    "name": "provider",
+    "type": "address",
+    "indexed": true
+   },
+   {
+    "name": "token_amounts",
+    "type": "uint256[3]",
+    "indexed": false
+   },
+   {
+    "name": "fees",
+    "type": "uint256[3]",
+    "indexed": false
+   },
+   {
+    "name": "invariant",
+    "type": "uint256",
+    "indexed": false
+   },
+   {
+    "name": "token_supply",
+    "type": "uint256",
+    "indexed": false
+   }
+  ],
+  "anonymous": false
+ },
+ {
+  "name": "RemoveLiquidity",
+  "type": "event",
+  "inputs": [
+   {
+    "name": "provider",
+    "type": "address",
+    "indexed": true
+   },
+   {
+    "name": "token_amounts",
+    "type": "uint256[3]",
+    "indexed": false
+   },
+   {
+    "name": "fees",
+    "type": "uint256[3]",
+    "indexed": false
+   },
+   {
+    "name": "token_supply",
+    "type": "uint256",
+    "indexed": false
+   }
+  ],
+  "anonymous": false
+ },
+ {
+  "name": "RemoveLiquidityOne",
+  "type": "event",
+  "inputs": [
+   {
+    "name": "provider",
+    "type": "address",
+    "indexed": true
+   },
+   {
+    "name": "token_amount",
+    "type": "uint256",
+    "indexed": false
+   },
+   {
+    "name": "coin_amount",
+    "type": "uint256",
+    "indexed": false
+   }
+  ],
+  "anonymous": false
+ },
+ {
+  "name": "RemoveLiquidityImbalance",
+  "type": "event",
+  "inputs": [
+   {
+    "name": "provider",
+    "type": "address",
+    "indexed": true
+   },
+   {
+    "name": "token_amounts",
+    "type": "uint256[3]",
+    "indexed": false
+   },
+   {
+    "name": "fees",
+    "type": "uint256[3]",
+    "indexed": false
+   },
+   {
+    "name": "invariant",
+    "type": "uint256",
+    "indexed": false
+   },
+   {
+    "name": "token_supply",
+    "type": "uint256",
+    "indexed": false
+   }
+  ],
+  "anonymous": false
+ },
+ {
+  "name": "CommitNewAdmin",
+  "type": "event",
+  "inputs": [
+   {
+    "name": "deadline",
+    "type": "uint256",
+    "indexed": true
+   },
+   {
+    "name": "admin",
+    "type": "address",
+    "indexed": true
+   }
+  ],
+  "anonymous": false
+ },
+ {
+  "name": "NewAdmin",
+  "type": "event",
+  "inputs": [
+   {
+    "name": "admin",
+    "type": "address",
+    "indexed": true
+   }
+  ],
+  "anonymous": false
+ },
+ {
+  "name": "CommitNewFee",
+  "type": "event",
+  "inputs": [
+   {
+    "name": "deadline",
+    "type": "uint256",
+    "indexed": true
+   },
+   {
+    "name": "fee",
+    "type": "uint256",
+    "indexed": false
+   },
+   {
+    "name": "admin_fee",
+    "type": "uint256",
+    "indexed": false
+   }
+  ],
+  "anonymous": false
+ },
+ {
+  "name": "NewFee",
+  "type": "event",
+  "inputs": [
+   {
+    "name": "fee",
+    "type": "uint256",
+    "indexed": false
+   },
+   {
+    "name": "admin_fee",
+    "type": "uint256",
+    "indexed": false
+   }
+  ],
+  "anonymous": false
+ },
+ {
+  "name": "RampA",
+  "type": "event",
+  "inputs": [
+   {
+    "name": "old_A",
+    "type": "uint256",
+    "indexed": false
+   },
+   {
+    "name": "new_A",
+    "type": "uint256",
+    "indexed": false
+   },
+   {
+    "name": "initial_time",
+    "type": "uint256",
+    "indexed": false
+   },
+   {
+    "name": "future_time",
+    "type": "uint256",
+    "indexed": false
+   }
+  ],
+  "anonymous": false
+ },
+ {
+  "name": "StopRampA",
+  "type": "event",
+  "inputs": [
+   {
+    "name": "A",
+    "type": "uint256",
+    "indexed": false
+   },
+   {
+    "name": "t",
+    "type": "uint256",
+    "indexed": false
+   }
+  ],
+  "anonymous": false
+ },
+ {
+  "type": "constructor",
+  "inputs": [
+   {
+    "name": "_owner",
+    "type": "address"
+   },
+   {
+    "name": "_coins",
+    "type": "address[3]"
+   },
+   {
+    "name": "_pool_token",
+    "type": "address"
+   },
+   {
+    "name": "_A",
+    "type": "uint256"
+   },
+   {
+    "name": "_fee",
+    "type": "uint256"
+   },
+   {
+    "name": "_admin_fee",
+    "type": "uint256"
+   }
+  ],
+  "outputs": [],
+  "stateMutability": "nonpayable"
+ },
+ {
+  "gas": 5227,
+  "name": "A",
+  "type": "function",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint256"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "gas": 1133537,
+  "name": "get_virtual_price",
+  "type": "function",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint256"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "gas": 4508776,
+  "name": "calc_token_amount",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "amounts",
+    "type": "uint256[3]"
+   },
+   {
+    "name": "deposit",
+    "type": "bool"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint256"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "gas": 6954858,
+  "name": "add_liquidity",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "amounts",
+    "type": "uint256[3]"
+   },
+   {
+    "name": "min_mint_amount",
+    "type": "uint256"
+   }
+  ],
+  "outputs": [],
+  "stateMutability": "nonpayable"
+ },
+ {
+  "gas": 2673791,
+  "name": "get_dy",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "i",
+    "type": "int128"
+   },
+   {
+    "name": "j",
+    "type": "int128"
+   },
+   {
+    "name": "dx",
+    "type": "uint256"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint256"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "gas": 2673474,
+  "name": "get_dy_underlying",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "i",
+    "type": "int128"
+   },
+   {
+    "name": "j",
+    "type": "int128"
+   },
+   {
+    "name": "dx",
+    "type": "uint256"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint256"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "gas": 2818066,
+  "name": "exchange",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "i",
+    "type": "int128"
+   },
+   {
+    "name": "j",
+    "type": "int128"
+   },
+   {
+    "name": "dx",
+    "type": "uint256"
+   },
+   {
+    "name": "min_dy",
+    "type": "uint256"
+   }
+  ],
+  "outputs": [],
+  "stateMutability": "nonpayable"
+ },
+ {
+  "gas": 192846,
+  "name": "remove_liquidity",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "_amount",
+    "type": "uint256"
+   },
+   {
+    "name": "min_amounts",
+    "type": "uint256[3]"
+   }
+  ],
+  "outputs": [],
+  "stateMutability": "nonpayable"
+ },
+ {
+  "gas": 6951851,
+  "name": "remove_liquidity_imbalance",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "amounts",
+    "type": "uint256[3]"
+   },
+   {
+    "name": "max_burn_amount",
+    "type": "uint256"
+   }
+  ],
+  "outputs": [],
+  "stateMutability": "nonpayable"
+ },
+ {
+  "gas": 1102,
+  "name": "calc_withdraw_one_coin",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "_token_amount",
+    "type": "uint256"
+   },
+   {
+    "name": "i",
+    "type": "int128"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint256"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "gas": 4025523,
+  "name": "remove_liquidity_one_coin",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "_token_amount",
+    "type": "uint256"
+   },
+   {
+    "name": "i",
+    "type": "int128"
+   },
+   {
+    "name": "min_amount",
+    "type": "uint256"
+   }
+  ],
+  "outputs": [],
+  "stateMutability": "nonpayable"
+ },
+ {
+  "gas": 151919,
+  "name": "ramp_A",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "_future_A",
+    "type": "uint256"
+   },
+   {
+    "name": "_future_time",
+    "type": "uint256"
+   }
+  ],
+  "outputs": [],
+  "stateMutability": "nonpayable"
+ },
+ {
+  "gas": 148637,
+  "name": "stop_ramp_A",
+  "type": "function",
+  "inputs": [],
+  "outputs": [],
+  "stateMutability": "nonpayable"
+ },
+ {
+  "gas": 110461,
+  "name": "commit_new_fee",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "new_fee",
+    "type": "uint256"
+   },
+   {
+    "name": "new_admin_fee",
+    "type": "uint256"
+   }
+  ],
+  "outputs": [],
+  "stateMutability": "nonpayable"
+ },
+ {
+  "gas": 97242,
+  "name": "apply_new_fee",
+  "type": "function",
+  "inputs": [],
+  "outputs": [],
+  "stateMutability": "nonpayable"
+ },
+ {
+  "gas": 21895,
+  "name": "revert_new_parameters",
+  "type": "function",
+  "inputs": [],
+  "outputs": [],
+  "stateMutability": "nonpayable"
+ },
+ {
+  "gas": 74572,
+  "name": "commit_transfer_ownership",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "_owner",
+    "type": "address"
+   }
+  ],
+  "outputs": [],
+  "stateMutability": "nonpayable"
+ },
+ {
+  "gas": 60710,
+  "name": "apply_transfer_ownership",
+  "type": "function",
+  "inputs": [],
+  "outputs": [],
+  "stateMutability": "nonpayable"
+ },
+ {
+  "gas": 21985,
+  "name": "revert_transfer_ownership",
+  "type": "function",
+  "inputs": [],
+  "outputs": [],
+  "stateMutability": "nonpayable"
+ },
+ {
+  "gas": 3481,
+  "name": "admin_balances",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "i",
+    "type": "uint256"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint256"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "gas": 21502,
+  "name": "withdraw_admin_fees",
+  "type": "function",
+  "inputs": [],
+  "outputs": [],
+  "stateMutability": "nonpayable"
+ },
+ {
+  "gas": 111389,
+  "name": "donate_admin_fees",
+  "type": "function",
+  "inputs": [],
+  "outputs": [],
+  "stateMutability": "nonpayable"
+ },
+ {
+  "gas": 37998,
+  "name": "kill_me",
+  "type": "function",
+  "inputs": [],
+  "outputs": [],
+  "stateMutability": "nonpayable"
+ },
+ {
+  "gas": 22135,
+  "name": "unkill_me",
+  "type": "function",
+  "inputs": [],
+  "outputs": [],
+  "stateMutability": "nonpayable"
+ },
+ {
+  "gas": 2220,
+  "name": "coins",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "arg0",
+    "type": "uint256"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "address"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "gas": 2250,
+  "name": "balances",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "arg0",
+    "type": "uint256"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint256"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "gas": 2171,
+  "name": "fee",
+  "type": "function",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint256"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "gas": 2201,
+  "name": "admin_fee",
+  "type": "function",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint256"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "gas": 2231,
+  "name": "owner",
+  "type": "function",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "address"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "gas": 2261,
+  "name": "initial_A",
+  "type": "function",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint256"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "gas": 2291,
+  "name": "future_A",
+  "type": "function",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint256"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "gas": 2321,
+  "name": "initial_A_time",
+  "type": "function",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint256"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "gas": 2351,
+  "name": "future_A_time",
+  "type": "function",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint256"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "gas": 2381,
+  "name": "admin_actions_deadline",
+  "type": "function",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint256"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "gas": 2411,
+  "name": "transfer_ownership_deadline",
+  "type": "function",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint256"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "gas": 2441,
+  "name": "future_fee",
+  "type": "function",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint256"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "gas": 2471,
+  "name": "future_admin_fee",
+  "type": "function",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint256"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "gas": 2501,
+  "name": "future_owner",
+  "type": "function",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "address"
+   }
+  ],
+  "stateMutability": "view"
+ }
+]

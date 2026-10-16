@@ -1,0 +1,14 @@
+{
+  "id": "dai",
+  "chain_id": 1,
+  "address": "0x6B175474E89094C44Da98b954EedeAC495271d0F",
+  "bytecode_sha256": "5ce810033426a017721777f241665c27bdd4663ca8a1c27558b4b372a1731f4e",
+  "bytecode_size": 7904,
+  "compiler": "0.5.12+commit.7709ece9",
+  "language": "Solidity",
+  "runtime_match": "exact_match",
+  "retrieved_at": "2026-10-16T08:36:08.605003+00:00",
+  "response_sha256": "fc12d6005a2bba1f318c297a338edd05e0eb40b5ec5983468ef0d987e5278574",
+  "source": "https://sourcify.dev/server/v2/contract/1/0x6B175474E89094C44Da98b954EedeAC495271d0F?fields=runtimeBytecode,compilation,abi",
+  "ground_truth_note": "ABI is scoring ground truth only; never supplied to analysis"
+}

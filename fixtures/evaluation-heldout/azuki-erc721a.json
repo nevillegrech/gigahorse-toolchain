@@ -1,0 +1,14 @@
+{
+  "id": "azuki-erc721a",
+  "chain_id": 1,
+  "address": "0xED5AF388653567Af2F388E6224dC7C4b3241C544",
+  "bytecode_sha256": "8671d518432eed69da871a5cc26a053aed0b70dcc6bdff65421addc24e0570e6",
+  "bytecode_size": 14251,
+  "compiler": "0.8.4+commit.c7e474f2",
+  "language": "Solidity",
+  "runtime_match": "exact_match",
+  "retrieved_at": "2026-10-16T08:36:10.832839+00:00",
+  "response_sha256": "7510ddbd63467ae84517cb8c871fe38d6ed5597f69578452a6d56bf3084fa585",
+  "source": "https://sourcify.dev/server/v2/contract/1/0xED5AF388653567Af2F388E6224dC7C4b3241C544?fields=runtimeBytecode,compilation,abi",
+  "ground_truth_note": "ABI is scoring ground truth only; never supplied to analysis"
+}

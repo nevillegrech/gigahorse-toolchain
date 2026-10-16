@@ -1,0 +1,14 @@
+{
+  "id": "tether-usdt",
+  "chain_id": 1,
+  "address": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+  "bytecode_sha256": "6d967f98f2f3843065688dc2065248e3686b56fc0b6ddfa82007df016148becb",
+  "bytecode_size": 11075,
+  "compiler": "0.4.18+commit.9cf6e910",
+  "language": "Solidity",
+  "runtime_match": "match",
+  "retrieved_at": "2026-10-16T08:36:08.014024+00:00",
+  "response_sha256": "3fcdf9e2cf008816bf799f6c81eb9ba062b53df8f0de8cc6fddfa3adc1d4bb34",
+  "source": "https://sourcify.dev/server/v2/contract/1/0xdAC17F958D2ee523a2206206994597C13D831ec7?fields=runtimeBytecode,compilation,abi",
+  "ground_truth_note": "ABI is scoring ground truth only; never supplied to analysis"
+}

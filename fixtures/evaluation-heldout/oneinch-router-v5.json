@@ -1,0 +1,14 @@
+{
+  "id": "oneinch-router-v5",
+  "chain_id": 1,
+  "address": "0x1111111254EEB25477B68fb85Ed929f73A960582",
+  "bytecode_sha256": "c2de2c54fa44b491559f58fd0c4dc99d5454d17f9077b3e6b3ef56776c3f966b",
+  "bytecode_size": 22484,
+  "compiler": "0.8.17+commit.8df45f5f",
+  "language": "Solidity",
+  "runtime_match": "match",
+  "retrieved_at": "2026-10-16T08:36:11.787601+00:00",
+  "response_sha256": "050587fb05e5db8cc651b4f775295ec364c44e3926d958a1c42971310e68f2eb",
+  "source": "https://sourcify.dev/server/v2/contract/1/0x1111111254EEB25477B68fb85Ed929f73A960582?fields=runtimeBytecode,compilation,abi",
+  "ground_truth_note": "ABI is scoring ground truth only; never supplied to analysis"
+}

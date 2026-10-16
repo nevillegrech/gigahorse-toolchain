@@ -1,0 +1,14 @@
+{
+  "id": "uniswap-v2-router02",
+  "chain_id": 1,
+  "address": "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D",
+  "bytecode_sha256": "ccef50da4af021b09ada39d78db5d281fffff81a57969c7028bccc1f50d37854",
+  "bytecode_size": 21943,
+  "compiler": "0.6.6+commit.6c089d02",
+  "language": "Solidity",
+  "runtime_match": "match",
+  "retrieved_at": "2026-10-16T08:36:09.758324+00:00",
+  "response_sha256": "9271a16e9759e973fca0cc7ea205914022a3d45cafcdffafdac1bfd6dc4cd488",
+  "source": "https://sourcify.dev/server/v2/contract/1/0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D?fields=runtimeBytecode,compilation,abi",
+  "ground_truth_note": "ABI is scoring ground truth only; never supplied to analysis"
+}

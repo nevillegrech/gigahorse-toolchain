@@ -1,0 +1,25 @@
+{
+  "selection_id": "heldout-2026-10-16",
+  "selected_at": "2026-10-16",
+  "selected_by": "improvements branch, before any analysis of these contracts",
+  "purpose": "Held-out evaluation of decompiled.sol.txt readability and correctness; not to be used for tuning. Results must be reported as measured.",
+  "criteria": [
+    "spread of compiler versions (0.4 to 0.8, plus Vyper) and optimizer settings",
+    "common token patterns (ERC20 with admin features, ERC721A), protocol cores (AMM pool, router, lending), proxies",
+    "dynamic ABI values (arrays, bytes, structs) and difficult control flow (assembly-heavy routers, very large contracts)"
+  ],
+  "contracts": [
+    {"id": "tether-usdt", "chain_id": 1, "address": "0xdAC17F958D2ee523a2206206994597C13D831ec7", "why": "0.4.18 ERC20 with pause, blacklist and upgrade forwarding"},
+    {"id": "dai", "chain_id": 1, "address": "0x6B175474E89094C44Da98b954EedeAC495271d0F", "why": "0.5.12 ERC20 with wards auth and permit"},
+    {"id": "compound-ceth", "chain_id": 1, "address": "0x4Ddc2D193948926D02f9B1fE9e1daa0718270ED5", "why": "0.5.8 lending market, payable flows, external comptroller calls"},
+    {"id": "uniswap-v2-router02", "chain_id": 1, "address": "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D", "why": "0.6.6 router with address[] path arguments and many entry points"},
+    {"id": "chainlink-eth-usd-proxy", "chain_id": 1, "address": "0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419", "why": "0.6.6 aggregator proxy with access control and phase logic"},
+    {"id": "uniswap-v3-pool-usdc-weth", "chain_id": 1, "address": "0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640", "why": "0.7.6 heavily optimized AMM core with callbacks"},
+    {"id": "azuki-erc721a", "chain_id": 1, "address": "0xED5AF388653567Af2F388E6224dC7C4b3241C544", "why": "0.8 ERC721A NFT with packed ownership data"},
+    {"id": "aave-v3-pool-proxy", "chain_id": 1, "address": "0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2", "why": "0.8.10 initializable immutable-admin upgradeability proxy"},
+    {"id": "ens-eth-registrar-controller", "chain_id": 1, "address": "0x253553366Da8546fC250F225fe3d25d0C782303b", "why": "0.8.17 controller with commit/reveal, strings and external resolver calls"},
+    {"id": "oneinch-router-v5", "chain_id": 1, "address": "0x1111111254EEB25477B68fb85Ed929f73A960582", "why": "0.8.17 assembly-heavy aggregation router (difficult control flow)"},
+    {"id": "seaport-1-5", "chain_id": 1, "address": "0x00000000000000ADc04C56Bf30aC9d3c0aAF14dC", "why": "0.8.17 very large, assembly-heavy marketplace (stress/timeout case)"},
+    {"id": "curve-3pool", "chain_id": 1, "address": "0xbEbc44782C7dB0a1A60Cb6fe97d0b483032FF1C7", "why": "Vyper 0.2.4 stableswap pool (non-solc code generation)"}
+  ]
+}

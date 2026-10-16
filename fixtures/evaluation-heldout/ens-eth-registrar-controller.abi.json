@@ -1,0 +1,597 @@
+[
+ {
+  "type": "constructor",
+  "inputs": [
+   {
+    "name": "_base",
+    "type": "address",
+    "internalType": "contract BaseRegistrarImplementation"
+   },
+   {
+    "name": "_prices",
+    "type": "address",
+    "internalType": "contract IPriceOracle"
+   },
+   {
+    "name": "_minCommitmentAge",
+    "type": "uint256",
+    "internalType": "uint256"
+   },
+   {
+    "name": "_maxCommitmentAge",
+    "type": "uint256",
+    "internalType": "uint256"
+   },
+   {
+    "name": "_reverseRegistrar",
+    "type": "address",
+    "internalType": "contract ReverseRegistrar"
+   },
+   {
+    "name": "_nameWrapper",
+    "type": "address",
+    "internalType": "contract INameWrapper"
+   },
+   {
+    "name": "_ens",
+    "type": "address",
+    "internalType": "contract ENS"
+   }
+  ],
+  "stateMutability": "nonpayable"
+ },
+ {
+  "name": "CommitmentTooNew",
+  "type": "error",
+  "inputs": [
+   {
+    "name": "commitment",
+    "type": "bytes32",
+    "internalType": "bytes32"
+   }
+  ]
+ },
+ {
+  "name": "CommitmentTooOld",
+  "type": "error",
+  "inputs": [
+   {
+    "name": "commitment",
+    "type": "bytes32",
+    "internalType": "bytes32"
+   }
+  ]
+ },
+ {
+  "name": "DurationTooShort",
+  "type": "error",
+  "inputs": [
+   {
+    "name": "duration",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ]
+ },
+ {
+  "name": "InsufficientValue",
+  "type": "error",
+  "inputs": []
+ },
+ {
+  "name": "MaxCommitmentAgeTooHigh",
+  "type": "error",
+  "inputs": []
+ },
+ {
+  "name": "MaxCommitmentAgeTooLow",
+  "type": "error",
+  "inputs": []
+ },
+ {
+  "name": "NameNotAvailable",
+  "type": "error",
+  "inputs": [
+   {
+    "name": "name",
+    "type": "string",
+    "internalType": "string"
+   }
+  ]
+ },
+ {
+  "name": "ResolverRequiredWhenDataSupplied",
+  "type": "error",
+  "inputs": []
+ },
+ {
+  "name": "UnexpiredCommitmentExists",
+  "type": "error",
+  "inputs": [
+   {
+    "name": "commitment",
+    "type": "bytes32",
+    "internalType": "bytes32"
+   }
+  ]
+ },
+ {
+  "name": "NameRegistered",
+  "type": "event",
+  "inputs": [
+   {
+    "name": "name",
+    "type": "string",
+    "indexed": false,
+    "internalType": "string"
+   },
+   {
+    "name": "label",
+    "type": "bytes32",
+    "indexed": true,
+    "internalType": "bytes32"
+   },
+   {
+    "name": "owner",
+    "type": "address",
+    "indexed": true,
+    "internalType": "address"
+   },
+   {
+    "name": "baseCost",
+    "type": "uint256",
+    "indexed": false,
+    "internalType": "uint256"
+   },
+   {
+    "name": "premium",
+    "type": "uint256",
+    "indexed": false,
+    "internalType": "uint256"
+   },
+   {
+    "name": "expires",
+    "type": "uint256",
+    "indexed": false,
+    "internalType": "uint256"
+   }
+  ],
+  "anonymous": false
+ },
+ {
+  "name": "NameRenewed",
+  "type": "event",
+  "inputs": [
+   {
+    "name": "name",
+    "type": "string",
+    "indexed": false,
+    "internalType": "string"
+   },
+   {
+    "name": "label",
+    "type": "bytes32",
+    "indexed": true,
+    "internalType": "bytes32"
+   },
+   {
+    "name": "cost",
+    "type": "uint256",
+    "indexed": false,
+    "internalType": "uint256"
+   },
+   {
+    "name": "expires",
+    "type": "uint256",
+    "indexed": false,
+    "internalType": "uint256"
+   }
+  ],
+  "anonymous": false
+ },
+ {
+  "name": "OwnershipTransferred",
+  "type": "event",
+  "inputs": [
+   {
+    "name": "previousOwner",
+    "type": "address",
+    "indexed": true,
+    "internalType": "address"
+   },
+   {
+    "name": "newOwner",
+    "type": "address",
+    "indexed": true,
+    "internalType": "address"
+   }
+  ],
+  "anonymous": false
+ },
+ {
+  "name": "MIN_REGISTRATION_DURATION",
+  "type": "function",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "name": "available",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "name",
+    "type": "string",
+    "internalType": "string"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "bool",
+    "internalType": "bool"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "name": "commit",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "commitment",
+    "type": "bytes32",
+    "internalType": "bytes32"
+   }
+  ],
+  "outputs": [],
+  "stateMutability": "nonpayable"
+ },
+ {
+  "name": "commitments",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "",
+    "type": "bytes32",
+    "internalType": "bytes32"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "name": "makeCommitment",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "name",
+    "type": "string",
+    "internalType": "string"
+   },
+   {
+    "name": "owner",
+    "type": "address",
+    "internalType": "address"
+   },
+   {
+    "name": "duration",
+    "type": "uint256",
+    "internalType": "uint256"
+   },
+   {
+    "name": "secret",
+    "type": "bytes32",
+    "internalType": "bytes32"
+   },
+   {
+    "name": "resolver",
+    "type": "address",
+    "internalType": "address"
+   },
+   {
+    "name": "data",
+    "type": "bytes[]",
+    "internalType": "bytes[]"
+   },
+   {
+    "name": "reverseRecord",
+    "type": "bool",
+    "internalType": "bool"
+   },
+   {
+    "name": "ownerControlledFuses",
+    "type": "uint16",
+    "internalType": "uint16"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "bytes32",
+    "internalType": "bytes32"
+   }
+  ],
+  "stateMutability": "pure"
+ },
+ {
+  "name": "maxCommitmentAge",
+  "type": "function",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "name": "minCommitmentAge",
+  "type": "function",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "name": "nameWrapper",
+  "type": "function",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "address",
+    "internalType": "contract INameWrapper"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "name": "owner",
+  "type": "function",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "address",
+    "internalType": "address"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "name": "prices",
+  "type": "function",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "address",
+    "internalType": "contract IPriceOracle"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "name": "recoverFunds",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "_token",
+    "type": "address",
+    "internalType": "address"
+   },
+   {
+    "name": "_to",
+    "type": "address",
+    "internalType": "address"
+   },
+   {
+    "name": "_amount",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ],
+  "outputs": [],
+  "stateMutability": "nonpayable"
+ },
+ {
+  "name": "register",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "name",
+    "type": "string",
+    "internalType": "string"
+   },
+   {
+    "name": "owner",
+    "type": "address",
+    "internalType": "address"
+   },
+   {
+    "name": "duration",
+    "type": "uint256",
+    "internalType": "uint256"
+   },
+   {
+    "name": "secret",
+    "type": "bytes32",
+    "internalType": "bytes32"
+   },
+   {
+    "name": "resolver",
+    "type": "address",
+    "internalType": "address"
+   },
+   {
+    "name": "data",
+    "type": "bytes[]",
+    "internalType": "bytes[]"
+   },
+   {
+    "name": "reverseRecord",
+    "type": "bool",
+    "internalType": "bool"
+   },
+   {
+    "name": "ownerControlledFuses",
+    "type": "uint16",
+    "internalType": "uint16"
+   }
+  ],
+  "outputs": [],
+  "stateMutability": "payable"
+ },
+ {
+  "name": "renew",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "name",
+    "type": "string",
+    "internalType": "string"
+   },
+   {
+    "name": "duration",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ],
+  "outputs": [],
+  "stateMutability": "payable"
+ },
+ {
+  "name": "renounceOwnership",
+  "type": "function",
+  "inputs": [],
+  "outputs": [],
+  "stateMutability": "nonpayable"
+ },
+ {
+  "name": "rentPrice",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "name",
+    "type": "string",
+    "internalType": "string"
+   },
+   {
+    "name": "duration",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "price",
+    "type": "tuple",
+    "components": [
+     {
+      "name": "base",
+      "type": "uint256",
+      "internalType": "uint256"
+     },
+     {
+      "name": "premium",
+      "type": "uint256",
+      "internalType": "uint256"
+     }
+    ],
+    "internalType": "struct IPriceOracle.Price"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "name": "reverseRegistrar",
+  "type": "function",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "address",
+    "internalType": "contract ReverseRegistrar"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "name": "supportsInterface",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "interfaceID",
+    "type": "bytes4",
+    "internalType": "bytes4"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "bool",
+    "internalType": "bool"
+   }
+  ],
+  "stateMutability": "pure"
+ },
+ {
+  "name": "transferOwnership",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "newOwner",
+    "type": "address",
+    "internalType": "address"
+   }
+  ],
+  "outputs": [],
+  "stateMutability": "nonpayable"
+ },
+ {
+  "name": "valid",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "name",
+    "type": "string",
+    "internalType": "string"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "bool",
+    "internalType": "bool"
+   }
+  ],
+  "stateMutability": "pure"
+ },
+ {
+  "name": "withdraw",
+  "type": "function",
+  "inputs": [],
+  "outputs": [],
+  "stateMutability": "nonpayable"
+ }
+]

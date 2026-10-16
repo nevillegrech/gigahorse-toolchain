@@ -1,0 +1,14 @@
+{
+  "id": "aave-v3-pool-proxy",
+  "chain_id": 1,
+  "address": "0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2",
+  "bytecode_sha256": "bf8a408a1f5440c167d91fa2d972deb23bb4d809e8dd089009885ec88a826f88",
+  "bytecode_size": 2400,
+  "compiler": "0.8.10+commit.fc410830",
+  "language": "Solidity",
+  "runtime_match": "exact_match",
+  "retrieved_at": "2026-10-16T08:36:11.061398+00:00",
+  "response_sha256": "b234788e13c0a915ae131881718aa5506b2719f5fa4f7e3e735adfa963f746f3",
+  "source": "https://sourcify.dev/server/v2/contract/1/0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2?fields=runtimeBytecode,compilation,abi",
+  "ground_truth_note": "ABI is scoring ground truth only; never supplied to analysis"
+}

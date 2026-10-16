@@ -1,0 +1,14 @@
+{
+  "id": "compound-ceth",
+  "chain_id": 1,
+  "address": "0x4Ddc2D193948926D02f9B1fE9e1daa0718270ED5",
+  "bytecode_sha256": "5b883cd2234f79475a140807df82e9e3faee02b4bb35d032b0810705152ad78b",
+  "bytecode_size": 19629,
+  "compiler": "0.5.8+commit.23d335f2",
+  "language": "Solidity",
+  "runtime_match": "match",
+  "retrieved_at": "2026-10-16T08:36:08.964640+00:00",
+  "response_sha256": "596506bf43eb5f4ffe4b05273488760295499c08f4ca108c74de3327c371256a",
+  "source": "https://sourcify.dev/server/v2/contract/1/0x4Ddc2D193948926D02f9B1fE9e1daa0718270ED5?fields=runtimeBytecode,compilation,abi",
+  "ground_truth_note": "ABI is scoring ground truth only; never supplied to analysis"
+}
