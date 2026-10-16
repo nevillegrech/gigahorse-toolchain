@@ -38,14 +38,14 @@ general equivalence, and an analysis timeout must remain a visible failure.
 
 | Requirement | New evidence | Still open |
 | --- | --- | --- |
-| Readable code | `decompiled.sol.txt`: corpus code lines 5,013 vs 9,996 in `structured.sol.txt`; WETH9 106 lines, close to its source; shared regions without a recovered function are split per caller (pair `skim`), and dispatch jumps into the fallback are printed as tail calls (cETH) | 0.8 `abi.decode`/`abi.encode` of structs, ABI calls inside split regions stay low-level (`staticcall(MEM[...])`), loop idioms |
+| Readable code | `decompiled.sol.txt`: corpus code lines 4,917 vs 9,996 in `structured.sol.txt`; WETH9 106 lines, close to its source; shared regions without a recovered function are split per caller (pair `skim`), and dispatch jumps into the fallback are printed as tail calls (cETH) | 0.8 `abi.decode`/`abi.encode` of structs, returned words of calls decoded from memory, dynamic argument contents (`bytesAt(p)`), loop idioms |
 | Interfaces | Typed signatures from masks/validators, `nonpayable`, return types, dynamic-argument accessors, hash-checked names, opt-in openchain cache | Names of tuple/array elements, return types of dynamic values |
 | Authorization/effects | Per-function summaries: caller checks, writes, calls, ETH sends, events, transitive private effects | Reentrancy/lock idioms, proxy summaries in the new view |
 | Evidence | Every IR statement accounted (printed, absorbed, elided with reason, argument decode, structural) on 24 fixtures | — |
 | Uncertainty | UNCERTAIN marks on unresolved PHIs, unverified ABI calls, raw events; scoped memory assumption recorded per line | Calibrated confidence per name/type |
-| Behavioral confidence | The printed view is executed: 1,079 cross-checked executions agree with the IR machine (and Py-EVM); 0 unsupported; 28 pair `skim` cases run the split copies against Py-EVM with stub tokens | Morpho fixture has no execution tests; no proof of equivalence |
+| Behavioral confidence | The printed view is executed: 1,079 cross-checked executions agree with the IR machine (and Py-EVM); 0 unsupported; 28 pair `skim` cases run the split copies against Py-EVM with stub tokens; 135 Morpho cases with stub contracts at hard-coded addresses; printed ABI arguments are checked against the bytes each call sends | No proof of equivalence; bounded inputs |
 | Held-out accuracy | 5 of 12 pre-selected mainnet contracts analyzed: 146/146 selectors and names correct; 5 wrong claims in run 1, fixed (0 after re-render) | 7 contracts not yet analyzed (run stopped by memory pressure); no same-bytecode Dedaub exports for them |
-| Dedaub parity | One same-bytecode pair: 247 vs 192 code lines, all Dedaub facts present, one reason better decoded | A held-out set of same-bytecode Dedaub exports is still needed for a parity claim |
+| Dedaub parity | One same-bytecode pair: 234 vs 192 code lines, all Dedaub facts present, one reason better decoded | A held-out set of same-bytecode Dedaub exports is still needed for a parity claim |
 
 Next priority: investigate the NFT receiver callback's unresolved PHI; add successful
 NFT mint/transfer/receiver and multisig behavior checks; improve dynamic encoders,
