@@ -250,6 +250,30 @@ class MemoryBytes(Expr):
         return replace(self, pointer=children[0], length=children[1] if len(children) > 1 else None)
 
 
+@dataclass(frozen=True)
+class CustomError(Expr):
+    """A revert payload: a 4-byte selector followed by one 32-byte word per argument.
+
+    `name` is a hash-checked dictionary name whose parameters are all one-word
+    static types matching the words; without it the payload prints as
+    abi.encodeWithSelector(selector, words...).
+    """
+
+    selector: int
+    name: str | None
+    args: tuple[Expr, ...] = ()
+    # The analysis folded the free pointer here: the words were written at this
+    # constant base, so the payload is exact only if MEM[0x40] equals it (checked
+    # when executed; rule assumes-folded-free-pointer).
+    assumed_pointer: int | None = None
+
+    def children(self) -> tuple[Expr, ...]:
+        return self.args
+
+    def with_children(self, children: tuple[Expr, ...]) -> Expr:
+        return replace(self, args=tuple(children))
+
+
 def struct_fields(type_name: str) -> tuple[str, list[str]] | None:
     """`S0(uint256,bytes)` -> ("S0", ["uint256", "bytes"]); None for other types."""
     if not type_name.endswith(")") or "(" not in type_name:

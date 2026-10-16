@@ -8,6 +8,7 @@ from pathlib import Path
 
 from ..model import Function, Program
 from .abi_codec import recognize_abi_coders
+from .errors import recognize_error_payloads
 from .idioms import (
     recognize_arithmetic_helpers,
     recognize_bytes_returns,
@@ -19,6 +20,7 @@ from .ir import (
     Assign,
     Call,
     Comment,
+    CustomError,
     Emit,
     Expr,
     ExprStmt,
@@ -161,6 +163,12 @@ def collect_keys(context: ProgramContext) -> tuple[set[str], set[str], set[str]]
             if value is not None:
                 topics.add(f"0x{value:064x}")
     errors = set()
+    # Selector words stored to memory may start a custom error payload (see errors.py).
+    for stmt in context.statements.values():
+        if stmt.opcode == "MSTORE" and len(stmt.operands) == 2:
+            value = context.constants.get(stmt.operands[1])
+            if value and value >> 224 and not value & ((1 << 224) - 1):
+                errors.add(f"0x{value >> 224:08x}")
     for info in context.reverts.values():
         selector = info.get("selector")
         if selector and info.get("encoding") not in {"Error(string)", "Panic(uint256)"}:
@@ -240,6 +248,9 @@ def build_decompiled(
     for selector, candidates in names.functions.matches.items():
         if len(candidates) == 1:
             context.external_signatures[selector] = candidates[0]
+    for selector, candidates in names.errors.matches.items():
+        if len(candidates) == 1:
+            context.error_signatures[int(selector, 16)] = candidates[0]
     signatures: dict[str, str | None] = {}
     for function in program.functions:
         if len(function.selectors) == 1:
@@ -325,6 +336,8 @@ def build_decompiled(
     events = used_events(views, names)
     for text in events:
         out.emit(text, 1, kind="event-declaration")
+    for text in used_errors(views, context):
+        out.emit(text, 1, kind="error-declaration")
     ordered = sorted(
         views,
         key=lambda v: (
@@ -437,6 +450,7 @@ def prepare_function(context: ProgramContext, function: Function) -> _Prepared:
         if context.program.runtime_bytecode
         else None
     )
+    recognize_error_payloads(state, context.error_signatures)
     guards_to_requires(state, code)
     drop_trivial_requires(state)
     remove_unused_reads(state)
@@ -848,6 +862,23 @@ def used_events(views: list[FunctionView], names: Names) -> list[str]:
             rendered = params
             note = "[dict] topic hash matches; indexed positions unresolved"
         lines.append(f"event {name}({', '.join(rendered)}); // {note}")
+    return lines
+
+
+def used_errors(views: list[FunctionView], context: ProgramContext) -> list[str]:
+    """`error Name(types);` for each dictionary-named custom error the view prints."""
+    selectors = {
+        node.selector
+        for view in views
+        for stmt in iter_statements(view.body)
+        for expr in stmt.expressions()
+        for node in iter_expr(expr)
+        if isinstance(node, CustomError) and node.name is not None
+    }
+    lines = []
+    for selector in sorted(selectors, key=lambda s: context.error_signatures[s]):
+        signature = context.error_signatures[selector]
+        lines.append(f"error {signature}; // [dict] 0x{selector:08x}: selector hash matches")
     return lines
 
 

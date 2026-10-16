@@ -12,6 +12,7 @@ from .ir import (
     Call,
     Comment,
     Const,
+    CustomError,
     Emit,
     Env,
     Expr,
@@ -153,6 +154,13 @@ def _expr(expr: Expr, context: int) -> str:
         return _codec(expr)
     if isinstance(expr, MemoryBytes):
         return _expr(expr.pointer, context)
+    if isinstance(expr, CustomError):
+        args = ", ".join(_expr(a, 0) for a in expr.args)
+        if expr.name is not None:
+            return f"{expr.name}({args})"
+        if not args:
+            return f"0x{expr.selector:08x}"  # the payload bytes, as for constant payloads
+        return f"abi.encodeWithSelector(0x{expr.selector:08x}, {args})"
     if isinstance(expr, Index):
         return f"{_postfix(expr.base)}[{_expr(expr.key, 0)}]"
     if isinstance(expr, Member):
@@ -343,7 +351,7 @@ def print_statement(out: Printed, stmt: Stmt, indent: int) -> None:
             isinstance(stmt.payload, Call)
             and stmt.payload.name not in {"Error", "Panic"}
             and stmt.payload.name[:1].isupper()
-        ):
+        ) or (isinstance(stmt.payload, CustomError) and stmt.payload.name is not None):
             text = f"revert {expression(stmt.payload)};"
         out.emit(text + suffix, indent, kind="revert", **common)
     elif isinstance(stmt, Emit):

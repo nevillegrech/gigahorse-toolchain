@@ -31,6 +31,7 @@ from .ir import (
     Call,
     Comment,
     Const,
+    CustomError,
     Emit,
     Env,
     Expr,
@@ -839,6 +840,15 @@ class DecompiledMachine:
         if isinstance(payload, Call) and payload.name == "Panic":
             code = self.eval(payload.args[0], frame)
             return bytes.fromhex("4e487b71") + code.to_bytes(32, "big")
+        if isinstance(payload, CustomError):
+            expected = payload.assumed_pointer
+            if expected is not None and self.free_pointer() != expected:
+                raise ViewMismatch(
+                    f"error payload: free pointer {self.free_pointer():#x}, expected {expected:#x}"
+                )
+            return payload.selector.to_bytes(4, "big") + b"".join(
+                self.eval(a, frame).to_bytes(32, "big") for a in payload.args
+            )
         if isinstance(payload, Call) and payload.name == "abi.encodeWithSelector":
             selector_text = payload.args[0]
             assert isinstance(selector_text, Raw)

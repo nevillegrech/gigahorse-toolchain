@@ -166,6 +166,8 @@ class ProgramContext:
     storage_roots: dict[str, tuple[str, str, int, int]] = field(default_factory=dict)
     # Selector -> unique hash-checked signature text, for external calls.
     external_signatures: dict[str, str] = field(default_factory=dict)
+    # Error selector -> its unique hash-checked signature text.
+    error_signatures: dict[int, str] = field(default_factory=dict)
     # Public function id -> its unique hash-checked signature text.
     function_signatures: dict[str, str] = field(default_factory=dict)
     # Field types of ABI-coded structs -> printed struct name (shared by all functions).
@@ -683,7 +685,7 @@ class FunctionLifter:
             self.abstracted.add(fold.statement)
             return [
                 Revert(
-                    revert_payload(info),
+                    revert_payload(info, self.context.error_signatures),
                     evidence=frozenset({fold.statement}),
                     hidden=frozenset(fold.ir_statements),
                     rules=frozenset({"revert-payload-fold"}),
@@ -893,7 +895,11 @@ class FunctionLifter:
             return [self.return_statement(stmt, args)]
         if op == "REVERT":
             info = self.context.reverts.get(stmt.id)
-            payload = revert_payload(info) if info and info["status"] == "static" else None
+            payload = (
+                revert_payload(info, self.context.error_signatures)
+                if info and info["status"] == "static"
+                else None
+            )
             if payload is None and not (isinstance(args[1], Const) and args[1].value == 0):
                 payload = Slice("MEM", args[0], simplify(Binary("+", args[0], args[1])))
             return [Revert(payload, evidence=ev)]
@@ -1184,7 +1190,7 @@ def out_offset_text(expr: Expr) -> str:
     return expression(expr)
 
 
-def revert_payload(info: dict | None) -> Expr | None:
+def revert_payload(info: dict | None, signatures: dict[int, str] | None = None) -> Expr | None:
     if info is None or info["status"] != "static":
         return None
     encoding = info["encoding"]
@@ -1206,6 +1212,12 @@ def revert_payload(info: dict | None) -> Expr | None:
                 ),
             ),
         )
+    if signatures:
+        from .errors import static_error_payload
+
+        named = static_error_payload(info["payload_hex"], signatures)
+        if named is not None:
+            return named
     from .ir import Raw
 
     return Raw(info["payload_hex"])
