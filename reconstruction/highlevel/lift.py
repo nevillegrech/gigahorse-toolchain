@@ -133,6 +133,8 @@ class ProgramContext:
     storage_roots: dict[str, tuple[str, str, int, int]] = field(default_factory=dict)
     # Selector -> unique hash-checked signature text, for external calls.
     external_signatures: dict[str, str] = field(default_factory=dict)
+    # Public function id -> its unique hash-checked signature text.
+    function_signatures: dict[str, str] = field(default_factory=dict)
 
     @classmethod
     def build(cls, program: Program, relations: Path | None = None) -> ProgramContext:
@@ -216,6 +218,7 @@ class FunctionLifter:
         # Public argument name -> how the IR computes it from calldata.
         self.argument_definitions: dict[str, Expr] = {}
         self.argument_kinds: dict[str, str] = {}
+        self.arity_note: str | None = None
         # Memory consumers (LOG/RETURN/SHA3/CALL ids) -> MSTOREs feeding them.
         self.consumer_writers: dict[str, set[str]] = defaultdict(set)
         for consumer, writers in context.consumer_writers.items():
@@ -242,14 +245,44 @@ class FunctionLifter:
                 for argument in semantics.arguments
                 if argument.function == self.function.id
             }
-            if by_index:
-                for index in range(max(by_index) + 1):
-                    name = f"varg{index}"
-                    self.argument_kinds[name] = kinds.get(index, "word")
-                    variables = by_index.get(index, [])
-                    for variable in variables:
-                        self.names[variable] = name
-                    self.arguments.append(Var(name, variables[0] if variables else None))
+            inferred = max(by_index) + 1 if by_index else 0
+            signature = self.context.function_signatures.get(self.function.id)
+            count = inferred
+            if signature is not None:
+                params = signature_params(signature)
+                if len(params) < inferred:
+                    # Extra calldata words are read (e.g. by a logging modifier) but the
+                    # hash-matched signature has fewer parameters: print them as reads.
+                    count = len(params)
+                    self.arity_note = (
+                        f"calldata words beyond the {len(params)} parameter(s) of the matched "
+                        f"signature {signature} are read (printed as msg.data[...])"
+                    )
+                elif len(params) > inferred:
+                    count = len(params)
+            for index in range(count):
+                name = f"varg{index}"
+                if index >= inferred:
+                    self.argument_kinds[name] = "unread"
+                    self.arguments.append(Var(name, None))
+                    continue
+                self.argument_kinds[name] = kinds.get(index, "word")
+                # The native model can attach unrelated calldata reads to an
+                # argument (e.g. a modifier reading the selector word); bind only
+                # variables that load this argument's own head word.
+                variables = [
+                    v
+                    for v in by_index.get(index, [])
+                    if self._loads_argument(v, index, self.argument_kinds[name])
+                ]
+                rejected = sorted(set(by_index.get(index, [])) - set(variables))
+                if rejected:
+                    self.warnings.append(
+                        f"{name}: native argument variables {rejected} do not load its head word"
+                    )
+                for variable in variables:
+                    self.names[variable] = name
+                self.arguments.append(Var(name, variables[0] if variables else None))
         elif not self.function.selectors:
             visible = self.context.interfaces.visible(self.function)
             for position, index in enumerate(visible):
@@ -257,6 +290,28 @@ class FunctionLifter:
                 name = f"varg{position}"
                 self.names[variable] = name
                 self.arguments.append(Var(name, variable))
+
+    def _loads_argument(self, variable: str, index: int, kind: str) -> bool:
+        head = 4 + 32 * index
+        stmt = self.context.definitions.get(variable)
+        if stmt is None:
+            return False
+
+        def is_head_load(var: str) -> bool:
+            load = self.context.definitions.get(var)
+            return (
+                load is not None
+                and load.opcode == "CALLDATALOAD"
+                and len(load.operands) == 1
+                and self.context.constants.get(load.operands[0]) == head
+            )
+
+        if kind == "word":
+            return is_head_load(variable)
+        # Dynamic arguments: 4 + the head word (an offset), in either operand order.
+        return (
+            stmt.opcode == "ADD" and any(is_head_load(v) for v in stmt.operands)
+        ) or is_head_load(variable)
 
     def local(self, variable: str) -> Var:
         if variable not in self.names:
@@ -470,6 +525,8 @@ class FunctionLifter:
         plan = self.plan
         body: list[Stmt] = []
         structured = bool(plan and plan.region)
+        if self.arity_note:
+            body.append(Comment("UNCERTAIN: " + self.arity_note, uncertain=self.arity_note))
         if plan and plan.region:
             for warning in plan.warnings:
                 body.append(Comment("UNCERTAIN: " + warning, uncertain=warning))

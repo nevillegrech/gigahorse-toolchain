@@ -179,6 +179,8 @@ def build_decompiled(
             name, signature = _public_name(function.selectors[0], names)
             context.function_names[function.id] = name
             signatures[function.id] = signature
+            if signature:
+                context.function_signatures[function.id] = signature
         elif "0x0" in function.entries:
             context.function_names[function.id] = "__function_selector__"
         else:
@@ -408,6 +410,11 @@ def finish_function(
             ):
                 value.type = params[index]
                 value.reason += f"; ABI type from the hash-matched signature {signature} [dict]"
+            elif value.kind == "unread" and index < len(params):
+                value.type = params[index]
+                value.reason = (
+                    f"not read by the code; type from the hash-matched signature {signature} [dict]"
+                )
     remove_unused_reads(state)
     loop_conditions(state)
     return FunctionView(
@@ -468,7 +475,13 @@ def print_function(out: Printed, view: FunctionView, summary=None) -> None:
     params = ", ".join(f"{a.type} {a.name}" for a in view.arguments)
     if function.selectors:
         nonpayable = view.nonpayable is not None or view.nonpayable_by_dispatcher is not None
-        visibility = "public " + ("nonpayable" if nonpayable else "payable")
+        if nonpayable:
+            visibility = "public nonpayable"
+        elif view.structured:
+            visibility = "public payable"
+        else:
+            # Without structured flow the callvalue check may exist but was not located.
+            visibility = "public /* payability unresolved */"
     else:
         visibility = "private"
     returns = f" returns ({', '.join(view.returns)})" if view.returns else ""

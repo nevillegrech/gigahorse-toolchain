@@ -52,7 +52,7 @@ def abi_events(abi: list[dict]) -> set[str]:
 
 
 SIGNATURE = re.compile(
-    r"^    // (0x[0-9a-f]{8})(?: (\S+) \[dict\])?\n(?:    //   .*\n)*    function (\S+?)\((.*)\) public (payable|nonpayable)(?: returns \((.*)\))? \{",
+    r"^    // (0x[0-9a-f]{8})(?: (\S+) \[dict\])?\n(?:    //   .*\n)*    function (\S+?)\((.*)\) public (payable|nonpayable|/\* payability unresolved \*/)(?: returns \((.*)\))? \{",
     re.M,
 )
 
@@ -66,7 +66,7 @@ def parse_view(text: str) -> dict[str, dict]:
             "hint": hint,
             "name": name,
             "types": types,
-            "payable": mutability == "payable",
+            "payable": None if "unresolved" in mutability else mutability == "payable",
             "returns": [r.strip() for r in returns.split(",")] if returns else None,
         }
     return functions
@@ -92,12 +92,16 @@ def score(view: dict[str, dict], truth: dict[str, dict]) -> dict:
             ok = ours["hint"] == expected["signature"]
             counts["names"]["correct" if ok else "wrong"] += 1
             if not ok:
-                counts["wrong_claims"].append(f"{selector}: name {ours['hint']} vs {expected['signature']}")
+                counts["wrong_claims"].append(
+                    f"{selector}: name {ours['hint']} vs {expected['signature']}"
+                )
         else:
             counts["names"]["unresolved"] += 1
         if len(ours["types"]) == len(expected["inputs"]):
             counts["arity"]["correct"] += 1
-            for index, (mine, theirs) in enumerate(zip(ours["types"], expected["inputs"], strict=True)):
+            for index, (mine, theirs) in enumerate(
+                zip(ours["types"], expected["inputs"], strict=True)
+            ):
                 if mine == theirs:
                     counts["argument_types"]["correct"] += 1
                 elif mine == "dynamic":
@@ -105,7 +109,11 @@ def score(view: dict[str, dict], truth: dict[str, dict]) -> dict:
                 elif mine == "uint256":
                     # The raw-word default: unresolved unless the ABI also says uint256.
                     counts["argument_types"]["unresolved"] += 1
-                elif theirs.startswith(("uint", "int", "bytes")) and mine.startswith("uint") and theirs != mine:
+                elif (
+                    theirs.startswith(("uint", "int", "bytes"))
+                    and mine.startswith("uint")
+                    and theirs != mine
+                ):
                     # Width evidence that the source type does not show is a wrong claim.
                     counts["argument_types"]["wrong"] += 1
                     counts["wrong_claims"].append(f"{selector}: arg{index} {mine} vs {theirs}")
@@ -114,8 +122,12 @@ def score(view: dict[str, dict], truth: dict[str, dict]) -> dict:
                     counts["wrong_claims"].append(f"{selector}: arg{index} {mine} vs {theirs}")
         else:
             counts["arity"]["wrong"] += 1
-            counts["wrong_claims"].append(f"{selector}: arity {len(ours['types'])} vs {len(expected['inputs'])}")
-        if ours["payable"] == expected["payable"]:
+            counts["wrong_claims"].append(
+                f"{selector}: arity {len(ours['types'])} vs {len(expected['inputs'])}"
+            )
+        if ours["payable"] is None:
+            counts["payability"]["unresolved"] = counts["payability"].get("unresolved", 0) + 1
+        elif ours["payable"] == expected["payable"]:
             counts["payability"]["correct"] += 1
         else:
             counts["payability"]["wrong"] += 1
@@ -126,13 +138,16 @@ def score(view: dict[str, dict], truth: dict[str, dict]) -> dict:
         if ours["returns"] is None:
             counts["returns"]["unresolved" if expected["outputs"] else "correct"] += 1
         elif len(ours["returns"]) == len(expected["outputs"]) and all(
-            a == b or a == "uint256" for a, b in zip(ours["returns"], expected["outputs"], strict=True)
+            a == b or a == "uint256"
+            for a, b in zip(ours["returns"], expected["outputs"], strict=True)
         ):
             exact = all(a == b for a, b in zip(ours["returns"], expected["outputs"], strict=True))
             counts["returns"]["correct" if exact else "unresolved"] += 1
         else:
             counts["returns"]["wrong"] += 1
-            counts["wrong_claims"].append(f"{selector}: returns {ours['returns']} vs {expected['outputs']}")
+            counts["wrong_claims"].append(
+                f"{selector}: returns {ours['returns']} vs {expected['outputs']}"
+            )
     return counts
 
 
@@ -142,7 +157,9 @@ def main() -> None:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--timeout", type=int, default=300)
     parser.add_argument("--only", nargs="*")
-    parser.add_argument("--reuse", action="store_true", help="re-render existing bundles' relations")
+    parser.add_argument(
+        "--reuse", action="store_true", help="re-render existing bundles' relations"
+    )
     args = parser.parse_args()
     corpus = json.loads(args.corpus.read_text())
     args.output.mkdir(parents=True, exist_ok=True)
@@ -159,7 +176,14 @@ def main() -> None:
             rendered = args.output / f"{ident}.render"
             if rendered.exists():
                 subprocess.run(["rm", "-rf", str(rendered)], check=True)
-            command = [sys.executable, str(ROOT / "reconstruct.py"), "render", str(bundle / "relations"), "--output", str(rendered)]
+            command = [
+                sys.executable,
+                str(ROOT / "reconstruct.py"),
+                "render",
+                str(bundle / "relations"),
+                "--output",
+                str(rendered),
+            ]
             result = subprocess.run(command, capture_output=True, text=True)
             subprocess.run(["rm", "-rf", str(bundle)], check=True)
             if result.returncode == 0:
@@ -190,10 +214,14 @@ def main() -> None:
         abi = json.loads((args.corpus.parent / f"{ident}.abi.json").read_text())
         truth = abi_functions(abi)
         view = parse_view(text)
-        code_lines = [line for line in text.splitlines() if line.strip() and not line.strip().startswith("//")]
+        code_lines = [
+            line for line in text.splitlines() if line.strip() and not line.strip().startswith("//")
+        ]
         structured_text = (bundle / "structured.sol.txt").read_text()
         structured_lines = [
-            line for line in structured_text.splitlines() if line.strip() and not line.strip().startswith("//")
+            line
+            for line in structured_text.splitlines()
+            if line.strip() and not line.strip().startswith("//")
         ]
         emitted = set(re.findall(r"emit (\w+)\(", text))
         entry.update(

@@ -28,7 +28,7 @@ def main() -> None:
         try:
             with urllib.request.urlopen(url, timeout=60) as response:
                 raw = response.read()
-        except Exception as exc:  # noqa: BLE001 - reported per contract
+        except Exception as exc:
             print(f"{case['id']}: unavailable ({exc})")
             continue
         (args.cache / f"{case['id']}-sourcify.json").write_bytes(raw)
@@ -40,7 +40,9 @@ def main() -> None:
             continue
         runtime = bytes.fromhex(code)
         (out_dir / f"{case['id']}.hex").write_text(runtime.hex() + "\n")
-        (out_dir / f"{case['id']}.abi.json").write_text(json.dumps(data.get("abi"), indent=1) + "\n")
+        (out_dir / f"{case['id']}.abi.json").write_text(
+            json.dumps(data.get("abi"), indent=1) + "\n"
+        )
         compilation = data.get("compilation") or {}
         (out_dir / f"{case['id']}.json").write_text(
             json.dumps(
@@ -62,7 +64,9 @@ def main() -> None:
             )
             + "\n"
         )
-        print(f"{case['id']}: {len(runtime)} bytes, {compilation.get('compilerVersion')}, {data.get('runtimeMatch')}")
+        print(
+            f"{case['id']}: {len(runtime)} bytes, {compilation.get('compilerVersion')}, {data.get('runtimeMatch')}"
+        )
 
 
 if __name__ == "__main__":
