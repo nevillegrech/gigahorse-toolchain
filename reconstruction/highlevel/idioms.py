@@ -399,3 +399,94 @@ def recognize_memory_helpers(decompiled) -> list[Recognition]:
         decompiled.context.function_names[view.function.id] = new
         results.append(Recognition(new, "behaviour-named-helper", states, f"{old}: {detail}"))
     return results
+
+
+BYTES_LENGTHS = (0, 1, 31, 32, 33, 64, 100)
+
+
+def _free_locals(statements: list[Stmt]) -> set[str]:
+    """Locals read by the statements but not assigned within them."""
+    from .ir import ParallelAssign
+    from .ir import is_local as local
+
+    assigned: set[str] = set()
+    read: set[str] = set()
+    for stmt in iter_statements(statements):
+        for expr in read_expressions(stmt):
+            for node in iter_expr(expr):
+                if isinstance(node, Var) and local(node) and not node.name.startswith("varg"):
+                    read.add(node.name)
+        if isinstance(stmt, (Assign, ParallelAssign)):
+            assigned |= {t.name for t in stmt.targets if isinstance(t, Var)}
+    return read - assigned
+
+
+def recognize_bytes_returns(decompiled) -> list[Recognition]:
+    """Summarize `<encode memory bytes at P>; return MEM[..]` tails as `return P;`.
+
+    The candidate tail is the shortest suffix of a function's top-level body,
+    starting at a free-pointer read, whose only free local is P and which ends in
+    a raw RETURN with no other effects. It is accepted only if executing the
+    tail with a bytes object at P returns exactly abi.encode(bytes) for several
+    lengths (memory around the object is filled with junk).
+    """
+    from .interpreter import DecompiledMachine, _Frame, _Halt
+    from .passes import is_free_pointer_read
+
+    results = []
+    for view in decompiled.views:
+        body = view.body
+        if not body or not isinstance(body[-1], Return) or body[-1].raw is None:
+            continue
+        for start in range(len(body) - 2, -1, -1):
+            first = body[start]
+            if not (
+                isinstance(first, Assign)
+                and len(first.targets) == 1
+                and isinstance(first.targets[0], Var)
+                and is_free_pointer_read(first.value)
+            ):
+                continue
+            tail = body[start:]
+            if _has_effects(tail, memory_copies_allowed=True):
+                continue
+            free = _free_locals(tail)
+            if len(free) != 1:
+                continue
+            pointer = next(iter(free))
+            machine = DecompiledMachine(decompiled)
+            checked = 0
+            try:
+                for length in BYTES_LENGTHS:
+                    data = sample(length, 77)
+                    memory = bytearray((i * 13 + 5) % 256 for i in range(0x600))
+                    memory[0x40:0x60] = (0x400).to_bytes(32, "big")
+                    memory[0x100:0x120] = length.to_bytes(32, "big")
+                    memory[0x120 : 0x120 + length] = data
+                    machine.prepare_fragment(memory)
+                    try:
+                        machine.block(tail, _Frame({pointer: 0x100}))
+                        break  # fell through without returning
+                    except _Halt as halt:
+                        if halt.reverted or halt.data != abi_bytes(data):
+                            break
+                    checked += 1
+            except UnsupportedExecution:
+                checked = 0
+            if checked == len(BYTES_LENGTHS):
+                hidden = frozenset().union(*(statement_ids(s) for s in iter_statements(tail)))
+                view.body[start:] = [
+                    Return(
+                        (Var(pointer, f"bytes-return:{pointer}"),),
+                        hidden=hidden,
+                        rules=frozenset({"return-memory-bytes"}),
+                        note="returns the bytes/string object at this pointer (ABI-encoded); "
+                        f"checked by executing the encoder on {checked} lengths",
+                        origin=body[-1].origin,
+                    )
+                ]
+                view.state.body = view.body
+                view.returns = ["string"]
+                results.append(Recognition(view.name, "return-memory-bytes", checked, pointer))
+                break
+    return results

@@ -8,6 +8,7 @@ from pathlib import Path
 from ..model import Function, Program
 from .idioms import (
     recognize_arithmetic_helpers,
+    recognize_bytes_returns,
     recognize_memory_helpers,
     recognize_string_getters,
 )
@@ -208,6 +209,7 @@ def build_decompiled(
     recognitions += recognize_arithmetic_helpers(provisional)
     recognitions += recognize_memory_helpers(provisional)
     recognitions += recognize_string_getters(provisional)
+    recognitions += recognize_bytes_returns(provisional)
     storage = name_storage_from_getters(views)
     declarations, field_types = storage_declarations(views, context, storage)
     for view in views:

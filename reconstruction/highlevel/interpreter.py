@@ -246,6 +246,16 @@ class DecompiledMachine:
                 return None
             raise UnsupportedExecution("Private function halted the transaction") from None
 
+    def prepare_fragment(self, memory: bytearray, storage: dict[int, int] | None = None) -> None:
+        """Fresh state for executing a statement fragment on prepared memory."""
+        self.storage = dict(storage or {})
+        self.memory = bytearray(memory)
+        self.calldata, self.caller, self.address, self.callvalue = b"", 1, 2, 0
+        self.returndata, self.logs, self.external_calls = b"", [], []
+        self.steps, self.trace, self.uncertain_executed = 0, [], 0
+        self.balances = iter(())
+        self.code_sizes, self.block_environment, self.block_hashes = {}, {}, {}
+
     def storage_string(self, root: Var, frame: _Frame) -> bytes:
         slot, _low, _high = self.storage_slot(root, frame)
         word = self.storage.get(slot, 0)
@@ -367,6 +377,15 @@ class DecompiledMachine:
         if isinstance(stmt, Jump):
             raise _Loop(stmt.kind)
         if isinstance(stmt, Return):
+            if "return-memory-bytes" in stmt.rules:
+                (pointer,) = stmt.values
+                start = self.eval(pointer, frame)
+                length = int.from_bytes(self.read(start, 32), "big")
+                if length > self.max_memory:
+                    raise UnsupportedExecution("Returned bytes too long")
+                data = self.read(start + 32, length)
+                padded = data + b"\0" * (-len(data) % 32)
+                raise _Halt((32).to_bytes(32, "big") + length.to_bytes(32, "big") + padded)
             if "storage-string-getter" in stmt.rules:
                 (root,) = stmt.values
                 assert isinstance(root, Var)
