@@ -14,6 +14,7 @@ from dataclasses import dataclass, field, replace
 
 from .ir import (
     AbiCodec,
+    Allocation,
     Assign,
     Binary,
     Call,
@@ -201,8 +202,8 @@ def substitute_statement(stmt: Stmt, mapping: dict[str, Expr]) -> None:
 def has_effect(expr: Expr) -> bool:
     """Evaluating expr can change state, memory, control or call another contract."""
     for node in iter_expr(expr):
-        if isinstance(node, (ExternalCallExpr, AbiCodec)):
-            # ABI coders allocate memory and may revert.
+        if isinstance(node, (ExternalCallExpr, AbiCodec, Allocation)):
+            # ABI coders and allocations move the free pointer; coders may revert.
             return True
         if isinstance(node, Call) and not (
             node.name in PURE_CALLS

@@ -274,6 +274,74 @@ class CustomError(Expr):
         return replace(self, args=tuple(children))
 
 
+@dataclass(frozen=True)
+class Allocation(Expr):
+    """Memory allocated at the free pointer, assigned to one local.
+
+    Executing `p = Allocation(...)`: p gets MEM[0x40], then MEM[0x40] becomes
+    `end` (the compiled expression, which may read p). "struct": `words` words,
+    `values` (a struct literal) written to them in order. "bytes" / "array":
+    the length word `length` at p, then optionally `copy` = (source, size)
+    bytes from `copy_space` at p + 32 and, if `pad`, a zero word after them.
+    `assumed_base`: the analysis folded the pointer to this constant; checked
+    when executed.
+    """
+
+    kind: str
+    end: Expr
+    words: int | None = None
+    length: Expr | None = None
+    values: tuple[Expr, ...] = ()
+    copy: tuple[Expr, Expr] | None = None
+    pad: bool = False
+    assumed_base: int | None = None
+    # Where `copy` reads: "calldata" (an argument's bytes or elements) or "returndata".
+    copy_space: str = "calldata"
+    # A struct literal whose words are exactly a bytes/string constant (length,
+    # then the data zero-padded): printed as that literal; the words are unchanged.
+    text: bytes | None = None
+
+    def children(self) -> tuple[Expr, ...]:
+        parts = [self.end]
+        if self.length is not None:
+            parts.append(self.length)
+        if self.copy is not None:
+            parts.extend(self.copy)
+        return (*parts, *self.values)
+
+    def with_children(self, children: tuple[Expr, ...]) -> Expr:
+        index = 1
+        length = copy = None
+        if self.length is not None:
+            length = children[index]
+            index += 1
+        if self.copy is not None:
+            copy = (children[index], children[index + 1])
+            index += 2
+        return replace(
+            self, end=children[0], length=length, copy=copy, values=tuple(children[index:])
+        )
+
+
+@dataclass(frozen=True)
+class Field(Expr):
+    """The 32-byte word at `base + offset` of an allocated memory object.
+
+    Printed `base.wordN` (offset 32 * N) or `base.length` (a bytes length word);
+    it reads and writes exactly MEM[base + offset].
+    """
+
+    base: Expr
+    offset: int
+    label: str
+
+    def children(self) -> tuple[Expr, ...]:
+        return (self.base,)
+
+    def with_children(self, children: tuple[Expr, ...]) -> Expr:
+        return replace(self, base=children[0])
+
+
 def struct_fields(type_name: str) -> tuple[str, list[str]] | None:
     """`S0(uint256,bytes)` -> ("S0", ["uint256", "bytes"]); None for other types."""
     if not type_name.endswith(")") or "(" not in type_name:

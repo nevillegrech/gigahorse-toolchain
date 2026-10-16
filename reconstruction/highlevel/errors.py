@@ -33,10 +33,10 @@ from .abi_codec import (
     add,
     constant_of,
     expect,
-    plus,
 )
 from .ir import (
     AbiCodec,
+    Assign,
     Call,
     Const,
     CustomError,
@@ -48,6 +48,7 @@ from .ir import (
     Slice,
     Stmt,
     Var,
+    is_local,
 )
 from .naming import split_signature
 from .passes import FunctionState, has_effect, iter_statements, map_bodies, statement_ids
@@ -96,6 +97,36 @@ def static_error_payload(payload_hex: str, signatures: dict[int, str]) -> Expr |
     return payload if isinstance(payload, CustomError) and payload.name else None
 
 
+def _word_store(stmt: Stmt) -> tuple[Expr, Expr] | None:
+    """MEM[a] = v, including the free pointer slot: code that reverts next may use
+    0x40 as scratch for error arguments (`mstore(0x40, x); revert(0x1c, 0x44)`)."""
+    stored = _store(stmt)
+    if stored is not None:
+        return stored
+    if (
+        isinstance(stmt, Assign)
+        and len(stmt.targets) == 1
+        and isinstance(stmt.targets[0], Index)
+        and isinstance(stmt.targets[0].base, Env)
+        and stmt.targets[0].base.name == "MEM"
+    ):
+        return stmt.targets[0].key, stmt.value
+    return None
+
+
+def _mentions_name(stmt: Stmt, name: str) -> bool:
+    return any(
+        isinstance(node, Var) and node.name == name
+        for expr in stmt.expressions()
+        for node in _walk(expr)
+    )
+
+
+def _signed(value: int | None) -> int | None:
+    """Canonical forms are taken modulo 2**256; a word ending at the payload is -28."""
+    return value - (1 << 256) if value is not None and value >> 255 else value
+
+
 def _stable(expr: Expr) -> bool:
     """Its value at the revert equals its value where it was stored (only memory changes)."""
     if has_effect(expr):
@@ -134,45 +165,27 @@ def _match(
         if read is not None:
             pointer = read
             t.observe(c.take())
-        stmt = c.take()
-        stored = _store(stmt)
-        expect(stored is not None)
-        assert stored is not None
-        base = t.canon(stored[0])
-        selector_word = stored[1]
-        expect(
-            isinstance(selector_word, Const)
-            and selector_word.value >> 224 != 0
-            and selector_word.value & ((1 << 224) - 1) == 0
-        )
-        assert isinstance(selector_word, Const)
-        selector = selector_word.value >> 224
-        expect(selector != ERROR_STRING)
-        t.observe(stmt)
+        # Word stores, possibly interleaved with local assignments (e.g. a word
+        # read from memory into a local before it is stored as an argument).
+        items: list[Stmt] = []
         stores: list[tuple[Form, Expr]] = []
-        while (following := c.peek()) is not None and len(stores) < 64:
-            word = _store(following)
-            if word is None:
+        store_items: list[int] = []
+        while (following := c.peek()) is not None and len(items) < 64:
+            word = _word_store(following)
+            if word is not None:
+                stores.append((t.canon(word[0]), word[1]))
+                store_items.append(len(items))
+            elif not (
+                isinstance(following, Assign)
+                and len(following.targets) == 1
+                and is_local(following.targets[0])
+                and _pointer_read(following) is None
+                and not has_effect(following.value)
+            ):
                 break
-            stores.append((t.canon(word[0]), word[1]))
+            items.append(following)
             t.observe(c.take())
-        relative = [constant_of(add(form, base, -1)) for form, _ in stores]
-        assumed = None
-        if all(offset is not None for offset in relative):
-            offsets = [offset for offset in relative if offset is not None]
-        else:
-            # Optimized legacy code: the selector went to MEM[MEM[64]] but the
-            # argument addresses were folded to constants (MEM[64] known, 0x80).
-            absolute = [constant_of(form) for form, _ in stores]
-            expect(base[0] == "fp" and base in t.bases and None not in absolute)
-            assumed = min(a for a in absolute if a is not None) - 4
-            expect(assumed >= 0x80)
-            offsets = [a - assumed for a in absolute if a is not None]
-        expect(len(set(offsets)) == len(offsets))
-        expect(set(offsets) == {4 + 32 * i for i in range(len(offsets))})
-        expect(all(_stable(value) for _, value in stores))
-        words = {offset: value for offset, (_, value) in zip(offsets, stores, strict=True)}
-        count = len(words)
+        expect(bool(stores))
         while (following := c.peek()) is not None and _pointer_read(following) is not None:
             t.observe(c.take())
         stmt = c.take()
@@ -182,14 +195,72 @@ def _match(
             and stmt.payload.space == "MEM"
         )
         assert isinstance(stmt, Revert) and isinstance(stmt.payload, Slice)
-        expect(c.same(stmt.payload.start, base))
-        expect(c.same(stmt.payload.end, plus(base, 4 + 32 * count)))
+        begin = t.canon(stmt.payload.start)
+        length = constant_of(add(t.canon(stmt.payload.end), begin, -1))
+        expect(length is not None and length >= 4 and (length - 4) % 32 == 0)
+        assert length is not None
+        count = (length - 4) // 32
+        offsets = [_signed(constant_of(add(form, begin, -1))) for form, _ in stores]
+        assumed = None
+        if None in offsets:
+            # Optimized legacy code: the selector went to MEM[MEM[64]] but the
+            # argument addresses were folded to constants (MEM[64] known, 0x80).
+            expect(begin[0] == "fp" and begin in t.bases and offsets[0] == 0)
+            absolute = [constant_of(form) for form, _ in stores[1:]]
+            expect(None not in absolute)
+            assumed = min(a for a in absolute if a is not None) - 4
+            expect(assumed >= 0x80)
+            offsets = [0] + [a - assumed for a in absolute if a is not None]
+        # The selector word: left-aligned at the payload start (stored first, the
+        # arguments overwrite its zero bytes) or right-aligned in the word that
+        # ends there (`mstore(0, sel)`, `revert(0x1c, ...)`), in any order.
+        selector = None
+        selector_at = None
+        for position, (offset, (_, value)) in enumerate(zip(offsets, stores, strict=True)):
+            if not isinstance(value, Const):
+                continue
+            left = offset == 0 and value.value >> 224 and not value.value & ((1 << 224) - 1)
+            right = offset == -28 and 0 < value.value < 1 << 32 and assumed is None
+            if left and position == 0:
+                selector, selector_at = value.value >> 224, position
+            elif right and selector is None:
+                selector, selector_at = value.value, position
+        expect(selector is not None and selector != ERROR_STRING)
+        assert selector is not None and selector_at is not None
+        arguments = [
+            (offset, value)
+            for position, (offset, (_, value)) in enumerate(zip(offsets, stores, strict=True))
+            if position != selector_at
+        ]
+        expect(sorted(o for o, _ in arguments) == [4 + 32 * i for i in range(count)])
+        expect(not any(has_effect(value) for _, value in stores))
+        # Every memory read must see the stores that preceded it. Stores before
+        # the last memory-reading item stay in place; among the arguments only
+        # that last item may read memory (it is evaluated at the revert, where
+        # the same stores precede it).
+        reading_locals = [
+            i
+            for i, item in enumerate(items)
+            if i not in store_items and isinstance(item, Assign) and not _stable(item.value)
+        ]
+        reading_arguments = [
+            store_items[k]
+            for k, (_, value) in enumerate(stores)
+            if k != selector_at and not _stable(value)
+        ]
+        last = max(reading_locals + reading_arguments, default=-1)
+        expect(all(i == last for i in reading_arguments))
+        preserved = [item for i, item in enumerate(items) if i not in store_items or i < last]
+        words = dict(arguments)
     except (NoMatch, IndexError):
         return None
     consumed = c.consumed()
     kept: list[Stmt] = []
-    hidden = [s for s in consumed if s is not stmt]
-    if pointer is not None:
+    hidden = [s for s in consumed if s is not stmt and not any(s is k for k in preserved)]
+    if pointer is not None and any(_mentions_name(s, pointer.name) for s in preserved):
+        kept.append(consumed[0])
+        hidden = [s for s in hidden if s is not consumed[0]]
+    elif pointer is not None:
         # The pointer local is read only inside this sequence (or kept as it was).
         inside = sum(
             1
@@ -211,7 +282,7 @@ def _match(
         uncertain=stmt.uncertain,
         origin=stmt.origin,
     )
-    return c.index, [*kept, revert]
+    return c.index, [*kept, *preserved, revert]
 
 
 def recognize_error_payloads(state: FunctionState, signatures: dict[int, str]) -> None:

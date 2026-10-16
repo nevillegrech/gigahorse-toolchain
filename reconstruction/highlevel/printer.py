@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 
 from .ir import (
     AbiCodec,
+    Allocation,
     Assign,
     Binary,
     Call,
@@ -18,6 +19,7 @@ from .ir import (
     Expr,
     ExprStmt,
     ExternalCallExpr,
+    Field,
     Halt,
     If,
     Index,
@@ -154,6 +156,32 @@ def _expr(expr: Expr, context: int) -> str:
         return _codec(expr)
     if isinstance(expr, MemoryBytes):
         return _expr(expr.pointer, context)
+    if isinstance(expr, Field):
+        if expr.label.startswith("["):
+            return f"{_postfix(expr.base)}{expr.label}"
+        return f"{_postfix(expr.base)}.{expr.label}"
+    if isinstance(expr, Allocation):
+        if expr.text is not None:
+            try:
+                decoded = expr.text.decode("utf-8")
+            except UnicodeDecodeError:
+                decoded = None
+            if decoded is not None and decoded.isprintable():
+                return quote(decoded)
+            return f'hex"{expr.text.hex()}"'
+        if expr.kind == "struct" and expr.values:
+            return f"struct({', '.join(_expr(v, 0) for v in expr.values)})"
+        if expr.kind == "struct":
+            return f"new struct({expr.words})"
+        if expr.copy is not None and expr.copy_space == "returndata":
+            return "returndata"  # returned data copied to memory
+        if expr.copy is not None and expr.copy_space == "calldata":
+            assert isinstance(expr.copy[0], Member)
+            return _expr(expr.copy[0].base, context)  # a calldata argument copied to memory
+        assert expr.length is not None
+        if expr.kind == "array":
+            return f"new uint256[]({_expr(expr.length, 0)})"
+        return f"new bytes({_expr(expr.length, 0)})"
     if isinstance(expr, CustomError):
         args = ", ".join(_expr(a, 0) for a in expr.args)
         if expr.name is not None:

@@ -26,6 +26,7 @@ from ..validation import (
 )
 from .ir import (
     AbiCodec,
+    Allocation,
     Assign,
     Binary,
     Call,
@@ -37,6 +38,7 @@ from .ir import (
     Expr,
     ExprStmt,
     ExternalCallExpr,
+    Field,
     Halt,
     If,
     Index,
@@ -364,6 +366,9 @@ class DecompiledMachine:
             if isinstance(stmt.value, AbiCodec) and len(stmt.targets) == 1:
                 self.assign(stmt.targets[0], self.abi_encode(stmt.value, frame), frame)
                 return
+            if isinstance(stmt.value, Allocation) and len(stmt.targets) == 1:
+                self.allocate_object(stmt.value, stmt.targets[0], frame)
+                return
             if isinstance(stmt.value, ExternalCallExpr):
                 results = self.external(stmt.value, frame, stmt)
                 for target, value in zip(stmt.targets, results, strict=False):
@@ -468,6 +473,9 @@ class DecompiledMachine:
         if is_local(target):
             frame.values[target.name] = value
             return
+        if isinstance(target, Field):
+            self.write(self.eval(target.base, frame) + target.offset, value.to_bytes(32, "big"))
+            return
         if isinstance(target, Index) and isinstance(target.base, Env):
             if target.base.name == "MEM":
                 self.write(self.eval(target.key, frame), value.to_bytes(32, "big"))
@@ -491,6 +499,36 @@ class DecompiledMachine:
 
     def free_pointer(self) -> int:
         return int.from_bytes(self.read(0x40, 32), "big")
+
+    def allocate_object(self, node: Allocation, target: Expr, frame: _Frame) -> None:
+        """The statements an Allocation replaced, in their compiled order."""
+        pointer = self.free_pointer()
+        if node.assumed_base is not None and pointer != node.assumed_base:
+            raise ViewMismatch(
+                f"allocation: free pointer {pointer:#x}, expected {node.assumed_base:#x}"
+            )
+        self.assign(target, pointer, frame)
+        self.write(0x40, self.eval(node.end, frame).to_bytes(32, "big"))
+        if node.kind in {"bytes", "array"}:
+            assert node.length is not None
+            length = self.eval(node.length, frame)
+            self.write(pointer, length.to_bytes(32, "big"))
+            if node.copy is not None:
+                source, size = (self.eval(e, frame) for e in node.copy)
+                if size > self.max_memory:
+                    raise UnsupportedExecution("Copy limit exceeded")
+                if node.copy_space == "returndata":
+                    if source + size > len(self.returndata):
+                        raise _Halt(b"", True)
+                    data = self.returndata[source : source + size]
+                else:
+                    data = self.calldata[source : source + size].ljust(size, b"\0")
+                self.write(pointer + 32, data)
+                if node.pad:
+                    self.write(pointer + 32 + size, bytes(32))
+        values = [self.eval(v, frame) for v in node.values]
+        for index, value in enumerate(values):
+            self.write(pointer + 32 * index, value.to_bytes(32, "big"))
 
     def allocate(self, pointer: int, size: int) -> None:
         """finalize_allocation: Panic(0x41) when the new pointer overflows 64 bits."""
@@ -983,6 +1021,8 @@ class DecompiledMachine:
                 return self.storage.get(self.eval(expr.key, frame), 0)
             slot, _, _ = self.storage_slot(expr, frame)
             return self.storage.get(slot, 0)
+        if isinstance(expr, Field):
+            return int.from_bytes(self.read(self.eval(expr.base, frame) + expr.offset, 32), "big")
         if isinstance(expr, Member):
             path = _member_path(expr)
             if path is not None and path in frame.values:

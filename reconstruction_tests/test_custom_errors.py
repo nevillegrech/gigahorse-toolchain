@@ -8,15 +8,13 @@ import pytest
 pytest.importorskip("eth_tester", reason="install the validation extra for independent EVM tests")
 from eth_abi import encode
 
-from reconstruction.constants import resolve_constants
 from reconstruction.highlevel.interpreter import DecompiledMachine, ViewMismatch
 from reconstruction.highlevel.ir import CustomError
 from reconstruction.highlevel.lift import ProgramContext
 from reconstruction.highlevel.naming import load_names
 from reconstruction.highlevel.passes import iter_expr, iter_statements
 from reconstruction.highlevel.view import build_decompiled, collect_keys
-from reconstruction.model import Block, Function, Instruction, Program
-from reconstruction.semantics import SemanticInfo
+from reconstruction_tests.synthetic import one_block_program
 from reconstruction_tests.test_calldata_execution import creation_code
 from reconstruction_tests.test_controlflow import fixture_program
 from reconstruction_tests.test_execution import EVMReference
@@ -82,48 +80,8 @@ def test_folded_free_pointer_assumption_is_checked_when_executed(tmp_path):
         DecompiledMachine(decompiled).execute(data)
 
 
-OPCODES = {"MSTORE": 0x52, "MLOAD": 0x51, "CALLDATALOAD": 0x35, "ADD": 0x01, "REVERT": 0xFD}
-OPCODES |= {"DUP2": 0x81}
-
-
-def assemble(ops: list) -> tuple[bytes, list[Instruction]]:
-    """Bytecode and one-block IR from one op list.
-
-    An op is ("PUSH", value), a mnemonic, or (mnemonic, ir_name, definitions,
-    operands) for an instruction that is also an IR statement at its pc.
-    """
-    code = bytearray()
-    instructions = []
-    for op in ops:
-        if isinstance(op, tuple) and op[0] == "PUSH":
-            value = op[1]
-            width = max(1, (value.bit_length() + 7) // 8)
-            code += bytes([0x5F + width]) + value.to_bytes(width, "big")
-            continue
-        mnemonic = op if isinstance(op, str) else op[0]
-        if not isinstance(op, str):
-            _, name, defs, uses = op
-            instructions.append(
-                Instruction(name, mnemonic, list(defs), list(uses), [hex(len(code))])
-            )
-        code.append(OPCODES[mnemonic])
-    return bytes(code), instructions
-
-
 def _program(ops: list, constants: dict[str, str]):
-    runtime, instructions = assemble(ops)
-    program = Program(
-        dict(constants),
-        {},
-        [Function("root", ["0x0"], [], None, [], ["0x0"])],
-        [Block("0x0", instructions, [], [])],
-        [],
-        [],
-        runtime_bytecode=runtime.hex(),
-    )
-    program.constants = resolve_constants(program, constants, [], [])
-    program.semantics = SemanticInfo(3, [], [], [], {}, program.constants, [], [], [], [])
-    return program, runtime
+    return one_block_program(ops, constants)
 
 
 SELECTOR_WORD = DENIED << 224

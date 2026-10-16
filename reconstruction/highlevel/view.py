@@ -36,6 +36,7 @@ from .lift import FunctionLifter, ProgramContext, is_static_abi
 from .memory_forwarding import forward_memory
 from .memory_liveness import AddressModel, FreePointerVersions, Summaries, compute_summaries
 from .naming import Names, load_names, split_signature
+from .objects import memory_objects
 from .passes import (
     FunctionState,
     absorb_memory_plumbing,
@@ -91,6 +92,14 @@ LEGEND = [
     "  Struct members print as .f0, .f1, ... by position; a `bytes` member may be `string` in the source.",
     '  hex"..." in abi.encodePacked is exactly those bytes. A call argument or .call(b) naming a bytes',
     "  value b sends its ABI encoding (resp. its bytes).",
+    "Memory objects (allocated at the free pointer, rule memory-object): `new struct(k)` is k words, not zeroed;",
+    "  `struct(a, b)` the same with its words written in order; v.wordN is MEM[v + 32*N]. `new bytes(n)` /",
+    "  `new uint256[](n)` write the length word (v.length) and reserve the data (v[i] is word i after it);",
+    '  `v = x` with a "copied to memory" note copies a calldata argument or the returned data into a new',
+    '  object; "..." / hex"..." is a bytes constant. Where the analysis folded the pointer to 0x80, the object',
+    "  assumes it (rule assumes-folded-free-pointer; checked when the view is executed).",
+    "Errors: `revert Name(args)` / require(c, Name(args)) send that custom error (selector and argument words);",
+    "  abi.encodeWithSelector(0x..., words) when the selector has no dictionary name; `error ...` lines declare names.",
     "Names marked [dict] come from hash-checked local signature dictionaries: hints, not proof of the original source.",
     "UNCERTAIN marks constructs that were not fully recovered; raw EVM operations are kept in those places.",
     'Error("...") reasons copied from code: padding bytes after the reason are not modeled',
@@ -169,6 +178,9 @@ def collect_keys(context: ProgramContext) -> tuple[set[str], set[str], set[str]]
             value = context.constants.get(stmt.operands[1])
             if value and value >> 224 and not value & ((1 << 224) - 1):
                 errors.add(f"0x{value >> 224:08x}")
+            elif value and 1 << 16 <= value < 1 << 32:
+                # Right-aligned selector (`mstore(0, sel)` then `revert(0x1c, ...)`).
+                errors.add(f"0x{value:08x}")
     for info in context.reverts.values():
         selector = info.get("selector")
         if selector and info.get("encoding") not in {"Error(string)", "Panic(uint256)"}:
@@ -310,6 +322,12 @@ def build_decompiled(
     recognitions += recognize_memory_helpers(provisional)
     recognitions += recognize_string_getters(provisional)
     recognitions += recognize_bytes_returns(provisional)
+    # Last presentation step: allocations as values, words as fields (after
+    # every memory analysis and idiom recognizer has seen plain MEM accesses).
+    for view in views:
+        view.state.body = view.body
+        memory_objects(view.state, bool(view.function.selectors))
+        view.body = view.state.body
     storage = name_storage_from_getters(views)
     declarations, field_types = storage_declarations(views, context, storage)
     for view in views:
