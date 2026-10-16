@@ -245,8 +245,13 @@ def negate(expr: Expr) -> Expr:
 # --- passes -----------------------------------------------------------------
 
 
-def is_failure(statements: list[Stmt]) -> tuple[str, Expr | None, frozenset[str]] | None:
-    """Recognize an arm that only reverts/aborts. Returns (kind, payload, absorbed ids)."""
+def is_failure(
+    statements: list[Stmt], code: bytes | None = None
+) -> tuple[str, Expr | None, frozenset[str]] | None:
+    """Recognize an arm that only reverts/aborts. Returns (kind, payload, absorbed ids).
+
+    `code` (the runtime bytecode) lets payload bytes copied from code be decoded.
+    """
     if not statements:
         return None
     *prefix, last = statements
@@ -265,6 +270,10 @@ def is_failure(statements: list[Stmt]) -> tuple[str, Expr | None, frozenset[str]
         ):
             absorbed |= statement_ids(stmt)
             continue
+        if _constant_code_copy(stmt) and code is not None:
+            # Only kept when the payload decodes (an undecoded one keeps the arm).
+            absorbed |= statement_ids(stmt)
+            continue
         return None
     if isinstance(last, Revert):
         payload = last.payload
@@ -272,7 +281,7 @@ def is_failure(statements: list[Stmt]) -> tuple[str, Expr | None, frozenset[str]
         if isinstance(payload, Slice) and _is_returndata_forward(prefix, payload):
             return "require", Env("returndata"), frozenset(absorbed)
         if isinstance(payload, Slice):
-            decoded = decode_relative_payload(prefix, payload)
+            decoded = decode_relative_payload(prefix, payload, code)
             if decoded is not None:
                 return "require", decoded, frozenset(absorbed)
         if prefix and not (isinstance(payload, Call) or payload is None):
@@ -286,7 +295,20 @@ def is_failure(statements: list[Stmt]) -> tuple[str, Expr | None, frozenset[str]
     return None
 
 
-def decode_relative_payload(prefix: list[Stmt], payload: Slice) -> Expr | None:
+def _constant_code_copy(stmt: Stmt) -> bool:
+    return (
+        isinstance(stmt, ExprStmt)
+        and isinstance(stmt.expr, Call)
+        and stmt.expr.name == "CODECOPY"
+        and len(stmt.expr.args) == 3
+        and isinstance(stmt.expr.args[1], Const)
+        and isinstance(stmt.expr.args[2], Const)
+    )
+
+
+def decode_relative_payload(
+    prefix: list[Stmt], payload: Slice, code: bytes | None = None
+) -> Expr | None:
     """Decode revert bytes written at base+constant offsets in a straight-line arm.
 
     Every byte of [base, base+n) must be written by a constant MSTORE relative to
@@ -303,6 +325,19 @@ def decode_relative_payload(prefix: list[Stmt], payload: Slice) -> Expr | None:
     data: dict[int, int] = {}
     for stmt in prefix:
         if isinstance(stmt, Comment):
+            continue
+        if _constant_code_copy(stmt) and code is not None:
+            assert isinstance(stmt, ExprStmt) and isinstance(stmt.expr, Call)
+            destination, source, length = stmt.expr.args
+            base, offset = model.split(destination)
+            if base is None or base == "any" or length.value > 1024:
+                return None
+            if "var:" + alias.get(base[4:], base[4:]) != "var:" + (pointer or "") or offset < 0:
+                return None
+            # Bytes past the end of the code read as zero.
+            copied = code[source.value : source.value + length.value].ljust(length.value, b"\0")
+            for i, byte in enumerate(copied):
+                data[offset + i] = byte
             continue
         if not isinstance(stmt, Assign) or len(stmt.targets) != 1:
             return None
@@ -337,6 +372,28 @@ def decode_relative_payload(prefix: list[Stmt], payload: Slice) -> Expr | None:
     size = end_offset - start_offset
     if not 4 <= size <= 1024:
         return None
+    rules = {"relative-revert-payload"}
+    missing = {i for i in range(size) if start_offset + i not in data}
+    if missing and size >= 68:
+        # Error(string): solc leaves the padding after a copied reason unwritten.
+        def word(i: int) -> int | None:
+            if any(start_offset + j not in data for j in range(i, i + 32)):
+                return None
+            return int.from_bytes(bytes(data[start_offset + j] for j in range(i, i + 32)))
+
+        head = bytes(data.get(start_offset + i, -1) & 0xFF for i in range(4))
+        length = word(36)
+        if (
+            all(start_offset + i in data for i in range(4))
+            and head == bytes.fromhex("08c379a0")
+            and word(4) == 32
+            and length is not None
+            and size == 68 + (length + 31) // 32 * 32
+            and min(missing) >= 68 + length
+        ):
+            for i in missing:
+                data[start_offset + i] = 0
+            rules.add("error-padding-not-modeled")
     try:
         raw = bytes(data[start_offset + i] for i in range(size))
     except KeyError:
@@ -348,9 +405,7 @@ def decode_relative_payload(prefix: list[Stmt], payload: Slice) -> Expr | None:
     from .printer import quote
 
     if info.get("encoding") == "Error(string)" and info.get("reason") is not None:
-        return Call(
-            "Error", (Raw(quote(info["reason"])),), rules=frozenset({"relative-revert-payload"})
-        )
+        return Call("Error", (Raw(quote(info["reason"])),), rules=frozenset(rules))
     if info.get("encoding") == "Panic(uint256)":
         code = info["panic_code"]
         return Call(
@@ -383,12 +438,12 @@ def _is_returndata_forward(prefix: list[Stmt], payload: Slice) -> bool:
     )
 
 
-def guards_to_requires(state: FunctionState) -> None:
+def guards_to_requires(state: FunctionState, code: bytes | None = None) -> None:
     def visit(statements: list[Stmt]) -> list[Stmt]:
         result: list[Stmt] = []
         for stmt in statements:
             if isinstance(stmt, If) and not stmt.otherwise:
-                failure = is_failure(stmt.then)
+                failure = is_failure(stmt.then, code)
                 if failure:
                     kind, payload, absorbed = failure
                     condition = condition_text_form(negate(stmt.condition))

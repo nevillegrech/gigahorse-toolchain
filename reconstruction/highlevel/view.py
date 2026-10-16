@@ -69,6 +69,8 @@ LEGEND = [
     "  (its length word first); dataAt when the argument's type is unknown.",
     "Names marked [dict] come from hash-checked local signature dictionaries: hints, not proof of the original source.",
     "UNCERTAIN marks constructs that were not fully recovered; raw EVM operations are kept in those places.",
+    'Error("...") reasons copied from code: padding bytes after the reason are not modeled',
+    "  (rule error-padding-not-modeled); the reason, its length and offset are exact.",
     "Hidden memory writes: proven unread, or ABI temporaries of a represented call/event/return that are not",
     "  re-read through the same pointer (solc memory discipline; such lines carry rule assumes-solc-memory-discipline).",
 ]
@@ -357,7 +359,12 @@ def prepare_function(context: ProgramContext, function: Function) -> _Prepared:
         split_variable_webs(state)
     sequential_merges(state)
     constant_branches(state)
-    guards_to_requires(state)
+    code = (
+        bytes.fromhex(context.program.runtime_bytecode)
+        if context.program.runtime_bytecode
+        else None
+    )
+    guards_to_requires(state, code)
     drop_trivial_requires(state)
     remove_unused_reads(state)
     single_use_inline(state)
