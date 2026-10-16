@@ -164,3 +164,75 @@ def test_inline_panic_in_scratch_memory_becomes_panic():
     assert reverted and expected == bytes.fromhex("4e487b71") + (50).to_bytes(32, "big")
     result = DecompiledMachine(decompiled).execute(b"")
     assert (result.output, result.reverted) == (expected, reverted)
+
+
+def _right_aligned_program(case: str):
+    """`mstore(0, sel)` then the arguments at 0x20, 0x40, ...; `revert(0x1c, 4 + 32k)`."""
+    selector = [("PUSH", DENIED), ("PUSH", 0), ("MSTORE", "sel", [], ["zero", "selector"])]
+    first = [
+        ("PUSH", 0),
+        ("CALLDATALOAD", "load", ["x"], ["zero"]),
+        ("PUSH", 0x20),
+        ("MSTORE", "arg0", [], ["thirtytwo", "x"]),
+    ]
+    if case == "one-argument":
+        body, size = [*selector, *first], 0x24
+    elif case == "free-pointer-slot":
+        # The second argument word is MEM[0x40]: scratch once the code reverts.
+        second = [
+            ("PUSH", 0x20),
+            ("CALLDATALOAD", "load1", ["y"], ["thirtytwo"]),
+            ("PUSH", 0x40),
+            ("MSTORE", "arg1", [], ["forty", "y"]),
+        ]
+        body, size = [*selector, *first, *second], 0x44
+    else:  # the argument is a word read from memory at a calldata address
+        read = [
+            ("PUSH", 0),
+            ("CALLDATALOAD", "load", ["a"], ["zero"]),
+            ("MLOAD", "read", ["x"], ["a"]),
+            ("PUSH", 0x20),
+            ("MSTORE", "arg0", [], ["thirtytwo", "x"]),
+        ]
+        body, size = [*selector, *read], 0x24
+    ops = [
+        *body,
+        ("PUSH", size),
+        ("PUSH", 0x1C),
+        ("REVERT", "revert", [], ["start", "size"]),
+    ]
+    constants = {
+        "zero": "0x0",
+        "thirtytwo": "0x20",
+        "forty": "0x40",
+        "start": "0x1c",
+        "size": hex(size),
+        "selector": hex(DENIED),
+    }
+    return _program(ops, constants)
+
+
+@pytest.mark.parametrize("case", ["one-argument", "free-pointer-slot", "argument-reads-memory"])
+def test_right_aligned_error_payloads_match_evm(case, record_property):
+    program, runtime = _right_aligned_program(case)
+    decompiled = build_decompiled(program)
+    [payload] = payloads(decompiled)
+    assert payload.selector == DENIED and payload.name is None
+    text = decompiled.text
+    if case == "one-argument":
+        assert "revert(abi.encodeWithSelector(0xef39661e, msg.data[0]));" in text
+    elif case == "free-pointer-slot":
+        assert "revert(abi.encodeWithSelector(0xef39661e, msg.data[0], msg.data[32]));" in text
+    else:
+        # The selector store stays: the memory read may see it (address 0).
+        assert "MEM[0] = 0xef39661e;" in text
+        assert "revert(abi.encodeWithSelector(0xef39661e, MEM[msg.data[0]]));" in text
+    reference = EVMReference({"creation_bytecode": creation_code(runtime)})
+    words = [0, 4, 0x20, 0x200, 2**256 - 1] if case != "argument-reads-memory" else [0, 4, 0x200]
+    for word in words:
+        data = word.to_bytes(32, "big") + (word ^ 0xABCD).to_bytes(32, "big")
+        expected, reverted = reference.call(data)
+        assert reverted and expected[:4] == DENIED.to_bytes(4, "big")
+        result = DecompiledMachine(decompiled).execute(data)
+        assert (result.output, result.reverted) == (expected, reverted), (case, data.hex())
+    record_property(f"right_aligned_{case}", len(words))
