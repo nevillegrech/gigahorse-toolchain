@@ -57,6 +57,18 @@ from .view import DecompiledProgram, FunctionView
 
 MASK = (1 << 256) - 1
 ADDRESS = (1 << 160) - 1
+# Printed environment names -> the opcode keys used by observed block values.
+ENVIRONMENT_OPCODES = {
+    "block.number": "NUMBER",
+    "block.timestamp": "TIMESTAMP",
+    "block.chainid": "CHAINID",
+    "block.coinbase": "COINBASE",
+    "block.basefee": "BASEFEE",
+    "block.prevrandao": "PREVRANDAO",
+    "block.gaslimit": "GASLIMIT",
+    "block.blobbasefee": "BLOBBASEFEE",
+    "tx.gasprice": "GASPRICE",
+}
 
 
 class _Halt(Exception):
@@ -77,6 +89,15 @@ class _Loop(Exception):
 @dataclass
 class _Frame:
     values: dict[str, int]
+
+
+def _show(expr: Expr) -> str:
+    from .printer import expression
+
+    try:
+        return expression(expr)
+    except TypeError:
+        return type(expr).__name__
 
 
 def _cast(name: str, value: int) -> int:
@@ -138,6 +159,7 @@ class DecompiledMachine:
         observed_balance_values: Iterable[tuple[str, int, int]] = (),
         code_sizes: dict[int, int] | None = None,
         block_environment: dict[str, int] | None = None,
+        block_hashes: dict[int, int] | None = None,
     ) -> ExecutionResult:
         original = dict(storage or {})
         self.storage = dict(original)
@@ -149,9 +171,11 @@ class DecompiledMachine:
         self.external_calls: list[ExternalInvocation] = []
         self.steps = 0
         self.trace = []
+        self.uncertain_executed = 0
         self.balances = iter(observed_balance_values)
         self.code_sizes = dict(code_sizes or {})
         self.block_environment = dict(block_environment or {})
+        self.block_hashes = dict(block_hashes or {})
         dispatcher = self.functions.get("__function_selector__")
         if dispatcher is None:
             raise UnsupportedExecution("No selector dispatch function in the view")
@@ -212,7 +236,8 @@ class DecompiledMachine:
         if len(self.trace) > 64:
             del self.trace[:32]
         if stmt.uncertain and not isinstance(stmt, Comment):
-            raise UnsupportedExecution(f"Executing an UNCERTAIN line: {stmt.uncertain}")
+            # Executed anyway: a wrong printed meaning shows up as a divergence.
+            self.uncertain_executed += 1
         if isinstance(stmt, Comment):
             return
         if isinstance(stmt, Assign):
@@ -385,13 +410,12 @@ class DecompiledMachine:
         topic0 = self.program.context.constants.get(origin.operands[2])
         if topic0 is None:
             raise UnsupportedExecution("Event topic is not constant")
-        values = [self.eval(a, frame) for a in stmt.args]
-        topics = (topic0, *values[: stmt.indexed])
+        topics = (topic0, *(self.eval(a, frame) for a in stmt.args[: stmt.indexed]))
         rest = stmt.args[stmt.indexed :]
         if len(rest) == 1 and isinstance(rest[0], Slice):
             data = self.slice(rest[0], frame)
         else:
-            data = b"".join(v.to_bytes(32, "big") for v in values[stmt.indexed :])
+            data = b"".join(self.eval(a, frame).to_bytes(32, "big") for a in rest)
         self.logs.append(RecoveredLog(self.address, tuple(topics), data))
 
     # --- expressions ---------------------------------------------------------
@@ -473,7 +497,11 @@ class DecompiledMachine:
         elif call.name == "MCOPY":
             data = self.read(source, size)
         else:
-            raise UnsupportedExecution("CODECOPY is not modelled by the decompiled machine")
+            code = self.program.context.program.runtime_bytecode
+            if code is None:
+                raise UnsupportedExecution("CODECOPY requires the exact executed code input")
+            runtime = bytes.fromhex(code)
+            data = runtime[source : source + size].ljust(size, b"\0")
         self.write(destination, data)
 
     def storage_slot(self, expr: Expr, frame: _Frame) -> tuple[int, int, int]:
@@ -495,13 +523,26 @@ class DecompiledMachine:
                 0,
                 31,
             )
+        if isinstance(expr, Call) and expr.name.startswith("packed_bytes_") and len(expr.args) == 1:
+            parent, _, _ = self.storage_slot(expr.args[0], frame)
+            low, high = (int(x) for x in expr.name.removeprefix("packed_bytes_").split("_"))
+            return parent, low, high
+        if isinstance(expr, Index) and expr.kind and ":" in expr.kind:
+            kind, stride = expr.kind.split(":")
+            parent, _, _ = self.storage_slot(expr.base, frame)
+            key = self.eval(expr.key, frame)
+            if kind == "array":
+                start = int.from_bytes(keccak256(parent.to_bytes(32, "big")), "big")
+            else:
+                start = parent
+            return (start + key * int(stride)) & MASK, 0, 31
         if isinstance(expr, Member) and expr.name == "data":
             parent, _, _ = self.storage_slot(expr.base, frame)
             return int.from_bytes(keccak256(parent.to_bytes(32, "big")), "big"), 0, 31
         if isinstance(expr, Member) and expr.name.startswith("field"):
             parent, _, _ = self.storage_slot(expr.base, frame)
             return (parent + int(expr.name[5:])) & MASK, 0, 31
-        raise UnsupportedExecution(f"Storage path not executable: {expr!r}")
+        raise UnsupportedExecution("Storage path not executable: " + _show(expr))
 
     def eval(self, expr: Expr, frame: _Frame) -> int:
         if isinstance(expr, Const):
@@ -544,6 +585,17 @@ class DecompiledMachine:
                 and expr.base.name == "returndata"
             ):
                 return len(self.returndata)
+            if expr.name == "length" and isinstance(expr.base, Member) and expr.base.name == "code":
+                target = self.eval(expr.base.base, frame) & ADDRESS
+                runtime = self.program.context.program.runtime_bytecode
+                if target == self.address and runtime:
+                    return len(bytes.fromhex(runtime))
+                if target not in self.code_sizes:
+                    raise UnsupportedExecution("Code size requires an observed value")
+                return self.code_sizes[target]
+            if expr.name.startswith("field") or expr.name == "data":
+                slot, _, _ = self.storage_slot(expr, frame)
+                return self.storage.get(slot, 0)
             if expr.name == "length" and isinstance(expr.base, (Var, Index, Member)):
                 slot, _, _ = self.storage_slot(expr.base, frame)
                 return self.storage.get(slot, 0)
@@ -554,7 +606,7 @@ class DecompiledMachine:
                 if target not in self.code_sizes:
                     raise UnsupportedExecution("Code size requires an observed value")
                 return self.code_sizes[target]
-        raise UnsupportedExecution(f"Unsupported expression {expr!r}")
+        raise UnsupportedExecution("Unsupported expression: " + _show(expr))
 
     def balance(self, base: Expr, frame: _Frame) -> int:
         target = self.eval(base, frame) & ADDRESS
@@ -581,8 +633,16 @@ class DecompiledMachine:
             return 1
         if name == "false":
             return 0
+        if name == "tx.origin":
+            # As in the IR harness: the external caller originates the transaction.
+            return self.caller
         if name in self.block_environment:
             return self.block_environment[name]
+        opcode = ENVIRONMENT_OPCODES.get(name)
+        if opcode is not None and opcode in self.block_environment:
+            return self.block_environment[opcode] & MASK
+        if name == "block.prevrandao" and "DIFFICULTY" in self.block_environment:
+            return self.block_environment["DIFFICULTY"] & MASK
         raise UnsupportedExecution(f"Environment value {name} needs an observation")
 
     def call_value(self, expr: Call, frame: _Frame) -> int:
@@ -591,11 +651,22 @@ class DecompiledMachine:
             (data,) = expr.args
             assert isinstance(data, Slice)
             return int.from_bytes(keccak256(self.slice(data, frame)), "big")
+        if name.startswith("packed_bytes_") and len(expr.args) == 1:
+            slot, low, high = self.storage_slot(expr, frame)
+            word = self.storage.get(slot, 0)
+            return (word >> (8 * low)) & ((1 << (8 * (high - low + 1))) - 1)
         if name in self.functions:
             results = self.private(expr, frame)
             if len(results) != 1:
                 raise UnsupportedExecution("Private call used as a single value")
             return results[0]
+        if name == "phi":
+            raise UnsupportedExecution("PHI inputs are not associated with predecessors")
+        if name == "blockhash":
+            number = self.eval(expr.args[0], frame)
+            if number not in self.block_hashes:
+                raise UnsupportedExecution("BLOCKHASH requires an observed value")
+            return self.block_hashes[number] & MASK
         if name == "gasleft":
             raise UnsupportedExecution("gasleft() needs an observed value")
         args = [self.eval(a, frame) for a in expr.args]

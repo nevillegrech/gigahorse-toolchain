@@ -30,6 +30,18 @@ def _decompiled(program):
     return _CACHE[key][1]
 
 
+def _reason(exc) -> str:
+    """Unsupported reason with any expression shown as printed in the view."""
+    from reconstruction.highlevel.ir import Expr
+    from reconstruction.highlevel.printer import expression
+
+    text = str(exc)
+    for arg in getattr(exc, "args", ()):
+        if isinstance(arg, Expr):
+            text = expression(arg)
+    return text[:160]
+
+
 def _nonzero(storage: dict[int, int]) -> dict[int, int]:
     return {slot: value for slot, value in storage.items() if value}
 
@@ -67,10 +79,11 @@ def crosscheck(machine, calldata, kwargs, result, outcomes) -> None:
             observed_balance_values=kwargs.get("observed_balance_values", ()),
             code_sizes=kwargs.get("code_sizes"),
             block_environment=kwargs.get("block_environment"),
+            block_hashes=kwargs.get("block_hashes"),
         )
     except UnsupportedExecution as exc:
         STATS["unsupported"] += 1
-        UNSUPPORTED[str(exc)[:120]] += 1
+        UNSUPPORTED[_reason(exc)] += 1
         return
     assert not pending, (
         f"decompiled view skipped an external call on {calldata.hex()} value={kwargs.get('value', 0)}"
@@ -89,6 +102,7 @@ def crosscheck(machine, calldata, kwargs, result, outcomes) -> None:
         f"decompiled view storage diverges on {calldata.hex()}"
     )
     STATS["agree"] += 1
+    STATS["uncertain_lines_agreeing"] += int(other.uncertain_executed > 0)
     STATS["external_calls"] += len(outcomes)
     STATS["logs"] += len(result.logs)
     STATS["reverted"] += int(result.reverted)
@@ -132,7 +146,8 @@ def pytest_terminal_summary(terminalreporter):
     terminalreporter.section("decompiled view cross-check")
     terminalreporter.write_line(
         f"agreeing executions: {STATS['agree']} "
-        f"(external calls {STATS['external_calls']}, logs {STATS['logs']}, reverted {STATS['reverted']}); "
+        f"(external calls {STATS['external_calls']}, logs {STATS['logs']}, reverted {STATS['reverted']}, "
+        f"executions through UNCERTAIN lines {STATS['uncertain_lines_agreeing']}); "
         f"unsupported: {STATS['unsupported']}"
     )
     for reason, count in UNSUPPORTED.most_common(12):

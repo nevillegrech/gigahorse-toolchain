@@ -405,7 +405,12 @@ class FunctionLifter:
                     "ArrayAccessIndex": "array",
                     "StaticArrayAccessIndex": "static_array",
                 }[term.constructor]
-                return Index(parent, self.expr(key_var), kind=kind)
+                key = self.expr(key_var)
+                if kind != "mapping":
+                    stride = self.array_stride(access, key)
+                    if stride is not None:
+                        kind = f"{kind}:{stride}"
+                return Index(parent, key, kind=kind)
             if term.constructor == "OffsetIndex":
                 return Member(parent, f"field{int(atom(term, 1))}")
             if term.constructor == "ArrayDataStartIndex":
@@ -426,6 +431,38 @@ class FunctionLifter:
         if access.kind == "LENGTH":
             result = Member(result, "length")
         return result
+
+    def array_stride(self, access: StorageAccess, key: Expr) -> int | None:
+        """Words per element, read off the accessed slot: base + key * k (+ field offset).
+
+        Only the access instruction's own slot arithmetic is used; anything else
+        leaves the stride unknown (the printed path is then not executable).
+        """
+        stmt = self.context.statements.get(access.statement)
+        if stmt is None or not stmt.operands:
+            return None
+        slot = self.expr(stmt.operands[0])
+        terms: list[Expr] = []
+
+        def collect(node: Expr) -> None:
+            if isinstance(node, Binary) and node.op == "+":
+                collect(node.left)
+                collect(node.right)
+            else:
+                terms.append(node)
+
+        collect(slot)
+        for term in terms:
+            if term == key:
+                return 1
+            if isinstance(term, Binary) and term.op == "*":
+                for a, b in ((term.left, term.right), (term.right, term.left)):
+                    if a == key and isinstance(b, Const) and 0 < b.value < 1 << 32:
+                        return b.value
+            if isinstance(term, Binary) and term.op == "<<" and term.left == key:
+                if isinstance(term.right, Const) and term.right.value < 32:
+                    return 1 << term.right.value
+        return None
 
     # --- statements -------------------------------------------------------
 
