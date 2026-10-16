@@ -51,6 +51,76 @@ storage/key values from the original load; maps retain that evidence.
 Current outputs are in `artifacts/evaluation-codecopy-release/` and
 `artifacts/evaluation-second-codecopy-release/`; native relations are reused.
 
+## Readable decompiled view (`decompiled.sol.txt`)
+
+Every bundle now also contains `decompiled.sol.txt` and `decompiled.map.json`,
+produced by `reconstruction/highlevel/`. This is the view meant for reading an
+unverified contract. The earlier views remain for detailed evidence.
+
+The view lifts the recovered IR into expression/statement trees along the
+structured control flow, then applies readability passes:
+
+- simplification of masks/casts, the selector (`msg.sig`) and linear arithmetic;
+- guards turned into `require(c, Error("..."))`, `Panic(n)` or
+  `require(ok, returndata)`;
+- recovery of short-circuit `&&`/`||`, loop conditions, the ETH
+  `.transfer`/`.send` idiom and `nonpayable` entry checks;
+- ABI calls printed as `target.method(args)` with named returned words, events
+  as `emit Name(args)`, and returns as `return (words)`;
+- mapping-key hashing and ABI encoders absorbed;
+- argument and storage typing, getter-based storage names, and hash-checked
+  event, function and error names;
+- calldata accessors for dynamic arguments (`x.length`, `x.data`, `x.word(k)`)
+  and named common subexpressions;
+- summaries above each public function: caller checks, storage writes, calls
+  and events, including effects of the private functions it calls.
+
+Memory plumbing is removed by store-to-load forwarding and dead-store
+elimination. These use a memory model with free-pointer value numbering,
+pointer floors and ordering between pointer versions, plus interprocedural
+read summaries. One scoped assumption is stated in the legend and recorded as
+rule `assumes-solc-memory-discipline` on the lines it affects. An ABI
+temporary written for a represented call/event/return is assumed not to be
+re-read except through the same pointer value. Inputs of calls whose arguments
+are not fully decoded are never absorbed.
+
+Two idioms are summarized only after execution checks: storage string getters
+(`return _name;`) and checked-arithmetic helpers (`_SafeAdd`/`_SafeSub`/...).
+Each candidate is accepted only if executing its lifted body agrees with the
+summary on every test state: ten string encodings, or 144 operand pairs. The
+map records the rule and the number of states.
+
+**Evidence and uncertainty.** Every IR statement is accounted for in
+`decompiled.map.json`. It is either printed on a line (with IR ids and
+bytecode offsets), absorbed into a line (`abstracted_ir_statements`), elided
+with a reason (`elided`), an argument decode, or structural control flow.
+Tests require `unaccounted_ir_statements` to be empty on all 24 fixtures.
+Names marked `[dict]` are keccak-checked dictionary hints. `UNCERTAIN` marks
+partially recovered constructs, which keep their raw operations.
+
+**Validation by execution.** `reconstruction/highlevel/interpreter.py`
+executes the printed statement trees themselves, without the hidden IR. The
+test hook in `reconstruction_tests/conftest.py` re-runs every structured
+IR-machine case of the behavioral suite through it, with the same replayed
+external outcomes. It requires identical output, revert status, logs, storage
+and call operands. Current result: 1,079 agreeing executions (241 external
+calls, 103 logs, 221 reverts) and 0 unsupported. This is bounded validation on
+the tested inputs, not an equivalence proof. Building the hook found and fixed
+these bugs:
+
+- dropped scalar storage writes;
+- an unsound free-pointer elision;
+- mis-resolved overloads;
+- ERC20 `transfer` confused with ETH `.transfer`;
+- unenforced `nonpayable`;
+- absorbed inputs of partially decoded calls (found by review of the Dedaub
+  comparison contract).
+
+**Names from openchain (opt-in).** `--online-signatures` looks up only the
+selectors/topics the local dictionaries do not resolve. This discloses them to
+openchain.xyz. Only keccak-checked names are kept; they are cached under
+`cache/signatures/` and reused offline afterwards.
+
 ## Repository
 
 - Upstream: https://github.com/nevillegrech/gigahorse-toolchain

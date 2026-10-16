@@ -572,3 +572,52 @@ the importer does not authenticate a vendor signature or generate a parity score
   --baselines /mnt/model-ssd/scratch/gigahorse-decompiler/dedaub-exports \
   --output artifacts/my-comparison
 ```
+
+
+## Same-bytecode Dedaub comparison: Morpho liquidator (calibration)
+
+`fixtures/dedaub/morpho-liquidator/` holds a 5,954-byte runtime (solc 0.8.34,
+SHA-256 `e37d8859…f1f2`). It came with the Dedaub output for the same bytes,
+supplied by the user on 2026-10-16. The pair was used during readability work,
+so it is a calibration case, not a held-out test. Code lines exclude comments.
+
+| Function | Dedaub | `decompiled.sol.txt` | previous `structured.sol.txt` |
+| --- | --- | --- | --- |
+| sweep | 12 | 14 | 62 |
+| onMorphoFlashLoan | 84 | ~125 | 288 |
+| MORPHO / owner / fallback | 6 | 6 | 15 |
+| 0x441c1495 | 63 | 69 | 217 |
+| selector dispatch | 17 | 22 | 24 |
+| **whole contract** | **192** | **247** | **617** |
+
+What a reviewer gets:
+
+- **Names.** Both outputs name `sweep`, `MORPHO` and `owner`. With
+  `--online-signatures` (once, then cached), the local view also names
+  `onMorphoFlashLoan`, `idToMarketParams` and `liquidate`. `0x441c1495`
+  remains unnamed in both.
+- **Storage.** Both show `address _owner` at slot 0, bytes 0..19.
+- **Access checks.** `!owner` and `!morpho` appear in both. The local view also
+  lists them in a per-function summary.
+- **Revert reasons.** Both decode `approve` and `min profit`. Dedaub prints
+  `Error(0x73776170)` where the local view decodes `Error("swap")`.
+- **Calls.** Both print `target.method(args)` for balanceOf, transfer,
+  idToMarketParams, liquidate and flashLoan, and low-level `approve` via
+  `call(abi.encodeWithSelector(...))`. Flash-loan data construction remains
+  visible in both.
+- **Noise.** Dedaub keeps return-data free-pointer updates and struct writes.
+  The local view removes them where forwarding/liveness proves (or the
+  scoped discipline assumes) they are unread.
+- **Evidence and uncertainty.** Dedaub has none. The local view has per-line
+  IR/bytecode maps, full IR accounting, and UNCERTAIN marks on the calls whose
+  dynamic `bytes` arguments are not decoded.
+
+Remaining gaps against Dedaub on this contract:
+
+- `abi.decode` of the `bytes` callback data still appears as calldata field
+  reads (`msg.data[t0 + 32]` …), not as a struct.
+- `abi.encode(struct)` for flashLoan's data is still raw memory writes.
+- 0.8 ABI-decoder bounds checks are printed. Dedaub prints them too.
+
+Behavioral execution tests for this contract are still missing. Its view is
+covered by the static invariants, not by the execution cross-check.
