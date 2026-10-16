@@ -732,6 +732,83 @@ Router02 reads close to its source after these changes:
   `error-padding-not-modeled`: the unwritten padding after a copied reason is
   assumed zero. 6 such reverts are executed by tests and match the EVM bytes.
 
-Still to do: analyze the remaining seven contracts. Run them one at a time to
-limit memory use (`--only <id> --resume`). Saved Dedaub output for the same
-bytecode would turn this into a parity measurement.
+The remaining seven contracts are analyzed in run 2 below.
+
+**Re-rendered after the size limits** (`results/run1-rerendered-limits.json`,
+code b5a9a9d, same saved relations): 0 wrong claims on all five; code lines
+unchanged (399, 296, 1,894, 1,330, 488).
+
+
+## Held-out run 2: the seven remaining contracts (first scores)
+
+These are the first results for the seven contracts that run 1 did not reach.
+They were recorded before any of the user's Dedaub exports for them were opened.
+The exports were saved on 2026-10-16 in `fixtures/dedaub/heldout-2026-10-16/`
+(committed unopened in c616d28). Everything after this section that uses these
+contracts is calibration, not a held-out result.
+
+**One change came from these contracts before scoring.** Run 1 was killed
+while analyzing the Uniswap V3 pool. Its leftover working directory showed that
+Gigahorse had finished in 8 s; the readable view then grew past 6 GB. The fix
+(f7fb360) was made on that saved run-1 analysis only:
+
+- The lifter inlined every pure value into each use, so chained reuse
+  (Newton steps, `x * x + x`) doubled the printed tree per step. A value whose
+  inlined form exceeds 128 nodes is now printed once as a local, marked
+  `// not inlined: over 128 nodes` (rule `inline-size-limit`). The largest
+  inlined value in the fixtures has 72 nodes, so no fixture changed.
+- The ABI coder tracker's canonical forms shared subterms the same way
+  (hashing and `repr` were exponential). A form over 256 nodes becomes a fresh
+  atom that equals nothing, so a recognizer can only miss, never match wrongly.
+
+**How the contracts ran** (code b5a9a9d, `results/run2.json`): natively, one at
+a time, smallest first, each in a systemd scope capped at 16 GB with swap off,
+a 1-hour wall-clock limit and Gigahorse's 300 s analysis timeout. At least
+20 GB of free memory was checked before each start. Peak memory is that of the
+largest single process (GNU time).
+
+| Contract | Bytes | Status | Time | Peak memory | Selectors | Names (correct / unnamed / wrong) | Wrong claims | Code lines | UNCERTAIN | Unstructured fns |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| aave-v3-pool-proxy | 2,400 | ok | 1.4 s | 0.03 GB | 5/5 | 5 / 0 / 0 | 0 | 163 | 3 | 0 |
+| ens-eth-registrar-controller | 7,633 | ok | 3.0 s | 0.07 GB | 20/20 | 18 / 2 / 0 | 0 | 634 | 7 | 0 |
+| azuki-erc721a | 14,251 | ok | 8.8 s | 0.14 GB | 45/45 | 45 / 0 / 0 | 0 | 1,103 | 5 | 0 |
+| curve-3pool (Vyper) | 21,199 | **failed** (Python error) | 7.5 s | 0.42 GB | - | - | - | - | - | - |
+| uniswap-v3-pool-usdc-weth | 22,142 | ok | 69.3 s | 0.27 GB | 26/26 | 26 / 0 / 0 | 5 | 1,932 | 5 | 0 |
+| oneinch-router-v5 | 22,484 | **failed** (Gigahorse error) | 168.8 s | 15.93 GB | - | - | - | - | - | - |
+| seaport-1-5 | 24,367 | ok | 47.9 s | 0.69 GB | 16/17 | 5 / 8 / 3 | 7 | 8,963 | 24 | 1 |
+
+What went wrong:
+
+- **Curve 3pool: no output.** Gigahorse finished. The readable view then
+  raised `IndexError` in `lift.py` (`_statement`): a memory store with a single
+  operand, inside a block of Vyper code that could not be structured. One
+  crash in one function cost the whole contract.
+- **1inch v5: no output.** Gigahorse itself stopped after 169 s with
+  `TAC_Use: conflicting operand at 0x14e2, index 0`, while its peak memory
+  (15.9 GB) was just under the 16 GB cap. Whether the cap contributed is not
+  known.
+- **Uniswap V3 pool: 5 wrong claims, one cause.** `uint160` values are printed
+  as `address`: `initialize`'s argument, `swap`'s `sqrtPriceLimitX96`, and one
+  return value each of `slot0`, `observations` and `snapshotCumulativesInside`
+  (the `sqrtPriceX96` / `secondsPerLiquidity` words). A 160-bit mask is read as
+  an address. Separately, 140 IR statements are not accounted for in the
+  evidence map (every fixture has 0).
+- **Seaport 1.5: 7 wrong claims.**
+  - Three names come from deliberate selector collisions in the local signature
+    dictionary (`SubToJunionOnYoutubeXD_lvfsnfguwqne()` for `cancel`'s
+    `0xfd9f1e10`, and two similar ones). The hash matches; the name is wrong.
+    Because Seaport reads its arguments in assembly, no arguments were
+    recovered, so the printed arity (0) agreed with the wrong name and nothing
+    flagged it: 3 name and 3 arity errors.
+  - `getOrderStatus` returns `uint120` where the ABI says `uint256` (the value
+    is a packed 120-bit storage field).
+  - Selector `0x00000000` (`fulfillBasicOrder_efficient_6GL6yc`) is not shown as
+    a public function.
+  - Eight functions are unnamed (their struct-array signatures are not in the
+    local dictionary), one function's control flow is not structured, and the
+    file has 8,963 code lines.
+- **ENS controller:** `makeCommitment` and `register` (with `bytes[]`
+  arguments) are unnamed, and four dynamic arguments have unresolved types.
+
+Totals over the five contracts with output: 112/113 selectors, 99 names
+correct, 10 unnamed, 3 wrong; 12 wrong claims, all in the V3 pool and Seaport.

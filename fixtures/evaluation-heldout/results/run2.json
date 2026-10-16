@@ -1,0 +1,327 @@
+{
+  "selection_id": "heldout-2026-10-16",
+  "contracts": [
+    {
+      "id": "aave-v3-pool-proxy",
+      "seconds": 1.4,
+      "peak_rss_gb": 0.03,
+      "status": "ok",
+      "decompiled_code_lines": 163,
+      "structured_code_lines": 352,
+      "unaccounted_ir_statements": 0,
+      "uncertain_lines": 3,
+      "unstructured_functions": 0,
+      "recognized_idioms": 0,
+      "events": {
+        "abi": [
+          "Upgraded"
+        ],
+        "named_in_view": [
+          "Upgraded"
+        ],
+        "unnamed_in_view": []
+      },
+      "score": {
+        "abi_functions": 5,
+        "selectors_recovered": 5,
+        "names": {
+          "correct": 5,
+          "unresolved": 0,
+          "wrong": 0
+        },
+        "arity": {
+          "correct": 5,
+          "wrong": 0
+        },
+        "argument_types": {
+          "correct": 5,
+          "unresolved": 0,
+          "wrong": 0,
+          "dynamic_unresolved": 0
+        },
+        "payability": {
+          "correct": 5,
+          "wrong": 0
+        },
+        "returns": {
+          "correct": 3,
+          "unresolved": 2,
+          "wrong": 0
+        },
+        "wrong_claims": []
+      }
+    },
+    {
+      "id": "ens-eth-registrar-controller",
+      "seconds": 3.0,
+      "peak_rss_gb": 0.07,
+      "status": "ok",
+      "decompiled_code_lines": 634,
+      "structured_code_lines": 1250,
+      "unaccounted_ir_statements": 0,
+      "uncertain_lines": 7,
+      "unstructured_functions": 0,
+      "recognized_idioms": 2,
+      "events": {
+        "abi": [
+          "NameRegistered",
+          "NameRenewed",
+          "OwnershipTransferred"
+        ],
+        "named_in_view": [
+          "NameRenewed",
+          "OwnershipTransferred"
+        ],
+        "unnamed_in_view": [
+          "Event_69e37f15"
+        ]
+      },
+      "score": {
+        "abi_functions": 20,
+        "selectors_recovered": 20,
+        "names": {
+          "correct": 18,
+          "unresolved": 2,
+          "wrong": 0
+        },
+        "arity": {
+          "correct": 20,
+          "wrong": 0
+        },
+        "argument_types": {
+          "correct": 17,
+          "unresolved": 8,
+          "wrong": 0,
+          "dynamic_unresolved": 4
+        },
+        "payability": {
+          "correct": 20,
+          "wrong": 0
+        },
+        "returns": {
+          "correct": 18,
+          "unresolved": 2,
+          "wrong": 0
+        },
+        "wrong_claims": []
+      }
+    },
+    {
+      "id": "azuki-erc721a",
+      "seconds": 8.8,
+      "peak_rss_gb": 0.14,
+      "status": "ok",
+      "decompiled_code_lines": 1103,
+      "structured_code_lines": 2090,
+      "unaccounted_ir_statements": 0,
+      "uncertain_lines": 5,
+      "unstructured_functions": 0,
+      "recognized_idioms": 6,
+      "events": {
+        "abi": [
+          "Approval",
+          "ApprovalForAll",
+          "OwnershipTransferred",
+          "Transfer"
+        ],
+        "named_in_view": [
+          "Approval",
+          "ApprovalForAll",
+          "OwnershipTransferred",
+          "Transfer"
+        ],
+        "unnamed_in_view": []
+      },
+      "score": {
+        "abi_functions": 45,
+        "selectors_recovered": 45,
+        "names": {
+          "correct": 45,
+          "unresolved": 0,
+          "wrong": 0
+        },
+        "arity": {
+          "correct": 45,
+          "wrong": 0
+        },
+        "argument_types": {
+          "correct": 45,
+          "unresolved": 0,
+          "wrong": 0,
+          "dynamic_unresolved": 0
+        },
+        "payability": {
+          "correct": 45,
+          "wrong": 0
+        },
+        "returns": {
+          "correct": 41,
+          "unresolved": 4,
+          "wrong": 0
+        },
+        "wrong_claims": []
+      }
+    },
+    {
+      "id": "curve-3pool",
+      "seconds": 7.5,
+      "peak_rss_gb": 0.42,
+      "status": "failed",
+      "failure": "error",
+      "error": ", relations, names, online_signatures=online_signatures)\n  File \"/home/harrison/evm-decompiler/reconstruction/highlevel/view.py\", line 224, in build_decompiled\n    prepared = [prepare_function(context, function) for function in program.functions]\n                ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^\n  File \"/home/harrison/evm-decompiler/reconstruction/highlevel/view.py\", line 367, in prepare_function\n    item = lifter.lift()\n  File \"/home/harrison/evm-decompiler/reconstruction/highlevel/lift.py\", line 591, in lift\n    body.append(RawBlock(f\"block_{block_id}\", self.block(block_id, raw=True)))\n                                              ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^\n  File \"/home/harrison/evm-decompiler/reconstruction/highlevel/lift.py\", line 688, in block\n    result.extend(self.statement(block, stmt))\n                  ~~~~~~~~~~~~~~^^^^^^^^^^^^^\n  File \"/home/harrison/evm-decompiler/reconstruction/highlevel/lift.py\", line 745, in statement\n    result = self._statement(block, stmt)\n  File \"/home/harrison/evm-decompiler/reconstruction/highlevel/lift.py\", line 837, in _statement\n    return [Assign((Index(space, args[0]),), args[1], evidence=ev)]\n                                             ~~~~^^^\nIndexError: list index out of range\nCommand exited with non-zero status 1\npeak_rss_kb=442212\n"
+    },
+    {
+      "id": "uniswap-v3-pool-usdc-weth",
+      "seconds": 69.3,
+      "peak_rss_gb": 0.27,
+      "status": "ok",
+      "decompiled_code_lines": 1932,
+      "structured_code_lines": 16292,
+      "unaccounted_ir_statements": 140,
+      "uncertain_lines": 5,
+      "unstructured_functions": 0,
+      "recognized_idioms": 1,
+      "events": {
+        "abi": [
+          "Burn",
+          "Collect",
+          "CollectProtocol",
+          "Flash",
+          "IncreaseObservationCardinalityNext",
+          "Initialize",
+          "Mint",
+          "SetFeeProtocol",
+          "Swap"
+        ],
+        "named_in_view": [
+          "Burn",
+          "Collect",
+          "CollectProtocol",
+          "Flash",
+          "IncreaseObservationCardinalityNext",
+          "Initialize",
+          "Mint",
+          "SetFeeProtocol",
+          "Swap"
+        ],
+        "unnamed_in_view": []
+      },
+      "score": {
+        "abi_functions": 26,
+        "selectors_recovered": 26,
+        "names": {
+          "correct": 26,
+          "unresolved": 0,
+          "wrong": 0
+        },
+        "arity": {
+          "correct": 26,
+          "wrong": 0
+        },
+        "argument_types": {
+          "correct": 31,
+          "unresolved": 3,
+          "wrong": 2,
+          "dynamic_unresolved": 0
+        },
+        "payability": {
+          "correct": 26,
+          "wrong": 0
+        },
+        "returns": {
+          "correct": 16,
+          "unresolved": 7,
+          "wrong": 3
+        },
+        "wrong_claims": [
+          "0xf637731d: arg0 address vs uint160",
+          "0x252c09d7: returns ['uint32', 'int56', 'address', 'bool'] vs ['uint32', 'int56', 'uint160', 'bool']",
+          "0x3850c7bd: returns ['address', 'int24', 'uint16', 'uint16', 'uint16', 'uint8', 'bool'] vs ['uint160', 'int24', 'uint16', 'uint16', 'uint16', 'uint8', 'bool']",
+          "0xa38807f2: returns ['int56', 'address', 'uint32'] vs ['int56', 'uint160', 'uint32']",
+          "0x128acb08: arg3 address vs uint160"
+        ]
+      }
+    },
+    {
+      "id": "oneinch-router-v5",
+      "seconds": 168.8,
+      "peak_rss_gb": 15.93,
+      "status": "failed",
+      "failure": "error",
+      "error": "Running Gigahorse; initial compiled runs can take several minutes.\nerror: TAC_Use: conflicting operand at 0x14e2, index 0\nCommand exited with non-zero status 1\npeak_rss_kb=16704868\n"
+    },
+    {
+      "id": "seaport-1-5",
+      "seconds": 47.9,
+      "peak_rss_gb": 0.69,
+      "status": "ok",
+      "decompiled_code_lines": 8963,
+      "structured_code_lines": 30931,
+      "unaccounted_ir_statements": 0,
+      "uncertain_lines": 24,
+      "unstructured_functions": 1,
+      "recognized_idioms": 2,
+      "events": {
+        "abi": [
+          "CounterIncremented",
+          "OrderCancelled",
+          "OrderFulfilled",
+          "OrderValidated",
+          "OrdersMatched"
+        ],
+        "named_in_view": [
+          "CounterIncremented",
+          "OrderCancelled",
+          "OrderFulfilled"
+        ],
+        "unnamed_in_view": [
+          "Event_4b9f2d36",
+          "Event_f280791e"
+        ]
+      },
+      "score": {
+        "abi_functions": 17,
+        "selectors_recovered": 16,
+        "names": {
+          "correct": 5,
+          "unresolved": 8,
+          "wrong": 3
+        },
+        "arity": {
+          "correct": 13,
+          "wrong": 3
+        },
+        "argument_types": {
+          "correct": 2,
+          "unresolved": 10,
+          "wrong": 0,
+          "dynamic_unresolved": 13
+        },
+        "payability": {
+          "correct": 16,
+          "wrong": 0
+        },
+        "returns": {
+          "correct": 5,
+          "unresolved": 10,
+          "wrong": 1
+        },
+        "wrong_claims": [
+          "0xfd9f1e10: name SubToJunionOnYoutubeXD_lvfsnfguwqne() vs cancel((address,address,(uint8,address,uint256,uint256,uint256)[],(uint8,address,uint256,uint256,uint256,address)[],uint8,uint256,uint256,bytes32,uint256,bytes32,uint256)[])",
+          "0xfd9f1e10: arity 0 vs 1",
+          "0xe7acab24: name JunionWasHereXD_ufpfzhujazyn() vs fulfillAdvancedOrder(((address,address,(uint8,address,uint256,uint256,uint256)[],(uint8,address,uint256,uint256,uint256,address)[],uint8,uint256,uint256,bytes32,uint256,bytes32,uint256),uint120,uint120,bytes,bytes),(uint256,uint8,uint256,uint256,bytes32[])[],bytes32,address)",
+          "0xe7acab24: arity 0 vs 4",
+          "0xfb0f3ee1: name JunionYoutubeXD_dashhvetozhe() vs fulfillBasicOrder((address,uint256,uint256,address,address,address,uint256,uint256,uint8,uint256,uint256,bytes32,uint256,bytes32,bytes32,uint256,(uint256,address)[],bytes))",
+          "0xfb0f3ee1: arity 0 vs 1",
+          "0x46423aa7: returns ['bool', 'bool', 'uint120', 'uint256'] vs ['bool', 'bool', 'uint256', 'uint256']"
+        ]
+      }
+    }
+  ],
+  "limits": {
+    "memory_gb": 16,
+    "wall_seconds": 3600,
+    "native_timeout_seconds": 300,
+    "mechanism": "systemd scope MemoryMax=16G, swap off"
+  }
+}
