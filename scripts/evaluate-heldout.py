@@ -62,7 +62,11 @@ def parse_view(text: str) -> dict[str, dict]:
     functions = {}
     for match in SIGNATURE.finditer(text):
         selector, hint, name, params, mutability, returns = match.groups()
-        types = [p.strip().rsplit(" ", 1)[0] for p in params.split(",") if p.strip()]
+        types = (
+            None  # the view failed for this function and claims no arguments
+            if "arguments not recovered" in params
+            else [p.strip().rsplit(" ", 1)[0] for p in params.split(",") if p.strip()]
+        )
         functions[selector] = {
             "hint": hint,
             "name": name,
@@ -98,7 +102,10 @@ def score(view: dict[str, dict], truth: dict[str, dict]) -> dict:
                 )
         else:
             counts["names"]["unresolved"] += 1
-        if len(ours["types"]) == len(expected["inputs"]):
+        if ours["types"] is None:
+            # No signature printed for this selector (e.g. an inlined body): no claim.
+            counts["arity"]["unresolved"] = counts["arity"].get("unresolved", 0) + 1
+        elif len(ours["types"]) == len(expected["inputs"]):
             counts["arity"]["correct"] += 1
             for index, (mine, theirs) in enumerate(
                 zip(ours["types"], expected["inputs"], strict=True)

@@ -58,7 +58,7 @@ def test_ambiguous_constants_are_not_arbitrarily_chosen(facts):
     [
         ("TAC_Use", "0x20\tslot\t-1\n"),
         ("TAC_Use", "0x20\tslot\t3\n"),
-        ("TAC_Use", "0x20\tother\t0\n"),
+        ("TAC_Def", "0x20\tother\t0\n"),
         ("TAC_Op", "0x20\tSUB\n"),
         ("TAC_Block", "0x20\t0x99\n"),
         ("LocalBlockEdge", "0x0\tmissing\n"),
@@ -72,6 +72,25 @@ def test_inconsistent_facts_fail_before_publishing(facts, tmp_path, relation, ro
     with pytest.raises(ValueError):
         write_bundle(facts, output, {})
     assert not output.exists()
+
+
+def test_conflicting_operand_is_merged_without_choosing(facts, tmp_path):
+    """Two IR values for one operand (contexts the analysis did not separate).
+
+    Like an ambiguous constant, the operand is never resolved by picking one: it
+    becomes an unordered PHI over both values, with a warning, and is published.
+    """
+    with (facts / "TAC_Use.csv").open("a") as stream:
+        stream.write("0x20\tother\t0\n")
+    program = load_program(facts)
+    phi, load, _store = program.blocks[0].instructions
+    assert (phi.id, phi.opcode, phi.definitions) == ("0x20_phi0", "PHI", ["0x20_operand0"])
+    assert set(phi.operands) == {"slot", "other"} and phi.original_statements == ["0x8"]
+    assert load.operands == ["0x20_operand0"]
+    assert any("modeled as an unordered PHI 0x20_phi0" in w for w in program.warnings)
+    output = tmp_path / "bundle"
+    write_bundle(facts, output, {})
+    assert "phi(" in (output / "decompiled.sol.txt").read_text()
 
 
 def test_missing_relations_fail_explicitly(facts):

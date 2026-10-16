@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
 
@@ -13,7 +14,22 @@ from .idioms import (
     recognize_memory_helpers,
     recognize_string_getters,
 )
-from .ir import AbiCodec, Assign, Emit, Expr, Require, Return, Stmt, Var, is_local, struct_fields
+from .ir import (
+    AbiCodec,
+    Assign,
+    Call,
+    Comment,
+    Emit,
+    Expr,
+    ExprStmt,
+    RawBlock,
+    Require,
+    Return,
+    Stmt,
+    Var,
+    is_local,
+    struct_fields,
+)
 from .lift import FunctionLifter, ProgramContext, is_static_abi
 from .memory_forwarding import forward_memory
 from .memory_liveness import AddressModel, FreePointerVersions, Summaries, compute_summaries
@@ -96,6 +112,31 @@ class FunctionView:
     argument_evidence: set[str] = field(default_factory=set)
     # The dispatcher's shared callvalue check, when it covers this entry point.
     nonpayable_by_dispatcher: Stmt | None = None
+    # The view of this function failed: its arguments are not claimed.
+    arguments_unknown: bool = False
+
+
+def _strict() -> bool:
+    """Tests set RECONSTRUCTION_STRICT=1 so a failing function raises instead of falling back."""
+    return os.environ.get("RECONSTRUCTION_STRICT") == "1"
+
+
+def _failed_view(
+    context: ProgramContext, function: Function, signature: str | None, error: Exception
+) -> FunctionView:
+    """One function's view failed: print a visible stub, not a guess, and keep the rest."""
+    detail = f"{type(error).__name__}: {error}".replace("\n", " ")[:240]
+    body: list[Stmt] = [
+        RawBlock(
+            "view_failed",
+            [Comment("its IR is printed in structured.sol.txt")],
+            uncertain=f"readable view not produced for this function ({detail})",
+        )
+    ]
+    name = context.function_names[function.id]
+    view = FunctionView(function, name, body, [], FunctionState(body), signature, None, None, False)
+    view.arguments_unknown = True
+    return view
 
 
 def collect_keys(context: ProgramContext) -> tuple[set[str], set[str], set[str]]:
@@ -221,12 +262,32 @@ def build_decompiled(
         if counts[name] > 1 and len(function.selectors) == 1:
             context.function_names[function.id] = f"{name}_{function.selectors[0][2:]}"
 
-    prepared = [prepare_function(context, function) for function in program.functions]
-    summaries = memory_summaries(context, prepared)
-    views = [
-        finish_function(context, entry, signatures.get(entry.function.id), summaries)
-        for entry in prepared
-    ]
+    # A failure in one function costs only that function (see _failed_view).
+    failed: dict[str, Exception] = {}
+    prepared = []
+    for function in program.functions:
+        try:
+            prepared.append(prepare_function(context, function))
+        except Exception as error:
+            if _strict():
+                raise
+            failed[function.id] = error
+    summaries = memory_summaries(context, prepared, {context.function_names[f] for f in failed})
+    views = []
+    for entry in prepared:
+        try:
+            views.append(
+                finish_function(context, entry, signatures.get(entry.function.id), summaries)
+            )
+        except Exception as error:
+            if _strict():
+                raise
+            failed[entry.function.id] = error
+    for function in program.functions:
+        if function.id in failed:
+            views.append(
+                _failed_view(context, function, signatures.get(function.id), failed[function.id])
+            )
     dispatcher_value_check = _dispatcher_nonpayable(views)
     if dispatcher_value_check is not None:
         for view in views:
@@ -384,8 +445,17 @@ def prepare_function(context: ProgramContext, function: Function) -> _Prepared:
     return _Prepared(function, lifter, item, state)
 
 
-def memory_summaries(context: ProgramContext, prepared: list[_Prepared]) -> Summaries:
+def memory_summaries(
+    context: ProgramContext,
+    prepared: list[_Prepared],
+    failed: set[str] | frozenset[str] = frozenset(),
+) -> Summaries:
     functions = {}
+    callees = frozenset(context.function_names.values())
+    for name in failed:
+        # No view: calling it may read any memory, so no write before a call is hidden.
+        body: list[Stmt] = [ExprStmt(Call("private_call_unresolved", ()))]
+        functions[name] = (body, AddressModel(set(), FreePointerVersions(body, callees)))
     for entry in prepared:
         free_pointer_vars = {
             stmt.targets[0].name
@@ -549,6 +619,8 @@ def print_function(out: Printed, view: FunctionView, summary=None) -> None:
                     uncertain=text if text.startswith("UNCERTAIN") else None,
                 )
     params = ", ".join(f"{a.type} {a.name}" for a in view.arguments)
+    if view.arguments_unknown:
+        params = "/* arguments not recovered */"
     if function.selectors:
         nonpayable = view.nonpayable is not None or view.nonpayable_by_dispatcher is not None
         if nonpayable:

@@ -16,6 +16,9 @@ from collections import Counter
 
 import pytest
 
+# A function whose readable view fails must fail the tests, not fall back to a stub.
+os.environ.setdefault("RECONSTRUCTION_STRICT", "1")
+
 STATS: Counter[str] = Counter()
 UNSUPPORTED: Counter[str] = Counter()
 _CACHE: dict[int, object] = {}

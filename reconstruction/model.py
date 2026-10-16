@@ -146,6 +146,9 @@ def load_program(directory: Path) -> Program:
     targets = _unique_values(tac[schema.tac_variable_block_value], "block target", warnings)
     opcodes = _unique_values(tac[schema.tac_op], "opcode", warnings, strict=True)
 
+    # (statement, operand index) -> the variables the IR gives for that one operand.
+    ambiguous: defaultdict[tuple[str, int], set[str]] = defaultdict(set)
+
     def indexed(relation: schema.RelationDef) -> dict[str, list[str]]:
         grouped: defaultdict[str, dict[int, str]] = defaultdict(dict)
         phi_inputs: defaultdict[str, set[str]] = defaultdict(set)
@@ -157,7 +160,14 @@ def load_program(directory: Path) -> Program:
                 phi_inputs[key].add(variable)
                 continue
             if position in grouped[key] and grouped[key][position] != variable:
-                raise ValueError(f"{relation.name}: conflicting operand at {key}, index {position}")
+                if relation != schema.tac_use:
+                    raise ValueError(
+                        f"{relation.name}: conflicting operand at {key}, index {position}"
+                    )
+                # A statement shared by contexts the analysis did not separate: its
+                # operand is one of several values, chosen by the path taken.
+                ambiguous[(key, position)] |= {grouped[key][position], variable}
+                continue
             grouped[key][position] = variable
         for key, positions in grouped.items():
             if sorted(positions) != list(range(len(positions))):
@@ -170,6 +180,21 @@ def load_program(directory: Path) -> Program:
 
     definitions = indexed(schema.tac_def)
     operands = indexed(schema.tac_use)
+    # Never pick one: the operand becomes an unordered PHI over the candidates at
+    # the start of the statement's block (printed as an unresolved, UNCERTAIN merge).
+    synthetic_origins: dict[str, str] = {}
+    for (key, position), candidates in sorted(ambiguous.items()):
+        merged = f"{key}_operand{position}"
+        phi = f"{key}_phi{position}"
+        operands[key][position] = merged
+        opcodes[phi] = "PHI"
+        definitions[phi] = [merged]
+        operands[phi] = sorted(candidates, key=sort_key)
+        synthetic_origins[phi] = key
+        warnings.append(
+            f"Statement {key} has {len(candidates)} IR values for operand {position} "
+            f"({', '.join(operands[phi])}); modeled as an unordered PHI {phi}."
+        )
     formals = indexed(schema.formal_args)
     origins: defaultdict[str, set[str]] = defaultdict(set)
     for statement, original in tac[schema.tac_statement_original_statement]:
@@ -177,6 +202,9 @@ def load_program(directory: Path) -> Program:
     instruction_blocks = _unique_values(
         tac[schema.tac_block], "statement block", warnings, strict=True
     )
+    for phi, key in synthetic_origins.items():
+        instruction_blocks[phi] = instruction_blocks[key]
+        origins[phi] = set(origins[key])
     if set(opcodes) - set(instruction_blocks):
         raise ValueError("Some TAC instructions have no unambiguous block membership")
     block_statements: defaultdict[str, set[str]] = defaultdict(set)

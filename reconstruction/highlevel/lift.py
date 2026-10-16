@@ -106,6 +106,34 @@ MEM = Env("MEM")
 # size per step. Past this many nodes the value is printed once as a local.
 # The largest inlined value in the fixtures has 72 nodes.
 INLINE_SIZE_LIMIT = 128
+# EVM stack inputs of opcodes the lifter reads by position. The native analysis
+# can leave a stack value unresolved (seen in dead Vyper code): such a statement
+# stays a raw EVM operation, marked UNCERTAIN, instead of being misread.
+OPERAND_COUNTS = {
+    "MLOAD": 1,
+    "MSTORE": 2,
+    "MSTORE8": 2,
+    "SLOAD": 1,
+    "SSTORE": 2,
+    "TLOAD": 1,
+    "TSTORE": 2,
+    "SHA3": 2,
+    "CALL": 7,
+    "CALLCODE": 7,
+    "DELEGATECALL": 6,
+    "STATICCALL": 6,
+    "CREATE": 3,
+    "CREATE2": 4,
+    "RETURN": 2,
+    "REVERT": 2,
+    "SELFDESTRUCT": 1,
+    "CALLDATACOPY": 3,
+    "CODECOPY": 3,
+    "RETURNDATACOPY": 3,
+    "MCOPY": 3,
+    "EXTCODECOPY": 4,
+    **{f"LOG{n}": n + 2 for n in range(5)},
+}
 
 
 def number(text: str) -> int:
@@ -761,6 +789,17 @@ class FunctionLifter:
         op = stmt.opcode
         ev = frozenset({stmt.id})
         args = [self.expr(v) for v in stmt.operands]
+        expected = OPERAND_COUNTS.get(op)
+        if expected is not None and len(args) != expected:
+            call = Call(op.lower(), tuple(args))
+            reason = (
+                f"{op} has {len(args)} of its {expected} operands in the IR "
+                "(a stack value the analysis did not resolve)"
+            )
+            if stmt.definitions:
+                targets = tuple(self.local(d) for d in stmt.definitions)
+                return [Assign(targets, call, evidence=ev, uncertain=reason)]
+            return [ExprStmt(call, evidence=ev, uncertain=reason)]
         if op in PURE and len(stmt.definitions) == 1:
             proven = self.proven_read(stmt.definitions[0])
             if proven is not None:

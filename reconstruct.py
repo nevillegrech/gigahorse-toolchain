@@ -189,25 +189,42 @@ def decompile(args: argparse.Namespace) -> None:
         flags = results[0][2]
         if flags:
             raise ValueError(f"Gigahorse reported flags {flags!r}:\n{log[-6000:]}")
-        write_bundle(
-            run_dir / "analysis/contract/out",
-            args.output,
-            {
-                "engine": "Gigahorse",
-                "input_sha256": hashlib.sha256(bytes.fromhex(bytecode)).hexdigest(),
-                "input_kind": "runtime-bytecode",
-                "signature_resolution": False,
-                "interpreted": args.interpreted,
-                "upstream_results": results,
-                "semantic_export_sha256": hashlib.sha256(
-                    (ROOT / "clients/reconstruction.dl").read_bytes()
-                ).hexdigest(),
-                "semantic_implementation_sha256": semantic_implementation_hash(),
-            },
-            log,
-            args.signatures,
-            args.online_signatures,
-        )
+        facts = run_dir / "analysis/contract/out"
+        try:
+            _write_decompiled(facts, args, bytecode, results, log)
+        except Exception:
+            # Gigahorse succeeded; keep its relations so the failure can be
+            # diagnosed with `render` instead of repeating the native analysis.
+            kept = args.output.with_name(args.output.name + ".failed-relations")
+            if not kept.exists():
+                shutil.copytree(facts, kept)
+                (kept / "upstream.log").write_text(log)
+                print(f"Gigahorse relations kept in {kept}", file=sys.stderr)
+            raise
+
+
+def _write_decompiled(
+    facts: Path, args: argparse.Namespace, bytecode: str, results: list, log: str
+) -> None:
+    write_bundle(
+        facts,
+        args.output,
+        {
+            "engine": "Gigahorse",
+            "input_sha256": hashlib.sha256(bytes.fromhex(bytecode)).hexdigest(),
+            "input_kind": "runtime-bytecode",
+            "signature_resolution": False,
+            "interpreted": args.interpreted,
+            "upstream_results": results,
+            "semantic_export_sha256": hashlib.sha256(
+                (ROOT / "clients/reconstruction.dl").read_bytes()
+            ).hexdigest(),
+            "semantic_implementation_sha256": semantic_implementation_hash(),
+        },
+        log,
+        args.signatures,
+        args.online_signatures,
+    )
 
 
 def main(argv: list[str] | None = None) -> int:
