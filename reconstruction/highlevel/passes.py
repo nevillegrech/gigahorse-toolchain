@@ -1295,3 +1295,131 @@ def map_reads_local(stmt: Stmt, fn) -> None:
     from .memory_forwarding import map_reads
 
     map_reads(stmt, fn)
+
+
+def _memcpy_merge(stmt: Stmt, s: str, d: str, n: str) -> bool:
+    """MEM[d] = MEM[s] & ~(256 ** (32 - n) - 1) | MEM[d] & (256 ** (32 - n) - 1)."""
+    if not (isinstance(stmt, Assign) and len(stmt.targets) == 1):
+        return False
+    target = stmt.targets[0]
+    if not (
+        isinstance(target, Index) and isinstance(target.base, Env) and target.base.name == "MEM"
+    ):
+        return False
+    if not (isinstance(target.key, Var) and target.key.name == d):
+        return False
+    value = stmt.value
+    if not (isinstance(value, Binary) and value.op == "|"):
+        return False
+    reads = {
+        node.key.name
+        for node in iter_expr(value)
+        if isinstance(node, Index)
+        and isinstance(node.base, Env)
+        and node.base.name == "MEM"
+        and isinstance(node.key, Var)
+    }
+    names = {node.name for node in iter_expr(value) if isinstance(node, Var)}
+    powers = [
+        node
+        for node in iter_expr(value)
+        if isinstance(node, Binary)
+        and node.op == "**"
+        and isinstance(node.left, Const)
+        and node.left.value == 256
+    ]
+    return reads == {s, d} and names == {s, d, n} and len(powers) == 2
+
+
+def memcpy_loops(state: FunctionState) -> int:
+    """solc's word-copy loop + masked tail merge  ->  MCOPY(dst, src, len).
+
+    Shape: (s, d, n) = (S, D, N); while (n >= 32) { MEM[d] = MEM[s];
+    (s, d, n) = (s + 32, d + 32, n - 32) } MEM[d] = <merge of the top n bytes>.
+    This copies exactly N bytes from S to D, which is MCOPY's meaning. Applied
+    only when s, d and n are not read afterwards.
+    """
+    uses = variable_uses(state.body)
+    replaced = 0
+
+    def visit(statements: list[Stmt]) -> list[Stmt]:
+        nonlocal replaced
+        result: list[Stmt] = []
+        index = 0
+        while index < len(statements):
+            window = statements[index : index + 3]
+            match = None
+            if (
+                len(window) == 3
+                and isinstance(window[0], ParallelAssign)
+                and len(window[0].targets) == 3
+                and isinstance(window[1], While)
+                and window[1].condition is not None
+            ):
+                names = [t.name for t in window[0].targets if isinstance(t, Var)]
+                loop = window[1]
+                condition = loop.condition
+                if (
+                    len(names) == 3
+                    and isinstance(condition, Binary)
+                    and condition.op == ">="
+                    and isinstance(condition.left, Var)
+                    and isinstance(condition.right, Const)
+                    and condition.right.value == 32
+                    and len(loop.body) == 2
+                ):
+                    n = condition.left.name
+                    copy, step = loop.body
+                    if (
+                        isinstance(copy, Assign)
+                        and len(copy.targets) == 1
+                        and isinstance(copy.targets[0], Index)
+                        and isinstance(copy.value, Index)
+                        and isinstance(copy.targets[0].key, Var)
+                        and isinstance(copy.value.key, Var)
+                        and isinstance(step, ParallelAssign)
+                    ):
+                        d, s = copy.targets[0].key.name, copy.value.key.name
+                        steps = {
+                            t.name: v
+                            for t, v in zip(step.targets, step.values, strict=True)
+                            if isinstance(t, Var)
+                        }
+                        from .printer import expression
+
+                        expected = {s: f"{s} + 32", d: f"{d} + 32", n: f"{n} - 32"}
+                        if (
+                            set(names) == {s, d, n}
+                            and len({s, d, n}) == 3
+                            and {k: expression(v) for k, v in steps.items()} == expected
+                            and _memcpy_merge(window[2], s, d, n)
+                        ):
+                            match = (s, d, n)
+            if match is not None:
+                s, d, n = match
+                after_uses = variable_uses(statements[index + 3 :])
+                inner = sum(variable_uses(window)[x] for x in match)
+                total = sum(uses[x] for x in match)
+                if not any(after_uses[x] for x in match) and inner == total:
+                    initial = dict(
+                        zip((t.name for t in window[0].targets), window[0].values, strict=True)
+                    )
+                    ids = frozenset().union(*(statement_ids(w) for w in window))
+                    result.append(
+                        ExprStmt(
+                            Call("MCOPY", (initial[d], initial[s], initial[n])),
+                            evidence=frozenset(window[0].evidence),
+                            hidden=ids,
+                            rules=frozenset({"memcpy-loop"}),
+                            origin=window[2].origin,
+                        )
+                    )
+                    replaced += 1
+                    index += 3
+                    continue
+            result.append(statements[index])
+            index += 1
+        return result
+
+    state.body = map_bodies(state.body, visit)
+    return replaced

@@ -68,7 +68,23 @@ def _roots(body: list[Stmt]) -> set[str]:
     return roots
 
 
-def _has_effects(body: list[Stmt]) -> bool:
+def _helper_roots(body: list[Stmt]) -> set[str]:
+    """Storage roots read through recognized copy_of_<root>() helpers."""
+    roots = set()
+    for stmt in iter_statements(body):
+        for expr in read_expressions(stmt):
+            for node in iter_expr(expr):
+                if type(node).__name__ == "Call" and node.name.startswith("copy_of_"):
+                    roots.add(node.name.removeprefix("copy_of_"))
+    return roots
+
+
+PURE_HELPERS = ("copy_of_", "toString", "_Safe")
+
+
+def _has_effects(
+    body: list[Stmt], memory_copies_allowed: bool = False, helpers: bool = False
+) -> bool:
     for stmt in iter_statements(body):
         if isinstance(stmt, Emit):
             return True
@@ -79,7 +95,9 @@ def _has_effects(body: list[Stmt]) -> bool:
                     if isinstance(node, ExternalCallExpr):
                         return True
                     if type(node).__name__ == "Call" and (
-                        node.name.startswith("fn_") or node.name in {"CALLDATACOPY", "CODECOPY"}
+                        node.name.startswith("fn_")
+                        or (node.name in {"CALLDATACOPY", "CODECOPY"} and not memory_copies_allowed)
+                        or (node.name.startswith(PURE_HELPERS) and not helpers)
                     ):
                         return True
         if isinstance(stmt, Assign):
@@ -102,9 +120,13 @@ def recognize_string_getters(decompiled) -> list[Recognition]:
         if not view.function.selectors or view.arguments or view.name == "fallback":
             continue
         returns = [s for s in iter_statements(view.body) if isinstance(s, Return)]
-        if not returns or any(r.raw is None for r in returns) or _has_effects(view.body):
+        if (
+            not returns
+            or any(r.raw is None for r in returns)
+            or _has_effects(view.body, helpers=True)
+        ):
             continue
-        roots = _roots(view.body)
+        roots = _roots(view.body) | _helper_roots(view.body)
         if len(roots) != 1:
             continue
         root = next(iter(roots))
@@ -130,13 +152,7 @@ def recognize_string_getters(decompiled) -> list[Recognition]:
         if checked != len(STRING_LENGTHS):
             continue
         hidden = frozenset().union(*(statement_ids(s) for s in iter_statements(view.body)))
-        root_var = next(
-            node
-            for stmt in iter_statements(view.body)
-            for expr in read_expressions(stmt)
-            for node in iter_expr(expr)
-            if isinstance(node, Var) and node.name == root
-        )
+        root_var = Var(root, None)
         statement = Return(
             (Var(root_var.name, None),),
             evidence=frozenset(),
@@ -291,3 +307,95 @@ def replace_call(expr, name, args):
     return replace(
         expr, name=name, args=tuple(args), rules=expr.rules | {"helper-recognized-by-execution"}
     )
+
+
+def _memory_bytes(machine, pointer: int) -> bytes:
+    length = int.from_bytes(machine.read(pointer, 32), "big")
+    if length > 1 << 16:
+        raise UnsupportedExecution("Implausible memory bytes length")
+    return machine.read(pointer + 32, length)
+
+
+TO_STRING_VALUES = (0, 1, 9, 10, 99, 100, 12345, 1 << 64, (1 << 256) - 1)
+
+
+def recognize_memory_helpers(decompiled) -> list[Recognition]:
+    """Rename private helpers by behaviour; their bodies stay printed and executed.
+
+    - copy_of_<root>(): returns a memory copy of the string stored at <root>
+      (checked on ten storage encodings);
+    - toString(x): returns the decimal digits of x as a memory string (checked
+      on values from 0 to 2**256 - 1).
+    """
+    from .interpreter import DecompiledMachine
+    from .ir import Call
+    from .types import map_body
+
+    results = []
+    taken = {view.name for view in decompiled.views}
+    for view in decompiled.views:
+        if (
+            view.function.selectors
+            or view.name == "__function_selector__"
+            or not view.name.startswith("fn_")
+        ):
+            continue
+        if _has_effects(view.body, memory_copies_allowed=True):
+            continue
+        roots = _roots(view.body)
+        machine = DecompiledMachine(decompiled)
+        new = None
+        detail = ""
+        states = 0
+        try:
+            if not view.arguments and len(roots) == 1:
+                root = next(iter(roots))
+                location = decompiled.storage_root(root)
+                if location and location[0] == "storage" and location[2:] == (0, 31):
+                    slot = int(location[1], 16)
+                    for length in STRING_LENGTHS:
+                        data = sample(length, slot)
+                        machine.storage_seed = storage_string(slot, data)
+                        result = machine.call_private(view, [], storage=storage_string(slot, data))
+                        if (
+                            result is None
+                            or len(result) != 1
+                            or _memory_bytes(machine, result[0]) != data
+                        ):
+                            break
+                        states += 1
+                    if states == len(STRING_LENGTHS):
+                        new, detail = (
+                            f"copy_of_{root}",
+                            f"memory copy of the string at STORAGE[{location[1]}]",
+                        )
+            elif len(view.arguments) == 1 and not roots:
+                for value in TO_STRING_VALUES:
+                    result = machine.call_private(view, [value])
+                    if (
+                        result is None
+                        or len(result) != 1
+                        or _memory_bytes(machine, result[0]) != str(value).encode()
+                    ):
+                        break
+                    states += 1
+                if states == len(TO_STRING_VALUES):
+                    new, detail = "toString", "decimal digits of the argument as a memory string"
+        except UnsupportedExecution:
+            continue
+        if new is None or new in taken:
+            continue
+        taken.add(new)
+        old = view.name
+
+        def rename(expr, old=old, new=new):
+            if isinstance(expr, Call) and expr.name == old:
+                return replace_call(expr, new, expr.args)
+            return expr
+
+        for other in decompiled.views:
+            map_body(other.body, rename)
+        view.name = new
+        decompiled.context.function_names[view.function.id] = new
+        results.append(Recognition(new, "behaviour-named-helper", states, f"{old}: {detail}"))
+    return results

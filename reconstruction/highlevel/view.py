@@ -6,7 +6,11 @@ from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
 
 from ..model import Function, Program
-from .idioms import recognize_arithmetic_helpers, recognize_string_getters
+from .idioms import (
+    recognize_arithmetic_helpers,
+    recognize_memory_helpers,
+    recognize_string_getters,
+)
 from .ir import Assign, Emit, Expr, Require, Return, Stmt, Var, is_local
 from .lift import FunctionLifter, ProgramContext, is_static_abi
 from .memory_forwarding import forward_memory
@@ -26,6 +30,7 @@ from .passes import (
     iter_statements,
     leading_callvalue_check,
     loop_conditions,
+    memcpy_loops,
     read_expressions,
     remove_unused_reads,
     repeated_checks,
@@ -201,6 +206,8 @@ def build_decompiled(
     provisional = DecompiledProgram(context, views, {}, "", {})
     recognitions = recognize_string_getters(provisional)
     recognitions += recognize_arithmetic_helpers(provisional)
+    recognitions += recognize_memory_helpers(provisional)
+    recognitions += recognize_string_getters(provisional)
     storage = name_storage_from_getters(views)
     declarations, field_types = storage_declarations(views, context, storage)
     for view in views:
@@ -324,6 +331,7 @@ def prepare_function(context: ProgramContext, function: Function) -> _Prepared:
     drop_trivial_requires(state)
     remove_unused_reads(state)
     single_use_inline(state)
+    loop_conditions(state)
     return _Prepared(function, lifter, item, state)
 
 
@@ -351,6 +359,7 @@ def finish_function(
 ) -> FunctionView:
     lifter, item, state, function = entry.lifter, entry.item, entry.state, entry.function
     callees = frozenset(context.function_names.values())
+    memcpy_loops(state)
     lifter.abstracted |= forward_memory(state, callees)
     copy_propagation(state)
     remove_unused_reads(state)
@@ -523,6 +532,23 @@ def name_storage_from_getters(views: list[FunctionView]) -> dict:
 
         for view in views:
             map_body(view.body, rename)
+        for view in views:
+            for root, new in renames.items():
+                if view.name.endswith("_" + root):
+                    old_name = view.name
+                    view.name = view.name[: -len(root)] + new.lstrip("_")
+
+                    def rename_call(
+                        expr: Expr, old_name: str = old_name, new_name: str = view.name
+                    ) -> Expr:
+                        from .ir import Call
+
+                        if isinstance(expr, Call) and expr.name == old_name:
+                            return replace(expr, name=new_name)
+                        return expr
+
+                    for other in views:
+                        map_body(other.body, rename_call)
     return {
         root: {
             "name": new,

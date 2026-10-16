@@ -206,8 +206,7 @@ class DecompiledMachine:
         """Run one public function body as if dispatched to it."""
         original = dict(storage or {})
         self.storage = dict(original)
-        self.memory = bytearray(b"\0" * 0x60) + (0x80).to_bytes(32, "big")
-        self.memory[0x40:0x60] = (0x80).to_bytes(32, "big")
+        self.memory = bytearray(b"\0" * 0x40) + (0x80).to_bytes(32, "big")
         self.calldata = calldata
         self.caller, self.address, self.callvalue = caller, address, value
         self.returndata = b""
@@ -229,9 +228,12 @@ class DecompiledMachine:
             )
         raise UnsupportedExecution("Function ended without a halt")
 
-    def call_private(self, view: FunctionView, args: list[int]) -> list[int] | None:
+    def call_private(
+        self, view: FunctionView, args: list[int], *, storage: dict[int, int] | None = None
+    ) -> list[int] | None:
         """Run a private function on its own; None when it reverts."""
-        self.storage, self.memory = {}, bytearray(b"\0" * 0x60) + (0x80).to_bytes(32, "big")
+        self.storage = dict(storage or {})
+        self.memory = bytearray(b"\0" * 0x40) + (0x80).to_bytes(32, "big")
         self.calldata, self.caller, self.address, self.callvalue = b"", 1, 2, 0
         self.returndata, self.logs, self.external_calls = b"", [], []
         self.steps, self.trace, self.uncertain_executed = 0, [], 0
