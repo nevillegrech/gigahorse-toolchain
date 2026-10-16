@@ -621,3 +621,65 @@ Remaining gaps against Dedaub on this contract:
 
 Behavioral execution tests for this contract are still missing. Its view is
 covered by the static invariants, not by the execution cross-check.
+
+
+## Held-out corpus `heldout-2026-10-16` (partial)
+
+`fixtures/evaluation-heldout/corpus.json` lists twelve mainnet runtimes, chosen
+and committed (0459594) before any of them was analyzed: Tether USDT, DAI,
+Compound cETH, Uniswap V2 Router02, the Chainlink ETH/USD proxy, the Uniswap V3
+USDC/WETH pool, Azuki (ERC721A), the Aave V3 pool proxy, the ENS ETH registrar
+controller, the 1inch v5 router, Seaport 1.5 and Curve 3pool (Vyper 0.2.4).
+Verified ABIs are fetched alongside them. Only `scripts/evaluate-heldout.py`
+reads them, after analysis. It counts each printed claim (name, arity, argument
+type, payability, return types) as correct, unresolved or wrong. An unknown is
+never counted as correct.
+
+**Run 1** (`results/run1-partial.json`, code 0459594) stopped after five
+contracts. The batch was stopped under system memory pressure while the
+Uniswap V3 pool was being analyzed, and the timings were lost. The remaining
+seven contracts have not been analyzed yet.
+
+| Contract | Selectors | Names | Wrong claims (run 1) | Code lines | UNCERTAIN | Unstructured fns |
+| --- | --- | --- | --- | --- | --- | --- |
+| tether-usdt | 32/32 | 32 correct | 0 | 402 | 1 | 0 |
+| dai | 22/22 | 22 correct | 2: `rely`/`deny` arity 2 vs 1 | 311 | 1 | 0 |
+| compound-ceth | 45/45 | 45 correct | 3: `redeem`, `redeemUnderlying`, `seize` printed payable | 3,229 | 56 | 10 |
+| uniswap-v2-router02 | 24/24 | 24 correct | 0 | 1,905 | 1 | 0 |
+| chainlink-eth-usd-proxy | 23/23 | 23 correct | 0 | 488 | 10 | 0 |
+
+The five wrong claims had two causes:
+
+- **DAI.** The `note` modifier reads the selector word through a calldata load
+  that was mislabeled as an argument.
+- **cETH.** Payability was claimed for functions whose bodies were
+  unstructured.
+
+Both are fixed (9f0711e). Two later commits (b069b42, d51fda1) structure the
+remaining cETH functions in three ways:
+
+- jumps whose targets the native analysis already resolved;
+- per-caller copies of code that old solc shares across call sites;
+- the dispatcher's jumps into the fallback.
+
+**Re-rendered from run 1's saved relations** (`results/run1-rerendered.json`,
+code d51fda1; no new native run). Because run 1 informed these fixes, these
+numbers are no longer held-out measurements:
+
+| Contract | Wrong claims | Code lines | UNCERTAIN | Unstructured fns | Returns unresolved |
+| --- | --- | --- | --- | --- | --- |
+| tether-usdt | 0 | 402 | 1 | 0 | 0/32 |
+| dai | 0 | 311 | 3 | 0 | 6/22 |
+| compound-ceth | 0 | 2,109 | 1 | 0 | 0/45 |
+| uniswap-v2-router02 | 0 | 1,905 | 1 | 0 | 8/24 |
+| chainlink-eth-usd-proxy | 0 | 488 | 10 | 0 | 8/23 |
+
+DAI's two extra UNCERTAIN lines mark the reconciled arity of `rely`/`deny`. The
+unresolved returns are mostly dynamic values (`string`, arrays) whose ABI
+encoding is not recognized, and these are printed without a return type. The
+Chainlink proxy's UNCERTAIN lines are ABI calls whose input length could not be
+verified.
+
+Still to do: analyze the remaining seven contracts. Run them one at a time to
+limit memory use (`--only <id> --resume`). Saved Dedaub output for the same
+bytecode would turn this into a parity measurement.

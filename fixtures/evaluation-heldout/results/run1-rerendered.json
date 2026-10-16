@@ -1,0 +1,223 @@
+{
+ "selection_id": "heldout-2026-10-16",
+ "run": "run1-rerendered",
+ "code_commit": "d51fda1",
+ "status": "re-rendered from run1's saved native relations (no new Gigahorse run) after fixes that run1 informed (arity, payability, argument labels, shared-region splitting, dispatcher tail jumps); these five are therefore no longer held-out measurements. The seven remaining contracts have not been analyzed.",
+ "contracts": [
+  {
+   "id": "tether-usdt",
+   "bytecode_sha256": "6d967f98f2f3843065688dc2065248e3686b56fc0b6ddfa82007df016148becb",
+   "decompiled_sha256": "cb54e91f08cf95ad7f1331869f68b90dc4533ac03a30aaef3d9bc8a69fac224c",
+   "decompiled_code_lines": 402,
+   "structured_code_lines": 1133,
+   "unaccounted_ir_statements": 0,
+   "uncertain_lines": 1,
+   "unstructured_functions": 0,
+   "events": {
+    "abi": 11,
+    "named": 11
+   },
+   "score": {
+    "abi_functions": 32,
+    "selectors_recovered": 32,
+    "names": {
+     "correct": 32,
+     "unresolved": 0,
+     "wrong": 0
+    },
+    "arity": {
+     "correct": 32,
+     "wrong": 0
+    },
+    "argument_types": {
+     "correct": 24,
+     "unresolved": 0,
+     "wrong": 0,
+     "dynamic_unresolved": 0
+    },
+    "payability": {
+     "correct": 32,
+     "wrong": 0
+    },
+    "returns": {
+     "correct": 32,
+     "unresolved": 0,
+     "wrong": 0
+    },
+    "wrong_claims": []
+   }
+  },
+  {
+   "id": "dai",
+   "bytecode_sha256": "5ce810033426a017721777f241665c27bdd4663ca8a1c27558b4b372a1731f4e",
+   "decompiled_sha256": "cbeb04dc901006c43a714c7a20f105ce826c4db77434630bb1ee826c58591d01",
+   "decompiled_code_lines": 311,
+   "structured_code_lines": 679,
+   "unaccounted_ir_statements": 0,
+   "uncertain_lines": 3,
+   "unstructured_functions": 0,
+   "events": {
+    "abi": 3,
+    "named": 2
+   },
+   "score": {
+    "abi_functions": 22,
+    "selectors_recovered": 22,
+    "names": {
+     "correct": 22,
+     "unresolved": 0,
+     "wrong": 0
+    },
+    "arity": {
+     "correct": 22,
+     "wrong": 0
+    },
+    "argument_types": {
+     "correct": 28,
+     "unresolved": 5,
+     "wrong": 0,
+     "dynamic_unresolved": 0
+    },
+    "payability": {
+     "correct": 22,
+     "wrong": 0
+    },
+    "returns": {
+     "correct": 16,
+     "unresolved": 6,
+     "wrong": 0
+    },
+    "wrong_claims": []
+   }
+  },
+  {
+   "id": "compound-ceth",
+   "bytecode_sha256": "5b883cd2234f79475a140807df82e9e3faee02b4bb35d032b0810705152ad78b",
+   "decompiled_sha256": "fc1a926d183b82665f81a10e820c31f37ea07cc7fde4f224470952f6366d7ce3",
+   "decompiled_code_lines": 2109,
+   "structured_code_lines": 5137,
+   "unaccounted_ir_statements": 0,
+   "uncertain_lines": 1,
+   "unstructured_functions": 0,
+   "events": {
+    "abi": 15,
+    "named": 15
+   },
+   "score": {
+    "abi_functions": 45,
+    "selectors_recovered": 45,
+    "names": {
+     "correct": 45,
+     "unresolved": 0,
+     "wrong": 0
+    },
+    "arity": {
+     "correct": 45,
+     "wrong": 0
+    },
+    "argument_types": {
+     "correct": 28,
+     "unresolved": 0,
+     "wrong": 0,
+     "dynamic_unresolved": 0
+    },
+    "payability": {
+     "correct": 45,
+     "wrong": 0
+    },
+    "returns": {
+     "correct": 45,
+     "unresolved": 0,
+     "wrong": 0
+    },
+    "wrong_claims": []
+   }
+  },
+  {
+   "id": "uniswap-v2-router02",
+   "bytecode_sha256": "ccef50da4af021b09ada39d78db5d281fffff81a57969c7028bccc1f50d37854",
+   "decompiled_sha256": "4ec0e159a21d2b7f1d750e956b5238d9a5624013a09dedc6484f66fe5219b546",
+   "decompiled_code_lines": 1905,
+   "structured_code_lines": 4598,
+   "unaccounted_ir_statements": 0,
+   "uncertain_lines": 1,
+   "unstructured_functions": 0,
+   "events": {
+    "abi": 0,
+    "named": 0
+   },
+   "score": {
+    "abi_functions": 24,
+    "selectors_recovered": 24,
+    "names": {
+     "correct": 24,
+     "unresolved": 0,
+     "wrong": 0
+    },
+    "arity": {
+     "correct": 24,
+     "wrong": 0
+    },
+    "argument_types": {
+     "correct": 110,
+     "unresolved": 9,
+     "wrong": 0,
+     "dynamic_unresolved": 0
+    },
+    "payability": {
+     "correct": 24,
+     "wrong": 0
+    },
+    "returns": {
+     "correct": 16,
+     "unresolved": 8,
+     "wrong": 0
+    },
+    "wrong_claims": []
+   }
+  },
+  {
+   "id": "chainlink-eth-usd-proxy",
+   "bytecode_sha256": "ed698309290de3517c7201fcad9a9dbd4b8cde4a72c9add23129201f299c6f2b",
+   "decompiled_sha256": "4ad16d0df84d245ceb14a0cc733d6dcbb8de9d3116af8fff71f600530cd1dd9b",
+   "decompiled_code_lines": 488,
+   "structured_code_lines": 1673,
+   "unaccounted_ir_statements": 0,
+   "uncertain_lines": 10,
+   "unstructured_functions": 0,
+   "events": {
+    "abi": 4,
+    "named": 2
+   },
+   "score": {
+    "abi_functions": 23,
+    "selectors_recovered": 23,
+    "names": {
+     "correct": 23,
+     "unresolved": 0,
+     "wrong": 0
+    },
+    "arity": {
+     "correct": 23,
+     "wrong": 0
+    },
+    "argument_types": {
+     "correct": 8,
+     "unresolved": 1,
+     "wrong": 0,
+     "dynamic_unresolved": 0
+    },
+    "payability": {
+     "correct": 23,
+     "wrong": 0
+    },
+    "returns": {
+     "correct": 15,
+     "unresolved": 8,
+     "wrong": 0
+    },
+    "wrong_claims": []
+   }
+  }
+ ]
+}
