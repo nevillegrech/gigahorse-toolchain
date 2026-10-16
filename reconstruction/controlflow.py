@@ -251,7 +251,15 @@ def structure_function(
     function: Function,
     *,
     call_returns: list[tuple[str, str, str]] | None = None,
+    ignore_failure_paths: bool = False,
 ) -> FlowPlan:
+    """Structure a function's CFG.
+
+    With ignore_failure_paths, merge points are computed as if successors that can
+    only revert/abort did not exist. A guard's failure arm then no longer prevents
+    the code after an if/else from being recognized as its join. The failure arms
+    are still emitted; only the choice of join changes.
+    """
     transfers: dict[str, Transfer] = {}
     copies: dict[tuple[str, str], list[Copy]] = {}
     resolved: set[str] = set()
@@ -268,7 +276,16 @@ def structure_function(
         reachable = _reach(entry, edges)
         edges = {node: edges[node] for node in reachable}
         dom = dominators(entry, edges)
-        postdom = _postdominators(edges)
+        if ignore_failure_paths:
+            failing = _failure_nodes(edges, program)
+            postdom = _postdominators(
+                {
+                    node: tuple(t for t in targets if t not in failing) or targets
+                    for node, targets in edges.items()
+                }
+            )
+        else:
+            postdom = _postdominators(edges)
         predecessors: defaultdict[str, set[str]] = defaultdict(set)
         for source, targets in edges.items():
             for target in targets:
@@ -411,6 +428,26 @@ def structure_function(
             [str(exc)],
             entry_copies,
         )
+
+
+def _failure_nodes(edges: dict[str, tuple[str, ...]], program: Program) -> set[str]:
+    """Nodes from which every path ends in REVERT/THROW/INVALID (least fixpoint)."""
+    blocks = {block.id: block for block in program.blocks}
+    failing = {
+        node
+        for node, targets in edges.items()
+        if not targets
+        and blocks[node].instructions
+        and blocks[node].instructions[-1].opcode in {"REVERT", "THROW", "INVALID"}
+    }
+    changed = True
+    while changed:
+        changed = False
+        for node, targets in edges.items():
+            if node not in failing and targets and all(t in failing for t in targets):
+                failing.add(node)
+                changed = True
+    return failing
 
 
 def _only_reverts(start: str, edges: dict[str, tuple[str, ...]], program: Program) -> bool:
