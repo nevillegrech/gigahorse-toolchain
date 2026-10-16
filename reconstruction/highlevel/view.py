@@ -24,6 +24,7 @@ from .passes import (
     constant_branches,
     copy_propagation,
     drop_trivial_requires,
+    empty_memory_operations,
     eth_transfers,
     guards_to_requires,
     is_free_pointer_read,
@@ -41,6 +42,7 @@ from .passes import (
     single_use_inline,
     split_variable_webs,
     statement_ids,
+    tidy_branches,
     trailing_stop,
     unused_call_results,
 )
@@ -248,15 +250,19 @@ def build_decompiled(
         print_function(out, view, behaviour.get(view.name))
     out.emit("}", 0)
     referenced = {sid for entry in out.entries for sid in entry["ir_statements"]}
-    elided: list[dict] = [
-        {
-            "function": view.function.id,
-            "ir_statements": sorted(elision.statements),
-            "reason": elision.reason,
-        }
-        for view in views
-        for elision in view.state.elided
-    ]
+    # Sorted: passes collect elisions from sets, and the map must not depend on hash order.
+    elided: list[dict] = sorted(
+        (
+            {
+                "function": view.function.id,
+                "ir_statements": sorted(elision.statements),
+                "reason": elision.reason,
+            }
+            for view in views
+            for elision in view.state.elided
+        ),
+        key=lambda e: (e["function"], e["reason"], e["ir_statements"]),
+    )
     accounted = referenced | {sid for e in elided for sid in e["ir_statements"]}
     accounted |= {sid for view in views for sid in view.argument_evidence}
     structural = classify_unprinted(context, accounted)
@@ -373,6 +379,7 @@ def finish_function(
     memcpy_loops(state)
     lifter.abstracted |= forward_memory(state, callees)
     copy_propagation(state)
+    empty_memory_operations(state, callees)
     remove_unused_reads(state)
     absorb_memory_plumbing(
         state,
@@ -425,6 +432,7 @@ def finish_function(
                 )
     remove_unused_reads(state)
     loop_conditions(state)
+    tidy_branches(state)
     refresh_output_notes(state)
     return FunctionView(
         function,

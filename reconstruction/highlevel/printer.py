@@ -169,6 +169,8 @@ def _expr(expr: Expr, context: int) -> str:
             )
             return f"{prefix}{target}.{expr.method}{braces}({args})"
         payload = _expr(expr.raw_input, 0) if expr.raw_input is not None else ""
+        if isinstance(expr.raw_input, Slice) and expr.raw_input.start == expr.raw_input.end:
+            payload = '""'  # no input bytes
         return f"{target}.{expr.kind}{braces}({payload})"
     raise TypeError(f"Unprintable expression: {expr!r}")
 

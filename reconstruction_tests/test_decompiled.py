@@ -200,3 +200,40 @@ def test_morpho_view_keeps_unverified_call_inputs_and_decodes_reasons(tmp_path):
     body = text.split("// 0x441c1495")[1].split("\n    }\n")[0]
     assert "flashLoan(" in body and "UNCERTAIN" in body
     assert "CALLDATACOPY(" in body and "= varg0;" in body and "= varg4;" in body
+
+
+def test_output_and_map_do_not_depend_on_hash_seed(tmp_path):
+    """Text and map are byte-identical across PYTHONHASHSEED (set-iteration order)."""
+    import json
+    import os
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    script = (
+        "import hashlib, json, sys\n"
+        "from pathlib import Path\n"
+        "sys.path.insert(0, sys.argv[1])\n"
+        "from reconstruction.highlevel import naming\n"
+        "naming.CACHE_DIR = Path(sys.argv[2]) / 'no-cache'\n"
+        "from reconstruction_tests.decompiled_support import DEDAUB, DEPLOYED_NEXT, deployed_fixture\n"
+        "digests = {}\n"
+        "for corpus, ident in ((DEPLOYED_NEXT, 'ens-registry'), (DEDAUB, 'morpho-liquidator')):\n"
+        "    _, d, _ = deployed_fixture(corpus, ident, Path(sys.argv[2]) / ident)\n"
+        "    blob = d.text + json.dumps(d.mapping, sort_keys=False, default=str)\n"
+        "    digests[ident] = hashlib.sha256(blob.encode()).hexdigest()\n"
+        "print(json.dumps(digests))\n"
+    )
+    root = Path(__file__).resolve().parents[1]
+    results = []
+    for seed in ("1", "2"):
+        env = dict(os.environ, PYTHONHASHSEED=seed)
+        done = subprocess.run(
+            [sys.executable, "-c", script, str(root), str(tmp_path / seed)],
+            capture_output=True,
+            text=True,
+            env=env,
+            check=True,
+        )
+        results.append(json.loads(done.stdout.strip().splitlines()[-1]))
+    assert results[0] == results[1]

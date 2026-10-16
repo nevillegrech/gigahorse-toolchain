@@ -227,7 +227,7 @@ def summarize(views) -> dict[str, Summary]:
             merged.value_transfers += tagged(part.value_transfers)
             merged.incomplete |= part.incomplete
             merged.selfdestruct |= part.selfdestruct
-            for callee in callees.get(name, ()):
+            for callee in sorted(callees.get(name, ()), reverse=True):
                 if not by_name[callee].function.selectors:
                     todo.append(callee)
         merged.via = sorted(seen - {view.name})

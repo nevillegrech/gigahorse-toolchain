@@ -885,7 +885,7 @@ def hide_absorbed_writes(
         return kept
 
     state.body = map_bodies(state.body, attach)
-    for consumer, ids in by_consumer.items():
+    for consumer, ids in sorted(by_consumer.items()):
         if consumer not in attached:
             state.elided.append(
                 Elision(
@@ -1141,7 +1141,7 @@ def repeated_checks(state: FunctionState) -> None:
 
 
 def copy_propagation(state: FunctionState) -> None:
-    """`a = b` between locals assigned exactly once: print b at a's uses."""
+    """`a = b` (a local or a constant) with both assigned once: print b at a's uses."""
     assignments: Counter[str] = Counter()
     for stmt in iter_statements(state.body):
         if isinstance(stmt, (Assign, ParallelAssign)):
@@ -1156,8 +1156,10 @@ def copy_propagation(state: FunctionState) -> None:
             and len(stmt.targets) == 1
             and is_local(stmt.targets[0])
             and assignments[stmt.targets[0].name] == 1
-            and is_local(stmt.value)
-            and assignments[stmt.value.name] <= 1
+            and (
+                (is_local(stmt.value) and assignments[stmt.value.name] <= 1)
+                or isinstance(stmt.value, Const)
+            )
             and not stmt.uncertain
         ):
             mapping[stmt.targets[0].name] = annotate(
@@ -1242,6 +1244,27 @@ def sequential_merges(state: FunctionState) -> int:
     return changed
 
 
+def tidy_branches(state: FunctionState) -> None:
+    """Branches emptied by later passes: `if (c) {} else {S}` -> `if (!c) {S}`; drop `if (c) {}`."""
+
+    def visit(statements: list[Stmt]) -> list[Stmt]:
+        result: list[Stmt] = []
+        for stmt in statements:
+            if isinstance(stmt, If) and not stmt.then and not stmt.otherwise:
+                if not has_effect(stmt.condition):
+                    state.elided.append(
+                        Elision(statement_ids(stmt), "branch with no statements on either arm")
+                    )
+                    continue
+            elif isinstance(stmt, If) and not stmt.then:
+                stmt.condition = condition_text_form(negate(stmt.condition))
+                stmt.then, stmt.otherwise = stmt.otherwise, []
+            result.append(stmt)
+        return result
+
+    state.body = map_bodies(state.body, visit)
+
+
 def refresh_output_notes(state: FunctionState) -> None:
     """Re-render `output buffer MEM[...]` notes after passes renamed or propagated locals."""
     from .printer import expression
@@ -1255,6 +1278,80 @@ def refresh_output_notes(state: FunctionState) -> None:
         ):
             start, size = stmt.meta["output"]
             stmt.note = f"output buffer MEM[{expression(start)}:+{expression(size)}]"
+
+
+def empty_memory_operations(state: FunctionState, callees: frozenset[str]) -> int:
+    """Zero-length copies are no-ops; a call input between equal pointers is empty.
+
+    MCOPY/CALLDATACOPY/CODECOPY of 0 bytes change nothing (RETURNDATACOPY can
+    still fail, EXTCODECOPY still touches an account: both are kept). A call
+    reading MEM[a:b] where a and b are reads of the free-memory pointer with the
+    same version (nothing in between may change it) reads no bytes; its input
+    is rewritten to MEM[0:0] (no memory expansion either way), printed as "".
+    """
+    from .memory_liveness import FreePointerVersions
+
+    assignments: Counter[str] = Counter()
+    for stmt in iter_statements(state.body):
+        if isinstance(stmt, (Assign, ParallelAssign)):
+            for target in stmt.targets:
+                if is_local(target):
+                    assignments[target.name] += 1
+    versions = FreePointerVersions(state.body, callees).var_version
+    changed = 0
+
+    def same_pointer(a: Expr, b: Expr) -> bool:
+        if a == b:
+            return True
+        return (
+            isinstance(a, Var)
+            and isinstance(b, Var)
+            and assignments[a.name] == 1
+            and assignments[b.name] == 1
+            and a.name in versions
+            and versions.get(a.name) == versions.get(b.name)
+        )
+
+    def visit(statements: list[Stmt]) -> list[Stmt]:
+        nonlocal changed
+        result: list[Stmt] = []
+        for stmt in statements:
+            if (
+                isinstance(stmt, ExprStmt)
+                and isinstance(stmt.expr, Call)
+                and stmt.expr.name in {"MCOPY", "CALLDATACOPY", "CODECOPY"}
+                and len(stmt.expr.args) == 3
+                and isinstance(stmt.expr.args[2], Const)
+                and stmt.expr.args[2].value == 0
+            ):
+                state.elided.append(Elision(statement_ids(stmt), "copy of zero bytes (no-op)"))
+                changed += 1
+                continue
+            call = stmt.value if isinstance(stmt, Assign) else None
+            if (
+                isinstance(call, ExternalCallExpr)
+                and isinstance(call.raw_input, Slice)
+                and call.raw_input.start != call.raw_input.end
+                and same_pointer(call.raw_input.start, call.raw_input.end)
+            ):
+                # Zero input bytes: the offset is irrelevant (no memory expansion).
+                stmt.value = replace(
+                    call,
+                    raw_input=Slice(
+                        "MEM",
+                        Const(0),
+                        Const(0),
+                        evidence=call.raw_input.all_evidence(),
+                        rules=call.raw_input.rules | {"empty-call-input"},
+                    ),
+                )
+                stmt.rules = stmt.rules | {"empty-call-input"}
+                changed += 1
+            result.append(stmt)
+        return result
+
+    state.body = map_bodies(state.body, visit)
+    return changed
 
 
 def split_variable_webs(state: FunctionState) -> int:
