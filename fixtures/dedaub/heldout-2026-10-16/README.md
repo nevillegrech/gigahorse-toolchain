@@ -2,10 +2,11 @@
 
 Dedaub's output for the twelve mainnet contracts in
 `fixtures/evaluation-heldout/corpus.json`, saved by the user from Dedaub's
-standard decompiler (not an AI-rewritten view). One file per contract, named
-`<id>.sol.txt` after the corpus `id`, kept verbatim with Dedaub's header (date,
-compiler). Dedaub requests from this machine are blocked, so these files are
-the only Dedaub reference.
+standard decompiler (not an AI-rewritten view) into
+`/home/harrison/evm-decompiler/dedaub-exports/` and copied here unchanged when
+imported. One file per contract, named `<id>.sol.txt` after the corpus `id`,
+kept verbatim with Dedaub's header (date, compiler). Dedaub requests from this
+machine are blocked, so these files are the only Dedaub reference.
 
 The proxies (`aave-v3-pool-proxy`, `chainlink-eth-usd-proxy`) are decompiled at
 the proxy address itself, not at the implementation. The address links each
