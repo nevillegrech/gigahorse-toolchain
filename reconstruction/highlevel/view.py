@@ -9,7 +9,7 @@ from ..model import Function, Program
 from .ir import Assign, Emit, Expr, Return, Stmt, Var, is_local
 from .lift import FunctionLifter, ProgramContext
 from .memory_forwarding import forward_memory
-from .memory_liveness import AddressModel, Summaries, compute_summaries
+from .memory_liveness import AddressModel, FreePointerVersions, Summaries, compute_summaries
 from .naming import Names, load_names, split_signature
 from .passes import (
     FunctionState,
@@ -44,6 +44,8 @@ LEGEND = [
     "  require(c, returndata) reverts with the callee's revert data; stor_<slot>[_<bytes>] are inferred storage fields.",
     "Names marked [dict] come from hash-checked local signature dictionaries: hints, not proof of the original source.",
     "UNCERTAIN marks constructs that were not fully recovered; raw EVM operations are kept in those places.",
+    "Hidden memory writes: proven unread, or ABI temporaries of a represented call/event/return that are not",
+    "  re-read through the same pointer (solc memory discipline; such lines carry rule assumes-solc-memory-discipline).",
 ]
 
 
@@ -305,9 +307,10 @@ def memory_summaries(context: ProgramContext, prepared: list[_Prepared]) -> Summ
             and is_local(stmt.targets[0])
             and is_free_pointer_read(stmt.value)
         }
+        callees = frozenset(context.function_names.values())
         functions[context.function_names[entry.function.id]] = (
             entry.state.body,
-            AddressModel(free_pointer_vars),
+            AddressModel(free_pointer_vars, FreePointerVersions(entry.state.body, callees)),
         )
     return compute_summaries(functions)
 
@@ -317,7 +320,7 @@ def finish_function(
 ) -> FunctionView:
     lifter, item, state, function = entry.lifter, entry.item, entry.state, entry.function
     callees = frozenset(context.function_names.values())
-    forward_memory(state, callees)
+    lifter.abstracted |= forward_memory(state, callees)
     copy_propagation(state)
     remove_unused_reads(state)
     absorb_memory_plumbing(

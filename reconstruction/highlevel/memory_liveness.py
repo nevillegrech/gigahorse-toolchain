@@ -27,6 +27,7 @@ from .ir import (
     Return,
     Revert,
     Stmt,
+    Var,
     While,
 )
 
@@ -103,8 +104,9 @@ class Live:
 
 
 class AddressModel:
-    def __init__(self, free_pointer_vars: set[str]):
+    def __init__(self, free_pointer_vars: set[str], versions: FreePointerVersions | None = None):
         self.free_pointer_vars = free_pointer_vars
+        self.versions = versions
 
     def range(self, start: Expr, size: int | None) -> Range:
         base, offset = self.split(start)
@@ -118,9 +120,13 @@ class AddressModel:
         if isinstance(expr, Const):
             return None, expr.value
         if isinstance(expr, Var):
+            if self.versions is not None and expr.name in self.versions.var_version:
+                return self.versions.var_version[expr.name], 0
             prefix = "heap:" if expr.name in self.free_pointer_vars else "var:"
             return prefix + expr.name, 0
         if _is_free_pointer_read(expr):
+            if self.versions is not None and id(expr) in self.versions.node_version:
+                return self.versions.node_version[id(expr)], 0
             return f"heap:@{id(expr)}", 0
         if isinstance(expr, Binary) and expr.op == "+":
             for base, extra in ((expr.left, expr.right), (expr.right, expr.left)):
@@ -200,7 +206,9 @@ class Liveness:
                 ):
                     result.append(self.model.range(node.key, 32))
                 elif isinstance(node, Slice) and node.space == "MEM":
-                    result.append(self.model.range(node.start, size_of(node.start, node.end)))
+                    result.append(
+                        self.model.range(node.start, self.slice_size(node.start, node.end))
+                    )
                 elif isinstance(node, Call):
                     if node.name == "MCOPY" and len(node.args) == 3:
                         size = node.args[2].value if isinstance(node.args[2], Const) else None
@@ -216,6 +224,16 @@ class Liveness:
                 elif isinstance(node, ExternalCallExpr) and node.raw_input is None and node.method:
                     pass  # ABI arguments are printed values, not memory
         return result
+
+    def slice_size(self, start: Expr, end: Expr) -> int | None:
+        size = size_of(start, end)
+        if size is not None:
+            return size
+        start_base, start_offset = self.model.split(start)
+        end_base, end_offset = self.model.split(end)
+        if start_base == end_base and start_base != ANY and end_offset >= start_offset:
+            return end_offset - start_offset
+        return None
 
     def writes(self, stmt: Stmt) -> list[Range]:
         result: list[Range] = []
@@ -361,3 +379,130 @@ def compute_summaries(
     widened.entry = {name: Live([EVERYTHING]) for name in functions}
     widened.returns = {name: Live([EVERYTHING]) for name in functions}
     return widened
+
+
+class FreePointerVersions:
+    """Value-number reads of the free-memory pointer (MEM[0x40]).
+
+    Two reads see the same value when no statement between them may change the
+    pointer word: a write to [0x40, 0x60), a write/copy to an unknown or low
+    address, a call into another lifted function, or a merge of paths that
+    changed it differently. Equal versions share an address base, so offsets
+    from them are comparable; different versions may still alias.
+    """
+
+    def __init__(self, body: list[Stmt], callees: frozenset[str]):
+        self.callees = callees
+        self.var_version: dict[str, str] = {}
+        self.node_version: dict[int, str] = {}
+        self.counter = 0
+        self.walk(body, self.fresh())
+
+    def fresh(self) -> str:
+        self.counter += 1
+        return f"heap:fp#{self.counter}"
+
+    def walk(self, statements: list[Stmt], current: str) -> str:
+        for stmt in statements:
+            current = self.statement(stmt, current)
+        return current
+
+    def statement(self, stmt: Stmt, current: str) -> str:
+        from .passes import read_expressions
+
+        if isinstance(stmt, If):
+            self.visit(stmt.condition, current)
+            then = self.walk(stmt.then, current)
+            other = self.walk(stmt.otherwise, current)
+            return then if then == other else self.fresh()
+        if isinstance(stmt, While):
+            changes = self.changes_pointer(stmt.body)
+            head = self.fresh() if changes else current
+            if stmt.condition is not None:
+                self.visit(stmt.condition, head)
+            self.walk(stmt.body, head)
+            return self.fresh() if changes else current
+        if isinstance(stmt, RawBlock):
+            self.walk(stmt.body, self.fresh())
+            return self.fresh()
+        for expr in read_expressions(stmt):
+            self.visit(expr, current)
+        if (
+            isinstance(stmt, Assign)
+            and len(stmt.targets) == 1
+            and isinstance(stmt.targets[0], Var)
+            and stmt.targets[0].ssa is not None
+            and _is_free_pointer_read(stmt.value)
+        ):
+            self.var_version[stmt.targets[0].name] = current
+        return self.fresh() if self.changes_pointer([stmt]) else current
+
+    def visit(self, expr: Expr, current: str) -> None:
+        if _is_free_pointer_read(expr):
+            self.node_version[id(expr)] = current
+        for child in expr.children():
+            self.visit(child, current)
+
+    def changes_pointer(self, statements: list[Stmt]) -> bool:
+        from .ir import ExprStmt
+        from .passes import iter_expr, iter_statements, read_expressions
+
+        for stmt in iter_statements(statements):
+            for expr in read_expressions(stmt):
+                for node in iter_expr(expr):
+                    if isinstance(node, Call) and (
+                        node.name in self.callees or node.name.startswith("fn_")
+                    ):
+                        return True
+            if isinstance(stmt, Assign):
+                for target in stmt.targets:
+                    if (
+                        isinstance(target, Index)
+                        and isinstance(target.base, Env)
+                        and target.base.name in {"MEM", "MEM8"}
+                    ):
+                        if not self.surely_misses_pointer(target.key):
+                            return True
+            if isinstance(stmt, ExprStmt) and isinstance(stmt.expr, Call):
+                if stmt.expr.name in {"CALLDATACOPY", "RETURNDATACOPY", "MCOPY", "CODECOPY"}:
+                    if not self.surely_misses_pointer(stmt.expr.args[0]):
+                        return True
+        return False
+
+    def surely_misses_pointer(self, address: Expr) -> bool:
+        """A write starting here cannot touch [0x40, 0x60) (heap or scratch-only)."""
+        from .ir import Binary
+
+        if isinstance(address, Const):
+            return address.value >= 0x60 or address.value + 32 <= 0x40
+        base = address
+        while isinstance(base, Binary) and base.op == "+" and isinstance(base.right, Const):
+            base = base.left
+        if _is_free_pointer_read(base):
+            return True
+        return isinstance(base, Var) and base.name in self.var_version
+
+
+def observes_under_discipline(live: Live, write: Range) -> bool:
+    """Observation check for consumer-linked ABI-encoding temporaries.
+
+    Under solc's memory discipline a temporary written at the free pointer for a
+    consumer is not read after that consumer except through the same pointer
+    value; reads through unknown or other-version heap pointers refer to other
+    (allocated or freshly written) memory. Same-base and constant overlaps still
+    count. This is an explicit assumption, recorded on every elision it enables.
+    """
+    for item in live.ranges:
+        if item.base == ANY or item.base == UNKNOWN_HEAP.base:
+            continue
+        if (
+            item.base != write.base
+            and item.base
+            and write.base
+            and item.base.startswith("heap:")
+            and write.base.startswith("heap:")
+        ):
+            continue
+        if _intersects(item, write):
+            return True
+    return False

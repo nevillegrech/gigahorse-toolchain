@@ -691,7 +691,13 @@ def hide_absorbed_writes(
     elided/absorbed) and no printed read can observe its bytes; an inner SHA3 is
     in H if its consumer writers are known and only H writes use its result.
     """
-    from .memory_liveness import AddressModel, Live, Liveness
+    from .memory_liveness import (
+        AddressModel,
+        FreePointerVersions,
+        Live,
+        Liveness,
+        observes_under_discipline,
+    )
 
     elided_ids = {sid for elision in state.elided for sid in elision.statements}
     writer_consumers: dict[str, set[str]] = {}
@@ -707,7 +713,7 @@ def hide_absorbed_writes(
         and is_local(stmt.targets[0])
         and is_free_pointer_read(stmt.value)
     }
-    model = AddressModel(free_pointer_vars)
+    model = AddressModel(free_pointer_vars, FreePointerVersions(state.body, callees))
     # Every memory write is a candidate: memory is only observable through reads,
     # so a write no printed statement can read is invisible. Consumers whose
     # memory input is represented by their printed form do not count as readers.
@@ -753,7 +759,9 @@ def hide_absorbed_writes(
     hidden = set(writers) | set(hashes)
     if not writers:
         return
+    disciplined: set[int] = set()
     while True:
+        disciplined.clear()
         absorbed = (
             set(abstracted)
             | {c for c in consumer_writers if c in elided_ids}
@@ -779,7 +787,16 @@ def hide_absorbed_writes(
             start_expr, size = write_ranges[key]
             if size == 0:
                 continue
-            if liveness.after.get(key, Live()).observes(model.range(start_expr, size)):
+            live_after = liveness.after.get(key, Live())
+            written = model.range(start_expr, size)
+            linked = writer_consumers.get(writers[key].origin or "", set())
+            if linked and linked <= absorbed and written.base and written.base.startswith("heap:"):
+                # ABI-encoding temporary of represented consumers (solc discipline).
+                if observes_under_discipline(live_after, written):
+                    remove.add(key)
+                else:
+                    disciplined.add(key)
+            elif live_after.observes(written):
                 remove.add(key)
         if not remove:
             break
@@ -807,6 +824,12 @@ def hide_absorbed_writes(
             by_consumer.setdefault(consumer, set()).update(statement_ids(stmt))
     attached: set[str] = set()
 
+    assumed = {
+        consumer
+        for key in disciplined & hidden
+        for consumer in writer_consumers.get(writers[key].origin or "", set())
+    }
+
     def attach(statements: list[Stmt]) -> list[Stmt]:
         kept = []
         for stmt in statements:
@@ -814,6 +837,8 @@ def hide_absorbed_writes(
                 continue
             if stmt.origin in by_consumer:
                 stmt.hidden = stmt.hidden | frozenset(by_consumer[stmt.origin])
+                if stmt.origin in assumed:
+                    stmt.rules = stmt.rules | {"assumes-solc-memory-discipline"}
                 attached.add(stmt.origin or "")
             kept.append(stmt)
         return kept

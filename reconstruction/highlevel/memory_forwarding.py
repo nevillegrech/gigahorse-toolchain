@@ -28,12 +28,13 @@ from .ir import (
     Member,
     ParallelAssign,
     RawBlock,
+    Slice,
     Stmt,
     Var,
     While,
     is_local,
 )
-from .memory_liveness import ANY, HEAP_FLOOR, AddressModel, Range, size_of
+from .memory_liveness import ANY, HEAP_FLOOR, AddressModel, FreePointerVersions, Range, size_of
 
 # key: (base, offset) of a 32-byte word -> (stored value, its evidence)
 Facts = dict[tuple[str | None, int], Expr]
@@ -77,6 +78,59 @@ class Forwarder:
         self.model = model
         self.callees = callees
         self.forwarded = 0
+        # Consumers (IR statement ids) whose raw memory input became printed words.
+        self.decoded: set[str] = set()
+
+    def words(self, start: Expr, end: Expr, facts: Facts) -> tuple[Expr, ...] | None:
+        """All 32-byte words of MEM[start:end] when each is a known stored value."""
+        base, offset = self.model.split(start)
+        end_base, end_offset = self.model.split(end)
+        if base == ANY or base != end_base or (base and base.startswith("heap:@")):
+            return None
+        size = end_offset - offset
+        if size <= 0 or size % 32 or size > 32 * 16:
+            return None
+        values = []
+        for word in range(size // 32):
+            value = facts.get((base, offset + 32 * word))
+            if value is None:
+                return None
+            values.append(value)
+        return tuple(values)
+
+    def decode_consumer(self, stmt: Stmt, facts: Facts) -> None:
+        from .ir import Emit, Return
+
+        if (
+            isinstance(stmt, Emit)
+            and stmt.args
+            and isinstance(stmt.args[-1], Slice)
+            and stmt.origin
+        ):
+            data = stmt.args[-1]
+            words = self.words(data.start, data.end, facts)
+            if words is not None and len(stmt.args) - 1 == stmt.indexed:
+                stmt.args = (
+                    *stmt.args[:-1],
+                    *(replace(w, evidence=w.evidence | data.all_evidence()) for w in words),
+                )
+                stmt.uncertain = None
+                stmt.rules = stmt.rules | {"event-words-from-memory-forwarding"}
+                self.decoded.add(stmt.origin)
+        elif (
+            isinstance(stmt, Return)
+            and stmt.raw is not None
+            and isinstance(stmt.raw, Slice)
+            and stmt.origin
+        ):
+            words = self.words(stmt.raw.start, stmt.raw.end, facts)
+            if words is not None:
+                stmt.values = tuple(
+                    replace(w, evidence=w.evidence | stmt.raw.all_evidence()) for w in words
+                )
+                stmt.raw = None
+                stmt.rules = stmt.rules | {"return-words-from-memory-forwarding"}
+                self.decoded.add(stmt.origin)
 
     # --- fact maintenance ----------------------------------------------------
 
@@ -109,7 +163,14 @@ class Forwarder:
             new = tuple(self.rewrite(child, facts) for child in children)
             if any(a is not b for a, b in zip(new, children, strict=True)):
                 expr = expr.with_children(new)
-        if isinstance(expr, Index) and isinstance(expr.base, Env) and expr.base.name == "MEM":
+        if (
+            isinstance(expr, Index)
+            and isinstance(expr.base, Env)
+            and expr.base.name == "MEM"
+            and not (isinstance(expr.key, Const) and expr.key.value == 0x40)
+        ):
+            # The pointer word itself is not forwarded: `v = MEM[64]` stays a
+            # recognizable free-pointer read (and keeps its value number).
             key = self.key(expr.key)
             if key is not None and key in facts:
                 value = facts[key]
@@ -147,6 +208,7 @@ class Forwarder:
         if isinstance(stmt, Jump):
             return facts
         # Rewrite the reads this statement performs.
+        self.decode_consumer(stmt, facts)
         self.rewrite_reads(stmt, facts)
         # Then apply its effects to the facts.
         self.apply_effects(stmt, facts)
@@ -237,8 +299,8 @@ class Forwarder:
                 continue
 
 
-def forward_memory(state, callees: frozenset[str]) -> int:
-    """Apply forwarding to a function body; returns the number of rewritten reads."""
+def forward_memory(state, callees: frozenset[str]) -> set[str]:
+    """Apply forwarding to a function body; returns consumers decoded into words."""
     from .passes import is_free_pointer_read, iter_statements
 
     free_pointer_vars = {
@@ -256,10 +318,11 @@ def forward_memory(state, callees: frozenset[str]) -> int:
             for target in stmt.targets:
                 if is_local(target):
                     assigned[target.name] = assigned.get(target.name, 0) + 1
-    forwarder = Forwarder(AddressModel(free_pointer_vars), callees)
+    versions = FreePointerVersions(state.body, callees)
+    forwarder = Forwarder(AddressModel(free_pointer_vars, versions), callees)
     forwarder.block(state.body, {})
     _ = (HEAP_FLOOR, size_of)
-    return forwarder.forwarded
+    return forwarder.decoded
 
 
 def map_reads(stmt: Stmt, f) -> None:
