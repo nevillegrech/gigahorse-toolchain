@@ -35,9 +35,11 @@ from .ir import (
     is_local,
 )
 from .memory_liveness import ANY, HEAP_FLOOR, AddressModel, FreePointerVersions, Range, size_of
+from .simplify import simplify
 
-# key: (base, offset) of a 32-byte word -> (stored value, its evidence)
-Facts = dict[tuple[str | None, int], Expr]
+# key: (base, offset) of a 32-byte word -> its stored value; (base, offset, SELECTOR)
+# -> the 4 constant bytes at [offset, offset + 4) (survives writes from offset + 4 on).
+Facts = dict[tuple, Expr]
 
 
 def _stable(expr: Expr) -> bool:
@@ -77,13 +79,28 @@ def _overlaps(a: Range, b: Range) -> bool:
     return _intersects(a, b)
 
 
+SELECTOR = "selector"  # third key element: 4 constant bytes at [offset, offset + 4)
+LOW_224 = (1 << 224) - 1
+
+
 class Forwarder:
-    def __init__(self, model: AddressModel, callees: frozenset[str]):
+    def __init__(
+        self,
+        model: AddressModel,
+        callees: frozenset[str],
+        signatures: dict[str, str] | None = None,
+    ):
         self.model = model
         self.callees = callees
+        self.signatures = signatures or {}
+        # Locals assigned once to a stable value (set by forward_memory): call
+        # bounds are resolved through them, e.g. `v59 = v47 + 164`.
+        self.definitions: dict[str, Expr] = {}
         self.forwarded = 0
         # Consumers (IR statement ids) whose raw memory input became printed words.
         self.decoded: set[str] = set()
+        # The statement being processed writes only a selector into its target word.
+        self.selector_merge: int | None = None
 
     def words(self, start: Expr, end: Expr, facts: Facts) -> tuple[Expr, ...] | None:
         """All 32-byte words of MEM[start:end] when each is a known stored value."""
@@ -102,9 +119,139 @@ class Forwarder:
             values.append(value)
         return tuple(values)
 
+    def decode_call(self, stmt: Stmt, facts: Facts) -> None:
+        """A low-level call whose input is a selector plus known ABI words in memory."""
+        from .ir import Binary
+        from .lift import dynamic_marker, head_params, is_static_abi, signature_params
+
+        call = stmt.value if isinstance(stmt, Assign) else None
+        if not (
+            isinstance(call, ExternalCallExpr)
+            and call.kind in {"call", "staticcall"}
+            and call.method is None
+            and isinstance(call.raw_input, Slice)
+            and stmt.origin
+        ):
+            return
+        start, end = call.raw_input.start, call.raw_input.end
+        first = self.key(simplify(self.resolve(start)))
+        size = self.constant(Binary("-", end, start))
+        if first is None or first[0] is None or size is None:
+            return
+        base, offset = first
+        selector_fact = facts.get((base, offset, SELECTOR))
+        if not isinstance(selector_fact, Const) or size < 4 or (size - 4) % 32:
+            return
+        selector = f"0x{selector_fact.value:08x}"
+        signature = self.signatures.get(selector)
+        count = (size - 4) // 32
+        params = head_params(signature_params(signature)) if signature else None
+        if params is not None and len(params) > count:
+            return
+        args: list[Expr] = []
+        dynamic = False
+        empties = 0  # empty bytes/string values in the standard tail layout
+        for index in range(len(params) if params is not None else count):
+            word = facts.get((base, offset + 4 + 32 * index))
+            if word is None:
+                return
+            if params is not None and not is_static_abi(params[index]):
+                tail = word.value if isinstance(word, Const) else None
+                if tail is None or tail % 32 or tail < 32 * len(params) or 4 + tail >= size:
+                    return
+                length = facts.get((base, offset + 4 + tail))
+                if (
+                    params[index] in {"bytes", "string"}
+                    and isinstance(length, Const)
+                    and length.value == 0
+                    and tail == 32 * (len(params) + empties)
+                ):
+                    # Offset to a zero length word: the empty value "".
+                    empties += 1
+                    args.append(Call("emptyBytes", (), evidence=word.evidence | length.evidence))
+                    continue
+                dynamic = True
+                word = Call(
+                    dynamic_marker(params[index]),
+                    (Binary("+", start, Const(4 + tail)),),
+                    evidence=word.evidence,
+                )
+            args.append(word)
+        complete = params is not None and not dynamic and len(params) + empties == count
+        stmt.value = ExternalCallExpr(
+            call.kind,
+            call.target,
+            signature.split("(", 1)[0] if signature else selector,
+            tuple(args),
+            value=call.value,
+            gas=call.gas,
+            evidence=call.all_evidence() | selector_fact.evidence,
+        )
+        stmt.meta["selector"] = selector
+        stmt.meta["input"] = (start, end)
+        stmt.meta["input_range"] = (base, offset, size)
+        stmt.rules = stmt.rules | {"abi-call-from-memory-forwarding"}
+        notes = ["staticcall"] if call.kind == "staticcall" else []
+        notes += [f"{signature} [dict]"] if signature else []
+        if stmt.note and stmt.note.startswith("output buffer"):
+            notes.append(stmt.note)
+        stmt.note = "; ".join(notes) or None
+        if complete:
+            # Selector and every word of the input are printed: the call represents them.
+            self.decoded.add(stmt.origin)
+        elif not dynamic:
+            stmt.uncertain = (
+                "selector not in the local dictionary; arguments are the input's raw ABI words"
+                if params is None
+                else "ABI input longer than the signature's head words"
+            )
+
+    def constant(self, expr: Expr) -> int | None:
+        """Value of a size such as `p1 - p2 + 68` whose pointer terms cancel
+        (p1 and p2 reads of the same free-pointer version)."""
+        from .ir import Binary
+
+        if isinstance(expr, Const):
+            return expr.value
+        terms: list[tuple[int, Expr]] = []
+
+        def collect(node: Expr, sign: int) -> None:
+            if isinstance(node, Binary) and node.op in {"+", "-"}:
+                collect(node.left, sign)
+                collect(node.right, sign if node.op == "+" else -sign)
+            else:
+                terms.append((sign, node))
+
+        collect(simplify(self.resolve(expr)), 1)
+        total, bases = 0, {}
+        for sign, term in terms:
+            if isinstance(term, Const):
+                total += sign * term.value
+                continue
+            key = self.key(term)
+            if key is None or key[0] is None:
+                return None
+            bases[key[0]] = bases.get(key[0], 0) + sign
+            total += sign * key[1]
+        if any(bases.values()) or not 0 <= total < 1 << 64:
+            return None
+        return total
+
+    def resolve(self, expr: Expr, depth: int = 0) -> Expr:
+        """Substitute once-assigned locals (not pointer reads) by their definitions."""
+        if depth > 8:
+            return expr
+        if isinstance(expr, Var) and expr.name in self.definitions:
+            return self.resolve(self.definitions[expr.name], depth + 1)
+        children = expr.children()
+        if not children:
+            return expr
+        return expr.with_children(tuple(self.resolve(c, depth + 1) for c in children))
+
     def decode_consumer(self, stmt: Stmt, facts: Facts) -> None:
         from .ir import Emit, Return
 
+        self.decode_call(stmt, facts)
         if (
             isinstance(stmt, Emit)
             and stmt.args
@@ -140,9 +287,23 @@ class Forwarder:
 
     def kill_range(self, facts: Facts, written: Range) -> None:
         for key in list(facts):
-            base, offset = key
-            if _overlaps(Range(base, offset, 32), written):
+            base, offset = key[0], key[1]
+            width = 4 if len(key) == 3 else 32
+            if _overlaps(Range(base, offset, width), written):
                 del facts[key]
+
+    def copy_facts(self, facts: Facts, destination: Expr, source: Expr, size: int) -> None:
+        """MCOPY of a constant size: facts inside the source move to the destination."""
+        to, frm = self.key(destination), self.key(source)
+        self.kill_range(facts, self.model.range(destination, size))
+        if to is None or frm is None:
+            return
+        moved = {}
+        for key, value in facts.items():
+            width = 4 if len(key) == 3 else 32
+            if key[0] == frm[0] and frm[1] <= key[1] and key[1] + width <= frm[1] + size:
+                moved[(to[0], to[1] + key[1] - frm[1], *key[2:])] = value
+        facts.update(moved)
 
     def kill_names(self, facts: Facts, names: set[str]) -> None:
         for key in list(facts):
@@ -215,10 +376,45 @@ class Forwarder:
             return facts
         # Rewrite the reads this statement performs.
         self.decode_consumer(stmt, facts)
+        self.selector_merge = self.merged_selector(stmt)
         self.rewrite_reads(stmt, facts)
         # Then apply its effects to the facts.
         self.apply_effects(stmt, facts)
         return facts
+
+    def merged_selector(self, stmt: Stmt) -> int | None:
+        """`MEM[a] = uint224(MEM[a]) | (sel << 224)`: only the 4 bytes at a change."""
+        from .ir import Binary
+
+        if not (
+            isinstance(stmt, Assign)
+            and len(stmt.targets) == 1
+            and isinstance(stmt.targets[0], Index)
+            and isinstance(stmt.targets[0].base, Env)
+            and stmt.targets[0].base.name == "MEM"
+            and isinstance(stmt.value, Binary)
+            and stmt.value.op == "|"
+        ):
+            return None
+        address = stmt.targets[0].key
+        for kept, constant in (
+            (stmt.value.left, stmt.value.right),
+            (stmt.value.right, stmt.value.left),
+        ):
+            if (
+                isinstance(constant, Const)
+                and constant.value >> 224
+                and constant.value & LOW_224 == 0
+                and isinstance(kept, Call)
+                and kept.name == "uint224"
+                and len(kept.args) == 1
+                and isinstance(kept.args[0], Index)
+                and isinstance(kept.args[0].base, Env)
+                and kept.args[0].base.name == "MEM"
+                and kept.args[0].key == address
+            ):
+                return constant.value >> 224
+        return None
 
     def rewrite_reads(self, stmt: Stmt, facts: Facts) -> None:
         def f(expr: Expr) -> Expr:
@@ -256,16 +452,32 @@ class Forwarder:
                     and target.base.name in {"MEM", "MEM8"}
                 ):
                     width = 32 if target.base.name == "MEM" else 1
+                    key = self.key(target.key)
+                    if self.selector_merge is not None and width == 32:
+                        # Bytes 4..31 keep their previous contents (and facts).
+                        self.kill_range(facts, self.model.range(target.key, 4))
+                        if key is not None:
+                            facts[(*key, SELECTOR)] = Const(
+                                self.selector_merge, evidence=stmt.evidence
+                            )
+                        continue
                     written = self.model.range(target.key, width)
                     self.kill_range(facts, written)
-                    key = self.key(target.key)
                     if key is not None and width == 32 and _stable(stmt.value):
                         facts[key] = stmt.value
+                        word = stmt.value.value if isinstance(stmt.value, Const) else 0
+                        if word >> 224 and not word & LOW_224:
+                            facts[(*key, SELECTOR)] = Const(
+                                stmt.value.value >> 224, evidence=stmt.evidence
+                            )
         elif isinstance(stmt, ParallelAssign):
             self.kill_names(facts, {t.name for t in stmt.targets if isinstance(t, Var)})
         elif isinstance(stmt, ExprStmt) and isinstance(stmt.expr, Call):
             call = stmt.expr
-            if (
+            size = self.constant(call.args[2]) if len(call.args) == 3 else None
+            if call.name == "MCOPY" and size is not None:
+                self.copy_facts(facts, call.args[0], call.args[1], size)
+            elif (
                 call.name in {"CALLDATACOPY", "RETURNDATACOPY", "MCOPY", "CODECOPY"}
                 and len(call.args) == 3
             ):
@@ -305,7 +517,12 @@ class Forwarder:
                 continue
 
 
-def forward_memory(state, callees: frozenset[str]) -> set[str]:
+def forward_memory(
+    state,
+    callees: frozenset[str],
+    signatures: dict[str, str] | None = None,
+    consumer_writers: dict[str, set[str]] | None = None,
+) -> set[str]:
     """Apply forwarding to a function body; returns consumers decoded into words."""
     from .passes import is_free_pointer_read, iter_statements
 
@@ -325,10 +542,77 @@ def forward_memory(state, callees: frozenset[str]) -> set[str]:
                 if is_local(target):
                     assigned[target.name] = assigned.get(target.name, 0) + 1
     versions = FreePointerVersions(state.body, callees)
-    forwarder = Forwarder(AddressModel(free_pointer_vars, versions), callees)
+    forwarder = Forwarder(AddressModel(free_pointer_vars, versions), callees, signatures)
+    forwarder.definitions = {
+        stmt.targets[0].name: stmt.value
+        for stmt in iter_statements(state.body)
+        if isinstance(stmt, Assign)
+        and len(stmt.targets) == 1
+        and is_local(stmt.targets[0])
+        and assigned.get(stmt.targets[0].name) == 1
+        and stmt.targets[0].name not in free_pointer_vars
+        and _stable(stmt.value)
+    }
     forwarder.block(state.body, {})
+    if consumer_writers is not None and forwarder.decoded:
+        link_decoded_inputs(state.body, forwarder, consumer_writers)
     _ = (HEAP_FLOOR, size_of)
     return forwarder.decoded
+
+
+def link_decoded_inputs(
+    statements: list[Stmt], forwarder: Forwarder, consumer_writers: dict[str, set[str]]
+) -> None:
+    """Record the earlier writes into a decoded call's input buffer as its writers.
+
+    Like the native writer/consumer links, this lets write hiding treat them as
+    ABI-encoding temporaries of a represented call (under the recorded discipline).
+    An MCOPY into the buffer links the writes into its source range in turn
+    (e.g. abi.encodeWithSelector's bytes copied into the call buffer). Only writes
+    in the same statement list before the call are linked.
+    """
+    # (key, width, origin, source key of an MCOPY)
+    writes: list[tuple[tuple | None, int, str, tuple | None]] = []
+    for stmt in statements:
+        for block in stmt.blocks():
+            link_decoded_inputs(block, forwarder, consumer_writers)
+        if isinstance(stmt, (If, While, RawBlock)):
+            writes.clear()  # writes before a branch or loop are not linked across it
+            continue
+        target = stmt.targets[0] if isinstance(stmt, Assign) and stmt.targets else None
+        if (
+            isinstance(target, Index)
+            and isinstance(target.base, Env)
+            and target.base.name in {"MEM", "MEM8"}
+            and stmt.origin
+        ):
+            width = 32 if target.base.name == "MEM" else 1
+            writes.append((forwarder.key(target.key), width, stmt.origin, None))
+        elif (
+            isinstance(stmt, ExprStmt)
+            and isinstance(stmt.expr, Call)
+            and stmt.expr.name == "MCOPY"
+            and len(stmt.expr.args) == 3
+            and stmt.origin
+        ):
+            size = forwarder.constant(stmt.expr.args[2])
+            if size is not None:
+                destination, source = stmt.expr.args[0], stmt.expr.args[1]
+                writes.append(
+                    (forwarder.key(destination), size, stmt.origin, forwarder.key(source))
+                )
+        if stmt.origin in forwarder.decoded and "input_range" in stmt.meta:
+            base, offset, size = stmt.meta["input_range"]
+            ranges = [(base, offset, size)]
+            for key, width, origin, source in reversed(writes):
+                if key is None:
+                    continue
+                if any(
+                    key[0] == b and o <= key[1] and key[1] + width <= o + n for b, o, n in ranges
+                ):
+                    consumer_writers.setdefault(stmt.origin, set()).add(origin)
+                    if source is not None:
+                        ranges.append((source[0], source[1], width))
 
 
 def map_reads(stmt: Stmt, f) -> None:

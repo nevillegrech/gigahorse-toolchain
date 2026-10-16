@@ -475,7 +475,16 @@ class DecompiledMachine:
             self.check_arguments(call, stmt, data, start, frame)
         else:
             selector = self.selector_of(stmt)
-            data = selector + b"".join(self.eval(a, frame).to_bytes(32, "big") for a in call.args)
+            assert selector is not None
+            heads, tails = [], b""
+            for arg in call.args:
+                if isinstance(arg, Call) and arg.name == "emptyBytes":
+                    # ABI: an offset in the head, a zero length word in the tail.
+                    heads.append(32 * len(call.args) + len(tails))
+                    tails += bytes(32)
+                else:
+                    heads.append(self.eval(arg, frame))
+            data = selector + b"".join(h.to_bytes(32, "big") for h in heads) + tails
         opcode = {
             "call": "CALL",
             "staticcall": "STATICCALL",
@@ -508,11 +517,9 @@ class DecompiledMachine:
         self, call: ExternalCallExpr, stmt: Stmt, data: bytes, start: int, frame: _Frame
     ) -> None:
         """Printed selector and arguments must match the bytes the call sends."""
-        info = self.program.context.externals.get(stmt.origin or "")
-        if info is not None and len(info.selector_candidates) == 1:
-            selector = bytes.fromhex(info.selector_candidates[0][2:])
-            if data[:4] != selector:
-                raise ViewMismatch(f"call {call.method}: selector differs from its input")
+        selector = self.selector_of(stmt, required=False)
+        if selector is not None and data[:4] != selector:
+            raise ViewMismatch(f"call {call.method}: selector differs from its input")
         for index, arg in enumerate(call.args):
             head = data[4 + 32 * index : 36 + 32 * index].ljust(32, b"\0")
             word = int.from_bytes(head, "big")
@@ -525,9 +532,13 @@ class DecompiledMachine:
                     f"call {call.method}: printed argument {index} differs from its input"
                 )
 
-    def selector_of(self, stmt: Stmt) -> bytes:
+    def selector_of(self, stmt: Stmt, required: bool = True) -> bytes | None:
+        if "selector" in stmt.meta:  # decoded from memory by the view itself
+            return bytes.fromhex(stmt.meta["selector"][2:])
         info = self.program.context.externals.get(stmt.origin or "")
         if info is None or len(info.selector_candidates) != 1:
+            if not required:
+                return None
             raise UnsupportedExecution("Call selector unknown")
         return bytes.fromhex(info.selector_candidates[0][2:])
 

@@ -143,6 +143,8 @@ def _expr(expr: Expr, context: int) -> str:
             and expr.args[0].name == "data"
         ):
             return f"{_postfix(expr.args[0].base)}.word({_expr(expr.args[1], 0)})"
+        if expr.name == "emptyBytes" and not expr.args:
+            return '""'
         return f"{expr.name}({', '.join(_expr(arg, 0) for arg in expr.args)})"
     if isinstance(expr, Index):
         return f"{_postfix(expr.base)}[{_expr(expr.key, 0)}]"

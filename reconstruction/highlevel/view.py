@@ -95,6 +95,16 @@ def collect_keys(context: ProgramContext) -> tuple[set[str], set[str], set[str]]
     selectors = {s for f in program.functions for s in f.selectors}
     if program.semantics:
         selectors |= {s for c in program.semantics.external_calls for s in c.selector_candidates}
+    # Selector-shaped words stored to memory (or merged into a word): calls whose
+    # input the view decodes from memory itself, when the native model did not.
+    for stmt in context.statements.values():
+        if stmt.opcode not in {"MSTORE", "OR"}:
+            continue
+        operands = stmt.operands[1:] if stmt.opcode == "MSTORE" else stmt.operands
+        for operand in operands:
+            value = context.constants.get(operand)
+            if value and value >> 224 and not value & ((1 << 224) - 1):
+                selectors.add(f"0x{value >> 224:08x}")
     topics = set()
     for stmt in context.statements.values():
         if stmt.opcode.startswith("LOG") and len(stmt.operands) >= 3:
@@ -380,7 +390,16 @@ def finish_function(
     lifter, item, state, function = entry.lifter, entry.item, entry.state, entry.function
     callees = frozenset(context.function_names.values())
     memcpy_loops(state)
-    lifter.abstracted |= forward_memory(state, callees)
+    # Twice: forwarding can reveal a constant (e.g. the length 0 of `new bytes(0)`),
+    # whose copy loop then disappears, giving the buffers around it exact bounds.
+    for _ in range(2):
+        copy_propagation(state)
+        constant_branches(state)
+        sequential_merges(state)
+        copy_propagation(state)
+        lifter.abstracted |= forward_memory(
+            state, callees, context.external_signatures, lifter.consumer_writers
+        )
     copy_propagation(state)
     empty_memory_operations(state, callees)
     mark_encoded_arguments(state, callees)
@@ -436,6 +455,12 @@ def finish_function(
                 )
     remove_unused_reads(state)
     loop_conditions(state)
+    # Loop conditions are formed last; a constant one (e.g. a copy loop over 0
+    # bytes) removes the loop and leaves single-definition merges behind.
+    constant_branches(state)
+    sequential_merges(state)
+    copy_propagation(state)
+    remove_unused_reads(state)
     tidy_branches(state)
     refresh_output_notes(state)
     return FunctionView(

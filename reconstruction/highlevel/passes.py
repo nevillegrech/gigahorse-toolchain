@@ -51,6 +51,7 @@ PURE_CALLS = {
     "arrayAt",
     "tupleAt",
     "dataAt",
+    "emptyBytes",
     "keccak256",
     "blockhash",
     "blobhash",
@@ -114,9 +115,9 @@ def read_expressions(stmt: Stmt) -> tuple[Expr, ...]:
         result: list[Expr] = [stmt.value]
         # A call's output buffer is an operand: the EVM writes returned bytes there.
         result.extend(stmt.meta.get("output", ()))
-        if stmt.uncertain:
-            # An ABI call whose printed arguments may not cover its input: the
-            # input bytes in memory are what it sends.
+        if stmt.uncertain or _has_encoded_argument(stmt.value):
+            # An ABI call whose printed arguments may not cover its input (or that
+            # points at encoded dynamic values): the input bytes in memory are sent.
             result.extend(stmt.meta.get("input", ()))
         for target in stmt.targets:
             if isinstance(target, Index):
@@ -129,6 +130,15 @@ def read_expressions(stmt: Stmt) -> tuple[Expr, ...]:
     if isinstance(stmt, ParallelAssign):
         return stmt.values
     return stmt.expressions()
+
+
+ENCODED_ARGUMENTS = {"bytesAt", "stringAt", "arrayAt", "tupleAt", "dataAt"}
+
+
+def _has_encoded_argument(expr: Expr) -> bool:
+    return isinstance(expr, ExternalCallExpr) and any(
+        isinstance(arg, Call) and arg.name in ENCODED_ARGUMENTS for arg in expr.args
+    )
 
 
 def variable_uses(statements: list[Stmt]) -> Counter[str]:
@@ -751,7 +761,10 @@ def hide_absorbed_writes(
         observes_under_discipline,
     )
 
-    elided_ids = {sid for elision in state.elided for sid in elision.statements}
+    # A consumer is gone only when no printed copy of it remains: structuring can
+    # duplicate a shared block (e.g. a revert), and eliding one copy keeps the other.
+    printed_origins = {stmt.origin for stmt in iter_statements(state.body) if stmt.origin}
+    elided_ids = {sid for elision in state.elided for sid in elision.statements} - printed_origins
     writer_consumers: dict[str, set[str]] = {}
     for consumer, writers in consumer_writers.items():
         for writer in writers:
@@ -1106,6 +1119,17 @@ def constant_branches(state: FunctionState) -> None:
     def visit(statements: list[Stmt]) -> list[Stmt]:
         result: list[Stmt] = []
         for stmt in statements:
+            if (
+                isinstance(stmt, While)
+                and stmt.condition is not None
+                and truth(stmt.condition) is False
+            ):
+                state.elided.append(
+                    Elision(
+                        statement_ids(stmt), "loop never entered: its condition is constant false"
+                    )
+                )
+                continue
             if isinstance(stmt, If):
                 value = truth(stmt.condition)
                 if value is not None:
@@ -1281,17 +1305,17 @@ def refresh_output_notes(state: FunctionState) -> None:
     from .printer import expression
 
     for stmt in iter_statements(state.body):
-        if (
-            isinstance(stmt, Assign)
-            and stmt.note
-            and stmt.note.startswith("output buffer MEM[")
-            and "output" in stmt.meta
-        ):
+        if isinstance(stmt, Assign) and stmt.note and "output" in stmt.meta:
             start, size = stmt.meta["output"]
-            stmt.note = f"output buffer MEM[{expression(start)}:+{expression(size)}]"
+            stmt.note = "; ".join(
+                f"output buffer MEM[{expression(start)}:+{expression(size)}]"
+                if part.startswith("output buffer MEM[")
+                else part
+                for part in stmt.note.split("; ")
+            )
         if (
             isinstance(stmt, Assign)
-            and stmt.uncertain
+            and (stmt.uncertain or _has_encoded_argument(stmt.value))
             and "input" in stmt.meta
             and isinstance(stmt.value, ExternalCallExpr)
             and stmt.value.method is not None

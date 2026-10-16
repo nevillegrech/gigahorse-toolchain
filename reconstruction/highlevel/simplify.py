@@ -216,6 +216,15 @@ def _rewrite_binary(expr: Binary) -> Expr:
                 evidence=ev | left.evidence | right.evidence,
                 rules=frozenset({"fold-constant"}),
             )
+    # Unsigned bounds: nothing is below 0 (x < 0, 0 > x false; x >= 0, 0 <= x true).
+    zero_right = isinstance(right, Const) and right.value == 0 and op in {"<", ">="}
+    zero_left = isinstance(left, Const) and left.value == 0 and op in {">", "<="}
+    if (zero_right or zero_left) and _effect_free(left if zero_right else right):
+        return Const(
+            int(op in {">=", "<="}),
+            evidence=ev | left.all_evidence() | right.all_evidence(),
+            rules=frozenset({"unsigned-bound"}),
+        )
     # The function selector: calldata word 0 shifted down to its top 4 bytes.
     if (
         op == ">>"
@@ -428,6 +437,20 @@ def _fold(op: str, a: int, b: int) -> int | None:
         sb = b - (1 << 256) if b >> 255 else b
         return int({"s<": sa < sb, "s>": sa > sb, "s<=": sa <= sb, "s>=": sa >= sb}[op])
     return None
+
+
+def _effect_free(expr: Expr) -> bool:
+    """Evaluating expr has no effect (no calls other than pure builtins and casts)."""
+    from .ir import ExternalCallExpr
+
+    if isinstance(expr, ExternalCallExpr):
+        return False
+    if isinstance(expr, Call) and not (
+        expr.name.startswith(("uint", "int", "bytes", "address", "bool"))
+        or expr.name in {"keccak256", "byte", "signextend", "addmod", "mulmod"}
+    ):
+        return False
+    return all(_effect_free(child) for child in expr.children())
 
 
 def _reads_state(expr: Expr) -> bool:
