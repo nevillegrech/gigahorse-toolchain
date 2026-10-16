@@ -1,0 +1,29 @@
+{
+ "schema_version": 1,
+ "source_relation": "MemWriteToMemConsStmtResolved (debug output of the same native run)",
+ "bytecode_sha256": "714748a978fb165520f037d9f4fc61ca15fbd4546bfead18990e2a4a7a46b2d0",
+ "tac_op_sha256": "fb0099ebc48a9a96f09c1667b5a9444ceb67cd269fccecd31af19601140c49c0",
+ "SemanticMemoryConsumerWrite": [
+  [
+   "0x84",
+   "0x7c",
+   "0",
+   "0",
+   "32"
+  ],
+  [
+   "0x8b",
+   "0x87",
+   "0",
+   "0",
+   "32"
+  ],
+  [
+   "0xf9",
+   "0xf5",
+   "0",
+   "0",
+   "32"
+  ]
+ ]
+}

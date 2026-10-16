@@ -161,8 +161,20 @@ def size_of(start: Expr, end: Expr) -> int | None:
 class Liveness:
     """Compute, for each statement, memory possibly read later by printed statements."""
 
-    def __init__(self, model: AddressModel, ignored_reads: set[int], absorbed_origins: set[str]):
+    def __init__(
+        self,
+        model: AddressModel,
+        ignored_reads: set[int],
+        absorbed_origins: set[str],
+        callees: frozenset[str] = frozenset(),
+        summaries: Summaries | None = None,
+        function: str | None = None,
+    ):
         self.model = model
+        # Names of lifted functions. Without summaries a call may read any memory.
+        self.callees = callees
+        self.summaries = summaries
+        self.function = function
         self.ignored_reads = ignored_reads  # id(stmt) whose reads are absorbed/hidden
         self.absorbed_origins = absorbed_origins
         self.after: dict[int, Live] = {}
@@ -193,7 +205,13 @@ class Liveness:
                     if node.name == "MCOPY" and len(node.args) == 3:
                         size = node.args[2].value if isinstance(node.args[2], Const) else None
                         result.append(self.model.range(node.args[1], size))
-                    elif node.name.startswith("fn_") or node.name == "private_call_unresolved":
+                    elif node.name in self.callees and self.summaries is not None:
+                        result.extend(self.summaries.entry_of(node.name).ranges)
+                    elif (
+                        node.name in self.callees
+                        or node.name.startswith("fn_")
+                        or node.name == "private_call_unresolved"
+                    ):
                         result.append(Range(ANY, 0, None))
                 elif isinstance(node, ExternalCallExpr) and node.raw_input is None and node.method:
                     pass  # ABI arguments are printed values, not memory
@@ -254,10 +272,92 @@ class Liveness:
             # Unstructured code: assume anything may be read.
             self.block(stmt.body, Live([Range(ANY, 0, None)]), None)
             return Live([Range(ANY, 0, None)])
+        if isinstance(stmt, Return) and "internal-return" in stmt.rules:
+            # The caller continues and may read memory this function wrote.
+            after = (
+                self.summaries.return_of(self.function)
+                if self.summaries is not None and self.function is not None
+                else Live([Range(ANY, 0, None)])
+            )
+            return after.add(self.reads(stmt))
+        if isinstance(stmt, Return) and "tail-call" in stmt.rules:
+            # The callee's reads are included via the call expression's summary.
+            if self.summaries is None:
+                return Live([Range(ANY, 0, None)]).add(self.reads(stmt))
+            return Live(self.reads(stmt))
         if isinstance(stmt, (Return, Revert, Halt)):
-            # Execution ends; only this statement's own reads matter.
+            # The transaction ends; only this statement's own reads matter.
             return Live(self.reads(stmt))
         live = live_out
         for write in self.writes(stmt):
             live = live.kill(write)
         return live.add(self.reads(stmt))
+
+
+UNKNOWN_HEAP = Range("heap:?", 0, None)
+EVERYTHING = Range(ANY, 0, None)
+
+
+def widen(live: Live) -> Live:
+    """Make a function-local live set meaningful in another function.
+
+    Constant ranges keep their bytes; free-pointer-based ranges become "some heap
+    address" (still disjoint from scratch space and the pointer word); any other
+    base is unknown everywhere.
+    """
+    result: set[Range] = set()
+    for item in live.ranges:
+        if item.base is None:
+            result.add(item)
+        elif item.base.startswith("heap:"):
+            result.add(UNKNOWN_HEAP)
+        else:
+            result.add(EVERYTHING)
+    return Live(result)
+
+
+class Summaries:
+    """Interprocedural memory-read summaries over the printed function bodies.
+
+    entry[f]: memory possibly read (before being overwritten) once f is called.
+    returns[f]: memory possibly read by any caller after f returns to it.
+    Computed as a monotone fixpoint; non-convergence widens to EVERYTHING.
+    """
+
+    def __init__(self) -> None:
+        self.entry: dict[str, Live] = {}
+        self.returns: dict[str, Live] = {}
+
+    def entry_of(self, name: str) -> Live:
+        return self.entry.get(name, Live())
+
+    def return_of(self, name: str) -> Live:
+        return self.returns.get(name, Live())
+
+
+def compute_summaries(
+    functions: dict[str, tuple[list[Stmt], AddressModel]], rounds: int = 24
+) -> Summaries:
+    from .passes import iter_expr, iter_statements, read_expressions
+
+    summaries = Summaries()
+    names = frozenset(functions)
+    for _ in range(rounds):
+        entry: dict[str, Live] = {}
+        returns: dict[str, Live] = {name: Live() for name in functions}
+        for name, (body, model) in functions.items():
+            liveness = Liveness(model, set(), set(), names, summaries, name)
+            entry[name] = widen(liveness.block(body, Live(), None))
+            for stmt in iter_statements(body):
+                for expr in read_expressions(stmt):
+                    for node in iter_expr(expr):
+                        if isinstance(node, Call) and node.name in functions:
+                            after = liveness.after.get(id(stmt), Live([EVERYTHING]))
+                            returns[node.name] = returns[node.name].union(widen(after))
+        if entry == summaries.entry and returns == summaries.returns:
+            return summaries
+        summaries.entry, summaries.returns = entry, returns
+    widened = Summaries()
+    widened.entry = {name: Live([EVERYTHING]) for name in functions}
+    widened.returns = {name: Live([EVERYTHING]) for name in functions}
+    return widened

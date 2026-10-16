@@ -415,6 +415,10 @@ def _fold(op: str, a: int, b: int) -> int | None:
         return int(a <= b)
     if op == ">=":
         return int(a >= b)
+    if op in {"s<", "s>", "s<=", "s>="}:
+        sa = a - (1 << 256) if a >> 255 else a
+        sb = b - (1 << 256) if b >> 255 else b
+        return int({"s<": sa < sb, "s>": sa > sb, "s<=": sa <= sb, "s>=": sa >= sb}[op])
     return None
 
 

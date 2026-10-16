@@ -14,6 +14,7 @@ import tempfile
 from pathlib import Path
 
 from reconstruction.bytecode import normalize_bytecode
+from reconstruction.highlevel.view import render_decompiled
 from reconstruction.model import load_program
 from reconstruction.recovered import render_recovered
 from reconstruction.render import render_program
@@ -116,6 +117,7 @@ def write_bundle(
     pseudocode = render_program(program)
     recovered, source_map = render_recovered(program)
     structured, structured_map = render_recovered(program, structure_flow=True)
+    decompiled, decompiled_map = render_decompiled(program, facts)
     output.mkdir(parents=True)
     (output / "analysis.json").write_text(json.dumps(report, indent=2) + "\n")
     (output / "pseudocode.sol.txt").write_text(pseudocode)
@@ -123,6 +125,8 @@ def write_bundle(
     (output / "recovered.map.json").write_text(json.dumps(source_map, indent=2) + "\n")
     (output / "structured.sol.txt").write_text(structured)
     (output / "structured.map.json").write_text(json.dumps(structured_map, indent=2) + "\n")
+    (output / "decompiled.sol.txt").write_text(decompiled)
+    (output / "decompiled.map.json").write_text(json.dumps(decompiled_map, indent=2) + "\n")
     shutil.copytree(facts, output / "relations")
     if log is not None:
         (output / "upstream.log").write_text(log)

@@ -4,6 +4,7 @@ from pathlib import Path
 from reconstruction.controlflow import Region, structure_function
 from reconstruction.model import Block, Function, Instruction, Program, load_program
 from reconstruction.recovered import render_recovered
+from reconstruction_tests.memory_links import write_links
 from src.tac_schema import TACRelations
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures/reconstruction"
@@ -15,6 +16,7 @@ def fixture_program(stem, directory):
         data.update(json.loads((FIXTURES / f"{stem}.{suffix}.json").read_text()))
     TACRelations(data).write_dir(directory)
     (Path(directory) / "bytecode.hex").write_text((FIXTURES / f"{stem}.hex").read_text())
+    write_links(Path(directory), FIXTURES / stem)
     return load_program(directory)
 
 

@@ -160,14 +160,9 @@ class ProgramContext:
             memory_args = program.semantics.memory_values
         consumer_writers: defaultdict[str, set[str]] = defaultdict(set)
         writer_consumers: defaultdict[str, set[str]] = defaultdict(set)
-        if relations is not None:
-            path = relations / "MemWriteToMemConsStmtResolved.csv"
-            if path.is_file():
-                with path.open() as stream:
-                    for row in csv.reader(stream, delimiter="\t"):
-                        if len(row) == 5 and row[0] in statements and row[1] in statements:
-                            consumer_writers[row[1]].add(row[0])
-                            writer_consumers[row[0]].add(row[1])
+        for consumer, writer in memory_links(relations, statements):
+            consumer_writers[consumer].add(writer)
+            writer_consumers[writer].add(consumer)
         context = cls(
             program,
             {b.id: b for b in program.blocks},
@@ -218,6 +213,9 @@ class FunctionLifter:
         self.arguments: list[Var] = []
         self.warnings: list[str] = []
         self.argument_evidence: set[str] = set()
+        # Public argument name -> how the IR computes it from calldata.
+        self.argument_definitions: dict[str, Expr] = {}
+        self.argument_kinds: dict[str, str] = {}
         # Memory consumers (LOG/RETURN/SHA3/CALL ids) -> MSTOREs feeding them.
         self.consumer_writers: dict[str, set[str]] = defaultdict(set)
         for consumer, writers in context.consumer_writers.items():
@@ -239,9 +237,15 @@ class FunctionLifter:
             for argument in semantics.arguments:
                 if argument.function == self.function.id:
                     by_index[argument.index].extend(argument.variables)
+            kinds = {
+                argument.index: argument.kind
+                for argument in semantics.arguments
+                if argument.function == self.function.id
+            }
             if by_index:
                 for index in range(max(by_index) + 1):
                     name = f"varg{index}"
+                    self.argument_kinds[name] = kinds.get(index, "word")
                     variables = by_index.get(index, [])
                     for variable in variables:
                         self.names[variable] = name
@@ -396,7 +400,12 @@ class FunctionLifter:
                 "StaticArrayAccessIndex",
             }:
                 key_var = atom(term, 2 if term.constructor == "StaticArrayAccessIndex" else 1)
-                return Index(parent, self.expr(key_var))
+                kind = {
+                    "MappingAccessIndex": "mapping",
+                    "ArrayAccessIndex": "array",
+                    "StaticArrayAccessIndex": "static_array",
+                }[term.constructor]
+                return Index(parent, self.expr(key_var), kind=kind)
             if term.constructor == "OffsetIndex":
                 return Member(parent, f"field{int(atom(term, 1))}")
             if term.constructor == "ArrayDataStartIndex":
@@ -628,6 +637,11 @@ class FunctionLifter:
                 self.argument_evidence.add(stmt.id)
                 for operand in stmt.operands:
                     self.argument_evidence |= self.expr(operand).all_evidence()
+                definition = self.pure_node(stmt, [self.expr(v) for v in stmt.operands])
+                if definition is not None:
+                    self.argument_definitions[self.names[stmt.definitions[0]]] = simplify(
+                        definition
+                    )
                 return []
             node = self.expr(stmt.definitions[0])
             if isinstance(node, Var) and node.ssa == stmt.definitions[0]:
@@ -1036,3 +1050,31 @@ def is_static_abi(param: str) -> bool:
     if param.startswith("bytes") and param[5:].isdigit():
         return True
     return param in {"uint", "int"}
+
+
+def memory_links(relations: Path | None, statements: dict) -> list[tuple[str, str]]:
+    """(consumer, writer) pairs from the stable export, or the debug relation.
+
+    Rows naming unknown statements are rejected rather than silently dropped.
+    """
+    if relations is None:
+        return []
+    stable = relations / "SemanticMemoryConsumerWrite.csv"
+    debug = relations / "MemWriteToMemConsStmtResolved.csv"
+    rows: list[tuple[str, str]] = []
+    if stable.is_file():
+        with stable.open() as stream:
+            for row in csv.reader(stream, delimiter="\t"):
+                if len(row) != 5:
+                    raise ValueError("SemanticMemoryConsumerWrite: wrong column count")
+                rows.append((row[0], row[1]))
+    elif debug.is_file():
+        with debug.open() as stream:
+            for row in csv.reader(stream, delimiter="\t"):
+                if len(row) != 5:
+                    raise ValueError("MemWriteToMemConsStmtResolved: wrong column count")
+                rows.append((row[1], row[0]))
+    for consumer, writer in rows:
+        if consumer not in statements or writer not in statements:
+            raise ValueError(f"Memory link references an unknown statement: {writer} -> {consumer}")
+    return rows

@@ -47,6 +47,11 @@ class Expr:
         return result
 
 
+def is_local(expr: Expr) -> bool:
+    """A printed local/argument (bound to SSA), as opposed to a storage field root."""
+    return isinstance(expr, Var) and (expr.ssa is not None or expr.name == "_")
+
+
 def annotate(
     expr: Expr, evidence: Evidence = EMPTY, rules: frozenset[str] | set[str] = frozenset()
 ) -> Expr:
@@ -139,6 +144,8 @@ class Call(Expr):
 class Index(Expr):
     base: Expr
     key: Expr
+    # Storage path kind from the native model: "mapping", "array", "static_array".
+    kind: str | None = field(default=None, compare=False)
 
     def children(self) -> tuple[Expr, ...]:
         return (self.base, self.key)

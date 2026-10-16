@@ -38,6 +38,7 @@ from .ir import (
     Var,
     While,
     annotate,
+    is_local,
 )
 from .simplify import is_boolean, simplify
 
@@ -104,6 +105,8 @@ def read_expressions(stmt: Stmt) -> tuple[Expr, ...]:
     """Expressions evaluated by a statement (assignment targets contribute only their indices)."""
     if isinstance(stmt, Assign):
         result: list[Expr] = [stmt.value]
+        # A call's output buffer is an operand: the EVM writes returned bytes there.
+        result.extend(stmt.meta.get("output", ()))
         for target in stmt.targets:
             if isinstance(target, Index):
                 result.append(target.key)
@@ -143,6 +146,8 @@ def substitute(expr: Expr, mapping: dict[str, Expr]) -> Expr:
 def substitute_statement(stmt: Stmt, mapping: dict[str, Expr]) -> None:
     if isinstance(stmt, Assign):
         stmt.value = substitute(stmt.value, mapping)
+        if "output" in stmt.meta:
+            stmt.meta["output"] = tuple(substitute(e, mapping) for e in stmt.meta["output"])
         stmt.targets = tuple(
             t if isinstance(t, Var) else substitute(t, mapping) for t in stmt.targets
         )
@@ -186,7 +191,7 @@ def has_effect(expr: Expr) -> bool:
 
 def statement_ids(stmt: Stmt) -> frozenset[str]:
     ids = set(stmt.evidence) | set(stmt.hidden)
-    for expr in stmt.expressions():
+    for expr in (*stmt.expressions(), *stmt.meta.get("output", ())):
         ids |= expr.all_evidence()
     for block in stmt.blocks():
         for nested in iter_statements(block):
@@ -408,13 +413,30 @@ def remove_unused_reads(state: FunctionState, protected: set[str] = frozenset())
             for stmt in statements:
                 if (
                     isinstance(stmt, Assign)
-                    and all(isinstance(t, Var) for t in stmt.targets)
+                    and all(is_local(t) for t in stmt.targets)
                     and not any(uses[t.name] for t in stmt.targets)
                     and not any(t.name in protected for t in stmt.targets)
                     and is_side_effect_free_value(stmt.value)
                 ):
                     removed.append(stmt)
                     continue
+                if isinstance(stmt, ParallelAssign):
+                    keep = [
+                        i
+                        for i, t in enumerate(stmt.targets)
+                        if not is_local(t) or uses[t.name] or has_effect(stmt.values[i])
+                    ]
+                    if len(keep) < len(stmt.targets):
+                        dropped = [i for i in range(len(stmt.targets)) if i not in keep]
+                        ids = frozenset().union(*(stmt.values[i].all_evidence() for i in dropped))
+                        state.elided.append(Elision(ids, "unused merge value"))
+                        if not keep:
+                            state.elided.append(Elision(statement_ids(stmt), "unused merge value"))
+                            removed.append(stmt)
+                            continue
+                        stmt.targets = tuple(stmt.targets[i] for i in keep)
+                        stmt.values = tuple(stmt.values[i] for i in keep)
+                        removed.append(stmt)
                 kept.append(stmt)
             return kept
 
@@ -540,7 +562,7 @@ def single_use_inline(state: FunctionState) -> None:
                 if (
                     isinstance(stmt, Assign)
                     and len(stmt.targets) == 1
-                    and isinstance(stmt.targets[0], Var)
+                    and is_local(stmt.targets[0])
                     and stmt.targets[0].name.startswith("v")
                     and uses[stmt.targets[0].name] == 1
                     and not stmt.uncertain
@@ -658,6 +680,9 @@ def hide_absorbed_writes(
     state: FunctionState,
     consumer_writers: dict[str, set[str]],
     abstracted: set[str],
+    callees: frozenset[str] = frozenset(),
+    summaries=None,
+    function: str | None = None,
 ) -> None:
     """Hide memory writes (and inner hashes) consumed only by high-level lines.
 
@@ -679,7 +704,7 @@ def hide_absorbed_writes(
         for stmt in statements
         if isinstance(stmt, Assign)
         and len(stmt.targets) == 1
-        and isinstance(stmt.targets[0], Var)
+        and is_local(stmt.targets[0])
         and is_free_pointer_read(stmt.value)
     }
     model = AddressModel(free_pointer_vars)
@@ -713,7 +738,7 @@ def hide_absorbed_writes(
         if isinstance(stmt, Assign)
         and stmt.origin in consumer_writers
         and len(stmt.targets) == 1
-        and isinstance(stmt.targets[0], Var)
+        and is_local(stmt.targets[0])
         and isinstance(stmt.value, Call)
         and stmt.value.name == "keccak256"
     }
@@ -743,7 +768,7 @@ def hide_absorbed_writes(
         for key in hidden & set(writers):
             if not writer_consumers[writers[key].origin or ""] <= absorbed:
                 remove.add(key)
-        liveness = Liveness(model, hidden, absorbed)
+        liveness = Liveness(model, hidden, absorbed, callees, summaries, function)
         liveness.block(state.body, Live(), None)
         for key in hidden & set(writers):
             target = writers[key].targets[0]
@@ -798,12 +823,17 @@ def hide_absorbed_writes(
 
 
 def absorb_memory_plumbing(
-    state: FunctionState, consumer_writers: dict[str, set[str]], abstracted: set[str]
+    state: FunctionState,
+    consumer_writers: dict[str, set[str]],
+    abstracted: set[str],
+    callees: frozenset[str] = frozenset(),
+    summaries=None,
+    function: str | None = None,
 ) -> None:
     """Alternate write hiding and dead-read removal until neither changes the body."""
     for _ in range(16):
         before = sum(1 for _ in iter_statements(state.body))
-        hide_absorbed_writes(state, consumer_writers, abstracted)
+        hide_absorbed_writes(state, consumer_writers, abstracted, callees, summaries, function)
         remove_unused_reads(state)
         if sum(1 for _ in iter_statements(state.body)) == before:
             return
@@ -831,7 +861,7 @@ def short_circuit(state: FunctionState) -> None:
             stmt = arm[0]
             targets = stmt.targets
             values = stmt.values if isinstance(stmt, ParallelAssign) else (stmt.value,)
-            if len(targets) == 1 and len(values) == 1 and isinstance(targets[0], Var):
+            if len(targets) == 1 and len(values) == 1 and is_local(targets[0]):
                 return stmt
         return None
 
@@ -860,7 +890,7 @@ def short_circuit(state: FunctionState) -> None:
                                 then.targets,
                                 combined,
                                 evidence=stmt.evidence | then.evidence | other.evidence,
-                                hidden=stmt.hidden | then.hidden | other.hidden,
+                                hidden=stmt.hidden | statement_ids(then) | statement_ids(other),
                                 rules=frozenset({"short-circuit"}),
                                 origin=stmt.origin,
                             )
@@ -919,7 +949,11 @@ def eth_transfers(state: FunctionState) -> None:
                     and (following.payload is None or following.payload == Env("returndata"))
                 ):
                     transfer = ExternalCallExpr(
-                        "call", call.target, "transfer", (call.value,), evidence=call.all_evidence()
+                        "eth-transfer",
+                        call.target,
+                        "transfer",
+                        (call.value,),
+                        evidence=call.all_evidence(),
                     )
                     result.append(
                         ExprStmt(
@@ -933,7 +967,7 @@ def eth_transfers(state: FunctionState) -> None:
                     index += 2
                     continue
                 stmt.value = ExternalCallExpr(
-                    "call", call.target, "send", (call.value,), evidence=call.all_evidence()
+                    "eth-send", call.target, "send", (call.value,), evidence=call.all_evidence()
                 )
                 stmt.rules = stmt.rules | {"eth-send-idiom"}
             result.append(stmt)
@@ -952,7 +986,7 @@ def unused_call_results(state: FunctionState) -> None:
         for stmt in statements:
             if (
                 isinstance(stmt, Assign)
-                and all(isinstance(t, Var) and not uses[t.name] for t in stmt.targets)
+                and all(is_local(t) and not uses[t.name] for t in stmt.targets)
                 and has_effect(stmt.value)
                 and not isinstance(stmt.value, ExternalCallExpr)
             ):

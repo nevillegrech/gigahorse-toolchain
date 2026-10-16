@@ -83,6 +83,9 @@ def _child(expr: Expr, parent: str, side: str) -> str:
             FAMILY.get(expr.op) != FAMILY.get(parent)
             and FAMILY.get(expr.op) is not None
             and FAMILY.get(parent) is not None
+        ) or (
+            # `a & b == c` is valid Solidity but misreads as C/JS precedence.
+            FAMILY.get(expr.op) in {"bit", "shift"} and PRECEDENCE[parent] <= 4
         )
         # Non-associative right operands (a - (b - c)) need parentheses too.
         needs = mine < theirs or (
@@ -152,7 +155,11 @@ def _expr(expr: Expr, context: int) -> str:
         braces = "{" + ", ".join(options) + "}" if options else ""
         if expr.method is not None:
             args = ", ".join(_expr(arg, 0) for arg in expr.args)
-            prefix = "" if expr.kind in {"call", "staticcall"} else f"/* {expr.kind} */ "
+            prefix = (
+                ""
+                if expr.kind in {"call", "staticcall", "eth-transfer", "eth-send"}
+                else f"/* {expr.kind} */ "
+            )
             return f"{prefix}{target}.{expr.method}{braces}({args})"
         payload = _expr(expr.raw_input, 0) if expr.raw_input is not None else ""
         return f"{target}.{expr.kind}{braces}({payload})"
@@ -208,7 +215,7 @@ class Printed:
 def statement_evidence(stmt: Stmt) -> tuple[frozenset[str], frozenset[str]]:
     evidence = set(stmt.evidence)
     rules = set(stmt.rules)
-    for expr in stmt.expressions():
+    for expr in (*stmt.expressions(), *stmt.meta.get("output", ())):
         evidence |= expr.all_evidence()
         rules |= expr.all_rules()
     return frozenset(evidence), frozenset(rules)

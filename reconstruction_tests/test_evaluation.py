@@ -9,6 +9,7 @@ from pathlib import Path
 import pytest
 
 from reconstruction.model import load_program
+from reconstruction_tests.memory_links import write_links
 from reconstruction_tests.test_controlflow import fixture_program
 from src.tac_schema import TACRelations
 
@@ -27,6 +28,7 @@ def evaluation_program(directory, ident="multicall3", *, corpus=CORPUS):
         tables.update(json.loads(content))
     TACRelations(tables).write_dir(directory)
     (Path(directory) / "bytecode.hex").write_text(runtime.hex())
+    write_links(Path(directory), corpus / ident)
     return load_program(directory), runtime
 
 
@@ -63,6 +65,7 @@ def test_structured_evidence_is_stable_across_hash_seeds(tmp_path):
 import hashlib,json,sys
 from pathlib import Path
 from reconstruction.model import load_program
+from reconstruction_tests.memory_links import write_links
 from reconstruction.recovered import render_recovered
 p=load_program(Path(sys.argv[1]))
 text,mapping=render_recovered(p,structure_flow=True)

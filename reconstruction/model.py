@@ -71,6 +71,8 @@ class Program:
     revert_memory: dict[str, dict] = field(default_factory=dict)
     runtime_bytecode: str | None = None
     phi_entry_inputs: list[tuple[str, str]] = field(default_factory=list)
+    # Relations directory the program was loaded from (not serialized).
+    source_directory: Path | None = field(default=None, repr=False, compare=False)
 
     def to_dict(self) -> dict:
         result = asdict(self)
@@ -79,6 +81,7 @@ class Program:
         from .reverts import analyze_reverts
 
         result.pop("runtime_bytecode")
+        result.pop("source_directory")
         result["bytecode_context"] = code_context(self)
         result["internal_interfaces"] = InternalInterfaces(self).metadata()
         result["revert_summaries"] = analyze_reverts(self)
@@ -281,6 +284,7 @@ def load_program(directory: Path) -> Program:
     if unmapped:
         warnings.append(f"Gigahorse reports {len(unmapped)} unmapped original statements.")
     program = Program(constants, targets, functions, blocks, warnings, unmapped)
+    program.source_directory = Path(directory)
     bytecode_file = Path(directory) / "bytecode.hex"
     if bytecode_file.is_file():
         from .bytecode import normalize_bytecode

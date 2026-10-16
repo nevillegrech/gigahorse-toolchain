@@ -6,8 +6,9 @@ from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
 
 from ..model import Function, Program
-from .ir import Assign, Emit, Expr, Return, Stmt, Var
+from .ir import Assign, Emit, Expr, Return, Stmt, Var, is_local
 from .lift import FunctionLifter, ProgramContext
+from .memory_liveness import AddressModel, Summaries, compute_summaries
 from .naming import Names, load_names, split_signature
 from .passes import (
     FunctionState,
@@ -16,6 +17,7 @@ from .passes import (
     drop_trivial_requires,
     eth_transfers,
     guards_to_requires,
+    is_free_pointer_read,
     iter_expr,
     iter_statements,
     leading_callvalue_check,
@@ -29,7 +31,7 @@ from .passes import (
     trailing_stop,
     unused_call_results,
 )
-from .printer import Printed, print_statements
+from .printer import Printed, expression, print_statements
 from .types import TypedValue, expression_type, map_body, storage_root, type_variables
 
 LEGEND = [
@@ -105,9 +107,32 @@ def _returns(body: list[Stmt], field_types: dict[str, str] | None = None) -> lis
     return columns
 
 
+@dataclass
+class DecompiledProgram:
+    context: ProgramContext
+    views: list[FunctionView]
+    storage_names: dict
+    text: str
+    mapping: dict
+
+    def storage_root(self, name: str) -> tuple[str, str, int, int] | None:
+        """(location, slot, low byte, high byte) for a printed storage root name."""
+        original = {info["name"]: root for root, info in self.storage_names.items()}
+        return self.context.storage_roots.get(original.get(name, name))
+
+
 def render_decompiled(
     program: Program, relations: Path | None = None, names: Names | None = None
 ) -> tuple[str, dict]:
+    result = build_decompiled(program, relations, names)
+    return result.text, result.mapping
+
+
+def build_decompiled(
+    program: Program, relations: Path | None = None, names: Names | None = None
+) -> DecompiledProgram:
+    if relations is None:
+        relations = program.source_directory
     context = ProgramContext.build(program, relations)
     if names is None:
         names = load_names(*collect_keys(context))
@@ -127,10 +152,21 @@ def render_decompiled(
             context.function_names[function.id] = "__function_selector__"
         else:
             context.function_names[function.id] = f"fn_{function.id}"
+    # Overloaded names (e.g. two safeTransferFrom) get their selector appended so
+    # every printed reference denotes exactly one function.
+    counts: dict[str, int] = {}
+    for name in context.function_names.values():
+        counts[name] = counts.get(name, 0) + 1
+    for function in program.functions:
+        name = context.function_names[function.id]
+        if counts[name] > 1 and len(function.selectors) == 1:
+            context.function_names[function.id] = f"{name}_{function.selectors[0][2:]}"
 
+    prepared = [prepare_function(context, function) for function in program.functions]
+    summaries = memory_summaries(context, prepared)
     views = [
-        lift_function(context, function, signatures.get(function.id))
-        for function in program.functions
+        finish_function(context, entry, signatures.get(entry.function.id), summaries)
+        for entry in prepared
     ]
     storage = name_storage_from_getters(views)
     declarations, field_types = storage_declarations(views, context, storage)
@@ -177,14 +213,19 @@ def render_decompiled(
     accounted |= {sid for view in views for sid in view.argument_evidence}
     structural = classify_unprinted(context, accounted)
     accounted |= {sid for ids in structural.values() for sid in ids}
-    return out.text(), {
+    mapping = {
         "schema_version": 1,
         "view": "decompiled",
         "legend": LEGEND,
         "lines": out.entries,
         "elided": elided,
         "argument_types": [
-            {"function": v.function.id, **asdict(a), "evidence": sorted(a.evidence)}
+            {
+                "function": v.function.id,
+                **{k: x for k, x in asdict(a).items() if k != "definition"},
+                "definition": expression(a.definition) if a.definition is not None else None,
+                "evidence": sorted(a.evidence),
+            }
             for v in views
             for a in v.arguments
         ],
@@ -193,6 +234,7 @@ def render_decompiled(
         "names": names.metadata(),
         "unaccounted_ir_statements": sorted(set(context.statements) - accounted),
     }
+    return DecompiledProgram(context, views, storage, out.text(), mapping)
 
 
 def classify_unprinted(context: ProgramContext, accounted: set[str]) -> dict[str, set[str]]:
@@ -230,9 +272,15 @@ def classify_unprinted(context: ProgramContext, accounted: set[str]) -> dict[str
     return result
 
 
-def lift_function(
-    context: ProgramContext, function: Function, signature: str | None
-) -> FunctionView:
+@dataclass
+class _Prepared:
+    function: Function
+    lifter: FunctionLifter
+    item: object
+    state: FunctionState
+
+
+def prepare_function(context: ProgramContext, function: Function) -> _Prepared:
     lifter = FunctionLifter(context, function)
     item = lifter.lift()
     state = FunctionState(item.body)
@@ -241,7 +289,39 @@ def lift_function(
     drop_trivial_requires(state)
     remove_unused_reads(state)
     single_use_inline(state)
-    absorb_memory_plumbing(state, lifter.consumer_writers, lifter.abstracted)
+    return _Prepared(function, lifter, item, state)
+
+
+def memory_summaries(context: ProgramContext, prepared: list[_Prepared]) -> Summaries:
+    functions = {}
+    for entry in prepared:
+        free_pointer_vars = {
+            stmt.targets[0].name
+            for stmt in iter_statements(entry.state.body)
+            if isinstance(stmt, Assign)
+            and len(stmt.targets) == 1
+            and is_local(stmt.targets[0])
+            and is_free_pointer_read(stmt.value)
+        }
+        functions[context.function_names[entry.function.id]] = (
+            entry.state.body,
+            AddressModel(free_pointer_vars),
+        )
+    return compute_summaries(functions)
+
+
+def finish_function(
+    context: ProgramContext, entry: _Prepared, signature: str | None, summaries: Summaries
+) -> FunctionView:
+    lifter, item, state, function = entry.lifter, entry.item, entry.state, entry.function
+    absorb_memory_plumbing(
+        state,
+        lifter.consumer_writers,
+        lifter.abstracted,
+        frozenset(context.function_names.values()),
+        summaries,
+        context.function_names[function.id],
+    )
     single_use_inline(state)
     short_circuit(state)
     single_use_inline(state)
@@ -251,6 +331,15 @@ def lift_function(
     leading_callvalue_check(state)
     trailing_stop(state)
     typed = type_variables(state, [arg.name for arg in item.arguments])
+    for name, value in typed.items():
+        value.kind = lifter.argument_kinds.get(name, "word")
+        value.definition = lifter.argument_definitions.get(name)
+        if value.kind in {"array", "struct"} and value.type == "uint256":
+            value.type = "dynamic"
+            value.reason = (
+                "native ABI model: calldata position of a dynamic argument (offset + 4); "
+                "element types unresolved"
+            )
     remove_unused_reads(state)
     loop_conditions(state)
     return FunctionView(
@@ -461,4 +550,4 @@ def used_events(views: list[FunctionView], names: Names) -> list[str]:
     return lines
 
 
-__all__ = ["remove_unused_reads", "render_decompiled"]
+__all__ = ["DecompiledProgram", "build_decompiled", "remove_unused_reads", "render_decompiled"]

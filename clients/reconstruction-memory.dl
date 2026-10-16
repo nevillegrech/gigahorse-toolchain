@@ -35,3 +35,15 @@ SemanticMemoryReturnArray(stmt, index / 32, variable) :-
 .output SemanticMemoryReturnWrite
 SemanticMemoryReturnWrite(stmt, writer, offset, low, high) :-
   RETURN(stmt, _, _), MemWriteToMemConsStmtResolved(writer, stmt, offset, low, high).
+
+// Optional writer -> consumer links, independently versioned (version 1).
+// A consumer is a memory-reading statement (LOG/RETURN/SHA3/CALL/REVERT ...);
+// offset is the written word's position relative to the consumer's start.
+.decl SemanticMemoryLinkSchema(version: number)
+.output SemanticMemoryLinkSchema
+SemanticMemoryLinkSchema(1).
+
+.decl SemanticMemoryConsumerWrite(consumer: Statement, writer: Statement, offset: number, low: number, high: number)
+.output SemanticMemoryConsumerWrite
+SemanticMemoryConsumerWrite(consumer, writer, offset, low, high) :-
+  MemWriteToMemConsStmtResolved(writer, consumer, offset, low, high).

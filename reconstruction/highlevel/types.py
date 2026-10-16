@@ -31,6 +31,7 @@ from .ir import (
     Unary,
     Var,
     While,
+    is_local,
 )
 from .passes import (
     FunctionState,
@@ -63,7 +64,8 @@ def map_statement_exprs(stmt: Stmt, fn: Callable[[Expr], Expr]) -> None:
         return simplify(map_expr(expr, fn))
 
     if isinstance(stmt, Assign):
-        stmt.targets = tuple(t if isinstance(t, Var) else m(t) for t in stmt.targets)
+        # Storage roots are renamed like any expression; locals stay bound.
+        stmt.targets = tuple(t if is_local(t) else m(t) for t in stmt.targets)
         stmt.value = m(stmt.value)
     elif isinstance(stmt, ParallelAssign):
         stmt.values = tuple(m(v) for v in stmt.values)
@@ -100,6 +102,13 @@ class TypedValue:
     type: str
     evidence: frozenset[str] = frozenset()
     reason: str = "no width evidence; raw 32-byte word"
+    # How the bytecode enforces the type: "mask" (cleaned at every use),
+    # "revert" (ABI validator at entry) or None (raw word).
+    enforcement: str | None = None
+    # Native argument kind ("word", "array", "struct") and the IR expression
+    # that computes the value from calldata (e.g. msg.data[4] + 4 for arrays).
+    kind: str = "word"
+    definition: Expr | None = None
 
 
 def _occurrences(statements: list[Stmt], name: str) -> list[Expr | None]:
@@ -143,11 +152,22 @@ def _validator(stmt: Stmt, name: str) -> str | None:
     return None
 
 
+def _entry_validators(body: list[Stmt], name: str) -> list[Stmt]:
+    """Validators in the effect-free prefix of the body (where solc's ABI decoder runs)."""
+    found = []
+    for stmt in body:
+        if _validator(stmt, name):
+            found.append(stmt)
+        elif not (isinstance(stmt, Require) or type(stmt).__name__ == "Comment"):
+            break
+    return found
+
+
 def type_variables(state: FunctionState, names: list[str]) -> dict[str, TypedValue]:
     result: dict[str, TypedValue] = {}
     for name in names:
         typed = TypedValue(name, "uint256")
-        validators = [s for s in iter_statements(state.body) if _validator(s, name)]
+        validators = _entry_validators(state.body, name)
         casts = {_validator(s, name) for s in validators}
         if len(casts) == 1 and validators:
             cast = next(iter(casts))
@@ -156,7 +176,8 @@ def type_variables(state: FunctionState, names: list[str]) -> dict[str, TypedVal
                 name,
                 cast,
                 frozenset().union(*(statement_ids(s) for s in validators)),
-                f"ABI decoder check require({name} == {cast}({name}))",
+                f"ABI decoder check require({name} == {cast}({name})) at function entry",
+                "revert",
             )
             removed = {id(s) for s in validators}
             state.body = map_bodies(
@@ -175,7 +196,9 @@ def type_variables(state: FunctionState, names: list[str]) -> dict[str, TypedVal
                 and all(isinstance(p, Call) and p.name in kinds for p in parents)
             ):
                 cast = next(iter(kinds))
-                typed = TypedValue(name, cast, frozenset(), f"every use is masked by {cast}(...)")
+                typed = TypedValue(
+                    name, cast, frozenset(), f"every use is masked by {cast}(...)", "mask"
+                )
             elif parents and all(isinstance(p, Unary) and p.op == "!" for p in parents):
                 typed = TypedValue(name, "bool", frozenset(), "used only as a truth value")
         if typed.type != "uint256":
