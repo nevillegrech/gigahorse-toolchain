@@ -126,7 +126,7 @@
     },
     {
       "id": "compound-ceth",
-      "seconds": 3.5,
+      "seconds": 3.7,
       "peak_rss_gb": 0.18,
       "status": "ok",
       "decompiled_code_lines": 1894,
@@ -204,7 +204,7 @@
     },
     {
       "id": "uniswap-v2-router02",
-      "seconds": 3.0,
+      "seconds": 3.1,
       "peak_rss_gb": 0.15,
       "status": "ok",
       "decompiled_code_lines": 1330,

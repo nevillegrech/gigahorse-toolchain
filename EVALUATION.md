@@ -734,9 +734,9 @@ Router02 reads close to its source after these changes:
 
 The remaining seven contracts are analyzed in run 2 below.
 
-**Re-rendered after the size limits** (`results/run1-rerendered-limits.json`,
-code b5a9a9d, same saved relations): 0 wrong claims on all five; code lines
-unchanged (399, 296, 1,894, 1,330, 488).
+**Re-rendered after the size limits and the robustness fixes below**
+(`results/run1-rerendered-limits.json`, code 7000f4a, same saved relations):
+0 wrong claims on all five; code lines unchanged (399, 296, 1,894, 1,330, 488).
 
 
 ## Held-out run 2: the seven remaining contracts (first scores)

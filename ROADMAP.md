@@ -59,6 +59,14 @@ that gives Dedaub's Morpho output 192 (the table above left out closing braces).
 | Behavioral confidence | The interpreter executes the coders with solc's checks in order, allocations and memory writes; constant pointers folded by the analysis are checked. Morpho: 171 cases incl. one malformed callback per decoder check; Router02 (new calibration fixture): 65 cases, 101 calls, every `pairFor` target compared with Py-EVM. Cross-check unchanged: 1,079 agreeing, 0 unsupported. Found and fixed: private mask-typed parameters were not cast when executed | Bounded inputs; coders are matched only in the forms seen so far |
 | Held-out accuracy | Re-render of the five analyzed contracts at 6032b68: 0 wrong claims | Seven contracts still unanalyzed |
 
+### Status update 2026-10-16 (evening): held-out run 2 and the first Dedaub comparison
+
+| Requirement | New evidence | Still open |
+| --- | --- | --- |
+| Robustness | Inlined values over 128 nodes print as locals and canonical codec forms over 256 nodes become atoms (V3 pool render: >6 GB killed -> 3 s, 0.13 GB); one-operand IR stores stay UNCERTAIN raw operations; an IR operand with several values becomes an unordered PHI (never a choice); one failing function prints an UNCERTAIN stub; relations are kept when a step after Gigahorse fails. Held-out batch: per-contract cgroup memory cap, wall-clock limit, failure kinds and peak memory in the report | Gigahorse's own memory on 1inch (15.9 GB); Vyper dispatcher |
+| Held-out accuracy | Run 2, first scores before any Dedaub export was opened (`results/run2.json`): 5 of 7 produced output, 112/113 selectors, 99 names correct, 12 wrong claims (V3 `uint160` as `address`, Seaport collision names); Curve and 1inch failed (fixed afterwards: `results/run2-after-fixes.json`). The five run-1 contracts: still 0 wrong claims | Static-struct arguments (1inch arity), `uint160` vs `address`, signature coverage |
+| Dedaub parity | Same-bytecode comparison on all seven (`results/run2-dedaub-comparison.json`): 22,012 vs 12,671 code lines, raw share 38% vs 26%, names 120 vs 154 of 196, wrong claims 17 vs 19 (payability 0 vs 26), decoded revert reasons 103 vs 73 | **Not at parity**: memory allocations as objects, custom error/event/parameter names, Vyper, large assembly-heavy contracts |
+
 Next priority: investigate the NFT receiver callback's unresolved PHI; add successful
 NFT mint/transfer/receiver and multisig behavior checks; improve dynamic encoders,
 interprocedural authority

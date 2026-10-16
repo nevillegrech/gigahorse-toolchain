@@ -29,8 +29,12 @@ input/output paths. Inferred role names do not establish admin privileges.
 It is **not yet Dedaub-quality Solidity reconstruction**, compilable Solidity,
 or a proof that all original behavior was recovered. The full objective and
 remaining acceptance evidence are tracked in [ROADMAP.md](ROADMAP.md).
-Eight deployed-contract evaluations, their concrete gaps and the pending
-Dedaub comparison are documented in [EVALUATION.md](EVALUATION.md). The second
+Eight deployed-contract evaluations and their concrete gaps are documented in
+[EVALUATION.md](EVALUATION.md). It also holds the first same-bytecode Dedaub
+comparison on held-out contracts (seven mainnet runtimes, user-supplied Dedaub
+exports): comparable accuracy (17 wrong claims against Dedaub's 19), but 1.7
+times as many code lines, more raw memory operations and fewer names, so not
+at parity. The second
 selection was frozen before analysis; three runtimes are absent from upstream
 regressions, while WETH is a retained upstream duplicate. All 92 expected
 selectors in that selection are recovered, with 120 of 121 functions fully
