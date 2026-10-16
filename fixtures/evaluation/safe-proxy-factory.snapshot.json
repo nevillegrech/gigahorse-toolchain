@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "bytecode_sha256": "e65b9e4c5f3f01d7c376bd450ca68131be341274377e7cee8338a5e6744a1bea",
+  "semantic_schema": 3,
+  "tables": {
+    "relations": "6ac91edead73af5f002ce2ff52ed5919b66628fe847870da644b46a9dee4b3d9",
+    "semantic": "14b526fd53547dfa8d6d09a6a24f819e47904f851d857ea7b41ee5ff8dd40b25"
+  },
+  "source_bundle": "artifacts/evaluation-revert-release/safe-proxy-factory/bundle",
+  "evaluation_scope": "Calibration regression snapshot, not a new unseen contract"
+}

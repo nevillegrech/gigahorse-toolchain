@@ -1,0 +1,1239 @@
+{
+  "schema_version": 1,
+  "selection_id": "deployed-contracts-second-selection-2026-10-15",
+  "id": "safe-singleton-v1-3",
+  "chain_id": 1,
+  "address": "0xd9db270c1b5e3bd161e8c8503c55ceabee709552",
+  "bytecode_sha256": "2c242392114e17787f9b23e6cbbab269d734c5483753277932545332f4d77afb",
+  "bytecode_size": 22958,
+  "provenance": {
+    "url": "https://sourcify.dev/server/v2/contract/1/0xd9db270c1b5e3bd161e8c8503c55ceabee709552?fields=runtimeBytecode.onchainBytecode%2Cabi%2Ccompilation%2Csignatures.function%2Cdeployment",
+    "retrieved_at": "2026-10-16T04:48:08.031607+00:00",
+    "response_sha256": "4fa6768f69068b4a361897a9800351950269589cd930fad79ec435243eb66697"
+  },
+  "bytecode_origin": "Sourcify's archived onchain runtime, locked by hash; not a fresh or historical-block RPC verification",
+  "runtime_match": "exact_match",
+  "verified_at": "2024-08-08T11:21:32Z",
+  "match_id": "429101",
+  "deployment": {
+    "transactionHash": "0x0b04589bdc11585fb98f270b1bfeff0fb3bbb3c56d35b104f62d8115d6f7c57f",
+    "blockNumber": "12504268",
+    "transactionIndex": "12",
+    "deployer": "0xD7Df5bf3B8d2bd159664dF54A30101d7FAF6cA26"
+  },
+  "compilation": {
+    "language": "Solidity",
+    "compiler": "solc",
+    "compilerVersion": "0.7.6+commit.7338295f",
+    "compilerSettings": {
+      "metadata": {
+        "bytecodeHash": "ipfs",
+        "useLiteralContent": true
+      },
+      "libraries": {},
+      "optimizer": {
+        "runs": 200,
+        "enabled": false
+      },
+      "evmVersion": "istanbul",
+      "remappings": []
+    },
+    "name": "GnosisSafe",
+    "fullyQualifiedName": "contracts/GnosisSafe.sol:GnosisSafe"
+  },
+  "abi": [
+    {
+      "type": "constructor",
+      "inputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "name": "AddedOwner",
+      "type": "event",
+      "inputs": [
+        {
+          "name": "owner",
+          "type": "address",
+          "indexed": false,
+          "internalType": "address"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "name": "ApproveHash",
+      "type": "event",
+      "inputs": [
+        {
+          "name": "approvedHash",
+          "type": "bytes32",
+          "indexed": true,
+          "internalType": "bytes32"
+        },
+        {
+          "name": "owner",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "name": "ChangedFallbackHandler",
+      "type": "event",
+      "inputs": [
+        {
+          "name": "handler",
+          "type": "address",
+          "indexed": false,
+          "internalType": "address"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "name": "ChangedGuard",
+      "type": "event",
+      "inputs": [
+        {
+          "name": "guard",
+          "type": "address",
+          "indexed": false,
+          "internalType": "address"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "name": "ChangedThreshold",
+      "type": "event",
+      "inputs": [
+        {
+          "name": "threshold",
+          "type": "uint256",
+          "indexed": false,
+          "internalType": "uint256"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "name": "DisabledModule",
+      "type": "event",
+      "inputs": [
+        {
+          "name": "module",
+          "type": "address",
+          "indexed": false,
+          "internalType": "address"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "name": "EnabledModule",
+      "type": "event",
+      "inputs": [
+        {
+          "name": "module",
+          "type": "address",
+          "indexed": false,
+          "internalType": "address"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "name": "ExecutionFailure",
+      "type": "event",
+      "inputs": [
+        {
+          "name": "txHash",
+          "type": "bytes32",
+          "indexed": false,
+          "internalType": "bytes32"
+        },
+        {
+          "name": "payment",
+          "type": "uint256",
+          "indexed": false,
+          "internalType": "uint256"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "name": "ExecutionFromModuleFailure",
+      "type": "event",
+      "inputs": [
+        {
+          "name": "module",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "name": "ExecutionFromModuleSuccess",
+      "type": "event",
+      "inputs": [
+        {
+          "name": "module",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "name": "ExecutionSuccess",
+      "type": "event",
+      "inputs": [
+        {
+          "name": "txHash",
+          "type": "bytes32",
+          "indexed": false,
+          "internalType": "bytes32"
+        },
+        {
+          "name": "payment",
+          "type": "uint256",
+          "indexed": false,
+          "internalType": "uint256"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "name": "RemovedOwner",
+      "type": "event",
+      "inputs": [
+        {
+          "name": "owner",
+          "type": "address",
+          "indexed": false,
+          "internalType": "address"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "name": "SafeReceived",
+      "type": "event",
+      "inputs": [
+        {
+          "name": "sender",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "value",
+          "type": "uint256",
+          "indexed": false,
+          "internalType": "uint256"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "name": "SafeSetup",
+      "type": "event",
+      "inputs": [
+        {
+          "name": "initiator",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "owners",
+          "type": "address[]",
+          "indexed": false,
+          "internalType": "address[]"
+        },
+        {
+          "name": "threshold",
+          "type": "uint256",
+          "indexed": false,
+          "internalType": "uint256"
+        },
+        {
+          "name": "initializer",
+          "type": "address",
+          "indexed": false,
+          "internalType": "address"
+        },
+        {
+          "name": "fallbackHandler",
+          "type": "address",
+          "indexed": false,
+          "internalType": "address"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "name": "SignMsg",
+      "type": "event",
+      "inputs": [
+        {
+          "name": "msgHash",
+          "type": "bytes32",
+          "indexed": true,
+          "internalType": "bytes32"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "fallback",
+      "stateMutability": "nonpayable"
+    },
+    {
+      "name": "VERSION",
+      "type": "function",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "string",
+          "internalType": "string"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "name": "addOwnerWithThreshold",
+      "type": "function",
+      "inputs": [
+        {
+          "name": "owner",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "_threshold",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "name": "approveHash",
+      "type": "function",
+      "inputs": [
+        {
+          "name": "hashToApprove",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "name": "approvedHashes",
+      "type": "function",
+      "inputs": [
+        {
+          "name": "",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "name": "changeThreshold",
+      "type": "function",
+      "inputs": [
+        {
+          "name": "_threshold",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "name": "checkNSignatures",
+      "type": "function",
+      "inputs": [
+        {
+          "name": "dataHash",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        },
+        {
+          "name": "data",
+          "type": "bytes",
+          "internalType": "bytes"
+        },
+        {
+          "name": "signatures",
+          "type": "bytes",
+          "internalType": "bytes"
+        },
+        {
+          "name": "requiredSignatures",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "view"
+    },
+    {
+      "name": "checkSignatures",
+      "type": "function",
+      "inputs": [
+        {
+          "name": "dataHash",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        },
+        {
+          "name": "data",
+          "type": "bytes",
+          "internalType": "bytes"
+        },
+        {
+          "name": "signatures",
+          "type": "bytes",
+          "internalType": "bytes"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "view"
+    },
+    {
+      "name": "disableModule",
+      "type": "function",
+      "inputs": [
+        {
+          "name": "prevModule",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "module",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "name": "domainSeparator",
+      "type": "function",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "name": "enableModule",
+      "type": "function",
+      "inputs": [
+        {
+          "name": "module",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "name": "encodeTransactionData",
+      "type": "function",
+      "inputs": [
+        {
+          "name": "to",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "value",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "data",
+          "type": "bytes",
+          "internalType": "bytes"
+        },
+        {
+          "name": "operation",
+          "type": "uint8",
+          "internalType": "enum Enum.Operation"
+        },
+        {
+          "name": "safeTxGas",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "baseGas",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "gasPrice",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "gasToken",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "refundReceiver",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "_nonce",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "bytes",
+          "internalType": "bytes"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "name": "execTransaction",
+      "type": "function",
+      "inputs": [
+        {
+          "name": "to",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "value",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "data",
+          "type": "bytes",
+          "internalType": "bytes"
+        },
+        {
+          "name": "operation",
+          "type": "uint8",
+          "internalType": "enum Enum.Operation"
+        },
+        {
+          "name": "safeTxGas",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "baseGas",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "gasPrice",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "gasToken",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "refundReceiver",
+          "type": "address",
+          "internalType": "address payable"
+        },
+        {
+          "name": "signatures",
+          "type": "bytes",
+          "internalType": "bytes"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "success",
+          "type": "bool",
+          "internalType": "bool"
+        }
+      ],
+      "stateMutability": "payable"
+    },
+    {
+      "name": "execTransactionFromModule",
+      "type": "function",
+      "inputs": [
+        {
+          "name": "to",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "value",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "data",
+          "type": "bytes",
+          "internalType": "bytes"
+        },
+        {
+          "name": "operation",
+          "type": "uint8",
+          "internalType": "enum Enum.Operation"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "success",
+          "type": "bool",
+          "internalType": "bool"
+        }
+      ],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "name": "execTransactionFromModuleReturnData",
+      "type": "function",
+      "inputs": [
+        {
+          "name": "to",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "value",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "data",
+          "type": "bytes",
+          "internalType": "bytes"
+        },
+        {
+          "name": "operation",
+          "type": "uint8",
+          "internalType": "enum Enum.Operation"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "success",
+          "type": "bool",
+          "internalType": "bool"
+        },
+        {
+          "name": "returnData",
+          "type": "bytes",
+          "internalType": "bytes"
+        }
+      ],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "name": "getChainId",
+      "type": "function",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "name": "getModulesPaginated",
+      "type": "function",
+      "inputs": [
+        {
+          "name": "start",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "pageSize",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "array",
+          "type": "address[]",
+          "internalType": "address[]"
+        },
+        {
+          "name": "next",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "name": "getOwners",
+      "type": "function",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "address[]",
+          "internalType": "address[]"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "name": "getStorageAt",
+      "type": "function",
+      "inputs": [
+        {
+          "name": "offset",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "length",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "bytes",
+          "internalType": "bytes"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "name": "getThreshold",
+      "type": "function",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "name": "getTransactionHash",
+      "type": "function",
+      "inputs": [
+        {
+          "name": "to",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "value",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "data",
+          "type": "bytes",
+          "internalType": "bytes"
+        },
+        {
+          "name": "operation",
+          "type": "uint8",
+          "internalType": "enum Enum.Operation"
+        },
+        {
+          "name": "safeTxGas",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "baseGas",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "gasPrice",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "gasToken",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "refundReceiver",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "_nonce",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "name": "isModuleEnabled",
+      "type": "function",
+      "inputs": [
+        {
+          "name": "module",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "bool",
+          "internalType": "bool"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "name": "isOwner",
+      "type": "function",
+      "inputs": [
+        {
+          "name": "owner",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "bool",
+          "internalType": "bool"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "name": "nonce",
+      "type": "function",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "name": "removeOwner",
+      "type": "function",
+      "inputs": [
+        {
+          "name": "prevOwner",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "owner",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "_threshold",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "name": "requiredTxGas",
+      "type": "function",
+      "inputs": [
+        {
+          "name": "to",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "value",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "data",
+          "type": "bytes",
+          "internalType": "bytes"
+        },
+        {
+          "name": "operation",
+          "type": "uint8",
+          "internalType": "enum Enum.Operation"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "name": "setFallbackHandler",
+      "type": "function",
+      "inputs": [
+        {
+          "name": "handler",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "name": "setGuard",
+      "type": "function",
+      "inputs": [
+        {
+          "name": "guard",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "name": "setup",
+      "type": "function",
+      "inputs": [
+        {
+          "name": "_owners",
+          "type": "address[]",
+          "internalType": "address[]"
+        },
+        {
+          "name": "_threshold",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "to",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "data",
+          "type": "bytes",
+          "internalType": "bytes"
+        },
+        {
+          "name": "fallbackHandler",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "paymentToken",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "payment",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "paymentReceiver",
+          "type": "address",
+          "internalType": "address payable"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "name": "signedMessages",
+      "type": "function",
+      "inputs": [
+        {
+          "name": "",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "name": "simulateAndRevert",
+      "type": "function",
+      "inputs": [
+        {
+          "name": "targetContract",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "calldataPayload",
+          "type": "bytes",
+          "internalType": "bytes"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "name": "swapOwner",
+      "type": "function",
+      "inputs": [
+        {
+          "name": "prevOwner",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "oldOwner",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "newOwner",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "receive",
+      "stateMutability": "payable"
+    }
+  ],
+  "functions": [
+    {
+      "signature": "addOwnerWithThreshold(address,uint256)",
+      "signatureHash4": "0x0d582f13",
+      "signatureHash32": "0x0d582f13d757778d349075a68bf5d92ef44d17aa3b3ca38da8eb82cb56c41c90"
+    },
+    {
+      "signature": "approvedHashes(address,bytes32)",
+      "signatureHash4": "0x7d832974",
+      "signatureHash32": "0x7d832974bd063e6a2594c1d7cb7da7aab30c08cf56fc44b560f2ab493dd3be58"
+    },
+    {
+      "signature": "approveHash(bytes32)",
+      "signatureHash4": "0xd4d9bdcd",
+      "signatureHash32": "0xd4d9bdcdbbdc7a7b6ca8edc5fb36d61bcf0b99df382ed0dc7360c2f40563c463"
+    },
+    {
+      "signature": "changeThreshold(uint256)",
+      "signatureHash4": "0x694e80c3",
+      "signatureHash32": "0x694e80c37192d74d6099f3d3b41506932ab644a24442ee51857cfeb9eb01ac2f"
+    },
+    {
+      "signature": "checkNSignatures(bytes32,bytes,bytes,uint256)",
+      "signatureHash4": "0x12fb68e0",
+      "signatureHash32": "0x12fb68e0e9dc7bcb33c2f1c162cf4b47930f6ff15f40752ed13dde7155a43d3c"
+    },
+    {
+      "signature": "checkSignatures(bytes32,bytes,bytes)",
+      "signatureHash4": "0x934f3a11",
+      "signatureHash32": "0x934f3a11a237ee4dc58ccbf4a176c1bf45e9812cf3610d0e7706ca3b1d9b638f"
+    },
+    {
+      "signature": "disableModule(address,address)",
+      "signatureHash4": "0xe009cfde",
+      "signatureHash32": "0xe009cfde76304ae4f68fc946b1f438cd7befba1599b95737584c332ee622b629"
+    },
+    {
+      "signature": "domainSeparator()",
+      "signatureHash4": "0xf698da25",
+      "signatureHash32": "0xf698da25080443c6bffafcf634995167d333e28993ac838246dcb9ed5554fc80"
+    },
+    {
+      "signature": "enableModule(address)",
+      "signatureHash4": "0x610b5925",
+      "signatureHash32": "0x610b5925afff994a89367f36d1195efacee9e03780fb400aacb2ff998042ec35"
+    },
+    {
+      "signature": "encodeTransactionData(address,uint256,bytes,uint8,uint256,uint256,uint256,address,address,uint256)",
+      "signatureHash4": "0xe86637db",
+      "signatureHash32": "0xe86637db03443ee02ca0c3887028f03a3c8e483d724f4e11f6bc13a0e67f746a"
+    },
+    {
+      "signature": "execTransaction(address,uint256,bytes,uint8,uint256,uint256,uint256,address,address,bytes)",
+      "signatureHash4": "0x6a761202",
+      "signatureHash32": "0x6a761202de7c35c7e1ec7400f298161946f2c5e94981ea3013d935de1cb971bd"
+    },
+    {
+      "signature": "execTransactionFromModule(address,uint256,bytes,uint8)",
+      "signatureHash4": "0x468721a7",
+      "signatureHash32": "0x468721a7a101c0ac91d27acce9b8b69c104c9d5c990c53e0375b98d5668d392d"
+    },
+    {
+      "signature": "execTransactionFromModuleReturnData(address,uint256,bytes,uint8)",
+      "signatureHash4": "0x5229073f",
+      "signatureHash32": "0x5229073fe18381834382089da0132464ea42ff006a844f50d7e26f54498dd58c"
+    },
+    {
+      "signature": "getChainId()",
+      "signatureHash4": "0x3408e470",
+      "signatureHash32": "0x3408e4702423b789399bcb518d9f418e53dc19e630f4780d18b4e2b686c72d7b"
+    },
+    {
+      "signature": "getModulesPaginated(address,uint256)",
+      "signatureHash4": "0xcc2f8452",
+      "signatureHash32": "0xcc2f845275693f86b592dee21f0a346c1ad9fdf03787b6a6e0171d024b0ec8d4"
+    },
+    {
+      "signature": "getOwners()",
+      "signatureHash4": "0xa0e67e2b",
+      "signatureHash32": "0xa0e67e2bdc0a6d8a09ccd6c353c9df590807ad66ff5e6630c4f31a86dfa84821"
+    },
+    {
+      "signature": "getStorageAt(uint256,uint256)",
+      "signatureHash4": "0x5624b25b",
+      "signatureHash32": "0x5624b25bc1bf07b072bfdf389bf62b2f9ab16cda47f8f53ae0a4175a8a55a8d8"
+    },
+    {
+      "signature": "getThreshold()",
+      "signatureHash4": "0xe75235b8",
+      "signatureHash32": "0xe75235b8e3646246bff01a77976826b2f4773b4878796da11bfdcd9fbd68e83f"
+    },
+    {
+      "signature": "getTransactionHash(address,uint256,bytes,uint8,uint256,uint256,uint256,address,address,uint256)",
+      "signatureHash4": "0xd8d11f78",
+      "signatureHash32": "0xd8d11f786b243022ceb2ed0c945f49b175419eab6a0c57d843e579bf5e89d9fb"
+    },
+    {
+      "signature": "isModuleEnabled(address)",
+      "signatureHash4": "0x2d9ad53d",
+      "signatureHash32": "0x2d9ad53d60e17f43d42ff484d2a1f1c73f644736a41fd08c4c16c8d2e0f77fb8"
+    },
+    {
+      "signature": "isOwner(address)",
+      "signatureHash4": "0x2f54bf6e",
+      "signatureHash32": "0x2f54bf6efe3c885d4f7c60dd2b62f9e1c8e834c7152c314a797c4d0e05c447cf"
+    },
+    {
+      "signature": "nonce()",
+      "signatureHash4": "0xaffed0e0",
+      "signatureHash32": "0xaffed0e0ba94adda3772e73093f9f42c54ccf7ebf1e7dabc728520a58f80bdf5"
+    },
+    {
+      "signature": "removeOwner(address,address,uint256)",
+      "signatureHash4": "0xf8dc5dd9",
+      "signatureHash32": "0xf8dc5dd91c83c64a09d4878e686963ef56fde408d6dfdfe8047e612cc3e3702b"
+    },
+    {
+      "signature": "requiredTxGas(address,uint256,bytes,uint8)",
+      "signatureHash4": "0xc4ca3a9c",
+      "signatureHash32": "0xc4ca3a9ca550531eca35ce3a7618820d0b1aecf8b42ac776390e284790ec7807"
+    },
+    {
+      "signature": "setFallbackHandler(address)",
+      "signatureHash4": "0xf08a0323",
+      "signatureHash32": "0xf08a03231ec06525bd86d3ba6c67b1aac4d10a6a6d23b5e43a754b5309a0e066"
+    },
+    {
+      "signature": "setGuard(address)",
+      "signatureHash4": "0xe19a9dd9",
+      "signatureHash32": "0xe19a9dd9915bcd0262210387ba8f90d343aab4a5989aaae0ed7f2b6edddaff1a"
+    },
+    {
+      "signature": "setup(address[],uint256,address,bytes,address,address,uint256,address)",
+      "signatureHash4": "0xb63e800d",
+      "signatureHash32": "0xb63e800d34f56a9238e5b86a8547a23865164bec371bede606e899182da118bf"
+    },
+    {
+      "signature": "signedMessages(bytes32)",
+      "signatureHash4": "0x5ae6bd37",
+      "signatureHash32": "0x5ae6bd3705ee75cd165eda53b79253ed37eeb90f21e7a97decbff365f40ad4f4"
+    },
+    {
+      "signature": "simulateAndRevert(address,bytes)",
+      "signatureHash4": "0xb4faba09",
+      "signatureHash32": "0xb4faba09858a50d5532736e5e517e38076faf32a2c71fdc38d46d502607470ec"
+    },
+    {
+      "signature": "swapOwner(address,address,address)",
+      "signatureHash4": "0xe318b52b",
+      "signatureHash32": "0xe318b52b9bee2870ac7ee0af86866eb2e8f9569b34de6028eb487e7983ba6df8"
+    },
+    {
+      "signature": "VERSION()",
+      "signatureHash4": "0xffa1ad74",
+      "signatureHash32": "0xffa1ad74ba96b4c159a84d090433911c3991c54f629eb60d0c84aed3be5f067c"
+    }
+  ],
+  "upstream_bytecode_duplicates": [],
+  "analysis_inputs": [
+    "safe-singleton-v1-3.hex"
+  ],
+  "ground_truth_supplied_to_reconstructor": false
+}

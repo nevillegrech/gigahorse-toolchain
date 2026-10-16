@@ -1,0 +1,98 @@
+// Stable semantic export for the local reconstruction frontend.
+// Keep this contract independent of DEBUG_OUTPUT and upstream diagnostics.
+#include "../clientlib/decompiler_imports.dl"
+#include "../clientlib/guards.dl"
+#include "reconstruction-copies.dl"
+#include "reconstruction-memory.dl"
+
+.decl SemanticSchema(version: number)
+.output SemanticSchema
+SemanticSchema(3).
+
+.decl SemanticStoragePath(stmt: Statement, kind: symbol, loc: StorageLocation, index: StorageIndex, construct: StorageConstruct)
+.output SemanticStoragePath
+SemanticStoragePath(stmt, kind, loc, index, construct) :-
+  StorageStmtToIndexAndConstruct(stmt, kind, loc, index, construct).
+
+.decl SemanticStorageRead(stmt: Statement, loc: StorageLocation, construct: StorageConstruct, value: Variable)
+.output SemanticStorageRead
+SemanticStorageRead(stmt, loc, construct, value) :- StorageLoadWithLoc(stmt, loc, construct, value).
+
+.decl SemanticStorageWrite(stmt: Statement, loc: StorageLocation, construct: StorageConstruct, value: VarOrConstWrite)
+.output SemanticStorageWrite
+SemanticStorageWrite(stmt, loc, construct, value) :- StorageStoreWithLoc(stmt, loc, construct, value).
+
+.decl SemanticStorageType(loc: StorageLocation, construct: StorageConstruct, type: symbol)
+.output SemanticStorageType
+SemanticStorageType(loc, construct, type) :- StorageVariable_Type(loc, construct, type).
+SemanticStorageType(loc, construct, type) :- DataStructure_Type(loc, construct, type).
+
+.decl SemanticStorageInfo(name: symbol, loc: StorageLocation, slot: symbol, low: number, high: number)
+.output SemanticStorageInfo
+SemanticStorageInfo(name, loc, slot, low, high) :- StorageVariableInfo(name, loc, slot, low, high).
+
+.decl SemanticStorageName(loc: StorageLocation, construct: StorageConstruct, name: symbol)
+.output SemanticStorageName
+SemanticStorageName(loc, construct, name) :- Construct_TopLevelName(loc, construct, name).
+
+.decl SemanticArgument(function: Function, variable: Variable, index: number, kind: symbol)
+.output SemanticArgument
+SemanticArgument(function, variable, index, "word") :-
+  PublicFunctionArg(function, variable, index), IsPublicFunction(function),
+  !PublicFunctionArrayArg(function, variable, index),
+  !PublicFunctionStructArg(function, variable, index).
+SemanticArgument(function, variable, index, "array") :-
+  PublicFunctionArrayArg(function, variable, index), IsPublicFunction(function).
+SemanticArgument(function, variable, index, "struct") :-
+  PublicFunctionStructArg(function, variable, index), IsPublicFunction(function).
+
+.decl SemanticMemory(stmt: Statement, kind: symbol, index: number, variable: Variable)
+.output SemanticMemory
+SemanticMemory(stmt, kind, index, variable) :- StatementUsesMemory_ActualMemoryArg(stmt, kind, index, variable).
+
+.decl SemanticConstant(variable: Variable, value: Value)
+.output SemanticConstant
+SemanticConstant(variable, value) :- Variable_Value(variable, value).
+
+.decl SemanticCast(source: Variable, target: Variable, kind: symbol, bytes: number)
+.output SemanticCast
+SemanticCast(source, target, "bool", 1) :- BooleanCast(source, target).
+SemanticCast(source, target, "uint", width) :- LowBytesMaskOp(source, target, width).
+SemanticCast(source, target, "int", width) :- SignedIntCast(source, target, width).
+
+.decl SemanticVariableUse(variable: Variable, kind: symbol)
+.output SemanticVariableUse
+SemanticVariableUse(variable, kind) :- VariableUsedAs(variable, kind).
+
+.decl SemanticMustRevert(block: Block)
+.output SemanticMustRevert
+SemanticMustRevert(block) :- ThrowBlock(block).
+
+.decl SemanticSenderGuard(variable: Value, predicate: Variable)
+.output SemanticSenderGuard
+SemanticSenderGuard(variable, predicate) :- SenderGuard(variable, predicate).
+
+.decl SemanticCall(caller: Block, callee: Function)
+.output SemanticCall
+SemanticCall(caller, callee) :- CallGraphEdge(caller, callee).
+
+.decl SemanticCallReturn(caller: Block, callee: Function, continuation: Block)
+.output SemanticCallReturn
+SemanticCallReturn(caller, callee, continuation) :- FunctionCallReturn(caller, callee, continuation).
+
+// ABI-shaped call inputs are distinct from arbitrary forwarded calldata.
+.decl SemanticExternalSelector(stmt: Statement, variable: Variable)
+.output SemanticExternalSelector
+SemanticExternalSelector(stmt, variable) :-
+  CALLStatement(stmt, _), StatementUsesMemoryReadsABIEncWSelector(stmt, _),
+  StatementUsesMemory_ActualMemoryArg(stmt, _, 0, variable),
+  !ExternalCallTakesWholeCallData(stmt).
+
+.decl SemanticExternalReturn(stmt: Statement, variable: Variable, index: number)
+.output SemanticExternalReturn
+SemanticExternalReturn(stmt, variable, index) :- ExternalCall_ActualReturn(stmt, variable, index).
+
+.decl SemanticExternalMemory(stmt: Statement, writer: Statement, offset: number, low: number, high: number)
+.output SemanticExternalMemory
+SemanticExternalMemory(stmt, writer, offset, low, high) :-
+  CALLStatement(stmt, _), MemWriteToMemConsStmtResolved(writer, stmt, offset, low, high).

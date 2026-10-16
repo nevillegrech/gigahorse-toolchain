@@ -25,6 +25,7 @@ doc/source/modules
 
 # Cache dir used for souffle executables
 cache/
+/cache
 
 # Output files from decompiler
 *.facts
@@ -63,9 +64,14 @@ results.json
 
 # testing files
 .tests/**
+/.tests
 
 # default temp folder
 .temp*/
 
 # sqlite databases
 *.sqlite
+
+# Local native runtime configuration and generated reconstruction bundles
+.env.local
+artifacts/

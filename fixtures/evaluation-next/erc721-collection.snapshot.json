@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "bytecode_sha256": "d136834d7a46b4ea7751fc174edab3f3fd1dee8f79864708c58e32925da90207",
+  "semantic_schema": 3,
+  "tables": {
+    "relations": "4ca78a709652b270d6e81593eb43c7a3afbbe623d74996ddc8c2046a7eeeeceb",
+    "semantic": "e9e7dac8e6b06c3a83c414053e1a58214d3082028d131de71e3e891fe3c6631c"
+  },
+  "source_bundle": "artifacts/phi-entry-release/native-nft/bundle",
+  "evaluation_scope": "Calibration regression snapshot, not a new unseen contract"
+}

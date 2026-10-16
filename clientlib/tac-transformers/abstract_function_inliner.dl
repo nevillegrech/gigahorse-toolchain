@@ -501,7 +501,9 @@ FunCalledByDynamicCall(fun):-
     ClonedCallRets(callerBlock, _, _, _, actualRet, formalRet),
     InVar_OutVar(formalRet, callerBlock, outVar),
     !InlinedCallNeedsPHIIntroduced(callerBlock, _, _, _, _, actualRet, formalRet),
-    !ClonedCallRets(_, inStmt, _, _, _, _).
+    !ClonedCallRets(_, inStmt, _, _, _, _),
+    !CallToClonedFunction(_, inStmt, _),
+    !FunctionToInline_RetStmt(_, inStmt).
 
   Out_Statement_Uses(outStmt, phiVar, i):-
     In_Statement_Uses(inStmt, actualRet, i),
@@ -509,7 +511,9 @@ FunCalledByDynamicCall(fun):-
     ClonedCallRets(callerBlock, _, _, _, actualRet, formalRet),
     InlinedCallNeedsPHIIntroduced(callerBlock, _, _, _, _, actualRet, formalRet),
     NewPHIInfo(callerBlock, _, actualRet, _, _, phiVar, _),
-    !ClonedCallRets(_, inStmt, _, _, _, _).
+    !ClonedCallRets(_, inStmt, _, _, _, _),
+    !CallToClonedFunction(_, inStmt, _),
+    !FunctionToInline_RetStmt(_, inStmt).
 
   /* Fixing the uses of cloned calls/returns to restore the JUMP stmts */
   Out_Statement_Uses(outCall, outJumpTargetVar, 0):-
@@ -529,6 +533,57 @@ FunCalledByDynamicCall(fun):-
   Out_Statement_Uses(stmtId, useVar, -1),
   Out_Statement_Block(stmtId, phiBlock):-
     NewPHIInfo(_, _, _, phiBlock, stmtId, defVar, useVar).
+
+  // Uninlined function entries retain their distinct initial-frame input.
+  Out_PhiEntryInput(outPhi, outVar):-
+    In_PhiEntryInput(inPhi, inVar),
+    InStatement_OutStatement(inPhi, "", outPhi),
+    InVar_OutVar(inVar, "", outVar),
+    Out_Statement_Block(outPhi, outBlock), Out_FunctionEntry(outBlock),
+    Out_Statement_Uses(outPhi, outVar, -1).
+
+  // Once an entry loop is inlined, the caller supplies its first-iteration
+  // value on a concrete CFG edge; the loop back edges remain separate.
+  Out_PhiInput(outPhi, caller, actual):-
+    In_PhiEntryInput(inPhi, formal),
+    In_Statement_Block(inPhi, entry), In_FunctionEntry(entry),
+    In_InFunction(entry, callee),
+    ClonedCallArgs(caller, _, callee, _, formal),
+    InStatement_OutStatement(inPhi, caller, outPhi),
+    InVar_OutVar(formal, caller, actual),
+    Out_Statement_Block(outPhi, outBlock), Out_LocalBlockEdge(caller, outBlock),
+    Out_Statement_Uses(outPhi, actual, -1).
+
+  // Retain edge associations when statements, variables and blocks are cloned.
+  Out_PhiInput(outPhi, outPred, outVar):-
+    In_PhiInput(inPhi, inPred, inVar),
+    InStatement_OutStatement(inPhi, context, outPhi),
+    InBlock_OutBlock(inPred, context, outPred),
+    InVar_OutVar(inVar, context, outVar),
+    Out_Statement_Block(outPhi, outBlock),
+    Out_LocalBlockEdge(outPred, outBlock),
+    Out_Statement_Uses(outPhi, outVar, -1).
+
+  // An inlined call's old continuation predecessor is now a cloned return block.
+  Out_PhiInput(outPhi, outPred, outVar):-
+    In_PhiInput(inPhi, caller, inVar),
+    In_FunctionCallReturn(caller, callee, continuation),
+    FunctionToInline(callee),
+    In_Statement_Block(inPhi, continuation),
+    InStatement_OutStatement(inPhi, "", outPhi),
+    Function_Exit(callee, inExit),
+    InBlock_OutBlock(inExit, caller, outPred),
+    InVar_OutVar(inVar, "", outVar),
+    !NewPHIInfo(_, _, _, _, _, outVar, _),
+    Out_Statement_Uses(outPhi, outVar, -1).
+
+  // A new return-value PHI gets the value from the corresponding concrete exit.
+  Out_PhiInput(phi, outPred, value):-
+    NewPHIInfo(caller, callStmt, actualRet, _, phi, _, value),
+    InlinedCallNeedsPHIIntroduced(caller, callStmt, _, retStmt, _, actualRet, formalRet),
+    InVar_OutVar(formalRet, caller, value),
+    In_Statement_Block(retStmt, exitBlock),
+    InBlock_OutBlock(exitBlock, caller, outPred).
 
   .decl In_VariableHoldsJumpdest(inVar: Variable)
   In_VariableHoldsJumpdest(inVar):-

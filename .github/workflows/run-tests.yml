@@ -37,6 +37,27 @@ jobs:
       - name: Ruff format check
         run: uv run --frozen ruff format --check
 
+  reconstruction:
+    runs-on: ubuntu-latest
+    name: Reconstruction (offline regression tests)
+    needs: ruff
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --frozen --extra naming
+      # Exclude the parent conftest's native compilation fixture from offline tests.
+      - run: uv run --frozen --extra naming python -m pytest --confcutdir=reconstruction_tests reconstruction_tests
+
+  reconstruction_behavior:
+    runs-on: ubuntu-latest
+    name: Reconstruction (independent EVM behavior)
+    needs: ruff
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --frozen --extra validation
+      - run: uv run --frozen --extra validation python -m pytest --confcutdir=reconstruction_tests reconstruction_tests/test_execution.py reconstruction_tests/test_interaction_execution.py reconstruction_tests/test_copy_execution.py reconstruction_tests/test_calldata_execution.py reconstruction_tests/test_proxy_execution.py reconstruction_tests/test_pair_execution.py reconstruction_tests/test_expression_execution.py reconstruction_tests/test_alias_execution.py reconstruction_tests/test_revert_execution.py reconstruction_tests/test_revert_folding.py reconstruction_tests/test_projection.py reconstruction_tests/test_storage_reads.py reconstruction_tests/test_weth_execution.py reconstruction_tests/test_registry_execution.py reconstruction_tests/test_byte_memory.py reconstruction_tests/test_codecopy.py reconstruction_tests/test_nft_execution.py reconstruction_tests/test_phi_entry.py reconstruction_tests/test_account_observations.py reconstruction_tests/test_nft_transfer_execution.py
+
   test_souffle23:
     runs-on: ubuntu-latest
     needs: ruff

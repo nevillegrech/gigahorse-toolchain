@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "bytecode_sha256": "90bdfc1f79c0cb503c4d4b92a37c50bdcb3ef452fe378719d71db087101d165c",
+  "semantic_schema": 3,
+  "tables": {
+    "relations": "a95d7bab05c60c428c404487334bf6aee03df99e9a731299214c703c94cf2b39",
+    "semantic": "ef17d00b7a1f93a84a28968ea0938e07e6a6cf9c50aca1e4b4bc8c8c023122df"
+  },
+  "source_bundle": "artifacts/evaluation-second-baseline/ens-registry/bundle",
+  "evaluation_scope": "Calibration regression snapshot, not a new unseen contract"
+}

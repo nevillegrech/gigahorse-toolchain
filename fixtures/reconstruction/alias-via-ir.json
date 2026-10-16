@@ -1,0 +1,163 @@
+{
+  "compiler": "solc, the solidity compiler commandline interface\nVersion: 0.8.30+commit.73712a01.Linux.g++",
+  "source": "AliasFixture.sol",
+  "source_sha256": "37f73c9ade9f193cbba2151a40c5637c7735acfa332fb6ddfb15e08d471831ff",
+  "bytecode_sha256": "714748a978fb165520f037d9f4fc61ca15fbd4546bfead18990e2a4a7a46b2d0",
+  "settings": {
+    "optimizer": {
+      "enabled": true,
+      "runs": 200
+    },
+    "viaIR": true,
+    "evmVersion": "cancun",
+    "metadata": {
+      "bytecodeHash": "none",
+      "appendCBOR": false
+    },
+    "outputSelection": {
+      "*": {
+        "*": [
+          "evm.deployedBytecode.object",
+          "evm.bytecode.object",
+          "evm.methodIdentifiers",
+          "storageLayout",
+          "abi"
+        ]
+      }
+    }
+  },
+  "method_identifiers": {
+    "aliasSize(uint256,uint256,uint256)": "ae45f11a",
+    "aliasWord(uint256,uint256,uint256)": "970ee396",
+    "copyAlias(uint256,uint256,uint256,uint256)": "42118a5c",
+    "directReturn(uint256,uint256,uint256)": "3d3eb8a5"
+  },
+  "storage_layout": {
+    "storage": [],
+    "types": null
+  },
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "slotOffset",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "destination",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "value",
+          "type": "uint256"
+        }
+      ],
+      "name": "aliasSize",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "slotOffset",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "destination",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "value",
+          "type": "uint256"
+        }
+      ],
+      "name": "aliasWord",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "slotOffset",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "destination",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "value",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "size",
+          "type": "uint256"
+        }
+      ],
+      "name": "copyAlias",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "slotOffset",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "destination",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "value",
+          "type": "uint256"
+        }
+      ],
+      "name": "directReturn",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "creation_bytecode": "60808060405234601557610129908161001a8239f35b5f80fdfe60806040526004361015610011575f80fd5b5f3560e01c80633d3eb8a51461009057806342118a5c1461004f578063970ee3961461004a5763ae45f11a14610045575f80fd5b6100fa565b6100d0565b3461008c57608036600319011261008c5760806040908152600435015163112233448152604435610200908152606435906024355e515f5260205ff35b5f80fd5b3461008c5760206100a0366100b6565b9091608060405260400151916311223344835252f35b606090600319011261008c57600435906024359060443590565b3461008c576100de366100b6565b9091608060405260400151916311223344835252515f5260205ff35b3461008c57610108366100b6565b90916080604052604001519060208252602082019263112233448452525190f3"
+}

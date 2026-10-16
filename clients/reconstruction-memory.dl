@@ -1,0 +1,37 @@
+// Optional, independently versioned memory extension to the stable semantic API.
+.decl SemanticMemorySchema(version: number)
+.output SemanticMemorySchema
+SemanticMemorySchema(1).
+
+.decl SemanticMemoryArrayAlias(variable: Variable, array: ArrayVariable)
+.output SemanticMemoryArrayAlias
+SemanticMemoryArrayAlias(variable, array) :- VarIsArray(variable, array).
+
+.decl SemanticMemoryArray(array: ArrayVariable, elementSize: Value, length: Variable)
+.output SemanticMemoryArray
+SemanticMemoryArray(array, elementSize, length) :- ArrayAllocation(array, elementSize, length).
+
+.decl SemanticMemoryStruct(variable: Variable, words: number)
+.output SemanticMemoryStruct
+SemanticMemoryStruct(variable, words) :- Struct_WordWidth(variable, words).
+
+.decl SemanticMemoryStructAccess(stmt: Statement, variable: Variable, index: number, value: Variable, operation: symbol)
+.output SemanticMemoryStructAccess
+SemanticMemoryStructAccess(stmt, variable, index, value, "load") :- StructLoad(stmt, variable, index, value).
+SemanticMemoryStructAccess(stmt, variable, index, value, "store") :- StructStore(stmt, variable, index, value).
+
+.decl SemanticMemoryArrayAccess(stmt: Statement, array: ArrayVariable, index: Variable, value: Variable, operation: symbol)
+.output SemanticMemoryArrayAccess
+SemanticMemoryArrayAccess(stmt, array, index, value, "load") :- ArrayLoadAtIndex(stmt, array, index, value).
+SemanticMemoryArrayAccess(stmt, array, index, value, "store") :- ArrayStoreAtIndex(stmt, array, index, value).
+
+.decl SemanticMemoryReturnArray(stmt: Statement, index: number, variable: Variable)
+.output SemanticMemoryReturnArray
+SemanticMemoryReturnArray(stmt, index / 32, variable) :-
+  RETURN(stmt, _, _), ABIEncodedArrayIncludesArray(_, stmt, variable, index),
+  index >= 0, index % 32 = 0.
+
+.decl SemanticMemoryReturnWrite(stmt: Statement, writer: Statement, offset: number, low: number, high: number)
+.output SemanticMemoryReturnWrite
+SemanticMemoryReturnWrite(stmt, writer, offset, low, high) :-
+  RETURN(stmt, _, _), MemWriteToMemConsStmtResolved(writer, stmt, offset, low, high).

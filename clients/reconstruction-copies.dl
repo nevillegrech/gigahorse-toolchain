@@ -1,0 +1,88 @@
+// Memory-to-memory copies in the reconstruction client. Keep these extensions
+// local until wider upstream analyses have been evaluated with MCOPY included.
+#pragma once
+
+VariableLengthMemoryCopyStatement(stmt, destination, length) :-
+  MCOPY(stmt, destination, _, length).
+StatementUsesMemory_StartVar(stmt, "MCOPY", source) :- MCOPY(stmt, _, source, _).
+StatementUsesMemory_LengthVar(stmt, "MCOPY", length) :- MCOPY(stmt, _, _, length).
+StatementUsesMemoryReadsRawData(stmt, "MCOPY") :- MCOPY(stmt, _, _, _).
+
+// solc can PUSH32 an already-shifted selector instead of emitting a shift.
+// Treat its read/modify/write as a four-byte update only when all intervening
+// memory writes are excluded. Otherwise the store may restore stale bytes.
+.decl ReconstructionPrefixPartialMSTORE(store: Statement, load: Statement, prefix: Variable)
+ReconstructionPrefixPartialMSTORE(store, load, prefix) :-
+  MLOAD(load, address, loaded), MSTORE(store, address, result),
+  LocalStatementPathInBlock(load, store), !MemoryModifiedBetween(load, store),
+  LowBytesMaskOp(loaded, masked, 28),
+  (OR(_, masked, prefix, result); OR(_, prefix, masked, result)),
+  BasicVariable_Value(prefix, literal),
+  (literal = "0x0";
+   strlen(literal) > 58, strlen(literal) <= 66,
+   substr(literal, strlen(literal) - 56, 56) = "00000000000000000000000000000000000000000000000000000000").
+
+PartialMSTORE(store, load, prefix, 4) :- ReconstructionPrefixPartialMSTORE(store, load, prefix).
+
+// A fragment is either an exact 32-byte MSTORE value, a four-byte prefix of
+// such a value, or the exact four bytes of a recognized partial MSTORE.
+// Intervals are half-open, relative to the consumer's input buffer.
+.decl ReconstructionMemoryFragment(reader: Statement, offset: number, width: number, variable: Variable, encoding: symbol, writer: Statement)
+
+ReconstructionMemoryFragment(reader, offset, 32, value, "exact", writer) :-
+  MemWriteToMemConsStmtResolved(writer, reader, offset, 0, 32),
+  MSTORE(writer, _, value), !PartialMSTORE(writer, _, _, _),
+  0 <= offset, offset + 32 <= 65536.
+
+ReconstructionMemoryFragment(reader, offset, 4, value, "prefix32", writer) :-
+  MemWriteToMemConsStmtResolved(writer, reader, offset, 0, high), high >= 4,
+  MSTORE(writer, _, value), !PartialMSTORE(writer, _, _, _),
+  0 <= offset, offset + 4 <= 65536.
+
+ReconstructionMemoryFragment(reader, offset, 4, value, "exact", writer) :-
+  MemWriteToMemConsStmtResolved(writer, reader, offset, 0, 4),
+  PartialMSTORE(writer, _, value, 4),
+  !ReconstructionPrefixPartialMSTORE(writer, _, value),
+  0 <= offset, offset + 4 <= 65536.
+
+ReconstructionMemoryFragment(reader, offset, 4, value, "prefix32", writer) :-
+  MemWriteToMemConsStmtResolved(writer, reader, offset, 0, 4),
+  ReconstructionPrefixPartialMSTORE(writer, _, value),
+  0 <= offset, offset + 4 <= 65536.
+
+.decl ReconstructionCopiedFragment(reader: Statement, copy: Statement, destinationOffset: number, sourceOffset: number, width: number, variable: Variable, encoding: symbol, writer: Statement)
+
+ReconstructionCopiedFragment(reader, copy, destinationOffset, sourceOffset, width, value, encoding, writer) :-
+  MemWriteToMemConsStmtResolved(copy, reader, destinationOffset, low, high),
+  MCOPY(copy, _, _, lengthVar), Variable_Value(lengthVar, lengthHex),
+  1 = count : Variable_Value(lengthVar, _), strlen(lengthHex) <= 7,
+  length = @hex_to_number(lengthHex), 0 <= length, length <= 65536,
+  ReconstructionMemoryFragment(copy, sourceOffset, width, value, encoding, writer),
+  copy != reader, low <= sourceOffset, sourceOffset + width <= high,
+  sourceOffset + width <= length,
+  0 <= destinationOffset + sourceOffset, destinationOffset + sourceOffset + width <= 65536.
+
+// Read the source before the copy writes its destination (memmove semantics).
+// Propagate only complete fragments inside a proven, constant-length copy.
+ReconstructionMemoryFragment(reader, destinationOffset + sourceOffset, width, value, encoding, writer) :-
+  ReconstructionCopiedFragment(reader, _, destinationOffset, sourceOffset, width, value, encoding, writer).
+
+.decl ReconstructionFragmentEvidence(reader: Statement, offset: number, width: number, variable: Variable, encoding: symbol, evidence: Statement)
+ReconstructionFragmentEvidence(reader, offset, width, value, encoding, writer) :-
+  ReconstructionMemoryFragment(reader, offset, width, value, encoding, writer).
+ReconstructionFragmentEvidence(reader, destinationOffset + sourceOffset, width, value, encoding, copy) :-
+  ReconstructionCopiedFragment(reader, copy, destinationOffset, sourceOffset, width, value, encoding, _).
+ReconstructionFragmentEvidence(reader, destinationOffset + sourceOffset, width, value, encoding, evidence) :-
+  ReconstructionCopiedFragment(reader, copy, destinationOffset, sourceOffset, width, value, encoding, _),
+  ReconstructionFragmentEvidence(copy, sourceOffset, width, value, encoding, evidence).
+
+.decl SemanticCallDataFragment(stmt: Statement, offset: number, width: number, variable: Variable, encoding: symbol)
+.output SemanticCallDataFragment
+SemanticCallDataFragment(stmt, offset, width, variable, encoding) :-
+  CALLStatement(stmt, _),
+  ReconstructionMemoryFragment(stmt, offset, width, variable, encoding, _).
+
+.decl SemanticCallDataEvidence(stmt: Statement, writer: Statement)
+.output SemanticCallDataEvidence
+SemanticCallDataEvidence(stmt, writer) :-
+  CALLStatement(stmt, _), ReconstructionFragmentEvidence(stmt, _, _, _, _, writer).

@@ -1,7 +1,10 @@
 *NOTE*: you need to clone this repo using the `--recursive` flag since this repo has submodules, e.g., `git clone git@github.com:nevillegrech/gigahorse-toolchain.git --recursive`. If you already cloned without `--recursive`, run `git submodule update --init --recursive` to fetch the `souffle-addon` submodule.
 
 # The Gigahorse binary lifter and toolchain [![Tweet](https://img.shields.io/twitter/url/http/shields.io.svg?style=social)](https://twitter.com/intent/tweet?text=Gigahorse%20-%20Decompilation%20and%20Analysis%20for%20Ethereum%20Smart%20Contracts&url=https://www.github.com/nevillegrech/gigahorse-toolchain)
-A binary lifter (and related framework) from low-level EVM code to a higher-level function-based three-address representation, similar to LLVM IR or Jimple. 
+A binary lifter (and related framework) from low-level EVM code to a higher-level function-based three-address representation, similar to LLVM IR or Jimple.
+
+This local fork adds an experimental reconstruction CLI. See [README.fork.md](README.fork.md)
+for setup, examples, validation and the path toward more readable Solidity-like output.
 
 ## Quickstart
 

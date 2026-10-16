@@ -1,0 +1,118 @@
+{
+  "compiler": "solc, the solidity compiler commandline interface\nVersion: 0.8.30+commit.73712a01.Linux.g++",
+  "source": "ExpressionFixture.sol",
+  "source_sha256": "5c5d11279bdf8c9af7ffa8a407102511225232d0e043447f47c0752a7b6fd4ec",
+  "bytecode_sha256": "00e1fb28d1b4a2be14f0eadbaeb6bc8782140112b3569e3bd9a803ff211daf86",
+  "settings": {
+    "optimizer": {
+      "enabled": true,
+      "runs": 200
+    },
+    "viaIR": true,
+    "evmVersion": "cancun",
+    "metadata": {
+      "bytecodeHash": "none",
+      "appendCBOR": false
+    },
+    "outputSelection": {
+      "*": {
+        "*": [
+          "evm.deployedBytecode.object",
+          "evm.bytecode.object",
+          "evm.methodIdentifiers",
+          "storageLayout",
+          "abi"
+        ]
+      }
+    }
+  },
+  "method_identifiers": {
+    "captureConditional(uint256,uint256)": "0c77fa26",
+    "captureFirst(uint256,uint256)": "deaf383a",
+    "captureMapping(uint256,uint256,uint256)": "ee27332a"
+  },
+  "storage_layout": {
+    "storage": [],
+    "types": null
+  },
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "n",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "seed",
+          "type": "uint256"
+        }
+      ],
+      "name": "captureConditional",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "n",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "seed",
+          "type": "uint256"
+        }
+      ],
+      "name": "captureFirst",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "n",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "which",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "seed",
+          "type": "uint256"
+        }
+      ],
+      "name": "captureMapping",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "creation_bytecode": "60808060405234601557610183908161001a8239f35b5f80fdfe60806040526004361015610011575f80fd5b5f3560e01c80630c77fa2614610044578063deaf383a1461003f5763ee27332a1461003a575f80fd5b610106565b6100a8565b34610099576040366003190112610099576024356004358015158061009d575b15610099575f5b8181106100775760205ff35b806001911561008c575b8084185f550161006b565b60a5818501185f52610081565b5f80fd5b506008811115610064565b3461009957604036600319011261009957602435600435801515806100fb575b15610099575f5b8181106100db5760205ff35b8060a560019285011881156100f3575b5f55016100cf565b805f526100eb565b5060088111156100c8565b346100995760603660031901126100995760443560243560043580821080610178575b15610099579082915f915f5b82811061014757505050555f5260205ff35b809192939418828214610164575b5f558493929190600101610135565b5f818152600b602052604090209450610155565b50600881111561012956"
+}

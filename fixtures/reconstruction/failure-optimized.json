@@ -1,0 +1,192 @@
+{
+  "compiler": "solc, the solidity compiler commandline interface\nVersion: 0.8.30+commit.73712a01.Linux.g++",
+  "source": "FailureFixture.sol",
+  "source_sha256": "055b3ffbc24113d3939e27058b30ec2ba115008af7d4c0c69ae1b8a422f724f3",
+  "bytecode_sha256": "86b0d8d30ba1bb6d509feeb2236963deb0aefe49654f4a271e76f9e3fc5b180a",
+  "settings": {
+    "optimizer": {
+      "enabled": true,
+      "runs": 200
+    },
+    "viaIR": false,
+    "evmVersion": "cancun",
+    "metadata": {
+      "bytecodeHash": "none",
+      "appendCBOR": false
+    },
+    "outputSelection": {
+      "*": {
+        "*": [
+          "evm.deployedBytecode.object",
+          "evm.bytecode.object",
+          "evm.methodIdentifiers",
+          "storageLayout",
+          "abi"
+        ]
+      }
+    }
+  },
+  "method_identifiers": {
+    "clobbered(uint256)": "85f8d4ba",
+    "dynamicCustom(uint256)": "5e7895d2",
+    "fixedCustom()": "adf15067",
+    "longReason(bool)": "c1f7aa4a",
+    "panicAdd(uint256)": "34a23e8c",
+    "panicAssert(bool)": "de63ba78",
+    "panicDivide(uint256)": "60a31c23",
+    "raw(bytes)": "5b0a24b5",
+    "reason(uint256)": "26b69354"
+  },
+  "storage_layout": {
+    "storage": [],
+    "types": null
+  },
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "amount",
+          "type": "uint256"
+        },
+        {
+          "internalType": "address",
+          "name": "target",
+          "type": "address"
+        }
+      ],
+      "name": "Denied",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "word",
+          "type": "uint256"
+        }
+      ],
+      "name": "clobbered",
+      "outputs": [],
+      "stateMutability": "pure",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "x",
+          "type": "uint256"
+        }
+      ],
+      "name": "dynamicCustom",
+      "outputs": [],
+      "stateMutability": "pure",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "fixedCustom",
+      "outputs": [],
+      "stateMutability": "pure",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bool",
+          "name": "fail",
+          "type": "bool"
+        }
+      ],
+      "name": "longReason",
+      "outputs": [],
+      "stateMutability": "pure",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "x",
+          "type": "uint256"
+        }
+      ],
+      "name": "panicAdd",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "pure",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bool",
+          "name": "value",
+          "type": "bool"
+        }
+      ],
+      "name": "panicAssert",
+      "outputs": [],
+      "stateMutability": "pure",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "x",
+          "type": "uint256"
+        }
+      ],
+      "name": "panicDivide",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "pure",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes",
+          "name": "data",
+          "type": "bytes"
+        }
+      ],
+      "name": "raw",
+      "outputs": [],
+      "stateMutability": "pure",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "x",
+          "type": "uint256"
+        }
+      ],
+      "name": "reason",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "pure",
+      "type": "function"
+    }
+  ],
+  "creation_bytecode": "6080604052348015600e575f5ffd5b506103d88061001c5f395ff3fe608060405234801561000f575f5ffd5b5060043610610090575f3560e01c806360a31c231161006357806360a31c23146100f457806385f8d4ba14610107578063adf150671461011a578063c1f7aa4a14610122578063de63ba7814610135575f5ffd5b806326b693541461009457806334a23e8c146100b95780635b0a24b5146100cc5780635e7895d2146100e1575b5f5ffd5b6100a76100a23660046102db565b610148565b60405190815260200160405180910390f35b6100a76100c73660046102db565b610196565b6100df6100da3660046102f2565b6101a8565b005b6100df6100ef3660046102db565b6101b0565b6100a76101023660046102db565b6101d4565b6100df6101153660046102db565b6101e0565b6100df6101ff565b6100df610130366004610360565b610223565b6100df610143366004610360565b6102ce565b5f816007146101925760405162461bcd60e51b81526020600482015260116024820152701c195c9b5a5cdcda5bdb8819195b9a5959607a1b60448201526064015b60405180910390fd5b5090565b5f6101a2826001610386565b92915050565b80825f37805ffd5b60405163779cb30f60e11b8152600481018290526112346024820152604401610189565b5f6101a28260646103a5565b62461bcd60e51b5f908152602060045260036024526044829052606490fd5b60405163779cb30f60e11b8152600760048201526112346024820152604401610189565b80156102cb5760405162461bcd60e51b8152602060048201526064602482018190527f41206c6f6e67206661696c75726520726561736f6e2063726f7373657320736560448301527f766572616c206d656d6f727920776f72647320616e6420696e636c7564657320908201527f5554462d383a20cebb20616e6420e99baa2e0a546865206279746573206d61746084820152633a32b91760e11b60a482015260c401610189565b50565b806102cb576102cb6103c4565b5f602082840312156102eb575f5ffd5b5035919050565b5f5f60208385031215610303575f5ffd5b823567ffffffffffffffff811115610319575f5ffd5b8301601f81018513610329575f5ffd5b803567ffffffffffffffff81111561033f575f5ffd5b856020828401011115610350575f5ffd5b6020919091019590945092505050565b5f60208284031215610370575f5ffd5b8135801515811461037f575f5ffd5b9392505050565b808201808211156101a257634e487b7160e01b5f52601160045260245ffd5b5f826103bf57634e487b7160e01b5f52601260045260245ffd5b500490565b634e487b7160e01b5f52600160045260245ffd"
+}

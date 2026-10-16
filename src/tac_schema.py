@@ -141,6 +141,15 @@ tac_use = RelationDef("TAC_Use", (
     Column("var", ColKind.VAR_ID),
     Column("index", ColKind.INDEX),
 ))
+tac_phi_entry_input = RelationDef("TAC_PhiEntryInput", (
+    Column("phi", ColKind.STMT_ID),
+    Column("value", ColKind.VAR_ID),
+))
+tac_phi_input = RelationDef("TAC_PhiInput", (
+    Column("phi", ColKind.STMT_ID),
+    Column("predecessor", ColKind.BLOCK_ID),
+    Column("value", ColKind.VAR_ID),
+))
 tac_statement_next = RelationDef("TAC_Statement_Next", (
     Column("stmt", ColKind.STMT_ID),
     Column("next", ColKind.STMT_ID),
@@ -345,6 +354,9 @@ class TACRelations:
             rows = cls._read_csv(out_dir, rel.name)
             if rows is not None:
                 data[rel.name] = rows
+            elif rel in {tac_phi_input, tac_phi_entry_input}:
+                # Older outputs remain readable, with unresolved PHIs explicitly reported.
+                data[rel.name] = []
             else:
                 missing.append(rel.name)
 

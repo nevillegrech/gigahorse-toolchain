@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "bytecode_sha256": "c1bcd4dc4f30c4dcf6c9fe462abeaf2efefc065dcb4dec74996e471f1ce219b4",
+  "semantic_schema": 3,
+  "tables": {
+    "relations": "a60dd3635591c6915a7f646c365689bdab038f70d0922d2672851091b1b377d6",
+    "semantic": "ce9171cbe4aa609a42ab3321440e0e46708ab8e114cf70688094d64c96bf0bd2"
+  },
+  "source_bundle": "artifacts/evaluation-revert-release/usdc-proxy/bundle",
+  "evaluation_scope": "Calibration regression snapshot, not a new unseen contract"
+}

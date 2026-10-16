@@ -1,0 +1,570 @@
+{
+  "schema_version": 1,
+  "selection_id": "deployed-contracts-2026-10-15",
+  "id": "multicall3",
+  "chain_id": 1,
+  "address": "0xca11bde05977b3631167028862be2a173976ca11",
+  "bytecode_sha256": "2756d7c52baee85cacb504f6ee1df7aad6809ac8d94a4a111d76991f90d36d6e",
+  "bytecode_size": 3808,
+  "provenance": {
+    "url": "https://sourcify.dev/server/v2/contract/1/0xca11bde05977b3631167028862be2a173976ca11?fields=runtimeBytecode.onchainBytecode%2Cabi%2Ccompilation%2Csignatures.function%2Cdeployment",
+    "retrieved_at": "2026-10-15T23:33:33.841703+00:00",
+    "response_sha256": "7ca479f6e2d1a91fe997c74df4eb055b1b7f5a61ba54bd8a218ca9b2c7968d44"
+  },
+  "bytecode_origin": "Sourcify's archived onchain runtime, locked by hash; not a fresh or historical-block RPC verification",
+  "runtime_match": "exact_match",
+  "verified_at": "2024-08-08T11:19:59Z",
+  "match_id": "414342",
+  "deployment": {
+    "transactionHash": "0x00d9fcb7848f6f6b0aae4fb709c133d69262b902156c85a473ef23faa60760bd",
+    "blockNumber": "14353601",
+    "transactionIndex": "44",
+    "deployer": "0x05f32B3cC3888453ff71B01135B34FF8e41263F2"
+  },
+  "compilation": {
+    "language": "Solidity",
+    "compiler": "solc",
+    "compilerVersion": "0.8.12+commit.f00d7308",
+    "compilerSettings": {
+      "metadata": {
+        "bytecodeHash": "ipfs"
+      },
+      "libraries": {},
+      "optimizer": {
+        "runs": 10000000,
+        "enabled": true
+      },
+      "evmVersion": "london",
+      "remappings": []
+    },
+    "name": "Multicall3",
+    "fullyQualifiedName": "Multicall3.sol:Multicall3"
+  },
+  "abi": [
+    {
+      "name": "aggregate",
+      "type": "function",
+      "inputs": [
+        {
+          "name": "calls",
+          "type": "tuple[]",
+          "components": [
+            {
+              "name": "target",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "callData",
+              "type": "bytes",
+              "internalType": "bytes"
+            }
+          ],
+          "internalType": "struct Multicall3.Call[]"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "blockNumber",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "returnData",
+          "type": "bytes[]",
+          "internalType": "bytes[]"
+        }
+      ],
+      "stateMutability": "payable"
+    },
+    {
+      "name": "aggregate3",
+      "type": "function",
+      "inputs": [
+        {
+          "name": "calls",
+          "type": "tuple[]",
+          "components": [
+            {
+              "name": "target",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "allowFailure",
+              "type": "bool",
+              "internalType": "bool"
+            },
+            {
+              "name": "callData",
+              "type": "bytes",
+              "internalType": "bytes"
+            }
+          ],
+          "internalType": "struct Multicall3.Call3[]"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "returnData",
+          "type": "tuple[]",
+          "components": [
+            {
+              "name": "success",
+              "type": "bool",
+              "internalType": "bool"
+            },
+            {
+              "name": "returnData",
+              "type": "bytes",
+              "internalType": "bytes"
+            }
+          ],
+          "internalType": "struct Multicall3.Result[]"
+        }
+      ],
+      "stateMutability": "payable"
+    },
+    {
+      "name": "aggregate3Value",
+      "type": "function",
+      "inputs": [
+        {
+          "name": "calls",
+          "type": "tuple[]",
+          "components": [
+            {
+              "name": "target",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "allowFailure",
+              "type": "bool",
+              "internalType": "bool"
+            },
+            {
+              "name": "value",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "callData",
+              "type": "bytes",
+              "internalType": "bytes"
+            }
+          ],
+          "internalType": "struct Multicall3.Call3Value[]"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "returnData",
+          "type": "tuple[]",
+          "components": [
+            {
+              "name": "success",
+              "type": "bool",
+              "internalType": "bool"
+            },
+            {
+              "name": "returnData",
+              "type": "bytes",
+              "internalType": "bytes"
+            }
+          ],
+          "internalType": "struct Multicall3.Result[]"
+        }
+      ],
+      "stateMutability": "payable"
+    },
+    {
+      "name": "blockAndAggregate",
+      "type": "function",
+      "inputs": [
+        {
+          "name": "calls",
+          "type": "tuple[]",
+          "components": [
+            {
+              "name": "target",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "callData",
+              "type": "bytes",
+              "internalType": "bytes"
+            }
+          ],
+          "internalType": "struct Multicall3.Call[]"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "blockNumber",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "blockHash",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        },
+        {
+          "name": "returnData",
+          "type": "tuple[]",
+          "components": [
+            {
+              "name": "success",
+              "type": "bool",
+              "internalType": "bool"
+            },
+            {
+              "name": "returnData",
+              "type": "bytes",
+              "internalType": "bytes"
+            }
+          ],
+          "internalType": "struct Multicall3.Result[]"
+        }
+      ],
+      "stateMutability": "payable"
+    },
+    {
+      "name": "getBasefee",
+      "type": "function",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "basefee",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "name": "getBlockHash",
+      "type": "function",
+      "inputs": [
+        {
+          "name": "blockNumber",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "blockHash",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "name": "getBlockNumber",
+      "type": "function",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "blockNumber",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "name": "getChainId",
+      "type": "function",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "chainid",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "name": "getCurrentBlockCoinbase",
+      "type": "function",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "coinbase",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "name": "getCurrentBlockDifficulty",
+      "type": "function",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "difficulty",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "name": "getCurrentBlockGasLimit",
+      "type": "function",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "gaslimit",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "name": "getCurrentBlockTimestamp",
+      "type": "function",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "timestamp",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "name": "getEthBalance",
+      "type": "function",
+      "inputs": [
+        {
+          "name": "addr",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "balance",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "name": "getLastBlockHash",
+      "type": "function",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "blockHash",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "name": "tryAggregate",
+      "type": "function",
+      "inputs": [
+        {
+          "name": "requireSuccess",
+          "type": "bool",
+          "internalType": "bool"
+        },
+        {
+          "name": "calls",
+          "type": "tuple[]",
+          "components": [
+            {
+              "name": "target",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "callData",
+              "type": "bytes",
+              "internalType": "bytes"
+            }
+          ],
+          "internalType": "struct Multicall3.Call[]"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "returnData",
+          "type": "tuple[]",
+          "components": [
+            {
+              "name": "success",
+              "type": "bool",
+              "internalType": "bool"
+            },
+            {
+              "name": "returnData",
+              "type": "bytes",
+              "internalType": "bytes"
+            }
+          ],
+          "internalType": "struct Multicall3.Result[]"
+        }
+      ],
+      "stateMutability": "payable"
+    },
+    {
+      "name": "tryBlockAndAggregate",
+      "type": "function",
+      "inputs": [
+        {
+          "name": "requireSuccess",
+          "type": "bool",
+          "internalType": "bool"
+        },
+        {
+          "name": "calls",
+          "type": "tuple[]",
+          "components": [
+            {
+              "name": "target",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "callData",
+              "type": "bytes",
+              "internalType": "bytes"
+            }
+          ],
+          "internalType": "struct Multicall3.Call[]"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "blockNumber",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "blockHash",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        },
+        {
+          "name": "returnData",
+          "type": "tuple[]",
+          "components": [
+            {
+              "name": "success",
+              "type": "bool",
+              "internalType": "bool"
+            },
+            {
+              "name": "returnData",
+              "type": "bytes",
+              "internalType": "bytes"
+            }
+          ],
+          "internalType": "struct Multicall3.Result[]"
+        }
+      ],
+      "stateMutability": "payable"
+    }
+  ],
+  "functions": [
+    {
+      "signature": "aggregate3((address,bool,bytes)[])",
+      "signatureHash4": "0x82ad56cb",
+      "signatureHash32": "0x82ad56cb4e5648650ea78c1b99c0d15d4876ef8dbbb26387ce567a45cb376af6"
+    },
+    {
+      "signature": "aggregate3Value((address,bool,uint256,bytes)[])",
+      "signatureHash4": "0x174dea71",
+      "signatureHash32": "0x174dea719f0adc193f47587df5347cfd9a0881d0171899aa96872fc4d2db60ca"
+    },
+    {
+      "signature": "aggregate((address,bytes)[])",
+      "signatureHash4": "0x252dba42",
+      "signatureHash32": "0x252dba4246637b44a4511192e77faee77766f83cc5b3c1cfdfffcb264b91167f"
+    },
+    {
+      "signature": "blockAndAggregate((address,bytes)[])",
+      "signatureHash4": "0xc3077fa9",
+      "signatureHash32": "0xc3077fa939581f9bd65c905e5d80a1ddae5453e2587f2cd2e78125fbba81eaa1"
+    },
+    {
+      "signature": "getBasefee()",
+      "signatureHash4": "0x3e64a696",
+      "signatureHash32": "0x3e64a696c9bad2913a0ba227dcacab1f9cdc88bfbaabda3a30bec3ebe871095c"
+    },
+    {
+      "signature": "getBlockHash(uint256)",
+      "signatureHash4": "0xee82ac5e",
+      "signatureHash32": "0xee82ac5e353ab27e0c3606e004269adc02f5d06dbc90d6dce04e3c974dee2acb"
+    },
+    {
+      "signature": "getBlockNumber()",
+      "signatureHash4": "0x42cbb15c",
+      "signatureHash32": "0x42cbb15ccdc3cad6266b0e7a08c0454b23bf29dc2df74b6f3c209e9336465bd1"
+    },
+    {
+      "signature": "getChainId()",
+      "signatureHash4": "0x3408e470",
+      "signatureHash32": "0x3408e4702423b789399bcb518d9f418e53dc19e630f4780d18b4e2b686c72d7b"
+    },
+    {
+      "signature": "getCurrentBlockCoinbase()",
+      "signatureHash4": "0xa8b0574e",
+      "signatureHash32": "0xa8b0574e70cdb733ca5edc8cf48624515e4c3ed0252ffb51e010ccca9fe1a338"
+    },
+    {
+      "signature": "getCurrentBlockDifficulty()",
+      "signatureHash4": "0x72425d9d",
+      "signatureHash32": "0x72425d9dfac8e56fd33ca03f57380e71acb9ffc9523d199c5ab53a734e11c592"
+    },
+    {
+      "signature": "getCurrentBlockGasLimit()",
+      "signatureHash4": "0x86d516e8",
+      "signatureHash32": "0x86d516e83f5f2045140d65d67f6c1e13bde469e6c4c39ab1e209f71d1ca0ef38"
+    },
+    {
+      "signature": "getCurrentBlockTimestamp()",
+      "signatureHash4": "0x0f28c97d",
+      "signatureHash32": "0x0f28c97d007f30cf70b492fc4841677c7a4116e5bd511a88406c1219ba4ff635"
+    },
+    {
+      "signature": "getEthBalance(address)",
+      "signatureHash4": "0x4d2301cc",
+      "signatureHash32": "0x4d2301cc40c7231177e1e2453baa0b7164ef57fe9c76f9d8da0c40f4376dc22e"
+    },
+    {
+      "signature": "getLastBlockHash()",
+      "signatureHash4": "0x27e86d6e",
+      "signatureHash32": "0x27e86d6e73f58dd26e15ae16a0cda4209c233957b3527d3e0802ee8a129f6e70"
+    },
+    {
+      "signature": "tryAggregate(bool,(address,bytes)[])",
+      "signatureHash4": "0xbce38bd7",
+      "signatureHash32": "0xbce38bd77bab7a4d3e5ee47598d81d568a0cb95b16c67e2903bfb6d764f90f5c"
+    },
+    {
+      "signature": "tryBlockAndAggregate(bool,(address,bytes)[])",
+      "signatureHash4": "0x399542e9",
+      "signatureHash32": "0x399542e9b11483618cc18c94149fa8cec7eb15ed9f6ed7d6b3dc88f32b3cb5b6"
+    }
+  ],
+  "upstream_bytecode_duplicates": [],
+  "analysis_inputs": [
+    "multicall3.hex"
+  ],
+  "ground_truth_supplied_to_reconstructor": false
+}

@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "selection_id": "deployed-contracts-2026-10-15",
+  "selection_status": "locked-before-frontend-evaluation",
+  "purpose": "Assess unfamiliar deployed runtime bytecode; verified metadata is evaluation ground truth only and is never supplied to reconstruction.",
+  "contracts": [
+    {
+      "id": "uniswap-v2-pair",
+      "chain_id": 1,
+      "address": "0xb4e16d0168e52d35cacd2c6185b44281ec28c9dc",
+      "expected_family": "AMM pair and liquidity token",
+      "reference_url": "https://github.com/Uniswap/v2-core",
+      "inspection_tasks": ["Explain swap bounds, reserve updates and callback calls", "Identify the lock and its release paths", "Explain transferFrom allowance updates and permit authorization"]
+    },
+    {
+      "id": "multicall3",
+      "chain_id": 1,
+      "address": "0xca11bde05977b3631167028862be2a173976ca11",
+      "expected_family": "Dynamic tuple arrays and batched external calls",
+      "reference_url": "https://github.com/mds1/multicall3",
+      "inspection_tasks": ["Explain per-call failure handling in aggregate3", "Identify ETH forwarding and aggregate3Value accounting", "Describe nested calldata and returned result arrays"]
+    },
+    {
+      "id": "usdc-proxy",
+      "chain_id": 1,
+      "address": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+      "expected_family": "Upgradeable proxy; implementation token logic is outside this bytecode",
+      "reference_url": "https://developers.circle.com/stablecoins/usdc-contract-addresses",
+      "inspection_tasks": ["Identify upgrade authorization and implementation storage", "Explain forwarding of arbitrary calldata and returndata", "Separate proxy entry points from implementation behavior"]
+    },
+    {
+      "id": "safe-proxy-factory",
+      "chain_id": 1,
+      "address": "0xa6b71e26c5e0845f74c812102ca7114b6a896ab2",
+      "expected_family": "Proxy deployment factory with CREATE and CREATE2",
+      "reference_url": "https://github.com/safe-global/safe-deployments",
+      "inspection_tasks": ["Identify deployment bytecode and CREATE/CREATE2 inputs", "Explain initializer failure handling", "Explain deterministic deployment salt inputs"]
+    }
+  ],
+  "comparison_requirements": ["Identical runtime bytecode hashes for local and Dedaub output", "Record unavailable or failed analyses without dropping contracts", "Separate selector/analysis coverage from human readability", "Do not claim behavioral equivalence from metadata or coverage counts"]
+}

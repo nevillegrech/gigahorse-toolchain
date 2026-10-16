@@ -1,0 +1,244 @@
+{
+  "schema_version": 1,
+  "selection_id": "deployed-contracts-2026-10-15",
+  "id": "safe-proxy-factory",
+  "chain_id": 1,
+  "address": "0xa6b71e26c5e0845f74c812102ca7114b6a896ab2",
+  "bytecode_sha256": "e65b9e4c5f3f01d7c376bd450ca68131be341274377e7cee8338a5e6744a1bea",
+  "bytecode_size": 3774,
+  "provenance": {
+    "url": "https://sourcify.dev/server/v2/contract/1/0xa6b71e26c5e0845f74c812102ca7114b6a896ab2?fields=runtimeBytecode.onchainBytecode%2Cabi%2Ccompilation%2Csignatures.function%2Cdeployment",
+    "retrieved_at": "2026-10-15T23:33:34.573068+00:00",
+    "response_sha256": "3761a722e142e4cfa64ab91a0a40a1f9b705af8c8113967ee427eddf341e6c6a"
+  },
+  "bytecode_origin": "Sourcify's archived onchain runtime, locked by hash; not a fresh or historical-block RPC verification",
+  "runtime_match": "exact_match",
+  "verified_at": "2024-08-08T11:16:42Z",
+  "match_id": "381428",
+  "deployment": {
+    "transactionHash": "0x83476e9dc3493bd2889af168b3fdcd8946949a386725fd3a3b1cca5c999a3828",
+    "blockNumber": "12504126",
+    "transactionIndex": "156",
+    "deployer": "0x5D5FB487FC5A9f8e0049Bc41c1E1e011EC92281c"
+  },
+  "compilation": {
+    "language": "Solidity",
+    "compiler": "solc",
+    "compilerVersion": "0.7.6+commit.7338295f",
+    "compilerSettings": {
+      "metadata": {
+        "bytecodeHash": "ipfs",
+        "useLiteralContent": true
+      },
+      "libraries": {},
+      "optimizer": {
+        "runs": 200,
+        "enabled": false
+      },
+      "evmVersion": "istanbul",
+      "remappings": []
+    },
+    "name": "GnosisSafeProxyFactory",
+    "fullyQualifiedName": "contracts/proxies/GnosisSafeProxyFactory.sol:GnosisSafeProxyFactory"
+  },
+  "abi": [
+    {
+      "name": "ProxyCreation",
+      "type": "event",
+      "inputs": [
+        {
+          "name": "proxy",
+          "type": "address",
+          "indexed": false,
+          "internalType": "contract GnosisSafeProxy"
+        },
+        {
+          "name": "singleton",
+          "type": "address",
+          "indexed": false,
+          "internalType": "address"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "name": "calculateCreateProxyWithNonceAddress",
+      "type": "function",
+      "inputs": [
+        {
+          "name": "_singleton",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "initializer",
+          "type": "bytes",
+          "internalType": "bytes"
+        },
+        {
+          "name": "saltNonce",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "proxy",
+          "type": "address",
+          "internalType": "contract GnosisSafeProxy"
+        }
+      ],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "name": "createProxy",
+      "type": "function",
+      "inputs": [
+        {
+          "name": "singleton",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "data",
+          "type": "bytes",
+          "internalType": "bytes"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "proxy",
+          "type": "address",
+          "internalType": "contract GnosisSafeProxy"
+        }
+      ],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "name": "createProxyWithCallback",
+      "type": "function",
+      "inputs": [
+        {
+          "name": "_singleton",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "initializer",
+          "type": "bytes",
+          "internalType": "bytes"
+        },
+        {
+          "name": "saltNonce",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "callback",
+          "type": "address",
+          "internalType": "contract IProxyCreationCallback"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "proxy",
+          "type": "address",
+          "internalType": "contract GnosisSafeProxy"
+        }
+      ],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "name": "createProxyWithNonce",
+      "type": "function",
+      "inputs": [
+        {
+          "name": "_singleton",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "initializer",
+          "type": "bytes",
+          "internalType": "bytes"
+        },
+        {
+          "name": "saltNonce",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "proxy",
+          "type": "address",
+          "internalType": "contract GnosisSafeProxy"
+        }
+      ],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "name": "proxyCreationCode",
+      "type": "function",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "bytes",
+          "internalType": "bytes"
+        }
+      ],
+      "stateMutability": "pure"
+    },
+    {
+      "name": "proxyRuntimeCode",
+      "type": "function",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "bytes",
+          "internalType": "bytes"
+        }
+      ],
+      "stateMutability": "pure"
+    }
+  ],
+  "functions": [
+    {
+      "signature": "calculateCreateProxyWithNonceAddress(address,bytes,uint256)",
+      "signatureHash4": "0x2500510e",
+      "signatureHash32": "0x2500510e69f0f74daf1e2052e29647d631bf8d1afcae25e82edb6dc98cbf084d"
+    },
+    {
+      "signature": "createProxy(address,bytes)",
+      "signatureHash4": "0x61b69abd",
+      "signatureHash32": "0x61b69abd161c285a2794c29d16b44d2ff67ea675099e52b5e36d922084cfde88"
+    },
+    {
+      "signature": "createProxyWithCallback(address,bytes,uint256,address)",
+      "signatureHash4": "0xd18af54d",
+      "signatureHash32": "0xd18af54d914b24564a261807008484d62197e20db27de94d0b59c061b91242e0"
+    },
+    {
+      "signature": "createProxyWithNonce(address,bytes,uint256)",
+      "signatureHash4": "0x1688f0b9",
+      "signatureHash32": "0x1688f0b96d4b7baa58948386538c438672e1b1b901b74cf2f0d9a12e2503bdeb"
+    },
+    {
+      "signature": "proxyCreationCode()",
+      "signatureHash4": "0x53e5d935",
+      "signatureHash32": "0x53e5d9356c5c6d9c4f6eddcf50570491e76bcb0e2e7e8f42a004e4f78725e811"
+    },
+    {
+      "signature": "proxyRuntimeCode()",
+      "signatureHash4": "0xaddacc0f",
+      "signatureHash32": "0xaddacc0fd08625b40f90ca865d164ea1bbb617ec07ed8d7d1a8a4786b73bdd4f"
+    }
+  ],
+  "upstream_bytecode_duplicates": [],
+  "analysis_inputs": [
+    "safe-proxy-factory.hex"
+  ],
+  "ground_truth_supplied_to_reconstructor": false
+}

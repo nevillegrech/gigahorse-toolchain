@@ -49,6 +49,14 @@
 .decl Statement_Opcode(stmt: Statement, op: Opcode)
 .input Statement_Opcode(IO="file", filename="TAC_Op.csv", delimiter="\t")
 
+// Edge-specific PHI values. Ambiguity is represented by multiple rows.
+.decl PhiInput(phi: Statement, predecessor: Block, value: Variable)
+.input PhiInput(IO="file", filename="TAC_PhiInput.csv", delimiter="\t")
+
+// Initial value supplied by a function frame, before local predecessor edges.
+.decl PhiEntryInput(phi: Statement, value: Variable)
+.input PhiEntryInput(IO="file", filename="TAC_PhiEntryInput.csv", delimiter="\t")
+
 /**
   All the Statements.
   Statement ids do not have to correspond to actual program locations in the original code.  

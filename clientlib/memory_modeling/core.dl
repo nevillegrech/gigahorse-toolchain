@@ -30,10 +30,21 @@ VariableLengthMemoryCopyStatement(stmt, memAddrVar, lenVar):-
 .decl PartialMSTORE(mstore:Statement, mload:Statement, storedVar:Variable, updateBytes:number)
 DEBUG_OUTPUT(PartialMSTORE)
 
+// A read/modify/write preserves the untouched bytes only if memory has not
+// changed since the load. A stale load can otherwise restore old byte values.
+.decl MemoryModifiedBetween(load: Statement, store: Statement)
+MemoryModifiedBetween(load, store) :-
+  LocalStatementPathInBlock(load, middle), LocalStatementPathInBlock(middle, store),
+  load != middle, middle != store, Statement_Opcode(middle, op),
+  (op = "MSTORE"; op = "MSTORE8"; op = "MCOPY"; op = "CALLDATACOPY";
+   op = "RETURNDATACOPY"; op = "CODECOPY"; op = "EXTCODECOPY";
+   op = "CALL"; op = "STATICCALL"; op = "DELEGATECALL"; op = "CALLCODE").
+
 PartialMSTORE(mstore, mload, realFrom, 32 - maskBytes):-
   MLOAD(mload, indexVar, loaded),
   MSTORE(mstore, indexVar, from),
   LocalStatementPathInBlock(mload , mstore),
+  !MemoryModifiedBetween(mload, mstore),
   LowBytesMaskOp(loaded, loadedMasked, maskBytes),
   (OR(_, loadedMasked, shifted, from) ; OR(_, shifted, loadedMasked, from)),
   LShiftBytes(realFrom, shifted, maskBytes).
@@ -42,6 +53,7 @@ PartialMSTORE(mstore, mload, realFrom, 32 - maskBytes):-
   MLOAD(mload, indexVar, loaded),
   MSTORE(mstore, indexVar, from),
   LocalStatementPathInBlock(mload , mstore),
+  !MemoryModifiedBetween(mload, mstore),
   LowBytesMaskOp(loaded, loadedMasked, maskBytes),
   (OR(_, loadedMasked, shiftedAndMasked, from) ; OR(_, shiftedAndMasked, loadedMasked, from)),
   AntiMaskOp(shifted, shiftedAndMasked, 0, maskBytes - 1),

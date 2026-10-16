@@ -27,6 +27,8 @@
   .decl In_FunctionEntry(block: Block)
   .decl In_InFunction(block: Block, function: Function)
   .decl In_ActualReturnArgs(caller: Block, a: Variable, pos: number)
+  .decl In_PhiInput(phi: Statement, predecessor: Block, value: Variable)
+  .decl In_PhiEntryInput(phi: Statement, value: Variable)
 
   .decl Out_Statement_Opcode(stmt:Statement, opcode:Opcode)  //CHECK
   .decl Out_IsStatement(stmt:Statement) //CHECK
@@ -53,4 +55,6 @@
   .decl Out_FunctionEntry(block: Block)  //CHECK
   .decl Out_InFunction(block: Block, function: Function)  //CHECK
   .decl Out_ActualReturnArgs(caller: Block, a: Variable, pos: number) //CHECK
+  .decl Out_PhiInput(phi: Statement, predecessor: Block, value: Variable)
+  .decl Out_PhiEntryInput(phi: Statement, value: Variable)
 }

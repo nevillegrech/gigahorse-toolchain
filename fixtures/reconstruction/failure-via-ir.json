@@ -1,0 +1,192 @@
+{
+  "compiler": "solc, the solidity compiler commandline interface\nVersion: 0.8.30+commit.73712a01.Linux.g++",
+  "source": "FailureFixture.sol",
+  "source_sha256": "055b3ffbc24113d3939e27058b30ec2ba115008af7d4c0c69ae1b8a422f724f3",
+  "bytecode_sha256": "acd990b9b7fb072fda1d2063e4f897e39a2b35103abb68ac77f23eadb3121241",
+  "settings": {
+    "optimizer": {
+      "enabled": true,
+      "runs": 200
+    },
+    "viaIR": true,
+    "evmVersion": "cancun",
+    "metadata": {
+      "bytecodeHash": "none",
+      "appendCBOR": false
+    },
+    "outputSelection": {
+      "*": {
+        "*": [
+          "evm.deployedBytecode.object",
+          "evm.bytecode.object",
+          "evm.methodIdentifiers",
+          "storageLayout",
+          "abi"
+        ]
+      }
+    }
+  },
+  "method_identifiers": {
+    "clobbered(uint256)": "85f8d4ba",
+    "dynamicCustom(uint256)": "5e7895d2",
+    "fixedCustom()": "adf15067",
+    "longReason(bool)": "c1f7aa4a",
+    "panicAdd(uint256)": "34a23e8c",
+    "panicAssert(bool)": "de63ba78",
+    "panicDivide(uint256)": "60a31c23",
+    "raw(bytes)": "5b0a24b5",
+    "reason(uint256)": "26b69354"
+  },
+  "storage_layout": {
+    "storage": [],
+    "types": null
+  },
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "amount",
+          "type": "uint256"
+        },
+        {
+          "internalType": "address",
+          "name": "target",
+          "type": "address"
+        }
+      ],
+      "name": "Denied",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "word",
+          "type": "uint256"
+        }
+      ],
+      "name": "clobbered",
+      "outputs": [],
+      "stateMutability": "pure",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "x",
+          "type": "uint256"
+        }
+      ],
+      "name": "dynamicCustom",
+      "outputs": [],
+      "stateMutability": "pure",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "fixedCustom",
+      "outputs": [],
+      "stateMutability": "pure",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bool",
+          "name": "fail",
+          "type": "bool"
+        }
+      ],
+      "name": "longReason",
+      "outputs": [],
+      "stateMutability": "pure",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "x",
+          "type": "uint256"
+        }
+      ],
+      "name": "panicAdd",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "pure",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bool",
+          "name": "value",
+          "type": "bool"
+        }
+      ],
+      "name": "panicAssert",
+      "outputs": [],
+      "stateMutability": "pure",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "x",
+          "type": "uint256"
+        }
+      ],
+      "name": "panicDivide",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "pure",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes",
+          "name": "data",
+          "type": "bytes"
+        }
+      ],
+      "name": "raw",
+      "outputs": [],
+      "stateMutability": "pure",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "x",
+          "type": "uint256"
+        }
+      ],
+      "name": "reason",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "pure",
+      "type": "function"
+    }
+  ],
+  "creation_bytecode": "60808060405234601557610340908161001a8239f35b5f80fdfe60806040526004361015610011575f80fd5b5f3560e01c806326b69354146100a457806334a23e8c1461009f5780635b0a24b51461009a5780635e7895d21461009557806360a31c231461009057806385f8d4ba1461008b578063adf1506714610086578063c1f7aa4a146100815763de63ba781461007c575f80fd5b610317565b610266565b610221565b6101f8565b6101c2565b61019c565b610143565b61010b565b346100f5576100b2366100f9565b600781036100c35760805260206080f35b62461bcd60e51b6080526020608452601160a452701c195c9b5a5cdcda5bdb8819195b9a5959607a1b60c45260646080fd5b5f80fd5b60209060031901126100f55760043590565b346100f557610119366100f9565b6001810180911161012f57602090604051908152f35b634e487b7160e01b5f52601160045260245ffd5b346100f55760203660031901126100f55760043567ffffffffffffffff81116100f557366023820112156100f55780600401359067ffffffffffffffff82116100f55736602483830101116100f55760248291015f375ffd5b346100f5576101aa366100f9565b63779cb30f60e11b5f5260045261123460245260445ffd5b346100f5576101d0366100f9565b80156101e457602090604051906064048152f35b634e487b7160e01b5f52601260045260245ffd5b346100f557610206366100f9565b62461bcd60e51b5f526020600452600360245260445260645ffd5b346100f5575f3660031901126100f55763779cb30f60e11b5f52600760045261123460245260445ffd5b60209060031901126100f55760043580151581036100f55790565b346100f5576102743661024b565b61027a57005b60c460405162461bcd60e51b815260206004820152606460248201527f41206c6f6e67206661696c75726520726561736f6e2063726f7373657320736560448201527f766572616c206d656d6f727920776f72647320616e6420696e636c756465732060648201527f5554462d383a20cebb20616e6420e99baa2e0a546865206279746573206d61746084820152633a32b91760e11b60a4820152fd5b346100f5576103253661024b565b1561032c57005b634e487b7160e01b5f52600160045260245ffd"
+}

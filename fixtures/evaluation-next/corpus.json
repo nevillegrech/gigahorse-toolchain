@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "selection_id": "deployed-contracts-second-selection-2026-10-15",
+  "selection_status": "locked-before-bytecode-import-and-frontend-evaluation",
+  "baseline_implementation_sha256": "e2b36ddfa0b6d2ce4f0ffc750ac3c66298234305e5a87ff74f2fe9ecef1ddd89",
+  "purpose": "Broaden evaluation beyond the first four calibration contracts. Selection and tasks precede import and analysis; unfamiliar means not previously evaluated or tuned in this project. Verified metadata is scoring ground truth, never a reconstruction input. Keep failures and timeouts in the report.",
+  "contracts": [
+    {
+      "id": "weth9",
+      "chain_id": 1,
+      "address": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+      "expected_family": "Wrapped native currency with token accounting and ETH withdrawals",
+      "reference_url": "https://sourcify.dev/server/v2/contract/1/0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+      "inspection_tasks": ["Explain deposit and withdrawal accounting, including fallback deposits", "Identify the ETH transfer, its failure behavior and authorization bounds", "Explain finite versus unlimited allowances and the emitted events"]
+    },
+    {
+      "id": "ens-registry",
+      "chain_id": 1,
+      "address": "0x00000000000c2e074ec69a0dfb2997ba6c7d2e1e",
+      "expected_family": "Name registry with ownership, operators and nested record storage",
+      "reference_url": "https://docs.ens.domains/learn/deployments/",
+      "inspection_tasks": ["Explain authorization for changing records and subnode ownership", "Identify resolver and TTL storage updates and emitted events", "Explain operator approvals and calls to any legacy registry"]
+    },
+    {
+      "id": "erc721-collection",
+      "chain_id": 1,
+      "address": "0xbc4ca0eda7647a8ab7c2061c2e118a18a936f13d",
+      "expected_family": "Enumerable NFT collection with dynamic metadata and mint administration",
+      "reference_url": "https://sourcify.dev/server/v2/contract/1/0xbc4ca0eda7647a8ab7c2061c2e118a18a936f13d",
+      "inspection_tasks": ["Identify transfer authorization and the safe-transfer receiver callback", "Explain enumeration storage updates and dynamic metadata returns", "Explain mint bounds, payment checks and administrative authority"]
+    },
+    {
+      "id": "safe-singleton-v1-3",
+      "chain_id": 1,
+      "address": "0xd9db270c1b5e3bd161e8c8503c55ceabee709552",
+      "expected_family": "Multisignature wallet implementation with signatures, modules and arbitrary execution",
+      "reference_url": "https://github.com/safe-global/safe-deployments/blob/main/src/assets/v1.3.0/gnosis_safe.json",
+      "inspection_tasks": ["Explain owner membership, threshold and signature validation paths", "Identify transaction CALL versus DELEGATECALL and failure behavior", "Explain module and guard authorization and their external interactions"]
+    }
+  ],
+  "comparison_requirements": [
+    "Identical runtime hashes for each comparison and retained archived-response provenance",
+    "Detect duplicates against upstream bytecodes and the first calibration corpus",
+    "Run the pinned implementation before changes motivated by these contracts",
+    "Withhold verified ABI and source from reconstruction; record any independent signature dictionary",
+    "Retain missing selectors, failed analyses and timeouts rather than replacing cases",
+    "Separate coverage from behavioral correctness and inspection-task usefulness",
+    "Dedaub parity requires actual same-bytecode output and an explicit comparison"
+  ]
+}

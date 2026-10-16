@@ -1,0 +1,293 @@
+{
+  "compiler": "solc, the solidity compiler commandline interface\nVersion: 0.8.30+commit.73712a01.Linux.g++",
+  "source": "CopyFixture.sol",
+  "source_sha256": "c9fbdefd967d2c06b2d153baf00a0eed1eb9a9288e846a4e5d133ac06a84b1ae",
+  "bytecode_sha256": "b17c0ce0c22d0a17391eb347025a249265a0eea82d802f622cc604172349232a",
+  "settings": {
+    "optimizer": {
+      "enabled": true,
+      "runs": 200
+    },
+    "viaIR": true,
+    "evmVersion": "cancun",
+    "metadata": {
+      "bytecodeHash": "none",
+      "appendCBOR": false
+    },
+    "outputSelection": {
+      "*": {
+        "*": [
+          "evm.deployedBytecode.object",
+          "evm.bytecode.object",
+          "evm.methodIdentifiers",
+          "storageLayout",
+          "abi"
+        ]
+      }
+    }
+  },
+  "method_identifiers": {
+    "clipped(address,uint256,uint256)": "f4b27ceb",
+    "copied(address,uint256,uint256)": "1090dfaf",
+    "overlap(address,uint256,uint256)": "cae1f7af",
+    "overwrite(address,uint256,uint256,uint256)": "f367c362",
+    "reverseOverlap(address,uint256,uint256)": "bcb3fe53",
+    "stale(address,uint256,uint256,uint256)": "81795e99",
+    "uncertain(address,uint256)": "51b29b43"
+  },
+  "storage_layout": {
+    "storage": [],
+    "types": null
+  },
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "target",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "x",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "y",
+          "type": "uint256"
+        }
+      ],
+      "name": "clipped",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        },
+        {
+          "internalType": "bytes",
+          "name": "",
+          "type": "bytes"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "target",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "x",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "y",
+          "type": "uint256"
+        }
+      ],
+      "name": "copied",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        },
+        {
+          "internalType": "bytes",
+          "name": "",
+          "type": "bytes"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "target",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "x",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "y",
+          "type": "uint256"
+        }
+      ],
+      "name": "overlap",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        },
+        {
+          "internalType": "bytes",
+          "name": "",
+          "type": "bytes"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "target",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "x",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "y",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "z",
+          "type": "uint256"
+        }
+      ],
+      "name": "overwrite",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        },
+        {
+          "internalType": "bytes",
+          "name": "",
+          "type": "bytes"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "target",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "x",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "y",
+          "type": "uint256"
+        }
+      ],
+      "name": "reverseOverlap",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        },
+        {
+          "internalType": "bytes",
+          "name": "",
+          "type": "bytes"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "target",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "x",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "y",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "z",
+          "type": "uint256"
+        }
+      ],
+      "name": "stale",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        },
+        {
+          "internalType": "bytes",
+          "name": "",
+          "type": "bytes"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "target",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "length",
+          "type": "uint256"
+        }
+      ],
+      "name": "uncertain",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        },
+        {
+          "internalType": "bytes",
+          "name": "",
+          "type": "bytes"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "creation_bytecode": "608080604052346015576104ff908161001a8239f35b5f80fdfe60806040526004361015610011575f80fd5b5f3560e01c80631090dfaf1461008457806351b29b431461007f57806381795e991461007a578063bcb3fe5314610075578063cae1f7af14610070578063f367c3621461006b5763f4b27ceb14610066575f80fd5b6103ce565b610365565b6102ff565b6102b9565b61024f565b610171565b346100f9575f806100b46100c561009a36610113565b6304488cd160e21b60a05260a49190915260c4529160e490565b609f198101608052607f1901610448565b6100cd6104ae565b826020820191604460a0845e51925af16100e56104d0565b906100f56040519283928361013d565b0390f35b5f80fd5b600435906001600160a01b03821682036100f957565b60609060031901126100f9576004356001600160a01b03811681036100f957906024359060443590565b90606092602091151583526040828401528051918291826040860152018484015e5f828201840152601f01601f1916010190565b346100f95760403660031901126100f95761018a6100fd565b602435604481116100f9575f91829182604051916101d860208401936304488cd160e21b8552806101ca6024820190600960206040840193600781520152565b0390601f1982018152610470565b604051630aaccef160e31b6020820190815260026024830152600360448301529390919061021383606481015b03601f198101855284610470565b845e51925af16100e56104d0565b60809060031901126100f9576004356001600160a01b03811681036100f95790602435906044359060643590565b346100f9575f808061026036610221565b6040516304488cd160e21b60208201908152602482019485526044820193909352939491939192906102958360648101610205565b845191526001600160e01b03166304488cd160e21b17835251925af16100e56104d0565b346100f9575f80806102ca36610113565b6040516304488cd160e21b60208281019182526024830194855260448301939093529394929091906102138360648101610205565b346100f9575f80602061034a8261031536610113565b6040516304488cd160e21b81880190815260248201938452604482019290925292959094909185916103589085906064820190565b03601f198101865285610470565b5e51925af16100e56104d0565b346100f9575f806103ab6101ca8261037c36610221565b6040516304488cd160e21b60208201908152602482019490945260448101929092529295919481906064820190565b6103b36104ae565b9060446020830194855e602482015251925af16100e56104d0565b346100f9575f806104166101ca6103e436610113565b6040516304488cd160e21b60208201908152602482019390935260448101919091529193909290919081906064820190565b8261041f6104ae565b60236020820193845e51925af16100e56104d0565b634e487b7160e01b5f52604160045260245ffd5b601f80199101166080016080811067ffffffffffffffff82111761046b57604052565b610434565b90601f8019910116810190811067ffffffffffffffff82111761046b57604052565b67ffffffffffffffff811161046b57601f01601f191660200190565b604051608091906104bf8382610470565b6044815291601f1901366020840137565b3d156104fa573d906104e182610492565b916104ef6040519384610470565b82523d5f602084013e565b60609056",
+  "auxiliary_contracts": {
+    "CopyTarget": {
+      "creation_bytecode": "608080604052346013576014908160188239f35b5f80fdfe608060405234601057365f8037365ff35b5f80fd"
+    }
+  }
+}

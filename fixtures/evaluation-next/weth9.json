@@ -1,0 +1,382 @@
+{
+  "schema_version": 1,
+  "selection_id": "deployed-contracts-second-selection-2026-10-15",
+  "id": "weth9",
+  "chain_id": 1,
+  "address": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+  "bytecode_sha256": "5566bf50796faf93c9b6f6adacd3b32c70bfe16b48ffc59db6cd144cbdc89739",
+  "bytecode_size": 3124,
+  "provenance": {
+    "url": "https://sourcify.dev/server/v2/contract/1/0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2?fields=runtimeBytecode.onchainBytecode%2Cabi%2Ccompilation%2Csignatures.function%2Cdeployment",
+    "retrieved_at": "2026-10-16T04:48:07.720341+00:00",
+    "response_sha256": "77ba6c4307a3a8f4a2c7187834c832e105b5cb36c90106a22251982c97196c03"
+  },
+  "bytecode_origin": "Sourcify's archived onchain runtime, locked by hash; not a fresh or historical-block RPC verification",
+  "runtime_match": "match",
+  "verified_at": "2024-08-08T13:28:37Z",
+  "match_id": "1605500",
+  "deployment": {
+    "transactionHash": "0xb95343413e459a0f97461812111254163ae53467855c0d73e0f1e7c5b8442fa3",
+    "blockNumber": "4719568",
+    "transactionIndex": "85",
+    "deployer": "0x4F26FfBe5F04ED43630fdC30A87638d53D0b0876"
+  },
+  "compilation": {
+    "language": "Solidity",
+    "compiler": "solc",
+    "compilerVersion": "0.4.19+commit.c4cbbb05",
+    "compilerSettings": {
+      "libraries": {},
+      "optimizer": {
+        "runs": 200,
+        "enabled": false
+      },
+      "remappings": []
+    },
+    "name": "WETH9",
+    "fullyQualifiedName": "WETH9.sol:WETH9"
+  },
+  "abi": [
+    {
+      "name": "name",
+      "type": "function",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "payable": false,
+      "constant": true,
+      "stateMutability": "view"
+    },
+    {
+      "name": "approve",
+      "type": "function",
+      "inputs": [
+        {
+          "name": "guy",
+          "type": "address"
+        },
+        {
+          "name": "wad",
+          "type": "uint256"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "payable": false,
+      "constant": false,
+      "stateMutability": "nonpayable"
+    },
+    {
+      "name": "totalSupply",
+      "type": "function",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "payable": false,
+      "constant": true,
+      "stateMutability": "view"
+    },
+    {
+      "name": "transferFrom",
+      "type": "function",
+      "inputs": [
+        {
+          "name": "src",
+          "type": "address"
+        },
+        {
+          "name": "dst",
+          "type": "address"
+        },
+        {
+          "name": "wad",
+          "type": "uint256"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "payable": false,
+      "constant": false,
+      "stateMutability": "nonpayable"
+    },
+    {
+      "name": "withdraw",
+      "type": "function",
+      "inputs": [
+        {
+          "name": "wad",
+          "type": "uint256"
+        }
+      ],
+      "outputs": [],
+      "payable": false,
+      "constant": false,
+      "stateMutability": "nonpayable"
+    },
+    {
+      "name": "decimals",
+      "type": "function",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint8"
+        }
+      ],
+      "payable": false,
+      "constant": true,
+      "stateMutability": "view"
+    },
+    {
+      "name": "balanceOf",
+      "type": "function",
+      "inputs": [
+        {
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "payable": false,
+      "constant": true,
+      "stateMutability": "view"
+    },
+    {
+      "name": "symbol",
+      "type": "function",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "payable": false,
+      "constant": true,
+      "stateMutability": "view"
+    },
+    {
+      "name": "transfer",
+      "type": "function",
+      "inputs": [
+        {
+          "name": "dst",
+          "type": "address"
+        },
+        {
+          "name": "wad",
+          "type": "uint256"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "payable": false,
+      "constant": false,
+      "stateMutability": "nonpayable"
+    },
+    {
+      "name": "deposit",
+      "type": "function",
+      "inputs": [],
+      "outputs": [],
+      "payable": true,
+      "constant": false,
+      "stateMutability": "payable"
+    },
+    {
+      "name": "allowance",
+      "type": "function",
+      "inputs": [
+        {
+          "name": "",
+          "type": "address"
+        },
+        {
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "payable": false,
+      "constant": true,
+      "stateMutability": "view"
+    },
+    {
+      "type": "fallback",
+      "payable": true,
+      "stateMutability": "payable"
+    },
+    {
+      "name": "Approval",
+      "type": "event",
+      "inputs": [
+        {
+          "name": "src",
+          "type": "address",
+          "indexed": true
+        },
+        {
+          "name": "guy",
+          "type": "address",
+          "indexed": true
+        },
+        {
+          "name": "wad",
+          "type": "uint256",
+          "indexed": false
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "name": "Transfer",
+      "type": "event",
+      "inputs": [
+        {
+          "name": "src",
+          "type": "address",
+          "indexed": true
+        },
+        {
+          "name": "dst",
+          "type": "address",
+          "indexed": true
+        },
+        {
+          "name": "wad",
+          "type": "uint256",
+          "indexed": false
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "name": "Deposit",
+      "type": "event",
+      "inputs": [
+        {
+          "name": "dst",
+          "type": "address",
+          "indexed": true
+        },
+        {
+          "name": "wad",
+          "type": "uint256",
+          "indexed": false
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "name": "Withdrawal",
+      "type": "event",
+      "inputs": [
+        {
+          "name": "src",
+          "type": "address",
+          "indexed": true
+        },
+        {
+          "name": "wad",
+          "type": "uint256",
+          "indexed": false
+        }
+      ],
+      "anonymous": false
+    }
+  ],
+  "functions": [
+    {
+      "signature": "allowance(address,address)",
+      "signatureHash4": "0xdd62ed3e",
+      "signatureHash32": "0xdd62ed3e90e97b3d417db9c0c7522647811bafca5afc6694f143588d255fdfb4"
+    },
+    {
+      "signature": "approve(address,uint256)",
+      "signatureHash4": "0x095ea7b3",
+      "signatureHash32": "0x095ea7b334ae44009aa867bfb386f5c3b4b443ac6f0ee573fa91c4608fbadfba"
+    },
+    {
+      "signature": "balanceOf(address)",
+      "signatureHash4": "0x70a08231",
+      "signatureHash32": "0x70a08231b98ef4ca268c9cc3f6b4590e4bfec28280db06bb5d45e689f2a360be"
+    },
+    {
+      "signature": "decimals()",
+      "signatureHash4": "0x313ce567",
+      "signatureHash32": "0x313ce567add4d438edf58b94ff345d7d38c45b17dfc0f947988d7819dca364f9"
+    },
+    {
+      "signature": "deposit()",
+      "signatureHash4": "0xd0e30db0",
+      "signatureHash32": "0xd0e30db03f2e24c6531d8ae2f6c09d8e7a6ad7f7e87a81cb75dfda61c9d83286"
+    },
+    {
+      "signature": "name()",
+      "signatureHash4": "0x06fdde03",
+      "signatureHash32": "0x06fdde0383f15d582d1a74511486c9ddf862a882fb7904b3d9fe9b8b8e58a796"
+    },
+    {
+      "signature": "symbol()",
+      "signatureHash4": "0x95d89b41",
+      "signatureHash32": "0x95d89b41e2f5f391a79ec54e9d87c79d6e777c63e32c28da95b4e9e4a79250ec"
+    },
+    {
+      "signature": "totalSupply()",
+      "signatureHash4": "0x18160ddd",
+      "signatureHash32": "0x18160ddd7f15c72528c2f94fd8dfe3c8d5aa26e2c50c7d81f4bc7bee8d4b7932"
+    },
+    {
+      "signature": "transfer(address,uint256)",
+      "signatureHash4": "0xa9059cbb",
+      "signatureHash32": "0xa9059cbb2ab09eb219583f4a59a5d0623ade346d962bcd4e46b11da047c9049b"
+    },
+    {
+      "signature": "transferFrom(address,address,uint256)",
+      "signatureHash4": "0x23b872dd",
+      "signatureHash32": "0x23b872dd7302113369cda2901243429419bec145408fa8b352b3dd92b66c680b"
+    },
+    {
+      "signature": "withdraw(uint256)",
+      "signatureHash4": "0x2e1a7d4d",
+      "signatureHash32": "0x2e1a7d4d13322e7b96f9a57413e1525c250fb7a9021cf91d1540d5b69f16a49f"
+    }
+  ],
+  "upstream_bytecode_duplicates": [
+    "tests/core-decompiler/WETH.hex"
+  ],
+  "analysis_inputs": [
+    "weth9.hex"
+  ],
+  "ground_truth_supplied_to_reconstructor": false
+}

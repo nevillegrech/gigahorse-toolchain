@@ -42,6 +42,12 @@ tooling = [
 viz = [
     "pydot>=3.0.0",
 ]
+validation = [
+    "eth-tester[py-evm]>=0.13.0b1",
+]
+naming = [
+    "eth-hash[pycryptodome]>=0.7.0",
+]
 
 [project.urls]
 Homepage = "https://github.com/nevillegrech/gigahorse-toolchain"
@@ -78,6 +84,8 @@ files = [
     "clients/visualizeout.py",
     "src",
     "clientlib",
+    "reconstruct.py",
+    "reconstruction",
 ]
 # `clientlib` has no __init__.py and is imported as `clientlib.facts_to_cfg`; anchor
 # module names at the repo root so the same file isn't discovered under two names.
@@ -126,6 +134,6 @@ ignore = [
 # imported bare (e.g. `from tac_schema import ...`) because src/ is on sys.path at
 # runtime — pin them as first-party so import grouping is stable.
 known-first-party = [
-    "src", "clientlib",
+    "src", "clientlib", "reconstruction", "reconstruct",
     "common", "runners", "exporter", "blockparse", "basicblock", "opcodes", "tac_schema",
 ]

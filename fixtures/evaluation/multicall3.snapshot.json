@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "bytecode_sha256": "2756d7c52baee85cacb504f6ee1df7aad6809ac8d94a4a111d76991f90d36d6e",
+  "semantic_schema": 3,
+  "tables": {
+    "relations": "aabae1155c94ddd00ea51ce365bd94475f61ee5e0114a3defa2bd3dc95a7a86f",
+    "semantic": "76d815389b42cb50b6acd8b2a9271d4a26ff9124d8ce37f45e40f1f412ce223b"
+  },
+  "source_bundle": "artifacts/evaluation-revert-release/multicall3/bundle",
+  "evaluation_scope": "Calibration regression snapshot, not a new unseen contract"
+}

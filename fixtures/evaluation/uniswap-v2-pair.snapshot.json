@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "bytecode_sha256": "8b5db55fa9ab3b9527508d4abe0b39eb588bf310270c8e04b3f38214e8ba63b4",
+  "semantic_schema": 3,
+  "tables": {
+    "relations": "91487488d5bc09567d44727bbb1ac386015a6e271b7db3e758c58d8a8387da04",
+    "semantic": "ed2f938c7909b7132f837260bb24e016912d556d76d1785314ff4be76bae627a"
+  },
+  "source_bundle": "artifacts/evaluation-revert-release/uniswap-v2-pair/bundle",
+  "evaluation_scope": "Calibration regression snapshot, not a new unseen contract"
+}

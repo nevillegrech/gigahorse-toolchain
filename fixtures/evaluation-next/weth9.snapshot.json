@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "bytecode_sha256": "5566bf50796faf93c9b6f6adacd3b32c70bfe16b48ffc59db6cd144cbdc89739",
+  "semantic_schema": 3,
+  "tables": {
+    "relations": "d403d6d5f141bc8e010448ec7a48d72b1143b0a71ce98159693ccfa1755e22bf",
+    "semantic": "85943cbaef247eab942a1d5b3839b65ab828074f50ad498e77cd75468f7fafa9"
+  },
+  "source_bundle": "artifacts/evaluation-second-baseline/weth9/bundle",
+  "evaluation_scope": "Calibration regression snapshot, not a new unseen contract"
+}

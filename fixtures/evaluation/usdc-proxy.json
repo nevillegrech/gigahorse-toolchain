@@ -1,0 +1,193 @@
+{
+  "schema_version": 1,
+  "selection_id": "deployed-contracts-2026-10-15",
+  "id": "usdc-proxy",
+  "chain_id": 1,
+  "address": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+  "bytecode_sha256": "c1bcd4dc4f30c4dcf6c9fe462abeaf2efefc065dcb4dec74996e471f1ce219b4",
+  "bytecode_size": 2186,
+  "provenance": {
+    "url": "https://sourcify.dev/server/v2/contract/1/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48?fields=runtimeBytecode.onchainBytecode%2Cabi%2Ccompilation%2Csignatures.function%2Cdeployment",
+    "retrieved_at": "2026-10-15T23:33:34.352354+00:00",
+    "response_sha256": "dff92b721e69b813c9ca18991cca2696e28869c6c5edc338406a8ee0bbfd992a"
+  },
+  "bytecode_origin": "Sourcify's archived onchain runtime, locked by hash; not a fresh or historical-block RPC verification",
+  "runtime_match": "match",
+  "verified_at": "2024-08-08T13:20:07Z",
+  "match_id": "1532018",
+  "deployment": {
+    "transactionHash": "0xe7e0fe390354509cd08c9a0168536938600ddc552b3f7cb96030ebef62e75895",
+    "blockNumber": "6082465",
+    "transactionIndex": "22",
+    "deployer": "0x95Ba4cF87D6723ad9C0Db21737D862bE80e93911"
+  },
+  "compilation": {
+    "language": "Solidity",
+    "compiler": "solc",
+    "compilerVersion": "0.4.24+commit.e67f0147",
+    "compilerSettings": {
+      "libraries": {},
+      "optimizer": {
+        "runs": 200,
+        "enabled": false
+      },
+      "evmVersion": "byzantium",
+      "remappings": []
+    },
+    "name": "FiatTokenProxy",
+    "fullyQualifiedName": "FiatTokenProxy.sol:FiatTokenProxy"
+  },
+  "abi": [
+    {
+      "name": "upgradeTo",
+      "type": "function",
+      "inputs": [
+        {
+          "name": "newImplementation",
+          "type": "address"
+        }
+      ],
+      "outputs": [],
+      "payable": false,
+      "constant": false,
+      "stateMutability": "nonpayable"
+    },
+    {
+      "name": "upgradeToAndCall",
+      "type": "function",
+      "inputs": [
+        {
+          "name": "newImplementation",
+          "type": "address"
+        },
+        {
+          "name": "data",
+          "type": "bytes"
+        }
+      ],
+      "outputs": [],
+      "payable": true,
+      "constant": false,
+      "stateMutability": "payable"
+    },
+    {
+      "name": "implementation",
+      "type": "function",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "payable": false,
+      "constant": true,
+      "stateMutability": "view"
+    },
+    {
+      "name": "changeAdmin",
+      "type": "function",
+      "inputs": [
+        {
+          "name": "newAdmin",
+          "type": "address"
+        }
+      ],
+      "outputs": [],
+      "payable": false,
+      "constant": false,
+      "stateMutability": "nonpayable"
+    },
+    {
+      "name": "admin",
+      "type": "function",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "payable": false,
+      "constant": true,
+      "stateMutability": "view"
+    },
+    {
+      "type": "constructor",
+      "inputs": [
+        {
+          "name": "_implementation",
+          "type": "address"
+        }
+      ],
+      "payable": false,
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "fallback",
+      "payable": true,
+      "stateMutability": "payable"
+    },
+    {
+      "name": "AdminChanged",
+      "type": "event",
+      "inputs": [
+        {
+          "name": "previousAdmin",
+          "type": "address",
+          "indexed": false
+        },
+        {
+          "name": "newAdmin",
+          "type": "address",
+          "indexed": false
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "name": "Upgraded",
+      "type": "event",
+      "inputs": [
+        {
+          "name": "implementation",
+          "type": "address",
+          "indexed": false
+        }
+      ],
+      "anonymous": false
+    }
+  ],
+  "functions": [
+    {
+      "signature": "admin()",
+      "signatureHash4": "0xf851a440",
+      "signatureHash32": "0xf851a44064d54ebc488774050c771bacc14f01dd7456abacb48978dba9cd92a4"
+    },
+    {
+      "signature": "changeAdmin(address)",
+      "signatureHash4": "0x8f283970",
+      "signatureHash32": "0x8f283970d77a4ed91db7de292ab9ce3bd6bda15b0efff7371d7a50905ca104f6"
+    },
+    {
+      "signature": "implementation()",
+      "signatureHash4": "0x5c60da1b",
+      "signatureHash32": "0x5c60da1b04210c25e1974b6edfcf5bb7c7365b6a88c42319fcbd024464075cc2"
+    },
+    {
+      "signature": "upgradeTo(address)",
+      "signatureHash4": "0x3659cfe6",
+      "signatureHash32": "0x3659cfe672549963da205df855ebfb8672cda4801e0255183bd6a6f536855df7"
+    },
+    {
+      "signature": "upgradeToAndCall(address,bytes)",
+      "signatureHash4": "0x4f1ef286",
+      "signatureHash32": "0x4f1ef2866b98625bdfefae89411f7a82754ac4089eff8e78c8832329a538337f"
+    }
+  ],
+  "upstream_bytecode_duplicates": [],
+  "analysis_inputs": [
+    "usdc-proxy.hex"
+  ],
+  "ground_truth_supplied_to_reconstructor": false
+}

@@ -28,7 +28,8 @@ FunctionalBlock_Uses_Local(block, as(stackIndex, StackIndex)) :-
 .decl PolymorphicStackIndex(block: IRBlock, stackIndex: StackIndex)
 
 PolymorphicStackIndex(block, stackIndex) :-
-  FunctionalBlock_Uses_Local(block, stackIndex),
+  (LocalBlockEdge(predecessor1, block), LocalBlockEdge(predecessor2, block), predecessor1 != predecessor2;
+   IRFunctionEntry(block), LocalBlockEdge(_, block)),
   lastFunctional.FunctionalBlockInputContents(block, stackIndex, var1),
   lastFunctional.FunctionalBlockInputContents(block, stackIndex, var2),
   var1 != var2.
@@ -178,7 +179,8 @@ TAC_Op(irstmt, "THROW") :-
 TAC_Def(stmt, var, 0),
 TAC_Stmt(stmt),
 TAC_Op(stmt, "PHI") :-
-   PHILocation(_, _, stmt),
+   PHILocation(block, _, stmt),
+   !DeadBlock(block),
    var = as(stmt, TACVariable).
 
 // Non-phi, non-call variable id same as stmt it is defined in
@@ -193,57 +195,85 @@ TAC_Use(stmt, as(var_rep, TACVariable), n) :-
   CheckIsVariable(var),
   lastFunctional.Variable_Stmt_String(var, stmt, var_rep).
 
-// Case 2: Uses monomorphic global var
-// Using the block in which the var is defined,
-// Fixes cases where a stmt in a cloned block is using
-// a variable defined in a non cloned block
-TAC_Use(stmt, as(var_rep, TACVariable), n) :-
+// Nonlocal uses refer to the final SSA value reaching this block, including
+// values forwarded through blocks that do not themselves require a PHI.
+TAC_Use(stmt, value, n) :-
   lastFunctional.FunctionalStatement_Uses_Local(stmt, stackIndex, n),
-  CheckIsStackIndex(stackIndex),
-  IRStatement_Block(stmt, block),
-  IRInFunction(block, fun),
-  !PHILocation(block, stackIndex, _),
-  lastFunctional.FunctionalBlockInputContents(block, stackIndex, var),
-  lastFunctional.FunctionalStatement_Defines(defstmt, var, _),
-  IRStatement_Block(defstmt, defBlock),
-  IRInFunction(defBlock, fun),
-  lastFunctional.Variable_Block_String(var, defBlock, var_rep).
-
-//Case 2.1: Uses arg(like the above case, but not defined)
-TAC_Use(stmt, as(var_rep, TACVariable), n) :-
-  lastFunctional.FunctionalStatement_Uses_Local(stmt, stackIndex, n),
-  CheckIsStackIndex(stackIndex),
-  IRStatement_Block(stmt, block),
-  !PHILocation(block, stackIndex, _),
-  lastFunctional.FunctionalBlockInputContents(block, stackIndex, var),
-  lastFunctional.FunctionArgument(_, _, var),
-  lastFunctional.Variable_String(var, var_rep).
+  CheckIsStackIndex(stackIndex), IRStatement_Block(stmt, block),
+  FinalStackInput(block, as(stackIndex, StackIndex), value).
 
 
-// Case 3: Is a PHI statement
-TAC_Use(phiStmt, as(var_rep, TACVariable), -1) :-
-  PHILocation(block, stackIndex, phiStmt),
-  lastFunctional.FunctionalBlockInputContents(block, stackIndex, var),
-  IRInFunction(block, fun),
-  lastFunctional.FunctionalStatement_Defines(defstmt, var, _),
-  IRStatement_Block(defstmt, defBlock),
-  IRInFunction(defBlock, fun),
-  lastFunctional.Variable_Block_String(var, defBlock, var_rep).
+// Final SSA stack flow. Materialize PHIs at merges even for stack positions
+// that are only forwarded. Blocks with one incoming edge keep the reaching
+// value's name. This preserves precise loop edges and existing client patterns.
+.decl FinalStackRawName(var: Variable, fun: IRFunction, name: TACVariable)
+FinalStackRawName(var, fun, as(name, TACVariable)) :-
+  lastFunctional.FunctionalStatement_Defines(stmt, var, _),
+  IRStatement_Block(stmt, block), IRInFunction(block, fun),
+  lastFunctional.Variable_Block_String(var, block, name).
+FinalStackRawName(var, fun, as(name, TACVariable)) :-
+  lastFunctional.FunctionArgument(fun, _, var),
+  lastFunctional.Variable_String(var, name).
 
-// Case 3.1: Phis using args
-TAC_Use(phiStmt, as(var_rep, TACVariable), -1) :-
-  PHILocation(block, stackIndex, phiStmt),
-  lastFunctional.FunctionalBlockInputContents(block, stackIndex, var),
-  lastFunctional.FunctionArgument(_, _, var),
-  lastFunctional.Variable_String(var, var_rep).
+.decl FinalStackInput(block: IRBlock, index: StackIndex, value: TACVariable)
+.decl FinalStackBeforeOutput(block: IRBlock, index: StackIndex, value: TACVariable)
+.decl FinalStackOutput(block: IRBlock, index: StackIndex, value: TACVariable)
 
+FinalStackInput(block, index, as(phi, TACVariable)) :- PHILocation(block, index, phi).
+FinalStackInput(block, index, value) :-
+  LocalBlockEdge(predecessor, block), FinalStackOutput(predecessor, index, value),
+  !PHILocation(block, index, _).
+FinalStackInput(entry, index, value) :-
+  IRFunctionEntry(entry), IRInFunction(entry, fun),
+  lastFunctional.FunctionArgument(fun, index, var),
+  FinalStackRawName(var, fun, value), !PHILocation(entry, index, _).
 
-// Case 4: Uses polymorphic variable
-TAC_Use(stmt, as(phiStmt, TACVariable), n) :-
-  lastFunctional.FunctionalStatement_Uses_Local(stmt, stackIndex, n),
-  CheckIsStackIndex(stackIndex),
-  IRStatement_Block(stmt, block),
-  PHILocation(block, stackIndex, phiStmt).
+FinalStackBeforeOutput(block, as(index + delta, StackIndex), value) :-
+  FinalStackInput(block, index, value), IRBlockPopDelta(block, pop),
+  IRBlockStackDelta(block, delta), index >= pop,
+  index + delta <= MAX_STACK_HEIGHT, CheckIsStackIndex(index + delta).
+FinalStackBeforeOutput(block, index, value) :-
+  IRBasicBlock_Tail(block, tail), IRInFunction(block, fun),
+  lastFunctional.IRLocalStackContents(tail, index, rawVar), CheckIsVariable(rawVar),
+  FinalStackRawName(as(rawVar, Variable), fun, value).
+FinalStackBeforeOutput(block, index, value) :-
+  IRBasicBlock_Tail(block, tail),
+  lastFunctional.IRLocalStackContents(tail, index, inputIndex), CheckIsStackIndex(inputIndex),
+  FinalStackInput(block, as(inputIndex, StackIndex), value).
+
+FinalStackOutput(block, index, value) :-
+  FinalStackBeforeOutput(block, index, value),
+  LocalBlockEdge(block, next), IRBlockEdge(block, next).
+FinalStackOutput(caller, index, value) :-
+  lastFunctional.FunctionCallReturnArgument(caller, index, var),
+  IRInFunction(caller, fun), FinalStackRawName(var, fun, value).
+FinalStackOutput(caller, as(index + nOut - nIn, StackIndex), value) :-
+  FinalStackBeforeOutput(caller, index, value), IRFunctionCallReturn(caller, fun, _),
+  NumberOfFunctionReturnArguments(fun, nOut), NumberOfFunctionArguments(fun, nIn),
+  index >= nIn, CheckIsStackIndex(index + nOut - nIn).
+
+TAC_Use(phi, value, -1) :- TAC_PhiInput(phi, _, value).
+TAC_Use(phi, value, -1) :- TAC_PhiEntryInput(phi, value).
+
+// A loop header may also be a private function entry. Its initial frame is
+// distinct from local back edges and must survive call-site inlining.
+.decl TAC_PhiEntryInput(phi: IRStatement, value: TACVariable)
+.output TAC_PhiEntryInput
+TAC_PhiEntryInput(phi, value) :-
+  PHILocation(entry, index, phi), IRFunctionEntry(entry), IRInFunction(entry, fun),
+  lastFunctional.FunctionArgument(fun, index, var),
+  FinalStackRawName(var, fun, value), !DeadBlock(entry).
+
+// Preserve the predecessor association lost by unordered TAC_Use(..., -1).
+// Multiple values on an edge remain explicit; consumers must not choose one.
+.decl TAC_PhiInput(phi: IRStatement, predecessor: IRBlock, value: TACVariable)
+.output TAC_PhiInput
+
+TAC_PhiInput(phi, predecessor, value) :-
+  PHILocation(block, stackIndex, phi),
+  LocalBlockEdge(predecessor, block),
+  FinalStackOutput(predecessor, stackIndex, value), !DeadBlock(block).
+
 
 TAC_Block(stmt, block) :-
   IRStatement_Block(stmt, block),

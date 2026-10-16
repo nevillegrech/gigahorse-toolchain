@@ -139,14 +139,42 @@ UniqueMSTOREMLOADForAddrVar(store, load) :-
   MLOADMSTORESameAddrVar(store, load),
   !NonUniqueMLOADMSTOREForAddrVar(store, load).
 
-// REVIEW: Should remove, via-ir produces smarter code that will make it fire more often
-// Right now some thing will break. So we have to postpone.
+// A unique MSTORE for this address variable is insufficient when an external
+// return buffer can overwrite it. Do not fold through an intervening call.
+// This is a call barrier, not a general proof that stores/copies cannot alias:
+// expanding it to all writes requires precise ranges, including array headers
+// versus payloads. The existing native memory heuristics remain inferences.
+.decl MemoryConstantPossibleWrite(stmt: Statement)
+MemoryConstantPossibleWrite(stmt) :-
+  Statement_Opcode(stmt, op),
+  (op = "CALL"; op = "STATICCALL"; op = "DELEGATECALL"; op = "CALLCODE").
+
+.decl MemoryConstantBefore(from: Statement, to: Statement)
+.decl MemoryConstantRelevantPair(from: Statement, to: Statement)
+MemoryConstantRelevantPair(store, middle) :-
+  UniqueMSTOREMLOADForAddrVar(store, _), MemoryConstantPossibleWrite(middle).
+MemoryConstantRelevantPair(middle, load) :-
+  UniqueMSTOREMLOADForAddrVar(_, load), MemoryConstantPossibleWrite(middle).
+MemoryConstantBefore(from, to) :-
+  MemoryConstantRelevantPair(from, to), LocalStatementPathInBlock(from, to).
+MemoryConstantBefore(from, to) :-
+  MemoryConstantRelevantPair(from, to),
+  Statement_Block(from, fromBlock), Statement_Block(to, toBlock),
+  LocalBlockPath(fromBlock, toBlock).
+
+.decl MemoryConstantClobbered(store: Statement, load: Statement)
+MemoryConstantClobbered(store, load) :-
+  UniqueMSTOREMLOADForAddrVar(store, load), MemoryConstantPossibleWrite(middle),
+  middle != store, middle != load,
+  MemoryConstantBefore(store, middle), MemoryConstantBefore(middle, load).
+
 Variable_Value(to, val):-
   UniqueMSTOREMLOADForAddrVar(store, load),
   MSTORE(store, var, from),
   MLOAD(load, var, to),
   !BasicVariable_Value(var, _),
   LocalStatementPathInBlock(store, load),
+  !MemoryConstantClobbered(store, load),
   Variable_Value(from, val).
 
 //REVIEW: Should probably optimize
@@ -159,6 +187,7 @@ Variable_Value(to, val):-
   Statement_Block(load, loadBlock),
   Dominates(storeBlock, loadBlock),
   storeBlock != loadBlock,
+  !MemoryConstantClobbered(store, load),
   Variable_Value(from, val).
 
 /**

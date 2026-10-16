@@ -1,0 +1,163 @@
+{
+  "compiler": "solc, the solidity compiler commandline interface\nVersion: 0.8.30+commit.73712a01.Linux.g++",
+  "source": "AliasFixture.sol",
+  "source_sha256": "37f73c9ade9f193cbba2151a40c5637c7735acfa332fb6ddfb15e08d471831ff",
+  "bytecode_sha256": "5b4c3c20432bed69ae9c9dbe3e15fca7ea1fb5764ff437c187f72feba090a243",
+  "settings": {
+    "optimizer": {
+      "enabled": true,
+      "runs": 200
+    },
+    "viaIR": false,
+    "evmVersion": "cancun",
+    "metadata": {
+      "bytecodeHash": "none",
+      "appendCBOR": false
+    },
+    "outputSelection": {
+      "*": {
+        "*": [
+          "evm.deployedBytecode.object",
+          "evm.bytecode.object",
+          "evm.methodIdentifiers",
+          "storageLayout",
+          "abi"
+        ]
+      }
+    }
+  },
+  "method_identifiers": {
+    "aliasSize(uint256,uint256,uint256)": "ae45f11a",
+    "aliasWord(uint256,uint256,uint256)": "970ee396",
+    "copyAlias(uint256,uint256,uint256,uint256)": "42118a5c",
+    "directReturn(uint256,uint256,uint256)": "3d3eb8a5"
+  },
+  "storage_layout": {
+    "storage": [],
+    "types": null
+  },
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "slotOffset",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "destination",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "value",
+          "type": "uint256"
+        }
+      ],
+      "name": "aliasSize",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "slotOffset",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "destination",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "value",
+          "type": "uint256"
+        }
+      ],
+      "name": "aliasWord",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "slotOffset",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "destination",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "value",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "size",
+          "type": "uint256"
+        }
+      ],
+      "name": "copyAlias",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "slotOffset",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "destination",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "value",
+          "type": "uint256"
+        }
+      ],
+      "name": "directReturn",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "creation_bytecode": "6080604052348015600e575f5ffd5b506101868061001c5f395ff3fe608060405234801561000f575f5ffd5b506004361061004a575f3560e01c80633d3eb8a51461004e57806342118a5c14610073578063970ee39614610086578063ae45f11a14610099575b5f5ffd5b61006161005c36600461012e565b6100ac565b60405190815260200160405180910390f35b610061610081366004610157565b6100c6565b61006161009436600461012e565b6100ec565b6100616100a736600461012e565b61010a565b5f6080604052836040015163112233448152828452602081f35b5f6080604052846040015163112233448152836102005282610200865e80515f5260205ff35b5f608060405283604001516311223344815282845280515f5260205ff35b5f608060405283604001516020815263112233446020820152828452805160208201f35b5f5f5f60608486031215610140575f5ffd5b505081359360208301359350604090920135919050565b5f5f5f5f6080858703121561016a575f5ffd5b505082359460208401359450604084013593606001359250905056"
+}

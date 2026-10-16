@@ -16,6 +16,7 @@ from typing import Any
 
 from . import blockparse, exporter
 from .common import GIGAHORSE_DIR, SOUFFLE_COMPILED_SUFFIX, log, log_debug
+from .datalog_cache import build_cached_executable, publish_executable
 from .tac_schema import TACRelations
 
 devnull = subprocess.DEVNULL
@@ -267,23 +268,29 @@ def compile_datalog(
     if os.path.exists(cache_path):
         log(f"Found cached executable for {spec}")
     else:
-        comp_start = time.time()
-        log(f"Compiling {spec} to C++ program and executable")
-        compilation_command = [
-            souffle_bin,
-            "-M",
-            souffle_macros,
-            "-o",
-            cache_path,
-            spec,
-            "-L",
-            functor_path,
-        ]
-        process = subprocess.run(compilation_command, text=True, env=souffle_env)
-        assert not (process.returncode), f"Compilation for {spec} failed. Stopping."
-        log(f"Compilation of {spec} successful after {time.time() - comp_start} seconds.")
 
-    shutil.copy2(cache_path, executable_path)
+        def build(output: Path) -> None:
+            comp_start = time.time()
+            log(f"Compiling {spec} to C++ program and executable")
+            compilation_command = [
+                souffle_bin,
+                "-M",
+                souffle_macros,
+                "-o",
+                str(output),
+                spec,
+                "-L",
+                functor_path,
+            ]
+            process = subprocess.run(compilation_command, text=True, env=souffle_env)
+            if process.returncode:
+                raise RuntimeError(f"Compilation for {spec} failed. Stopping.")
+            log(f"Compilation of {spec} successful after {time.time() - comp_start} seconds.")
+
+        if not build_cached_executable(Path(cache_path), build):
+            log(f"Found cached executable for {spec}")
+
+    publish_executable(Path(cache_path), Path(executable_path))
 
 
 def write_context_depth_file(filename: str, max_context_depth: int | None = None) -> None:

@@ -1,0 +1,265 @@
+{
+  "compiler": "solc, the solidity compiler commandline interface\nVersion: 0.8.30+commit.73712a01.Linux.g++",
+  "source": "LayoutFixture.sol",
+  "source_sha256": "1a2f7af038710b9e0a25b7a0622d09011be7657b550e3a17a7d883cde1346e49",
+  "bytecode_sha256": "0fba5e6dd2ec35e336845aa5a253a2e246d755448b37917510de3d77673cce27",
+  "settings": {
+    "optimizer": {
+      "enabled": true,
+      "runs": 200
+    },
+    "viaIR": true,
+    "evmVersion": "cancun",
+    "metadata": {
+      "bytecodeHash": "none",
+      "appendCBOR": false
+    },
+    "outputSelection": {
+      "*": {
+        "*": [
+          "evm.deployedBytecode.object",
+          "evm.bytecode.object",
+          "evm.methodIdentifiers",
+          "storageLayout",
+          "abi"
+        ]
+      }
+    }
+  },
+  "method_identifiers": {
+    "append(uint256)": "e33b8707",
+    "assign(address,uint256,uint256)": "f132e800",
+    "at(uint256)": "e0886f90",
+    "configure(address,bool,uint64)": "7b390df9",
+    "inspect()": "a44c9180",
+    "lookup(address,uint256)": "b033a6c3",
+    "size()": "949d225d"
+  },
+  "storage_layout": {
+    "storage": [
+      {
+        "astId": 3,
+        "contract": "LayoutFixture.sol:LayoutFixture",
+        "label": "owner",
+        "offset": 0,
+        "slot": "0",
+        "type": "t_address"
+      },
+      {
+        "astId": 5,
+        "contract": "LayoutFixture.sol:LayoutFixture",
+        "label": "paused",
+        "offset": 20,
+        "slot": "0",
+        "type": "t_bool"
+      },
+      {
+        "astId": 7,
+        "contract": "LayoutFixture.sol:LayoutFixture",
+        "label": "count",
+        "offset": 21,
+        "slot": "0",
+        "type": "t_uint64"
+      },
+      {
+        "astId": 10,
+        "contract": "LayoutFixture.sol:LayoutFixture",
+        "label": "items",
+        "offset": 0,
+        "slot": "1",
+        "type": "t_array(t_uint256)dyn_storage"
+      },
+      {
+        "astId": 16,
+        "contract": "LayoutFixture.sol:LayoutFixture",
+        "label": "credits",
+        "offset": 0,
+        "slot": "2",
+        "type": "t_mapping(t_address,t_mapping(t_uint256,t_uint256))"
+      }
+    ],
+    "types": {
+      "t_address": {
+        "encoding": "inplace",
+        "label": "address",
+        "numberOfBytes": "20"
+      },
+      "t_array(t_uint256)dyn_storage": {
+        "base": "t_uint256",
+        "encoding": "dynamic_array",
+        "label": "uint256[]",
+        "numberOfBytes": "32"
+      },
+      "t_bool": {
+        "encoding": "inplace",
+        "label": "bool",
+        "numberOfBytes": "1"
+      },
+      "t_mapping(t_address,t_mapping(t_uint256,t_uint256))": {
+        "encoding": "mapping",
+        "key": "t_address",
+        "label": "mapping(address => mapping(uint256 => uint256))",
+        "numberOfBytes": "32",
+        "value": "t_mapping(t_uint256,t_uint256)"
+      },
+      "t_mapping(t_uint256,t_uint256)": {
+        "encoding": "mapping",
+        "key": "t_uint256",
+        "label": "mapping(uint256 => uint256)",
+        "numberOfBytes": "32",
+        "value": "t_uint256"
+      },
+      "t_uint256": {
+        "encoding": "inplace",
+        "label": "uint256",
+        "numberOfBytes": "32"
+      },
+      "t_uint64": {
+        "encoding": "inplace",
+        "label": "uint64",
+        "numberOfBytes": "8"
+      }
+    }
+  },
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "value",
+          "type": "uint256"
+        }
+      ],
+      "name": "append",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "account",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "key",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "value",
+          "type": "uint256"
+        }
+      ],
+      "name": "assign",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "index",
+          "type": "uint256"
+        }
+      ],
+      "name": "at",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "nextOwner",
+          "type": "address"
+        },
+        {
+          "internalType": "bool",
+          "name": "nextPaused",
+          "type": "bool"
+        },
+        {
+          "internalType": "uint64",
+          "name": "nextCount",
+          "type": "uint64"
+        }
+      ],
+      "name": "configure",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "inspect",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        },
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        },
+        {
+          "internalType": "uint64",
+          "name": "",
+          "type": "uint64"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "account",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "key",
+          "type": "uint256"
+        }
+      ],
+      "name": "lookup",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "size",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ],
+  "creation_bytecode": "608080604052346015576102e0908161001a8239f35b5f80fdfe6080806040526004361015610012575f80fd5b5f3560e01c9081637b390df91461021e578163949d225d1461020457508063a44c9180146101bf578063b033a6c31461017b578063e0886f901461014e578063e33b8707146100eb5763f132e80014610069575f80fd5b346100e75760603660031901126100e75761008261029e565b5f546001600160a01b031633036100ba5760018060a01b03165f52600260205260405f206024355f5260205260443560405f20555f80f35b60405162461bcd60e51b815260206004820152600560248201526437bbb732b960d91b6044820152606490fd5b5f80fd5b346100e75760203660031901126100e7576001546801000000000000000081101561013a5780600161012092016001556102b4565b81545f1960039290921b91821b191660043590911b179055005b634e487b7160e01b5f52604160045260245ffd5b346100e75760203660031901126100e757602061016c6004356102b4565b90549060031b1c604051908152f35b346100e75760403660031901126100e7576001600160a01b0361019c61029e565b165f52600260205260405f206024355f52602052602060405f2054604051908152f35b346100e7575f3660031901126100e75760605f5467ffffffffffffffff6040519160018060a01b038116835260ff8160a01c161515602084015260a81c166040820152f35b346100e7575f3660031901126100e7576020906001548152f35b346100e75760603660031901126100e75761023761029e565b6024358015158091036100e75760443567ffffffffffffffff811681036100e7575f805460a09390931b60ff60a01b166001600160e81b03199093166001600160a01b03909416939093179190911760a89190911b67ffffffffffffffff60a81b16179055005b600435906001600160a01b03821682036100e757565b6001548110156102cc5760015f5260205f2001905f90565b634e487b7160e01b5f52603260045260245ffd"
+}

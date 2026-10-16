@@ -665,10 +665,15 @@ def run_gigahorse(args, fact_generator: AbstractFactGenerator) -> None:
         shutil.rmtree(args.working_dir, ignore_errors=True)
 
     if not args.interpreted:
-        for p in running_processes:
+        failed_compilations = []
+        for file, p in zip(souffle_files, running_processes, strict=True):
             p.join()
-            if args.debug and p.exitcode:
-                raise Exception("Souffle binary compilation failed, stopping.")
+            if p.exitcode:
+                failed_compilations.append(file)
+        if failed_compilations:
+            raise RuntimeError(
+                "Souffle binary compilation failed: " + ", ".join(failed_compilations)
+            )
 
         # check all programs have been compiled
         for file in souffle_files:

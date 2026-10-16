@@ -1,0 +1,155 @@
+{
+  "compiler": "solc, the solidity compiler commandline interface\nVersion: 0.8.30+commit.73712a01.Linux.g++",
+  "source": "StorageFixture.sol",
+  "source_sha256": "21f84367e082711c520d1a37ddefe3f792d0ef60c675339beb5296949c846d7a",
+  "bytecode_sha256": "0fdb4db44aab284e7ffd0a7c9b136836f7b3f846348d4e7d4c43a322b269993a",
+  "settings": {
+    "optimizer": {
+      "enabled": true,
+      "runs": 200
+    },
+    "viaIR": false,
+    "evmVersion": "cancun",
+    "metadata": {
+      "bytecodeHash": "none",
+      "appendCBOR": false
+    },
+    "outputSelection": {
+      "*": {
+        "*": [
+          "evm.deployedBytecode.object",
+          "evm.bytecode.object",
+          "evm.methodIdentifiers",
+          "storageLayout",
+          "abi"
+        ]
+      }
+    }
+  },
+  "method_identifiers": {
+    "balance(address)": "e3d670d7",
+    "choose(bool)": "f6e00e0f",
+    "credit(uint256)": "78da744b",
+    "read()": "57de26a4",
+    "write(uint256)": "2f048afa"
+  },
+  "storage_layout": {
+    "storage": [
+      {
+        "astId": 3,
+        "contract": "StorageFixture.sol:StorageFixture",
+        "label": "value",
+        "offset": 0,
+        "slot": "0",
+        "type": "t_uint256"
+      },
+      {
+        "astId": 7,
+        "contract": "StorageFixture.sol:StorageFixture",
+        "label": "balances",
+        "offset": 0,
+        "slot": "1",
+        "type": "t_mapping(t_address,t_uint256)"
+      }
+    ],
+    "types": {
+      "t_address": {
+        "encoding": "inplace",
+        "label": "address",
+        "numberOfBytes": "20"
+      },
+      "t_mapping(t_address,t_uint256)": {
+        "encoding": "mapping",
+        "key": "t_address",
+        "label": "mapping(address => uint256)",
+        "numberOfBytes": "32",
+        "value": "t_uint256"
+      },
+      "t_uint256": {
+        "encoding": "inplace",
+        "label": "uint256",
+        "numberOfBytes": "32"
+      }
+    }
+  },
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "account",
+          "type": "address"
+        }
+      ],
+      "name": "balance",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bool",
+          "name": "flag",
+          "type": "bool"
+        }
+      ],
+      "name": "choose",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "amount",
+          "type": "uint256"
+        }
+      ],
+      "name": "credit",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "read",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "next",
+          "type": "uint256"
+        }
+      ],
+      "name": "write",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "creation_bytecode": "6080604052348015600e575f5ffd5b506101de8061001c5f395ff3fe608060405234801561000f575f5ffd5b5060043610610055575f3560e01c80632f048afa1461005957806357de26a41461006e57806378da744b14610083578063e3d670d714610096578063f6e00e0f146100be575b5f5ffd5b61006c61006736600461015c565b6100d1565b005b5f545b60405190815260200160405180910390f35b61006c61009136600461015c565b610113565b6100716100a4366004610173565b6001600160a01b03165f9081526001602052604090205490565b6100716100cc3660046101a0565b610139565b6103e881111561010f5760405162461bcd60e51b81526020600482015260056024820152641b1a5b5a5d60da1b604482015260640160405180910390fd5b5f55565b335f90815260016020526040812080548392906101319084906101bf565b909155505050565b5f8161015357335f90815260016020526040902054610156565b5f545b92915050565b5f6020828403121561016c575f5ffd5b5035919050565b5f60208284031215610183575f5ffd5b81356001600160a01b0381168114610199575f5ffd5b9392505050565b5f602082840312156101b0575f5ffd5b81358015158114610199575f5ffd5b8082018082111561015657634e487b7160e01b5f52601160045260245ffd"
+}

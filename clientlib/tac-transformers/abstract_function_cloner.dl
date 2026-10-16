@@ -55,6 +55,17 @@
   Out_Statement_Opcode(outStmt, opcode):-
     In_Statement_Opcode(stmt, opcode),
     StatementToClonedInstance(stmt, _, outStmt).
+
+  Out_PhiEntryInput(outPhi, outVar):-
+    In_PhiEntryInput(phi, value),
+    StatementToClonedInstance(phi, context, outPhi),
+    VariableToClonedInstance(value, context, outVar).
+
+  Out_PhiInput(outPhi, outPred, outVar):-
+    In_PhiInput(phi, predecessor, value),
+    StatementToClonedInstance(phi, context, outPhi),
+    BlockToClonedInstance(predecessor, context, outPred),
+    VariableToClonedInstance(value, context, outVar).
   
   Out_IsStatement(outStmt):-
     In_IsStatement(stmt),
