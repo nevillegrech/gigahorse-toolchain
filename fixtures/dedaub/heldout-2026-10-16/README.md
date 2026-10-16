@@ -21,3 +21,8 @@ cannot influence it.
 
 Already analyzed (calibration since run 1): `tether-usdt`, `dai`,
 `compound-ceth`, `uniswap-v2-router02`, `chainlink-eth-usd-proxy`.
+
+These seven were opened on 2026-10-16 only after their first local scores
+were committed (96ef441). The comparison is in EVALUATION.md ("Held-out run 2:
+same-bytecode comparison with Dedaub") and `results/run2-dedaub-comparison.json`.
+No exports were provided for the five already-analyzed contracts.

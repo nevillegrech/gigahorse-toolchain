@@ -812,3 +812,105 @@ What went wrong:
 
 Totals over the five contracts with output: 112/113 selectors, 99 names
 correct, 10 unnamed, 3 wrong; 12 wrong claims, all in the V3 pool and Seaport.
+
+**After two robustness fixes** (cb22824, made after the first scores and
+informed by the two failures; `results/run2-after-fixes.json`, re-rendered from
+saved relations, no new native run for the scored five):
+
+- A statement with fewer operands than its EVM stack inputs (Curve's 24
+  one-operand `MSTORE`s) stays a raw operation marked UNCERTAIN.
+- An operand the IR gives several values for (1inch: 60 positions in 29
+  statements) becomes an unordered PHI over them, with a warning, instead of
+  rejecting the program. One is never picked. Conflicting definitions still
+  fail.
+- A failure in one function's view now costs only that function (an
+  UNCERTAIN stub that claims no arguments), and `decompile` keeps Gigahorse's
+  relations when a later step fails.
+
+The five contracts that had output render byte-identically. Curve now has
+1,767 code lines, but no public functions are separated (0/38 selectors: the
+Vyper dispatcher is not recognized) and its body is unstructured. 1inch has
+7,450 code lines, 45/45 selectors, 21 names correct and 24 unnamed, 5 wrong
+claims (functions taking a static struct are printed with one argument per
+struct word, e.g. arity 10 for `swap`'s 4), 434 UNCERTAIN lines and 12
+unstructured functions.
+
+
+## Held-out run 2: same-bytecode comparison with Dedaub
+
+The user's exports of Dedaub's standard decompiler output for the seven
+contracts (`fixtures/dedaub/heldout-2026-10-16/`) were opened only after the
+first scores above were committed (96ef441). `scripts/compare-dedaub.py`
+(`results/run2-dedaub-comparison.json`) scores both texts with the same
+held-out scorer against the verified ABIs. Dedaub's signatures come from its
+dispatcher and its argument types and payability from its function headers.
+Dedaub prints no return types. The local outputs are those after the fixes
+above. Code lines use the whole-file rule (non-blank, non-comment). "Raw" lines
+read or write `MEM[...]` or `msg.data[...]` or copy memory, in either tool.
+
+| Contract | Code lines (local / Dedaub) | Raw share | Public functions found (of ABI) | Names correct | Wrong claims (excl. payability) | Decoded revert reasons |
+| --- | --- | --- | --- | --- | --- | --- |
+| uniswap-v3-pool-usdc-weth | 1,932 / 1,976 | 23% / 9% | 26 / 26 (26) | 26 / 26 | 5 / 0 | 32 / 0 |
+| azuki-erc721a | 1,103 / 896 | 22% / 6% | 45 / 45 (45) | 45 / 45 | 0 / 0 | 52 / 54 |
+| aave-v3-pool-proxy | 163 / 130 | 33% / 18% | 5 / 5 (5) | 5 / 5 | 0 / 0 | 6 / 6 |
+| ens-eth-registrar-controller | 634 / 512 | 42% / 18% | 20 / 20 (20) | 18 / 20 | 0 / 0 | 4 / 4 |
+| oneinch-router-v5 | 7,450 / 3,168 | 24% / 15% | 45 / 45 (45) | 21 / 45 | 5 / 6 | 9 / 9 |
+| seaport-1-5 | 8,963 / 5,406 | 57% / 43% | 16 / 15 (17) | 5 / 13 | 7 / 13 | 0 / 0 |
+| curve-3pool (Vyper) | 1,767 / 583 | 23% / 20% | 0 / 38 (38) | 0 / 0 | 0 / 0 | 0 / 0 |
+| **total** | **22,012 / 12,671** | **38% / 26%** | **157 / 194 (196)** | **120 / 154** | **17 / 19** | **103 / 73** |
+
+Payability is counted separately. Dedaub prints every V3 pool function
+`payable`, as it did for Morpho, although both contracts reject ETH in the
+dispatcher: 26 labels disagree with the ABI for Dedaub, 0 for the local view.
+
+**Not at parity.** Accuracy is comparable (17 wrong claims against 19), but
+Dedaub's output is 1.7 times shorter overall and much less raw. Only the V3
+pool is about the same length (0.98x). The gaps, largest first:
+
+- **Memory as values.** Dedaub prints allocations as objects: `new struct(7)`
+  with `.word0`...`.word6` for the V3 `swap`'s cached `slot0`, `new bytes[](n)`
+  and array accessors in ENS's commitment encoding. The local view prints the
+  same steps as `MEM[...]` writes. This is most of the raw-share difference
+  (38% against 26%).
+- **Names from a larger database.** Dedaub names all 20 ENS and 45 1inch
+  functions (local: 18 and 21) and 13 of Seaport's 17 (local: 5). It also
+  names parameters (`recipient`, `zeroForOne`), custom errors
+  (`InsufficientValue()`, `SwapAmountTooLarge()`, where the local view prints
+  the selectors `0x11011294`, `0xcf0b4d3a`), external calls
+  (`registerAndWrapETH2LD`) and events. Some of Dedaub's names come from
+  source-level knowledge, not from the bytecode: 39 private functions in three
+  contracts carry source names with node ids (`@rentPrice_3602`,
+  `@_setImplementation_127`, 33 in 1inch). There are none in the unverified
+  Morpho contract. The local view uses no source or ABI, by design.
+- **Vyper.** Neither tool splits Curve into functions. Dedaub's single
+  dispatcher function is structured and lists all 38 selectors. The local
+  view's is unstructured blocks, three times longer.
+- **Large assembly-heavy contracts.** The local view is 1.7 times longer on
+  Seaport and 2.4 times on 1inch. On 1inch, 395 of its 434 UNCERTAIN lines are
+  unordered PHIs, from the ambiguous operands above and other unresolved
+  merges.
+
+Where the local view is ahead or equal:
+
+- **Revert reasons.** The V3 pool's short reasons decode (`Error("LOK")`,
+  `Error("SPL")`, 32 sites); Dedaub prints them as numbers (`Error(0x4c4f4b)`).
+- **Wrong claims.** Both share the 1inch struct-argument arity errors (5
+  local, 6 Dedaub) and Seaport's selector-collision names (3 local, 2 Dedaub;
+  Dedaub omits `cancel`). Dedaub's Seaport headers also misplace array
+  parameter types (8 wrong types, e.g. `[] varg1`, `[][] recipient`). The local
+  view's own error is the V3 pool's `uint160` printed as `address` (5).
+- **Payability and return types** are printed and correct; Dedaub prints no
+  return types.
+- **Evidence and uncertainty.** Every local line maps to IR and bytecode, and
+  unresolved constructs are marked; Dedaub has neither.
+- **Simple contracts.** On Azuki and the Aave proxy both find the same
+  functions, names, access checks and revert reasons. The local view is about
+  1.25 times longer, with more raw memory writes.
+
+Analysis cost: the seven first runs took 307 s together. The largest peak was
+1inch, at 15.9 GB in Gigahorse's core decompiler (17.3 GB under a 24 GB cap).
+
+Next priorities, by measured gap: memory allocations printed as objects (the
+raw share); signature coverage for custom errors, events, external calls and
+parameter names; static-struct arguments (arity) and `uint160` against
+`address`; the Vyper dispatcher.
