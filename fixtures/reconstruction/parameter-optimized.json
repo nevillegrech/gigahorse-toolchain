@@ -1,0 +1,297 @@
+{
+  "compiler": "solc, the solidity compiler commandline interface\nVersion: 0.8.30+commit.73712a01.Linux.g++",
+  "source": "ParameterFixture.sol",
+  "source_sha256": "ff7244d0e074914c2e0b9dc8860079f3ab6039dab5f6aa3fe9d4a349c2d388cb",
+  "bytecode_sha256": "3f254ef882af6dfd9b68376d978da6d75f459357ebddc910604dd4f366600259",
+  "settings": {
+    "optimizer": {
+      "enabled": true,
+      "runs": 200
+    },
+    "viaIR": false,
+    "evmVersion": "cancun",
+    "metadata": {
+      "bytecodeHash": "none",
+      "appendCBOR": false
+    },
+    "outputSelection": {
+      "*": {
+        "*": [
+          "evm.deployedBytecode.object",
+          "evm.bytecode.object",
+          "evm.methodIdentifiers",
+          "storageLayout",
+          "abi"
+        ]
+      }
+    }
+  },
+  "method_identifiers": {
+    "idToAddress(uint256)": "2a2d0c47",
+    "owner()": "8da5cb5b",
+    "price()": "a035b1fe",
+    "scaled(uint160)": "ed312764",
+    "setPrice(uint160)": "d90bda4e",
+    "settle(address,(address,address,uint256,uint256),uint256)": "47d0755e",
+    "settleMemory((address,address,uint256,uint256),uint256)": "79e53809",
+    "tail(bytes)": "ba5a0763",
+    "triple(uint160)": "2afe11a3"
+  },
+  "storage_layout": {
+    "storage": [
+      {
+        "astId": 13,
+        "contract": "ParameterFixture.sol:ParameterFixture",
+        "label": "price",
+        "offset": 0,
+        "slot": "0",
+        "type": "t_uint160"
+      },
+      {
+        "astId": 15,
+        "contract": "ParameterFixture.sol:ParameterFixture",
+        "label": "owner",
+        "offset": 0,
+        "slot": "1",
+        "type": "t_address"
+      }
+    ],
+    "types": {
+      "t_address": {
+        "encoding": "inplace",
+        "label": "address",
+        "numberOfBytes": "20"
+      },
+      "t_uint160": {
+        "encoding": "inplace",
+        "label": "uint160",
+        "numberOfBytes": "20"
+      }
+    }
+  },
+  "abi": [
+    {
+      "inputs": [],
+      "stateMutability": "nonpayable",
+      "type": "constructor"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "id",
+          "type": "uint256"
+        }
+      ],
+      "name": "idToAddress",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "pure",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "owner",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "price",
+      "outputs": [
+        {
+          "internalType": "uint160",
+          "name": "",
+          "type": "uint160"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint160",
+          "name": "by",
+          "type": "uint160"
+        }
+      ],
+      "name": "scaled",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint160",
+          "name": "next",
+          "type": "uint160"
+        }
+      ],
+      "name": "setPrice",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "caller",
+          "type": "address"
+        },
+        {
+          "components": [
+            {
+              "internalType": "address",
+              "name": "maker",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "taker",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "amount",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "price",
+              "type": "uint256"
+            }
+          ],
+          "internalType": "struct ParameterFixture.Order",
+          "name": "order",
+          "type": "tuple"
+        },
+        {
+          "internalType": "uint256",
+          "name": "fee",
+          "type": "uint256"
+        }
+      ],
+      "name": "settle",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "pure",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "components": [
+            {
+              "internalType": "address",
+              "name": "maker",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "taker",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "amount",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "price",
+              "type": "uint256"
+            }
+          ],
+          "internalType": "struct ParameterFixture.Order",
+          "name": "order",
+          "type": "tuple"
+        },
+        {
+          "internalType": "uint256",
+          "name": "fee",
+          "type": "uint256"
+        }
+      ],
+      "name": "settleMemory",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "pure",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes",
+          "name": "data",
+          "type": "bytes"
+        }
+      ],
+      "name": "tail",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "word",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "size",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "pure",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint160",
+          "name": "x",
+          "type": "uint160"
+        }
+      ],
+      "name": "triple",
+      "outputs": [
+        {
+          "internalType": "uint160",
+          "name": "",
+          "type": "uint160"
+        }
+      ],
+      "stateMutability": "pure",
+      "type": "function"
+    }
+  ],
+  "creation_bytecode": "6080604052348015600e575f5ffd5b50600180546001600160a01b031990811633179091555f805490911660031790556105238061003c5f395ff3fe608060405234801561000f575f5ffd5b5060043610610090575f3560e01c80638da5cb5b116100635780638da5cb5b1461010a578063a035b1fe1461011d578063ba5a07631461012f578063d90bda4e1461015b578063ed31276414610170575f5ffd5b80632a2d0c47146100945780632afe11a3146100c257806347d0755e146100d657806379e53809146100f7575b5f5ffd5b6100a56100a23660046102f2565b90565b6040516001600160a01b0390911681526020015b60405180910390f35b6100a56100d0366004610320565b60030290565b6100e96100e4366004610352565b610183565b6040519081526020016100b9565b6100e9610105366004610398565b610215565b6001546100a5906001600160a01b031681565b5f546100a5906001600160a01b031681565b61014661013d366004610427565b60643592909150565b604080519283526020830191909152016100b9565b61016e610169366004610320565b61025b565b005b6100e961017e366004610320565b6102d9565b5f8082610198606086013560408701356104a9565b6101a291906104c0565b90506001600160a01b0385166101bb6020860186610320565b6001600160a01b0316036101d7576101d46001826104c0565b90505b6001600160a01b0385166101f16040860160208701610320565b6001600160a01b03160361020d5761020a6002826104c0565b90505b949350505050565b5f8260200151835f0151186001600160a01b031682846060015161023991906104a9565b846040015161024891906104c0565b61025291906104c0565b90505b92915050565b6001546001600160a01b031633146102a15760405162461bcd60e51b815260206004820152600560248201526437bbb732b960d91b604482015260640160405180910390fd5b6102ac8160026104d3565b6102b7906001610504565b5f80546001600160a01b0319166001600160a01b039290921691909117905550565b5f8054610255906001600160a01b0380851691166104a9565b5f60208284031215610302575f5ffd5b5035919050565b6001600160a01b038116811461031d575f5ffd5b50565b5f60208284031215610330575f5ffd5b813561033b81610309565b9392505050565b803561034d81610309565b919050565b5f5f5f83850360c0811215610365575f5ffd5b843561037081610309565b93506080601f1982011215610383575f5ffd5b50919460208401945060a09093013592915050565b5f5f82840360a08112156103aa575f5ffd5b60808112156103b7575f5ffd5b506040516080810181811067ffffffffffffffff821117156103e757634e487b7160e01b5f52604160045260245ffd5b6040526103f384610342565b815261040160208501610342565b602082015260408481013590820152606080850135908201529460809093013593505050565b5f5f60208385031215610438575f5ffd5b823567ffffffffffffffff81111561044e575f5ffd5b8301601f8101851361045e575f5ffd5b803567ffffffffffffffff811115610474575f5ffd5b856020828401011115610485575f5ffd5b6020919091019590945092505050565b634e487b7160e01b5f52601160045260245ffd5b808202811582820484141761025557610255610495565b8082018082111561025557610255610495565b6001600160a01b038181168382168181029092169181830481148215176104fc576104fc610495565b505092915050565b6001600160a01b0381811683821601908111156102555761025561049556"
+}

@@ -32,11 +32,20 @@ from .ir import (
     is_local,
     struct_fields,
 )
-from .lift import FunctionLifter, ProgramContext, is_static_abi
+from .lift import (
+    FunctionLifter,
+    ProgramContext,
+    decoder_head_size,
+    head_params,
+    is_static_abi,
+    signature_params,
+)
 from .memory_forwarding import forward_memory
 from .memory_liveness import AddressModel, FreePointerVersions, Summaries, compute_summaries
 from .naming import Names, load_names, split_signature
+from .numeric import refine_160_bit_returns
 from .objects import memory_objects
+from .parameters import group_struct_parameters
 from .passes import (
     FunctionState,
     absorb_memory_plumbing,
@@ -125,6 +134,49 @@ class FunctionView:
     nonpayable_by_dispatcher: Stmt | None = None
     # The view of this function failed: its arguments are not claimed.
     arguments_unknown: bool = False
+    # A dictionary name the ABI decoder contradicts: (signature, needed, head bytes).
+    rejected_signature: tuple[str, int, int] | None = None
+    # Static struct parameters: (name, head-word arguments, struct name, field types).
+    parameter_groups: list[tuple[str, list[str], str, list[str]]] = field(default_factory=list)
+
+
+def _bits(kind: str) -> int | None:
+    if kind == "address":
+        return 160
+    if kind.startswith("uint") and kind[4:].isdigit():
+        return int(kind[4:])
+    return None
+
+
+def _declared_word_type(state: FunctionState, value: TypedValue, declared: str, signature: str):
+    """Masks show only the bits the code uses, not the declared type: a 160-bit
+    value may be uint160, and a word masked at every use may be declared wider
+    (e.g. `uint256 id` used as an address). The hash-matched signature decides."""
+    code, wide = _bits(value.type), _bits(declared)
+    if code is None or wide is None or declared == value.type:
+        return
+    if value.type == "address" and declared == "uint160":
+        value.type = "uint160"
+        value.reason += (
+            f"; a 160-bit value, uint160 in the hash-matched signature {signature} [dict]"
+        )
+        return
+    if value.enforcement == "mask" and wide > code:
+        # The uses keep their mask (as compiled); the parameter is the wider word.
+        mask = value.type
+
+        def recast(expr: Expr, name: str = value.name) -> Expr:
+            if isinstance(expr, Var) and expr.name == name and expr.typed == mask:
+                return Call(mask, (replace(expr, typed=None),), evidence=expr.evidence)
+            return expr
+
+        map_body(state.body, recast)
+        value.type = declared
+        value.enforcement = None
+        value.reason = (
+            f"masked to {mask} at every use; declared {declared} in the hash-matched "
+            f"signature {signature} [dict]"
+        )
 
 
 def _strict() -> bool:
@@ -267,6 +319,14 @@ def build_decompiled(
     for function in program.functions:
         if len(function.selectors) == 1:
             name, signature = _public_name(function.selectors[0], names)
+            if signature is not None:
+                # A hash-matched name whose parameters are fewer head bytes than the
+                # ABI decoder requires is a selector collision, not the source name.
+                head = 32 * len(head_params(signature_params(signature)))
+                needed = decoder_head_size(context, function)
+                if needed is not None and needed > head:
+                    context.rejected_signatures[function.id] = (signature, needed, head)
+                    name, signature = function.selectors[0], None
             context.function_names[function.id] = name
             signatures[function.id] = signature
             if signature:
@@ -311,6 +371,8 @@ def build_decompiled(
             views.append(
                 _failed_view(context, function, signatures.get(function.id), failed[function.id])
             )
+    for view in views:
+        view.rejected_signature = context.rejected_signatures.get(view.function.id)
     dispatcher_value_check = _dispatcher_nonpayable(views)
     if dispatcher_value_check is not None:
         for view in views:
@@ -328,6 +390,7 @@ def build_decompiled(
         view.state.body = view.body
         memory_objects(view.state, bool(view.function.selectors))
         view.body = view.state.body
+    refine_160_bit_returns(views)
     storage = name_storage_from_getters(views)
     declarations, field_types = storage_declarations(views, context, storage)
     for view in views:
@@ -565,7 +628,8 @@ def finish_function(
     common_subexpressions(state)
     copy_propagation(state)
     if signature and function.selectors:
-        params = split_signature(signature)[1]
+        # Head words of the signature: static tuples flattened, like the arguments.
+        params = head_params(split_signature(signature)[1])
         for index, arg in enumerate(item.arguments):
             value = typed[arg.name]
             if (
@@ -580,11 +644,24 @@ def finish_function(
                 value.reason = (
                     f"not read by the code; type from the hash-matched signature {signature} [dict]"
                 )
+            elif value.kind == "word" and index < len(params):
+                _declared_word_type(state, value, params[index], signature)
     for name in decoded:
         value = typed[name]
         if value.type == "dynamic":
             value.type = "bytes"
             value.reason += "; decoded with abi.decode, whose source is bytes"
+    groups = (
+        group_struct_parameters(
+            state,
+            item.arguments,
+            typed,
+            context.structs,
+            split_signature(signature)[1] if signature else None,
+        )
+        if function.selectors
+        else []
+    )
     remove_unused_reads(state)
     loop_conditions(state)
     # Loop conditions are formed last; a constant one (e.g. a copy loop over 0
@@ -595,7 +672,7 @@ def finish_function(
     remove_unused_reads(state)
     tidy_branches(state)
     refresh_output_notes(state)
-    return FunctionView(
+    view = FunctionView(
         function,
         context.function_names[function.id],
         state.body,
@@ -607,6 +684,8 @@ def finish_function(
         item.structured,
         set(lifter.argument_evidence),
     )
+    view.parameter_groups = groups
+    return view
 
 
 def _dispatcher_nonpayable(views: list[FunctionView]) -> Stmt | None:
@@ -641,6 +720,15 @@ def print_function(out: Printed, view: FunctionView, summary=None) -> None:
     elif selector:
         hint = f" {view.signature} [dict]" if view.signature else ""
         out.emit(f"// {selector}{hint}", 1, kind="function-hint")
+        rejected = view.rejected_signature
+        if rejected is not None:
+            signature, needed, head = rejected
+            out.emit(
+                f"//   dictionary name {signature} [dict] rejected: the ABI decoder requires "
+                f"{needed} bytes of arguments, the signature has {head}",
+                1,
+                kind="function-hint",
+            )
         if summary is not None:
             for text, ids in summary_lines(summary, True):
                 out.emit(
@@ -650,7 +738,11 @@ def print_function(out: Printed, view: FunctionView, summary=None) -> None:
                     kind="behaviour-summary",
                     uncertain=text if text.startswith("UNCERTAIN") else None,
                 )
-    params = ", ".join(f"{a.type} {a.name}" for a in view.arguments)
+    leading = {words[0]: struct for _, words, struct, _ in view.parameter_groups}
+    inside = {word for _, words, _, _ in view.parameter_groups for word in words[1:]}
+    params = ", ".join(
+        f"{leading.get(a.name, a.type)} {a.name}" for a in view.arguments if a.name not in inside
+    )
     if view.arguments_unknown:
         params = "/* arguments not recovered */"
     if function.selectors:
@@ -842,6 +934,8 @@ def _scalar_type(candidates: list[str], written: set[str], width: int) -> str:
 def used_structs(views: list[FunctionView]) -> list[str]:
     found: dict[str, list[str]] = {}
     for view in views:
+        for _, _, struct, types in view.parameter_groups:
+            found[struct] = types
         for stmt in iter_statements(view.body):
             for expr in stmt.expressions():
                 for node in iter_expr(expr):

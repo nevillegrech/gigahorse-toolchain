@@ -23,6 +23,7 @@ def main():
         ("ExpressionFixture", "expression"),
         ("AliasFixture", "alias"),
         ("FailureFixture", "failure"),
+        ("ParameterFixture", "parameter"),
     ):
         compile_fixture(contract, prefix, version)
 

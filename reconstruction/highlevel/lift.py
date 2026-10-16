@@ -170,6 +170,9 @@ class ProgramContext:
     error_signatures: dict[int, str] = field(default_factory=dict)
     # Public function id -> its unique hash-checked signature text.
     function_signatures: dict[str, str] = field(default_factory=dict)
+    # Public function id -> (dictionary signature, argument bytes the ABI decoder
+    # requires, the signature's head bytes) for names the code contradicts.
+    rejected_signatures: dict[str, tuple[str, int, int]] = field(default_factory=dict)
     # Field types of ABI-coded structs -> printed struct name (shared by all functions).
     structs: dict[tuple[str, ...], str] = field(default_factory=dict)
 
@@ -293,14 +296,24 @@ class FunctionLifter:
             inferred = max(by_index) + 1 if by_index else 0
             signature = self.context.function_signatures.get(self.function.id)
             count = inferred
+            head = decoder_head_size(self.context, self.function)
+            if signature is None and head is not None and head // 32 < inferred:
+                # The ABI decoder checks a head of `head` bytes: words read beyond it
+                # are in the tail of a dynamic argument, not parameters of their own.
+                count = head // 32
+                self.arity_note = (
+                    f"calldata words beyond the {count}-word head the ABI decoder checks "
+                    "are read (printed as msg.data[...])"
+                )
             if signature is not None:
-                params = signature_params(signature)
+                # Head words, not parameters: a static tuple parameter spans several.
+                params = head_params(signature_params(signature))
                 if len(params) < inferred:
                     # Extra calldata words are read (e.g. by a logging modifier) but the
-                    # hash-matched signature has fewer parameters: print them as reads.
+                    # hash-matched signature has fewer head words: print them as reads.
                     count = len(params)
                     self.arity_note = (
-                        f"calldata words beyond the {len(params)} parameter(s) of the matched "
+                        f"calldata words beyond the {len(params)} head word(s) of the matched "
                         f"signature {signature} are read (printed as msg.data[...])"
                     )
                 elif len(params) > inferred:
@@ -1277,6 +1290,39 @@ def static_words(param: str) -> list[str] | None:
         if count.isdigit() and inner is not None:
             return inner * int(count)
     return None
+
+
+def decoder_head_size(context: ProgramContext, function: Function) -> int | None:
+    """Argument bytes the ABI decoder requires: the largest N it compares
+    `calldatasize - 4` against (`slt(sub(calldatasize(), 4), N)` or, via-IR,
+    `add(calldatasize(), not(3))`). solc never requires more than the head of
+    the declared parameters. None when the function has no such check."""
+    blocks = {b.id: b for b in context.program.blocks}
+    statements = [s for b in function.blocks if b in blocks for s in blocks[b].instructions]
+    sizes = {v for v, s in context.definitions.items() if s.opcode == "CALLDATASIZE"}
+    not3 = (1 << 256) - 4
+    minus4: set[str] = set()
+    for stmt in statements:
+        if len(stmt.definitions) != 1 or len(stmt.operands) != 2:
+            continue
+        a, b = stmt.operands
+        ca, cb = context.constants.get(a), context.constants.get(b)
+        if (stmt.opcode == "SUB" and a in sizes and cb == 4) or (
+            stmt.opcode == "ADD" and ((a in sizes and cb == not3) or (b in sizes and ca == not3))
+        ):
+            minus4.add(stmt.definitions[0])
+    found = []
+    for stmt in statements:
+        if stmt.opcode not in {"LT", "GT", "SLT", "SGT"} or len(stmt.operands) != 2:
+            continue
+        a, b = stmt.operands
+        ca, cb = context.constants.get(a), context.constants.get(b)
+        if a in minus4 and cb is not None:
+            found.append(cb if stmt.opcode in {"LT", "SLT"} else cb + 1)
+        elif b in minus4 and ca is not None:
+            found.append(ca if stmt.opcode in {"GT", "SGT"} else ca + 1)
+    found = [n for n in found if 0 < n <= 32 * 256 and n % 32 == 0]
+    return max(found) if found else None
 
 
 def head_params(params: list[str]) -> list[str]:

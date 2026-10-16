@@ -58,14 +58,25 @@ SIGNATURE = re.compile(
 )
 
 
+STRUCT = re.compile(r"^    struct (S\d+) \{ (.*?) \}$", re.M)
+
+
 def parse_view(text: str) -> dict[str, dict]:
+    # Struct types the view declares (`struct S3 { address f0; uint256 f1; }`), as tuples.
+    structs = {
+        name: "(" + ",".join(f.split()[0] for f in body.split(";") if f.strip()) + ")"
+        for name, body in STRUCT.findall(text)
+    }
     functions = {}
     for match in SIGNATURE.finditer(text):
         selector, hint, name, params, mutability, returns = match.groups()
         types = (
             None  # the view failed for this function and claims no arguments
             if "arguments not recovered" in params
-            else [p.strip().rsplit(" ", 1)[0] for p in params.split(",") if p.strip()]
+            else [
+                structs.get(kind, kind)
+                for kind in (p.strip().rsplit(" ", 1)[0] for p in params.split(",") if p.strip())
+            ]
         )
         functions[selector] = {
             "hint": hint,
@@ -75,6 +86,49 @@ def parse_view(text: str) -> dict[str, dict]:
             "returns": [r.strip() for r in returns.split(",")] if returns else None,
         }
     return functions
+
+
+def flat_words(kind: str) -> list[str] | None:
+    """Head words of a static ABI type (tuples flattened); None when dynamic."""
+    if kind.startswith("(") and kind.endswith(")"):
+        parts, depth, current = [], 0, ""
+        for char in kind[1:-1]:
+            depth += char == "("
+            depth -= char == ")"
+            if char == "," and depth == 0:
+                parts.append(current)
+                current = ""
+            else:
+                current += char
+        if current:
+            parts.append(current)
+        words: list[str] = []
+        for part in parts:
+            inner = flat_words(part)
+            if inner is None:
+                return None
+            words += inner
+        return words
+    if kind in {"bytes", "string"} or kind.endswith("[]"):
+        return None
+    if kind.endswith("]"):
+        element, _, count = kind[:-1].rpartition("[")
+        inner = flat_words(element)
+        return inner * int(count) if inner is not None and count.isdigit() else None
+    return [kind]
+
+
+def compare_tuple(mine: str, theirs: str) -> str:
+    """A printed struct parameter against the ABI type, word by word: a uint256
+    word is the raw default (unresolved); a different word count is wrong."""
+    ours, expected = flat_words(mine), flat_words(theirs)
+    if ours is None or expected is None or len(ours) != len(expected):
+        return "wrong"
+    results = {
+        "correct" if a == b else "unresolved" if a == "uint256" else "wrong"
+        for a, b in zip(ours, expected, strict=True)
+    }
+    return "wrong" if "wrong" in results else "unresolved" if "unresolved" in results else "correct"
 
 
 def score(view: dict[str, dict], truth: dict[str, dict]) -> dict:
@@ -112,6 +166,11 @@ def score(view: dict[str, dict], truth: dict[str, dict]) -> dict:
             ):
                 if mine == theirs:
                     counts["argument_types"]["correct"] += 1
+                elif mine.startswith("("):
+                    verdict = compare_tuple(mine, theirs)
+                    counts["argument_types"][verdict] += 1
+                    if verdict == "wrong":
+                        counts["wrong_claims"].append(f"{selector}: arg{index} {mine} vs {theirs}")
                 elif mine == "dynamic":
                     counts["argument_types"]["dynamic_unresolved"] += 1
                 elif mine == "uint256":
