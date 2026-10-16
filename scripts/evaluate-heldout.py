@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import shutil
 import subprocess
 import sys
 import time
@@ -151,11 +152,46 @@ def score(view: dict[str, dict], truth: dict[str, dict]) -> dict:
     return counts
 
 
+def limited(command: list[str], memory_gb: float, seconds: int) -> tuple[list[str], str]:
+    """Run under a memory cap (cgroup, swap off) and a wall-clock limit; report peak RSS.
+
+    A runaway analysis is then killed on its own instead of exhausting the
+    machine. GNU time reports the largest resident set in the process tree.
+    """
+    wrapped = ["timeout", "--signal=TERM", "--kill-after=30", str(seconds), *command]
+    if Path("/usr/bin/time").is_file():
+        wrapped = ["/usr/bin/time", "-f", "peak_rss_kb=%M", *wrapped]
+    if shutil.which("systemd-run"):
+        scope = ["systemd-run", "--user", "--scope", "--quiet"]
+        scope += ["-p", f"MemoryMax={memory_gb}G", "-p", "MemorySwapMax=0"]
+        return [*scope, *wrapped], f"systemd scope MemoryMax={memory_gb}G, swap off"
+    return wrapped, "none (systemd-run unavailable): wall-clock limit only"
+
+
+def failure_kind(returncode: int, seconds: float, limit: int, output: str) -> str:
+    if returncode == 124 or seconds >= limit:
+        return "timeout"
+    if returncode in (137, -9) or "Killed" in output[-2000:]:
+        return "killed (memory limit)"
+    return "error"
+
+
+def peak_rss_gb(output: str) -> float | None:
+    found = re.findall(r"peak_rss_kb=(\d+)", output)
+    return round(int(found[-1]) / 1024 / 1024, 2) if found else None
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("corpus", type=Path)
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--timeout", type=int, default=300)
+    parser.add_argument("--timeout", type=int, default=300, help="native analysis timeout")
+    parser.add_argument(
+        "--memory-gb", type=float, default=16, help="memory cap per contract (whole process tree)"
+    )
+    parser.add_argument(
+        "--wall-seconds", type=int, default=3600, help="wall-clock limit per contract, all steps"
+    )
     parser.add_argument("--only", nargs="*")
     parser.add_argument(
         "--reuse", action="store_true", help="re-render existing bundles' relations"
@@ -168,6 +204,13 @@ def main() -> None:
     args.output.mkdir(parents=True, exist_ok=True)
     report_path = args.output / "report.json"
     report = {"selection_id": corpus["selection_id"], "contracts": []}
+    _, mechanism = limited([], args.memory_gb, args.wall_seconds)
+    report["limits"] = {
+        "memory_gb": args.memory_gb,
+        "wall_seconds": args.wall_seconds,
+        "native_timeout_seconds": args.timeout,
+        "mechanism": mechanism,
+    }
     if args.resume and report_path.is_file():
         report = json.loads(report_path.read_text())
     done = {entry["id"] for entry in report["contracts"]}
@@ -191,9 +234,11 @@ def main() -> None:
                 "--output",
                 str(rendered),
             ]
+            command, _ = limited(command, args.memory_gb, args.wall_seconds)
             result = subprocess.run(command, capture_output=True, text=True)
-            subprocess.run(["rm", "-rf", str(bundle)], check=True)
+            # Replace the bundle only after a successful render: its relations are the input.
             if result.returncode == 0:
+                subprocess.run(["rm", "-rf", str(bundle)], check=True)
                 rendered.rename(bundle)
         else:
             if bundle.exists():
@@ -208,14 +253,20 @@ def main() -> None:
                 "--timeout",
                 str(args.timeout),
             ]
+            command, _ = limited(command, args.memory_gb, args.wall_seconds)
             result = subprocess.run(command, capture_output=True, text=True)
         entry["seconds"] = round(time.monotonic() - started, 1)
+        entry["peak_rss_gb"] = peak_rss_gb(result.stderr)
         entry["status"] = "ok" if result.returncode == 0 else "failed"
         if result.returncode:
+            # Timeouts and kills are recorded as failures, never dropped.
+            entry["failure"] = failure_kind(
+                result.returncode, entry["seconds"], args.wall_seconds, result.stderr
+            )
             entry["error"] = (result.stderr or result.stdout)[-1500:]
             report["contracts"].append(entry)
             report_path.write_text(json.dumps(report, indent=2) + "\n")
-            print(f"{ident}: FAILED after {entry['seconds']}s", flush=True)
+            print(f"{ident}: FAILED ({entry['failure']}) after {entry['seconds']}s", flush=True)
             continue
         text = (bundle / "decompiled.sol.txt").read_text()
         mapping = json.loads((bundle / "decompiled.map.json").read_text())
@@ -251,7 +302,8 @@ def main() -> None:
         report["contracts"].append(entry)
         s = entry["score"]
         print(
-            f"{ident}: {entry['seconds']}s, {entry['decompiled_code_lines']} lines "
+            f"{ident}: {entry['seconds']}s, peak {entry['peak_rss_gb']} GB, "
+            f"{entry['decompiled_code_lines']} lines "
             f"(structured {entry['structured_code_lines']}), selectors {s['selectors_recovered']}/{s['abi_functions']}, "
             f"names {s['names']}, args {s['argument_types']}, wrong claims {len(s['wrong_claims'])}, "
             f"uncertain {entry['uncertain_lines']}, unstructured {entry['unstructured_functions']}",
