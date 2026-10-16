@@ -253,6 +253,11 @@ class Liveness:
         from .ir import Slice
         from .passes import iter_expr, read_expressions
 
+        extra: list[Range] = []
+        if "input" in stmt.meta and stmt.origin not in self.absorbed_origins:
+            # A call whose printed arguments do not cover its input reads the raw bytes.
+            start, end = stmt.meta["input"]
+            extra.append(self.model.range(start, self.slice_size(start, end)))
         if id(stmt) in self.ignored_reads or (stmt.origin in self.absorbed_origins):
             exprs: tuple[Expr, ...] = ()
             # Absorbed consumers still evaluate their printed arguments.
@@ -286,7 +291,7 @@ class Liveness:
                         result.append(Range(ANY, 0, None))
                 elif isinstance(node, ExternalCallExpr) and node.raw_input is None and node.method:
                     pass  # ABI arguments are printed values, not memory
-        return result
+        return result + extra
 
     def slice_size(self, start: Expr, end: Expr) -> int | None:
         size = size_of(start, end)

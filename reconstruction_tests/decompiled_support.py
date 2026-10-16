@@ -14,6 +14,7 @@ ROOT = Path(__file__).resolve().parents[1]
 COMPILER = ROOT / "fixtures/reconstruction"
 DEPLOYED = ROOT / "fixtures/evaluation"
 DEPLOYED_NEXT = ROOT / "fixtures/evaluation-next"
+DEDAUB = ROOT / "fixtures/dedaub"
 
 COMPILER_STEMS = sorted(
     p.name.removesuffix(".relations.json") for p in COMPILER.glob("*.relations.json")
@@ -26,6 +27,7 @@ DEPLOYED_IDS = [
     (DEPLOYED_NEXT, "weth9"),
     (DEPLOYED_NEXT, "ens-registry"),
     (DEPLOYED_NEXT, "erc721-collection"),
+    (DEDAUB, "morpho-liquidator"),
 ]
 
 

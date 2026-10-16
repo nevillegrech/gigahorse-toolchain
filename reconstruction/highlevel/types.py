@@ -231,6 +231,8 @@ def expression_type(expr: Expr) -> str:
         return "address"
     if isinstance(expr, Call) and expr.name in CAST_TYPES:
         return expr.name
+    if isinstance(expr, Const) and (1 << 152) <= expr.value < (1 << 160):
+        return "address"
     if is_boolean(expr) and not isinstance(expr, Const):
         return "bool"
     width = value_width(expr)

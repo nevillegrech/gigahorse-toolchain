@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "bytecode_sha256": "e37d8859c56c25ed9c50824373531d7cd8c528c65ed80f72ec24c352f6ffe1f2",
+  "semantic_schema": 3,
+  "tables": {
+    "relations": "e155844234c7be041235976212b43a5a32c77668d8b1d65b26c1144804e91307",
+    "semantic": "a4a4d13ef2ad1789a3b557ae78bd53194bf3c8fa3cd85b48b25ff9d69883522e"
+  },
+  "source_bundle": "/mnt/model-ssd/scratch/gigahorse-decompiler/hl/morpho-wt",
+  "evaluation_scope": "Calibration regression snapshot, not a new unseen contract"
+}

@@ -72,6 +72,8 @@ class FunctionView:
     nonpayable: Stmt | None
     structured: bool
     argument_evidence: set[str] = field(default_factory=set)
+    # The dispatcher's shared callvalue check, when it covers this entry point.
+    nonpayable_by_dispatcher: Stmt | None = None
 
 
 def collect_keys(context: ProgramContext) -> tuple[set[str], set[str], set[str]]:
@@ -191,6 +193,11 @@ def build_decompiled(
         finish_function(context, entry, signatures.get(entry.function.id), summaries)
         for entry in prepared
     ]
+    dispatcher_value_check = _dispatcher_nonpayable(views)
+    if dispatcher_value_check is not None:
+        for view in views:
+            if view.function.selectors and view.nonpayable is None:
+                view.nonpayable_by_dispatcher = dispatcher_value_check
     provisional = DecompiledProgram(context, views, {}, "", {})
     recognitions = recognize_string_getters(provisional)
     recognitions += recognize_arithmetic_helpers(provisional)
@@ -406,6 +413,29 @@ def finish_function(
     )
 
 
+def _dispatcher_nonpayable(views: list[FunctionView]) -> Stmt | None:
+    """A dispatcher-level require(!msg.value) before any branch applies to every entry."""
+    from .ir import Comment, Env, If, Unary
+
+    for view in views:
+        if view.name != "__function_selector__":
+            continue
+        for stmt in view.body:
+            if isinstance(stmt, If):
+                return None
+            if (
+                isinstance(stmt, Require)
+                and stmt.payload is None
+                and isinstance(stmt.condition, Unary)
+                and stmt.condition.op == "!"
+                and stmt.condition.operand == Env("msg.value")
+            ):
+                return stmt
+            if not isinstance(stmt, (Assign, Comment)):
+                return None
+    return None
+
+
 def print_function(out: Printed, view: FunctionView, summary=None) -> None:
     function = view.function
     out.emit("", 0)
@@ -426,7 +456,8 @@ def print_function(out: Printed, view: FunctionView, summary=None) -> None:
                 )
     params = ", ".join(f"{a.type} {a.name}" for a in view.arguments)
     if function.selectors:
-        visibility = "public " + ("nonpayable" if view.nonpayable is not None else "payable")
+        nonpayable = view.nonpayable is not None or view.nonpayable_by_dispatcher is not None
+        visibility = "public " + ("nonpayable" if nonpayable else "payable")
     else:
         visibility = "private"
     returns = f" returns ({', '.join(view.returns)})" if view.returns else ""
@@ -435,6 +466,8 @@ def print_function(out: Printed, view: FunctionView, summary=None) -> None:
         evidence |= argument.evidence
     if view.nonpayable is not None:
         evidence |= statement_ids(view.nonpayable)
+    if view.nonpayable_by_dispatcher is not None:
+        evidence |= statement_ids(view.nonpayable_by_dispatcher)
     out.emit(
         f"function {view.name}({params}) {visibility}{returns} {{",
         1,

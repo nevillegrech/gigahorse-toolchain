@@ -1,0 +1,8 @@
+{
+  "id": "morpho-liquidator",
+  "bytecode_sha256": "e37d8859c56c25ed9c50824373531d7cd8c528c65ed80f72ec24c352f6ffe1f2",
+  "bytecode_size": 5954,
+  "compiler_from_metadata": "solc 0.8.34",
+  "source": "user-supplied runtime bytecode with same-bytecode Dedaub output (fixtures/dedaub/morpho-liquidator/)",
+  "ground_truth": "none (unverified contract); Dedaub output is the comparison reference"
+}

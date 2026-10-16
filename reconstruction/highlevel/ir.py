@@ -221,6 +221,9 @@ def render_number(value: int) -> str:
     for bits in (8, 16, 32, 64, 96, 112, 128, 160, 224):
         if value == (1 << bits) - 1:
             return f"uint{bits}.max" if bits != 160 else "0x" + "ff" * 20
+    if (1 << 152) <= value < (1 << 160):
+        # A 20-byte constant reads as an address; address(c) == c for c < 2**160.
+        return f"address(0x{value:040x})"
     return hex(value)
 
 

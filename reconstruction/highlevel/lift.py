@@ -881,7 +881,9 @@ class FunctionLifter:
                 (Raw(selector + (f" /* {signature} */" if signature else "")), *args),
             )
             call = replace(call, raw_input=encoded, args=())
-        self.abstracted.add(stmt.id)
+        if uncertain is None:
+            # Only a call whose printed arguments cover its whole input represents it.
+            self.abstracted.add(stmt.id)
         assign = Assign(
             tuple(targets),
             call,
@@ -918,6 +920,7 @@ class FunctionLifter:
             abstracted = self.abi_call(stmt, kind, target, value, gas)
             if abstracted is not None:
                 abstracted.meta["output"] = (out_offset, out_size)
+                abstracted.meta["input"] = (in_offset, simplify(Binary("+", in_offset, in_size)))
                 return [abstracted]
         call = ExternalCallExpr(
             kind, target, None, (), value=value, gas=gas, raw_input=payload, evidence=ev

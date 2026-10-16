@@ -183,3 +183,20 @@ def test_weth_reads_like_its_source(tmp_path):
     # No raw memory plumbing survives in the token logic.
     body = text.split("function fn_")[1].split("\n    }\n")[0]
     assert "MEM[" not in body and "keccak256" not in body
+
+
+def test_morpho_view_keeps_unverified_call_inputs_and_decodes_reasons(tmp_path):
+    corpus, ident = DEPLOYED_IDS[-1]
+    assert ident == "morpho-liquidator"
+    _, decompiled, _ = deployed_fixture(corpus, ident, tmp_path / "relations")
+    text = decompiled.text
+    # Reasons Dedaub shows (and "swap", which Dedaub left as 0x73776170).
+    for reason in ("!owner", "!morpho", "approve", "min profit", "swap"):
+        assert f'Error("{reason}")' in text, reason
+    assert "address _owner; // STORAGE[0x0] bytes 0..19; named after getter owner()" in text
+    assert "function MORPHO() public nonpayable returns (address) {" in text
+    # flashLoan(address,uint256,bytes) has an undecoded dynamic argument: the
+    # memory that builds it must stay printed, not be absorbed into the call.
+    body = text.split("// 0x441c1495")[1].split("\n    }\n")[0]
+    assert "flashLoan(" in body and "UNCERTAIN" in body
+    assert "CALLDATACOPY(" in body and "= varg0;" in body and "= varg4;" in body
