@@ -1023,3 +1023,45 @@ argument.
 
 The next measurement is run 3 on `fixtures/evaluation-heldout-2/`, with the
 user's Dedaub exports for those eight contracts.
+
+
+## Held-out run 3: `heldout-2-2026-10-16` (first scores)
+
+The eight contracts frozen in 354be8c (`fixtures/evaluation-heldout-2/`), each
+analyzed once natively at 364c079, before any change made for them:
+
+- **How they ran:** one at a time, smallest first, each in a systemd scope
+  capped at 24 GB with swap off, a 1-hour wall-clock limit and Gigahorse's
+  300 s timeout, with at least 30 GB of free memory checked before each.
+- **Where the results are:** `fixtures/evaluation-heldout-2/results/run3.json`.
+- **Dedaub:** no exports have been requested yet.
+
+| Contract | Compiler | Status | Time | Peak | Code lines | Selectors | Names (correct / unnamed / wrong) | Wrong claims | UNCERTAIN | Unstructured fns |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| wbtc | 0.4.24 | ok | 2.2 s | 0.04 GB | 261 | 24/24 | 24 / 0 / 0 | 0 | 1 | 0 |
+| wsteth | 0.6.12 | ok | 2.3 s | 0.05 GB | 377 | 21/21 | 21 / 0 / 0 | 0 | 1 | 0 |
+| permit2 | 0.8.17 via-IR | ok | 4.4 s | 0.10 GB | 1,098 | 15/15 | 2 / 13 / 0 | 3 | 7 | 0 |
+| ens-public-resolver | 0.8.17 | ok | 7.6 s | 0.16 GB | 2,115 | 30/30 | 25 / 5 / 0 | 0 | 8 | 0 |
+| curve-steth-pool | Vyper 0.2.8 | ok | 4.1 s | 0.24 GB | 1,318 | 0/39 | - | 0 | 30 | 1 |
+| uniswap-v4-pool-manager | 0.8.26 via-IR | ok | 69.6 s | 0.19 GB | 2,938 | 33/33 | 16 / 17 / 0 | 8 | 45 | 1 |
+| uniswap-v3-position-manager | 0.7.6 | ok | 11.5 s | 0.23 GB | 1,678 | 38/38 | 34 / 4 / 0 | 6 | 4 | 0 |
+| balancer-v2-vault | 0.7.1 | ok | 333.8 s | 0.48 GB | 4,002 | 26/26 | 19 / 7 / 0 | 6 | 671 | 6 |
+
+**Totals.** All eight produced output. Selectors: 187/226; all 39 missing are
+Curve's, because the Vyper dispatcher is not recognized. Names: 141 correct,
+46 unnamed, 0 wrong. Wrong claims: 23 in all.
+
+The 23 wrong claims by cause:
+
+- **18 argument counts for struct parameters:**
+  - Permit2, V4 and Balancer (10): a static struct is printed as one
+    parameter per word, e.g. 8 for `permit(address, PermitSingle, bytes)`.
+  - V3 position manager and Balancer (8): the code-derived count is 0 while
+    the hash-checked signature has one or more struct parameters, e.g.
+    `collect(CollectParams)`, `mint(MintParams)`, `swap(SingleSwap, ...)`.
+- **2 types:** V4's `mint`/`burn` take a `uint256 id` that the code uses as an
+  address, and it is printed as `address`.
+- **1 type:** the position manager's `createAndInitializePoolIfNecessary`
+  prints its `uint160` price as `address`.
+- **2 return widths:** values returned as `uint128` or `uint112` where the ABI
+  declares `uint256` (or `address`).
