@@ -34,6 +34,18 @@ general equivalence, and an analysis timeout must remain a visible failure.
 | Confidence in semantic reconstruction | 343 tests pass with seventeen opt-in native skips; WETH/registry cases, 31 NFT guards/admin calls and 17 code-copy EVM scenarios; 173,580 reported expression, 1,984 path, 722 storage-read and 210 private-call checks across 993 reported input scenarios; bit/lifetime/memory/proof-corruption negative coverage | Symbolic pointer/range analysis, broader behavioral corpus, standalone emitted-text validation, reentrancy/world-state execution and validation of further high-level transformations |
 | Compatibility with upstream analyses | All 66 upstream native regressions pass with four workers after the restored-JUMP operand fix; all 16 compiler fixtures and four deployed cases rerun; atomic binary publication and per-key cold-build locks | Pin executable identities across simultaneous different configurations and source edits; continue native compatibility checks |
 
+### Status update 2026-10-16: readable decompiled view (branch `improvements`)
+
+| Requirement | New evidence | Still open |
+| --- | --- | --- |
+| Readable code | `decompiled.sol.txt`: corpus code lines 5,120 vs 9,996 in `structured.sol.txt`; WETH9 106 lines, close to its source | 0.8 `abi.decode`/`abi.encode` of structs, string concatenation, loop idioms, unstructured shared-return helpers (pair `skim`) |
+| Interfaces | Typed signatures from masks/validators, `nonpayable`, return types, dynamic-argument accessors, hash-checked names, opt-in openchain cache | Names of tuple/array elements, return types of dynamic values |
+| Authorization/effects | Per-function summaries: caller checks, writes, calls, ETH sends, events, transitive private effects | Reentrancy/lock idioms, proxy summaries in the new view |
+| Evidence | Every IR statement accounted (printed, absorbed, elided with reason, argument decode, structural) on 24 fixtures | — |
+| Uncertainty | UNCERTAIN marks on unresolved PHIs, unverified ABI calls, raw events; scoped memory assumption recorded per line | Calibrated confidence per name/type |
+| Behavioral confidence | The printed view is executed: 1,079 cross-checked executions agree with the IR machine (and Py-EVM); 0 unsupported | Morpho fixture has no execution tests; no proof of equivalence |
+| Dedaub parity | One same-bytecode pair: 247 vs 192 code lines, all Dedaub facts present, one reason better decoded | A held-out set of same-bytecode Dedaub exports is still needed for a parity claim |
+
 Next priority: investigate the NFT receiver callback's unresolved PHI; add successful
 NFT mint/transfer/receiver and multisig behavior checks; improve dynamic encoders,
 interprocedural authority
