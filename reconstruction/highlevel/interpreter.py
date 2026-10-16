@@ -193,6 +193,57 @@ class DecompiledMachine:
             )
         raise UnsupportedExecution("Decompiled execution ended without a halt")
 
+    def run_public(
+        self,
+        view: FunctionView,
+        calldata: bytes,
+        *,
+        storage: dict[int, int] | None = None,
+        caller: int = 1,
+        address: int = 2,
+        value: int = 0,
+    ) -> ExecutionResult:
+        """Run one public function body as if dispatched to it."""
+        original = dict(storage or {})
+        self.storage = dict(original)
+        self.memory = bytearray(b"\0" * 0x60) + (0x80).to_bytes(32, "big")
+        self.memory[0x40:0x60] = (0x80).to_bytes(32, "big")
+        self.calldata = calldata
+        self.caller, self.address, self.callvalue = caller, address, value
+        self.returndata = b""
+        self.logs, self.external_calls = [], []
+        self.steps, self.trace, self.uncertain_executed = 0, [], 0
+        self.balances = iter(())
+        self.code_sizes, self.block_environment, self.block_hashes = {}, {}, {}
+        try:
+            self.run_function(view, [])
+        except _Halt as halt:
+            return ExecutionResult(
+                halt.data,
+                halt.reverted,
+                original if halt.reverted else dict(self.storage),
+                [],
+                self.steps,
+                list(self.external_calls),
+                [] if halt.reverted else list(self.logs),
+            )
+        raise UnsupportedExecution("Function ended without a halt")
+
+    def storage_string(self, root: Var, frame: _Frame) -> bytes:
+        slot, low, high = self.storage_slot(root, frame)
+        word = self.storage.get(slot, 0)
+        if word & 1 == 0:
+            length = (word & 0xFF) // 2
+            return word.to_bytes(32, "big")[:length]
+        length = (word - 1) // 2
+        if length > self.max_memory:
+            raise UnsupportedExecution("Stored string too long")
+        start = int.from_bytes(keccak256(slot.to_bytes(32, "big")), "big")
+        data = b"".join(
+            self.storage.get(start + i, 0).to_bytes(32, "big") for i in range((length + 31) // 32)
+        )
+        return data[:length]
+
     def run_function(self, view: FunctionView, args: list[int]) -> list[int]:
         frame = _Frame({a.name: v for a, v in zip(view.arguments, args, strict=False)})
         if view.nonpayable is not None and self.callvalue:
@@ -299,6 +350,12 @@ class DecompiledMachine:
         if isinstance(stmt, Jump):
             raise _Loop(stmt.kind)
         if isinstance(stmt, Return):
+            if "storage-string-getter" in stmt.rules:
+                (root,) = stmt.values
+                assert isinstance(root, Var)
+                data = self.storage_string(root, frame)
+                padded = data + b"\0" * (-len(data) % 32)
+                raise _Halt((32).to_bytes(32, "big") + len(data).to_bytes(32, "big") + padded)
             if "tail-call" in stmt.rules:
                 (call,) = stmt.values
                 assert isinstance(call, Call)
