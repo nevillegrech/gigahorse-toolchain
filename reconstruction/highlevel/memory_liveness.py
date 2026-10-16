@@ -10,7 +10,7 @@ unknown bases and private calls are treated as possible reads of the write.
 from __future__ import annotations
 
 from collections.abc import Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from .ir import (
     Assign,
@@ -43,11 +43,35 @@ class Range:
     base: str | None  # None = absolute; "heap:..." free-pointer based; ANY = unknown
     start: int
     size: int | None  # None = unbounded
+    # For heap bases: a lower bound of the base address (the pointer never
+    # decreases under solc's allocator). Same base => same floor.
+    floor: int = field(default=0x60, compare=False)
+    # Heap bases only: (other version, d) meaning this base >= other base + d.
+    above: tuple[tuple[str, int], ...] = field(default=(), compare=False)
+
+
+def _ordered_apart(low: Range, high: Range) -> bool:
+    """`high` starts at or after the end of `low` (different heap versions)."""
+    if low.size is None:
+        return False
+    for version, delta in high.above:
+        if version == low.base and delta + high.start >= low.start + low.size:
+            return True
+    return False
 
 
 def _intersects(a: Range, b: Range) -> bool:
     if a.base == ANY or b.base == ANY:
         return True
+    if (
+        a.base
+        and b.base
+        and a.base != b.base
+        and a.base.startswith("heap:")
+        and b.base.startswith("heap:")
+        and (_ordered_apart(a, b) or _ordered_apart(b, a))
+    ):
+        return False
     if a.base == AT_LEAST or b.base == AT_LEAST:
         bounded, other = (a, b) if a.base == AT_LEAST else (b, a)
         if other.base is None:
@@ -57,11 +81,11 @@ def _intersects(a: Range, b: Range) -> bool:
         a_end = None if a.size is None else a.start + a.size
         b_end = None if b.size is None else b.start + b.size
         return (a_end is None or b.start < a_end) and (b_end is None or a.start < b_end)
-    # Constant ranges below the heap floor cannot meet free-pointer-based ranges.
+    # Constant ranges below a heap range's floor cannot meet it.
     if a.base is None and b.base and b.base.startswith("heap:"):
-        return a.size is None or a.start + a.size > HEAP_FLOOR
+        return a.size is None or a.start + a.size > max(b.floor, HEAP_FLOOR) + b.start
     if b.base is None and a.base and a.base.startswith("heap:"):
-        return b.size is None or b.start + b.size > HEAP_FLOOR
+        return b.size is None or b.start + b.size > max(a.floor, HEAP_FLOOR) + a.start
     return True
 
 
@@ -122,7 +146,15 @@ class AddressModel:
             return Range(ANY, 0, None)
         if base == AT_LEAST:
             return Range(AT_LEAST, offset, None)
-        return Range(base, offset, size)
+        if base and base.endswith("+?"):
+            base, size = base[:-2], None  # inexact start: reaches from base+offset upwards
+        floor = self.versions.floor.get(base, HEAP_FLOOR) if self.versions and base else HEAP_FLOOR
+        above = (
+            tuple(sorted(self.versions.relative.get(base, {}).items()))
+            if self.versions and base
+            else ()
+        )
+        return Range(base, offset, size, floor, above)
 
     def split(self, expr: Expr) -> tuple[str | None, int]:
         from .ir import Binary, Var
@@ -153,6 +185,18 @@ class AddressModel:
                     if inner == AT_LEAST:
                         return AT_LEAST, offset + extra.value
                     return inner, offset + extra.value
+            # base + unknown non-negative term: at least the base's lower bound.
+            for base in (expr.left, expr.right):
+                inner, offset = self.split(base)
+                if inner is None:
+                    return AT_LEAST, offset
+                if inner == AT_LEAST:
+                    return AT_LEAST, offset
+                if inner != ANY and inner.startswith("heap:") and not inner.endswith("+?"):
+                    # Somewhere at or above base + offset: same version, inexact.
+                    return inner + "+?", offset
+                if inner != ANY and inner.endswith("+?"):
+                    return inner, offset
         return ANY, 0
 
 
@@ -250,7 +294,8 @@ class Liveness:
             return size
         start_base, start_offset = self.model.split(start)
         end_base, end_offset = self.model.split(end)
-        if start_base == end_base and start_base != ANY and end_offset >= start_offset:
+        exact = start_base not in {ANY, AT_LEAST} and not (start_base or "").endswith("+?")
+        if exact and start_base == end_base and end_offset >= start_offset:
             return end_offset - start_offset
         return None
 
@@ -416,12 +461,26 @@ class FreePointerVersions:
         self.node_version: dict[int, str] = {}
         # Versions whose pointer value is a known constant (set by MEM[64] = c).
         self.constant: dict[str, int] = {}
+        # Lower bounds of each version's pointer value (monotonic allocator).
+        self.floor: dict[str, int] = {}
+        # relative[b][a] = d: version b's pointer >= version a's pointer + d.
+        self.relative: dict[str, dict[str, int]] = {}
         self.counter = 0
         self.walk(body, self.fresh())
 
-    def fresh(self) -> str:
+    def fresh(self, floor: int = HEAP_FLOOR, above: dict[str, int] | None = None) -> str:
         self.counter += 1
-        return f"heap:fp#{self.counter}"
+        version = f"heap:fp#{self.counter}"
+        self.floor[version] = floor
+        self.relative[version] = dict(above or {})
+        return version
+
+    def above(self, version: str, delta: int = 0) -> dict[str, int]:
+        """Relations of a pointer >= version + delta (inherits version's relations)."""
+        result = {version: delta}
+        for other, d in self.relative.get(version, {}).items():
+            result[other] = max(result.get(other, d + delta), d + delta)
+        return result
 
     def walk(self, statements: list[Stmt], current: str) -> str:
         for stmt in statements:
@@ -435,14 +494,22 @@ class FreePointerVersions:
             self.visit(stmt.condition, current)
             then = self.walk(stmt.then, current)
             other = self.walk(stmt.otherwise, current)
-            return then if then == other else self.fresh()
+            if then == other:
+                return then
+            left, right = self.above(then), self.above(other)
+            common = {k: min(v, right[k]) for k, v in left.items() if k in right}
+            common.setdefault(current, 0)
+            return self.fresh(
+                min(self.floor.get(then, HEAP_FLOOR), self.floor.get(other, HEAP_FLOOR)), common
+            )
         if isinstance(stmt, While):
             changes = self.changes_pointer(stmt.body)
-            head = self.fresh() if changes else current
+            floor = self.floor.get(current, HEAP_FLOOR)
+            head = self.fresh(floor, self.above(current)) if changes else current
             if stmt.condition is not None:
                 self.visit(stmt.condition, head)
             self.walk(stmt.body, head)
-            return self.fresh() if changes else current
+            return self.fresh(floor, self.above(current)) if changes else current
         if isinstance(stmt, RawBlock):
             self.walk(stmt.body, self.fresh())
             return self.fresh()
@@ -458,16 +525,81 @@ class FreePointerVersions:
             self.var_version[stmt.targets[0].name] = current
         if not self.changes_pointer([stmt]):
             return current
-        version = self.fresh()
+        floor = self.floor.get(current, HEAP_FLOOR)
         if (
             isinstance(stmt, Assign)
             and len(stmt.targets) == 1
             and isinstance(stmt.targets[0], Index)
             and _is_free_pointer_read(stmt.targets[0])
-            and isinstance(stmt.value, Const)
         ):
-            self.constant[version] = stmt.value.value
-        return version
+            value = stmt.value
+            if isinstance(value, Const):
+                version = self.fresh(value.value)
+                self.constant[version] = value.value
+                return version
+            # New pointer = (known pointer or constant) + non-negative terms.
+            bound = self.lower_bound(value)
+            return self.fresh(bound if bound is not None else HEAP_FLOOR, self.relations_of(value))
+        # Calls and other updates only move the pointer up (allocator discipline).
+        return self.fresh(floor, self.above(current))
+
+    def relations_of(self, expr: Expr) -> dict[str, int]:
+        """For pointer = version + c + (non-negative terms): relations version + c."""
+        from .ir import Binary
+
+        terms: list[Expr] = []
+
+        def collect(node: Expr) -> None:
+            if isinstance(node, Binary) and node.op == "+":
+                collect(node.left)
+                collect(node.right)
+            else:
+                terms.append(node)
+
+        collect(expr)
+        constant = sum(t.value for t in terms if isinstance(t, Const))
+        result: dict[str, int] = {}
+        for term in terms:
+            version = None
+            if isinstance(term, Var):
+                version = self.var_version.get(term.name)
+            elif _is_free_pointer_read(term):
+                version = self.node_version.get(id(term))
+            if version is not None:
+                for other, delta in self.above(version, constant).items():
+                    result[other] = max(result.get(other, delta), delta)
+        return result
+
+    def lower_bound(self, expr: Expr) -> int | None:
+        from .ir import Binary
+
+        terms: list[Expr] = []
+
+        def collect(node: Expr) -> None:
+            if isinstance(node, Binary) and node.op == "+":
+                collect(node.left)
+                collect(node.right)
+            else:
+                terms.append(node)
+
+        collect(expr)
+        best: int | None = None
+        constant = 0
+        for term in terms:
+            if isinstance(term, Const):
+                constant += term.value
+                continue
+            version = None
+            if isinstance(term, Var):
+                version = self.var_version.get(term.name)
+            elif _is_free_pointer_read(term):
+                version = self.node_version.get(id(term))
+            if version is not None:
+                bound = self.constant.get(version, self.floor.get(version, HEAP_FLOOR))
+                best = bound if best is None else max(best, bound)
+        if best is None:
+            return None
+        return best + constant
 
     def visit(self, expr: Expr, current: str) -> None:
         if _is_free_pointer_read(expr):

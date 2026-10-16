@@ -154,7 +154,9 @@ class Forwarder:
 
     def key(self, address: Expr) -> tuple[str | None, int] | None:
         base, offset = self.model.split(address)
-        if base in {ANY, "at-least"} or (base and base.startswith("heap:@")):
+        if base in {ANY, "at-least"} or (
+            base and (base.startswith("heap:@") or base.endswith("+?"))
+        ):
             # Inlined free-pointer reads are distinct occurrences: never forwarded.
             return None
         return base, offset

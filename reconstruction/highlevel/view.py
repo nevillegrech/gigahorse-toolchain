@@ -378,6 +378,7 @@ def finish_function(
     if dynamic:
         present_dynamic_arguments(state, dynamic)
     common_subexpressions(state)
+    copy_propagation(state)
     if signature and function.selectors:
         params = split_signature(signature)[1]
         for index, arg in enumerate(item.arguments):
