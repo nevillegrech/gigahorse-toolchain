@@ -160,13 +160,20 @@ def main() -> None:
     parser.add_argument(
         "--reuse", action="store_true", help="re-render existing bundles' relations"
     )
+    parser.add_argument(
+        "--resume", action="store_true", help="skip contracts already recorded in report.json"
+    )
     args = parser.parse_args()
     corpus = json.loads(args.corpus.read_text())
     args.output.mkdir(parents=True, exist_ok=True)
+    report_path = args.output / "report.json"
     report = {"selection_id": corpus["selection_id"], "contracts": []}
+    if args.resume and report_path.is_file():
+        report = json.loads(report_path.read_text())
+    done = {entry["id"] for entry in report["contracts"]}
     for case in corpus["contracts"]:
         ident = case["id"]
-        if args.only and ident not in args.only:
+        if (args.only and ident not in args.only) or ident in done:
             continue
         hex_path = args.corpus.parent / f"{ident}.hex"
         bundle = args.output / ident
@@ -207,7 +214,8 @@ def main() -> None:
         if result.returncode:
             entry["error"] = (result.stderr or result.stdout)[-1500:]
             report["contracts"].append(entry)
-            print(f"{ident}: FAILED after {entry['seconds']}s")
+            report_path.write_text(json.dumps(report, indent=2) + "\n")
+            print(f"{ident}: FAILED after {entry['seconds']}s", flush=True)
             continue
         text = (bundle / "decompiled.sol.txt").read_text()
         mapping = json.loads((bundle / "decompiled.map.json").read_text())
@@ -246,9 +254,11 @@ def main() -> None:
             f"{ident}: {entry['seconds']}s, {entry['decompiled_code_lines']} lines "
             f"(structured {entry['structured_code_lines']}), selectors {s['selectors_recovered']}/{s['abi_functions']}, "
             f"names {s['names']}, args {s['argument_types']}, wrong claims {len(s['wrong_claims'])}, "
-            f"uncertain {entry['uncertain_lines']}, unstructured {entry['unstructured_functions']}"
+            f"uncertain {entry['uncertain_lines']}, unstructured {entry['unstructured_functions']}",
+            flush=True,
         )
-    (args.output / "report.json").write_text(json.dumps(report, indent=2) + "\n")
+        # Saved after every contract: an interrupted batch keeps its finished results.
+        report_path.write_text(json.dumps(report, indent=2) + "\n")
 
 
 if __name__ == "__main__":
