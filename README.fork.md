@@ -34,7 +34,10 @@ Eight deployed-contract evaluations and their concrete gaps are documented in
 comparison on held-out contracts (seven mainnet runtimes, user-supplied Dedaub
 exports): comparable accuracy (17 wrong claims against Dedaub's 19), but 1.7
 times as many code lines, more raw memory operations and fewer names, so not
-at parity. The second
+at parity. Memory objects and named custom errors have since narrowed it on
+those (now calibration) contracts: 1.5 times Dedaub's lines, raw share 28%
+against 26%. A fresh held-out set is frozen in `fixtures/evaluation-heldout-2/`.
+The second
 selection was frozen before analysis; three runtimes are absent from upstream
 regressions, while WETH is a retained upstream duplicate. All 92 expected
 selectors in that selection are recovered, with 120 of 121 functions fully

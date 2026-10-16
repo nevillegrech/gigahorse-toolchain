@@ -914,3 +914,112 @@ Next priorities, by measured gap: memory allocations printed as objects (the
 raw share); signature coverage for custom errors, events, external calls and
 parameter names; static-struct arguments (arity) and `uint160` against
 `address`; the Vyper dispatcher.
+
+
+## Memory objects and custom errors (calibration on the run-2 contracts)
+
+The seven run-2 contracts became calibration once their Dedaub exports were
+read, so the work below was tuned on them. To keep a later measurement honest,
+a new held-out set was frozen first (354be8c, `fixtures/evaluation-heldout-2/`):
+WBTC (solc 0.4.24), wstETH (0.6.12), the Uniswap V3 position manager (0.7.6),
+the Balancer V2 vault (0.7.1), the ENS public resolver (0.8.17), Permit2
+(0.8.17, via-IR), the Uniswap V4 pool manager (0.8.26, via-IR) and the Curve
+stETH pool (Vyper 0.2.8). None of them has been analyzed yet.
+
+**What changed** (0a47f5e, cd75c30, 7fffd2d):
+
+- **Custom errors and Panic codes built in memory** become one revert:
+  `revert InvalidMsgValue();`, `require(c, InsufficientValue())`,
+  `revert(Panic(33))`, or `revert(abi.encodeWithSelector(0x68275857, ...))`
+  when the selector has no dictionary name. Named errors get
+  `error Name(types); // [dict]` declarations. Both selector layouts are
+  matched: left-aligned at the payload start (solc) and right-aligned
+  (`mstore(0, sel); revert(0x1c, n)`, Seaport/Solady). The argument words
+  must fill exactly the reverted range, and a memory read among them keeps
+  the stores before it, so the payload bytes are those the code reverts with.
+- **Allocations at the free pointer print as values** (a final presentation
+  pass, after every memory analysis):
+  - `v = new struct(k)`, and `v = struct(a, b, ...)` when all words are
+    written right after; fields print as `v.wordN`;
+  - `new bytes(n)` and `new uint256[](n)`, with `v.length` and elements
+    `v[i]`;
+  - `v = varg0; // calldata bytes|array copied to memory` and
+    `v = returndata; // returned data copied to memory`;
+  - byte constants print as `"Uniswap V2"`.
+
+  An allocation executes exactly the statements it replaced, and a field is
+  exactly `MEM[base + offset]`.
+- **Folded pointers.** Where the analysis folded the free pointer (V3:
+  `MEM[64] = 352`, fields at `MEM[160]`), an object assumes solc's initial
+  `0x80`, but only at a public entry point before anything could move the
+  pointer. The interpreter checks the assumption when it runs the view (rule
+  `assumes-folded-free-pointer`).
+
+**Results on the seven run-2 contracts** (`results/run2-objects-errors.json`,
+`results/run2-dedaub-comparison-objects-errors.json`):
+
+| Contract | Code lines (before -> now; Dedaub) | Raw lines (before -> now; Dedaub) |
+| --- | --- | --- |
+| uniswap-v3-pool-usdc-weth | 1,932 -> 1,820; 1,976 | 447 -> 196; 187 |
+| azuki-erc721a | 1,103 -> 1,048; 896 | 241 -> 153; 54 |
+| aave-v3-pool-proxy | 163 -> 151; 130 | 53 -> 40; 24 |
+| ens-eth-registrar-controller | 634 -> 581; 512 | 266 -> 203; 94 |
+| oneinch-router-v5 | 7,450 -> 7,082; 3,168 | 1,812 -> 1,252; 480 |
+| seaport-1-5 | 8,963 -> 6,690; 5,406 | 5,098 -> 3,049; 2,306 |
+| curve-3pool | 1,767 -> 1,767; 583 | 405 -> 405; 114 |
+| **total** | **22,012 -> 19,139; 12,671** | **8,322 -> 5,298 (38% -> 28%); 3,259 (26%)** |
+
+- **Errors named.** Reverts whose selector is in the local error dictionary
+  but printed raw went from 306 to 0. Before, 264 of them were inline Panic
+  codes. Seaport now declares 29 named errors.
+- **Wrong claims are unchanged:** 17 on run 2 (the same claims) and 0 on the
+  five run-1 contracts (`results/run1-rerendered-objects-errors.json`).
+- **No fixture got longer.** Fixture renders went from 9,177 to 8,708 code
+  lines (cETH 1,894 -> 1,730, Router02 1,330 -> 1,220).
+
+**Behavioral evidence:** 425 tests passed and 17 were skipped; the cross-check
+is unchanged at 1,079 agreeing executions with 0 unsupported. Counted during
+the suite, the view executed:
+
+| Construct | Executions |
+| --- | --- |
+| Arrays | 157 |
+| Byte arrays | 183 |
+| Structs | 150 |
+| Struct literals | 106 |
+| String constants | 21 |
+| Calldata copies | 81 |
+| Returned-data copies | 129 |
+| Field reads (length / word / element) | 601 / 64 / 48 |
+| Field writes (word / element) | 102 / 74 |
+| Custom errors | 21 |
+| Reverts folded from memory | 19 |
+
+Synthetic bytecode compares with Py-EVM:
+
+- struct literals, partial structs and fields;
+- `new bytes` and arrays with elements, including a store at a
+  calldata-chosen address that hits the fields;
+- an inline Panic, and exact against clobbered or partly unwritten error
+  payloads;
+- right-aligned payloads: one argument, an argument in the `0x40` slot, and
+  an argument read from memory.
+
+A wrong folded-pointer assumption raises when executed, both in a payload and
+in the pair's checked string constant. Mutations are caught: a shifted field
+offset, a missing length word, and dropped stores before a memory-reading
+argument.
+
+**Still open:**
+- 1inch's 12 unstructured functions (block labels and gotos);
+- Seaport's hand-written low-level memory code;
+- Curve, where the Vyper dispatcher is not recognized and the code stays
+  unstructured;
+- return-data bubbles (`RETURNDATACOPY` then `revert(MEM[0:n])`) not yet
+  printed as `revert(returndata)`;
+- hashes over words written to memory;
+- array elements at folded constant addresses, which stay raw because the
+  array's extent depends on its length.
+
+The next measurement is run 3 on `fixtures/evaluation-heldout-2/`, with the
+user's Dedaub exports for those eight contracts.

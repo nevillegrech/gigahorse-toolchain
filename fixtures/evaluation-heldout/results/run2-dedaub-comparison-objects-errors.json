@@ -1,0 +1,722 @@
+{
+  "selection_id": "heldout-2026-10-16",
+  "contracts": [
+    {
+      "id": "uniswap-v3-pool-usdc-weth",
+      "address": "0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640",
+      "local": {
+        "code_lines": 1820,
+        "raw_lines": 196,
+        "error_reasons": 32,
+        "events": 9,
+        "loops": 7,
+        "public_functions": 26,
+        "score": {
+          "abi_functions": 26,
+          "selectors_recovered": 26,
+          "names": {
+            "correct": 26,
+            "unresolved": 0,
+            "wrong": 0
+          },
+          "arity": {
+            "correct": 26,
+            "wrong": 0
+          },
+          "argument_types": {
+            "correct": 31,
+            "unresolved": 3,
+            "wrong": 2,
+            "dynamic_unresolved": 0
+          },
+          "payability": {
+            "correct": 26,
+            "wrong": 0
+          },
+          "returns": {
+            "correct": 16,
+            "unresolved": 7,
+            "wrong": 3
+          },
+          "wrong_claims": [
+            "0xf637731d: arg0 address vs uint160",
+            "0x252c09d7: returns ['uint32', 'int56', 'address', 'bool'] vs ['uint32', 'int56', 'uint160', 'bool']",
+            "0x3850c7bd: returns ['address', 'int24', 'uint16', 'uint16', 'uint16', 'uint8', 'bool'] vs ['uint160', 'int24', 'uint16', 'uint16', 'uint16', 'uint8', 'bool']",
+            "0xa38807f2: returns ['int56', 'address', 'uint32'] vs ['int56', 'uint160', 'uint32']",
+            "0x128acb08: arg3 address vs uint160"
+          ]
+        },
+        "wrong_by_kind": {
+          "name": 0,
+          "arity": 0,
+          "argument type": 2,
+          "payability": 0,
+          "returns": 3
+        }
+      },
+      "dedaub": {
+        "code_lines": 1976,
+        "raw_lines": 187,
+        "error_reasons": 0,
+        "events": 9,
+        "loops": 12,
+        "public_functions": 26,
+        "score": {
+          "abi_functions": 26,
+          "selectors_recovered": 26,
+          "names": {
+            "correct": 26,
+            "unresolved": 0,
+            "wrong": 0
+          },
+          "arity": {
+            "correct": 26,
+            "wrong": 0
+          },
+          "argument_types": {
+            "correct": 36,
+            "unresolved": 0,
+            "wrong": 0,
+            "dynamic_unresolved": 0
+          },
+          "payability": {
+            "correct": 0,
+            "wrong": 26
+          },
+          "returns": {
+            "correct": 4,
+            "unresolved": 22,
+            "wrong": 0
+          },
+          "wrong_claims": [
+            "0xa34123a7: payable vs ABI nonpayable",
+            "0x4f1eb3d8: payable vs ABI nonpayable",
+            "0x85b66729: payable vs ABI nonpayable",
+            "0xc45a0155: payable vs ABI nonpayable",
+            "0xddca3f43: payable vs ABI nonpayable",
+            "0xf3058399: payable vs ABI nonpayable",
+            "0x46141319: payable vs ABI nonpayable",
+            "0x490e6cbc: payable vs ABI nonpayable",
+            "0x32148f67: payable vs ABI nonpayable",
+            "0xf637731d: payable vs ABI nonpayable",
+            "0x1a686502: payable vs ABI nonpayable",
+            "0x70cf754a: payable vs ABI nonpayable",
+            "0x3c8a7d8d: payable vs ABI nonpayable",
+            "0x252c09d7: payable vs ABI nonpayable",
+            "0x883bdbfd: payable vs ABI nonpayable",
+            "0x514ea4bf: payable vs ABI nonpayable",
+            "0x1ad8b03b: payable vs ABI nonpayable",
+            "0x8206a4d1: payable vs ABI nonpayable",
+            "0x3850c7bd: payable vs ABI nonpayable",
+            "0xa38807f2: payable vs ABI nonpayable",
+            "0x128acb08: payable vs ABI nonpayable",
+            "0x5339c296: payable vs ABI nonpayable",
+            "0xd0c93a7c: payable vs ABI nonpayable",
+            "0xf30dba93: payable vs ABI nonpayable",
+            "0x0dfe1681: payable vs ABI nonpayable",
+            "0xd21220a7: payable vs ABI nonpayable"
+          ]
+        },
+        "wrong_by_kind": {
+          "name": 0,
+          "arity": 0,
+          "argument type": 0,
+          "payability": 26,
+          "returns": 0
+        }
+      }
+    },
+    {
+      "id": "azuki-erc721a",
+      "address": "0xED5AF388653567Af2F388E6224dC7C4b3241C544",
+      "local": {
+        "code_lines": 1048,
+        "raw_lines": 153,
+        "error_reasons": 52,
+        "events": 9,
+        "loops": 20,
+        "public_functions": 45,
+        "score": {
+          "abi_functions": 45,
+          "selectors_recovered": 45,
+          "names": {
+            "correct": 45,
+            "unresolved": 0,
+            "wrong": 0
+          },
+          "arity": {
+            "correct": 45,
+            "wrong": 0
+          },
+          "argument_types": {
+            "correct": 45,
+            "unresolved": 0,
+            "wrong": 0,
+            "dynamic_unresolved": 0
+          },
+          "payability": {
+            "correct": 45,
+            "wrong": 0
+          },
+          "returns": {
+            "correct": 41,
+            "unresolved": 4,
+            "wrong": 0
+          },
+          "wrong_claims": []
+        },
+        "wrong_by_kind": {
+          "name": 0,
+          "arity": 0,
+          "argument type": 0,
+          "payability": 0,
+          "returns": 0
+        }
+      },
+      "dedaub": {
+        "code_lines": 896,
+        "raw_lines": 54,
+        "error_reasons": 54,
+        "events": 9,
+        "loops": 21,
+        "public_functions": 45,
+        "score": {
+          "abi_functions": 45,
+          "selectors_recovered": 45,
+          "names": {
+            "correct": 45,
+            "unresolved": 0,
+            "wrong": 0
+          },
+          "arity": {
+            "correct": 45,
+            "wrong": 0
+          },
+          "argument_types": {
+            "correct": 45,
+            "unresolved": 0,
+            "wrong": 0,
+            "dynamic_unresolved": 0
+          },
+          "payability": {
+            "correct": 45,
+            "wrong": 0
+          },
+          "returns": {
+            "correct": 18,
+            "unresolved": 27,
+            "wrong": 0
+          },
+          "wrong_claims": []
+        },
+        "wrong_by_kind": {
+          "name": 0,
+          "arity": 0,
+          "argument type": 0,
+          "payability": 0,
+          "returns": 0
+        }
+      }
+    },
+    {
+      "id": "aave-v3-pool-proxy",
+      "address": "0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2",
+      "local": {
+        "code_lines": 151,
+        "raw_lines": 40,
+        "error_reasons": 6,
+        "events": 2,
+        "loops": 1,
+        "public_functions": 5,
+        "score": {
+          "abi_functions": 5,
+          "selectors_recovered": 5,
+          "names": {
+            "correct": 5,
+            "unresolved": 0,
+            "wrong": 0
+          },
+          "arity": {
+            "correct": 5,
+            "wrong": 0
+          },
+          "argument_types": {
+            "correct": 5,
+            "unresolved": 0,
+            "wrong": 0,
+            "dynamic_unresolved": 0
+          },
+          "payability": {
+            "correct": 5,
+            "wrong": 0
+          },
+          "returns": {
+            "correct": 3,
+            "unresolved": 2,
+            "wrong": 0
+          },
+          "wrong_claims": []
+        },
+        "wrong_by_kind": {
+          "name": 0,
+          "arity": 0,
+          "argument type": 0,
+          "payability": 0,
+          "returns": 0
+        }
+      },
+      "dedaub": {
+        "code_lines": 130,
+        "raw_lines": 24,
+        "error_reasons": 6,
+        "events": 2,
+        "loops": 1,
+        "public_functions": 5,
+        "score": {
+          "abi_functions": 5,
+          "selectors_recovered": 5,
+          "names": {
+            "correct": 5,
+            "unresolved": 0,
+            "wrong": 0
+          },
+          "arity": {
+            "correct": 5,
+            "wrong": 0
+          },
+          "argument_types": {
+            "correct": 5,
+            "unresolved": 0,
+            "wrong": 0,
+            "dynamic_unresolved": 0
+          },
+          "payability": {
+            "correct": 5,
+            "wrong": 0
+          },
+          "returns": {
+            "correct": 3,
+            "unresolved": 2,
+            "wrong": 0
+          },
+          "wrong_claims": []
+        },
+        "wrong_by_kind": {
+          "name": 0,
+          "arity": 0,
+          "argument type": 0,
+          "payability": 0,
+          "returns": 0
+        }
+      }
+    },
+    {
+      "id": "ens-eth-registrar-controller",
+      "address": "0x253553366Da8546fC250F225fe3d25d0C782303b",
+      "local": {
+        "code_lines": 581,
+        "raw_lines": 203,
+        "error_reasons": 4,
+        "events": 4,
+        "loops": 10,
+        "public_functions": 20,
+        "score": {
+          "abi_functions": 20,
+          "selectors_recovered": 20,
+          "names": {
+            "correct": 18,
+            "unresolved": 2,
+            "wrong": 0
+          },
+          "arity": {
+            "correct": 20,
+            "wrong": 0
+          },
+          "argument_types": {
+            "correct": 17,
+            "unresolved": 8,
+            "wrong": 0,
+            "dynamic_unresolved": 4
+          },
+          "payability": {
+            "correct": 20,
+            "wrong": 0
+          },
+          "returns": {
+            "correct": 18,
+            "unresolved": 2,
+            "wrong": 0
+          },
+          "wrong_claims": []
+        },
+        "wrong_by_kind": {
+          "name": 0,
+          "arity": 0,
+          "argument type": 0,
+          "payability": 0,
+          "returns": 0
+        }
+      },
+      "dedaub": {
+        "code_lines": 512,
+        "raw_lines": 94,
+        "error_reasons": 4,
+        "events": 4,
+        "loops": 10,
+        "public_functions": 20,
+        "score": {
+          "abi_functions": 20,
+          "selectors_recovered": 20,
+          "names": {
+            "correct": 20,
+            "unresolved": 0,
+            "wrong": 0
+          },
+          "arity": {
+            "correct": 20,
+            "wrong": 0
+          },
+          "argument_types": {
+            "correct": 29,
+            "unresolved": 0,
+            "wrong": 0,
+            "dynamic_unresolved": 0
+          },
+          "payability": {
+            "correct": 20,
+            "wrong": 0
+          },
+          "returns": {
+            "correct": 7,
+            "unresolved": 13,
+            "wrong": 0
+          },
+          "wrong_claims": []
+        },
+        "wrong_by_kind": {
+          "name": 0,
+          "arity": 0,
+          "argument type": 0,
+          "payability": 0,
+          "returns": 0
+        }
+      }
+    },
+    {
+      "id": "oneinch-router-v5",
+      "address": "0x1111111254EEB25477B68fb85Ed929f73A960582",
+      "local": {
+        "code_lines": 7082,
+        "raw_lines": 1252,
+        "error_reasons": 9,
+        "events": 11,
+        "loops": 10,
+        "public_functions": 45,
+        "score": {
+          "abi_functions": 45,
+          "selectors_recovered": 45,
+          "names": {
+            "correct": 21,
+            "unresolved": 24,
+            "wrong": 0
+          },
+          "arity": {
+            "correct": 40,
+            "wrong": 5
+          },
+          "argument_types": {
+            "correct": 73,
+            "unresolved": 23,
+            "wrong": 0,
+            "dynamic_unresolved": 17
+          },
+          "payability": {
+            "correct": 36,
+            "wrong": 0,
+            "unresolved": 9
+          },
+          "returns": {
+            "correct": 31,
+            "unresolved": 14,
+            "wrong": 0
+          },
+          "wrong_claims": [
+            "0x3eca9c0a: arity 9 vs 3",
+            "0x9570eeee: arity 10 vs 4",
+            "0x5a099843: arity 10 vs 4",
+            "0x70ccbd31: arity 11 vs 5",
+            "0x12aa3caf: arity 10 vs 4"
+          ]
+        },
+        "wrong_by_kind": {
+          "name": 0,
+          "arity": 5,
+          "argument type": 0,
+          "payability": 0,
+          "returns": 0
+        }
+      },
+      "dedaub": {
+        "code_lines": 3168,
+        "raw_lines": 480,
+        "error_reasons": 9,
+        "events": 11,
+        "loops": 31,
+        "public_functions": 45,
+        "score": {
+          "abi_functions": 45,
+          "selectors_recovered": 45,
+          "names": {
+            "correct": 45,
+            "unresolved": 0,
+            "wrong": 0
+          },
+          "arity": {
+            "correct": 39,
+            "wrong": 6
+          },
+          "argument_types": {
+            "correct": 100,
+            "unresolved": 10,
+            "wrong": 0,
+            "dynamic_unresolved": 0
+          },
+          "payability": {
+            "correct": 45,
+            "wrong": 0
+          },
+          "returns": {
+            "correct": 10,
+            "unresolved": 35,
+            "wrong": 0
+          },
+          "wrong_claims": [
+            "0x3eca9c0a: arity 9 vs 3",
+            "0x9570eeee: arity 10 vs 4",
+            "0x5a099843: arity 10 vs 4",
+            "0x70ccbd31: arity 11 vs 5",
+            "0x12aa3caf: arity 10 vs 4",
+            "0xfa461e33: arity 4 vs 3"
+          ]
+        },
+        "wrong_by_kind": {
+          "name": 0,
+          "arity": 6,
+          "argument type": 0,
+          "payability": 0,
+          "returns": 0
+        }
+      }
+    },
+    {
+      "id": "seaport-1-5",
+      "address": "0x00000000000000ADc04C56Bf30aC9d3c0aAF14dC",
+      "local": {
+        "code_lines": 6690,
+        "raw_lines": 3049,
+        "error_reasons": 0,
+        "events": 11,
+        "loops": 175,
+        "public_functions": 17,
+        "score": {
+          "abi_functions": 17,
+          "selectors_recovered": 16,
+          "names": {
+            "correct": 5,
+            "unresolved": 8,
+            "wrong": 3
+          },
+          "arity": {
+            "correct": 13,
+            "wrong": 3
+          },
+          "argument_types": {
+            "correct": 2,
+            "unresolved": 10,
+            "wrong": 0,
+            "dynamic_unresolved": 13
+          },
+          "payability": {
+            "correct": 16,
+            "wrong": 0
+          },
+          "returns": {
+            "correct": 5,
+            "unresolved": 10,
+            "wrong": 1
+          },
+          "wrong_claims": [
+            "0xfd9f1e10: name SubToJunionOnYoutubeXD_lvfsnfguwqne() vs cancel((address,address,(uint8,address,uint256,uint256,uint256)[],(uint8,address,uint256,uint256,uint256,address)[],uint8,uint256,uint256,bytes32,uint256,bytes32,uint256)[])",
+            "0xfd9f1e10: arity 0 vs 1",
+            "0xe7acab24: name JunionWasHereXD_ufpfzhujazyn() vs fulfillAdvancedOrder(((address,address,(uint8,address,uint256,uint256,uint256)[],(uint8,address,uint256,uint256,uint256,address)[],uint8,uint256,uint256,bytes32,uint256,bytes32,uint256),uint120,uint120,bytes,bytes),(uint256,uint8,uint256,uint256,bytes32[])[],bytes32,address)",
+            "0xe7acab24: arity 0 vs 4",
+            "0xfb0f3ee1: name JunionYoutubeXD_dashhvetozhe() vs fulfillBasicOrder((address,uint256,uint256,address,address,address,uint256,uint256,uint8,uint256,uint256,bytes32,uint256,bytes32,bytes32,uint256,(uint256,address)[],bytes))",
+            "0xfb0f3ee1: arity 0 vs 1",
+            "0x46423aa7: returns ['bool', 'bool', 'uint120', 'uint256'] vs ['bool', 'bool', 'uint256', 'uint256']"
+          ]
+        },
+        "wrong_by_kind": {
+          "name": 3,
+          "arity": 3,
+          "argument type": 0,
+          "payability": 0,
+          "returns": 1
+        }
+      },
+      "dedaub": {
+        "code_lines": 5406,
+        "raw_lines": 2306,
+        "error_reasons": 0,
+        "events": 11,
+        "loops": 179,
+        "public_functions": 15,
+        "score": {
+          "abi_functions": 17,
+          "selectors_recovered": 15,
+          "names": {
+            "correct": 13,
+            "unresolved": 0,
+            "wrong": 2
+          },
+          "arity": {
+            "correct": 10,
+            "wrong": 3,
+            "unresolved": 2
+          },
+          "argument_types": {
+            "correct": 4,
+            "unresolved": 2,
+            "wrong": 8,
+            "dynamic_unresolved": 0
+          },
+          "payability": {
+            "correct": 13,
+            "wrong": 0,
+            "unresolved": 2
+          },
+          "returns": {
+            "correct": 0,
+            "unresolved": 15,
+            "wrong": 0
+          },
+          "wrong_claims": [
+            "0xe7acab24: name JunionWasHereXD_ufpfzhujazyn() vs fulfillAdvancedOrder(((address,address,(uint8,address,uint256,uint256,uint256)[],(uint8,address,uint256,uint256,uint256,address)[],uint8,uint256,uint256,bytes32,uint256,bytes32,uint256),uint120,uint120,bytes,bytes),(uint256,uint8,uint256,uint256,bytes32[])[],bytes32,address)",
+            "0x87201b41: arg0 ((address,address,(uint8,address,uint256,uint256,uint256)[],(uint8,address,uint256,uint256,uint256,address)[],uint8,uint256,uint256,bytes32,uint256,bytes32,uint256),uint120,uint120,bytes,bytes) vs ((address,address,(uint8,address,uint256,uint256,uint256)[],(uint8,address,uint256,uint256,uint256,address)[],uint8,uint256,uint256,bytes32,uint256,bytes32,uint256),uint120,uint120,bytes,bytes)[]",
+            "0x87201b41: arg1 [] vs (uint256,uint8,uint256,uint256,bytes32[])[]",
+            "0x87201b41: arg2 (uint256,uint8,uint256,uint256,bytes32[]) vs (uint256,uint256)[][]",
+            "0x87201b41: arg3 [] vs (uint256,uint256)[][]",
+            "0x87201b41: arg4 (uint256,uint256) vs bytes32",
+            "0x87201b41: arg5 [][] vs address",
+            "0x87201b41: arg6 (uint256,uint256) vs uint256",
+            "0xed98a574: arity 6 vs 5",
+            "0xfb0f3ee1: name JunionYoutubeXD_dashhvetozhe() vs fulfillBasicOrder((address,uint256,uint256,address,address,address,uint256,uint256,uint8,uint256,uint256,bytes32,uint256,bytes32,bytes32,uint256,(uint256,address)[],bytes))",
+            "0xf2d12b12: arity 5 vs 4",
+            "0xa8174404: arity 3 vs 2",
+            "0x88147732: arg0 ((address,address,(uint8,address,uint256,uint256,uint256)[],(uint8,address,uint256,uint256,uint256,address)[],uint8,uint256,uint256,bytes32,uint256,bytes32,uint256),bytes) vs ((address,address,(uint8,address,uint256,uint256,uint256)[],(uint8,address,uint256,uint256,uint256,address)[],uint8,uint256,uint256,bytes32,uint256,bytes32,uint256),bytes)[]"
+          ]
+        },
+        "wrong_by_kind": {
+          "name": 2,
+          "arity": 3,
+          "argument type": 8,
+          "payability": 0,
+          "returns": 0
+        }
+      }
+    },
+    {
+      "id": "curve-3pool",
+      "address": "0xbEbc44782C7dB0a1A60Cb6fe97d0b483032FF1C7",
+      "local": {
+        "code_lines": 1767,
+        "raw_lines": 405,
+        "error_reasons": 0,
+        "events": 5,
+        "loops": 0,
+        "public_functions": 0,
+        "score": {
+          "abi_functions": 38,
+          "selectors_recovered": 0,
+          "names": {
+            "correct": 0,
+            "unresolved": 0,
+            "wrong": 0
+          },
+          "arity": {
+            "correct": 0,
+            "wrong": 0
+          },
+          "argument_types": {
+            "correct": 0,
+            "unresolved": 0,
+            "wrong": 0,
+            "dynamic_unresolved": 0
+          },
+          "payability": {
+            "correct": 0,
+            "wrong": 0
+          },
+          "returns": {
+            "correct": 0,
+            "unresolved": 0,
+            "wrong": 0
+          },
+          "wrong_claims": []
+        },
+        "wrong_by_kind": {
+          "name": 0,
+          "arity": 0,
+          "argument type": 0,
+          "payability": 0,
+          "returns": 0
+        }
+      },
+      "dedaub": {
+        "code_lines": 583,
+        "raw_lines": 114,
+        "error_reasons": 0,
+        "events": 5,
+        "loops": 15,
+        "public_functions": 38,
+        "score": {
+          "abi_functions": 38,
+          "selectors_recovered": 38,
+          "names": {
+            "correct": 0,
+            "unresolved": 38,
+            "wrong": 0
+          },
+          "arity": {
+            "correct": 0,
+            "wrong": 0,
+            "unresolved": 38
+          },
+          "argument_types": {
+            "correct": 0,
+            "unresolved": 0,
+            "wrong": 0,
+            "dynamic_unresolved": 0
+          },
+          "payability": {
+            "correct": 0,
+            "wrong": 0,
+            "unresolved": 38
+          },
+          "returns": {
+            "correct": 17,
+            "unresolved": 21,
+            "wrong": 0
+          },
+          "wrong_claims": []
+        },
+        "wrong_by_kind": {
+          "name": 0,
+          "arity": 0,
+          "argument type": 0,
+          "payability": 0,
+          "returns": 0
+        }
+      }
+    }
+  ]
+}

@@ -67,6 +67,14 @@ that gives Dedaub's Morpho output 192 (the table above left out closing braces).
 | Held-out accuracy | Run 2, first scores before any Dedaub export was opened (`results/run2.json`): 5 of 7 produced output, 112/113 selectors, 99 names correct, 12 wrong claims (V3 `uint160` as `address`, Seaport collision names); Curve and 1inch failed (fixed afterwards: `results/run2-after-fixes.json`). The five run-1 contracts: still 0 wrong claims | Static-struct arguments (1inch arity), `uint160` vs `address`, signature coverage |
 | Dedaub parity | Same-bytecode comparison on all seven (`results/run2-dedaub-comparison.json`): 22,012 vs 12,671 code lines, raw share 38% vs 26%, names 120 vs 154 of 196, wrong claims 17 vs 19 (payability 0 vs 26), decoded revert reasons 103 vs 73 | **Not at parity**: memory allocations as objects, custom error/event/parameter names, Vyper, large assembly-heavy contracts |
 
+### Status update 2026-10-16 (night): memory objects and custom errors
+
+| Requirement | New evidence | Still open |
+| --- | --- | --- |
+| Readable code | Allocations as values (`new struct(k)`, `struct(a, b)`, `new bytes(n)`, `new uint256[](n)`, `v = varg0` / `v = returndata` copies, `"..."` constants, `.wordN` / `.length` / `[i]` fields); memory-built custom errors and Panic codes as one revert, dictionary-named (`revert InvalidMsgValue();`), both selector layouts. 7 run-2 contracts (calibration): 22,012 -> 19,139 code lines, raw share 38% -> 28% (Dedaub 26%), 306 -> 0 unnamed dictionary errors; fixtures 9,177 -> 8,708, none longer | 1inch's unstructured functions, Seaport's hand-written low-level code, the Vyper dispatcher, `revert(returndata)` bubbles, hashes over memory words |
+| Behavioral confidence | Objects and payloads execute exactly the replaced statements; folded-pointer assumptions are checked when executed; synthetic bytecode against Py-EVM for every new form; 425 passed, 17 skipped; cross-check 1,079 agreeing | Bounded inputs |
+| Held-out accuracy | Wrong claims unchanged (17 on run 2, 0 on run 1). New held-out set frozen before this work: `fixtures/evaluation-heldout-2/` (8 contracts, two via-IR, one Vyper), not yet analyzed | Run 3 on it, with Dedaub exports from the user |
+
 Next priority: investigate the NFT receiver callback's unresolved PHI; add successful
 NFT mint/transfer/receiver and multisig behavior checks; improve dynamic encoders,
 interprocedural authority

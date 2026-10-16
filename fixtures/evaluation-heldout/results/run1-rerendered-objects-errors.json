@@ -1,0 +1,312 @@
+{
+  "selection_id": "heldout-2026-10-16",
+  "contracts": [
+    {
+      "id": "tether-usdt",
+      "seconds": 0.8,
+      "peak_rss_gb": 0.06,
+      "status": "ok",
+      "decompiled_code_lines": 399,
+      "structured_code_lines": 1133,
+      "unaccounted_ir_statements": 0,
+      "uncertain_lines": 1,
+      "unstructured_functions": 0,
+      "recognized_idioms": 5,
+      "events": {
+        "abi": [
+          "AddedBlackList",
+          "Approval",
+          "Deprecate",
+          "DestroyedBlackFunds",
+          "Issue",
+          "Params",
+          "Pause",
+          "Redeem",
+          "RemovedBlackList",
+          "Transfer",
+          "Unpause"
+        ],
+        "named_in_view": [
+          "AddedBlackList",
+          "Approval",
+          "Deprecate",
+          "DestroyedBlackFunds",
+          "Issue",
+          "Params",
+          "Pause",
+          "Redeem",
+          "RemovedBlackList",
+          "Transfer",
+          "Unpause"
+        ],
+        "unnamed_in_view": []
+      },
+      "score": {
+        "abi_functions": 32,
+        "selectors_recovered": 32,
+        "names": {
+          "correct": 32,
+          "unresolved": 0,
+          "wrong": 0
+        },
+        "arity": {
+          "correct": 32,
+          "wrong": 0
+        },
+        "argument_types": {
+          "correct": 24,
+          "unresolved": 0,
+          "wrong": 0,
+          "dynamic_unresolved": 0
+        },
+        "payability": {
+          "correct": 32,
+          "wrong": 0
+        },
+        "returns": {
+          "correct": 32,
+          "unresolved": 0,
+          "wrong": 0
+        },
+        "wrong_claims": []
+      }
+    },
+    {
+      "id": "dai",
+      "seconds": 0.5,
+      "peak_rss_gb": 0.04,
+      "status": "ok",
+      "decompiled_code_lines": 287,
+      "structured_code_lines": 679,
+      "unaccounted_ir_statements": 0,
+      "uncertain_lines": 3,
+      "unstructured_functions": 0,
+      "recognized_idioms": 2,
+      "events": {
+        "abi": [
+          "Approval",
+          "LogNote",
+          "Transfer"
+        ],
+        "named_in_view": [
+          "Approval",
+          "Transfer"
+        ],
+        "unnamed_in_view": []
+      },
+      "score": {
+        "abi_functions": 22,
+        "selectors_recovered": 22,
+        "names": {
+          "correct": 22,
+          "unresolved": 0,
+          "wrong": 0
+        },
+        "arity": {
+          "correct": 22,
+          "wrong": 0
+        },
+        "argument_types": {
+          "correct": 28,
+          "unresolved": 5,
+          "wrong": 0,
+          "dynamic_unresolved": 0
+        },
+        "payability": {
+          "correct": 22,
+          "wrong": 0
+        },
+        "returns": {
+          "correct": 16,
+          "unresolved": 6,
+          "wrong": 0
+        },
+        "wrong_claims": []
+      }
+    },
+    {
+      "id": "compound-ceth",
+      "seconds": 3.6,
+      "peak_rss_gb": 0.18,
+      "status": "ok",
+      "decompiled_code_lines": 1730,
+      "structured_code_lines": 5137,
+      "unaccounted_ir_statements": 0,
+      "uncertain_lines": 1,
+      "unstructured_functions": 0,
+      "recognized_idioms": 2,
+      "events": {
+        "abi": [
+          "AccrueInterest",
+          "Approval",
+          "Borrow",
+          "Failure",
+          "LiquidateBorrow",
+          "Mint",
+          "NewAdmin",
+          "NewComptroller",
+          "NewMarketInterestRateModel",
+          "NewPendingAdmin",
+          "NewReserveFactor",
+          "Redeem",
+          "RepayBorrow",
+          "ReservesReduced",
+          "Transfer"
+        ],
+        "named_in_view": [
+          "AccrueInterest",
+          "Approval",
+          "Borrow",
+          "Failure",
+          "LiquidateBorrow",
+          "Mint",
+          "NewAdmin",
+          "NewComptroller",
+          "NewMarketInterestRateModel",
+          "NewPendingAdmin",
+          "NewReserveFactor",
+          "Redeem",
+          "RepayBorrow",
+          "ReservesReduced",
+          "Transfer"
+        ],
+        "unnamed_in_view": []
+      },
+      "score": {
+        "abi_functions": 45,
+        "selectors_recovered": 45,
+        "names": {
+          "correct": 45,
+          "unresolved": 0,
+          "wrong": 0
+        },
+        "arity": {
+          "correct": 45,
+          "wrong": 0
+        },
+        "argument_types": {
+          "correct": 28,
+          "unresolved": 0,
+          "wrong": 0,
+          "dynamic_unresolved": 0
+        },
+        "payability": {
+          "correct": 45,
+          "wrong": 0
+        },
+        "returns": {
+          "correct": 45,
+          "unresolved": 0,
+          "wrong": 0
+        },
+        "wrong_claims": []
+      }
+    },
+    {
+      "id": "uniswap-v2-router02",
+      "seconds": 3.1,
+      "peak_rss_gb": 0.15,
+      "status": "ok",
+      "decompiled_code_lines": 1220,
+      "structured_code_lines": 4598,
+      "unaccounted_ir_statements": 0,
+      "uncertain_lines": 1,
+      "unstructured_functions": 0,
+      "recognized_idioms": 3,
+      "events": {
+        "abi": [],
+        "named_in_view": [],
+        "unnamed_in_view": []
+      },
+      "score": {
+        "abi_functions": 24,
+        "selectors_recovered": 24,
+        "names": {
+          "correct": 24,
+          "unresolved": 0,
+          "wrong": 0
+        },
+        "arity": {
+          "correct": 24,
+          "wrong": 0
+        },
+        "argument_types": {
+          "correct": 110,
+          "unresolved": 9,
+          "wrong": 0,
+          "dynamic_unresolved": 0
+        },
+        "payability": {
+          "correct": 24,
+          "wrong": 0
+        },
+        "returns": {
+          "correct": 16,
+          "unresolved": 8,
+          "wrong": 0
+        },
+        "wrong_claims": []
+      }
+    },
+    {
+      "id": "chainlink-eth-usd-proxy",
+      "seconds": 0.7,
+      "peak_rss_gb": 0.06,
+      "status": "ok",
+      "decompiled_code_lines": 488,
+      "structured_code_lines": 1673,
+      "unaccounted_ir_statements": 0,
+      "uncertain_lines": 10,
+      "unstructured_functions": 0,
+      "recognized_idioms": 1,
+      "events": {
+        "abi": [
+          "AnswerUpdated",
+          "NewRound",
+          "OwnershipTransferRequested",
+          "OwnershipTransferred"
+        ],
+        "named_in_view": [
+          "OwnershipTransferRequested",
+          "OwnershipTransferred"
+        ],
+        "unnamed_in_view": []
+      },
+      "score": {
+        "abi_functions": 23,
+        "selectors_recovered": 23,
+        "names": {
+          "correct": 23,
+          "unresolved": 0,
+          "wrong": 0
+        },
+        "arity": {
+          "correct": 23,
+          "wrong": 0
+        },
+        "argument_types": {
+          "correct": 8,
+          "unresolved": 1,
+          "wrong": 0,
+          "dynamic_unresolved": 0
+        },
+        "payability": {
+          "correct": 23,
+          "wrong": 0
+        },
+        "returns": {
+          "correct": 15,
+          "unresolved": 8,
+          "wrong": 0
+        },
+        "wrong_claims": []
+      }
+    }
+  ],
+  "limits": {
+    "memory_gb": 16,
+    "wall_seconds": 3600,
+    "native_timeout_seconds": 300,
+    "mechanism": "systemd scope MemoryMax=16G, swap off"
+  }
+}

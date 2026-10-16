@@ -1,0 +1,440 @@
+{
+  "selection_id": "heldout-2026-10-16",
+  "contracts": [
+    {
+      "id": "uniswap-v3-pool-usdc-weth",
+      "seconds": 61.1,
+      "peak_rss_gb": 0.27,
+      "status": "ok",
+      "decompiled_code_lines": 1820,
+      "structured_code_lines": 16292,
+      "unaccounted_ir_statements": 140,
+      "uncertain_lines": 5,
+      "unstructured_functions": 0,
+      "recognized_idioms": 1,
+      "events": {
+        "abi": [
+          "Burn",
+          "Collect",
+          "CollectProtocol",
+          "Flash",
+          "IncreaseObservationCardinalityNext",
+          "Initialize",
+          "Mint",
+          "SetFeeProtocol",
+          "Swap"
+        ],
+        "named_in_view": [
+          "Burn",
+          "Collect",
+          "CollectProtocol",
+          "Flash",
+          "IncreaseObservationCardinalityNext",
+          "Initialize",
+          "Mint",
+          "SetFeeProtocol",
+          "Swap"
+        ],
+        "unnamed_in_view": []
+      },
+      "score": {
+        "abi_functions": 26,
+        "selectors_recovered": 26,
+        "names": {
+          "correct": 26,
+          "unresolved": 0,
+          "wrong": 0
+        },
+        "arity": {
+          "correct": 26,
+          "wrong": 0
+        },
+        "argument_types": {
+          "correct": 31,
+          "unresolved": 3,
+          "wrong": 2,
+          "dynamic_unresolved": 0
+        },
+        "payability": {
+          "correct": 26,
+          "wrong": 0
+        },
+        "returns": {
+          "correct": 16,
+          "unresolved": 7,
+          "wrong": 3
+        },
+        "wrong_claims": [
+          "0xf637731d: arg0 address vs uint160",
+          "0x252c09d7: returns ['uint32', 'int56', 'address', 'bool'] vs ['uint32', 'int56', 'uint160', 'bool']",
+          "0x3850c7bd: returns ['address', 'int24', 'uint16', 'uint16', 'uint16', 'uint8', 'bool'] vs ['uint160', 'int24', 'uint16', 'uint16', 'uint16', 'uint8', 'bool']",
+          "0xa38807f2: returns ['int56', 'address', 'uint32'] vs ['int56', 'uint160', 'uint32']",
+          "0x128acb08: arg3 address vs uint160"
+        ]
+      }
+    },
+    {
+      "id": "azuki-erc721a",
+      "seconds": 2.2,
+      "peak_rss_gb": 0.12,
+      "status": "ok",
+      "decompiled_code_lines": 1048,
+      "structured_code_lines": 2090,
+      "unaccounted_ir_statements": 0,
+      "uncertain_lines": 5,
+      "unstructured_functions": 0,
+      "recognized_idioms": 6,
+      "events": {
+        "abi": [
+          "Approval",
+          "ApprovalForAll",
+          "OwnershipTransferred",
+          "Transfer"
+        ],
+        "named_in_view": [
+          "Approval",
+          "ApprovalForAll",
+          "OwnershipTransferred",
+          "Transfer"
+        ],
+        "unnamed_in_view": []
+      },
+      "score": {
+        "abi_functions": 45,
+        "selectors_recovered": 45,
+        "names": {
+          "correct": 45,
+          "unresolved": 0,
+          "wrong": 0
+        },
+        "arity": {
+          "correct": 45,
+          "wrong": 0
+        },
+        "argument_types": {
+          "correct": 45,
+          "unresolved": 0,
+          "wrong": 0,
+          "dynamic_unresolved": 0
+        },
+        "payability": {
+          "correct": 45,
+          "wrong": 0
+        },
+        "returns": {
+          "correct": 41,
+          "unresolved": 4,
+          "wrong": 0
+        },
+        "wrong_claims": []
+      }
+    },
+    {
+      "id": "aave-v3-pool-proxy",
+      "seconds": 0.3,
+      "peak_rss_gb": 0.03,
+      "status": "ok",
+      "decompiled_code_lines": 151,
+      "structured_code_lines": 352,
+      "unaccounted_ir_statements": 0,
+      "uncertain_lines": 3,
+      "unstructured_functions": 0,
+      "recognized_idioms": 0,
+      "events": {
+        "abi": [
+          "Upgraded"
+        ],
+        "named_in_view": [
+          "Upgraded"
+        ],
+        "unnamed_in_view": []
+      },
+      "score": {
+        "abi_functions": 5,
+        "selectors_recovered": 5,
+        "names": {
+          "correct": 5,
+          "unresolved": 0,
+          "wrong": 0
+        },
+        "arity": {
+          "correct": 5,
+          "wrong": 0
+        },
+        "argument_types": {
+          "correct": 5,
+          "unresolved": 0,
+          "wrong": 0,
+          "dynamic_unresolved": 0
+        },
+        "payability": {
+          "correct": 5,
+          "wrong": 0
+        },
+        "returns": {
+          "correct": 3,
+          "unresolved": 2,
+          "wrong": 0
+        },
+        "wrong_claims": []
+      }
+    },
+    {
+      "id": "ens-eth-registrar-controller",
+      "seconds": 1.1,
+      "peak_rss_gb": 0.07,
+      "status": "ok",
+      "decompiled_code_lines": 581,
+      "structured_code_lines": 1250,
+      "unaccounted_ir_statements": 0,
+      "uncertain_lines": 7,
+      "unstructured_functions": 0,
+      "recognized_idioms": 2,
+      "events": {
+        "abi": [
+          "NameRegistered",
+          "NameRenewed",
+          "OwnershipTransferred"
+        ],
+        "named_in_view": [
+          "NameRenewed",
+          "OwnershipTransferred"
+        ],
+        "unnamed_in_view": [
+          "Event_69e37f15"
+        ]
+      },
+      "score": {
+        "abi_functions": 20,
+        "selectors_recovered": 20,
+        "names": {
+          "correct": 18,
+          "unresolved": 2,
+          "wrong": 0
+        },
+        "arity": {
+          "correct": 20,
+          "wrong": 0
+        },
+        "argument_types": {
+          "correct": 17,
+          "unresolved": 8,
+          "wrong": 0,
+          "dynamic_unresolved": 4
+        },
+        "payability": {
+          "correct": 20,
+          "wrong": 0
+        },
+        "returns": {
+          "correct": 18,
+          "unresolved": 2,
+          "wrong": 0
+        },
+        "wrong_claims": []
+      }
+    },
+    {
+      "id": "oneinch-router-v5",
+      "seconds": 15.0,
+      "peak_rss_gb": 0.41,
+      "status": "ok",
+      "decompiled_code_lines": 7082,
+      "structured_code_lines": 12831,
+      "unaccounted_ir_statements": 0,
+      "uncertain_lines": 434,
+      "unstructured_functions": 12,
+      "recognized_idioms": 3,
+      "events": {
+        "abi": [
+          "NonceIncreased",
+          "OrderCanceled",
+          "OrderFilled",
+          "OrderFilledRFQ",
+          "OwnershipTransferred"
+        ],
+        "named_in_view": [
+          "NonceIncreased",
+          "OrderCanceled",
+          "OrderFilled",
+          "OrderFilledRFQ",
+          "OwnershipTransferred"
+        ],
+        "unnamed_in_view": []
+      },
+      "score": {
+        "abi_functions": 45,
+        "selectors_recovered": 45,
+        "names": {
+          "correct": 21,
+          "unresolved": 24,
+          "wrong": 0
+        },
+        "arity": {
+          "correct": 40,
+          "wrong": 5
+        },
+        "argument_types": {
+          "correct": 73,
+          "unresolved": 23,
+          "wrong": 0,
+          "dynamic_unresolved": 17
+        },
+        "payability": {
+          "correct": 36,
+          "wrong": 0,
+          "unresolved": 9
+        },
+        "returns": {
+          "correct": 31,
+          "unresolved": 14,
+          "wrong": 0
+        },
+        "wrong_claims": [
+          "0x3eca9c0a: arity 9 vs 3",
+          "0x9570eeee: arity 10 vs 4",
+          "0x5a099843: arity 10 vs 4",
+          "0x70ccbd31: arity 11 vs 5",
+          "0x12aa3caf: arity 10 vs 4"
+        ]
+      }
+    },
+    {
+      "id": "seaport-1-5",
+      "seconds": 23.9,
+      "peak_rss_gb": 0.69,
+      "status": "ok",
+      "decompiled_code_lines": 6690,
+      "structured_code_lines": 30931,
+      "unaccounted_ir_statements": 0,
+      "uncertain_lines": 24,
+      "unstructured_functions": 1,
+      "recognized_idioms": 2,
+      "events": {
+        "abi": [
+          "CounterIncremented",
+          "OrderCancelled",
+          "OrderFulfilled",
+          "OrderValidated",
+          "OrdersMatched"
+        ],
+        "named_in_view": [
+          "CounterIncremented",
+          "OrderCancelled",
+          "OrderFulfilled"
+        ],
+        "unnamed_in_view": [
+          "Event_4b9f2d36",
+          "Event_f280791e"
+        ]
+      },
+      "score": {
+        "abi_functions": 17,
+        "selectors_recovered": 16,
+        "names": {
+          "correct": 5,
+          "unresolved": 8,
+          "wrong": 3
+        },
+        "arity": {
+          "correct": 13,
+          "wrong": 3
+        },
+        "argument_types": {
+          "correct": 2,
+          "unresolved": 10,
+          "wrong": 0,
+          "dynamic_unresolved": 13
+        },
+        "payability": {
+          "correct": 16,
+          "wrong": 0
+        },
+        "returns": {
+          "correct": 5,
+          "unresolved": 10,
+          "wrong": 1
+        },
+        "wrong_claims": [
+          "0xfd9f1e10: name SubToJunionOnYoutubeXD_lvfsnfguwqne() vs cancel((address,address,(uint8,address,uint256,uint256,uint256)[],(uint8,address,uint256,uint256,uint256,address)[],uint8,uint256,uint256,bytes32,uint256,bytes32,uint256)[])",
+          "0xfd9f1e10: arity 0 vs 1",
+          "0xe7acab24: name JunionWasHereXD_ufpfzhujazyn() vs fulfillAdvancedOrder(((address,address,(uint8,address,uint256,uint256,uint256)[],(uint8,address,uint256,uint256,uint256,address)[],uint8,uint256,uint256,bytes32,uint256,bytes32,uint256),uint120,uint120,bytes,bytes),(uint256,uint8,uint256,uint256,bytes32[])[],bytes32,address)",
+          "0xe7acab24: arity 0 vs 4",
+          "0xfb0f3ee1: name JunionYoutubeXD_dashhvetozhe() vs fulfillBasicOrder((address,uint256,uint256,address,address,address,uint256,uint256,uint8,uint256,uint256,bytes32,uint256,bytes32,bytes32,uint256,(uint256,address)[],bytes))",
+          "0xfb0f3ee1: arity 0 vs 1",
+          "0x46423aa7: returns ['bool', 'bool', 'uint120', 'uint256'] vs ['bool', 'bool', 'uint256', 'uint256']"
+        ]
+      }
+    },
+    {
+      "id": "curve-3pool",
+      "seconds": 0.6,
+      "peak_rss_gb": 0.05,
+      "status": "ok",
+      "decompiled_code_lines": 1767,
+      "structured_code_lines": 2560,
+      "unaccounted_ir_statements": 0,
+      "uncertain_lines": 37,
+      "unstructured_functions": 1,
+      "recognized_idioms": 0,
+      "events": {
+        "abi": [
+          "AddLiquidity",
+          "CommitNewAdmin",
+          "CommitNewFee",
+          "NewAdmin",
+          "NewFee",
+          "RampA",
+          "RemoveLiquidity",
+          "RemoveLiquidityImbalance",
+          "RemoveLiquidityOne",
+          "StopRampA",
+          "TokenExchange"
+        ],
+        "named_in_view": [
+          "CommitNewAdmin",
+          "CommitNewFee",
+          "NewAdmin",
+          "NewFee",
+          "RemoveLiquidity"
+        ],
+        "unnamed_in_view": []
+      },
+      "score": {
+        "abi_functions": 38,
+        "selectors_recovered": 0,
+        "names": {
+          "correct": 0,
+          "unresolved": 0,
+          "wrong": 0
+        },
+        "arity": {
+          "correct": 0,
+          "wrong": 0
+        },
+        "argument_types": {
+          "correct": 0,
+          "unresolved": 0,
+          "wrong": 0,
+          "dynamic_unresolved": 0
+        },
+        "payability": {
+          "correct": 0,
+          "wrong": 0
+        },
+        "returns": {
+          "correct": 0,
+          "unresolved": 0,
+          "wrong": 0
+        },
+        "wrong_claims": []
+      }
+    }
+  ],
+  "limits": {
+    "memory_gb": 16,
+    "wall_seconds": 3600,
+    "native_timeout_seconds": 300,
+    "mechanism": "systemd scope MemoryMax=16G, swap off"
+  }
+}
