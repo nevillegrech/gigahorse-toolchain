@@ -665,6 +665,16 @@ class DecompiledMachine:
                 if target not in self.code_sizes:
                     raise UnsupportedExecution("Code size requires an observed value")
                 return self.code_sizes[target]
+            if (
+                expr.name in {"length", "data"}
+                and isinstance(expr.base, Var)
+                and expr.base.name in frame.values
+            ):
+                # Calldata accessors of a dynamic argument (its value is 4 + ABI offset).
+                pointer = frame.values[expr.base.name]
+                return (
+                    self.calldata_word(pointer) if expr.name == "length" else (pointer + 32) & MASK
+                )
             if expr.name.startswith("field") or expr.name == "data":
                 slot, _, _ = self.storage_slot(expr, frame)
                 return self.storage.get(slot, 0)
@@ -734,6 +744,10 @@ class DecompiledMachine:
             return results[0]
         if name == "phi":
             raise UnsupportedExecution("PHI inputs are not associated with predecessors")
+        if name == "word" and len(expr.args) == 2:
+            return self.calldata_word(
+                (self.eval(expr.args[0], frame) + self.eval(expr.args[1], frame)) & MASK
+            )
         if name == "blockhash":
             number = self.eval(expr.args[0], frame)
             if number not in self.block_hashes:

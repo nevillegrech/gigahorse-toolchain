@@ -8,13 +8,14 @@ from pathlib import Path
 from ..model import Function, Program
 from .idioms import recognize_arithmetic_helpers, recognize_string_getters
 from .ir import Assign, Emit, Expr, Require, Return, Stmt, Var, is_local
-from .lift import FunctionLifter, ProgramContext
+from .lift import FunctionLifter, ProgramContext, is_static_abi
 from .memory_forwarding import forward_memory
 from .memory_liveness import AddressModel, FreePointerVersions, Summaries, compute_summaries
 from .naming import Names, load_names, split_signature
 from .passes import (
     FunctionState,
     absorb_memory_plumbing,
+    common_subexpressions,
     constant_branches,
     copy_propagation,
     drop_trivial_requires,
@@ -36,7 +37,14 @@ from .passes import (
 )
 from .printer import Printed, expression, print_statements
 from .summaries import summarize, summary_lines
-from .types import TypedValue, expression_type, map_body, storage_root, type_variables
+from .types import (
+    TypedValue,
+    expression_type,
+    map_body,
+    present_dynamic_arguments,
+    storage_root,
+    type_variables,
+)
 
 LEGEND = [
     "Decompiled view: Gigahorse IR lifted to Solidity-like code by local readability passes.",
@@ -44,6 +52,7 @@ LEGEND = [
     "Conventions: arithmetic wraps mod 2**256 unless a check is shown; `/` and `%` by zero give 0 (EVM);",
     "  MEM[p] / msg.data[p] are 32-byte words at byte offset p; `if (x)` tests x != 0; msg.sig is the 4-byte selector;",
     "  require(c, returndata) reverts with the callee's revert data; stor_<slot>[_<bytes>] are inferred storage fields.",
+    "  For a dynamic calldata argument x: x.length = msg.data[x], x.data = x + 32, x.word(k) = msg.data[x.data + k].",
     "Names marked [dict] come from hash-checked local signature dictionaries: hints, not proof of the original source.",
     "UNCERTAIN marks constructs that were not fully recovered; raw EVM operations are kept in those places.",
     "Hidden memory writes: proven unread, or ABI temporaries of a represented call/event/return that are not",
@@ -128,20 +137,28 @@ class DecompiledProgram:
 
 
 def render_decompiled(
-    program: Program, relations: Path | None = None, names: Names | None = None
+    program: Program,
+    relations: Path | None = None,
+    names: Names | None = None,
+    *,
+    online_signatures: bool = False,
 ) -> tuple[str, dict]:
-    result = build_decompiled(program, relations, names)
+    result = build_decompiled(program, relations, names, online_signatures=online_signatures)
     return result.text, result.mapping
 
 
 def build_decompiled(
-    program: Program, relations: Path | None = None, names: Names | None = None
+    program: Program,
+    relations: Path | None = None,
+    names: Names | None = None,
+    *,
+    online_signatures: bool = False,
 ) -> DecompiledProgram:
     if relations is None:
         relations = program.source_directory
     context = ProgramContext.build(program, relations)
     if names is None:
-        names = load_names(*collect_keys(context))
+        names = load_names(*collect_keys(context), online=online_signatures)
     for topic, candidates in names.events.matches.items():
         if len(candidates) == 1:
             context.event_names[topic] = split_signature(candidates[0])[0]
@@ -344,6 +361,7 @@ def finish_function(
     repeated_checks(state)
     eth_transfers(state)
     unused_call_results(state)
+    constant_branches(state)
     leading_callvalue_check(state)
     trailing_stop(state)
     typed = type_variables(state, [arg.name for arg in item.arguments])
@@ -356,6 +374,21 @@ def finish_function(
                 "native ABI model: calldata position of a dynamic argument (offset + 4); "
                 "element types unresolved"
             )
+    dynamic = {name for name, value in typed.items() if value.kind in {"array", "struct"}}
+    if dynamic:
+        present_dynamic_arguments(state, dynamic)
+    common_subexpressions(state)
+    if signature and function.selectors:
+        params = split_signature(signature)[1]
+        for index, arg in enumerate(item.arguments):
+            value = typed[arg.name]
+            if (
+                value.kind in {"array", "struct"}
+                and index < len(params)
+                and not is_static_abi(params[index])
+            ):
+                value.type = params[index]
+                value.reason += f"; ABI type from the hash-matched signature {signature} [dict]"
     remove_unused_reads(state)
     loop_conditions(state)
     return FunctionView(

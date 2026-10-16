@@ -46,6 +46,10 @@ def _stable(expr: Expr) -> bool:
         return True
     if isinstance(expr, Env):
         return expr.name not in {"returndata"}
+    if isinstance(expr, Index) and isinstance(expr.base, Env) and expr.base.name == "msg.data":
+        return _stable(expr.key)  # calldata is immutable during the call
+    if isinstance(expr, Member) and expr.name in {"length", "data"} and isinstance(expr.base, Var):
+        return True  # calldata accessors of an argument
     if isinstance(expr, (Index, Member, ExternalCallExpr)):
         return False
     if isinstance(expr, Call) and expr.name in {"gasleft", "msize", "keccak256", "blockhash"}:
@@ -150,7 +154,7 @@ class Forwarder:
 
     def key(self, address: Expr) -> tuple[str | None, int] | None:
         base, offset = self.model.split(address)
-        if base == ANY or (base and base.startswith("heap:@")):
+        if base in {ANY, "at-least"} or (base and base.startswith("heap:@")):
             # Inlined free-pointer reads are distinct occurrences: never forwarded.
             return None
         return base, offset

@@ -96,6 +96,7 @@ def write_bundle(
     metadata: dict,
     log: str | None = None,
     signature_file: Path | None = None,
+    online_signatures: bool = False,
 ) -> None:
     if output.exists():
         raise ValueError(f"Output already exists: {output}; choose a new directory")
@@ -117,7 +118,9 @@ def write_bundle(
     pseudocode = render_program(program)
     recovered, source_map = render_recovered(program)
     structured, structured_map = render_recovered(program, structure_flow=True)
-    decompiled, decompiled_map = render_decompiled(program, facts)
+    decompiled, decompiled_map = render_decompiled(
+        program, facts, online_signatures=online_signatures
+    )
     output.mkdir(parents=True)
     (output / "analysis.json").write_text(json.dumps(report, indent=2) + "\n")
     (output / "pseudocode.sol.txt").write_text(pseudocode)
@@ -203,6 +206,7 @@ def decompile(args: argparse.Namespace) -> None:
             },
             log,
             args.signatures,
+            args.online_signatures,
         )
 
 
@@ -228,6 +232,12 @@ def main(argv: list[str] | None = None) -> int:
             type=Path,
             help="Optional local selector/signature TSV; requires the naming extra. Labels remain hints.",
         )
+        command.add_argument(
+            "--online-signatures",
+            action="store_true",
+            help="Opt-in: look up unresolved selectors/topics on openchain.xyz (discloses them), "
+            "keep only hash-checked names, and cache them under cache/signatures/ for offline reuse.",
+        )
     args = parser.parse_args(argv)
     try:
         if args.command == "doctor":
@@ -240,6 +250,7 @@ def main(argv: list[str] | None = None) -> int:
                 args.output,
                 {"engine": "Gigahorse", "input_kind": "existing-relations"},
                 signature_file=args.signatures,
+                online_signatures=args.online_signatures,
             )
         else:
             if args.timeout < 1:

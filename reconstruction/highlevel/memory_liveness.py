@@ -33,6 +33,9 @@ from .ir import (
 
 HEAP_FLOOR = 0x60
 ANY = "any"
+# Unknown address known to be >= start: `x + c` with x unknown. Memory beyond
+# ~2**32 is unaffordable (quadratic gas), so such sums do not wrap below c.
+AT_LEAST = "at-least"
 
 
 @dataclass(frozen=True)
@@ -44,6 +47,11 @@ class Range:
 
 def _intersects(a: Range, b: Range) -> bool:
     if a.base == ANY or b.base == ANY:
+        return True
+    if a.base == AT_LEAST or b.base == AT_LEAST:
+        bounded, other = (a, b) if a.base == AT_LEAST else (b, a)
+        if other.base is None:
+            return other.size is None or other.start + other.size > bounded.start
         return True
     if a.base == b.base:
         a_end = None if a.size is None else a.start + a.size
@@ -59,7 +67,7 @@ def _intersects(a: Range, b: Range) -> bool:
 
 def _subtract(live: Range, kill: Range) -> list[Range]:
     """Bytes of `live` not certainly overwritten by `kill`."""
-    if kill.base in {ANY} or live.base != kill.base or kill.size is None:
+    if kill.base in {ANY, AT_LEAST} or live.base != kill.base or kill.size is None:
         return [live]
     k_start, k_end = kill.start, kill.start + kill.size
     if live.size is None:
@@ -112,6 +120,8 @@ class AddressModel:
         base, offset = self.split(start)
         if base == ANY:
             return Range(ANY, 0, None)
+        if base == AT_LEAST:
+            return Range(AT_LEAST, offset, None)
         return Range(base, offset, size)
 
     def split(self, expr: Expr) -> tuple[str | None, int]:
@@ -121,19 +131,28 @@ class AddressModel:
             return None, expr.value
         if isinstance(expr, Var):
             if self.versions is not None and expr.name in self.versions.var_version:
-                return self.versions.var_version[expr.name], 0
+                version = self.versions.var_version[expr.name]
+                if version in self.versions.constant:
+                    return None, self.versions.constant[version]
+                return version, 0
             prefix = "heap:" if expr.name in self.free_pointer_vars else "var:"
             return prefix + expr.name, 0
         if _is_free_pointer_read(expr):
             if self.versions is not None and id(expr) in self.versions.node_version:
-                return self.versions.node_version[id(expr)], 0
+                version = self.versions.node_version[id(expr)]
+                if version in self.versions.constant:
+                    return None, self.versions.constant[version]
+                return version, 0
             return f"heap:@{id(expr)}", 0
         if isinstance(expr, Binary) and expr.op == "+":
             for base, extra in ((expr.left, expr.right), (expr.right, expr.left)):
                 if isinstance(extra, Const) and extra.value < (1 << 64):
                     inner, offset = self.split(base)
-                    if inner != ANY:
-                        return inner, offset + extra.value
+                    if inner == ANY:
+                        return AT_LEAST, extra.value
+                    if inner == AT_LEAST:
+                        return AT_LEAST, offset + extra.value
+                    return inner, offset + extra.value
         return ANY, 0
 
 
@@ -325,7 +344,7 @@ def widen(live: Live) -> Live:
     """
     result: set[Range] = set()
     for item in live.ranges:
-        if item.base is None:
+        if item.base is None or item.base == AT_LEAST:
             result.add(item)
         elif item.base.startswith("heap:"):
             result.add(UNKNOWN_HEAP)
@@ -395,6 +414,8 @@ class FreePointerVersions:
         self.callees = callees
         self.var_version: dict[str, str] = {}
         self.node_version: dict[int, str] = {}
+        # Versions whose pointer value is a known constant (set by MEM[64] = c).
+        self.constant: dict[str, int] = {}
         self.counter = 0
         self.walk(body, self.fresh())
 
@@ -435,7 +456,18 @@ class FreePointerVersions:
             and _is_free_pointer_read(stmt.value)
         ):
             self.var_version[stmt.targets[0].name] = current
-        return self.fresh() if self.changes_pointer([stmt]) else current
+        if not self.changes_pointer([stmt]):
+            return current
+        version = self.fresh()
+        if (
+            isinstance(stmt, Assign)
+            and len(stmt.targets) == 1
+            and isinstance(stmt.targets[0], Index)
+            and _is_free_pointer_read(stmt.targets[0])
+            and isinstance(stmt.value, Const)
+        ):
+            self.constant[version] = stmt.value.value
+        return version
 
     def visit(self, expr: Expr, current: str) -> None:
         if _is_free_pointer_read(expr):

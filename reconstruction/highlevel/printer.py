@@ -136,6 +136,13 @@ def _expr(expr: Expr, context: int) -> str:
             return f"{signed(expr.left, left)} {SIGNED[op]} {signed(expr.right, right)}"
         return f"{left} {op} {right}"
     if isinstance(expr, Call):
+        if (
+            expr.name == "word"
+            and len(expr.args) == 2
+            and isinstance(expr.args[0], Member)
+            and expr.args[0].name == "data"
+        ):
+            return f"{_postfix(expr.args[0].base)}.word({_expr(expr.args[1], 0)})"
         return f"{expr.name}({', '.join(_expr(arg, 0) for arg in expr.args)})"
     if isinstance(expr, Index):
         return f"{_postfix(expr.base)}[{_expr(expr.key, 0)}]"

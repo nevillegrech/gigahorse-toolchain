@@ -27,6 +27,7 @@ from .ir import (
     If,
     Index,
     Jump,
+    Member,
     ParallelAssign,
     RawBlock,
     Require,
@@ -1147,3 +1148,150 @@ def copy_propagation(state: FunctionState) -> None:
         return kept
 
     state.body = map_bodies(state.body, visit)
+
+
+def _cse_stable(expr: Expr) -> bool:
+    """Same value at every point of the function: calldata, arguments, constants, SSA locals."""
+    if isinstance(expr, Const):
+        return True
+    if isinstance(expr, Var):
+        return True
+    if isinstance(expr, Env):
+        return expr.name not in {"returndata", "MEM", "MEM8", "STORAGE", "TSTORAGE"}
+    if isinstance(expr, Index):
+        return isinstance(expr.base, Env) and expr.base.name == "msg.data" and _cse_stable(expr.key)
+    if isinstance(expr, Member):
+        return expr.name in {"length", "data"} and isinstance(expr.base, Var)
+    if isinstance(expr, Call):
+        if expr.name in {"gasleft", "msize", "keccak256", "blockhash"} or has_effect(expr):
+            return False
+        return all(_cse_stable(arg) for arg in expr.args)
+    if isinstance(expr, (Binary, Unary)):
+        return all(_cse_stable(child) for child in expr.children())
+    return False
+
+
+def common_subexpressions(state: FunctionState, *, min_size: int = 5, min_uses: int = 3) -> int:
+    """Bind repeated stable expressions to locals, smallest shared parts first (rounds)."""
+    total = 0
+    for _ in range(12):
+        added = _cse_round(state, min_size=min_size, min_uses=min_uses)
+        if not added:
+            break
+        total += added
+    return total
+
+
+def _cse_round(state: FunctionState, *, min_size: int, min_uses: int) -> int:
+    """Bind one large repeated stable expression to a local before its first use."""
+    reassigned: Counter[str] = Counter()
+    for stmt in iter_statements(state.body):
+        if isinstance(stmt, (Assign, ParallelAssign)):
+            for target in stmt.targets:
+                if is_local(target):
+                    reassigned[target.name] += 1
+    counts: Counter[Expr] = Counter()
+    for stmt in iter_statements(state.body):
+        for expr in read_expressions(stmt):
+            for node in iter_expr(expr):
+                if node.size() >= min_size and _cse_stable(node):
+                    if all(reassigned[v.name] <= 1 for v in iter_expr(node) if isinstance(v, Var)):
+                        counts[node] += 1
+    candidates = [e for e, n in counts.items() if n >= min_uses]
+    if not candidates:
+        return 0
+    # One expression per round, the largest saving first; callers repeat rounds so
+    # shared sub-expressions are bound before the larger ones built on them.
+    chosen = [max(candidates, key=lambda e: (counts[e] - 1) * (e.size() - 1))]
+    names = {}
+    used_names = {
+        v.name
+        for s in iter_statements(state.body)
+        for e in read_expressions(s)
+        for v in iter_expr(e)
+        if isinstance(v, Var)
+    }
+    index = 0
+    for expr in chosen:
+        while f"t{index}" in used_names:
+            index += 1
+        names[expr] = Var(f"t{index}", f"cse:{index}", rules=frozenset({"common-subexpression"}))
+        index += 1
+
+    def replace_in(expr: Expr) -> Expr:
+        for target, var in names.items():
+            if expr == target:
+                return annotate(var, expr.all_evidence())
+        children = expr.children()
+        if not children:
+            return expr
+        new = tuple(replace_in(child) for child in children)
+        if all(a is b for a, b in zip(new, children, strict=True)):
+            return expr
+        return expr.with_children(new)
+
+    def contains(stmt: Stmt, target: Expr) -> bool:
+        return any(
+            node == target
+            for s in iter_statements([stmt])
+            for e in read_expressions(s)
+            for node in iter_expr(e)
+        )
+
+    inserted = 0
+
+    def place(statements: list[Stmt], pending: list[Expr]) -> list[Stmt]:
+        nonlocal inserted
+        result: list[Stmt] = []
+        remaining = list(pending)
+        defined: set[str] = set()
+        for stmt in statements:
+            here = [t for t in remaining if contains(stmt, t)]
+            for target in here:
+                free = {v.name for v in iter_expr(target) if isinstance(v, Var) and is_local(v)}
+                if not all(n.startswith("varg") or n in defined for n in free):
+                    # A free local is only defined inside a nested block: do not bind.
+                    remaining.remove(target)
+                    del names[target]
+                    continue
+                # Only bind before a statement whose own head (not a nested loop) has it,
+                # or whose nested bodies need it; the binding dominates all later uses.
+                result.append(
+                    Assign(
+                        (names[target],),
+                        target,
+                        evidence=frozenset(),
+                        rules=frozenset({"common-subexpression"}),
+                    )
+                )
+                remaining.remove(target)
+                inserted += 1
+            result.append(stmt)
+            if isinstance(stmt, (Assign, ParallelAssign)):
+                defined |= {t.name for t in stmt.targets if is_local(t)}
+        return result
+
+    # Bind at the top level only: every later use (including nested blocks) is dominated.
+    top_level_users = [t for t in chosen if any(contains(s, t) for s in state.body)]
+    state.body = place(state.body, top_level_users)
+    bound = set(names.values())
+    for stmt in iter_statements(state.body):
+        if isinstance(stmt, Assign) and stmt.targets and stmt.targets[0] in bound:
+            # The binding itself may still use smaller bound expressions.
+            stmt.value = replace_in_children(stmt.value, replace_in)
+            continue
+        map_reads_local(stmt, replace_in)
+    return inserted
+
+
+def replace_in_children(expr: Expr, fn) -> Expr:
+    children = expr.children()
+    if not children:
+        return expr
+    return expr.with_children(tuple(fn(child) for child in children))
+
+
+def map_reads_local(stmt: Stmt, fn) -> None:
+    from .memory_forwarding import map_reads
+
+    map_reads(stmt, fn)

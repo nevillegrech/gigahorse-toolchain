@@ -35,6 +35,7 @@ from .ir import (
 )
 from .passes import (
     FunctionState,
+    iter_expr,
     iter_statements,
     map_bodies,
     read_expressions,
@@ -258,3 +259,78 @@ def storage_root(expr: Expr) -> tuple[str, list[Expr]] | None:
     ):
         return expr.name, keys
     return None
+
+
+def present_dynamic_arguments(state: FunctionState, names: set[str]) -> int:
+    """Calldata accessors for dynamic arguments (value = 4 + ABI offset).
+
+    msg.data[a] -> a.length; a + 32 -> a.data; msg.data[a + 32 + k] -> a.word(k).
+    These are notation only: each form denotes exactly the original address
+    arithmetic (the interpreter executes them as such).
+    """
+    from .ir import Binary, Const, Env, Index, Member, Var
+
+    rewrites = 0
+
+    def split(expr: Expr) -> tuple[str | None, list[Expr], int]:
+        terms: list[Expr] = []
+        constant = 0
+
+        def walk(node: Expr) -> None:
+            nonlocal constant
+            if isinstance(node, Binary) and node.op == "+":
+                walk(node.left)
+                walk(node.right)
+            elif isinstance(node, Const):
+                constant += node.value
+            else:
+                terms.append(node)
+
+        walk(expr)
+        bases = [t for t in terms if isinstance(t, Var) and t.name in names]
+        if len(bases) != 1:
+            return None, terms, constant
+        base = bases[0]
+        return base.name, [t for t in terms if t is not base], constant
+
+    def rebuild(base: Var, rest: list[Expr], offset: int, evidence) -> Expr:
+        data = Member(base, "data", evidence=evidence, rules=frozenset({"calldata-accessor"}))
+        result: Expr = data
+        for term in rest:
+            result = Binary("+", result, term)
+        if offset:
+            result = Binary("+", result, Const(offset))
+        return result
+
+    def fn(expr: Expr) -> Expr:
+        nonlocal rewrites
+        if isinstance(expr, Index) and isinstance(expr.base, Env) and expr.base.name == "msg.data":
+            name, rest, constant = split(expr.key)
+            if name is not None:
+                base = next(v for v in iter_expr(expr.key) if isinstance(v, Var) and v.name == name)
+                if not rest and constant == 0:
+                    rewrites += 1
+                    return Member(
+                        base,
+                        "length",
+                        evidence=expr.all_evidence(),
+                        rules=frozenset({"calldata-accessor"}),
+                    )
+                if not rest and constant >= 32:
+                    rewrites += 1
+                    return Call(
+                        "word",
+                        (Member(base, "data"), Const(constant - 32)),
+                        evidence=expr.all_evidence(),
+                        rules=frozenset({"calldata-accessor"}),
+                    )
+        if isinstance(expr, Binary) and expr.op == "+":
+            name, rest, constant = split(expr)
+            if name is not None and constant >= 32:
+                base = next(v for v in iter_expr(expr) if isinstance(v, Var) and v.name == name)
+                rewrites += 1
+                return rebuild(base, rest, constant - 32, expr.all_evidence())
+        return expr
+
+    map_body(state.body, fn)
+    return rewrites

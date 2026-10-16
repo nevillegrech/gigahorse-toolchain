@@ -309,6 +309,14 @@ def _rewrite_binary(expr: Binary) -> Expr:
 
 def _rewrite_unary(expr: Unary) -> Expr:
     operand = expr.operand
+    if expr.op == "!" and isinstance(operand, Env) and operand.name in {"true", "false"}:
+        flipped = "false" if operand.name == "true" else "true"
+        return Env(
+            flipped,
+            1,
+            evidence=expr.evidence | operand.evidence,
+            rules=frozenset({"fold-constant"}),
+        )
     if expr.op == "!" and isinstance(operand, Const):
         return Const(
             int(operand.value == 0),
