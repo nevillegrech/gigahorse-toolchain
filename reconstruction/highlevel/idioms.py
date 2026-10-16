@@ -155,3 +155,139 @@ def recognize_string_getters(decompiled) -> list[Recognition]:
 
 
 __all__ = ["Member", "Slice", "abi_bytes", "recognize_string_getters", "storage_string"]
+
+
+WORD = (1 << 256) - 1
+ARITH_VALUES = (
+    0,
+    1,
+    2,
+    3,
+    7,
+    10,
+    1 << 64,
+    (1 << 128) + 5,
+    1 << 255,
+    WORD - 1,
+    WORD,
+    0x1234567890ABCDEF,
+)
+
+
+def _checked(op: str, a: int, b: int) -> int | None:
+    """Result of checked arithmetic, or None when it reverts."""
+    if op == "add":
+        return a + b if a + b <= WORD else None
+    if op == "sub":
+        return a - b if b <= a else None
+    if op == "mul":
+        return a * b if a * b <= WORD else None
+    if op == "div":
+        return a // b if b else None
+    if op == "mod":
+        return a % b if b else None
+    raise ValueError(op)
+
+
+HELPER_NAMES = {
+    "add": "_SafeAdd",
+    "sub": "_SafeSub",
+    "mul": "_SafeMul",
+    "div": "_SafeDiv",
+    "mod": "_SafeMod",
+}
+
+
+def recognize_arithmetic_helpers(decompiled) -> list[Recognition]:
+    """Name private two-argument helpers that behave exactly like checked arithmetic."""
+    from .interpreter import DecompiledMachine
+    from .ir import Call
+    from .types import map_body
+
+    results = []
+    taken = {view.name for view in decompiled.views}
+    for view in decompiled.views:
+        if (
+            view.function.selectors
+            or len(view.arguments) != 2
+            or view.name == "__function_selector__"
+        ):
+            continue
+        if _has_effects(view.body) or _roots(view.body):
+            continue
+        machine = DecompiledMachine(decompiled)
+        outcomes = {}
+        try:
+            for a in ARITH_VALUES:
+                for b in ARITH_VALUES:
+                    outcomes[(a, b)] = machine.call_private(view, [a, b])
+        except UnsupportedExecution:
+            continue
+        match = None
+        for op in ("add", "sub", "mul", "div", "mod"):
+            for swapped in (False, True):
+                if all(
+                    (result is None) == (_checked(op, *((b, a) if swapped else (a, b))) is None)
+                    and (
+                        result is None or result == [_checked(op, *((b, a) if swapped else (a, b)))]
+                    )
+                    for (a, b), result in outcomes.items()
+                ):
+                    match = (op, swapped)
+                    break
+            if match:
+                break
+        if match is None:
+            continue
+        op, swapped = match
+        new = HELPER_NAMES[op]
+        if new in taken:
+            continue
+        taken.add(new)
+        old = view.name
+        first, second = view.arguments[0].name, view.arguments[1].name
+        if swapped:
+            # Present the helper as new(x, y) = x op y: swap parameter names in the body
+            # and argument order at every call site (positions stay consistent).
+            def swap_names(expr, first=first, second=second):
+                if isinstance(expr, Var) and expr.name in {first, second}:
+                    return replace_name(expr, second if expr.name == first else first)
+                return expr
+
+            map_body(view.body, swap_names)
+
+        def rename(expr, old=old, new=new, swapped=swapped):
+            if isinstance(expr, Call) and expr.name == old:
+                args = expr.args
+                if swapped and len(args) == 2:
+                    args = (args[1], args[0])
+                return replace_call(expr, new, args)
+            return expr
+
+        for other in decompiled.views:
+            map_body(other.body, rename)
+        view.name = new
+        decompiled.context.function_names[view.function.id] = new
+        results.append(
+            Recognition(
+                new,
+                f"checked-{op}",
+                len(outcomes),
+                f"{old}{' (operands swapped)' if swapped else ''}",
+            )
+        )
+    return results
+
+
+def replace_name(expr, name):
+    from dataclasses import replace
+
+    return replace(expr, name=name)
+
+
+def replace_call(expr, name, args):
+    from dataclasses import replace
+
+    return replace(
+        expr, name=name, args=tuple(args), rules=expr.rules | {"helper-recognized-by-execution"}
+    )

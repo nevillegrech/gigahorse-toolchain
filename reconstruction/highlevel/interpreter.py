@@ -229,6 +229,21 @@ class DecompiledMachine:
             )
         raise UnsupportedExecution("Function ended without a halt")
 
+    def call_private(self, view: FunctionView, args: list[int]) -> list[int] | None:
+        """Run a private function on its own; None when it reverts."""
+        self.storage, self.memory = {}, bytearray(b"\0" * 0x60) + (0x80).to_bytes(32, "big")
+        self.calldata, self.caller, self.address, self.callvalue = b"", 1, 2, 0
+        self.returndata, self.logs, self.external_calls = b"", [], []
+        self.steps, self.trace, self.uncertain_executed = 0, [], 0
+        self.balances = iter(())
+        self.code_sizes, self.block_environment, self.block_hashes = {}, {}, {}
+        try:
+            return self.run_function(view, args)
+        except _Halt as halt:
+            if halt.reverted:
+                return None
+            raise UnsupportedExecution("Private function halted the transaction") from None
+
     def storage_string(self, root: Var, frame: _Frame) -> bytes:
         slot, _low, _high = self.storage_slot(root, frame)
         word = self.storage.get(slot, 0)

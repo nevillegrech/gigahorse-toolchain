@@ -6,7 +6,7 @@ from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
 
 from ..model import Function, Program
-from .idioms import recognize_string_getters
+from .idioms import recognize_arithmetic_helpers, recognize_string_getters
 from .ir import Assign, Emit, Expr, Require, Return, Stmt, Var, is_local
 from .lift import FunctionLifter, ProgramContext
 from .memory_forwarding import forward_memory
@@ -176,6 +176,7 @@ def build_decompiled(
     ]
     provisional = DecompiledProgram(context, views, {}, "", {})
     recognitions = recognize_string_getters(provisional)
+    recognitions += recognize_arithmetic_helpers(provisional)
     storage = name_storage_from_getters(views)
     declarations, field_types = storage_declarations(views, context, storage)
     for view in views:
