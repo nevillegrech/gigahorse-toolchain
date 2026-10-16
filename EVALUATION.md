@@ -579,16 +579,22 @@ the importer does not authenticate a vendor signature or generate a parity score
 `fixtures/dedaub/morpho-liquidator/` holds a 5,954-byte runtime (solc 0.8.34,
 SHA-256 `e37d8859…f1f2`). It came with the Dedaub output for the same bytes,
 supplied by the user on 2026-10-16. The pair was used during readability work,
-so it is a calibration case, not a held-out test. Code lines exclude comments.
+so it is a calibration case, not a held-out test.
 
-| Function | Dedaub | `decompiled.sol.txt` (first version) | `decompiled.sol.txt` (a5783e8) | previous `structured.sol.txt` |
-| --- | --- | --- | --- | --- |
-| sweep | 12 | 14 | 14 | 62 |
-| onMorphoFlashLoan | 84 | 127 | 115 | 288 |
-| MORPHO / owner / fallback | 6 | 6 | 6 | 15 |
-| 0x441c1495 | 63 | 69 | 69 | 217 |
-| selector dispatch | 17 | 22 | 22 | 24 |
-| **whole contract** | **192** | **247** | **234** | **617** |
+Code lines are non-blank lines that are not comments, from a function's
+signature to its closing brace; the whole-contract row counts every such line
+of the file (contract header, declarations). This is the rule that gives
+Dedaub's file 192 lines. Earlier versions of this table left out closing
+braces for the local view, so its 234 is 241 by this rule.
+
+| Function | Dedaub | `decompiled.sol.txt` (15ce6b8) | `decompiled.sol.txt` (now) |
+| --- | --- | --- | --- |
+| sweep | 13 | 15 | 15 |
+| onMorphoFlashLoan (`0x31f57072`) | 85 | 121 | 49 |
+| MORPHO / owner / fallback | 9 | 9 | 9 |
+| 0x441c1495 | 64 | 70 | 39 |
+| selector dispatch | 18 | 23 | 23 |
+| **whole contract** | **192** | **241** | **139** |
 
 What a reviewer gets:
 
@@ -601,36 +607,52 @@ What a reviewer gets:
   lists them in a per-function summary.
 - **Revert reasons.** Both decode `approve` and `min profit`. Dedaub prints
   `Error(0x73776170)` where the local view decodes `Error("swap")`.
+- **Flash-loan data.** Dedaub builds `v0 = new struct(7)` field by field (23
+  lines, with every calldata read written out) in the callback, and writes the
+  encoding word by word in `0x441c1495`. The local view declares `struct S0 {
+  uint256 f0; address f1; uint256 f2; address f3; bytes f4; address f5; address
+  f6; }` once and prints `v0 = abi.decode(varg1, (S0));` in the callback (the
+  argument is typed `bytes`) and `v31 = abi.encode(S0(varg0, varg1, varg2,
+  varg4, varg5, address(v7), address(v8)));` in the owner entry point. The
+  shared name shows that the owner entry point encodes what the callback
+  decodes. Later reads are fields: `idToMarketParams(v0.f0)`,
+  `address(v0.f5).call(...)`, `address(v0.f3).call(v0.f4)`.
 - **Calls.** Both print `target.method(args)` for balanceOf, transfer,
-  idToMarketParams, liquidate and flashLoan, and low-level `approve` via
-  `call(abi.encodeWithSelector(...))`. Flash-loan data construction remains
-  visible in both. The dynamic `bytes` argument is `v12 = new uint256[](0)`
-  in Dedaub. The local view prints `bytesAt(v36 + 292)`, a pointer to the
-  encoded value, which it checks against the call input when executed. It
-  used to print the bare pointer `v36 + 292`, which was wrong as an argument
-  value.
-- **Encoding temporaries.** The selector and argument writes for
-  `idToMarketParams` are now hidden: pointer floors take
-  `(x + 63) & ~31 >= 32` into account.
-- **Noise.** Dedaub keeps return-data free-pointer updates and struct writes.
-  The local view removes them where forwarding/liveness proves (or the
-  scoped discipline assumes) they are unread.
+  idToMarketParams, liquidate and flashLoan, and the low-level `approve` via
+  `call(abi.encodeWithSelector(...))`. Dedaub keeps the five memory statements
+  of each `approve` buffer and the two of the swap's data copy. The local view
+  folds them into the calls (`address(v0.f3).call(v0.f4)`). The empty `bytes` argument of `liquidate` is `v12 = new
+  uint256[](0)` in Dedaub and `""` in the local view. `flashLoan(address(v7),
+  varg3, v31)` takes the encoded struct.
+- **Noise left.** Both still print the return-data free-pointer updates and
+  the length checks of returned words; Dedaub also the returned struct's
+  writes.
 - **Evidence and uncertainty.** Dedaub has none. The local view has per-line
-  IR/bytecode maps, full IR accounting, and UNCERTAIN marks on the calls whose
-  dynamic `bytes` arguments are not decoded.
+  IR/bytecode maps (the `abi.decode` line stands for 195 IR statements, the
+  `abi.encode` line for 137) and full IR accounting. No code line of this
+  contract is UNCERTAIN now: the inputs of all ABI calls are verified against
+  their staging writes.
 
-Remaining gaps against Dedaub on this contract:
+How the coders are recognized: `reconstruction/highlevel/abi_codec.py` walks
+the compiled statements and compares each with the step solc emits: the
+decoder's offset and size checks, `allocate_memory`, the member validators,
+and the bytes member's bounds checks, copy and zero word. Expressions are
+compared in a canonical form (linear arithmetic normalized, free-pointer
+reads resolved). The interpreter then executes `abi.decode`/`abi.encode`
+themselves: the same checks in the same order (`Panic(0x41)` where solc raises
+it), allocation at the free pointer, and the same memory writes. The constant
+struct address the analysis folded (0x80) is checked when executed.
 
-- `abi.decode` of the `bytes` callback data still appears as calldata field
-  reads (`msg.data[t0 + 32]` …), not as a struct.
-- `abi.encode(struct)` for flashLoan's data is still raw memory writes.
-- 0.8 ABI-decoder bounds checks are printed. Dedaub prints them too.
-
-Execution tests: 135 cases (151 external calls) run the printed view against
+Execution tests: 171 cases (165 external calls) run the printed view against
 Py-EVM. Stubs sit at the hard-coded Morpho address and at token addresses. The
-cases cover `onMorphoFlashLoan` (approve and swap failures, malformed callbacks,
-non-Morpho callers), the owner entry point (flash loan, min profit) and
-`sweep`. These tests found the `liquidate` argument error above.
+cases cover `onMorphoFlashLoan` (approve and swap failures, non-Morpho callers
+and 14 malformed callbacks, one per decoder check: short data, offsets beyond
+64 bits or past the end, dirty addresses before and after the bytes member,
+oversized length and allocation (`Panic(0x41)`), bytes past the end, a
+non-standard offset, trailing data), the owner entry point (flash loan, min
+profit) and `sweep`. Mutating the interpreter's decoder (a dropped bounds
+check, an empty revert in place of `Panic(0x41)`) makes the test fail. These
+tests earlier found the `liquidate` argument error.
 
 
 ## Held-out corpus `heldout-2026-10-16` (partial)
@@ -683,6 +705,17 @@ numbers are no longer held-out measurements:
 | compound-ceth | 0 | 1,894 | 1 | 0 | 0/45 |
 | uniswap-v2-router02 | 0 | 1,658 | 1 | 0 | 8/24 |
 | chainlink-eth-usd-proxy | 0 | 488 | 10 | 0 | 8/23 |
+
+**Re-rendered again after the ABI coder recognition**
+(`results/run1-rerendered-abi.json`, code 6032b68, same saved relations): only
+Router02 changes, 1,658 -> 1,330 code lines. All 44 `pairFor` hashes print as
+`keccak256(abi.encodePacked(hex"ff", address(0x5c69…), keccak256-of-the-sorted-pair,
+0x96e8…))`, and its `TransferHelper` buffers fold into their calls. Wrong
+claims stay 0 on all five; UNCERTAIN, unstructured functions and unresolved
+returns are unchanged. Router02's relations are now also a calibration
+fixture (`fixtures/calibration/`), so its view is executed in tests (65 cases,
+101 external calls against Py-EVM with stub pairs at the computed CREATE2
+addresses).
 
 DAI's two extra UNCERTAIN lines mark the reconciled arity of `rely`/`deny`. The
 unresolved returns are mostly dynamic values (`string`, arrays) whose ABI

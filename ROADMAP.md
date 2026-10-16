@@ -47,6 +47,18 @@ general equivalence, and an analysis timeout must remain a visible failure.
 | Held-out accuracy | 5 of 12 pre-selected mainnet contracts analyzed: 146/146 selectors and names correct; 5 wrong claims in run 1, fixed (0 after re-render) | 7 contracts not yet analyzed (run stopped by memory pressure); no same-bytecode Dedaub exports for them |
 | Dedaub parity | One same-bytecode pair: 234 vs 192 code lines, all Dedaub facts present, one reason better decoded | A held-out set of same-bytecode Dedaub exports is still needed for a parity claim |
 
+### Status update 2026-10-16 (later): solc ABI coders in the readable view
+
+Code lines below are non-blank, non-comment lines of the whole file, the rule
+that gives Dedaub's Morpho output 192 (the table above left out closing braces).
+
+| Requirement | New evidence | Still open |
+| --- | --- | --- |
+| Readable code | `abi.decode(x, (S0))` of calldata bytes into a struct (fields `v0.f5`), `abi.encode(S0(...))`, `keccak256(abi.encodePacked(...))`, ABI calls staged at the free pointer (`flashLoan(a, b, v31)`, `call(abi.encodeWithSelector(...))`, `call(b)`, `""`); 24 fixtures 4,890 -> 4,770 code lines, none longer; Morpho 241 -> 139 (Dedaub 192); Router02 1,658 -> 1,330 (all 44 `pairFor` hashes) | Returned words decoded from memory (struct returns), returndata `bool` decoding (`TransferHelper`), via-IR encoder layouts, dynamic arrays/nested structs in coders |
+| Evidence | Each coder line keeps the replaced statements as its evidence (Morpho's `abi.decode` line: 195 IR statements); 25 fixtures fully accounted | — |
+| Behavioral confidence | The interpreter executes the coders with solc's checks in order, allocations and memory writes; constant pointers folded by the analysis are checked. Morpho: 171 cases incl. one malformed callback per decoder check; Router02 (new calibration fixture): 65 cases, 101 calls, every `pairFor` target compared with Py-EVM. Cross-check unchanged: 1,079 agreeing, 0 unsupported. Found and fixed: private mask-typed parameters were not cast when executed | Bounded inputs; coders are matched only in the forms seen so far |
+| Held-out accuracy | Re-render of the five analyzed contracts at 6032b68: 0 wrong claims | Seven contracts still unanalyzed |
+
 Next priority: investigate the NFT receiver callback's unresolved PHI; add successful
 NFT mint/transfer/receiver and multisig behavior checks; improve dynamic encoders,
 interprocedural authority

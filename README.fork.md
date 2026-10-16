@@ -80,6 +80,17 @@ structured control flow, then applies readability passes:
   the value encoded in memory at `p`. Empty `bytes` print as `""`. Calls
   whose printed arguments do not cover their input carry an `input MEM[a:b]`
   note;
+- solc's ABI coders, recognized step by step from the compiled sequence
+  (`reconstruction/highlevel/abi_codec.py`): `v0 = abi.decode(x, (S0))` of
+  calldata `bytes` into a struct (solc 0.8's Yul decoder; later calldata reads
+  print as fields `v0.f5`), `abi.encode(S0(...))` of a struct literal,
+  `keccak256(abi.encodePacked(...))` (e.g. Uniswap's `pairFor`), and the
+  free-pointer staging of ABI calls (`flashLoan(a, b, v31)` with a `bytes
+  memory` argument, `call(abi.encodeWithSelector(...))`, `call(b)`). Structs are
+  declared once (`struct S0 { ... }`), members named by position. The
+  interpreter executes these constructs with the compiler's checks, in order,
+  and its allocations and memory writes. Free-pointer values that the analysis
+  folded to constants are checked when executed;
 - control flow the native analysis left shared. Old solc code reused by several
   call sites without becoming a private function is copied once per caller
   (UniswapV2Pair `skim`). A dispatcher jump into the fallback becomes
@@ -104,7 +115,7 @@ map records the rule and the number of states.
 `decompiled.map.json`. It is either printed on a line (with IR ids and
 bytecode offsets), absorbed into a line (`abstracted_ir_statements`), elided
 with a reason (`elided`), an argument decode, or structural control flow.
-Tests require `unaccounted_ir_statements` to be empty on all 24 fixtures.
+Tests require `unaccounted_ir_statements` to be empty on all 25 fixtures.
 Names marked `[dict]` are keccak-checked dictionary hints. `UNCERTAIN` marks
 partially recovered constructs, which keep their raw operations.
 
@@ -120,8 +131,12 @@ directly against Py-EVM:
 - WETH9: 45 cases;
 - an NFT's `tokenURI`: 48 cases;
 - UniswapV2Pair `skim`, with stub tokens: 28 cases;
-- the Morpho liquidator, with stub contracts at its hard-coded addresses: 135
-  cases.
+- the Morpho liquidator, with stub contracts at its hard-coded addresses: 171
+  cases, including a malformed callback for every `abi.decode` check;
+- Uniswap V2 Router02 (calibration fixture from the held-out corpus), with stub
+  pairs at the CREATE2 addresses the test computes: 65 cases (101 calls) of
+  `getAmountsOut`/`getAmountsIn`, swaps and add/remove liquidity, so every
+  `pairFor` result is compared with the EVM's.
 
 For calls that send their printed memory, every printed argument must match
 the bytes actually sent. This is bounded validation on the tested inputs, not
@@ -137,7 +152,9 @@ an equivalence proof. Building these checks found and fixed these bugs:
 - dynamic call arguments printed as bare pointers (Morpho `liquidate`, pair
   `uniswapV2Call`);
 - `Error(string)` writes hidden for one structured copy of a shared revert
-  block after the other copy was elided.
+  block after the other copy was elided;
+- private parameters typed from masks (`address varg1`) not cast when the
+  view was executed (found by the Router02 `addLiquidity` cases).
 
 Output is deterministic: text and map do not depend on Python's hash seed
 (a test renders two fixtures under two seeds).
