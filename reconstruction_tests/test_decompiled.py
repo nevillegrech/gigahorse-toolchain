@@ -141,6 +141,8 @@ def _check_view(program, decompiled):
     for entry in mapping["lines"]:
         assert set(entry["ir_statements"]) <= statements
     assert _undefined_locals(decompiled.text) == []
+    # Constant conditions are folded away, whatever width the constant was built with.
+    assert not re.search(r"\bif \((true|false|0|1)\)|require\((true|1)\)", decompiled.text)
     uncertain_lines = {e["line"] for e in mapping["lines"] if e.get("uncertainty")}
     for number, line in enumerate(decompiled.text.splitlines(), 1):
         if "UNCERTAIN:" in line:

@@ -496,7 +496,7 @@ def drop_trivial_requires(state: FunctionState) -> None:
         for stmt in statements:
             if isinstance(stmt, Require) and (
                 (isinstance(stmt.condition, Const) and stmt.condition.value)
-                or stmt.condition == Env("true")
+                or (isinstance(stmt.condition, Env) and stmt.condition.name == "true")
             ):
                 state.elided.append(
                     Elision(statement_ids(stmt), "check that cannot fail (constant true)")
@@ -1087,10 +1087,9 @@ def constant_branches(state: FunctionState) -> None:
     def truth(expr: Expr) -> bool | None:
         if isinstance(expr, Const):
             return bool(expr.value)
-        if expr == Env("true"):
-            return True
-        if expr == Env("false"):
-            return False
+        # Any width: boolean folds print as true/false (Env("false", 1) included).
+        if isinstance(expr, Env) and expr.name in {"true", "false"}:
+            return expr.name == "true"
         return None
 
     def visit(statements: list[Stmt]) -> list[Stmt]:
