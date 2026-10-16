@@ -118,3 +118,35 @@ def test_weth_decompiled_view_matches_evm(tmp_path, monkeypatch, record_property
     record_property("decompiled_weth_logs", harness.logs)
     record_property("decompiled_weth_reverted_cases", harness.reverts)
     record_property("bytecode_sha256", hashlib.sha256(runtime).hexdigest())
+
+
+def test_nft_token_uri_string_handling_matches_evm(tmp_path, monkeypatch, record_property):
+    """tokenURI exercises storage-string copies, toString and concatenation (MCOPY idioms)."""
+    from reconstruction.highlevel.idioms import sample, storage_string
+    from reconstruction_tests.decompiled_support import DEPLOYED_NEXT as CORPUS
+
+    _, decompiled, runtime = deployed_fixture(CORPUS, "erc721-collection", tmp_path / "relations")
+    reference = EVMReference({"creation_bytecode": "60006000f3"})
+    user = reference.tester.get_accounts()[0]
+
+    def mapping_slot(key: int, slot: int) -> int:
+        return int.from_bytes(keccak(key.to_bytes(32) + slot.to_bytes(32)))
+
+    cases = 0
+    for base_length in (0, 7, 31, 45):
+        for uri_length in (0, 3, 40):
+            for token in (0, 7, 1234567, (1 << 256) - 1):
+                initial: dict[int, int] = {}
+                if base_length:
+                    initial.update(storage_string(9, b"ipfs://" + sample(base_length - 7, 9)))
+                initial[mapping_slot(token, 3)] = 1  # token exists (EnumerableMap index)
+                if uri_length:
+                    initial.update(
+                        storage_string(mapping_slot(token, 8), sample(uri_length, token & 255))
+                    )
+                reference = EVMReference({"creation_bytecode": "60006000f3"})
+                deploy_runtime(reference, runtime, initial)
+                harness = Harness(decompiled, reference, initial, monkeypatch)
+                harness.check(bytes.fromhex("c87b56dd") + encode(["uint256"], [token]), sender=user)
+                cases += 1
+    record_property("decompiled_nft_token_uri_cases", cases)
