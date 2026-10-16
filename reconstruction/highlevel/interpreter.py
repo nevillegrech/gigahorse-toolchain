@@ -230,7 +230,7 @@ class DecompiledMachine:
         raise UnsupportedExecution("Function ended without a halt")
 
     def storage_string(self, root: Var, frame: _Frame) -> bytes:
-        slot, low, high = self.storage_slot(root, frame)
+        slot, _low, _high = self.storage_slot(root, frame)
         word = self.storage.get(slot, 0)
         if word & 1 == 0:
             length = (word & 0xFF) // 2
