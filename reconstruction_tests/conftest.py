@@ -21,6 +21,17 @@ UNSUPPORTED: Counter[str] = Counter()
 _CACHE: dict[int, object] = {}
 
 
+@pytest.fixture(autouse=True, scope="session")
+def _hermetic_signature_cache(tmp_path_factory):
+    """Ignore the developer's local online-signature cache: outputs depend only on fixtures."""
+    from reconstruction.highlevel import naming
+
+    original = naming.CACHE_DIR
+    naming.CACHE_DIR = tmp_path_factory.mktemp("signature-cache")
+    yield
+    naming.CACHE_DIR = original
+
+
 def _decompiled(program):
     from reconstruction.highlevel.view import build_decompiled
 

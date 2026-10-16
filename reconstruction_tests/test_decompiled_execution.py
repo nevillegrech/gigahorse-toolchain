@@ -32,7 +32,7 @@ class Harness:
         self.initial = initial
         self.cases = self.calls = self.logs = self.reverts = 0
 
-    def check(self, data, *, sender, value=0):
+    def check(self, data, *, sender, value=0, code_sizes=None):
         reference = self.reference
         reference.sender = sender
         output, reverted, observed, _gas = trace_call(reference, data, value, self.monkeypatch)
@@ -55,6 +55,7 @@ class Harness:
             caller=int(sender, 16),
             address=int(reference.address, 16),
             value=value,
+            code_sizes=code_sizes,
         )
         assert next(pending, None) is None, data.hex()
         assert (result.output, result.reverted) == (output, reverted), (data.hex(), sender)
@@ -150,3 +151,55 @@ def test_nft_token_uri_string_handling_matches_evm(tmp_path, monkeypatch, record
                 harness.check(bytes.fromhex("c87b56dd") + encode(["uint256"], [token]), sender=user)
                 cases += 1
     record_property("decompiled_nft_token_uri_cases", cases)
+
+
+def test_pair_skim_split_shared_regions_match_evm(tmp_path, monkeypatch, record_property):
+    """skim enters deduplicated balanceOf/sub/_safeTransfer code from two call sites.
+
+    The native CFG merges both sites into one region left by multi-target JUMPs;
+    the view prints one tail-duplicated copy per site. Stub tokens return a fixed
+    word from slot 0 for every call (balance, and the transfer result), return
+    nothing, or revert.
+    """
+    from reconstruction_tests.decompiled_support import DEPLOYED
+
+    _, decompiled, runtime = deployed_fixture(DEPLOYED, "uniswap-v2-pair", tmp_path / "relations")
+    returning = bytes.fromhex("60005460005260206000f3")  # return SLOAD(0)
+    empty, reverting = bytes.fromhex("00"), bytes.fromhex("60006000fd")
+    cases = calls = reverts = 0
+    for locked in (False, True):
+        for reserves in ((0, 0), (10, 7)):
+            for stubs in (
+                ((returning, 10), (returning, 7)),
+                ((returning, 15), (returning, 9)),
+                ((returning, 9), (returning, 7)),  # balance below reserve: sub underflow
+                ((returning, 12), (returning, 6)),
+                ((returning, 0), (returning, 0)),  # transfer returns false
+                ((empty, 0), (returning, 9)),
+                ((returning, 11), (reverting, 0)),
+            ):
+                reference = EVMReference({"creation_bytecode": "60006000f3"})
+                user, recipient = reference.tester.get_accounts()[:2]
+                tokens = []
+                for code, balance in stubs:
+                    deploy_runtime(reference, code, {0: balance} if balance else {})
+                    tokens.append(int(reference.address, 16))
+                packed = reserves[0] | (reserves[1] << 112) | (1234 << 224)
+                initial = {6: tokens[0], 7: tokens[1], 8: packed, 12: int(not locked)}
+                deploy_runtime(reference, runtime, initial)
+                harness = Harness(decompiled, reference, initial, monkeypatch)
+                sizes = {
+                    token: len(reference.backend.get_code(token.to_bytes(20))) for token in tokens
+                }
+                harness.check(
+                    bytes.fromhex("bc25cf77") + encode(["address"], [recipient]),
+                    sender=user,
+                    code_sizes=sizes,
+                )
+                cases += 1
+                calls += harness.calls
+                reverts += harness.reverts
+    # Both copies ran (two balanceOf + two transfer calls) and failure paths in each.
+    assert calls >= 4 * 4 and 0 < reverts < cases
+    record_property("decompiled_pair_skim_cases", cases)
+    record_property("decompiled_pair_skim_external_calls", calls)

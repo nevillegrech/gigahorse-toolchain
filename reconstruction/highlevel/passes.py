@@ -401,10 +401,50 @@ def is_side_effect_free_value(expr: Expr) -> bool:
     return not has_effect(expr)
 
 
+def live_locals(statements: list[Stmt], protected: set[str] = frozenset()) -> Counter[str]:
+    """Locals whose value can reach an effect, a check, control flow or output.
+
+    Mark-and-sweep: an effect-free definition of a local makes its operands live
+    only if the local itself is live, so values that only feed their own updates
+    (e.g. a return address carried around a loop) are dead.
+    """
+    definitions: dict[str, list[tuple[Expr, ...]]] = {}
+    roots: list[Expr] = []
+    for stmt in iter_statements(statements):
+        if (
+            isinstance(stmt, Assign)
+            and all(is_local(t) for t in stmt.targets)
+            and not has_effect(stmt.value)
+        ):
+            for target in stmt.targets:
+                definitions.setdefault(target.name, []).append(read_expressions(stmt))
+        elif isinstance(stmt, ParallelAssign):
+            for target, value in zip(stmt.targets, stmt.values, strict=True):
+                if is_local(target) and not has_effect(value):
+                    definitions.setdefault(target.name, []).append((value,))
+                else:
+                    roots.append(value)
+        else:
+            roots.extend(read_expressions(stmt))
+    live: Counter[str] = Counter()
+    work = list(protected) + [
+        node.name for expr in roots for node in iter_expr(expr) if isinstance(node, Var)
+    ]
+    while work:
+        name = work.pop()
+        if live[name]:
+            continue
+        live[name] = 1
+        for exprs in definitions.get(name, ()):
+            for expr in exprs:
+                work.extend(node.name for node in iter_expr(expr) if isinstance(node, Var))
+    return live
+
+
 def remove_unused_reads(state: FunctionState, protected: set[str] = frozenset()) -> None:
-    """Drop assignments of effect-free values to locals that nothing reads."""
+    """Drop assignments of effect-free values to locals that nothing live reads."""
     while True:
-        uses = variable_uses(state.body)
+        uses = live_locals(state.body, protected)
         removed: list[Stmt] = []
 
         def visit(
@@ -1148,6 +1188,225 @@ def copy_propagation(state: FunctionState) -> None:
         return kept
 
     state.body = map_bodies(state.body, visit)
+
+
+def sequential_merges(state: FunctionState) -> int:
+    """`(a, b) = (x, y)` -> `a = x; b = y` when each target is assigned only there.
+
+    A merge copy with a single definition per target (e.g. at the entry of a
+    duplicated region) needs no parallel semantics unless a value reads one of
+    the targets; plain assignments let copy propagation and inlining apply.
+    """
+    assignments: Counter[str] = Counter()
+    for stmt in iter_statements(state.body):
+        if isinstance(stmt, (Assign, ParallelAssign)):
+            for target in stmt.targets:
+                if is_local(target):
+                    assignments[target.name] += 1
+    changed = 0
+
+    def visit(statements: list[Stmt]) -> list[Stmt]:
+        nonlocal changed
+        result: list[Stmt] = []
+        for stmt in statements:
+            if (
+                isinstance(stmt, ParallelAssign)
+                and not stmt.uncertain
+                and stmt.note is None
+                and all(is_local(t) and assignments[t.name] == 1 for t in stmt.targets)
+                and not {t.name for t in stmt.targets}
+                & {
+                    node.name
+                    for value in stmt.values
+                    for node in iter_expr(value)
+                    if isinstance(node, Var)
+                }
+            ):
+                changed += 1
+                for target, value in zip(stmt.targets, stmt.values, strict=True):
+                    result.append(
+                        Assign(
+                            (replace(target, evidence=frozenset()),),
+                            value,
+                            evidence=target.evidence or stmt.evidence,
+                            hidden=stmt.hidden,
+                            rules=stmt.rules | {"single-definition-merge"},
+                            origin=stmt.origin,
+                        )
+                    )
+                continue
+            result.append(stmt)
+        return result
+
+    state.body = map_bodies(state.body, visit)
+    return changed
+
+
+def refresh_output_notes(state: FunctionState) -> None:
+    """Re-render `output buffer MEM[...]` notes after passes renamed or propagated locals."""
+    from .printer import expression
+
+    for stmt in iter_statements(state.body):
+        if (
+            isinstance(stmt, Assign)
+            and stmt.note
+            and stmt.note.startswith("output buffer MEM[")
+            and "output" in stmt.meta
+        ):
+            start, size = stmt.meta["output"]
+            stmt.note = f"output buffer MEM[{expression(start)}:+{expression(size)}]"
+
+
+def split_variable_webs(state: FunctionState) -> int:
+    """Give each independent def-use web of a reassigned local its own name.
+
+    Tail-duplicated code (split shared regions) assigns the same locals once per
+    copy. Reaching definitions over the structured tree connect definitions that
+    reach a common use; each connected group (web) is one variable, and webs of
+    the same name never meet at a use, so renaming one changes no value. Webs
+    that reach a use together with the function entry keep the original name.
+    Returns the number of renamed webs.
+    """
+    if any(isinstance(stmt, RawBlock) for stmt in iter_statements(state.body)):
+        return 0
+    Defs = dict[str, frozenset]
+    ENTRY = "entry"
+    uses: dict[tuple[int, str], set] = {}
+    parent: dict = {}
+
+    def find(x):
+        while parent.setdefault(x, x) != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+
+    def join(states: list[Defs | None]) -> Defs | None:
+        live = [s for s in states if s is not None]
+        if not live:
+            return None
+        result: dict[str, frozenset] = {}
+        for item in live:
+            for name, defs in item.items():
+                result[name] = result.get(name, frozenset()) | defs
+        for name in result:
+            if any(name not in item for item in live):
+                result[name] |= {(ENTRY, name)}
+        return result
+
+    def read(key: int, exprs, current: Defs) -> None:
+        for expr in exprs:
+            for node in iter_expr(expr):
+                if isinstance(node, Var) and is_local(node) and node.name != "_":
+                    reaching = current.get(node.name, frozenset({(ENTRY, node.name)}))
+                    uses.setdefault((key, node.name), set()).update(reaching)
+
+    loops: list[tuple[list, list]] = []
+
+    def walk(statements: list[Stmt], current: Defs | None) -> Defs | None:
+        for stmt in statements:
+            if current is None:
+                return None
+            if isinstance(stmt, If):
+                read(id(stmt), (stmt.condition,), current)
+                current = join(
+                    [walk(stmt.then, dict(current)), walk(stmt.otherwise, dict(current))]
+                )
+            elif isinstance(stmt, While):
+                head: Defs | None = dict(current)
+                for _ in range(64):
+                    if stmt.condition is not None:
+                        read(id(stmt), (stmt.condition,), head)
+                    loops.append(([], []))
+                    end = walk(stmt.body, dict(head))
+                    breaks, continues = loops.pop()
+                    following = join([current, end, *continues])
+                    if following == head:
+                        break
+                    head = following
+                else:
+                    raise ValueError("loop reaching definitions did not converge")
+                current = join(([head] if stmt.condition is not None else []) + breaks)
+            elif isinstance(stmt, Jump):
+                loops[-1][0 if stmt.kind == "break" else 1].append(current)
+                return None
+            elif isinstance(stmt, (Assign, ParallelAssign)):
+                read(id(stmt), (*read_expressions(stmt), *stmt.meta.get("input", ())), current)
+                current = dict(current)
+                for index, target in enumerate(stmt.targets):
+                    if is_local(target) and target.name != "_":
+                        current[target.name] = frozenset({(id(stmt), index)})
+                        find((id(stmt), index))
+            else:
+                read(id(stmt), stmt.expressions(), current)
+                if isinstance(stmt, (Return, Revert, Halt)):
+                    return None
+        return current
+
+    try:
+        walk(state.body, {})
+    except (ValueError, IndexError):
+        return 0
+    for reaching in uses.values():
+        first, *rest = reaching
+        for other in rest:
+            parent[find(other)] = find(first)
+    # Name of each definition site, and the webs per name.
+    site_name: dict[tuple, str] = {}
+    for stmt in iter_statements(state.body):
+        if isinstance(stmt, (Assign, ParallelAssign)):
+            for index, target in enumerate(stmt.targets):
+                if is_local(target) and target.name != "_":
+                    site_name[(id(stmt), index)] = target.name
+    webs: dict[str, dict] = {}
+    for site, name in site_name.items():
+        webs.setdefault(name, {}).setdefault(find(site), []).append(site)
+    numbers = [
+        int(node.name[1:])
+        for stmt in iter_statements(state.body)
+        for expr in (*stmt.expressions(), *getattr(stmt, "targets", ()))
+        for node in iter_expr(expr)
+        if isinstance(node, Var) and node.name[:1] == "v" and node.name[1:].isdigit()
+    ]
+    counter = max(numbers, default=0) + 1
+    renamed: dict = {}
+    for name, groups in webs.items():
+        if len(groups) < 2:
+            continue
+        keep = find((ENTRY, name)) if (ENTRY, name) in parent else next(iter(groups))
+        for root in groups:
+            if root != keep:
+                renamed[root] = f"v{counter}"
+                counter += 1
+    if not renamed:
+        return 0
+
+    def new_name(defs) -> str | None:
+        return renamed.get(find(next(iter(defs))))
+
+    fresh_uses: dict[int, dict[str, str]] = {}
+    for (key, name), reaching in uses.items():
+        fresh = new_name(reaching)
+        if fresh is not None:
+            fresh_uses.setdefault(key, {})[name] = fresh
+    for stmt in iter_statements(state.body):
+        mapping = fresh_uses.get(id(stmt))
+        if mapping:
+            values: dict[str, Expr] = {}
+            for expr in (*read_expressions(stmt), *stmt.meta.get("input", ())):
+                for node in iter_expr(expr):
+                    if isinstance(node, Var) and node.name in mapping:
+                        values[node.name] = replace(node, name=mapping[node.name])
+            substitute_statement(stmt, values)
+            if "input" in stmt.meta:
+                stmt.meta["input"] = tuple(substitute(e, values) for e in stmt.meta["input"])
+        if isinstance(stmt, (Assign, ParallelAssign)):
+            stmt.targets = tuple(
+                replace(target, name=renamed[find((id(stmt), index))])
+                if is_local(target) and find((id(stmt), index)) in renamed
+                else target
+                for index, target in enumerate(stmt.targets)
+            )
+    return len(renamed)
 
 
 def _cse_stable(expr: Expr) -> bool:

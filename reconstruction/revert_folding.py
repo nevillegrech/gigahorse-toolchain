@@ -134,6 +134,8 @@ def find_revert_folds(
         chain = [block.id]
         while chain[0] not in function.entries and len(predecessors[chain[0]]) == 1:
             predecessor = next(iter(predecessors[chain[0]]))
+            if predecessor not in blocks:
+                break  # a duplicated node of a split plan: stop the chain here
             before = blocks[predecessor].instructions
             transfer = plan.transfers[predecessor]
             if (

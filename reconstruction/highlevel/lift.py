@@ -183,7 +183,9 @@ class ProgramContext:
             dict(writer_consumers),
         )
         for function in program.functions:
-            plan = structure_function(program, function, ignore_failure_paths=True)
+            plan = structure_function(
+                program, function, ignore_failure_paths=True, split_shared_returns=True
+            )
             context.plans[function.id] = plan
             context.folds[function.id] = find_revert_folds(program, function, plan, context.reverts)
         return context
@@ -540,7 +542,8 @@ class FunctionLifter:
                     )
                 )
             body.extend(self.region(plan.region))
-            unreachable = [b for b in self.function.blocks if b not in plan.reachable_blocks]
+            reached = {plan.origin.get(n, n) for n in plan.reachable_blocks}
+            unreachable = [b for b in self.function.blocks if b not in reached]
             for block_id in unreachable:
                 body.append(
                     RawBlock(
@@ -585,7 +588,10 @@ class FunctionLifter:
                 return []
             return [
                 ParallelAssign(
-                    tuple(self.local(c.destination) for c in copies),
+                    tuple(
+                        replace(self.local(c.destination), evidence=frozenset({c.phi}))
+                        for c in copies
+                    ),
                     tuple(self.expr(c.source) for c in copies),
                     evidence=frozenset(c.phi for c in copies),
                 )
@@ -613,9 +619,12 @@ class FunctionLifter:
             return [Jump(kind, evidence=evidence)]
         raise ValueError(f"Unknown region kind {kind}")
 
-    def block(self, block_id: str, *, raw: bool = False) -> list[Stmt]:
+    def block(self, node: str, *, raw: bool = False) -> list[Stmt]:
+        # Split plans duplicate shared regions as '<block>@<n>' nodes over the same IR.
+        block_id = self.plan.origin.get(node, node) if self.plan else node
+        self.current_node = node
         block = self.context.blocks[block_id]
-        if not raw and block_id in self.folds:
+        if not raw and node == block_id and block_id in self.folds:
             fold = self.folds[block_id]
             if block_id != fold.block:
                 return []
@@ -1058,11 +1067,12 @@ class FunctionLifter:
             call = Call(self.context.function_names.get(callee.id, f"fn_{callee.id}"), inputs)
             uncertain = None
         targets = tuple(self.local(v) for v in stmt.definitions)
+        node = getattr(self, "current_node", block.id)
         tail = bool(
             self.plan
             and self.plan.region
-            and self.plan.transfers.get(block.id)
-            and self.plan.transfers[block.id].kind == "end"
+            and self.plan.transfers.get(node)
+            and self.plan.transfers[node].kind == "end"
         )
         if tail:
             # Execution ends inside the callee (it halts the transaction).

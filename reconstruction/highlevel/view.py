@@ -33,10 +33,13 @@ from .passes import (
     loop_conditions,
     memcpy_loops,
     read_expressions,
+    refresh_output_notes,
     remove_unused_reads,
     repeated_checks,
+    sequential_merges,
     short_circuit,
     single_use_inline,
+    split_variable_webs,
     statement_ids,
     trailing_stop,
     unused_call_results,
@@ -330,6 +333,10 @@ def prepare_function(context: ProgramContext, function: Function) -> _Prepared:
     lifter = FunctionLifter(context, function)
     item = lifter.lift()
     state = FunctionState(item.body)
+    if lifter.plan is not None and lifter.plan.origin:
+        # Duplicated shared regions reuse the IR's names once per copy.
+        split_variable_webs(state)
+    sequential_merges(state)
     constant_branches(state)
     guards_to_requires(state)
     drop_trivial_requires(state)
@@ -382,6 +389,7 @@ def finish_function(
     eth_transfers(state)
     unused_call_results(state)
     constant_branches(state)
+    drop_trivial_requires(state)
     leading_callvalue_check(state)
     trailing_stop(state)
     typed = type_variables(state, [arg.name for arg in item.arguments])
@@ -417,6 +425,7 @@ def finish_function(
                 )
     remove_unused_reads(state)
     loop_conditions(state)
+    refresh_output_notes(state)
     return FunctionView(
         function,
         context.function_names[function.id],

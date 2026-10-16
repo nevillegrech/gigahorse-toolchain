@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections import defaultdict
 from dataclasses import asdict, dataclass, field
 
-from .model import Function, Program
+from .model import Function, Instruction, Program
 
 
 class Unstructured(ValueError):
@@ -49,6 +49,8 @@ class FlowPlan:
     reachable_blocks: set[str]
     warnings: list[str]
     entry_copies: list[Copy] = field(default_factory=list)
+    # Duplicated nodes ('<block>@<n>') -> original block id; empty without splitting.
+    origin: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass
@@ -121,6 +123,7 @@ def build_transfers(
     function: Function,
     *,
     call_returns: list[tuple[str, str, str]] | None = None,
+    allow_multiple_jumps: bool = False,
 ) -> dict[str, Transfer]:
     blocks = {block.id: block for block in program.blocks}
     members = set(function.blocks)
@@ -156,6 +159,10 @@ def build_transfers(
             transfers[block_id] = Transfer("end", statement=tail.id if tail else None)
         elif op in {"JUMP", "JUMPI"}:
             arity = 2 if op == "JUMPI" else 1
+            if op == "JUMP" and tail is not None and not tail.operands and len(successors) == 1:
+                # Target already resolved by the native analysis: a plain goto.
+                transfers[block_id] = Transfer("goto", tuple(successors), tail.id)
+                continue
             if tail is None or len(tail.operands) != arity:
                 raise Unstructured(f"Malformed jump at {block_id}")
             destination = program.block_targets.get(
@@ -165,6 +172,9 @@ def build_transfers(
                 # Inlining changes block identities while the pushed EVM address stays
                 # unchanged. A single recovered CFG edge identifies that renamed label.
                 if len(successors) != 1:
+                    if allow_multiple_jumps and successors <= members:
+                        transfers[block_id] = Transfer("multi", tuple(sorted(successors)), tail.id)
+                        continue
                     raise Unstructured(f"Multiple jump outcomes at {block_id}")
                 transfers[block_id] = Transfer("goto", tuple(successors), tail.id)
             else:
@@ -252,6 +262,7 @@ def structure_function(
     *,
     call_returns: list[tuple[str, str, str]] | None = None,
     ignore_failure_paths: bool = False,
+    split_shared_returns: bool = False,
 ) -> FlowPlan:
     """Structure a function's CFG.
 
@@ -269,8 +280,13 @@ def structure_function(
     try:
         if len(function.entries) != 1:
             raise Unstructured("Function does not have one resolved entry")
-        transfers = build_transfers(program, function, call_returns=call_returns)
+        transfers = build_transfers(
+            program, function, call_returns=call_returns, allow_multiple_jumps=split_shared_returns
+        )
         copies, resolved, unresolved, entry_copies = phi_copies(program, function, transfers)
+        origin: dict[str, str] = {}
+        if split_shared_returns and any(t.kind == "multi" for t in transfers.values()):
+            transfers, copies, origin = split_shared_regions(program, function, transfers, copies)
         entry = function.entries[0]
         edges = {node: transfer.targets for node, transfer in transfers.items()}
         reachable = _reach(entry, edges)
@@ -415,6 +431,7 @@ def structure_function(
                 if t.ignored_terminal_targets
             ],
             entry_copies,
+            origin,
         )
     except (Unstructured, KeyError) as exc:
         return FlowPlan(
@@ -430,9 +447,23 @@ def structure_function(
         )
 
 
+def _block_address(block_id: str) -> int | None:
+    """Bytecode address a (possibly cloned) block id starts with: '0x6cb3bB0x731' -> 0x6cb3b."""
+    import re
+
+    match = re.match(r"0x[0-9a-f]+", block_id)
+    return int(match.group(0), 16) if match else None
+
+
+def _original(node: str) -> str:
+    """Block id of a (possibly duplicated) node: virtual copies are '<block>@<n>'."""
+    return node.split("@", 1)[0]
+
+
 def _failure_nodes(edges: dict[str, tuple[str, ...]], program: Program) -> set[str]:
     """Nodes from which every path ends in REVERT/THROW/INVALID (least fixpoint)."""
     blocks = {block.id: block for block in program.blocks}
+    blocks.update({node: blocks[_original(node)] for node in edges if node not in blocks})
     failing = {
         node
         for node, targets in edges.items()
@@ -452,6 +483,7 @@ def _failure_nodes(edges: dict[str, tuple[str, ...]], program: Program) -> set[s
 
 def _only_reverts(start: str, edges: dict[str, tuple[str, ...]], program: Program) -> bool:
     blocks = {block.id: block for block in program.blocks}
+    blocks.update({node: blocks[_original(node)] for node in edges if node not in blocks})
     reached = _reach(start, edges)
     ends = [node for node in reached if not edges[node]]
     return bool(ends) and all(
@@ -536,3 +568,158 @@ def _flatten_terminal_branches(region: Region, transfers: dict[str, Transfer]) -
                 ],
             )
     return region
+
+
+def split_shared_regions(
+    program: Program,
+    function: Function,
+    transfers: dict[str, Transfer],
+    copies: dict[tuple[str, str], list[Copy]],
+    *,
+    max_rounds: int = 16,
+    max_nodes: int = 6000,
+) -> tuple[dict[str, Transfer], dict[tuple[str, str], list[Copy]], dict[str, str]]:
+    """Tail-duplicate shared regions that return through a constant-address PHI.
+
+    A JUMP with several recovered successors whose target is a PHI of constant
+    return addresses (one per entering edge) is an unrecovered internal call:
+    the region from the PHI's block H to the JUMP is entered only at H. Each
+    entering edge gets its own copy of the region ('<block>@<n>'), whose JUMP
+    goes to that edge's continuation. Copies reuse the original IR (instructions,
+    PHI edge copies); only graph nodes are duplicated. Anything else raises
+    Unstructured, keeping the explicit CFG.
+    """
+    blocks = {block.id: block for block in program.blocks}
+    definitions = {
+        v: (block_id, stmt)
+        for block_id in function.blocks
+        for stmt in blocks[block_id].instructions
+        for v in stmt.definitions
+    }
+    phi_values: dict[tuple[str, str], set[str]] = defaultdict(set)
+    for phi, predecessor, value in program.phi_inputs:
+        phi_values[(phi, predecessor)].add(value)
+    transfers = dict(transfers)
+    copies = {key: list(value) for key, value in copies.items()}
+    origin: dict[str, str] = {}
+    counter = 0
+
+    def original(node: str) -> str:
+        return origin.get(node, node)
+
+    def _address(variable: str) -> int | None:
+        block = program.block_targets.get(variable)
+        if block is not None:
+            return _block_address(block)
+        value = program.constants.get(variable)
+        return int(value, 16) if value is not None else None
+
+    def dispatch_phi(variable: str) -> tuple[str, Instruction] | None:
+        """The PHI choosing among return addresses, through single-source copy PHIs."""
+        seen: set[str] = set()
+        while variable in definitions and variable not in seen:
+            seen.add(variable)
+            block_id, stmt = definitions[variable]
+            if stmt.opcode != "PHI":
+                return None
+            sources = set(stmt.operands) - set(stmt.definitions)
+            if len(sources) != 1:
+                return block_id, stmt
+            variable = next(iter(sources))
+        return None
+
+    for _ in range(max_rounds):
+        multis = sorted(node for node, t in transfers.items() if t.kind == "multi")
+        if not multis:
+            return transfers, copies, origin
+        predecessors: defaultdict[str, set[str]] = defaultdict(set)
+        for source, transfer in transfers.items():
+            for target in transfer.targets:
+                predecessors[target].add(source)
+        j = multis[0]
+        jump = next(
+            (s for s in blocks[original(j)].instructions if s.id == transfers[j].statement), None
+        )
+        found = dispatch_phi(jump.operands[0]) if jump is not None and jump.operands else None
+        if found is None:
+            raise Unstructured(f"Multiple jump outcomes at {j}")
+        phi_block, phi = found
+        heads = [n for n in transfers if original(n) == phi_block]
+        # The region ends at j (its outgoing edges lead back to the callers) and
+        # starts at the nearest copy of the head: paths through other copies are cut.
+        edges = {n: (() if n == j else t.targets) for n, t in transfers.items()}
+        forward = {
+            h: _reach(
+                h,
+                {
+                    n: tuple(x for x in targets if x == h or x not in heads)
+                    for n, targets in edges.items()
+                },
+            )
+            for h in heads
+        }
+        candidates = [h for h in heads if j in forward[h]]
+        if len(candidates) != 1:
+            raise Unstructured(f"Ambiguous shared region head for {j}")
+        head = candidates[0]
+        reverse = {n: tuple(predecessors[n]) for n in transfers}
+        region = forward[head] & _reach(j, reverse)
+        if any(not predecessors[n] <= region for n in region - {head}):
+            raise Unstructured(f"Shared region at {head} has several entries")
+        callers = sorted(predecessors[head] - region)
+        if not callers or predecessors[head] & region:
+            raise Unstructured(f"Shared region at {head} is not a plain call target")
+        continuation = {}
+        for caller in callers:
+            values = phi_values.get((phi.id, original(caller)), set())
+            if len(values) != 1:
+                raise Unstructured(f"Return address of {caller} into {head} is unknown")
+            matches = [
+                t
+                for t in transfers[j].targets
+                if _block_address(original(t)) == _address(next(iter(values)))
+            ]
+            if len(matches) != 1:
+                raise Unstructured(f"Return address of {caller} into {head} is not a successor")
+            continuation[caller] = matches[0]
+        if len(transfers) + len(region) * len(callers) > max_nodes:
+            raise Unstructured("Shared-region duplication limit exceeded")
+        for caller in callers:
+            counter += 1
+            rename = {n: f"{original(n)}@{counter}" for n in region}
+            for n, new in rename.items():
+                origin[new] = original(n)
+                t = transfers[n]
+                if n == j:
+                    transfers[new] = Transfer("goto", (continuation[caller],), t.statement)
+                else:
+                    transfers[new] = Transfer(
+                        t.kind,
+                        tuple(rename.get(x, x) for x in t.targets),
+                        t.statement,
+                        t.predicate,
+                        t.ignored_terminal_targets,
+                    )
+            for (a, b), values in list(copies.items()):
+                if a in region and b in region:
+                    copies[(rename[a], rename[b])] = values
+                elif a == j and b == continuation[caller]:
+                    copies[(rename[a], b)] = values
+            if (caller, head) in copies:
+                copies[(caller, rename[head])] = copies[(caller, head)]
+            caller_transfer = transfers[caller]
+            transfers[caller] = Transfer(
+                caller_transfer.kind,
+                tuple(rename[head] if x == head else x for x in caller_transfer.targets),
+                caller_transfer.statement,
+                caller_transfer.predicate,
+                caller_transfer.ignored_terminal_targets,
+            )
+        for n in region:
+            transfers.pop(n, None)
+        copies = {
+            key: value
+            for key, value in copies.items()
+            if key[0] not in region and key[1] not in region
+        }
+    raise Unstructured("Shared-region splitting did not converge")
