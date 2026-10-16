@@ -73,7 +73,17 @@ structured control flow, then applies readability passes:
 - calldata accessors for dynamic arguments (`x.length`, `x.data`, `x.word(k)`)
   and named common subexpressions;
 - summaries above each public function: caller checks, storage writes, calls
-  and events, including effects of the private functions it calls.
+  and events, including effects of the private functions it calls;
+- low-level calls decoded from memory when the native ABI model gave up
+  (selector bytes, head words, `MCOPY` chains). Dynamic arguments print as
+  `bytesAt(p)` / `stringAt(p)` / `arrayAt(p)` / `tupleAt(p)` / `dataAt(p)`:
+  the value encoded in memory at `p`. Empty `bytes` print as `""`. Calls
+  whose printed arguments do not cover their input carry an `input MEM[a:b]`
+  note;
+- control flow the native analysis left shared. Old solc code reused by several
+  call sites without becoming a private function is copied once per caller
+  (UniswapV2Pair `skim`). A dispatcher jump into the fallback becomes
+  `return fallback();` (Compound cETH).
 
 Memory plumbing is removed by store-to-load forwarding and dead-store
 elimination. These use a memory model with free-pointer value numbering,
@@ -104,9 +114,18 @@ test hook in `reconstruction_tests/conftest.py` re-runs every structured
 IR-machine case of the behavioral suite through it, with the same replayed
 external outcomes. It requires identical output, revert status, logs, storage
 and call operands. Current result: 1,079 agreeing executions (241 external
-calls, 103 logs, 221 reverts) and 0 unsupported. This is bounded validation on
-the tested inputs, not an equivalence proof. Building the hook found and fixed
-these bugs:
+calls, 103 logs, 222 reverts) and 0 unsupported. Separate tests run the view
+directly against Py-EVM:
+
+- WETH9: 45 cases;
+- an NFT's `tokenURI`: 48 cases;
+- UniswapV2Pair `skim`, with stub tokens: 28 cases;
+- the Morpho liquidator, with stub contracts at its hard-coded addresses: 135
+  cases.
+
+For calls that send their printed memory, every printed argument must match
+the bytes actually sent. This is bounded validation on the tested inputs, not
+an equivalence proof. Building these checks found and fixed these bugs:
 
 - dropped scalar storage writes;
 - an unsound free-pointer elision;
@@ -114,7 +133,14 @@ these bugs:
 - ERC20 `transfer` confused with ETH `.transfer`;
 - unenforced `nonpayable`;
 - absorbed inputs of partially decoded calls (found by review of the Dedaub
-  comparison contract).
+  comparison contract);
+- dynamic call arguments printed as bare pointers (Morpho `liquidate`, pair
+  `uniswapV2Call`);
+- `Error(string)` writes hidden for one structured copy of a shared revert
+  block after the other copy was elided.
+
+Output is deterministic: text and map do not depend on Python's hash seed
+(a test renders two fixtures under two seeds).
 
 **Names from openchain (opt-in).** `--online-signatures` looks up only the
 selectors/topics the local dictionaries do not resolve. This discloses them to
