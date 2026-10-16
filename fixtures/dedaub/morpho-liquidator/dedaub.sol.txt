@@ -1,0 +1,210 @@
+contract Decompiled {
+    // Decompiled by library.dedaub.com
+// 2026.10.15 20:24 UTC
+// Compiled using the solidity compiler version 0.8.34
+
+
+    // Data structures and variables inferred from the use of storage instructions
+    address _owner; // STORAGE[0x0] bytes 0 to 19
+
+
+
+    function fallback() public payable {
+        revert();
+    }
+
+    function sweep(address _token) public payable {
+        require(4 + (msg.data.length - 4) - 4 >= 32);
+        require(msg.sender == _owner, Error('!owner'));
+        v0, /* uint256 */ v1 = _token.balanceOf(address(this)).gas(msg.gas);
+        require(bool(v0), 0, RETURNDATASIZE()); // checks call status, propagates error data on error
+        MEM[64] = MEM[64] + (RETURNDATASIZE() + 31 & 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0);
+        require(MEM[64] + RETURNDATASIZE() - MEM[64] >= 32);
+        v2, /* bool */ v3 = _token.transfer(_owner, v1).gas(msg.gas);
+        require(bool(v2), 0, RETURNDATASIZE()); // checks call status, propagates error data on error
+        MEM[64] = MEM[64] + (RETURNDATASIZE() + 31 & 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0);
+        require(MEM[64] + RETURNDATASIZE() - MEM[64] >= 32);
+        require(v3 == bool(v3));
+    }
+
+    function onMorphoFlashLoan(uint256 varg0, bytes data) public payable {
+        require(4 + (msg.data.length - 4) - 4 >= 64);
+        require(data <= uint64.max);
+        require(4 + data + 31 < 4 + (msg.data.length - 4));
+        require(data.length <= uint64.max);
+        require(data.data + data.length <= 4 + (msg.data.length - 4));
+        require(msg.sender == address(0xd50f2dfffd62f94ee4aed9ca05c61d0753268abc), Error('!morpho'));
+        require(data.data + data.length - data.data >= 32);
+        require(data[0] <= uint64.max);
+        require(data.data + data.length - (data.data + data[0]) >= 224);
+        v0 = new struct(7);
+        require(!((v0 + uint8(-32) > uint64.max) | (v0 + uint8(-32) < v0)), Panic(65)); // failed memory allocation (too much memory)
+        require(data[data[0]] == data[data[0]]);
+        v0.word0 = data[data[0]];
+        require(msg.data[data.data + data[0] + 32] == address(msg.data[data.data + data[0] + 32]));
+        v0.word1 = msg.data[data.data + data[0] + 32];
+        require(msg.data[data.data + data[0] + 64] == msg.data[data.data + data[0] + 64]);
+        v0.word2 = msg.data[data.data + data[0] + 64];
+        require(msg.data[data.data + data[0] + 96] == address(msg.data[data.data + data[0] + 96]));
+        v0.word3 = msg.data[data.data + data[0] + 96];
+        require(msg.data[data.data + data[0] + 128] <= uint64.max);
+        require(data.data + data[0] + msg.data[data.data + data[0] + 128] + 31 < data.data + data.length);
+        require(msg.data[data.data + data[0] + msg.data[data.data + data[0] + 128]] <= uint64.max, Panic(65)); // failed memory allocation (too much memory)
+        v1 = new bytes[](msg.data[data.data + data[0] + msg.data[data.data + data[0] + 128]]);
+        require(!((v1 + ((msg.data[data.data + data[0] + msg.data[data.data + data[0] + 128]] + 31 & 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0) + 32 + 31 & 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0) > uint64.max) | (v1 + ((msg.data[data.data + data[0] + msg.data[data.data + data[0] + 128]] + 31 & 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0) + 32 + 31 & 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0) < v1)), Panic(65)); // failed memory allocation (too much memory)
+        require(data.data + data[0] + msg.data[data.data + data[0] + 128] + 32 + msg.data[data.data + data[0] + msg.data[data.data + data[0] + 128]] <= data.data + data.length);
+        CALLDATACOPY(v1.data, data.data + data[0] + msg.data[data.data + data[0] + 128] + 32, msg.data[data.data + data[0] + msg.data[data.data + data[0] + 128]]);
+        v1[msg.data[data.data + data[0] + msg.data[data.data + data[0] + 128]]] = 0;
+        v0.word4 = v1;
+        require(msg.data[data.data + data[0] + 160] == address(msg.data[data.data + data[0] + 160]));
+        v0.word5 = msg.data[data.data + data[0] + 160];
+        require(msg.data[data.data + data[0] + 192] == address(msg.data[data.data + data[0] + 192]));
+        v0.word6 = msg.data[data.data + data[0] + 192];
+        v2, /* address */ v3, /* address */ v4, /* address */ v5, /* address */ v6, /* uint256 */ v7 = address(0xd50f2dfffd62f94ee4aed9ca05c61d0753268abc).idToMarketParams(v0.word0).gas(msg.gas);
+        require(bool(v2), 0, RETURNDATASIZE()); // checks call status, propagates error data on error
+        MEM[64] = MEM[64] + (RETURNDATASIZE() + 31 & 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0);
+        require(MEM[64] + RETURNDATASIZE() - MEM[64] >= 160);
+        require(MEM[64] + RETURNDATASIZE() - MEM[64] >= 160);
+        v8 = new struct(5);
+        require(!((v8 + 160 > uint64.max) | (v8 + 160 < v8)), Panic(65)); // failed memory allocation (too much memory)
+        require(v3 == address(v3));
+        v8.word0 = v3;
+        require(v4 == address(v4));
+        v8.word1 = v4;
+        require(v5 == address(v5));
+        v8.word2 = v5;
+        require(v6 == address(v6));
+        v8.word3 = v6;
+        v8.word4 = v7;
+        MEM[36 + MEM[64] + 32] = uint256.max;
+        MEM[64] = 36 + MEM[64] + 64;
+        MEM[MEM[64] + 32] = uint224(address(0xd50f2dfffd62f94ee4aed9ca05c61d0753268abc)) | bytes4(0x95ea7b300000000000000000000000000000000000000000000000000000000);
+        MCOPY(MEM[64], MEM[64] + 32, 68);
+        MEM[MEM[64] + 68] = 0;
+        v9, /* uint256 */ v10 = address(v0.word5).call(MEM[MEM[64]:MEM[64] + 68], MEM[MEM[64]:MEM[64]]).gas(msg.gas);
+        if (RETURNDATASIZE() != 0) {
+            v11 = new bytes[](RETURNDATASIZE());
+            RETURNDATACOPY(v11.data, 0, RETURNDATASIZE());
+        }
+        require(v9, Error('approve'));
+        v12 = new uint256[](0);
+        v13, /* uint256 */ v14, /* uint256 */ v15 = address(0xd50f2dfffd62f94ee4aed9ca05c61d0753268abc).liquidate(address(v8.word0), address(v8.word1), address(v8.word2), address(v8.word3), v8.word4, address(v0.word1), v0.word2, 0, v12).gas(msg.gas);
+        require(bool(v13), 0, RETURNDATASIZE()); // checks call status, propagates error data on error
+        MEM[64] = MEM[64] + (RETURNDATASIZE() + 31 & 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0);
+        require(MEM[64] + RETURNDATASIZE() - MEM[64] >= 64);
+        MEM[36 + MEM[64] + 32] = uint256.max;
+        MEM[64] = 36 + MEM[64] + 64;
+        MEM[MEM[64] + 32] = uint224(address(v0.word3)) | bytes4(0x95ea7b300000000000000000000000000000000000000000000000000000000);
+        MCOPY(MEM[64], MEM[64] + 32, 68);
+        MEM[MEM[64] + 68] = 0;
+        v16, /* uint256 */ v17 = address(v0.word6).call(MEM[MEM[64]:MEM[64] + 68], MEM[MEM[64]:MEM[64]]).gas(msg.gas);
+        if (RETURNDATASIZE() != 0) {
+            v18 = new bytes[](RETURNDATASIZE());
+            RETURNDATACOPY(v18.data, 0, RETURNDATASIZE());
+        }
+        require(v16, Error('approve'));
+        MCOPY(MEM[64], v19.data, v19.length);
+        MEM[MEM[64] + v19.length] = 0;
+        v20, /* uint256 */ v21 = address(v0.word3).call(MEM[MEM[64]:MEM[64] + MEM[64] + v4a4V0x8a.length - MEM[64]], MEM[MEM[64]:MEM[64]]).gas(msg.gas);
+        if (RETURNDATASIZE() != 0) {
+            v22 = new bytes[](RETURNDATASIZE());
+            RETURNDATACOPY(v22.data, 0, RETURNDATASIZE());
+        }
+        require(v20, Error(0x73776170));
+    }
+
+    function MORPHO() public payable {
+        return address(0xd50f2dfffd62f94ee4aed9ca05c61d0753268abc);
+    }
+
+    function 0x441c1495(uint256 varg0, address varg1, uint256 varg2, uint256 varg3, address varg4, bytes varg5, uint256 varg6) public payable {
+        require(4 + (msg.data.length - 4) - 4 >= 224);
+        require(varg5 <= uint64.max);
+        require(4 + varg5 + 31 < 4 + (msg.data.length - 4));
+        require(varg5.length <= uint64.max);
+        require(varg5.data + varg5.length <= 4 + (msg.data.length - 4));
+        require(msg.sender == _owner, Error('!owner'));
+        v0, /* address */ v1, /* address */ v2, /* address */ v3, /* address */ v4, /* uint256 */ v5 = address(0xd50f2dfffd62f94ee4aed9ca05c61d0753268abc).idToMarketParams(varg0).gas(msg.gas);
+        require(bool(v0), 0, RETURNDATASIZE()); // checks call status, propagates error data on error
+        MEM[64] = MEM[64] + (RETURNDATASIZE() + 31 & 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0);
+        require(MEM[64] + RETURNDATASIZE() - MEM[64] >= 160);
+        require(MEM[64] + RETURNDATASIZE() - MEM[64] >= 160);
+        v6 = new struct(5);
+        require(!((v6 + 160 > uint64.max) | (v6 + 160 < v6)), Panic(65)); // failed memory allocation (too much memory)
+        require(v1 == address(v1));
+        v6.word0 = v1;
+        require(v2 == address(v2));
+        v6.word1 = v2;
+        require(v3 == address(v3));
+        v6.word2 = v3;
+        require(v4 == address(v4));
+        v6.word3 = v4;
+        v6.word4 = v5;
+        v7 = new struct(7);
+        v7.word0 = varg0;
+        v7.word1 = varg1;
+        v7.word2 = varg2;
+        v7.word3 = varg4;
+        v8 = new bytes[](varg5.length);
+        CALLDATACOPY(v8.data, varg5.data, varg5.length);
+        v8[varg5.length] = 0;
+        v7.word4 = v8;
+        v7.word5 = address(v6.word0);
+        v7.word6 = address(v6.word1);
+        MEM[32 + MEM[64]] = 32;
+        MEM[32 + MEM[64] + 32] = v7.word0;
+        MEM[32 + MEM[64] + 32 + 32] = address(v7.word1);
+        MEM[32 + MEM[64] + 32 + 64] = v7.word2;
+        MEM[32 + MEM[64] + 32 + 96] = address(v7.word3);
+        MEM[32 + MEM[64] + 32 + 128] = 224;
+        MEM[32 + MEM[64] + 32 + 224] = v9.length;
+        MCOPY(32 + MEM[64] + 32 + 224 + 32, v9.data, v9.length);
+        MEM[32 + MEM[64] + 32 + 224 + 32 + v9.length] = 0;
+        MEM[32 + MEM[64] + 32 + 160] = address(v7.word5);
+        MEM[32 + MEM[64] + 32 + 192] = address(v7.word6);
+        v10 = new uint256[](32 + MEM[64] + 32 + 224 + 32 + (v9.length + 31 & 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0) - MEM[64] - 32);
+        MCOPY(v10.data, MEM[64] + 32, 32 + MEM[64] + 32 + 224 + 32 + (v9.length + 31 & 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0) - MEM[64] - 32);
+        MEM[v10.data + (32 + MEM[64] + 32 + 224 + 32 + (v9.length + 31 & 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0) - MEM[64] - 32)] = 0;
+        require(bool((address(0xd50f2dfffd62f94ee4aed9ca05c61d0753268abc)).code.size));
+        v11 = address(0xd50f2dfffd62f94ee4aed9ca05c61d0753268abc).flashLoan(address(v6.word0), varg3, v10).gas(msg.gas);
+        require(bool(v11), 0, RETURNDATASIZE()); // checks call status, propagates error data on error
+        v12, /* uint256 */ v13 = address(v6.word0).balanceOf(address(this)).gas(msg.gas);
+        require(bool(v12), 0, RETURNDATASIZE()); // checks call status, propagates error data on error
+        MEM[64] = MEM[64] + (RETURNDATASIZE() + 31 & 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0);
+        require(MEM[64] + RETURNDATASIZE() - MEM[64] >= 32);
+        require(v13 >= varg6, Error('min profit'));
+        if (v13 > 0) {
+            v14, /* bool */ v15 = address(v6.word0).transfer(_owner, v13).gas(msg.gas);
+            require(bool(v14), 0, RETURNDATASIZE()); // checks call status, propagates error data on error
+            MEM[64] = MEM[64] + (RETURNDATASIZE() + 31 & 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0);
+            require(MEM[64] + RETURNDATASIZE() - MEM[64] >= 32);
+            require(v15 == bool(v15));
+        }
+    }
+
+    function owner() public payable {
+        return _owner;
+    }
+
+    // Note: The function selector is not present in the original solidity code.
+    // However, we display it for the sake of completeness.
+
+    function __function_selector__( function_selector) public payable {
+        MEM[64] = 128;
+        require(!msg.value);
+        if (msg.data.length >= 4) {
+            if (0x1681a62 == function_selector >> 224) {
+                sweep(address);
+            } else if (0x31f57072 == function_selector >> 224) {
+                onMorphoFlashLoan(uint256,bytes);
+            } else if (0x3acb5624 == function_selector >> 224) {
+                MORPHO();
+            } else if (0x441c1495 == function_selector >> 224) {
+                0x441c1495();
+            } else if (0x8da5cb5b == function_selector >> 224) {
+                owner();
+            }
+        }
+        fallback();
+    }
+}
