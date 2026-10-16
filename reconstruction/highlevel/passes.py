@@ -708,30 +708,38 @@ def hide_absorbed_writes(
         and is_free_pointer_read(stmt.value)
     }
     model = AddressModel(free_pointer_vars)
+    # Every memory write is a candidate: memory is only observable through reads,
+    # so a write no printed statement can read is invisible. Consumers whose
+    # memory input is represented by their printed form do not count as readers.
+    writers: dict[int, Stmt] = {}
+    write_ranges: dict[int, tuple[Expr, int | None]] = {}
     for stmt in statements:
         if (
             isinstance(stmt, Assign)
             and len(stmt.targets) == 1
             and isinstance(stmt.targets[0], Index)
             and isinstance(stmt.targets[0].base, Env)
-            and stmt.targets[0].base.name == "MEM"
-            and isinstance(stmt.targets[0].key, Const)
-            and stmt.targets[0].key.value == 0x40
-            and stmt.origin
-            and stmt.origin not in writer_consumers
+            and stmt.targets[0].base.name in {"MEM", "MEM8"}
+            and not has_effect(stmt.value)
         ):
-            # Free-memory-pointer bookkeeping: hidden only if no printed read sees it.
-            writer_consumers[stmt.origin] = set()
-    writers = {
-        id(stmt): stmt
-        for stmt in statements
-        if isinstance(stmt, Assign)
-        and stmt.origin in writer_consumers
-        and len(stmt.targets) == 1
-        and isinstance(stmt.targets[0], Index)
-        and isinstance(stmt.targets[0].base, Env)
-        and stmt.targets[0].base.name == "MEM"
-    }
+            writers[id(stmt)] = stmt
+            write_ranges[id(stmt)] = (
+                stmt.targets[0].key,
+                32 if stmt.targets[0].base.name == "MEM" else 1,
+            )
+        elif (
+            isinstance(stmt, ExprStmt)
+            and isinstance(stmt.expr, Call)
+            and stmt.expr.name in {"CALLDATACOPY", "MCOPY", "CODECOPY"}
+            and len(stmt.expr.args) == 3
+        ):
+            # RETURNDATACOPY is excluded: it reverts when copying past the data.
+            size = stmt.expr.args[2]
+            writers[id(stmt)] = stmt
+            write_ranges[id(stmt)] = (
+                stmt.expr.args[0],
+                size.value if isinstance(size, Const) else None,
+            )
     hashes = {
         id(stmt): stmt
         for stmt in statements
@@ -765,15 +773,13 @@ def hide_absorbed_writes(
             assert isinstance(target, Var)
             if outside_uses[target.name]:
                 remove.add(key)
-        for key in hidden & set(writers):
-            if not writer_consumers[writers[key].origin or ""] <= absorbed:
-                remove.add(key)
         liveness = Liveness(model, hidden, absorbed, callees, summaries, function)
         liveness.block(state.body, Live(), None)
         for key in hidden & set(writers):
-            target = writers[key].targets[0]
-            assert isinstance(target, Index)
-            if liveness.after.get(key, Live()).observes(model.range(target.key, 32)):
+            start_expr, size = write_ranges[key]
+            if size == 0:
+                continue
+            if liveness.after.get(key, Live()).observes(model.range(start_expr, size)):
                 remove.add(key)
         if not remove:
             break
@@ -790,12 +796,13 @@ def hide_absorbed_writes(
             else {stmt.origin or ""}
         )
         if not consumers:
-            state.elided.append(
-                Elision(
-                    statement_ids(stmt),
-                    "free-memory-pointer update; no printed statement reads the pointer it sets",
-                )
+            target = stmt.targets[0] if isinstance(stmt, Assign) else None
+            reason = (
+                "free-memory-pointer update; no printed statement reads the pointer it sets"
+                if isinstance(target, Index) and is_free_pointer_read(target)
+                else "dead memory write; no printed statement reads these bytes"
             )
+            state.elided.append(Elision(statement_ids(stmt), reason))
         for consumer in consumers:
             by_consumer.setdefault(consumer, set()).update(statement_ids(stmt))
     attached: set[str] = set()
@@ -1063,5 +1070,55 @@ def repeated_checks(state: FunctionState) -> None:
                 continue
             result.append(stmt)
         return result
+
+    state.body = map_bodies(state.body, visit)
+
+
+def copy_propagation(state: FunctionState) -> None:
+    """`a = b` between locals assigned exactly once: print b at a's uses."""
+    assignments: Counter[str] = Counter()
+    for stmt in iter_statements(state.body):
+        if isinstance(stmt, (Assign, ParallelAssign)):
+            for target in stmt.targets:
+                if is_local(target):
+                    assignments[target.name] += 1
+    mapping: dict[str, Expr] = {}
+    copies: set[int] = set()
+    for stmt in iter_statements(state.body):
+        if (
+            isinstance(stmt, Assign)
+            and len(stmt.targets) == 1
+            and is_local(stmt.targets[0])
+            and assignments[stmt.targets[0].name] == 1
+            and is_local(stmt.value)
+            and assignments[stmt.value.name] <= 1
+            and not stmt.uncertain
+        ):
+            mapping[stmt.targets[0].name] = annotate(
+                stmt.value, statement_ids(stmt), {"copy-propagation"}
+            )
+            copies.add(id(stmt))
+    if not mapping:
+        return
+    # Resolve chains a = b, b = c.
+    for name in list(mapping):
+        seen = {name}
+        value = mapping[name]
+        while isinstance(value, Var) and value.name in mapping and value.name not in seen:
+            seen.add(value.name)
+            value = annotate(mapping[value.name], value.evidence)
+        mapping[name] = value
+
+    def visit(statements: list[Stmt]) -> list[Stmt]:
+        kept = []
+        for stmt in statements:
+            if id(stmt) in copies:
+                state.elided.append(
+                    Elision(statement_ids(stmt), "copy of another local, propagated")
+                )
+                continue
+            substitute_statement(stmt, mapping)
+            kept.append(stmt)
+        return kept
 
     state.body = map_bodies(state.body, visit)

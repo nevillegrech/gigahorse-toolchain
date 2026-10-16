@@ -8,12 +8,14 @@ from pathlib import Path
 from ..model import Function, Program
 from .ir import Assign, Emit, Expr, Return, Stmt, Var, is_local
 from .lift import FunctionLifter, ProgramContext
+from .memory_forwarding import forward_memory
 from .memory_liveness import AddressModel, Summaries, compute_summaries
 from .naming import Names, load_names, split_signature
 from .passes import (
     FunctionState,
     absorb_memory_plumbing,
     constant_branches,
+    copy_propagation,
     drop_trivial_requires,
     eth_transfers,
     guards_to_requires,
@@ -314,6 +316,10 @@ def finish_function(
     context: ProgramContext, entry: _Prepared, signature: str | None, summaries: Summaries
 ) -> FunctionView:
     lifter, item, state, function = entry.lifter, entry.item, entry.state, entry.function
+    callees = frozenset(context.function_names.values())
+    forward_memory(state, callees)
+    copy_propagation(state)
+    remove_unused_reads(state)
     absorb_memory_plumbing(
         state,
         lifter.consumer_writers,
