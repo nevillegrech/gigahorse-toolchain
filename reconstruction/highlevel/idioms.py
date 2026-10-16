@@ -216,7 +216,7 @@ HELPER_NAMES = {
 
 def recognize_arithmetic_helpers(decompiled) -> list[Recognition]:
     """Name private two-argument helpers that behave exactly like checked arithmetic."""
-    from .interpreter import DecompiledMachine
+    from .interpreter import DecompiledMachine, _cast
     from .ir import Call
     from .types import map_body
 
@@ -233,9 +233,17 @@ def recognize_arithmetic_helpers(decompiled) -> list[Recognition]:
             continue
         machine = DecompiledMachine(decompiled)
         outcomes = {}
+        # Parameters typed from masks are cleaned by the callee: compare within the
+        # printed types (e.g. a uint224 / uint112 division).
+        domains = [
+            sorted({_cast(arg.type, v) for v in ARITH_VALUES})
+            if arg.enforcement == "mask"
+            else ARITH_VALUES
+            for arg in view.arguments
+        ]
         try:
-            for a in ARITH_VALUES:
-                for b in ARITH_VALUES:
+            for a in domains[0]:
+                for b in domains[1]:
                     outcomes[(a, b)] = machine.call_private(view, [a, b])
         except UnsupportedExecution:
             continue

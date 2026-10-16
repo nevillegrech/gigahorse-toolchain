@@ -37,6 +37,7 @@ from .ir import (
     Member,
     MemoryBytes,
     ParallelAssign,
+    Raw,
     RawBlock,
     Require,
     Slice,
@@ -961,7 +962,7 @@ def match_staged_call(
         expect({o for o in words if o < heads} == {4 + 32 * i for i in range(len(call.args))})
         end = plus(start, heads)
         arguments: list[Expr] = []
-        tails = 0
+        tails = empties = 0
         for i, arg in enumerate(call.args):
             head = words[4 + 32 * i]
             if isinstance(arg, Call) and arg.name in {"bytesAt", "dataAt"}:
@@ -970,9 +971,16 @@ def match_staged_call(
                 offset = 4 + head.value
                 expect(c.same(arg.args[0], plus(start, offset)))
                 length_expr = words.get(offset)
-                expect(length_expr is not None)
+                expect(length_expr is not None and tails == 0)
                 assert length_expr is not None
                 length = t.canon(length_expr)
+                if length == ("const", 0) and offset + 32 not in copied:
+                    # An empty bytes value: only its zero length word is written.
+                    end = plus(start, offset + 32)
+                    tails = 1
+                    empties = 1
+                    arguments.append(Call("emptyBytes", (), evidence=arg.all_evidence()))
+                    continue
                 expect(length[0] == "idx" and length[1] == MEMORY)
                 data = length[2]
                 expect(copied.get(offset + 32) == (plus(data, 32), length))
@@ -986,7 +994,8 @@ def match_staged_call(
             else:
                 expect(c.same(arg, t.canon(head)))
                 arguments.append(arg)
-        expect(len(words) == len(call.args) + tails and len(copied) == tails == len(zeros))
+        expect(len(words) == len(call.args) + tails)
+        expect(len(copied) == len(zeros) == tails - empties)
         expect(
             c.same(call_stmt.meta["input"][0], start) and c.same(call_stmt.meta["input"][1], end)
         )
@@ -1035,6 +1044,224 @@ def _expression_for(form: Form, t: Tracker, before: list[Stmt]) -> Expr | None:
     if form[0] == "var":
         return Var(form[1], f"abi:{form[1]}")
     return None
+
+
+# --- abi.encodeWithSelector(...) buffers passed to a low-level call ----------------------
+
+
+def match_selector_buffer(
+    statements: list[Stmt], index: int, tracker: Tracker, context: CodecContext
+) -> Rewrite | None:
+    """`target.call(abi.encodeWithSelector(sel, a0, ..., an))` built at the free pointer.
+
+    solc writes the arguments at p + 36 + 32i, the length 4 + 32n at p, moves the
+    pointer to p + 36 + 32n (not rounded), merges the selector into the word at
+    p + 32, and then stages the bytes for the call at the new pointer (a copy,
+    and/or a zero word after them). The call already prints the encoding; the
+    buffer's statements become its evidence and the interpreter reproduces them.
+    """
+    t = tracker.copy()
+    c = Cursor(statements, index, t)
+    try:
+        stmt = c.take()
+        buffer_var = _pointer_read(stmt)
+        expect(buffer_var is not None)
+        assert buffer_var is not None
+        t.observe(stmt)
+        start = t.canon(buffer_var)
+        words: dict[int, Expr] = {}
+        while True:
+            stmt = c.peek()
+            stored = _store(stmt) if stmt is not None else None
+            if stored is None:
+                break
+            offset = constant_of(add(t.canon(stored[0]), start, -1))
+            if offset is None or offset < 36 or (offset - 36) % 32 or offset in words:
+                break
+            words[offset] = stored[1]
+            c.take()
+        count = len(words)
+        expect(count > 0 and set(words) == {36 + 32 * i for i in range(count)})
+        size = 4 + 32 * count
+        stmt = c.take()
+        again = _pointer_read(stmt)
+        expect(again is not None)
+        assert again is not None
+        t.observe(stmt)
+        expect(t.canon(again) == start)
+        stored = _store(c.take())
+        expect(
+            stored is not None and c.same(stored[0], start) and c.same(stored[1], ("const", size))
+        )
+        update = _pointer_update(c.take())
+        expect(update is not None and c.same(update, plus(start, 32 + size)))
+        assert update is not None
+        t.fp = plus(start, 32 + size)
+        merge = _store(c.take())
+        expect(merge is not None and c.same(merge[0], plus(start, 32)))
+        assert merge is not None
+        value = merge[1]
+        expect(isinstance(value, Binary) and value.op == "|")
+        assert isinstance(value, Binary)
+        selector_const, kept = (
+            (value.right, value.left)
+            if isinstance(value.right, Const)
+            else (value.left, value.right)
+        )
+        expect(isinstance(selector_const, Const))
+        assert isinstance(selector_const, Const)
+        selector = selector_const.value
+        expect(selector >> 224 != 0 and selector & ((1 << 224) - 1) == 0)
+        expect(
+            isinstance(kept, Call)
+            and kept.name == "uint224"
+            and len(kept.args) == 1
+            and isinstance(kept.args[0], Index)
+            and isinstance(kept.args[0].base, Env)
+            and kept.args[0].base.name == "MEM"
+            and c.same(kept.args[0].key, plus(start, 32))
+        )
+        copied = False
+        zeroed = False
+        moved = _copy(c.peek(), "MCOPY") if c.peek() is not None else None
+        if moved is not None:
+            expect(
+                c.same(moved[0], t.fp)
+                and c.same(moved[1], plus(start, 32))
+                and c.same(moved[2], ("const", size))
+            )
+            c.take()
+            copied = True
+        cleanup = _store(c.peek()) if c.peek() is not None else None
+        if cleanup is not None and c.same(cleanup[0], plus(t.fp, size)):
+            expect(c.same(cleanup[1], ("const", 0)))
+            c.take()
+            zeroed = True
+        call_stmt = c.take()
+        expect(
+            isinstance(call_stmt, Assign)
+            and isinstance(call_stmt.value, ExternalCallExpr)
+            and isinstance(call_stmt.value.raw_input, Call)
+            and call_stmt.value.raw_input.name == "abi.encodeWithSelector"
+        )
+        assert isinstance(call_stmt, Assign) and isinstance(call_stmt.value, ExternalCallExpr)
+        encoded = call_stmt.value.raw_input
+        assert isinstance(encoded, Call)
+        label = encoded.args[0]
+        expect(
+            isinstance(label, Raw)
+            and label.text.split()[0] == f"0x{selector >> 224:08x}"
+            and len(encoded.args) == count + 1
+        )
+        for i, arg in enumerate(encoded.args[1:]):
+            expect(c.same(arg, t.canon(words[36 + 32 * i])))
+    except (NoMatch, IndexError):
+        return None
+    consumed = [s for s in c.consumed() if s is not call_stmt]
+    if _read_after(statements[c.index :], {buffer_var.name, again.name}):
+        return None
+    call_stmt.meta = dict(call_stmt.meta)
+    call_stmt.meta["selector_buffer"] = {"copy": copied, "zero": zeroed}
+    call_stmt.rules = call_stmt.rules | {"abi-buffer-at-free-pointer"}
+    call_stmt.hidden = call_stmt.hidden.union(*(statement_ids(s) for s in consumed))
+    _replace_pointer_vars(call_stmt, {buffer_var.name, again.name})
+    tracker.adopt(t)
+    return Rewrite(c.index, [call_stmt])
+
+
+def _replace_pointer_vars(stmt: Stmt, names: set[str]) -> None:
+    """Pointer reads folded into a call: its output buffer is the pointer at the call."""
+    from .passes import substitute
+
+    if "output" in stmt.meta:
+        fp = Index(Env("MEM"), Const(0x40))
+        stmt.meta["output"] = tuple(
+            substitute(e, dict.fromkeys(names, fp)) for e in stmt.meta["output"]
+        )
+
+
+# --- target.call(b) for a bytes memory value b -------------------------------------------
+
+
+def match_bytes_call(
+    statements: list[Stmt], index: int, tracker: Tracker, context: CodecContext
+) -> Rewrite | None:
+    """`a = MEM[64]; MCOPY(a, b + 32, L); MEM[a + L] = 0; e = MEM[64]; target.call(MEM[e:a + L])`
+    where L is the length of `bytes memory b`: the call sends b (staged at the pointer)."""
+    t = tracker.copy()
+    c = Cursor(statements, index, t)
+    try:
+        stmt = c.take()
+        staging = _pointer_read(stmt)
+        expect(staging is not None)
+        assert staging is not None
+        t.observe(stmt)
+        start = t.canon(staging)
+        kept: list[Stmt] = []
+        while _pure_local(c.peek()):
+            # e.g. `v72 = v0.f4.length`: kept (later passes inline it), and known here.
+            stmt = c.take()
+            t.observe(stmt)
+            kept.append(stmt)
+        moved = _copy(c.take(), "MCOPY")
+        expect(moved is not None and c.same(moved[0], start))
+        assert moved is not None
+        source = moved[1]
+        expect(isinstance(source, Binary) and source.op == "+" and source.right == Const(32))
+        assert isinstance(source, Binary)
+        value = source.left
+        length = moved[2]
+        expect(
+            c.same(length, ("member", t.canon(value), "length"))
+            or c.same(length, ("idx", MEMORY, t.canon(value)))
+        )
+        cleanup = _store(c.take())
+        expect(
+            cleanup is not None
+            and c.same(cleanup[0], add(start, t.canon(length)))
+            and c.same(cleanup[1], ("const", 0))
+        )
+        stmt = c.take()
+        again = _pointer_read(stmt)
+        expect(again is not None)
+        assert again is not None
+        t.observe(stmt)
+        expect(t.canon(again) == start)
+        call_stmt = c.take()
+        expect(
+            isinstance(call_stmt, Assign)
+            and isinstance(call_stmt.value, ExternalCallExpr)
+            and call_stmt.value.method is None
+            and isinstance(call_stmt.value.raw_input, Slice)
+        )
+        assert isinstance(call_stmt, Assign) and isinstance(call_stmt.value, ExternalCallExpr)
+        region = call_stmt.value.raw_input
+        assert isinstance(region, Slice)
+        expect(c.same(region.start, start) and c.same(region.end, add(start, t.canon(length))))
+    except (NoMatch, IndexError):
+        return None
+    consumed = [s for s in c.consumed() if s is not call_stmt and s not in kept]
+    if _read_after(statements[c.index :], {staging.name, again.name}):
+        return None
+    call = call_stmt.value
+    call_stmt.value = replace(
+        call, raw_input=MemoryBytes(value, length, evidence=region.all_evidence())
+    )
+    call_stmt.rules = call_stmt.rules | {"bytes-staged-at-free-pointer"}
+    call_stmt.hidden = call_stmt.hidden.union(*(statement_ids(s) for s in consumed))
+    _replace_pointer_vars(call_stmt, {staging.name, again.name})
+    tracker.adopt(t)
+    return Rewrite(c.index, [*kept, call_stmt])
+
+
+def _pure_local(stmt: Stmt | None) -> bool:
+    return (
+        isinstance(stmt, Assign)
+        and len(stmt.targets) == 1
+        and is_local(stmt.targets[0])
+        and not is_free_pointer_read(stmt.value)
+        and _memoryless(stmt.value)
+    )
 
 
 # --- keccak256(abi.encodePacked(...)) (legacy code generator) -------------------------
@@ -1217,7 +1444,14 @@ class CodecContext:
         return f"v{index}"
 
 
-RECOGNIZERS = (match_struct_decode, match_struct_encode, match_staged_call, match_packed_hash)
+RECOGNIZERS = (
+    match_struct_decode,
+    match_struct_encode,
+    match_staged_call,
+    match_selector_buffer,
+    match_bytes_call,
+    match_packed_hash,
+)
 
 
 def recognize_abi_coders(

@@ -206,6 +206,11 @@ def test_morpho_view_decodes_struct_coding_and_reasons(tmp_path):
     assert "v0 = abi.decode(varg1, (S0));" in callback
     assert "CALLDATACOPY(" not in callback and "msg.data[varg1.data" not in callback
     assert ".0x2c3c9157(v0.f0); // staticcall\n" in callback  # its input is verified
+    # approve(abi.encodeWithSelector(...)) buffers, the empty bytes argument and the
+    # swap's bytes are folded into their calls: no staging writes remain.
+    assert "address(v0.f5).call(abi.encodeWithSelector(0x095ea7b3" in callback
+    assert ', v0.f2, 0, "");' in callback and "address(v0.f3).call(v0.f4);" in callback
+    assert "MCOPY(" not in callback and "uint224(MEM[" not in callback
     owner = text.split("// 0x441c1495")[1].split("\n    }\n")[0]
     encode = "v31 = abi.encode(S0(varg0, varg1, varg2, varg4, varg5, address(v7), address(v8)));"
     assert encode in owner

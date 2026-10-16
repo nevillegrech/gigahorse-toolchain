@@ -646,6 +646,27 @@ class DecompiledMachine:
         self.write(0x40, ((pointer + 32 + len(data)) & MASK).to_bytes(32, "big"))
         return data
 
+    def stage_raw_input(self, stmt: Stmt, data: bytes) -> None:
+        """Memory writes solc makes for a low-level call's input, where recognized."""
+        buffer = stmt.meta.get("selector_buffer")
+        if buffer is not None:
+            # abi.encodeWithSelector: length and bytes at the pointer, which moves to
+            # their end (not rounded); then staged at the new pointer for the call.
+            pointer = self.free_pointer()
+            self.write(pointer, len(data).to_bytes(32, "big"))
+            self.write(pointer + 32, data)
+            staging = pointer + 32 + len(data)
+            self.write(0x40, (staging & MASK).to_bytes(32, "big"))
+            if buffer["copy"]:
+                self.write(staging, data)
+            if buffer["zero"]:
+                self.write(staging + len(data), bytes(32))
+        if "bytes-staged-at-free-pointer" in stmt.rules:
+            # target.call(b): b's data copied to the pointer, then a zero word.
+            staging = self.free_pointer()
+            self.write(staging, data)
+            self.write(staging + len(data), bytes(32))
+
     def memory_bytes(self, value: MemoryBytes, frame: _Frame) -> bytes:
         pointer = self.eval(value.pointer, frame)
         if value.length is not None:
@@ -673,6 +694,7 @@ class DecompiledMachine:
             data = b""
         elif call.raw_input is not None:
             data = self.payload_bytes(call.raw_input, frame)
+            self.stage_raw_input(stmt, data)
         elif stmt.meta.get("input") is not None and (
             stmt.uncertain
             or any(isinstance(a, Call) and a.name in DYNAMIC_MARKERS for a in call.args)
@@ -686,11 +708,12 @@ class DecompiledMachine:
             selector = self.selector_of(stmt)
             assert selector is not None
             heads, tails = [], b""
-            staged: list[tuple[int, bytes]] = []
+            staged: list[tuple[int, bytes | None]] = []
             for arg in call.args:
                 if isinstance(arg, Call) and arg.name == "emptyBytes":
                     # ABI: an offset in the head, a zero length word in the tail.
                     heads.append(32 * len(call.args) + len(tails))
+                    staged.append((heads[-1], None))
                     tails += bytes(32)
                 elif isinstance(arg, MemoryBytes):
                     # A `bytes memory` value: offset head; length, data, zero padding.
@@ -710,6 +733,9 @@ class DecompiledMachine:
                 for index, head in enumerate(heads):
                     self.write(start + 4 + 32 * index, (head & MASK).to_bytes(32, "big"))
                 for offset, payload in staged:
+                    if payload is None:  # empty bytes: its zero length word only
+                        self.write(start + 4 + offset, bytes(32))
+                        continue
                     self.write(start + 4 + offset, len(payload).to_bytes(32, "big"))
                     self.write(start + 36 + offset, payload)
                     self.write(start + 36 + offset + len(payload), bytes(32))
@@ -800,6 +826,8 @@ class DecompiledMachine:
             return self.returndata
         if isinstance(payload, Slice):
             return self.slice(payload, frame)
+        if isinstance(payload, MemoryBytes):
+            return self.memory_bytes(payload, frame)
         if (
             isinstance(payload, Call)
             and payload.name == "Error"
