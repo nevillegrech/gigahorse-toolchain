@@ -657,12 +657,17 @@ def observes_under_discipline(live: Live, write: Range) -> bool:
 
     Under solc's memory discipline a temporary written at the free pointer for a
     consumer is not read after that consumer except through the same pointer
-    value; reads through unknown or other-version heap pointers refer to other
-    (allocated or freshly written) memory. Same-base and constant overlaps still
+    value; reads through unknown or other-version pointers, and reads of unknown
+    extent starting at a constant address, are reads of allocated (or freshly
+    written) objects. Same-version overlaps and exact constant ranges still
     count. This is an explicit assumption, recorded on every elision it enables.
     """
     for item in live.ranges:
-        if item.base == ANY or item.base == UNKNOWN_HEAP.base:
+        if item.base in {ANY, UNKNOWN_HEAP.base, AT_LEAST}:
+            continue
+        if item.base is not None and item.base.startswith("var:"):
+            continue
+        if item.base is None and item.size is None:
             continue
         if (
             item.base != write.base
