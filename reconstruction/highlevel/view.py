@@ -7,7 +7,7 @@ from pathlib import Path
 
 from ..model import Function, Program
 from .idioms import recognize_string_getters
-from .ir import Assign, Emit, Expr, Return, Stmt, Var, is_local
+from .ir import Assign, Emit, Expr, Require, Return, Stmt, Var, is_local
 from .lift import FunctionLifter, ProgramContext
 from .memory_forwarding import forward_memory
 from .memory_liveness import AddressModel, FreePointerVersions, Summaries, compute_summaries
@@ -35,6 +35,7 @@ from .passes import (
     unused_call_results,
 )
 from .printer import Printed, expression, print_statements
+from .summaries import summarize, summary_lines
 from .types import TypedValue, expression_type, map_body, storage_root, type_variables
 
 LEGEND = [
@@ -203,8 +204,9 @@ def build_decompiled(
             v.function.selectors[0] if v.function.selectors else v.function.id,
         ),
     )
+    behaviour = summarize(views)
     for view in ordered:
-        print_function(out, view)
+        print_function(out, view, behaviour.get(view.name))
     out.emit("}", 0)
     referenced = {sid for entry in out.entries for sid in entry["ir_statements"]}
     elided: list[dict] = [
@@ -369,7 +371,7 @@ def finish_function(
     )
 
 
-def print_function(out: Printed, view: FunctionView) -> None:
+def print_function(out: Printed, view: FunctionView, summary=None) -> None:
     function = view.function
     out.emit("", 0)
     selector = function.selectors[0] if len(function.selectors) == 1 else None
@@ -378,6 +380,15 @@ def print_function(out: Printed, view: FunctionView) -> None:
     elif selector:
         hint = f" {view.signature} [dict]" if view.signature else ""
         out.emit(f"// {selector}{hint}", 1, kind="function-hint")
+        if summary is not None:
+            for text, ids in summary_lines(summary, True):
+                out.emit(
+                    "//   " + text,
+                    1,
+                    evidence=ids,
+                    kind="behaviour-summary",
+                    uncertain=text if text.startswith("UNCERTAIN") else None,
+                )
     params = ", ".join(f"{a.type} {a.name}" for a in view.arguments)
     if function.selectors:
         visibility = "public " + ("nonpayable" if view.nonpayable is not None else "payable")
@@ -410,9 +421,12 @@ def name_storage_from_getters(views: list[FunctionView]) -> dict:
     for view in views:
         if not view.signature or not view.function.selectors:
             continue
-        if len(view.body) != 1 or not isinstance(view.body[0], Return):
+        # Leading argument-decoding checks (empty-payload requires) are allowed.
+        if not view.body or not isinstance(view.body[-1], Return):
             continue
-        returned = view.body[0]
+        if any(not isinstance(s, Require) or s.payload is not None for s in view.body[:-1]):
+            continue
+        returned = view.body[-1]
         if len(returned.values) != 1:
             continue
         root = storage_root(returned.values[0])

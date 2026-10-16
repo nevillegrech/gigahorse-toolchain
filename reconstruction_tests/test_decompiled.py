@@ -122,6 +122,7 @@ LOCAL = re.compile(r"\bv\d+\b")
 def _undefined_locals(text: str) -> list[str]:
     """Locals read in a function but never assigned anywhere in it."""
     problems = []
+    text = "\n".join(line.split("//", 1)[0] for line in text.splitlines())
     for function in re.split(r"\n    function ", text)[1:]:
         assigned = set(re.findall(r"\b(v\d+)\b[^=\n]*?=(?!=)", function))
         assigned |= set(re.findall(r"\(([^()]*)\) = ", function))
