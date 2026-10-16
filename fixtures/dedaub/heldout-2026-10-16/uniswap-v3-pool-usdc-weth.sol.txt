@@ -1,0 +1,2045 @@
+contract Decompiled {
+    // Decompiled by library.dedaub.com
+// 2026.09.12 11:15 UTC
+// Compiled using the solidity compiler version 0.7.6
+
+
+    // Data structures and variables inferred from the use of storage instructions
+    uint256 _slot0; // STORAGE[0x0]
+    uint256 _feeGrowthGlobal0X128; // STORAGE[0x1]
+    uint256 _feeGrowthGlobal1X128; // STORAGE[0x2]
+    mapping (int24 => struct_1319) _ticks; // STORAGE[0x5]
+    mapping (int16 => uint256) _tickBitmap; // STORAGE[0x6]
+    mapping (uint256 => struct_1320) _positions; // STORAGE[0x7]
+    uint32 stor_8_0_3; // STORAGE[0x8] bytes 0 to 3
+    uint128 _protocolFees; // STORAGE[0x3] bytes 0 to 15
+    uint128 _liquidity; // STORAGE[0x4] bytes 0 to 15
+    int56 stor_8_4_10; // STORAGE[0x8] bytes 4 to 10
+    uint128 stor_3_16_31; // STORAGE[0x3] bytes 16 to 31
+    address stor_8_11_30; // STORAGE[0x8] bytes 11 to 30
+    bool stor_8_31_31; // STORAGE[0x8] bytes 31 to 31
+
+    struct struct_1319 { uint128 field0_0_15; int128 field0_16_31; uint256 field1; uint256 field2; int56 field3_0_6; uint160 field3_7_26; uint32 field3_27_30; bool field3_31_31; };
+    struct struct_1320 { uint128 field0; uint256 field1; uint256 field2; uint128 field3_0_15; uint128 field3_16_31; };
+
+    // Events
+    Swap(address, address, int256, int256, uint160, uint128, int24);
+    IncreaseObservationCardinalityNext(uint16, uint16);
+    Mint(address, address, int24, int24, uint128, uint256, uint256);
+    Flash(address, address, uint256, uint256, uint256, uint256);
+    Collect(address, address, int24, int24, uint128, uint128);
+    SetFeeProtocol(uint8, uint8, uint8, uint8);
+    CollectProtocol(address, address, uint128, uint128);
+    Initialize(uint160, int24);
+
+    function token0() public payable {  find similar
+        return address(0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48);
+    }
+
+    function swap(address recipient, bool zeroForOne, int256 amountSpecified, uint160 sqrtPriceLimitX96, bytes data) public payable {  find similar
+        require(msg.data.length - 4 >= 160);
+        v0 = v1 = address(sqrtPriceLimitX96);
+        require(data <= uint32.max + 1);
+        require(data.data <= 4 + (msg.data.length - 4));
+        require(!((data.length > uint32.max + 1) | (data.data + data.length > 4 + (msg.data.length - 4))));
+        require(address(0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640) == this);
+        require(amountSpecified, Error(16723));
+        v2 = new struct(7);
+        v2.word0 = address(_slot0);
+        v2.word1 = int24(_slot0 >> 160);
+        v2.word2 = uint16(_slot0 >> 184);
+        v2.word3 = uint16(_slot0 >> 200);
+        v2.word4 = uint16(_slot0 >> 216);
+        v2.word5 = uint8(_slot0 >> 232);
+        v2.word6 = bool(_slot0 >> 240);
+        require(bool(_slot0 >> 240), Error(0x4c4f4b));
+        if (zeroForOne) {
+            v3 = v4 = address(v1) < address(v2.word0);
+            if (v4) {
+                v3 = v5 = address(v1) > 0x1000276a3;
+            }
+        } else {
+            v3 = v6 = address(v1) > address(v2.word0);
+            if (v6) {
+                v3 = v7 = address(v1) < 0xfffd8963efd1fc6a506488495d951d5263988d26;
+            }
+        }
+        require(v3, Error(0x53504c));
+        _slot0 = 0xff00ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff & _slot0;
+        if (zeroForOne) {
+            assert(16);
+            v8 = v9 = uint8(v2.word5) % 16;
+        } else {
+            v8 = v10 = uint8(v2.word5) >> 4;
+        }
+        MEM[96 + MEM[64]] = int56(0);
+        MEM[128 + MEM[64]] = address(0x0);
+        v11 = new struct(7);
+        v11.word0 = amountSpecified;
+        v11.word1 = 0;
+        v11.word2 = address(v2.word0);
+        v11.word3 = int24(v2.word1);
+        if (zeroForOne) {
+            v12 = v13 = _feeGrowthGlobal0X128;
+        } else {
+            v12 = v14 = _feeGrowthGlobal1X128;
+        }
+        v11.word4 = v12;
+        v11.word5 = uint128(0);
+        v11.word6 = uint128(_liquidity);
+        while (1) {
+            v15 = v16 = bool(v11.word0);
+            if (v11.word0) {
+                v15 = v17 = address(v11.word2) != address(v1);
+            }
+            if (!v15) {
+                if (int24(v11.word3) == int24(v2.word1)) {
+                    _slot0 = address(v11.word2) | bytes12(_slot0);
+                } else {
+                    v18 = v19 = v2.word2;
+                    v20 = v21 = v2.word3;
+                    v20 = v22 = v2.word4;
+                    assert(uint16(v19) < uint16.max);
+                    v23 = new struct(4);
+                    v23.word0 = uint32(STORAGE[8 + uint16(v19)]);
+                    v23.word1 = int56(STORAGE[8 + uint16(v19)] >> 32);
+                    v23.word2 = address(STORAGE[8 + uint16(v19)] >> 88);
+                    v23.word3 = bool(STORAGE[8 + uint16(v19)] >> 248);
+                    if (uint32(block.timestamp) != uint32(STORAGE[8 + uint16(v19)])) {
+                        v24 = v25 = uint16(v22) > uint16(v21);
+                        if (v25) {
+                            v24 = uint16(v19) == uint16(v21 - 1);
+                        }
+                        if (v24) {
+                        }
+                        assert(uint16(v20));
+                        v18 = v26 = uint16(1 + v19) % uint16(v20);
+                        v27 = 0x4822(_liquidity, v2.word1, uint32(block.timestamp), v23);
+                        assert(uint16(v26) < uint16.max);
+                        STORAGE[8 + uint16(v26)] = uint248(((bytes28(STORAGE[8 + uint16(v26)]) | uint32(v27.word0)) & 0xffffffffffffffffffffffffffffffffffffffffff00000000000000ffffffff | uint56(int56(v27.word1)) << 32) & 0xff0000000000000000000000000000000000000000ffffffffffffffffffffff | address(v27.word2) << 88) | bool(v27.word3) << 248;
+                    }
+                    _slot0 = address(v11.word2) | bytes12(uint24(int24(v11.word3)) << 160 | 0xffffffffffffffffff000000ffffffffffffffffffffffffffffffffffffffff & (uint16(v18) << 184 | 0xffffffffffffff0000ffffffffffffffffffffffffffffffffffffffffffffff & (uint16(v20) << 200 | 0xffffffffff0000ffffffffffffffffffffffffffffffffffffffffffffffffff & _slot0)));
+                }
+                if (uint128(_liquidity) != uint128(v11.word6)) {
+                    _liquidity = v11.word6;
+                }
+                if (bool(!zeroForOne)) {
+                    _feeGrowthGlobal1X128 = v11.word4;
+                    if (uint128(v11.word5)) {
+                        stor_3_16_31 += v11.word5;
+                    }
+                } else {
+                    _feeGrowthGlobal0X128 = v11.word4;
+                    if (uint128(v11.word5)) {
+                        _protocolFees += v11.word5;
+                    }
+                }
+                if (zeroForOne == amountSpecified > 0) {
+                    v28 = v29 = amountSpecified - v11.word0;
+                    v30 = v31 = v11.word1;
+                } else {
+                    v28 = v32 = v11.word1;
+                    v30 = v33 = amountSpecified - v11.word0;
+                }
+                if (bool(!zeroForOne)) {
+                    if (v28 < 0) {
+                        0x3b86(0 - v28, recipient, 0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48);
+                    }
+                    v34 = 0x3e1d();
+                    v35 = new bytes[](data.length);
+                    CALLDATACOPY(v35.data, data.data, data.length);
+                    v35[data.length] = 0;
+                    require(bool(msg.sender.code.size));
+                    v36 = msg.sender.uniswapV3SwapCallback(v28, v30, v35).gas(msg.gas);
+                    require(bool(v36), 0, RETURNDATASIZE()); // checks call status, propagates error data on error
+                    v37 = 0x3e1d();
+                    v38 = _SafeAdd(v30, v34);
+                    require(v38 <= v37, Error(0x494941));
+                } else {
+                    if (v30 < 0) {
+                        0x3b86(0 - v30, recipient, 0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2);
+                    }
+                    v39 = 0x3cd4();
+                    v40 = new bytes[](data.length);
+                    CALLDATACOPY(v40.data, data.data, data.length);
+                    v40[data.length] = 0;
+                    require(bool(msg.sender.code.size));
+                    v41 = msg.sender.uniswapV3SwapCallback(v28, v30, v40).gas(msg.gas);
+                    require(bool(v41), 0, RETURNDATASIZE()); // checks call status, propagates error data on error
+                    v42 = 0x3cd4();
+                    v43 = _SafeAdd(v28, v39);
+                    require(v43 <= v42, Error(0x494941));
+                }
+                emit Swap(msg.sender, recipient, v28, v30, address(v11.word2), uint128(v11.word6), int24(v11.word3));
+                _slot0 = 0x1000000000000000000000000000000000000000000000000000000000000 | 0xff00ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff & _slot0;
+                return v28, v30;
+            } else {
+                v44 = new struct(7);
+                v44.word0 = 0;
+                v44.word1 = 0;
+                v44.word2 = 0;
+                v44.word3 = 0;
+                v44.word4 = 0;
+                v44.word5 = 0;
+                v44.word6 = 0;
+                v44.word0 = address(v11.word2);
+                assert(int24(10));
+                v45 = v46 = int24(v11.word3) / int24(10);
+                v47 = v48 = int24(v11.word3) < 0;
+                if (v48) {
+                    assert(int24(10));
+                    v47 = bool(int24(int24(v11.word3) % int24(10)));
+                }
+                if (v47) {
+                    v45 = v49 = uint256.max + v46;
+                }
+                if (bool(!zeroForOne)) {
+                    v50 = v51 = 0 != _tickBitmap[int16(int24(1 + v45) >> 8)] & ~((1 << uint8(int24(1 + v45) % (uint8.max + 1))) - 1);
+                    if (v51) {
+                        v52 = 0x4568(_tickBitmap[int16(int24(1 + v45) >> 8)] & ~((1 << uint8(int24(1 + v45) % (uint8.max + 1))) - 1));
+                        v53 = v54 = (1 + v45 + uint8(v52 - int24(1 + v45) % (uint8.max + 1))) * 10;
+                    } else {
+                        v53 = v55 = (1 + v45 + uint8(uint8.max - int24(1 + v45) % (uint8.max + 1))) * 10;
+                    }
+                } else {
+                    v50 = v56 = bool(uint256.max + ((1 << uint8(int24(v45) % (uint8.max + 1))) + (1 << uint8(int24(v45) % (uint8.max + 1)))) & _tickBitmap[int16(int24(v45) >> 8)]);
+                    if (v56) {
+                        v57 = 0x44c8(uint256.max + ((1 << uint8(int24(v45) % (uint8.max + 1))) + (1 << uint8(int24(v45) % (uint8.max + 1)))) & _tickBitmap[int16(int24(v45) >> 8)]);
+                        v53 = v58 = (v45 - uint8(int24(v45) % (uint8.max + 1) - v57)) * 10;
+                    } else {
+                        v53 = v59 = (v45 - uint8(int24(v45) % (uint8.max + 1))) * 10;
+                    }
+                }
+                v44.word2 = bool(v50);
+                v44.word1 = int24(v53);
+                if (int24(v53) >= 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffff27618) {
+                    if (int24(v44.word1) > 0xd89e8) {
+                        v44.word1 = 0xd89e8;
+                    }
+                } else {
+                    v44.word1 = 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffff27618;
+                }
+                v60 = 0x2d6d(v44.word1);
+                v44.word3 = address(v60);
+                if (zeroForOne) {
+                    v61 = v62 = address(v44.word3) < address(v1);
+                } else {
+                    v61 = v63 = address(v44.word3) > address(v1);
+                }
+                if (!v61) {
+                    v0 = v64 = v44.word3;
+                }
+                v65 = v66 = 0;
+                v67 = v68 = v11.word0 >= v66;
+                if (v11.word0 < v66) {
+                    if (address(v11.word2) >= address(v0)) {
+                        v65 = v69 = 0x4652(0, v11.word6, v11.word2, v0);
+                    } else {
+                        v65 = v70 = 0x46cd(0, v11.word6, v0, v11.word2);
+                    }
+                    if (0 - v11.word0 < v65) {
+                        v0 = v71 = 0x47d6(address(v11.word2) >= address(v0), 0 - v11.word0, v11.word6, v11.word2);
+                    }
+                } else {
+                    v72 = 0x32d9(10 ** 6, uint24(0xf404c), v11.word0);
+                    if (address(v11.word2) >= address(v0)) {
+                        v65 = v73 = 0x46cd(1, v11.word6, v11.word2, v0);
+                    } else {
+                        v65 = v74 = 0x4652(1, v11.word6, v0, v11.word2);
+                    }
+                    if (v72 < v65) {
+                        v0 = v75 = 0x478a(address(v11.word2) >= address(v0), v72, v11.word6, v11.word2);
+                    }
+                }
+                v67 = v76 = address(v0) == address(v0);
+                if (address(v11.word2) < address(v0)) {
+                    if (v76) {
+                    }
+                    if (!v67) {
+                        v65 = v77 = 0x4652(1, v11.word6, v0, v11.word2);
+                    }
+                    if (v76) {
+                        v67 = v78 = v11.word0 < v66;
+                    }
+                    if (!v67) {
+                        v65 = v79 = 0x46cd(0, v11.word6, v0, v11.word2);
+                    }
+                } else {
+                    if (v76) {
+                    }
+                    if (!v67) {
+                        v65 = v80 = 0x46cd(1, v11.word6, v11.word2, v0);
+                    }
+                    if (v76) {
+                        v67 = v81 = v11.word0 < v66;
+                    }
+                    if (!v67) {
+                        v65 = v82 = 0x4652(0, v11.word6, v11.word2, v0);
+                    }
+                }
+                v83 = v84 = v11.word0 < v66;
+                if (!bool(v68)) {
+                    v83 = v85 = v65 > 0 - v11.word0;
+                }
+                if (v83) {
+                    v65 = v86 = 0 - v11.word0;
+                }
+                if (v11.word0 >= v66) {
+                    v67 = v87 = address(v0) != address(v0);
+                }
+                if (!v67) {
+                    v88 = v89 = 0x41a9(uint24(0xf404c), uint24(500), v65);
+                } else {
+                    v88 = v90 = v11.word0 - v65;
+                }
+                v44.word6 = v88;
+                v44.word5 = v65;
+                v44.word4 = v65;
+                v11.word2 = address(v0);
+                if (amountSpecified <= 0) {
+                    v91 = 0x3291(v44.word5);
+                    v11.word0 = v11.word0 + v91;
+                    v92 = 0x3291(v44.word4 + v44.word6);
+                    v93 = _SafeAdd(v92, v11.word1);
+                    v11.word1 = v93;
+                } else {
+                    v94 = 0x3291(v44.word4 + v44.word6);
+                    v11.word0 = v11.word0 - v94;
+                    v95 = 0x3291(v44.word5);
+                    v96 = _SafeSub(v95, v11.word1);
+                    v11.word1 = v96;
+                }
+                if (uint8(v8)) {
+                    assert(uint8(v8));
+                    v44.word6 = v44.word6 - v44.word6 / uint8(v8);
+                    v11.word5 = uint128(v44.word6 / uint8(v8) + v11.word5);
+                }
+                if (uint128(v11.word6)) {
+                    v97 = 0x32d9(uint128(v11.word6), uint128.max + 1, v44.word6);
+                    v11.word4 += v97;
+                }
+                if (address(v11.word2) != address(v44.word3)) {
+                    if (address(v11.word2) != address(v44.word0)) {
+                        v98 = 0x36a5(v11.word2);
+                        v11.word3 = int24(v98);
+                    }
+                } else {
+                    if (v44.word2) {
+                        if (!False) {
+                            if (uint32(0)) {
+                                MEM[64] = MEM[64] + 128;
+                                MEM[MEM[64]] = 0;
+                                MEM[MEM[64] + 32] = 0;
+                                MEM[MEM[64] + 64] = 0;
+                                MEM[MEM[64] + 96] = 0;
+                                v99 = v100 = MEM[64];
+                                MEM[v100] = 0;
+                                MEM[v100 + 32] = 0;
+                                MEM[v100 + 64] = 0;
+                                MEM[v100 + 96] = 0;
+                                assert(uint16(v2.word2) < uint16.max);
+                                v101 = v102 = new struct(4);
+                                v102.word0 = uint32(STORAGE[8 + uint16(v2.word2)]);
+                                v102.word1 = int56(STORAGE[8 + uint16(v2.word2)] >> 32);
+                                v102.word2 = address(STORAGE[8 + uint16(v2.word2)] >> 88);
+                                v102.word3 = bool(STORAGE[8 + uint16(v2.word2)] >> 248);
+                                v103 = 0x4ed8(uint32(block.timestamp) - 0, uint32(STORAGE[8 + uint16(v2.word2)]), uint32(block.timestamp));
+                                if (!v103) {
+                                    assert(uint16(v2.word3));
+                                    assert(uint16(uint16(1 + v2.word2) % uint16(v2.word3)) < uint16.max);
+                                    v104 = v105 = new struct(4);
+                                    v105.word0 = uint32(STORAGE[uint16(uint16(1 + v2.word2) % uint16(v2.word3)) + 8]);
+                                    v105.word1 = int56(STORAGE[uint16(uint16(1 + v2.word2) % uint16(v2.word3)) + 8] >> 32);
+                                    v105.word2 = address(STORAGE[uint16(uint16(1 + v2.word2) % uint16(v2.word3)) + 8] >> 88);
+                                    v105.word3 = bool(STORAGE[uint16(uint16(1 + v2.word2) % uint16(v2.word3)) + 8] >> 248);
+                                    if (!bool(STORAGE[uint16(uint16(1 + v2.word2) % uint16(v2.word3)) + 8] >> 248)) {
+                                        v104 = v106 = new struct(4);
+                                        v106.word0 = stor_8_0_3;
+                                        v106.word1 = stor_8_4_10;
+                                        v106.word2 = stor_8_11_30;
+                                        v106.word3 = stor_8_31_31;
+                                    }
+                                    v107 = 0x4ed8(uint32(block.timestamp) - 0, MEM[v104], uint32(block.timestamp));
+                                    require(v107, Error(0x4f4c44));
+                                    MEM[64] = MEM[64] + 128;
+                                    MEM[MEM[64]] = 0;
+                                    MEM[MEM[64] + 32] = 0;
+                                    MEM[MEM[64] + 64] = 0;
+                                    MEM[MEM[64] + 96] = 0;
+                                    MEM[64] = MEM[64] + 128;
+                                    MEM[MEM[64]] = 0;
+                                    MEM[MEM[64] + 32] = 0;
+                                    MEM[MEM[64] + 64] = 0;
+                                    MEM[MEM[64] + 96] = 0;
+                                    assert(uint16(v2.word3));
+                                    v108 = v109 = uint16(uint16(1 + v2.word2) % uint16(v2.word3));
+                                    v110 = v111 = v109 + uint16(v2.word3) - 1;
+                                    while (1) {
+                                        assert(uint16(v2.word3));
+                                        assert((v108 + v110 >> 1) % uint16(v2.word3) < uint16.max);
+                                        v101 = new struct(4);
+                                        v101.word0 = uint32(STORAGE[(v108 + v110 >> 1) % uint16(v2.word3) + 8]);
+                                        v101.word1 = int56(STORAGE[(v108 + v110 >> 1) % uint16(v2.word3) + 8] >> 32);
+                                        v101.word2 = address(STORAGE[(v108 + v110 >> 1) % uint16(v2.word3) + 8] >> 88);
+                                        v101.word3 = bool(STORAGE[(v108 + v110 >> 1) % uint16(v2.word3) + 8] >> 248);
+                                        if (bool(STORAGE[(v108 + v110 >> 1) % uint16(v2.word3) + 8] >> 248)) {
+                                            assert(uint16(v2.word3));
+                                            assert((1 + (v108 + v110 >> 1)) % uint16(v2.word3) < uint16.max);
+                                            v99 = new struct(4);
+                                            v99.word0 = uint32(STORAGE[(1 + (v108 + v110 >> 1)) % uint16(v2.word3) + 8]);
+                                            v99.word1 = int56(STORAGE[(1 + (v108 + v110 >> 1)) % uint16(v2.word3) + 8] >> 32);
+                                            v99.word2 = address(STORAGE[(1 + (v108 + v110 >> 1)) % uint16(v2.word3) + 8] >> 88);
+                                            v99.word3 = bool(STORAGE[(1 + (v108 + v110 >> 1)) % uint16(v2.word3) + 8] >> 248);
+                                            v112 = v113 = 0x4ed8(uint32(block.timestamp) - 0, v101.word0, uint32(block.timestamp));
+                                            if (v113) {
+                                                v112 = 0x4ed8(v99.word0, uint32(block.timestamp) - 0, uint32(block.timestamp));
+                                            }
+                                            if (!v112) {
+                                                if (v113) {
+                                                    v108 = 1 + (v108 + v110 >> 1);
+                                                } else {
+                                                    v110 = (v108 + v110 >> 1) - 1;
+                                                }
+                                            } else {
+                                                break;
+                                            }
+                                        } else {
+                                            v108 = 1 + (v108 + v110 >> 1);
+                                        }
+                                    }
+                                } else if (uint32(v102.word0) != uint32(uint32(block.timestamp) - 0)) {
+                                    v99 = v114 = 0x4822(_liquidity, v2.word1, uint32(block.timestamp) - 0, v102);
+                                }
+                                if (uint32(uint32(block.timestamp) - 0) != uint32(MEM[v101])) {
+                                    if (uint32(MEM[v99]) != uint32(uint32(block.timestamp) - 0)) {
+                                        assert(uint32(MEM[v99] - MEM[v101]));
+                                        v115 = v116 = MEM[32 + v101] + int56(MEM[v99 + 32] - MEM[v101 + 32]) / uint32(MEM[v99] - MEM[v101]) * uint32(uint32(block.timestamp) - 0 - MEM[v101]);
+                                        assert(uint32(MEM[v99] - MEM[v101]));
+                                        v117 = v118 = MEM[64 + v101] + address(MEM[64 + v99] - MEM[64 + v101]) * uint32(uint32(block.timestamp) - 0 - MEM[v101]) / uint32(MEM[v99] - MEM[v101]);
+                                    } else {
+                                        v115 = v119 = MEM[32 + v99];
+                                        v117 = v120 = MEM[64 + v99];
+                                    }
+                                } else {
+                                    v115 = v121 = MEM[32 + v101];
+                                    v117 = v122 = MEM[64 + v101];
+                                }
+                            } else {
+                                assert(uint16(v2.word2) < uint16.max);
+                                v123 = new struct(4);
+                                v123.word0 = uint32(STORAGE[8 + uint16(v2.word2)]);
+                                v123.word1 = int56(STORAGE[8 + uint16(v2.word2)] >> 32);
+                                v123.word2 = address(STORAGE[8 + uint16(v2.word2)] >> 88);
+                                v123.word3 = bool(STORAGE[8 + uint16(v2.word2)] >> 248);
+                                if (uint32(block.timestamp) == uint32(STORAGE[8 + uint16(v2.word2)])) {
+                                    v115 = v124 = v123.word1;
+                                    v117 = v125 = v123.word2;
+                                } else {
+                                    v126 = 0x4822(_liquidity, v2.word1, uint32(block.timestamp), v123);
+                                    v115 = v127 = v126.word1;
+                                    v117 = v128 = v126.word2;
+                                }
+                            }
+                            MEM[MEM[64] + 128] = address(v117);
+                            MEM[MEM[64] + 96] = int56(v115);
+                            MEM[MEM[64] + 160] = 1;
+                        }
+                        if (zeroForOne) {
+                            v129 = v130 = v11.word4;
+                        } else {
+                            v129 = v131 = _feeGrowthGlobal0X128;
+                        }
+                        if (zeroForOne) {
+                            v132 = v133 = _feeGrowthGlobal1X128;
+                        } else {
+                            v132 = v134 = v11.word4;
+                        }
+                        _ticks[int24(v44.word1)].field1 = v129 - _ticks[int24(v44.word1)].field1;
+                        _ticks[int24(v44.word1)].field2 = v132 - _ticks[int24(v44.word1)].field2;
+                        v135 = bytes25(STORAGE[keccak256(int24(v44.word1), 5) + 3] & 0xffffffffff0000000000000000000000000000000000000000ffffffffffffff | address(MEM[MEM[64] + 128] - _ticks[int24(v44.word1)].field3_7_26) << 56) | uint56(int56(MEM[MEM[64] + 96] - int56(STORAGE[keccak256(int24(v44.word1), 5) + 3] & 0xffffffffff0000000000000000000000000000000000000000ffffffffffffff | address(MEM[MEM[64] + 128] - _ticks[int24(v44.word1)].field3_7_26) << 56)));
+                        _ticks[int24(v44.word1)].field3_0_6 = int56(MEM[MEM[64] + 96] - int56(STORAGE[keccak256(int24(v44.word1), 5) + 3] & 0xffffffffff0000000000000000000000000000000000000000ffffffffffffff | address(MEM[MEM[64] + 128] - _ticks[int24(v44.word1)].field3_7_26) << 56));
+                        _ticks[int24(v44.word1)].field3_27_30 = uint32(block.timestamp) - uint32(v135 >> 216);
+                        _ticks[int24(v44.word1)].field3_7_26 = MEM[MEM[64] + 128] - _ticks[int24(v44.word1)].field3_7_26;
+                        v136 = v137 = _ticks[int24(v44.word1)].field0_16_31;
+                        if (!bool(!zeroForOne)) {
+                            v136 = v138 = 0 - v137;
+                        }
+                        v139 = _SafeAdd(v136, v11.word6);
+                        v11.word6 = uint128(v139);
+                    }
+                    if (zeroForOne) {
+                        v140 = v141 = v44.word1 - 1;
+                    } else {
+                        v140 = v142 = v44.word1;
+                    }
+                    v11.word3 = int24(v140);
+                }
+            }
+        }
+    }
+
+    function liquidity() public payable {  find similar
+        return _liquidity;
+    }
+
+    function protocolFees() public payable {  find similar
+        return _protocolFees, stor_3_16_31;
+    }
+
+    function 0x2d6d(int24 varg0) private {
+        if (varg0 < 0) {
+            v0 = v1 = 0 - varg0;
+        } else {
+            v0 = v2 = varg0;
+        }
+        require(v0 <= 0xd89e8, Error(84));
+        if (v0 & 0x1) {
+            v3 = v4 = 0xfffcb933bd6fad37aa2d162d1a594001;
+        } else {
+            v3 = v5 = uint128.max + 1;
+        }
+        v6 = v7 = uint136(v3);
+        if (v0 & 0x2) {
+            v6 = v8 = 0xfff97272373d413259a46990580e213a * v7 >> 128;
+        }
+        if (v0 & 0x4) {
+            v6 = v9 = 0xfff2e50f5f656932ef12357cf3c7fdcc * v6 >> 128;
+        }
+        if (v0 & 0x8) {
+            v6 = v10 = 0xffe5caca7e10e4e61c3624eaa0941cd0 * v6 >> 128;
+        }
+        if (v0 & 0x10) {
+            v6 = v11 = 0xffcb9843d60f6159c9db58835c926644 * v6 >> 128;
+        }
+        if (v0 & 0x20) {
+            v6 = v12 = 0xff973b41fa98c081472e6896dfb254c0 * v6 >> 128;
+        }
+        if (v0 & 0x40) {
+            v6 = v13 = 0xff2ea16466c96a3843ec78b326b52861 * v6 >> 128;
+        }
+        if (v0 & 0x80) {
+            v6 = v14 = 0xfe5dee046a99a2a811c461f1969c3053 * v6 >> 128;
+        }
+        if (v0 & 0x100) {
+            v6 = v15 = 0xfcbe86c7900a88aedcffc83b479aa3a4 * v6 >> 128;
+        }
+        if (v0 & 0x200) {
+            v6 = v16 = 0xf987a7253ac413176f2b074cf7815e54 * v6 >> 128;
+        }
+        if (v0 & 0x400) {
+            v6 = v17 = 0xf3392b0822b70005940c7a398e4b70f3 * v6 >> 128;
+        }
+        if (v0 & 0x800) {
+            v6 = v18 = 0xe7159475a2c29b7443b29c7fa6e889d9 * v6 >> 128;
+        }
+        if (v0 & 0x1000) {
+            v6 = v19 = 0xd097f3bdfd2022b8845ad8f792aa5825 * v6 >> 128;
+        }
+        if (v0 & 0x2000) {
+            v6 = v20 = 0xa9f746462d870fdf8a65dc1f90e061e5 * v6 >> 128;
+        }
+        if (v0 & 0x4000) {
+            v6 = v21 = 0x70d869a156d2a1b890bb3df62baf32f7 * v6 >> 128;
+        }
+        if (v0 & 0x8000) {
+            v6 = v22 = 0x31be135f97d08fd981231505542fcfa6 * v6 >> 128;
+        }
+        if (v0 & 0x10000) {
+            v6 = v23 = 0x9aa508b5b7a84e1c677de54f3e99bc9 * v6 >> 128;
+        }
+        if (v0 & 0x20000) {
+            v6 = v24 = 0x5d6af8dedb81196699c329225ee604 * v6 >> 128;
+        }
+        if (v0 & 0x40000) {
+            v6 = v25 = 0x2216e584f5fa1ea926041bedfe98 * v6 >> 128;
+        }
+        if (v0 & 0x80000) {
+            v6 = v26 = 0x48a170391f7dc42444e8fa2 * v6 >> 128;
+        }
+        if (varg0 > 0) {
+            assert(v6);
+            v6 = v27 = uint256.max / v6;
+        }
+        if (!(v6 % (uint32.max + 1))) {
+            v28 = v29 = 0;
+        } else {
+            v28 = v30 = 1;
+        }
+        return (v6 >> 32) + uint8(v28);
+    }
+
+    function observations(uint256 varg0) public payable {  find similar
+        require(msg.data.length - 4 >= 32);
+        require(varg0 < uint16.max);
+        return uint32(STORAGE[varg0 + 8]), int56(STORAGE[varg0 + 8] >> 32), address(STORAGE[varg0 + 8] >> 88), bool(STORAGE[varg0 + 8] >> 248);
+    }
+
+    function 0x3291(uint256 varg0) private {
+        require(varg0 < int256.min);
+        return varg0;
+    }
+
+    function _SafeSub(uint256 varg0, uint256 varg1) private {
+        require(varg0 >= 0 == varg1 - varg0 <= varg1);
+        return varg1 - varg0;
+    }
+
+    function _SafeAdd(uint256 varg0, uint256 varg1) private {
+        require(varg0 >= 0 == varg0 + varg1 >= varg1);
+        return varg0 + varg1;
+    }
+
+    function 0x32d9(uint256 varg0, uint256 varg1, uint256 varg2) private {
+        v0 = varg1 * varg2;
+        v1 = varg2 * varg1 % uint256.max - v0 - (varg2 * varg1 % uint256.max < v0);
+        if (v1) {
+            require(varg0 > v1);
+            v2 = varg2 * varg1 % varg0;
+            v3 = varg0 & 0 - varg0;
+            v4 = varg0 / v3;
+            v5 = (2 - v4 * ((2 - v4 * ((2 - v4 * (0x2 ^ v4 * 3)) * (0x2 ^ v4 * 3))) * ((2 - v4 * (0x2 ^ v4 * 3)) * (0x2 ^ v4 * 3)))) * ((2 - v4 * ((2 - v4 * (0x2 ^ v4 * 3)) * (0x2 ^ v4 * 3))) * ((2 - v4 * (0x2 ^ v4 * 3)) * (0x2 ^ v4 * 3)));
+            return ((v0 - v2) / v3 | (v1 - (v2 > v0)) * (1 + (0 - v3) / v3)) * ((2 - v4 * ((2 - v4 * ((2 - v4 * v5) * v5)) * ((2 - v4 * v5) * v5))) * ((2 - v4 * ((2 - v4 * v5) * v5)) * ((2 - v4 * v5) * v5)));
+        } else {
+            require(varg0 > 0);
+            return v0 / varg0;
+        }
+    }
+
+    function increaseObservationCardinalityNext(uint16 observationCardinalityNext) public payable {  find similar
+        require(msg.data.length - 4 >= 32);
+        v0 = v1 = observationCardinalityNext;
+        require(uint8(_slot0 >> 240), Error(0x4c4f4b));
+        _slot0 = 0xff00ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff & _slot0;
+        require(address(0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640) == this);
+        v2 = _slot0;
+        v0 = v3 = uint16(v2 >> 216);
+        require(uint16(v3) > 0, Error(73));
+        if (uint16(v1) > uint16(v3)) {
+            while (uint16(v0) < uint16(v1)) {
+                assert(uint16(v0) < uint16.max);
+                STORAGE[uint16(v0) + 8] = uint32(1) | bytes28(STORAGE[uint16(v0) + 8]);
+                v0 += 1;
+            }
+        }
+        _slot0 = _slot0 & 0xffffff0000ffffffffffffffffffffffffffffffffffffffffffffffffffffff | uint16(v0) << 216;
+        if (uint16(v3) != uint16(v0)) {
+            emit IncreaseObservationCardinalityNext(uint16(v3), uint16(v0));
+        }
+        _slot0 = 0x1000000000000000000000000000000000000000000000000000000000000 | 0xff00ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff & _slot0;
+    }
+
+    function slot0() public payable {  find similar
+        return address(_slot0), int24(_slot0 >> 160), uint16(_slot0 >> 184), uint16(_slot0 >> 200), uint16(_slot0 >> 216), uint8(_slot0 >> 232), bool(_slot0 >> 240);
+    }
+
+    function _SafeAdd(uint256 varg0, uint256 varg1) private {
+        if (int128(varg0) >= 0) {
+            require(uint128(varg1 + varg0) >= uint128(varg1), Error(19521));
+            return varg1 + varg0;
+        } else {
+            require(uint128(varg1 - (0 - varg0)) < uint128(varg1), Error(19539));
+            return varg1 - (0 - varg0);
+        }
+    }
+
+    function 0x36a5(uint256 varg0) private {
+        v0 = v1 = address(varg0) >= 0x1000276a3;
+        if (address(varg0) >= 0x1000276a3) {
+            v0 = v2 = address(varg0) < 0xfffd8963efd1fc6a506488495d951d5263988d26;
+        }
+        require(v0, Error(82));
+        v3 = ((varg0 << 32 & 0xffffffffffffffffffffffffffffffffffffffff00000000) >> ((varg0 << 32 & 0xffffffffffffffffffffffffffffffffffffffff00000000 > uint128.max) << 7) > uint64.max) << 6;
+        v4 = (varg0 << 32 & 0xffffffffffffffffffffffffffffffffffffffff00000000) >> ((varg0 << 32 & 0xffffffffffffffffffffffffffffffffffffffff00000000 > uint128.max) << 7) >> v3;
+        v5 = (v4 >> ((v4 > uint32.max) << 5) >> ((v4 >> ((v4 > uint32.max) << 5) > uint16.max) << 4) >> ((v4 >> ((v4 > uint32.max) << 5) >> ((v4 >> ((v4 > uint32.max) << 5) > uint16.max) << 4) > uint8.max) << 3) > 15) << 2;
+        v6 = v4 >> ((v4 > uint32.max) << 5) >> ((v4 >> ((v4 > uint32.max) << 5) > uint16.max) << 4) >> ((v4 >> ((v4 > uint32.max) << 5) >> ((v4 >> ((v4 > uint32.max) << 5) > uint16.max) << 4) > uint8.max) << 3) >> v5;
+        v7 = v5 | ((v4 >> ((v4 > uint32.max) << 5) > uint16.max) << 4 | ((v4 > uint32.max) << 5 | (v3 | (varg0 << 32 & 0xffffffffffffffffffffffffffffffffffffffff00000000 > uint128.max) << 7)) | (v4 >> ((v4 > uint32.max) << 5) >> ((v4 >> ((v4 > uint32.max) << 5) > uint16.max) << 4) > uint8.max) << 3) | (v6 > 3) << 1 | (v6 >> ((v6 > 3) << 1) > 1);
+        if (v7 < 128) {
+            v8 = v9 = (varg0 << 32 & 0xffffffffffffffffffffffffffffffffffffffff00000000) << int8.max - v7;
+        } else {
+            v8 = v10 = (varg0 << 32 & 0xffffffffffffffffffffffffffffffffffffffff00000000) >> v7 - int8.max;
+        }
+        v11 = (v8 * v8 >> int8.max >> (v8 * v8 >> uint8.max)) * (v8 * v8 >> int8.max >> (v8 * v8 >> uint8.max));
+        v12 = ((v11 >> int8.max >> (v11 >> uint8.max)) * (v11 >> int8.max >> (v11 >> uint8.max)) >> int8.max >> ((v11 >> int8.max >> (v11 >> uint8.max)) * (v11 >> int8.max >> (v11 >> uint8.max)) >> uint8.max)) * ((v11 >> int8.max >> (v11 >> uint8.max)) * (v11 >> int8.max >> (v11 >> uint8.max)) >> int8.max >> ((v11 >> int8.max >> (v11 >> uint8.max)) * (v11 >> int8.max >> (v11 >> uint8.max)) >> uint8.max));
+        v13 = ((v12 >> int8.max >> (v12 >> uint8.max)) * (v12 >> int8.max >> (v12 >> uint8.max)) >> int8.max >> ((v12 >> int8.max >> (v12 >> uint8.max)) * (v12 >> int8.max >> (v12 >> uint8.max)) >> uint8.max)) * ((v12 >> int8.max >> (v12 >> uint8.max)) * (v12 >> int8.max >> (v12 >> uint8.max)) >> int8.max >> ((v12 >> int8.max >> (v12 >> uint8.max)) * (v12 >> int8.max >> (v12 >> uint8.max)) >> uint8.max));
+        v14 = ((v13 >> int8.max >> (v13 >> uint8.max)) * (v13 >> int8.max >> (v13 >> uint8.max)) >> int8.max >> ((v13 >> int8.max >> (v13 >> uint8.max)) * (v13 >> int8.max >> (v13 >> uint8.max)) >> uint8.max)) * ((v13 >> int8.max >> (v13 >> uint8.max)) * (v13 >> int8.max >> (v13 >> uint8.max)) >> int8.max >> ((v13 >> int8.max >> (v13 >> uint8.max)) * (v13 >> int8.max >> (v13 >> uint8.max)) >> uint8.max));
+        v15 = ((v14 >> int8.max >> (v14 >> uint8.max)) * (v14 >> int8.max >> (v14 >> uint8.max)) >> int8.max >> ((v14 >> int8.max >> (v14 >> uint8.max)) * (v14 >> int8.max >> (v14 >> uint8.max)) >> uint8.max)) * ((v14 >> int8.max >> (v14 >> uint8.max)) * (v14 >> int8.max >> (v14 >> uint8.max)) >> int8.max >> ((v14 >> int8.max >> (v14 >> uint8.max)) * (v14 >> int8.max >> (v14 >> uint8.max)) >> uint8.max));
+        v16 = ((v15 >> int8.max >> (v15 >> uint8.max)) * (v15 >> int8.max >> (v15 >> uint8.max)) >> int8.max >> ((v15 >> int8.max >> (v15 >> uint8.max)) * (v15 >> int8.max >> (v15 >> uint8.max)) >> uint8.max)) * ((v15 >> int8.max >> (v15 >> uint8.max)) * (v15 >> int8.max >> (v15 >> uint8.max)) >> int8.max >> ((v15 >> int8.max >> (v15 >> uint8.max)) * (v15 >> int8.max >> (v15 >> uint8.max)) >> uint8.max));
+        v17 = ((v16 >> int8.max >> (v16 >> uint8.max)) * (v16 >> int8.max >> (v16 >> uint8.max)) >> int8.max >> ((v16 >> int8.max >> (v16 >> uint8.max)) * (v16 >> int8.max >> (v16 >> uint8.max)) >> uint8.max)) * ((v16 >> int8.max >> (v16 >> uint8.max)) * (v16 >> int8.max >> (v16 >> uint8.max)) >> int8.max >> ((v16 >> int8.max >> (v16 >> uint8.max)) * (v16 >> int8.max >> (v16 >> uint8.max)) >> uint8.max));
+        v18 = (0x4000000000000 & v17 >> 205 | (0x8000000000000 & (v16 >> int8.max >> (v16 >> uint8.max)) * (v16 >> int8.max >> (v16 >> uint8.max)) >> 204 | (0x10000000000000 & v16 >> 203 | (0x20000000000000 & (v15 >> int8.max >> (v15 >> uint8.max)) * (v15 >> int8.max >> (v15 >> uint8.max)) >> 202 | (0x40000000000000 & v15 >> 201 | (0x80000000000000 & (v14 >> int8.max >> (v14 >> uint8.max)) * (v14 >> int8.max >> (v14 >> uint8.max)) >> 200 | (0x100000000000000 & v14 >> 199 | (0x200000000000000 & (v13 >> int8.max >> (v13 >> uint8.max)) * (v13 >> int8.max >> (v13 >> uint8.max)) >> 198 | (0x400000000000000 & v13 >> 197 | (0x800000000000000 & (v12 >> int8.max >> (v12 >> uint8.max)) * (v12 >> int8.max >> (v12 >> uint8.max)) >> 196 | (0x1000000000000000 & v12 >> 195 | (0x2000000000000000 & (v11 >> int8.max >> (v11 >> uint8.max)) * (v11 >> int8.max >> (v11 >> uint8.max)) >> 194 | (0x4000000000000000 & v11 >> 193 | (0x8000000000000000 & v8 * v8 >> 192 | v7 + int8.min << 64)))))))))))))) * 0x3627a301d71055774c85;
+        if (int24(v18 + 0xfffffffffffffffffffffffffffffffffd709b7e5480fba5a50fed5e62ffc556 >> 128) == int24(v18 + 0xdb2df09e81959a81455e260799a0632f >> 128)) {
+            return v18 + 0xfffffffffffffffffffffffffffffffffd709b7e5480fba5a50fed5e62ffc556 >> 128;
+        } else {
+            v19 = 0x2d6d(v18 + 0xdb2df09e81959a81455e260799a0632f >> 128);
+            if (address(v19) <= address(varg0)) {
+                return v18 + 0xdb2df09e81959a81455e260799a0632f >> 128;
+            } else {
+                return v18 + 0xfffffffffffffffffffffffffffffffffd709b7e5480fba5a50fed5e62ffc556 >> 128;
+            }
+        }
+    }
+
+    function mint(address recipient, int24 tickLower, int24 tickUpper, uint128 amount, bytes data) public payable {  find similar
+        require(msg.data.length - 4 >= 160);
+        require(data <= uint32.max + 1);
+        require(data.data <= 4 + (msg.data.length - 4));
+        require(!((data.length > uint32.max + 1) | (data.data + data.length > 4 + (msg.data.length - 4))));
+        require(uint8(_slot0 >> 240), Error(0x4c4f4b));
+        _slot0 = 0xff00ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff & _slot0;
+        require(amount);
+        v0 = new struct(4);
+        v0.word0 = recipient;
+        v0.word1 = tickLower;
+        v0.word2 = tickUpper;
+        v1 = 0x3f58(amount);
+        v0.word3 = int128(v1);
+        v2, v3, v4 = 0x3f69(v0);
+        v5 = v6 = 0;
+        if (v3 > 0) {
+            v5 = v7 = 0x3cd4();
+        }
+        if (v2) {
+            v5 = v8 = 0x3e1d();
+        }
+        v9 = new bytes[](data.length);
+        CALLDATACOPY(v9.data, data.data, data.length);
+        v9[data.length] = 0;
+        require(bool(msg.sender.code.size));
+        v10 = msg.sender.uniswapV3MintCallback(v3, v2, v9).gas(msg.gas);
+        require(bool(v10), 0, RETURNDATASIZE()); // checks call status, propagates error data on error
+        if (v3 > 0) {
+            v11 = 0x3cd4();
+            v12 = _SafeAdd(v3, v5);
+            require(v12 <= v11, Error(19760));
+        }
+        if (v2) {
+            v13 = 0x3e1d();
+            v14 = _SafeAdd(v2, v5);
+            require(v14 <= v13, Error(19761));
+        }
+        emit Mint(recipient, tickLower, tickUpper, msg.sender, amount, v3, v2);
+        _slot0 = 0x1000000000000000000000000000000000000000000000000000000000000 | 0xff00ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff & _slot0;
+        return v3, v2;
+    }
+
+    function 0x3b86(uint256 varg0, address varg1, address varg2) private {
+        MEM[64] = MEM[64] + 100;
+        v0 = v1 = MEM[64] + 32;
+        v2 = v3 = MEM[64];
+        while (v4 >= 32) {
+            MEM[v2] = MEM[v0];
+            v4 = v4 - 32;
+            v2 += 32;
+            v0 += 32;
+        }
+        MEM[v2] = MEM[v0] & ~((uint8.max + 1) ** (32 - v4) - 1) | MEM[v2] & (uint8.max + 1) ** (32 - v4) - 1;
+        v5 = v6, /* uint256 */ v7, /* uint256 */ v8 = varg2.transfer(varg1, varg0).gas(msg.gas);
+        if (RETURNDATASIZE() == 0) {
+            v9 = v10 = 96;
+        } else {
+            v9 = v11 = new bytes[](RETURNDATASIZE());
+            v7 = v11.data;
+            RETURNDATACOPY(v7, 0, RETURNDATASIZE());
+        }
+        if (v6) {
+            v5 = v12 = !MEM[v9];
+            if (MEM[v9]) {
+                require(MEM[v9] >= 32);
+                v5 = v13 = MEM[v8];
+            }
+        }
+        require(v5, Error(21574));
+        return ;
+    }
+
+    function 0x3cd4() private {
+        MEM[64] = MEM[64] + 68;
+        v0 = v1 = MEM[64] + 32;
+        v2 = v3 = MEM[64];
+        while (v4 >= 32) {
+            MEM[v2] = MEM[v0];
+            v4 = v4 - 32;
+            v2 += 32;
+            v0 += 32;
+        }
+        MEM[v2] = MEM[v0] & ~((uint8.max + 1) ** (32 - v4) - 1) | MEM[v2] & (uint8.max + 1) ** (32 - v4) - 1;
+        v5 = v6, /* uint256 */ v7, /* uint256 */ v8 = address(0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48).balanceOf(this).gas(msg.gas);
+        if (RETURNDATASIZE() == 0) {
+            v9 = v10 = 96;
+        } else {
+            v9 = v11 = new bytes[](RETURNDATASIZE());
+            RETURNDATACOPY(v11.data, 0, RETURNDATASIZE());
+        }
+        if (v6) {
+            v5 = v12 = MEM[v9] >= 32;
+        }
+        require(v5);
+        require(MEM[v9] >= 32);
+        return MEM[v8];
+    }
+
+    function _SafeAdd(uint256 varg0, uint256 varg1) private {
+        require(varg1 + varg0 >= varg1);
+        return varg1 + varg0;
+    }
+
+    function 0x3e1d() private {
+        v0 = v1 = MEM[64] + 32;
+        v2 = v3 = MEM[64];
+        if (v4 >= 32) {
+            v5 = v6 = 4;
+            v2 = v7 = 32 + v3;
+            v0 = v8 = 32 + v1;
+            while (v5 >= 32) {
+                MEM[v2] = MEM[v0];
+                v5 = v5 - 32;
+                v2 += 32;
+                v0 += 32;
+            }
+        }
+        MEM[v2] = MEM[v0] & ~((uint8.max + 1) ** (32 - v5) - 1) | MEM[v2] & (uint8.max + 1) ** (32 - v5) - 1;
+        v9 = v10, /* uint256 */ v11, /* uint256 */ v12 = address(0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2).staticcall(this).gas(msg.gas);
+        if (RETURNDATASIZE() == 0) {
+            v13 = v14 = 96;
+        } else {
+            v13 = v15 = new bytes[](RETURNDATASIZE());
+            RETURNDATACOPY(v15.data, 0, RETURNDATASIZE());
+        }
+        if (v10) {
+            v9 = v16 = MEM[v13] >= 32;
+        }
+        require(v9);
+        require(MEM[v13] >= 32);
+        return MEM[v12];
+    }
+
+    function 0x3f58(int128 varg0) private {
+        return varg0;
+    }
+
+    function 0x3f69(struct(4) varg0) private {
+        require(address(0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640) == this);
+        0x43a1(varg0.word2, varg0.word1);
+        v0 = new struct(7);
+        v0.word0 = address(_slot0);
+        v0.word1 = int24(_slot0 >> 160);
+        v0.word2 = uint16(_slot0 >> 184);
+        v0.word3 = uint16(_slot0 >> 200);
+        v0.word4 = uint16(_slot0 >> 216);
+        v0.word5 = uint8(_slot0 >> 232);
+        v0.word6 = bool(_slot0 >> 240);
+        v1 = 0x4acf(int24(_slot0 >> 160), varg0.word3, varg0.word2, varg0.word1, varg0.word0);
+        if (0 == int128(varg0.word3)) {
+            return 0, 0, v1;
+        } else if (int24(v0.word1) >= int24(varg0.word1)) {
+            if (int24(v0.word1) >= int24(varg0.word2)) {
+                v2 = 0x2d6d(varg0.word1);
+                v3 = 0x2d6d(varg0.word2);
+                v4 = 0x4cc8(varg0.word3, v3, v2);
+                return v4, 0, v1;
+            } else {
+                v5 = v6 = v0.word2;
+                v7 = v8 = v0.word3;
+                v7 = v9 = v0.word4;
+                assert(uint16(v6) < uint16.max);
+                v10 = new struct(4);
+                v10.word0 = uint32(STORAGE[8 + uint16(v6)]);
+                v10.word1 = int56(STORAGE[8 + uint16(v6)] >> 32);
+                v10.word2 = address(STORAGE[8 + uint16(v6)] >> 88);
+                v10.word3 = bool(STORAGE[8 + uint16(v6)] >> 248);
+                if (uint32(block.timestamp) != uint32(STORAGE[8 + uint16(v6)])) {
+                    v11 = v12 = uint16(v9) > uint16(v8);
+                    if (v12) {
+                        v11 = uint16(v6) == uint16(v8 - 1);
+                    }
+                    if (v11) {
+                    }
+                    assert(uint16(v7));
+                    v5 = v13 = uint16(1 + v6) % uint16(v7);
+                    v14 = 0x4822(_liquidity, v0.word1, block.timestamp, v10);
+                    assert(uint16(v13) < uint16.max);
+                    STORAGE[8 + uint16(v13)] = uint248(((bytes28(STORAGE[8 + uint16(v13)]) | uint32(v14.word0)) & 0xffffffffffffffffffffffffffffffffffffffffff00000000000000ffffffff | uint56(int56(v14.word1)) << 32) & 0xff0000000000000000000000000000000000000000ffffffffffffffffffffff | address(v14.word2) << 88) | bool(v14.word3) << 248;
+                }
+                _slot0 = uint16(v5) << 184 | 0xffffffffffffff0000ffffffffffffffffffffffffffffffffffffffffffffff & (uint16(v7) << 200 | 0xffffffffff0000ffffffffffffffffffffffffffffffffffffffffffffffffff & _slot0);
+                v15 = 0x2d6d(varg0.word2);
+                v16 = 0x4c84(varg0.word3, v15, v0.word0);
+                v17 = 0x2d6d(varg0.word1);
+                v18 = 0x4cc8(varg0.word3, v0.word0, v17);
+                v19 = _SafeAdd(varg0.word3, _liquidity);
+                _liquidity = v19;
+                return v18, v16, v1;
+            }
+        } else {
+            v20 = 0x2d6d(varg0.word1);
+            v21 = 0x2d6d(varg0.word2);
+            v22 = 0x4c84(varg0.word3, v21, v20);
+            return 0, v22, v1;
+        }
+    }
+
+    function 0x41a9(uint256 varg0, uint256 varg1, uint256 varg2) private {
+        v0 = 0x32d9(varg0, varg1, varg2);
+        assert(varg0);
+        if (varg2 * varg1 % varg0 <= 0) {
+            return v0;
+        } else {
+            require(v0 < uint256.max);
+            return 1 + v0;
+        }
+    }
+
+    function 0x43a1(int24 varg0, int24 varg1) private {
+        require(varg1 < varg0, Error(0x544c55));
+        require(varg1 >= 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffff27618, Error(0x544c4d));
+        require(varg0 <= 0xd89e8, Error(0x54554d));
+        return ;
+    }
+
+    function 0x44c8(uint256 varg0) private {
+        v0 = v1 = 0;
+        require(varg0 > v1);
+        if (varg0 >= uint128.max + 1) {
+            varg0 = v2 = varg0 >> 128;
+            v0 = v3 = 128;
+        }
+        if (varg0 >= uint64.max + 1) {
+            varg0 = v4 = varg0 >> 64;
+            v0 = v5 = 64 + v0;
+        }
+        if (varg0 >= uint32.max + 1) {
+            varg0 = v6 = varg0 >> 32;
+            v0 = v7 = 32 + v0;
+        }
+        if (varg0 >= uint16.max + 1) {
+            varg0 = v8 = varg0 >> 16;
+            v0 = v9 = 16 + v0;
+        }
+        if (varg0 >= uint8.max + 1) {
+            varg0 = v10 = varg0 >> 8;
+            v0 = v11 = 8 + v0;
+        }
+        if (varg0 >= 16) {
+            varg0 = v12 = varg0 >> 4;
+            v0 = v13 = 4 + v0;
+        }
+        if (varg0 >= 4) {
+            varg0 = v14 = varg0 >> 2;
+            v0 = v15 = 2 + v0;
+        }
+        if (varg0 < 2) {
+            return v0;
+        } else {
+            return 1 + v0;
+        }
+    }
+
+    function feeGrowthGlobal1X128() public payable {  find similar
+        return _feeGrowthGlobal1X128;
+    }
+
+    function 0x4568(uint256 varg0) private {
+        require(varg0 > 0);
+        v0 = v1 = uint8.max;
+        if (!uint128(varg0)) {
+            varg0 = v2 = varg0 >> 128;
+        } else {
+            v0 = v3 = int8.max;
+        }
+        if (!uint64(varg0)) {
+            varg0 = v4 = varg0 >> 64;
+        } else {
+            v0 = v5 = v0 - 64;
+        }
+        if (!uint32(varg0)) {
+            varg0 = v6 = varg0 >> 32;
+        } else {
+            v0 = v7 = v0 - 32;
+        }
+        if (!uint16(varg0)) {
+            varg0 = v8 = varg0 >> 16;
+        } else {
+            v0 = v9 = v0 - 16;
+        }
+        if (!uint8(varg0)) {
+            varg0 = v10 = varg0 >> 8;
+        } else {
+            v0 = v11 = v0 - 8;
+        }
+        if (!bool(varg0)) {
+            varg0 = v12 = varg0 >> 4;
+        } else {
+            v0 = v13 = v0 - 4;
+        }
+        if (!(varg0 & 0x3)) {
+            varg0 = v14 = varg0 >> 2;
+        } else {
+            v0 = v15 = v0 - 2;
+        }
+        if (!(varg0 & 0x1)) {
+            return v0;
+        } else {
+            return uint256.max + v0;
+        }
+    }
+
+    function 0x4652(uint256 varg0, uint128 varg1, uint256 varg2, uint256 varg3) private {
+        if (address(varg3) > address(varg2)) {
+        }
+        if (varg0) {
+            v0 = 0x41a9(uint96.max + 1, address(varg3 - varg3), varg1);
+            return v0;
+        } else {
+            v1 = 0x32d9(uint96.max + 1, address(varg3 - varg3), varg1);
+            return v1;
+        }
+    }
+
+    function 0x46cd(uint256 varg0, uint256 varg1, uint256 varg2, uint256 varg3) private {
+        if (address(varg3) > address(varg2)) {
+        }
+        v0 = address(varg3 - varg3);
+        require(address(varg3));
+        if (varg0) {
+            v1 = 0x41a9(address(varg3), v0, varg1 << 96 & 0xffffffffffffffffffffffffffffffff000000000000000000000000);
+            return bool(v1 % address(varg3)) + v1 / address(varg3);
+        } else {
+            v2 = 0x32d9(address(varg3), v0, varg1 << 96 & 0xffffffffffffffffffffffffffffffff000000000000000000000000);
+            assert(address(varg3));
+            return v2 / address(varg3);
+        }
+    }
+
+    function flash(address recipient, uint256 amount0, uint256 amount1, bytes data) public payable {  find similar
+        require(msg.data.length - 4 >= 128);
+        require(data <= uint32.max + 1);
+        require(data.data <= 4 + (msg.data.length - 4));
+        require(!((data.length > uint32.max + 1) | (data.data + data.length > 4 + (msg.data.length - 4))));
+        require(uint8(_slot0 >> 240), Error(0x4c4f4b));
+        _slot0 = 0xff00ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff & _slot0;
+        require(address(0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640) == this);
+        require(_liquidity, Error(76));
+        v0 = 0x41a9(10 ** 6, uint24(500), amount0);
+        v1 = 0x41a9(10 ** 6, uint24(500), amount1);
+        v2 = 0x3cd4();
+        v3 = 0x3e1d();
+        if (amount0) {
+            0x3b86(amount0, recipient, 0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48);
+        }
+        if (amount1) {
+            0x3b86(amount1, recipient, 0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2);
+        }
+        v4 = new bytes[](data.length);
+        CALLDATACOPY(v4.data, data.data, data.length);
+        v4[data.length] = 0;
+        require(bool(msg.sender.code.size));
+        v5 = msg.sender.uniswapV3FlashCallback(v0, v1, v4).gas(msg.gas);
+        require(bool(v5), 0, RETURNDATASIZE()); // checks call status, propagates error data on error
+        v6 = 0x3cd4();
+        v7 = 0x3e1d();
+        v8 = _SafeAdd(v0, v2);
+        require(v8 <= v6, Error(17968));
+        v9 = _SafeAdd(v1, v3);
+        require(v9 <= v7, Error(17969));
+        if (v6 - v2) {
+            if (!bool(_slot0 >> 232)) {
+                v10 = v11 = 0;
+            } else {
+                assert(uint8(bool(_slot0 >> 232)));
+                v10 = v12 = (v6 - v2) / uint8(bool(_slot0 >> 232));
+            }
+            if (uint128(v10)) {
+                _protocolFees += v10;
+            }
+            v13 = 0x32d9(_liquidity, uint128.max + 1, v6 - v2 - v10);
+            _feeGrowthGlobal0X128 += v13;
+        }
+        if (v7 - v3) {
+            if (!bool(_slot0 >> 232 >> 4)) {
+                v14 = v15 = 0;
+            } else {
+                assert(uint8(bool(_slot0 >> 232 >> 4)));
+                v14 = v16 = (v7 - v3) / uint8(bool(_slot0 >> 232 >> 4));
+            }
+            if (uint128(v14)) {
+                stor_3_16_31 += v14;
+            }
+            v17 = 0x32d9(_liquidity, uint128.max + 1, v7 - v3 - v14);
+            _feeGrowthGlobal1X128 += v17;
+        }
+        emit Flash(msg.sender, recipient, amount0, amount1, v6 - v2, v7 - v3);
+        _slot0 = 0x1000000000000000000000000000000000000000000000000000000000000 | 0xff00ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff & _slot0;
+    }
+
+    function 0x478a(uint256 varg0, uint256 varg1, uint256 varg2, uint256 varg3) private {
+        require(address(varg3) > 0);
+        require(uint128(varg2) > 0);
+        if (varg0) {
+            v0 = 0x4de3(1, varg1, varg2, varg3);
+            return v0;
+        } else {
+            v1 = 0x4d02(1, varg1, varg2, varg3);
+            return v1;
+        }
+    }
+
+    function 0x47d6(uint256 varg0, uint256 varg1, uint256 varg2, uint256 varg3) private {
+        require(address(varg3) > 0);
+        require(uint128(varg2) > 0);
+        if (varg0) {
+            v0 = 0x4d02(0, varg1, varg2, varg3);
+            return v0;
+        } else {
+            v1 = 0x4de3(0, varg1, varg2, varg3);
+            return v1;
+        }
+    }
+
+    function 0x4822(uint256 varg0, int24 varg1, uint256 varg2, struct(4) varg3) private {
+        MEM[MEM[64]] = 0;
+        MEM[MEM[64] + 32] = 0;
+        MEM[MEM[64] + 64] = 0;
+        MEM[MEM[64] + 96] = 0;
+        v0 = new struct(4);
+        v0.word0 = uint32(varg2);
+        v0.word1 = int56(varg3.word1 + varg1 * uint32(varg2 - varg3.word0));
+        if (uint128(varg0) <= 0) {
+            varg0 = v1 = 1;
+        }
+        assert(uint128(varg0));
+        v0.word2 = address(varg3.word2 + (varg2 - varg3.word0 << 128 & 0xffffffff00000000000000000000000000000000) / uint128(varg0));
+        v0.word3 = True;
+        return v0;
+    }
+
+    function 0x4acf(int24 varg0, uint256 varg1, int24 varg2, int24 varg3, uint256 varg4) private {
+        MEM[64] = MEM[64] + 58;
+        v0 = keccak256(bytes20(varg4 << 96), varg3, varg2);
+        v1 = v2 = 0;
+        if (int128(varg1)) {
+            if (uint32(0)) {
+                MEM[64] = MEM[64] + 128;
+                MEM[MEM[64]] = 0;
+                MEM[MEM[64] + 32] = 0;
+                MEM[MEM[64] + 64] = 0;
+                MEM[MEM[64] + 96] = 0;
+                v3 = v4 = MEM[64];
+                MEM[v4] = 0;
+                MEM[v4 + 32] = 0;
+                MEM[v4 + 64] = 0;
+                MEM[v4 + 96] = 0;
+                assert(uint16(_slot0 >> 184) < uint16.max);
+                v5 = v6 = new struct(4);
+                v6.word0 = uint32(STORAGE[8 + uint16(_slot0 >> 184)]);
+                v6.word1 = int56(STORAGE[8 + uint16(_slot0 >> 184)] >> 32);
+                v6.word2 = address(STORAGE[8 + uint16(_slot0 >> 184)] >> 88);
+                v6.word3 = bool(STORAGE[8 + uint16(_slot0 >> 184)] >> 248);
+                v7 = 0x4ed8(block.timestamp - 0, uint32(STORAGE[8 + uint16(_slot0 >> 184)]), block.timestamp);
+                if (!v7) {
+                    assert(uint16(_slot0 >> 200));
+                    assert(uint16(uint16(1 + uint16(_slot0 >> 184)) % uint16(_slot0 >> 200)) < uint16.max);
+                    v8 = v9 = new struct(4);
+                    v9.word0 = uint32(STORAGE[uint16(uint16(1 + uint16(_slot0 >> 184)) % uint16(_slot0 >> 200)) + 8]);
+                    v9.word1 = int56(STORAGE[uint16(uint16(1 + uint16(_slot0 >> 184)) % uint16(_slot0 >> 200)) + 8] >> 32);
+                    v9.word2 = address(STORAGE[uint16(uint16(1 + uint16(_slot0 >> 184)) % uint16(_slot0 >> 200)) + 8] >> 88);
+                    v9.word3 = bool(STORAGE[uint16(uint16(1 + uint16(_slot0 >> 184)) % uint16(_slot0 >> 200)) + 8] >> 248);
+                    if (!bool(STORAGE[uint16(uint16(1 + uint16(_slot0 >> 184)) % uint16(_slot0 >> 200)) + 8] >> 248)) {
+                        v8 = v10 = new struct(4);
+                        v10.word0 = stor_8_0_3;
+                        v10.word1 = stor_8_4_10;
+                        v10.word2 = stor_8_11_30;
+                        v10.word3 = stor_8_31_31;
+                    }
+                    v11 = 0x4ed8(block.timestamp - 0, MEM[v8], block.timestamp);
+                    require(v11, Error(0x4f4c44));
+                    MEM[64] = MEM[64] + 128;
+                    MEM[MEM[64]] = 0;
+                    MEM[MEM[64] + 32] = 0;
+                    MEM[MEM[64] + 64] = 0;
+                    MEM[MEM[64] + 96] = 0;
+                    MEM[64] = MEM[64] + 128;
+                    MEM[MEM[64]] = 0;
+                    MEM[MEM[64] + 32] = 0;
+                    MEM[MEM[64] + 64] = 0;
+                    MEM[MEM[64] + 96] = 0;
+                    assert(uint16(_slot0 >> 200));
+                    v12 = v13 = uint16(uint16(1 + uint16(_slot0 >> 184)) % uint16(_slot0 >> 200));
+                    v14 = v15 = v13 + uint16(_slot0 >> 200) - 1;
+                    while (1) {
+                        assert(uint16(_slot0 >> 200));
+                        assert((v12 + v14 >> 1) % uint16(_slot0 >> 200) < uint16.max);
+                        v5 = new struct(4);
+                        v5.word0 = uint32(STORAGE[(v12 + v14 >> 1) % uint16(_slot0 >> 200) + 8]);
+                        v5.word1 = int56(STORAGE[(v12 + v14 >> 1) % uint16(_slot0 >> 200) + 8] >> 32);
+                        v5.word2 = address(STORAGE[(v12 + v14 >> 1) % uint16(_slot0 >> 200) + 8] >> 88);
+                        v5.word3 = bool(STORAGE[(v12 + v14 >> 1) % uint16(_slot0 >> 200) + 8] >> 248);
+                        if (bool(STORAGE[(v12 + v14 >> 1) % uint16(_slot0 >> 200) + 8] >> 248)) {
+                            assert(uint16(_slot0 >> 200));
+                            assert((1 + (v12 + v14 >> 1)) % uint16(_slot0 >> 200) < uint16.max);
+                            v3 = new struct(4);
+                            v3.word0 = uint32(STORAGE[(1 + (v12 + v14 >> 1)) % uint16(_slot0 >> 200) + 8]);
+                            v3.word1 = int56(STORAGE[(1 + (v12 + v14 >> 1)) % uint16(_slot0 >> 200) + 8] >> 32);
+                            v3.word2 = address(STORAGE[(1 + (v12 + v14 >> 1)) % uint16(_slot0 >> 200) + 8] >> 88);
+                            v3.word3 = bool(STORAGE[(1 + (v12 + v14 >> 1)) % uint16(_slot0 >> 200) + 8] >> 248);
+                            v16 = v17 = 0x4ed8(block.timestamp - 0, v5.word0, block.timestamp);
+                            if (v17) {
+                                v16 = 0x4ed8(v3.word0, block.timestamp - 0, block.timestamp);
+                            }
+                            if (!v16) {
+                                if (v17) {
+                                    v12 = 1 + (v12 + v14 >> 1);
+                                } else {
+                                    v14 = (v12 + v14 >> 1) - 1;
+                                }
+                            } else {
+                                break;
+                            }
+                        } else {
+                            v12 = 1 + (v12 + v14 >> 1);
+                        }
+                    }
+                } else if (uint32(v6.word0) != uint32(block.timestamp - 0)) {
+                    v3 = v18 = 0x4822(_liquidity, int24(_slot0 >> 160), block.timestamp - 0, v6);
+                }
+                if (uint32(block.timestamp - 0) != uint32(MEM[v5])) {
+                    if (uint32(MEM[v3]) != uint32(block.timestamp - 0)) {
+                        assert(uint32(MEM[v3] - MEM[v5]));
+                        v19 = v20 = MEM[32 + v5] + int56(MEM[v3 + 32] - MEM[v5 + 32]) / uint32(MEM[v3] - MEM[v5]) * uint32(block.timestamp - 0 - MEM[v5]);
+                        assert(uint32(MEM[v3] - MEM[v5]));
+                        v21 = v22 = MEM[64 + v5] + address(MEM[64 + v3] - MEM[64 + v5]) * uint32(block.timestamp - 0 - MEM[v5]) / uint32(MEM[v3] - MEM[v5]);
+                    } else {
+                        v19 = v23 = MEM[32 + v3];
+                        v21 = v24 = MEM[64 + v3];
+                    }
+                } else {
+                    v19 = v25 = MEM[32 + v5];
+                    v21 = v26 = MEM[64 + v5];
+                }
+            } else {
+                assert(uint16(_slot0 >> 184) < uint16.max);
+                v27 = new struct(4);
+                v27.word0 = uint32(STORAGE[8 + uint16(_slot0 >> 184)]);
+                v27.word1 = int56(STORAGE[8 + uint16(_slot0 >> 184)] >> 32);
+                v27.word2 = address(STORAGE[8 + uint16(_slot0 >> 184)] >> 88);
+                v27.word3 = bool(STORAGE[8 + uint16(_slot0 >> 184)] >> 248);
+                if (uint32(block.timestamp) == uint32(STORAGE[8 + uint16(_slot0 >> 184)])) {
+                    v19 = v28 = v27.word1;
+                    v21 = v29 = v27.word2;
+                } else {
+                    v30 = 0x4822(_liquidity, int24(_slot0 >> 160), block.timestamp, v27);
+                    v19 = v31 = v30.word1;
+                    v21 = v32 = v30.word2;
+                }
+            }
+            v33 = varg3;
+            v34 = _SafeAdd(varg1, _ticks[v33].field0_0_15);
+            require(uint128(v34) <= uint128(0x5e8b2285f864419ac400be907196), Error(19535));
+            v1 = v35 = !_ticks[v33].field0_0_15 != !uint128(v34);
+            if (!bool(_ticks[v33].field0_0_15)) {
+                if (varg3 <= varg0) {
+                    _ticks[v33].field1 = _feeGrowthGlobal0X128;
+                    _ticks[v33].field2 = _feeGrowthGlobal1X128;
+                    _ticks[v33].field3_0_6 = int56(v19);
+                    _ticks[v33].field3_27_30 = block.timestamp;
+                    _ticks[v33].field3_7_26 = v21;
+                }
+                _ticks[v33].field3_31_31 = 1;
+            }
+            _ticks[v33].field0_0_15 = v34;
+            if (0) {
+                v36 = _SafeSub(int128(varg1), _ticks[v33].field0_16_31);
+                v37 = 0x3f58(v36);
+            } else {
+                v38 = _SafeAdd(int128(varg1), _ticks[v33].field0_16_31);
+                v37 = v39 = 0x3f58(v38);
+            }
+            _ticks[v33].field0_16_31 = int128(v37);
+            v40 = varg2;
+            v41 = _SafeAdd(varg1, _ticks[v40].field0_0_15);
+            require(uint128(v41) <= uint128(0x5e8b2285f864419ac400be907196), Error(19535));
+            v1 = !_ticks[v40].field0_0_15 != !uint128(v41);
+            if (!bool(_ticks[v40].field0_0_15)) {
+                if (varg2 <= varg0) {
+                    _ticks[v40].field1 = _feeGrowthGlobal0X128;
+                    _ticks[v40].field2 = _feeGrowthGlobal1X128;
+                    _ticks[v40].field3_0_6 = int56(v19);
+                    _ticks[v40].field3_27_30 = block.timestamp;
+                    _ticks[v40].field3_7_26 = v21;
+                }
+                _ticks[v40].field3_31_31 = 1;
+            }
+            _ticks[v40].field0_0_15 = v41;
+            if (1) {
+                v42 = _SafeSub(int128(varg1), _ticks[v40].field0_16_31);
+                v43 = 0x3f58(v42);
+            } else {
+                v44 = _SafeAdd(int128(varg1), _ticks[v40].field0_16_31);
+                v43 = v45 = 0x3f58(v44);
+            }
+            _ticks[v40].field0_16_31 = int128(v43);
+            if (!_ticks[v33].field0_0_15 != !uint128(v34)) {
+                assert(int24(10));
+                require(!int24(varg3 % int24(10)));
+                assert(int24(10));
+                _tickBitmap[int16(int24(varg3 / int24(10)) >> 8)] = _tickBitmap[int16(int24(varg3 / int24(10)) >> 8)] ^ 1 << uint8(int24(varg3 / int24(10)) % (uint8.max + 1));
+            }
+            if (!_ticks[v40].field0_0_15 != !uint128(v41)) {
+                assert(int24(10));
+                require(!int24(varg2 % int24(10)));
+                assert(int24(10));
+                _tickBitmap[int16(int24(varg2 / int24(10)) >> 8)] = _tickBitmap[int16(int24(varg2 / int24(10)) >> 8)] ^ 1 << uint8(int24(varg2 / int24(10)) % (uint8.max + 1));
+            }
+        }
+        v46 = varg3;
+        v47 = varg2;
+        if (varg0 < varg3) {
+            v48 = v49 = _feeGrowthGlobal0X128 - _ticks[v46].field1;
+            v50 = v51 = _feeGrowthGlobal1X128 - _ticks[v46].field2;
+        } else {
+            v48 = v52 = _ticks[v46].field1;
+            v50 = v53 = _ticks[v46].field2;
+        }
+        if (varg0 >= varg2) {
+            v54 = v55 = _feeGrowthGlobal0X128 - _ticks[v47].field1;
+            v56 = v57 = _feeGrowthGlobal1X128 - _ticks[v47].field2;
+        } else {
+            v54 = v58 = _ticks[v47].field1;
+            v56 = v59 = _ticks[v47].field2;
+        }
+        v60 = new struct(5);
+        v60.word0 = _positions[v0].field0_0_15;
+        v60.word1 = _positions[v0].field1;
+        v60.word2 = _positions[v0].field2;
+        v60.word3 = _positions[v0].field3_0_15;
+        v60.word4 = _positions[v0].field3_16_31;
+        if (int128(varg1)) {
+            v61 = v62 = _SafeAdd(varg1, v60.word0);
+        } else {
+            require(uint128(v60.word0), Error(20048));
+            v61 = v63 = v60.word0;
+        }
+        v64 = 0x32d9(uint128.max + 1, uint128(v60.word0), _feeGrowthGlobal0X128 - v48 - v54 - v60.word1);
+        v65 = 0x32d9(uint128.max + 1, uint128(v60.word0), _feeGrowthGlobal1X128 - v50 - v56 - v60.word2);
+        if (0 != int128(varg1)) {
+            _positions[v0].field0_0_15 = v61;
+        }
+        _positions[v0].field1 = _feeGrowthGlobal0X128 - v48 - v54;
+        _positions[v0].field2 = _feeGrowthGlobal1X128 - v50 - v56;
+        v66 = v67 = bool(uint128(v64));
+        if (!v67) {
+            v66 = uint128(v65) > 0;
+        }
+        if (v66) {
+            _positions[v0].field3_0_15 += v64;
+            _positions[v0].field3_16_31 = v65 + uint128((uint128(v64 + _positions[v0].field3_0_15) | _positions[v0].field3_16_31) >> 128);
+        }
+        if (int128(varg1) >= 0) {
+            return keccak256(v0, 7);
+        } else {
+            if (v1) {
+                v68 = varg3;
+                _ticks[v68].field0_0_15 = 0;
+                _ticks[v68].field0_16_31 = 0;
+                _ticks[v68].field1 = 0;
+                _ticks[v68].field2 = 0;
+                _ticks[v68].field3_0_6 = 0;
+                _ticks[v68].field3_27_30 = 0;
+                _ticks[v68].field3_31_31 = 0;
+                _ticks[v68].field3_7_26 = 0;
+            }
+            if (!v1) {
+                return keccak256(v0, 7);
+            } else {
+                v69 = varg2;
+                _ticks[v69].field0_0_15 = 0;
+                _ticks[v69].field0_16_31 = 0;
+                _ticks[v69].field1 = 0;
+                _ticks[v69].field2 = 0;
+                _ticks[v69].field3_0_6 = 0;
+                _ticks[v69].field3_27_30 = 0;
+                _ticks[v69].field3_31_31 = 0;
+                _ticks[v69].field3_7_26 = 0;
+                return keccak256(v0, 7);
+            }
+        }
+    }
+
+    function 0x4c84(uint256 varg0, uint256 varg1, uint256 varg2) private {
+        if (int128(varg0) < 0) {
+            v0 = 0x46cd(0, 0 - varg0, varg1, varg2);
+            v1 = 0x3291(v0);
+            return 0 - v1;
+        } else {
+            v2 = 0x46cd(1, varg0, varg1, varg2);
+            v3 = 0x3291(v2);
+            return v3;
+        }
+    }
+
+    function 0x4cc8(uint256 varg0, uint256 varg1, uint256 varg2) private {
+        if (int128(varg0) < 0) {
+            v0 = 0x4652(0, 0 - varg0, varg1, varg2);
+            v1 = 0x3291(v0);
+            return 0 - v1;
+        } else {
+            v2 = 0x4652(1, varg0, varg1, varg2);
+            v3 = 0x3291(v2);
+            return v3;
+        }
+    }
+
+    function 0x4d02(uint256 varg0, uint256 varg1, uint128 varg2, address varg3) private {
+        if (!varg0) {
+            if (varg1 <= uint160.max) {
+                v0 = bool((varg1 << 96) % varg2) + (varg1 << 96) / varg2;
+            } else {
+                v0 = v1 = 0x41a9(varg2, uint96.max + 1, varg1);
+            }
+            require(varg3 > v0);
+            return varg3 - v0;
+        } else {
+            if (varg1 <= uint160.max) {
+                assert(varg2);
+                v2 = v3 = (varg1 << 96) / varg2;
+            } else {
+                v2 = v4 = 0x32d9(varg2, uint96.max + 1, varg1);
+            }
+            v5 = _SafeAdd(v2, varg3);
+            v6 = 0x55f8(v5);
+            return v6;
+        }
+    }
+
+    function 0x4de3(uint256 varg0, uint256 varg1, uint256 varg2, uint256 varg3) private {
+        if (varg1) {
+            v0 = varg2 << 96 & 0xffffffffffffffffffffffffffffffff000000000000000000000000;
+            if (!varg0) {
+                v1 = address(varg3) * varg1;
+                assert(varg1);
+                v2 = v3 = v1 / varg1 == address(varg3);
+                if (v3) {
+                    v2 = v4 = v0 > v1;
+                }
+                require(v2);
+                v5 = 0x41a9(v0 - v1, address(varg3), v0);
+                v6 = 0x55f8(v5);
+                return v6;
+            } else {
+                assert(varg1);
+                if (address(varg3) * varg1 / varg1 == address(varg3)) {
+                    if (address(varg3) * varg1 + v0 >= v0) {
+                        v7 = 0x41a9(address(varg3) * varg1 + v0, address(varg3), v0);
+                        return v7;
+                    }
+                }
+                assert(address(varg3));
+                require(v0 / address(varg3) + varg1 >= v0 / address(varg3));
+                return bool(v0 % (v0 / address(varg3) + varg1)) + v0 / (v0 / address(varg3) + varg1);
+            }
+        } else {
+            return varg3;
+        }
+    }
+
+    function 0x4ed8(uint32 varg0, uint32 varg1, uint32 varg2) private {
+        v0 = v1 = varg1 <= varg2;
+        if (varg1 <= varg2) {
+            v0 = v2 = varg0 <= varg2;
+        }
+        if (!v0) {
+            if (varg1 > varg2) {
+                v3 = v4 = varg1;
+            } else {
+                v3 = v5 = uint32.max + 1 + varg1;
+            }
+            if (varg0 > varg2) {
+                v6 = v7 = varg0;
+            } else {
+                v6 = v8 = uint32.max + 1 + varg0;
+            }
+            return uint40(v3) <= uint40(v6);
+        } else {
+            return varg1 <= varg0;
+        }
+    }
+
+    function collect(address recipient, int24 tickLower, int24 tickUpper, uint128 amount0Requested, uint128 amount1Requested) public payable {  find similar
+        require(msg.data.length - 4 >= 160);
+        v0 = v1 = amount0Requested;
+        v2 = v3 = amount1Requested;
+        require(uint8(_slot0 >> 240), Error(0x4c4f4b));
+        _slot0 = 0xff00ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff & _slot0;
+        MEM[64] = MEM[64] + 58;
+        v4 = keccak256(bytes20(msg.sender << 96), tickLower, tickUpper);
+        if (uint128(v1) > _positions[v4].field3_0_15) {
+            v0 = v5 = _positions[v4].field3_0_15;
+        }
+        if (uint128(v3) > _positions[v4].field3_16_31) {
+            v2 = v6 = _positions[v4].field3_16_31;
+        }
+        if (uint128(v0)) {
+            _positions[v4].field3_0_15 = _positions[v4].field3_0_15 - v0;
+            0x3b86(uint128(v0), recipient, 0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48);
+        }
+        if (uint128(v2)) {
+            _positions[v4].field3_16_31 = _positions[v4].field3_16_31 - v2;
+            0x3b86(uint128(v2), recipient, 0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2);
+        }
+        emit Collect(msg.sender, tickLower, tickUpper, recipient, uint128(v0), uint128(v2));
+        _slot0 = 0x1000000000000000000000000000000000000000000000000000000000000 | 0xff00ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff & _slot0;
+        return uint128(v0), uint128(v2);
+    }
+
+    function positions(bytes32 varg0) public payable {  find similar
+        require(msg.data.length - 4 >= 32);
+        return _positions[varg0].field0_0_15, _positions[varg0].field1, _positions[varg0].field2, _positions[varg0].field3_0_15, _positions[varg0].field3_16_31;
+    }
+
+    function 0x55f8(address varg0) private {
+        return varg0;
+    }
+
+    function tickBitmap(int16 varg0) public payable {  find similar
+        require(msg.data.length - 4 >= 32);
+        return _tickBitmap[varg0];
+    }
+
+    function maxLiquidityPerTick() public payable {  find similar
+        return uint128(0x5e8b2285f864419ac400be907196);
+    }
+
+    function setFeeProtocol(uint8 feeProtocol0, uint8 feeProtocol1) public payable {  find similar
+        require(msg.data.length - 4 >= 64);
+        require(uint8(_slot0 >> 240), Error(0x4c4f4b));
+        _slot0 = 0xff00ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff & _slot0;
+        require(bool((address(0x1f98431c8ad98523631ae4a59f267346ea31f984)).code.size));
+        v0, /* address */ v1 = address(0x1f98431c8ad98523631ae4a59f267346ea31f984).owner().gas(msg.gas);
+        require(bool(v0), 0, RETURNDATASIZE()); // checks call status, propagates error data on error
+        require(RETURNDATASIZE() >= 32);
+        require(msg.sender == address(v1));
+        v2 = v3 = !feeProtocol0;
+        if (feeProtocol0) {
+            v2 = v4 = feeProtocol0 >= 4;
+            if (feeProtocol0 >= 4) {
+                v2 = v5 = feeProtocol0 <= 10;
+            }
+        }
+        if (v2) {
+            v2 = v6 = !feeProtocol1;
+            if (feeProtocol1) {
+                v2 = v7 = feeProtocol1 >= 4;
+                if (feeProtocol1 >= 4) {
+                    v2 = v8 = feeProtocol1 <= 10;
+                }
+            }
+        }
+        require(v2);
+        v9 = _slot0;
+        _slot0 = v9 & 0xffff00ffffffffffffffffffffffffffffffffffffffffffffffffffffffffff | uint8(feeProtocol0 + (feeProtocol1 << 4 & 0xff0)) << 232;
+        emit SetFeeProtocol(uint8(uint8(v9 >> 232) % 16), bool(uint8(v9 >> 232) >> 4), feeProtocol0, feeProtocol1);
+        _slot0 = 0x1000000000000000000000000000000000000000000000000000000000000 | 0xff00ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff & _slot0;
+    }
+
+    function collectProtocol(address recipient, uint128 amount0Requested, uint128 amount1Requested) public payable {  find similar
+        require(msg.data.length - 4 >= 96);
+        v0 = v1 = amount0Requested;
+        v2 = v3 = amount1Requested;
+        require(uint8(_slot0 >> 240), Error(0x4c4f4b));
+        _slot0 = 0xff00ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff & _slot0;
+        require(bool((address(0x1f98431c8ad98523631ae4a59f267346ea31f984)).code.size));
+        v4, /* address */ v5 = address(0x1f98431c8ad98523631ae4a59f267346ea31f984).owner().gas(msg.gas);
+        require(bool(v4), 0, RETURNDATASIZE()); // checks call status, propagates error data on error
+        require(RETURNDATASIZE() >= 32);
+        require(msg.sender == address(v5));
+        if (uint128(v1) > _protocolFees) {
+            v0 = v6 = _protocolFees;
+        }
+        if (uint128(v3) > stor_3_16_31) {
+            v2 = v7 = stor_3_16_31;
+        }
+        if (uint128(v0)) {
+            if (_protocolFees == uint128(v0)) {
+                v0 = v8 = v0 - 1;
+            }
+            _protocolFees = _protocolFees - v0;
+            0x3b86(uint128(v0), recipient, 0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48);
+        }
+        if (uint128(v2)) {
+            if (stor_3_16_31 == uint128(v2)) {
+                v2 = v9 = uint256.max + v2;
+            }
+            stor_3_16_31 = stor_3_16_31 - v2;
+            0x3b86(uint128(v2), recipient, 0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2);
+        }
+        emit CollectProtocol(msg.sender, recipient, uint128(v0), uint128(v2));
+        _slot0 = 0x1000000000000000000000000000000000000000000000000000000000000 | 0xff00ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff & _slot0;
+        return uint128(v0), uint128(v2);
+    }
+
+    function observe(uint32[] secondsAgos) public payable {  find similar
+        require(msg.data.length - 4 >= 32);
+        require(secondsAgos <= uint32.max + 1);
+        require(secondsAgos.data <= 4 + (msg.data.length - 4));
+        require(!((secondsAgos.length > uint32.max + 1) | (secondsAgos.data + (secondsAgos.length << 5) > 4 + (msg.data.length - 4))));
+        require(address(0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640) == this);
+        v0 = new uint256[](secondsAgos.length);
+        CALLDATACOPY(v0.data, secondsAgos.data, secondsAgos.length << 5);
+        v0[secondsAgos.length] = 0;
+        require(uint16(_slot0 >> 200) > 0, Error(73));
+        require(v0.length <= uint64.max);
+        v1 = new uint256[](v0.length);
+        if (v0.length) {
+            CALLDATACOPY(v1.data, msg.data.length, v0.length << 5);
+        }
+        require(v0.length <= uint64.max);
+        v2 = new uint256[](v0.length);
+        if (v0.length) {
+            CALLDATACOPY(v2.data, msg.data.length, v0.length << 5);
+        }
+        v3 = v4 = 0;
+        while (v3 < v0.length) {
+            assert(v3 < v0.length);
+            if (uint32(v0[v3])) {
+                MEM[64] = MEM[64] + 128;
+                MEM[MEM[64]] = 0;
+                MEM[MEM[64] + 32] = 0;
+                MEM[MEM[64] + 64] = 0;
+                MEM[MEM[64] + 96] = 0;
+                v5 = v6 = MEM[64];
+                MEM[v6] = 0;
+                MEM[v6 + 32] = 0;
+                MEM[v6 + 64] = 0;
+                MEM[v6 + 96] = 0;
+                assert(uint16(_slot0 >> 184) < uint16.max);
+                v7 = v8 = new struct(4);
+                v8.word0 = uint32(STORAGE[8 + uint16(_slot0 >> 184)]);
+                v8.word1 = int56(STORAGE[8 + uint16(_slot0 >> 184)] >> 32);
+                v8.word2 = address(STORAGE[8 + uint16(_slot0 >> 184)] >> 88);
+                v8.word3 = bool(STORAGE[8 + uint16(_slot0 >> 184)] >> 248);
+                v9 = 0x4ed8(block.timestamp - v0[v3], uint32(STORAGE[8 + uint16(_slot0 >> 184)]), block.timestamp);
+                if (!v9) {
+                    assert(uint16(_slot0 >> 200));
+                    assert(uint16(uint16(1 + uint16(_slot0 >> 184)) % uint16(_slot0 >> 200)) < uint16.max);
+                    v10 = v11 = new struct(4);
+                    v11.word0 = uint32(STORAGE[uint16(uint16(1 + uint16(_slot0 >> 184)) % uint16(_slot0 >> 200)) + 8]);
+                    v11.word1 = int56(STORAGE[uint16(uint16(1 + uint16(_slot0 >> 184)) % uint16(_slot0 >> 200)) + 8] >> 32);
+                    v11.word2 = address(STORAGE[uint16(uint16(1 + uint16(_slot0 >> 184)) % uint16(_slot0 >> 200)) + 8] >> 88);
+                    v11.word3 = bool(STORAGE[uint16(uint16(1 + uint16(_slot0 >> 184)) % uint16(_slot0 >> 200)) + 8] >> 248);
+                    if (!bool(STORAGE[uint16(uint16(1 + uint16(_slot0 >> 184)) % uint16(_slot0 >> 200)) + 8] >> 248)) {
+                        v10 = v12 = new struct(4);
+                        v12.word0 = stor_8_0_3;
+                        v12.word1 = stor_8_4_10;
+                        v12.word2 = stor_8_11_30;
+                        v12.word3 = stor_8_31_31;
+                    }
+                    v13 = 0x4ed8(block.timestamp - v0[v3], MEM[v10], block.timestamp);
+                    require(v13, Error(0x4f4c44));
+                    MEM[64] = MEM[64] + 128;
+                    MEM[MEM[64]] = 0;
+                    MEM[MEM[64] + 32] = 0;
+                    MEM[MEM[64] + 64] = 0;
+                    MEM[MEM[64] + 96] = 0;
+                    MEM[64] = MEM[64] + 128;
+                    MEM[MEM[64]] = 0;
+                    MEM[MEM[64] + 32] = 0;
+                    MEM[MEM[64] + 64] = 0;
+                    MEM[MEM[64] + 96] = 0;
+                    assert(uint16(_slot0 >> 200));
+                    v14 = v15 = uint16(uint16(1 + uint16(_slot0 >> 184)) % uint16(_slot0 >> 200));
+                    v16 = v17 = v15 + uint16(_slot0 >> 200) - 1;
+                    while (1) {
+                        assert(uint16(_slot0 >> 200));
+                        assert((v14 + v16 >> 1) % uint16(_slot0 >> 200) < uint16.max);
+                        v7 = new struct(4);
+                        v7.word0 = uint32(STORAGE[(v14 + v16 >> 1) % uint16(_slot0 >> 200) + 8]);
+                        v7.word1 = int56(STORAGE[(v14 + v16 >> 1) % uint16(_slot0 >> 200) + 8] >> 32);
+                        v7.word2 = address(STORAGE[(v14 + v16 >> 1) % uint16(_slot0 >> 200) + 8] >> 88);
+                        v7.word3 = bool(STORAGE[(v14 + v16 >> 1) % uint16(_slot0 >> 200) + 8] >> 248);
+                        if (bool(STORAGE[(v14 + v16 >> 1) % uint16(_slot0 >> 200) + 8] >> 248)) {
+                            assert(uint16(_slot0 >> 200));
+                            assert((1 + (v14 + v16 >> 1)) % uint16(_slot0 >> 200) < uint16.max);
+                            v5 = new struct(4);
+                            v5.word0 = uint32(STORAGE[(1 + (v14 + v16 >> 1)) % uint16(_slot0 >> 200) + 8]);
+                            v5.word1 = int56(STORAGE[(1 + (v14 + v16 >> 1)) % uint16(_slot0 >> 200) + 8] >> 32);
+                            v5.word2 = address(STORAGE[(1 + (v14 + v16 >> 1)) % uint16(_slot0 >> 200) + 8] >> 88);
+                            v5.word3 = bool(STORAGE[(1 + (v14 + v16 >> 1)) % uint16(_slot0 >> 200) + 8] >> 248);
+                            v18 = v19 = 0x4ed8(block.timestamp - v0[v3], v7.word0, block.timestamp);
+                            if (v19) {
+                                v18 = 0x4ed8(v5.word0, block.timestamp - v0[v3], block.timestamp);
+                            }
+                            if (!v18) {
+                                if (v19) {
+                                    v14 = 1 + (v14 + v16 >> 1);
+                                } else {
+                                    v16 = (v14 + v16 >> 1) - 1;
+                                }
+                            } else {
+                                break;
+                            }
+                        } else {
+                            v14 = 1 + (v14 + v16 >> 1);
+                        }
+                    }
+                } else if (uint32(v8.word0) != uint32(block.timestamp - v0[v3])) {
+                    v5 = v20 = 0x4822(_liquidity, int24(_slot0 >> 160), block.timestamp - v0[v3], v8);
+                }
+                if (uint32(block.timestamp - v0[v3]) != uint32(MEM[v7])) {
+                    if (uint32(MEM[v5]) != uint32(block.timestamp - v0[v3])) {
+                        assert(uint32(MEM[v5] - MEM[v7]));
+                        v21 = v22 = MEM[32 + v7] + int56(MEM[v5 + 32] - MEM[v7 + 32]) / uint32(MEM[v5] - MEM[v7]) * uint32(block.timestamp - v0[v3] - MEM[v7]);
+                        assert(uint32(MEM[v5] - MEM[v7]));
+                        v23 = v24 = MEM[64 + v7] + address(MEM[64 + v5] - MEM[64 + v7]) * uint32(block.timestamp - v0[v3] - MEM[v7]) / uint32(MEM[v5] - MEM[v7]);
+                    } else {
+                        v21 = v25 = MEM[32 + v5];
+                        v23 = v26 = MEM[64 + v5];
+                    }
+                } else {
+                    v21 = v27 = MEM[32 + v7];
+                    v23 = v28 = MEM[64 + v7];
+                }
+            } else {
+                assert(uint16(_slot0 >> 184) < uint16.max);
+                v29 = new struct(4);
+                v29.word0 = uint32(STORAGE[8 + uint16(_slot0 >> 184)]);
+                v29.word1 = int56(STORAGE[8 + uint16(_slot0 >> 184)] >> 32);
+                v29.word2 = address(STORAGE[8 + uint16(_slot0 >> 184)] >> 88);
+                v29.word3 = bool(STORAGE[8 + uint16(_slot0 >> 184)] >> 248);
+                if (uint32(block.timestamp) == uint32(STORAGE[8 + uint16(_slot0 >> 184)])) {
+                    v21 = v30 = v29.word1;
+                    v23 = v31 = v29.word2;
+                } else {
+                    v32 = 0x4822(_liquidity, int24(_slot0 >> 160), block.timestamp, v29);
+                    v21 = v32.word1;
+                    v23 = v32.word2;
+                }
+            }
+            assert(v3 < v1.length);
+            assert(v3 < v2.length);
+            v2[v3] = address(v23);
+            v1[v3] = int56(v21);
+            v3 += 1;
+        }
+        v33 = new uint256[](v1.length);
+        v34 = v35 = 0;
+        while (v34 < v1.length << 5) {
+            MEM[v34 + v33.data] = MEM[v34 + v1.data];
+            v34 += 32;
+        }
+        v36 = new uint256[](v2.length);
+        v33[v1.length] = v2.length;
+        v37 = v38 = 0;
+        while (v37 < v2.length << 5) {
+            MEM[v37 + v36.data] = MEM[v37 + v2.data];
+            v37 += 32;
+        }
+        return v33, v36;
+    }
+
+    function burn(int24 tickLower, int24 tickUpper, uint128 amount) public payable {  find similar
+        require(msg.data.length - 4 >= 96);
+        require(uint8(_slot0 >> 240), Error(0x4c4f4b));
+        _slot0 = 0xff00ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff & _slot0;
+        v0 = new struct(4);
+        v0.word0 = msg.sender;
+        v0.word1 = tickLower;
+        v0.word2 = tickUpper;
+        v1 = 0x3f58(amount);
+        v0.word3 = int128(0 - v1);
+        v2, v3, v4 = 0x3f69(v0);
+        v5 = v6 = 0 - v3 > 0;
+        if (0 - v3 <= 0) {
+            v5 = v7 = 0 - v2 > 0;
+        }
+        if (v5) {
+            STORAGE[v4 + 3] = bytes16(uint128(STORAGE[v4 + 3]) | uint128(0 - v2 + uint128(STORAGE[v4 + 3] >> 128)) << 128) | uint128(0 - v3 + uint128(STORAGE[v4 + 3]));
+        }
+        emit 0xc396cd989a39f4459b5fa1aed6a9a8dcdbc45908acfd67e028cd568da98982c(msg.sender, tickLower, tickUpper, amount, 0 - v3, 0 - v2);
+        _slot0 = 0x1000000000000000000000000000000000000000000000000000000000000 | 0xff00ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff & _slot0;
+        return 0 - v3, 0 - v2;
+    }
+
+    function snapshotCumulativesInside(int24 tickLower, int24 tickUpper) public payable {  find similar
+        require(msg.data.length - 4 >= 64);
+        require(address(0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640) == this);
+        0x43a1(tickUpper, tickLower);
+        require(_ticks[tickLower].field3_31_31);
+        require(_ticks[tickUpper].field3_31_31);
+        v0 = new struct(7);
+        v0.word0 = address(_slot0);
+        v0.word1 = int24(_slot0 >> 160);
+        v0.word2 = uint16(_slot0 >> 184);
+        v0.word3 = uint16(_slot0 >> 200);
+        v0.word4 = uint16(_slot0 >> 216);
+        v0.word5 = uint8(_slot0 >> 232);
+        v0.word6 = bool(_slot0 >> 240);
+        if (int24(_slot0 >> 160) >= tickLower) {
+            if (int24(v0.word1) >= tickUpper) {
+                v1 = v2 = _ticks[tickUpper].field3_0_6 - _ticks[tickLower].field3_0_6;
+                v3 = v4 = _ticks[tickUpper].field3_7_26 - _ticks[tickLower].field3_7_26;
+                v5 = v6 = _ticks[tickUpper].field3_27_30 - _ticks[tickLower].field3_27_30;
+            } else {
+                if (uint32(0)) {
+                    MEM[64] = MEM[64] + 128;
+                    MEM[MEM[64]] = 0;
+                    MEM[MEM[64] + 32] = 0;
+                    MEM[MEM[64] + 64] = 0;
+                    MEM[MEM[64] + 96] = 0;
+                    v7 = v8 = MEM[64];
+                    MEM[v8] = 0;
+                    MEM[v8 + 32] = 0;
+                    MEM[v8 + 64] = 0;
+                    MEM[v8 + 96] = 0;
+                    assert(uint16(v0.word2) < uint16.max);
+                    v9 = v10 = new struct(4);
+                    v10.word0 = uint32(STORAGE[8 + uint16(v0.word2)]);
+                    v10.word1 = int56(STORAGE[8 + uint16(v0.word2)] >> 32);
+                    v10.word2 = address(STORAGE[8 + uint16(v0.word2)] >> 88);
+                    v10.word3 = bool(STORAGE[8 + uint16(v0.word2)] >> 248);
+                    v11 = 0x4ed8(block.timestamp - 0, uint32(STORAGE[8 + uint16(v0.word2)]), block.timestamp);
+                    if (!v11) {
+                        assert(uint16(v0.word3));
+                        assert(uint16(uint16(1 + v0.word2) % uint16(v0.word3)) < uint16.max);
+                        v12 = v13 = new struct(4);
+                        v13.word0 = uint32(STORAGE[uint16(uint16(1 + v0.word2) % uint16(v0.word3)) + 8]);
+                        v13.word1 = int56(STORAGE[uint16(uint16(1 + v0.word2) % uint16(v0.word3)) + 8] >> 32);
+                        v13.word2 = address(STORAGE[uint16(uint16(1 + v0.word2) % uint16(v0.word3)) + 8] >> 88);
+                        v13.word3 = bool(STORAGE[uint16(uint16(1 + v0.word2) % uint16(v0.word3)) + 8] >> 248);
+                        if (!bool(STORAGE[uint16(uint16(1 + v0.word2) % uint16(v0.word3)) + 8] >> 248)) {
+                            v12 = v14 = new struct(4);
+                            v14.word0 = stor_8_0_3;
+                            v14.word1 = stor_8_4_10;
+                            v14.word2 = stor_8_11_30;
+                            v14.word3 = stor_8_31_31;
+                        }
+                        v15 = 0x4ed8(block.timestamp - 0, MEM[v12], block.timestamp);
+                        require(v15, Error(0x4f4c44));
+                        MEM[64] = MEM[64] + 128;
+                        MEM[MEM[64]] = 0;
+                        MEM[MEM[64] + 32] = 0;
+                        MEM[MEM[64] + 64] = 0;
+                        MEM[MEM[64] + 96] = 0;
+                        MEM[64] = MEM[64] + 128;
+                        MEM[MEM[64]] = 0;
+                        MEM[MEM[64] + 32] = 0;
+                        MEM[MEM[64] + 64] = 0;
+                        MEM[MEM[64] + 96] = 0;
+                        assert(uint16(v0.word3));
+                        v16 = v17 = uint16(uint16(1 + v0.word2) % uint16(v0.word3));
+                        v18 = v19 = v17 + uint16(v0.word3) - 1;
+                        while (1) {
+                            assert(uint16(v0.word3));
+                            assert((v16 + v18 >> 1) % uint16(v0.word3) < uint16.max);
+                            v9 = new struct(4);
+                            v9.word0 = uint32(STORAGE[(v16 + v18 >> 1) % uint16(v0.word3) + 8]);
+                            v9.word1 = int56(STORAGE[(v16 + v18 >> 1) % uint16(v0.word3) + 8] >> 32);
+                            v9.word2 = address(STORAGE[(v16 + v18 >> 1) % uint16(v0.word3) + 8] >> 88);
+                            v9.word3 = bool(STORAGE[(v16 + v18 >> 1) % uint16(v0.word3) + 8] >> 248);
+                            if (bool(STORAGE[(v16 + v18 >> 1) % uint16(v0.word3) + 8] >> 248)) {
+                                assert(uint16(v0.word3));
+                                assert((1 + (v16 + v18 >> 1)) % uint16(v0.word3) < uint16.max);
+                                v7 = new struct(4);
+                                v7.word0 = uint32(STORAGE[(1 + (v16 + v18 >> 1)) % uint16(v0.word3) + 8]);
+                                v7.word1 = int56(STORAGE[(1 + (v16 + v18 >> 1)) % uint16(v0.word3) + 8] >> 32);
+                                v7.word2 = address(STORAGE[(1 + (v16 + v18 >> 1)) % uint16(v0.word3) + 8] >> 88);
+                                v7.word3 = bool(STORAGE[(1 + (v16 + v18 >> 1)) % uint16(v0.word3) + 8] >> 248);
+                                v20 = v21 = 0x4ed8(block.timestamp - 0, v9.word0, block.timestamp);
+                                if (v21) {
+                                    v20 = 0x4ed8(v7.word0, block.timestamp - 0, block.timestamp);
+                                }
+                                if (!v20) {
+                                    if (v21) {
+                                        v16 = 1 + (v16 + v18 >> 1);
+                                    } else {
+                                        v18 = (v16 + v18 >> 1) - 1;
+                                    }
+                                } else {
+                                    break;
+                                }
+                            } else {
+                                v16 = 1 + (v16 + v18 >> 1);
+                            }
+                        }
+                    } else if (uint32(v10.word0) != uint32(block.timestamp - 0)) {
+                        v7 = v22 = 0x4822(_liquidity, v0.word1, block.timestamp - 0, v10);
+                    }
+                    if (uint32(block.timestamp - 0) != uint32(MEM[v9])) {
+                        if (uint32(MEM[v7]) != uint32(block.timestamp - 0)) {
+                            assert(uint32(MEM[v7] - MEM[v9]));
+                            v23 = v24 = MEM[32 + v9] + int56(MEM[v7 + 32] - MEM[v9 + 32]) / uint32(MEM[v7] - MEM[v9]) * uint32(block.timestamp - 0 - MEM[v9]);
+                            assert(uint32(MEM[v7] - MEM[v9]));
+                            v25 = v26 = MEM[64 + v9] + address(MEM[64 + v7] - MEM[64 + v9]) * uint32(block.timestamp - 0 - MEM[v9]) / uint32(MEM[v7] - MEM[v9]);
+                        } else {
+                            v23 = v27 = MEM[32 + v7];
+                            v25 = v28 = MEM[64 + v7];
+                        }
+                    } else {
+                        v23 = v29 = MEM[32 + v9];
+                        v25 = v30 = MEM[64 + v9];
+                    }
+                } else {
+                    assert(uint16(v0.word2) < uint16.max);
+                    v31 = new struct(4);
+                    v31.word0 = uint32(STORAGE[8 + uint16(v0.word2)]);
+                    v31.word1 = int56(STORAGE[8 + uint16(v0.word2)] >> 32);
+                    v31.word2 = address(STORAGE[8 + uint16(v0.word2)] >> 88);
+                    v31.word3 = bool(STORAGE[8 + uint16(v0.word2)] >> 248);
+                    if (uint32(block.timestamp) == uint32(STORAGE[8 + uint16(v0.word2)])) {
+                        v23 = v32 = v31.word1;
+                        v25 = v33 = v31.word2;
+                    } else {
+                        v34 = 0x4822(_liquidity, v0.word1, block.timestamp, v31);
+                        v23 = v34.word1;
+                        v25 = v34.word2;
+                    }
+                }
+                v1 = v35 = v23 - _ticks[tickLower].field3_0_6 - _ticks[tickUpper].field3_0_6;
+                v3 = v36 = v25 - _ticks[tickLower].field3_7_26 - _ticks[tickUpper].field3_7_26;
+                v5 = v37 = block.timestamp - _ticks[tickLower].field3_27_30 - _ticks[tickUpper].field3_27_30;
+            }
+        } else {
+            v1 = v38 = _ticks[tickLower].field3_0_6 - _ticks[tickUpper].field3_0_6;
+            v3 = v39 = _ticks[tickLower].field3_7_26 - _ticks[tickUpper].field3_7_26;
+            v5 = v40 = _ticks[tickLower].field3_27_30 - _ticks[tickUpper].field3_27_30;
+        }
+        return int56(v1), address(v3), uint32(v5);
+    }
+
+    function factory() public payable {  find similar
+        return address(0x1f98431c8ad98523631ae4a59f267346ea31f984);
+    }
+
+    function tickSpacing() public payable {  find similar
+        return int24(10);
+    }
+
+    function token1() public payable {  find similar
+        return address(0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2);
+    }
+
+    function fee() public payable {  find similar
+        return uint24(500);
+    }
+
+    function feeGrowthGlobal0X128() public payable {  find similar
+        return _feeGrowthGlobal0X128;
+    }
+
+    function ticks(int24 varg0) public payable {  find similar
+        require(msg.data.length - 4 >= 32);
+        return _ticks[varg0].field0_0_15, _ticks[varg0].field0_16_31, _ticks[varg0].field1, _ticks[varg0].field2, _ticks[varg0].field3_0_6, _ticks[varg0].field3_7_26, _ticks[varg0].field3_27_30, _ticks[varg0].field3_31_31;
+    }
+
+    function initialize(uint160 sqrtPriceX96) public payable {  find similar
+        require(msg.data.length - 4 >= 32);
+        require(!address(_slot0), Error(16713));
+        v0 = 0x36a5(address(sqrtPriceX96));
+        MEM[MEM[64]] = uint32(block.timestamp);
+        MEM[MEM[64] + 32] = 0;
+        MEM[MEM[64] + 64] = 0;
+        MEM[MEM[64] + 96] = 1;
+        stor_8_0_3 = block.timestamp;
+        stor_8_11_30 = 0;
+        stor_8_31_31 = 1;
+        stor_8_4_10 = 0;
+        MEM[64] = MEM[64] + 224;
+        MEM[MEM[64]] = address(sqrtPriceX96);
+        MEM[MEM[64] + 32] = int24(v0);
+        MEM[64 + MEM[64]] = 0;
+        MEM[MEM[64] + 96] = uint16(1);
+        MEM[MEM[64] + 128] = uint16(1);
+        MEM[MEM[64] + 160] = 0;
+        MEM[MEM[64] + 192] = 1;
+        _slot0 = 0xff0000ffffffffffffffffffffffffffffffffffffffffffffffffffffffffff & (0x1000000000000000000000000000000000000000000000000000000 | 0xffffff0000ffffffffffffffffffffffffffffffffffffffffffffffffffffff & (0x100000000000000000000000000000000000000000000000000 | 0xffffffffff00000000ffffffffffffffffffffffffffffffffffffffffffffff & (uint24(int24(v0)) << 160 | 0xffffffffffffffffff000000ffffffffffffffffffffffffffffffffffffffff & (address(sqrtPriceX96) | bytes12(_slot0))))) | 0x1000000000000000000000000000000000000000000000000000000000000;
+        emit Initialize(address(sqrtPriceX96), int24(v0));
+    }
+
+    function fallback() public payable {  find similar
+        revert();
+    }
+
+    // Note: The function selector is not present in the original solidity code.
+    // However, we display it for the sake of completeness.
+
+    function __function_selector__( function_selector) public payable {
+        MEM[64] = 128;
+        require(!msg.value);
+        if (msg.data.length < 4) {
+            fallback();
+        } else {
+            v0 = function_selector >> 224;
+            if (0x70cf754a > v0) {
+                if (0x3850c7bd > v0) {
+                    if (0x1ad8b03b > v0) {
+                        if (0xdfe1681 == v0) {
+                            token0();
+                        } else if (0x128acb08 == v0) {
+                            swap(address,bool,int256,uint160,bytes);
+                        } else {
+                            require(0x1a686502 == v0);
+                            liquidity();
+                        }
+                    } else if (0x1ad8b03b == v0) {
+                        protocolFees();
+                    } else if (0x252c09d7 == v0) {
+                        observations(uint256);
+                    } else {
+                        require(0x32148f67 == v0);
+                        increaseObservationCardinalityNext(uint16);
+                    }
+                } else if (0x490e6cbc > v0) {
+                    if (0x3850c7bd == v0) {
+                        slot0();
+                    } else if (0x3c8a7d8d == v0) {
+                        mint(address,int24,int24,uint128,bytes);
+                    } else {
+                        require(0x46141319 == v0);
+                        feeGrowthGlobal1X128();
+                    }
+                } else if (0x490e6cbc == v0) {
+                    flash(address,uint256,uint256,bytes);
+                } else if (0x4f1eb3d8 == v0) {
+                    collect(address,int24,int24,uint128,uint128);
+                } else if (0x514ea4bf == v0) {
+                    positions(bytes32);
+                } else {
+                    require(0x5339c296 == v0);
+                    tickBitmap(int16);
+                }
+            } else if (0xc45a0155 > v0) {
+                if (0x883bdbfd > v0) {
+                    if (0x70cf754a == v0) {
+                        maxLiquidityPerTick();
+                    } else if (0x8206a4d1 == v0) {
+                        setFeeProtocol(uint8,uint8);
+                    } else {
+                        require(0x85b66729 == v0);
+                        collectProtocol(address,uint128,uint128);
+                    }
+                } else if (0x883bdbfd == v0) {
+                    observe(uint32[]);
+                } else if (0xa34123a7 == v0) {
+                    burn(int24,int24,uint128);
+                } else {
+                    require(0xa38807f2 == v0);
+                    snapshotCumulativesInside(int24,int24);
+                }
+            } else if (0xddca3f43 > v0) {
+                if (0xc45a0155 == v0) {
+                    factory();
+                } else if (0xd0c93a7c == v0) {
+                    tickSpacing();
+                } else {
+                    require(0xd21220a7 == v0);
+                    token1();
+                }
+            } else if (0xddca3f43 == v0) {
+                fee();
+            } else if (0xf3058399 == v0) {
+                feeGrowthGlobal0X128();
+            } else if (0xf30dba93 == v0) {
+                ticks(int24);
+            } else {
+                require(0xf637731d == v0);
+                initialize(uint160);
+            }
+        }
+    }
+}

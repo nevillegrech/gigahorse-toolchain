@@ -1,0 +1,150 @@
+contract Decompiled {
+    // Decompiled by library.dedaub.com
+// 2026.10.09 15:16 UTC
+// Compiled using the solidity compiler version 0.8.10
+
+
+    // Data structures and variables inferred from the use of storage instructions
+    uint256 _@_setImplementation_127; // STORAGE[0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc]
+
+
+    // Events
+    Upgraded(address);
+
+    function @_setImplementation_127(uint256 varg0) private {
+        v0 = v1 = 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470 != EXTCODEHASH(varg0);
+        if (0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470 != EXTCODEHASH(varg0)) {
+            v0 = v2 = bool(EXTCODEHASH(varg0));
+        }
+        require(v0, Error('Cannot set a proxy implementation to a non-contract address'));
+        _@_setImplementation_127 = varg0;
+        return ;
+    }
+
+    function fallback() public payable {  find similar
+        require(address(0x2f39d218133afab8f2b819b1066c7e434ad94e9e) != msg.sender, Error('Cannot call fallback function from the proxy admin'));
+        CALLDATACOPY(0, 0, msg.data.length);
+        v0 = _@_setImplementation_127.delegatecall(MEM[0:msg.data.length], MEM[0:0]).gas(msg.gas);
+        require(v0, 0, RETURNDATASIZE()); // checks call status, propagates error data on error
+        return MEM[0:RETURNDATASIZE()];
+    }
+
+    function upgradeTo(address newImplementation) public nonPayable {  find similar
+        require(msg.data.length - 4 >= 32);
+        if (address(0x2f39d218133afab8f2b819b1066c7e434ad94e9e) != msg.sender) {
+            require(address(0x2f39d218133afab8f2b819b1066c7e434ad94e9e) != msg.sender, Error('Cannot call fallback function from the proxy admin'));
+            CALLDATACOPY(0, 0, msg.data.length);
+            v0 = _@_setImplementation_127.delegatecall(MEM[0:msg.data.length], MEM[0:0]).gas(msg.gas);
+            require(v0, 0, RETURNDATASIZE()); // checks call status, propagates error data on error
+            return MEM[0:RETURNDATASIZE()];
+        } else {
+            @_setImplementation_127(newImplementation);
+            emit Upgraded(newImplementation);
+        }
+    }
+
+    function upgradeToAndCall(address newImplementation, bytes data) public payable {  find similar
+        require(msg.data.length - 4 >= 64);
+        require(data <= uint64.max);
+        require(4 + data + 31 < msg.data.length);
+        require(data.length <= uint64.max);
+        require(4 + data + data.length + 32 <= msg.data.length);
+        if (address(0x2f39d218133afab8f2b819b1066c7e434ad94e9e) != msg.sender) {
+            require(address(0x2f39d218133afab8f2b819b1066c7e434ad94e9e) != msg.sender, Error('Cannot call fallback function from the proxy admin'));
+            CALLDATACOPY(0, 0, msg.data.length);
+            v0 = _@_setImplementation_127.delegatecall(MEM[0:msg.data.length], MEM[0:0]).gas(msg.gas);
+            require(v0, 0, RETURNDATASIZE()); // checks call status, propagates error data on error
+            return MEM[0:RETURNDATASIZE()];
+        } else {
+            @_setImplementation_127(newImplementation);
+            emit Upgraded(newImplementation);
+            CALLDATACOPY(v1.data, data.data, data.length);
+            MEM[data.length + v1.data] = 0;
+            v2, /* uint256 */ v3 = newImplementation.delegatecall(v1.data).gas(msg.gas);
+            if (RETURNDATASIZE() != 0) {
+                v4 = new bytes[](RETURNDATASIZE());
+                RETURNDATACOPY(v4.data, 0, RETURNDATASIZE());
+            }
+            require(v2);
+        }
+    }
+
+    function implementation() public nonPayable {  find similar
+        if (address(0x2f39d218133afab8f2b819b1066c7e434ad94e9e) != msg.sender) {
+            require(address(0x2f39d218133afab8f2b819b1066c7e434ad94e9e) != msg.sender, Error('Cannot call fallback function from the proxy admin'));
+            CALLDATACOPY(0, 0, msg.data.length);
+            v0 = _@_setImplementation_127.delegatecall(MEM[0:msg.data.length], MEM[0:0]).gas(msg.gas);
+            require(v0, 0, RETURNDATASIZE()); // checks call status, propagates error data on error
+            return MEM[0:RETURNDATASIZE()];
+        } else {
+            return address(_@_setImplementation_127);
+        }
+    }
+
+    function initialize(address _logic, bytes _data) public payable {  find similar
+        require(msg.data.length - 4 >= 64);
+        require(_data <= uint64.max);
+        require(4 + _data + 31 < msg.data.length);
+        require(_data.length <= uint64.max, Panic(65)); // failed memory allocation (too much memory)
+        v0 = new bytes[](_data.length);
+        require(!((v0 + (63 + (0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0 & _data.length + 31) & 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0) < v0) | (v0 + (63 + (0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0 & _data.length + 31) & 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0) > uint64.max)), Panic(65)); // failed memory allocation (too much memory)
+        require(4 + _data + _data.length + 32 <= msg.data.length);
+        CALLDATACOPY(v0.data, _data.data, _data.length);
+        v0[_data.length] = 0;
+        require(address(_@_setImplementation_127) == 0);
+        require(0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbd >= 1, Panic(17)); // arithmetic overflow or underflow
+        require(0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc == 0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc, Panic(1)); // low-level assert failed
+        @_setImplementation_127(_logic);
+        if (v0.length) {
+            v1 = v2 = 0;
+            while (v1 < v0.length) {
+                MEM[v1 + MEM[64]] = v0[v1];
+                v1 += 32;
+            }
+            if (v1 > v0.length) {
+                MEM[MEM[64] + v0.length] = 0;
+            }
+            v3, /* uint256 */ v4 = _logic.delegatecall(MEM[MEM[64]:MEM[64] + v7f4.length + MEM[64] - MEM[64]], MEM[MEM[64]:MEM[64]]).gas(msg.gas);
+            if (RETURNDATASIZE() != 0) {
+                v5 = new bytes[](RETURNDATASIZE());
+                RETURNDATACOPY(v5.data, 0, RETURNDATASIZE());
+            }
+            require(v3);
+        }
+    }
+
+    function admin() public nonPayable {  find similar
+        if (address(0x2f39d218133afab8f2b819b1066c7e434ad94e9e) != msg.sender) {
+            require(address(0x2f39d218133afab8f2b819b1066c7e434ad94e9e) != msg.sender, Error('Cannot call fallback function from the proxy admin'));
+            CALLDATACOPY(0, 0, msg.data.length);
+            v0 = _@_setImplementation_127.delegatecall(MEM[0:msg.data.length], MEM[0:0]).gas(msg.gas);
+            require(v0, 0, RETURNDATASIZE()); // checks call status, propagates error data on error
+            return MEM[0:RETURNDATASIZE()];
+        } else {
+            return address(0x2f39d218133afab8f2b819b1066c7e434ad94e9e);
+        }
+    }
+
+    // Note: The function selector is not present in the original solidity code.
+    // However, we display it for the sake of completeness.
+
+    function __function_selector__( function_selector) public payable {
+        MEM[64] = 128;
+        if (msg.data.length >= 4) {
+            if (0x5c60da1b > function_selector >> 224) {
+                if (0x3659cfe6 == function_selector >> 224) {
+                    upgradeTo(address);
+                } else if (0x4f1ef286 == function_selector >> 224) {
+                    upgradeToAndCall(address,bytes);
+                }
+            } else if (0x5c60da1b == function_selector >> 224) {
+                implementation();
+            } else if (0xd1f57894 == function_selector >> 224) {
+                initialize(address,bytes);
+            } else if (0xf851a440 == function_selector >> 224) {
+                admin();
+            }
+        }
+        fallback();
+    }
+}

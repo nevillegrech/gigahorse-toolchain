@@ -1,0 +1,597 @@
+contract Decompiled {
+    // Decompiled by library.dedaub.com
+// 2026.10.10 03:02 UTC
+// Warning: 56.00000000000001% of the contract's code is inferred to be dead code.
+
+
+    // Data structures and variables inferred from the use of storage instructions
+    struct_621[] array_0; // STORAGE[0x0]
+    struct_620[] array_1; // STORAGE[0x1]
+    uint256 stor_2; // STORAGE[0x2]
+    uint256 stor_3; // STORAGE[0x3]
+    uint256 owner; // STORAGE[0x4]
+    uint256 stor_5; // STORAGE[0x5]
+    uint256 stor_6; // STORAGE[0x6]
+    uint256 stor_7; // STORAGE[0x7]
+    uint256 stor_8; // STORAGE[0x8]
+    uint256 ___function_selector__; // STORAGE[0x9]
+    uint256 stor_a; // STORAGE[0xa]
+    uint256 stor_b; // STORAGE[0xb]
+    uint256 stor_c; // STORAGE[0xc]
+    uint256 stor_d; // STORAGE[0xd]
+    uint256 stor_e; // STORAGE[0xe]
+    uint256 stor_f; // STORAGE[0xf]
+    uint256 stor_10; // STORAGE[0x10]
+    uint256 stor_ffffff; // STORAGE[0xffffff]
+
+
+    // Events
+    RemoveLiquidity(address, uint256[3], uint256[3], uint256);
+    CommitNewFee(uint256, uint256, uint256);
+    NewFee(uint256, uint256);
+    CommitNewAdmin(uint256, address);
+    NewAdmin(address);
+
+    // Note: The function selector is not present in the original solidity code.
+    // However, we display it for the sake of completeness.
+
+    function __function_selector__(bytes4 function_selector, uint256 varg1, uint256 varg2, uint256 varg3) public payable {
+        if (msg.data.length >= 4) {
+            MEM[128] = 0x12a05f1fffffffffffffffffffffffffdabf41c00;
+            MEM[160] = 0xfffffffffffffffffffffffed5fa0e0000000000000000000000000000000000;
+            if (!0) {
+                if (function_selector != 0xf446c1d0) {
+                    if (!0) {
+                        if (!0) {
+                            if (!0) {
+                                if (!0) {
+                                    if (function_selector != 0xbb7b8b80) {
+                                        if (function_selector != 0x3883e119) {
+                                            if (function_selector != 0x4515cef3) {
+                                                if (!0) {
+                                                    if (function_selector != 0x5e0d443f) {
+                                                        if (function_selector != 0x7211ef7) {
+                                                            if (function_selector != 0x3df02124) {
+                                                                if (function_selector != 0xecb586a5) {
+                                                                    if (function_selector != 0x9fdaea0c) {
+                                                                        if (!0) {
+                                                                            if (!0) {
+                                                                                if (function_selector != 0xcc2b27d7) {
+                                                                                    if (function_selector != 0x1a4d01d2) {
+                                                                                        if (function_selector != 0x3c157e64) {
+                                                                                            if (function_selector != 0x551a6588) {
+                                                                                                if (function_selector != 0x5b5a1467) {
+                                                                                                    if (function_selector != 0x4f12fe97) {
+                                                                                                        if (function_selector != 0x226840fb) {
+                                                                                                            if (function_selector != 0x6b441a40) {
+                                                                                                                if (function_selector != 0x6a1c05ae) {
+                                                                                                                    if (function_selector != 0x86fbf193) {
+                                                                                                                        if (function_selector != 0xe2e7d264) {
+                                                                                                                            if (function_selector != 0x30c54085) {
+                                                                                                                                if (function_selector != 0x524c3901) {
+                                                                                                                                    if (function_selector != 0xe3698853) {
+                                                                                                                                        if (function_selector != 0x3046f972) {
+                                                                                                                                            if (function_selector != 0xc6610657) {
+                                                                                                                                                if (function_selector != 0x4903b0d1) {
+                                                                                                                                                    if (function_selector != 0xddca3f43) {
+                                                                                                                                                        if (function_selector != 0xfee3f7f9) {
+                                                                                                                                                            if (function_selector != 0x8da5cb5b) {
+                                                                                                                                                                if (function_selector != 0x5409491a) {
+                                                                                                                                                                    if (function_selector != 0xb4b577ad) {
+                                                                                                                                                                        if (function_selector != 0x2081066c) {
+                                                                                                                                                                            if (function_selector != 0x14052288) {
+                                                                                                                                                                                if (function_selector != 0x405e28f8) {
+                                                                                                                                                                                    if (function_selector != 0xe0a0b586) {
+                                                                                                                                                                                        if (function_selector != 0x58680d0b) {
+                                                                                                                                                                                            if (function_selector != 0xe3824462) {
+                                                                                                                                                                                                if (function_selector == 0x1ec0cdc1) {
+                                                                                                                                                                                                    require(!msg.value);
+                                                                                                                                                                                                    return stor_e;
+                                                                                                                                                                                                }
+                                                                                                                                                                                            } else {
+                                                                                                                                                                                                require(!msg.value);
+                                                                                                                                                                                                return stor_d;
+                                                                                                                                                                                            }
+                                                                                                                                                                                        } else {
+                                                                                                                                                                                            require(!msg.value);
+                                                                                                                                                                                            return stor_c;
+                                                                                                                                                                                        }
+                                                                                                                                                                                    } else {
+                                                                                                                                                                                        require(!msg.value);
+                                                                                                                                                                                        return stor_b;
+                                                                                                                                                                                    }
+                                                                                                                                                                                } else {
+                                                                                                                                                                                    require(!msg.value);
+                                                                                                                                                                                    return stor_a;
+                                                                                                                                                                                }
+                                                                                                                                                                            } else {
+                                                                                                                                                                                require(!msg.value);
+                                                                                                                                                                                return ___function_selector__;
+                                                                                                                                                                            }
+                                                                                                                                                                        } else {
+                                                                                                                                                                            require(!msg.value);
+                                                                                                                                                                            return stor_8;
+                                                                                                                                                                        }
+                                                                                                                                                                    } else {
+                                                                                                                                                                        require(!msg.value);
+                                                                                                                                                                        return stor_7;
+                                                                                                                                                                    }
+                                                                                                                                                                } else {
+                                                                                                                                                                    require(!msg.value);
+                                                                                                                                                                    return stor_6;
+                                                                                                                                                                }
+                                                                                                                                                            } else {
+                                                                                                                                                                require(!msg.value);
+                                                                                                                                                                return owner;
+                                                                                                                                                            }
+                                                                                                                                                        } else {
+                                                                                                                                                            require(!msg.value);
+                                                                                                                                                            return stor_3;
+                                                                                                                                                        }
+                                                                                                                                                    } else {
+                                                                                                                                                        require(!msg.value);
+                                                                                                                                                        return stor_2;
+                                                                                                                                                    }
+                                                                                                                                                } else {
+                                                                                                                                                    require(!msg.value);
+                                                                                                                                                    require(varg1 < 3);
+                                                                                                                                                    return array_1[varg1].field0;
+                                                                                                                                                }
+                                                                                                                                            } else {
+                                                                                                                                                require(!msg.value);
+                                                                                                                                                require(varg1 < 3);
+                                                                                                                                                return array_0[varg1].field0;
+                                                                                                                                            }
+                                                                                                                                        } else {
+                                                                                                                                            require(!msg.value);
+                                                                                                                                            require(msg.sender == owner);
+                                                                                                                                            stor_f = 0;
+                                                                                                                                            exit;
+                                                                                                                                        }
+                                                                                                                                    } else {
+                                                                                                                                        require(!msg.value);
+                                                                                                                                        require(msg.sender == owner);
+                                                                                                                                        require(stor_10 > block.timestamp);
+                                                                                                                                        stor_f = 1;
+                                                                                                                                        exit;
+                                                                                                                                    }
+                                                                                                                                } else {
+                                                                                                                                    require(!msg.value);
+                                                                                                                                    require(msg.sender == owner);
+                                                                                                                                    while (0 < 3) {
+                                                                                                                                        v0 = array_0[0x0].field0.balanceOf(this).gas(msg.gas);
+                                                                                                                                        require(v0);
+                                                                                                                                        require(RETURNDATASIZE() > 31);
+                                                                                                                                        require(0 < 3);
+                                                                                                                                        array_1[0].field0 = MEM[480];
+                                                                                                                                        MEM[320] = 1;
+                                                                                                                                        if (3 == 1) {
+                                                                                                                                            exit;
+                                                                                                                                        }
+                                                                                                                                    }
+                                                                                                                                    revert();
+                                                                                                                                }
+                                                                                                                            } else {
+                                                                                                                                require(!msg.value);
+                                                                                                                                require(msg.sender == owner);
+                                                                                                                                while (0 < 3) {
+                                                                                                                                    v1 = array_0[0x0].field0.balanceOf(this).gas(msg.gas);
+                                                                                                                                    require(v1);
+                                                                                                                                    require(RETURNDATASIZE() > 31);
+                                                                                                                                    require(0 < 3);
+                                                                                                                                    require(MEM[544] >= array_1[0].field0);
+                                                                                                                                    if (MEM[544] - array_1[0].field0 > 0) {
+                                                                                                                                        v2 = dataCopy();
+                                                                                                                                        MEM[804] = msg.sender;
+                                                                                                                                        MEM[836] = MEM[544] - array_1[0].field0;
+                                                                                                                                        v3 = dataCopy(68);
+                                                                                                                                        require(v3);
+                                                                                                                                        v4 = array_0[0x0].field0.call(MEM[960:960 + MEM[928]], MEM[1120:1152]).gas(msg.gas);
+                                                                                                                                        require(v4);
+                                                                                                                                        v5 = v6 = 32;
+                                                                                                                                        v5 = v7 = RETURNDATASIZE();
+                                                                                                                                        if (v6 > v7) {
+                                                                                                                                        }
+                                                                                                                                        v8 = dataCopy(v5);
+                                                                                                                                        require(v8);
+                                                                                                                                        if (MEM[576] > 0) {
+                                                                                                                                            require(MEM[576] <= 32);
+                                                                                                                                            require(MEM[576] >= 0);
+                                                                                                                                            require(bool(MEM[608] / (uint8.max + 1) ** (32 - MEM[576])));
+                                                                                                                                        }
+                                                                                                                                    }
+                                                                                                                                    MEM[320] = 1;
+                                                                                                                                    if (3 == 1) {
+                                                                                                                                        exit;
+                                                                                                                                    }
+                                                                                                                                }
+                                                                                                                                revert();
+                                                                                                                            }
+                                                                                                                        } else {
+                                                                                                                            require(!msg.value);
+                                                                                                                            require(varg1 < 3);
+                                                                                                                            v9 = array_0[varg1].field0.balanceOf(this).gas(msg.gas);
+                                                                                                                            require(v9);
+                                                                                                                            require(RETURNDATASIZE() > 31);
+                                                                                                                            require(varg1 < 3);
+                                                                                                                            require(MEM[448] >= array_1[varg1].field0);
+                                                                                                                            return MEM[448] - array_1[varg1].field0;
+                                                                                                                        }
+                                                                                                                    } else {
+                                                                                                                        require(!msg.value);
+                                                                                                                        require(msg.sender == owner);
+                                                                                                                        stor_b = 0;
+                                                                                                                        exit;
+                                                                                                                    }
+                                                                                                                } else {
+                                                                                                                    require(!msg.value);
+                                                                                                                    require(msg.sender == owner);
+                                                                                                                    require(block.timestamp >= stor_b);
+                                                                                                                    require(stor_b ^ 0x0);
+                                                                                                                    stor_b = 0;
+                                                                                                                    owner = stor_e;
+                                                                                                                    emit NewAdmin(stor_e);
+                                                                                                                    exit;
+                                                                                                                }
+                                                                                                            } else {
+                                                                                                                require(!msg.value);
+                                                                                                                require(varg1 < uint160.max + 1);
+                                                                                                                require(msg.sender == owner);
+                                                                                                                require(!stor_b);
+                                                                                                                require(block.timestamp + 0x3f480 >= block.timestamp);
+                                                                                                                stor_b = block.timestamp + 0x3f480;
+                                                                                                                stor_e = varg1;
+                                                                                                                emit CommitNewAdmin(block.timestamp + 0x3f480, varg1);
+                                                                                                                exit;
+                                                                                                            }
+                                                                                                        } else {
+                                                                                                            require(!msg.value);
+                                                                                                            require(msg.sender == owner);
+                                                                                                            stor_a = 0;
+                                                                                                            exit;
+                                                                                                        }
+                                                                                                    } else {
+                                                                                                        require(!msg.value);
+                                                                                                        require(msg.sender == owner);
+                                                                                                        require(block.timestamp >= stor_a);
+                                                                                                        require(stor_a ^ 0x0);
+                                                                                                        stor_a = 0;
+                                                                                                        stor_2 = stor_c;
+                                                                                                        stor_3 = stor_d;
+                                                                                                        emit NewFee(stor_c, stor_d);
+                                                                                                        exit;
+                                                                                                    }
+                                                                                                } else {
+                                                                                                    require(!msg.value);
+                                                                                                    require(msg.sender == owner);
+                                                                                                    require(!stor_a);
+                                                                                                    require(varg1 <= 0x12a05f200);
+                                                                                                    require(varg2 <= 10 ** 10);
+                                                                                                    require(block.timestamp + 0x3f480 >= block.timestamp);
+                                                                                                    stor_a = block.timestamp + 0x3f480;
+                                                                                                    stor_c = varg1;
+                                                                                                    stor_d = varg2;
+                                                                                                    emit CommitNewFee(block.timestamp + 0x3f480, varg1, varg2);
+                                                                                                    exit;
+                                                                                                }
+                                                                                            } else {
+                                                                                                require(!msg.value);
+                                                                                                require(msg.sender == owner);
+                                                                                                v10 = v11 = 18751;
+                                                                                            }
+                                                                                        } else {
+                                                                                            require(!msg.value);
+                                                                                            require(msg.sender == owner);
+                                                                                            require(stor_8 + 0x15180 >= stor_8);
+                                                                                            require(block.timestamp >= stor_8 + 0x15180);
+                                                                                            require(block.timestamp + 0x15180 >= block.timestamp);
+                                                                                            require(varg2 >= block.timestamp + 0x15180);
+                                                                                            v10 = v12 = 18414;
+                                                                                        }
+                                                                                    } else {
+                                                                                        require(!stor_ffffff);
+                                                                                        stor_ffffff = 1;
+                                                                                        require(!msg.value);
+                                                                                        require(varg2 <= MEM[64]);
+                                                                                        require(varg2 >= int128.min);
+                                                                                        require(!stor_f);
+                                                                                        v13 = v14 = 17553;
+                                                                                    }
+                                                                                } else {
+                                                                                    require(!msg.value);
+                                                                                    require(varg2 <= MEM[64]);
+                                                                                    require(varg2 >= int128.min);
+                                                                                    v13 = v15 = 17382;
+                                                                                }
+                                                                            }
+                                                                            v10 = v16 = 15599;
+                                                                        } else {
+                                                                            require(MEM[352] >= 0);
+                                                                            require(MEM[352] < 3);
+                                                                            require((MEM[320] * 3 / MEM[320] == 3) | !MEM[320]);
+                                                                            MEM[640] = 0;
+                                                                            while (1) {
+                                                                                if (0x0 ^ MEM[0x160]) {
+                                                                                    require(MEM[672] < 3);
+                                                                                    require(MEM[(MEM[672] << 5) + 384] >= 0);
+                                                                                    MEM[576] = MEM[(MEM[672] << 5) + 384];
+                                                                                    require((MEM[480] * MEM[480] / MEM[480] == MEM[480]) | !MEM[480]);
+                                                                                    require((MEM[(MEM[672] << 5) + 384] * 3 / MEM[(MEM[672] << 5) + 384] == 3) | !MEM[(MEM[672] << 5) + 384]);
+                                                                                    require(MEM[(MEM[672] << 5) + 384] * 3);
+                                                                                    MEM[544] = MEM[480] * MEM[480] / (MEM[(MEM[672] << 5) + 384] * 3);
+                                                                                }
+                                                                                MEM[672] = 1;
+                                                                                if (3 == 1) {
+                                                                                    require((MEM[544] * MEM[480] / MEM[544] == MEM[480]) | !MEM[544]);
+                                                                                    require((MEM[320] * 3 * 3 / (MEM[320] * 3) == 3) | !(MEM[320] * 3));
+                                                                                    require(MEM[320] * 3 * 3);
+                                                                                    require(MEM[320] * 3);
+                                                                                    require(MEM[576] + MEM[480] / (MEM[320] * 3) >= MEM[576]);
+                                                                                    MEM[736] = 0;
+                                                                                    while ((MEM[480] * MEM[480] / MEM[480] == MEM[480]) | !MEM[480]) {
+                                                                                        require(MEM[480] * MEM[480] + MEM[544] * MEM[480] / (MEM[320] * 3 * 3) >= MEM[480] * MEM[480]);
+                                                                                        require((MEM[480] << 1 >> 1 == MEM[480]) | !0x2);
+                                                                                        require((MEM[480] << 1) + (MEM[576] + MEM[480] / (MEM[320] * 3)) >= MEM[480] << 1);
+                                                                                        require((MEM[480] << 1) + (MEM[576] + MEM[480] / (MEM[320] * 3)) >= MEM[480]);
+                                                                                        require((MEM[480] << 1) + (MEM[576] + MEM[480] / (MEM[320] * 3)) - MEM[480]);
+                                                                                        v17 = (MEM[480] * MEM[480] + MEM[544] * MEM[480] / (MEM[320] * 3 * 3)) / ((MEM[480] << 1) + (MEM[576] + MEM[480] / (MEM[320] * 3)) - MEM[480]);
+                                                                                        if (v17 <= MEM[480]) {
+                                                                                            require(MEM[480] >= v17);
+                                                                                            if (MEM[480] - v17 <= 1) {
+                                                                                                break;
+                                                                                            }
+                                                                                        } else {
+                                                                                            require(v17 >= MEM[480]);
+                                                                                            if (v17 - MEM[480] <= 1) {
+                                                                                                break;
+                                                                                            }
+                                                                                        }
+                                                                                        MEM[800] = 1;
+                                                                                        if (uint8.max == 1) {
+                                                                                            break;
+                                                                                        }
+                                                                                    }
+                                                                                    revert();
+                                                                                }
+                                                                            }
+                                                                        }
+                                                                    } else {
+                                                                        require(!stor_ffffff);
+                                                                        stor_ffffff = 1;
+                                                                        require(!msg.value);
+                                                                        require(!stor_f);
+                                                                        v18 = stor_5.totalSupply().gas(msg.gas);
+                                                                        require(v18);
+                                                                        require(RETURNDATASIZE() > 31);
+                                                                        require(MEM[0x1c0] ^ 0x0);
+                                                                        require((stor_2 * 3 / stor_2 == 3) | !stor_2);
+                                                                        require(8);
+                                                                        v10 = v19 = 12588;
+                                                                    }
+                                                                } else {
+                                                                    require(!stor_ffffff);
+                                                                    stor_ffffff = 1;
+                                                                    require(!msg.value);
+                                                                    v20 = stor_5.totalSupply().gas(msg.gas);
+                                                                    require(v20);
+                                                                    require(RETURNDATASIZE() > 31);
+                                                                    CALLDATACOPY(480, msg.data.length, 96);
+                                                                    CALLDATACOPY(576, msg.data.length, 96);
+                                                                    while (1) {
+                                                                        require(0 < 3);
+                                                                        require((array_1[0].field0 * varg1 / array_1[0].field0 == varg1) | !array_1[0].field0);
+                                                                        require(MEM[448]);
+                                                                        require(0 < 3);
+                                                                        require(array_1[0].field0 * varg1 / MEM[448] >= msg.data[36], Error(32, 48, 'Withdrawal resulted in fewer coi', 'ns than expected'));
+                                                                        require(0 < 3);
+                                                                        require(array_1[0].field0 >= array_1[0].field0 * varg1 / MEM[448]);
+                                                                        array_1[0].field0 = array_1[0].field0 - array_1[0].field0 * varg1 / MEM[448];
+                                                                        require(0 < 3);
+                                                                        MEM[480] = array_1[0].field0 * varg1 / MEM[448];
+                                                                        v21 = dataCopy();
+                                                                        v22 = dataCopy(68, v23, msg.sender, array_1[0].field0 * varg1 / MEM[448]);
+                                                                        require(v22);
+                                                                        require(0 < 3);
+                                                                        v24 = array_0[0x0].field0.call(MEM[1312:1312 + MEM[1280]], MEM[1472:1504]).gas(msg.gas);
+                                                                        require(v24);
+                                                                        v25 = v26 = 32;
+                                                                        v25 = v27 = RETURNDATASIZE();
+                                                                        if (v26 > v27) {
+                                                                        }
+                                                                        v28 = dataCopy(v25);
+                                                                        require(v28);
+                                                                        if (MEM[928] > 0) {
+                                                                            require(MEM[928] <= 32);
+                                                                            require(MEM[928] >= 0);
+                                                                            require(bool(MEM[960] / (uint8.max + 1) ** (32 - MEM[928])));
+                                                                        }
+                                                                        MEM[672] = 1;
+                                                                        if (3 == 1) {
+                                                                            v29 = stor_5.burnFrom(msg.sender, varg1).gas(msg.gas);
+                                                                            require(v29);
+                                                                            require(RETURNDATASIZE() > 31);
+                                                                            require(MEM[448] >= varg1);
+                                                                            emit RemoveLiquidity(msg.sender, MEM[480], MEM[512], MEM[544], MEM[576], MEM[608], MEM[640], MEM[448] - varg1);
+                                                                            stor_ffffff = 0;
+                                                                            exit;
+                                                                        }
+                                                                    }
+                                                                }
+                                                            } else {
+                                                                require(!stor_ffffff);
+                                                                stor_ffffff = 1;
+                                                                require(!msg.value);
+                                                                require(varg1 <= MEM[64]);
+                                                                require(varg1 >= int128.min);
+                                                                require(varg2 <= MEM[64]);
+                                                                require(varg2 >= int128.min);
+                                                                require(!stor_f);
+                                                                v30 = v31 = 9304;
+                                                            }
+                                                        } else {
+                                                            require(!msg.value);
+                                                            require(varg1 <= MEM[64]);
+                                                            require(varg1 >= int128.min);
+                                                            require(varg2 <= MEM[64]);
+                                                            require(varg2 >= int128.min);
+                                                            v32 = v33 = 8384;
+                                                        }
+                                                    } else {
+                                                        require(!msg.value);
+                                                        require(varg1 <= MEM[64]);
+                                                        require(varg1 >= int128.min);
+                                                        require(varg2 <= MEM[64]);
+                                                        require(varg2 >= int128.min);
+                                                        v32 = v34 = 7631;
+                                                    }
+                                                } else {
+                                                    require(MEM[0x140] ^ MEM[0x160]);
+                                                    require(MEM[352] >= 0);
+                                                    require(MEM[352] < 3);
+                                                    require(MEM[320] >= 0);
+                                                    require(MEM[320] < 3);
+                                                    v10 = v35 = 6461;
+                                                }
+                                            } else {
+                                                require(!stor_ffffff);
+                                                stor_ffffff = 1;
+                                                require(!msg.value);
+                                                require(!stor_f);
+                                                CALLDATACOPY(320, msg.data.length, 96);
+                                                require((stor_2 * 3 / stor_2 == 3) | !stor_2);
+                                                require(8);
+                                                v10 = v36 = 3816;
+                                            }
+                                        } else {
+                                            require(!msg.value);
+                                            require(varg3 < 2);
+                                            v10 = v37 = 2930;
+                                        }
+                                    } else {
+                                        require(!msg.value);
+                                        while (352 < 736) {
+                                        }
+                                        v32 = v38 = 2424;
+                                    }
+                                } else {
+                                    while (352 < 1056) {
+                                    }
+                                    while (352 < 768) {
+                                    }
+                                    v30 = v39 = 2135;
+                                }
+                            } else {
+                                while (MEM[320] >= 0) {
+                                    MEM[544] = 1;
+                                    if (3 == 1) {
+                                        if (bool(MEM[320])) {
+                                            MEM[608] = 0;
+                                            require((MEM[416] * 3 / MEM[416] == 3) | !MEM[416]);
+                                            while (1) {
+                                                while ((v40 * v40 / v40 == v40) | !v40) {
+                                                    require((MEM[320] * 3 / MEM[320] == 3) | !MEM[320]);
+                                                    require(MEM[320] * 3);
+                                                    MEM[800] = 1;
+                                                    if (3 == 1) {
+                                                        v41 = MEM[416] * 3 * MEM[320];
+                                                        require((v41 / (MEM[416] * 3) == MEM[320]) | !(MEM[416] * 3));
+                                                        require((v42 * 3 / v42 == 3) | !v42);
+                                                        require(v41 + v42 * 3 >= v41);
+                                                        require(((v41 + v42 * 3) * v40 / (v41 + v42 * 3) == v40) | !(v41 + v42 * 3));
+                                                        require(MEM[416] * 3 >= 1);
+                                                        require(((MEM[416] * 3 - 1) * v40 / (MEM[416] * 3 - 1) == v40) | !(MEM[416] * 3 - 1));
+                                                        v43 = v40 * v40 / (MEM[320] * 3) << 2;
+                                                        require((v43 >> 2 == v40 * v40 / (MEM[320] * 3)) | !0x4);
+                                                        require((MEM[416] * 3 - 1) * v40 + v43 >= (MEM[416] * 3 - 1) * v40);
+                                                        require((MEM[416] * 3 - 1) * v40 + v43);
+                                                        v44 = (v41 + v42 * 3) * v40 / ((MEM[416] * 3 - 1) * v40 + v43);
+                                                        if (v44 <= v40) {
+                                                            require(v40 >= v44);
+                                                            if (v40 - v44 <= 1) {
+                                                                // Unknown jump to Block 0x79b. Refer to 3-address code (TAC);
+                                                            }
+                                                        } else {
+                                                            require(v44 >= v40);
+                                                            if (v44 - v40 <= 1) {
+                                                            }
+                                                        }
+                                                        MEM[704] = 1;
+                                                        if (uint8.max == 1) {
+                                                            break;
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                            revert();
+                                        }
+                                    }
+                                }
+                                revert();
+                            }
+                        }
+                        MEM[320] = v45;
+                        MEM[352] = v46;
+                        MEM[384] = v47;
+                        MEM[448] = 10 ** 18;
+                        MEM[480] = 10 ** 30;
+                        MEM[512] = 10 ** 30;
+                        while (0 < 3) {
+                            require(0 < 3);
+                            require((MEM[448] * MEM[320] / MEM[448] == MEM[320]) | !MEM[448]);
+                            require(10 ** 18);
+                            require(0 < 3);
+                            MEM[448] = MEM[448] * MEM[320] / 10 ** 18;
+                            MEM[544] = 1;
+                            if (3 == 1) {
+                                while (96 > 0) {
+                                    MEM[576] = 64;
+                                }
+                            }
+                        }
+                        revert();
+                    }
+                    MEM[352] = 10 ** 18;
+                    MEM[384] = 10 ** 30;
+                    MEM[416] = 10 ** 30;
+                    while (0 < 3) {
+                        require(0 < 3);
+                        require((MEM[352] * array_1[0].field0 / MEM[352] == array_1[0].field0) | !MEM[352]);
+                        require(10 ** 18);
+                        require(0 < 3);
+                        MEM[352] = MEM[352] * array_1[0].field0 / 10 ** 18;
+                        MEM[448] = 1;
+                        if (3 == 1) {
+                            while (96 > 0) {
+                                MEM[480] = 64;
+                            }
+                        }
+                    }
+                    revert();
+                } else {
+                    require(!msg.value);
+                    v10 = v48 = 614;
+                }
+            }
+            if (block.timestamp < ___function_selector__) {
+                if (stor_7 <= stor_6) {
+                    require(stor_6 >= stor_7);
+                    require(block.timestamp >= stor_8);
+                    require(((stor_6 - stor_7) * (block.timestamp - stor_8) / (stor_6 - stor_7) == block.timestamp - stor_8) | !(stor_6 - stor_7));
+                    require(___function_selector__ >= stor_8);
+                    require(___function_selector__ - stor_8);
+                    require(stor_6 >= (stor_6 - stor_7) * (block.timestamp - stor_8) / (___function_selector__ - stor_8));
+                    v49 = stor_6 - (stor_6 - stor_7) * (block.timestamp - stor_8) / (___function_selector__ - stor_8);
+                } else {
+                    require(stor_7 >= stor_6);
+                    require(block.timestamp >= stor_8);
+                    require(((stor_7 - stor_6) * (block.timestamp - stor_8) / (stor_7 - stor_6) == block.timestamp - stor_8) | !(stor_7 - stor_6));
+                    require(___function_selector__ >= stor_8);
+                    require(___function_selector__ - stor_8);
+                    require(stor_6 + (stor_7 - stor_6) * (block.timestamp - stor_8) / (___function_selector__ - stor_8) >= stor_6);
+                    v50 = stor_6 + (stor_7 - stor_6) * (block.timestamp - stor_8) / (___function_selector__ - stor_8);
+                }
+            }
+        }
+        revert();
+    }
+}

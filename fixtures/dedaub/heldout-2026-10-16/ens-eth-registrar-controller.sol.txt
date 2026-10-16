@@ -1,0 +1,553 @@
+contract Decompiled {
+    // Decompiled by library.dedaub.com
+// 2026.10.05 07:26 UTC
+// Compiled using the solidity compiler version 0.8.17
+
+
+    // Data structures and variables inferred from the use of storage instructions
+    mapping (uint256 => uint256) _commitments; // STORAGE[0x1]
+    address _owner; // STORAGE[0x0] bytes 0 to 19
+
+
+    // Events
+    NameRegistered(string, bytes32, address, uint256, uint256, uint256);
+    NameRenewed(string, bytes32, uint256, uint256);
+    OwnershipTransferred(address, address);
+
+    function @_setReverseRecord_4122(address varg0, address varg1, bytes varg2) private {
+        v0 = v1 = 0;
+        while (v0 < varg2.length) {
+            MEM[v0 + (32 + MEM[64])] = varg2[v0];
+            v0 += 32;
+        }
+        MEM[varg2.length + (32 + MEM[64])] = 0;
+        MEM[32 + MEM[64] + varg2.length] = 0x2e65746800000000000000000000000000000000000000000000000000000000;
+        v2 = new uint256[](4 + (32 + MEM[64] + varg2.length) - MEM[64] - 32);
+        v3 = v4 = 0;
+        while (v3 < 4 + (32 + MEM[64] + varg2.length) - MEM[64] - 32) {
+            MEM[v3 + v2.data] = MEM[v3 + (MEM[64] + 32)];
+            v3 += 32;
+        }
+        MEM[4 + (32 + MEM[64] + varg2.length) - MEM[64] - 32 + v2.data] = 0;
+        v5, /* uint256 */ v6 = address(0xa58e81fe9b61b5c3fe2afd33cf304c454abfc7cb).setNameForAddr(msg.sender, varg0, varg1, v2).gas(msg.gas);
+        require(bool(v5), 0, RETURNDATASIZE()); // checks call status, propagates error data on error
+        require(MEM[64] + RETURNDATASIZE() - MEM[64] >= 32);
+        return ;
+    }
+
+    function fallback() public payable {  find similar
+        revert();
+    }
+
+    function supportsInterface(bytes4 interfaceId) public nonPayable {  find similar
+        require(msg.data.length - 4 >= 32);
+        v0 = v1 = 0x1ffc9a700000000000000000000000000000000000000000000000000000000 == interfaceId;
+        if (0x1ffc9a700000000000000000000000000000000000000000000000000000000 != interfaceId) {
+            v0 = v2 = 0x612e8c0900000000000000000000000000000000000000000000000000000000 == interfaceId;
+        }
+        return bool(v0);
+    }
+
+    function withdraw() public nonPayable {  find similar
+        v0 = _owner.call().value(this.balance).gas(2300 * !this.balance);
+        require(bool(v0), 0, RETURNDATASIZE()); // checks call status, propagates error data on error
+    }
+
+    function _SafeAdd(uint256 varg0, uint256 varg1) private {
+        require(varg0 <= varg1 + varg0, Panic(17)); // arithmetic overflow or underflow
+        return varg1 + varg0;
+    }
+
+    function _SafeSub(uint256 varg0, uint256 varg1) private {
+        require(varg0 - varg1 <= varg0, Panic(17)); // arithmetic overflow or underflow
+        return varg0 - varg1;
+    }
+
+    function recoverFunds(address _token, address _to, uint256 _amount) public nonPayable {  find similar
+        require(msg.data.length - 4 >= 96);
+        require(msg.sender == _owner, Error('Ownable: caller is not the owner'));
+        v0, /* bool */ v1 = _token.transfer(_to, _amount).gas(msg.gas);
+        require(bool(v0), 0, RETURNDATASIZE()); // checks call status, propagates error data on error
+        require(MEM[64] + RETURNDATASIZE() - MEM[64] >= 32);
+        require(v1 == bool(v1));
+    }
+
+    function makeCommitment(string name, address owner, uint256 duration, bytes32 secret, address resolver, bytes[] data, bool reverseRecord, uint16 ownerControlledFuses) public nonPayable {  find similar
+        require(msg.data.length - 4 >= uint8.max + 1);
+        require(name <= uint64.max);
+        require(4 + name + 31 < msg.data.length);
+        require(name.length <= uint64.max, Panic(65)); // failed memory allocation (too much memory)
+        v0 = new bytes[](name.length);
+        require(!((v0 + (0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0 & 32 + (0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0 & 31 + name.length) + 31) < v0) | (v0 + (0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0 & 32 + (0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0 & 31 + name.length) + 31) > uint64.max)), Panic(65)); // failed memory allocation (too much memory)
+        require(4 + name + name.length + 32 <= msg.data.length);
+        CALLDATACOPY(v0.data, name.data, name.length);
+        v0[name.length] = 0;
+        require(data <= uint64.max);
+        require(4 + data + 31 < msg.data.length);
+        require(data.length <= uint64.max);
+        v1 = data.data;
+        require(4 + data + (data.length << 5) + 32 <= msg.data.length);
+        v2 = v0.length;
+        v3 = v0.data;
+        v4 = v5 = bool(data.length);
+        if (data.length) {
+            v4 = !resolver;
+        }
+        require(!v4, ResolverRequiredWhenDataSupplied());
+        v6 = new uint256[](v7 - MEM[64] - 32);
+        MEM[v6.data] = keccak256(v0);
+        MEM[v6.data + 32] = owner;
+        MEM[v6.data + 64] = duration;
+        MEM[v6.data + 96] = secret;
+        MEM[v6.data + 128] = resolver;
+        MEM[v6.data + 160] = uint8.max + 1;
+        MEM[v6.data + (uint8.max + 1)] = data.length;
+        v8 = v9 = v6.data + (uint8.max + 1) + 32;
+        v7 = v10 = v9 + (data.length << 5);
+        v11 = 0;
+        while (v11 < data.length) {
+            MEM[v8] = v7 - v9;
+            require(msg.data[v1] < msg.data.length - v1 - 31);
+            require(msg.data[v1 + msg.data[v1]] <= uint64.max);
+            require(v1 + msg.data[v1] + 32 <= msg.data.length - msg.data[v1 + msg.data[v1]]);
+            MEM[v7] = msg.data[v1 + msg.data[v1]];
+            CALLDATACOPY(v7 + 32, v1 + msg.data[v1] + 32, msg.data[v1 + msg.data[v1]]);
+            MEM[32 + (msg.data[v1 + msg.data[v1]] + v7)] = 0;
+            v7 = v7 + (0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0 & msg.data[v1 + msg.data[v1]] + 31) + 32;
+            v8 += 32;
+            v1 += 32;
+            v11 += 1;
+        }
+        MEM[v6.data + 192] = reverseRecord;
+        MEM[v6.data + 224] = ownerControlledFuses;
+        v12 = v6.length;
+        v13 = v6.data;
+        return keccak256(v6);
+    }
+
+    function renounceOwnership() public nonPayable {  find similar
+        require(msg.sender == _owner, Error('Ownable: caller is not the owner'));
+        _owner = 0;
+        emit OwnershipTransferred(_owner, address(0x0));
+    }
+
+    function register(string name, address owner, uint256 duration, bytes32 secret, address resolver, bytes[] data, bool reverseRecord, uint16 ownerControlledFuses) public payable {  find similar
+        require(msg.data.length - 4 >= uint8.max + 1);
+        require(name <= uint64.max);
+        require(4 + name + 31 < msg.data.length);
+        require(name.length <= uint64.max);
+        require(4 + name + name.length + 32 <= msg.data.length);
+        require(data <= uint64.max);
+        require(4 + data + 31 < msg.data.length);
+        require(data.length <= uint64.max);
+        v0 = v1 = data.data;
+        require(4 + data + (data.length << 5) + 32 <= msg.data.length);
+        v2 = new bytes[](name.length);
+        CALLDATACOPY(v2.data, name.data, name.length);
+        v2[name.length] = 0;
+        v3 = @rentPrice_3602(duration, v2);
+        v4 = _SafeAdd(v3.word0, v3.word1);
+        require(msg.value >= v4, InsufficientValue());
+        v5 = new bytes[](name.length);
+        CALLDATACOPY(v5.data, name.data, name.length);
+        v5[name.length] = 0;
+        v6 = new bytes[](name.length);
+        CALLDATACOPY(v6.data, name.data, name.length);
+        v6[name.length] = 0;
+        v7 = v6.length;
+        v8 = v6.data;
+        v9 = v10 = bool(data.length);
+        if (data.length) {
+            v9 = !resolver;
+        }
+        require(!v9, ResolverRequiredWhenDataSupplied());
+        v11 = new uint256[](v12 - MEM[64] - 32);
+        MEM[v11.data] = keccak256(v6);
+        MEM[v11.data + 32] = owner;
+        MEM[v11.data + 64] = duration;
+        MEM[v11.data + 96] = secret;
+        MEM[v11.data + 128] = resolver;
+        MEM[v11.data + 160] = uint8.max + 1;
+        MEM[v11.data + (uint8.max + 1)] = data.length;
+        v13 = v14 = v11.data + (uint8.max + 1) + 32;
+        v12 = v15 = v14 + (data.length << 5);
+        v16 = 0;
+        while (v16 < data.length) {
+            MEM[v13] = v12 - v14;
+            require(msg.data[v0] < msg.data.length - v1 - 31);
+            require(msg.data[v1 + msg.data[v0]] <= uint64.max);
+            require(v1 + msg.data[v0] + 32 <= msg.data.length - msg.data[v1 + msg.data[v0]]);
+            MEM[v12] = msg.data[v1 + msg.data[v0]];
+            CALLDATACOPY(v12 + 32, v1 + msg.data[v0] + 32, msg.data[v1 + msg.data[v0]]);
+            MEM[32 + (msg.data[v1 + msg.data[v0]] + v12)] = 0;
+            v12 = v12 + (0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0 & msg.data[v1 + msg.data[v0]] + 31) + 32;
+            v13 += 32;
+            v0 += 32;
+            v16 += 1;
+        }
+        MEM[v11.data + 192] = reverseRecord;
+        MEM[v11.data + 224] = ownerControlledFuses;
+        v17 = v11.length;
+        v18 = v11.data;
+        @_consumeCommitment_4062(keccak256(v11), duration, v5);
+        v19 = new bytes[](name.length);
+        CALLDATACOPY(v19.data, name.data, name.length);
+        v19[name.length] = 0;
+        v20, /* uint256 */ v21 = address(0xd4416b13d2b3a9abae7acd5d6c2bbdbe25686401).registerAndWrapETH2LD(v19, owner, duration, resolver, ownerControlledFuses).gas(msg.gas);
+        require(bool(v20), 0, RETURNDATASIZE()); // checks call status, propagates error data on error
+        require(MEM[64] + RETURNDATASIZE() - MEM[64] >= 32);
+        if (data.length) {
+            CALLDATACOPY(v22.data, name.data, name.length);
+            MEM[name.length + v22.data] = 0;
+            v23 = new uint256[](data.length);
+            v24 = v25 = v23.data;
+            v26 = v27 = v25 + (data.length << 5);
+            v28 = 0;
+            while (v28 < data.length) {
+                MEM[v24] = v26 - v25;
+                require(msg.data[v0] < msg.data.length - v1 - 31);
+                require(msg.data[v1 + msg.data[v0]] <= uint64.max);
+                require(v1 + msg.data[v0] + 32 <= msg.data.length - msg.data[v1 + msg.data[v0]]);
+                MEM[v26] = msg.data[v1 + msg.data[v0]];
+                CALLDATACOPY(v26 + 32, v1 + msg.data[v0] + 32, msg.data[v1 + msg.data[v0]]);
+                MEM[32 + (msg.data[v1 + msg.data[v0]] + v26)] = 0;
+                v26 = v26 + (0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0 & msg.data[v1 + msg.data[v0]] + 31) + 32;
+                v24 += 32;
+                v0 += 32;
+                v28 += 1;
+            }
+            v29, /* uint256 */ v30 = resolver.multicallWithNodeCheck(keccak256(0x93cdeb708b7545dc668eb9280176169d1c33cfd8ed6f04690a0bcc88a93fc4ae, keccak256(v22.data)), v23).gas(msg.gas);
+            require(bool(v29), 0, RETURNDATASIZE()); // checks call status, propagates error data on error
+            RETURNDATACOPY(v30, 0, RETURNDATASIZE());
+            MEM[64] = v30 + (0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0 & RETURNDATASIZE() + 31);
+            require(v30 + RETURNDATASIZE() - v30 >= 32);
+            require(MEM[v30] <= uint64.max);
+            require(v30 + MEM[v30] + 31 < v30 + RETURNDATASIZE());
+            require(MEM[v30 + MEM[v30]] <= uint64.max, Panic(65)); // failed memory allocation (too much memory)
+            v31 = new uint256[](MEM[v30 + MEM[v30]]);
+            require(!((v31 + (0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0 & (MEM[v30 + MEM[v30]] << 5) + 32 + 31) < v31) | (v31 + (0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0 & (MEM[v30 + MEM[v30]] << 5) + 32 + 31) > uint64.max)), Panic(65)); // failed memory allocation (too much memory)
+            v32 = v33 = v31.data;
+            require(32 + ((MEM[v30 + MEM[v30]] << 5) + (v30 + MEM[v30])) <= v30 + RETURNDATASIZE());
+            v34 = v35 = v30 + MEM[v30] + 32;
+            while (v34 < 32 + ((MEM[v30 + MEM[v30]] << 5) + (v30 + MEM[v30]))) {
+                require(MEM[v34] <= uint64.max);
+                require(v30 + RETURNDATASIZE() > v30 + MEM[v30] + MEM[v34] + 63);
+                v36 = MEM[v30 + MEM[v30] + MEM[v34] + 32];
+                require(v36 <= uint64.max, Panic(65)); // failed memory allocation (too much memory)
+                v37 = new bytes[](v36);
+                require(!((v37 + (0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0 & 32 + (0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0 & 31 + v36) + 31) < v37) | (v37 + (0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0 & 32 + (0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0 & 31 + v36) + 31) > uint64.max)), Panic(65)); // failed memory allocation (too much memory)
+                require(v30 + MEM[v30] + MEM[v34] + v36 + 64 <= v30 + RETURNDATASIZE());
+                v38 = v39 = 0;
+                while (v38 < v36) {
+                    v37[v38] = MEM[v38 + (v30 + MEM[v30] + MEM[v34] + 64)];
+                    v38 += 32;
+                }
+                v37[v36] = 0;
+                MEM[v32] = v37;
+                v34 += 32;
+                v32 += 32;
+            }
+        }
+        if (reverseRecord) {
+            v40 = new bytes[](name.length);
+            CALLDATACOPY(v40.data, name.data, name.length);
+            v40[name.length] = 0;
+            @_setReverseRecord_4122(msg.sender, resolver, v40);
+        }
+        CALLDATACOPY(v41.data, name.data, name.length);
+        MEM[name.length + v41.data] = 0;
+        v42 = new bytes[](name.length);
+        CALLDATACOPY(v42.data, name.data, name.length);
+        v42[name.length] = 0;
+        emit NameRegistered(keccak256(v41.data), owner, v42, v3.word0, v3.word1, v21);
+        v43 = _SafeAdd(v3.word0, v3.word1);
+        if (msg.value > v43) {
+            v44 = _SafeAdd(v3.word0, v3.word1);
+            v45 = _SafeSub(msg.value, v44);
+            v46 = msg.sender.call().value(v45).gas(2300 * !v45);
+            require(bool(v46), 0, RETURNDATASIZE()); // checks call status, propagates error data on error
+        }
+    }
+
+    function reverseRegistrar() public nonPayable {  find similar
+        return address(0xa58e81fe9b61b5c3fe2afd33cf304c454abfc7cb);
+    }
+
+    function commitments(bytes32 varg0) public nonPayable {  find similar
+        require(msg.data.length - 4 >= 32);
+        return _commitments[varg0];
+    }
+
+    function rentPrice(string name, uint256 duration) public nonPayable {  find similar
+        require(msg.data.length - 4 >= 64);
+        require(name <= uint64.max);
+        require(4 + name + 31 < msg.data.length);
+        require(name.length <= uint64.max, Panic(65)); // failed memory allocation (too much memory)
+        v0 = new bytes[](name.length);
+        require(!((v0 + (0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0 & 32 + (0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0 & 31 + name.length) + 31) < v0) | (v0 + (0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0 & 32 + (0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0 & 31 + name.length) + 31) > uint64.max)), Panic(65)); // failed memory allocation (too much memory)
+        require(4 + name + name.length + 32 <= msg.data.length);
+        CALLDATACOPY(v0.data, name.data, name.length);
+        v0[name.length] = 0;
+        v1 = @rentPrice_3602(duration, v0);
+        return v1.word0, v1.word1;
+    }
+
+    function MIN_REGISTRATION_DURATION() public nonPayable {  find similar
+        return 0x24ea00;
+    }
+
+    function minCommitmentAge() public nonPayable {  find similar
+        return 60;
+    }
+
+    function owner() public nonPayable {  find similar
+        return _owner;
+    }
+
+    function valid(string name) public nonPayable {  find similar
+        require(msg.data.length - 4 >= 32);
+        require(name <= uint64.max);
+        require(4 + name + 31 < msg.data.length);
+        require(name.length <= uint64.max, Panic(65)); // failed memory allocation (too much memory)
+        v0 = new bytes[](name.length);
+        require(!((v0 + (0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0 & 32 + (0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0 & 31 + name.length) + 31) < v0) | (v0 + (0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0 & 32 + (0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0 & 31 + name.length) + 31) > uint64.max)), Panic(65)); // failed memory allocation (too much memory)
+        require(4 + name + name.length + 32 <= msg.data.length);
+        CALLDATACOPY(v0.data, name.data, name.length);
+        v0[name.length] = 0;
+        v1 = @valid_3616(v0);
+        return bool(v1);
+    }
+
+    function nameWrapper() public nonPayable {  find similar
+        return address(0xd4416b13d2b3a9abae7acd5d6c2bbdbe25686401);
+    }
+
+    function renew(string name, uint256 duration) public payable {  find similar
+        require(msg.data.length - 4 >= 64);
+        require(name <= uint64.max);
+        require(4 + name + 31 < msg.data.length);
+        require(name.length <= uint64.max);
+        require(4 + name + name.length + 32 <= msg.data.length);
+        v0 = new bytes[](name.length);
+        CALLDATACOPY(v0, name.data, name.length);
+        v0[name.length] = 0;
+        CALLDATACOPY(v0.data, name.data, name.length);
+        v0[name.length] = 0;
+        v1 = @rentPrice_3602(duration, v0.data);
+        require(msg.value >= v1.word0, InsufficientValue());
+        v2, /* uint256 */ v3 = address(0xd4416b13d2b3a9abae7acd5d6c2bbdbe25686401).renew(keccak256(v0), duration).gas(msg.gas);
+        require(bool(v2), 0, RETURNDATASIZE()); // checks call status, propagates error data on error
+        require(MEM[64] + RETURNDATASIZE() - MEM[64] >= 32);
+        if (msg.value > v1.word0) {
+            v4 = _SafeSub(msg.value, v1.word0);
+            v5 = msg.sender.call().value(v4).gas(2300 * !v4);
+            require(bool(v5), 0, RETURNDATASIZE()); // checks call status, propagates error data on error
+        }
+        v6 = new bytes[](name.length);
+        CALLDATACOPY(v6.data, name.data, name.length);
+        v6[name.length] = 0;
+        emit NameRenewed(keccak256(v0), v6, msg.value, v3);
+    }
+
+    function available(string name) public nonPayable {  find similar
+        require(msg.data.length - 4 >= 32);
+        require(name <= uint64.max);
+        require(4 + name + 31 < msg.data.length);
+        require(name.length <= uint64.max, Panic(65)); // failed memory allocation (too much memory)
+        v0 = new bytes[](name.length);
+        require(!((v0 + (0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0 & 32 + (0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0 & 31 + name.length) + 31) < v0) | (v0 + (0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0 & 32 + (0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0 & 31 + name.length) + 31) > uint64.max)), Panic(65)); // failed memory allocation (too much memory)
+        require(4 + name + name.length + 32 <= msg.data.length);
+        CALLDATACOPY(v0.data, name.data, name.length);
+        v0[name.length] = 0;
+        v1 = @available_3646(v0);
+        return bool(v1);
+    }
+
+    function maxCommitmentAge() public nonPayable {  find similar
+        return 0x15180;
+    }
+
+    function prices() public nonPayable {  find similar
+        return address(0x7542565191d074ce84fbfa92cae13acb84788ca9);
+    }
+
+    function commit(bytes32 commitment) public nonPayable {  find similar
+        require(msg.data.length - 4 >= 32);
+        v0 = _SafeAdd(_commitments[commitment], 0x15180);
+        require(v0 < block.timestamp, UnexpiredCommitmentExists(commitment));
+        _commitments[commitment] = block.timestamp;
+    }
+
+    function transferOwnership(address newOwner) public nonPayable {  find similar
+        require(msg.data.length - 4 >= 32);
+        require(msg.sender == _owner, Error('Ownable: caller is not the owner'));
+        require(newOwner, Error('Ownable: new owner is the zero address'));
+        _owner = newOwner;
+        emit OwnershipTransferred(_owner, newOwner);
+    }
+
+    function @rentPrice_3602(uint256 varg0, bytes varg1) private {
+        MEM[MEM[64]] = 0;
+        MEM[MEM[64] + 32] = 0;
+        v0 = varg1.length;
+        v1 = varg1.data;
+        v2, /* uint256 */ v3 = address(0x57f1887a8bf19b14fc0df6fd9b2acc9af147ea85).nameExpires(keccak256(varg1)).gas(msg.gas);
+        require(bool(v2), 0, RETURNDATASIZE()); // checks call status, propagates error data on error
+        require(MEM[64] + RETURNDATASIZE() - MEM[64] >= 32);
+        v4 = new bytes[](varg1.length);
+        v5 = v6 = 0;
+        while (v5 < varg1.length) {
+            v4[v5] = varg1[v5];
+            v5 += 32;
+        }
+        v4[varg1.length] = 0;
+        v7, /* uint256 */ v8, /* uint256 */ v9 = address(0x7542565191d074ce84fbfa92cae13acb84788ca9).price(v4, v3, varg0).gas(msg.gas);
+        require(bool(v7), 0, RETURNDATASIZE()); // checks call status, propagates error data on error
+        require(MEM[64] + RETURNDATASIZE() - MEM[64] >= 64);
+        v10 = new struct(2);
+        require(!((v10 + 64 > uint64.max) | (v10 + 64 < v10)), Panic(65)); // failed memory allocation (too much memory)
+        v10.word0 = v8;
+        v10.word1 = v9;
+        return v10;
+    }
+
+    function @valid_3616(bytes varg0) private {
+        v0 = v1 = 0;
+        while (v0 < varg0.length) {
+            require(v0 < varg0.length, Panic(50)); // access an out-of-bounds or negative index of bytesN array or slice
+            if (bytes1(varg0[v0]) >= int256.min) {
+                if (bytes1(varg0[v0]) >= 0xe000000000000000000000000000000000000000000000000000000000000000) {
+                    if (bytes1(varg0[v0]) >= 0xf000000000000000000000000000000000000000000000000000000000000000) {
+                        if (bytes1(varg0[v0]) >= 0xf800000000000000000000000000000000000000000000000000000000000000) {
+                            if (bytes1(varg0[v0]) >= 0xfc00000000000000000000000000000000000000000000000000000000000000) {
+                                v0 = _SafeAdd(v0, 6);
+                            } else {
+                                v0 = _SafeAdd(v0, 5);
+                            }
+                        } else {
+                            v0 = _SafeAdd(v0, 4);
+                        }
+                    } else {
+                        v0 = _SafeAdd(v0, 3);
+                    }
+                } else {
+                    v0 = _SafeAdd(v0, 2);
+                }
+            } else {
+                v0 = _SafeAdd(v0, 1);
+            }
+            require(v0 + 1, Panic(17)); // arithmetic overflow or underflow
+            v0 += 1;
+        }
+        return v0 >= 3;
+    }
+
+    function @available_3646(bytes varg0) private {
+        v0 = varg0.length;
+        v1 = varg0.data;
+        v2 = @valid_3616(varg0);
+        if (!v2) {
+            return v2;
+        } else {
+            v3, /* bool */ v4 = address(0x57f1887a8bf19b14fc0df6fd9b2acc9af147ea85).available(keccak256(varg0)).gas(msg.gas);
+            require(bool(v3), 0, RETURNDATASIZE()); // checks call status, propagates error data on error
+            require(MEM[64] + RETURNDATASIZE() - MEM[64] >= 32);
+            require(v4 == bool(v4));
+            return v4;
+        }
+    }
+
+    function @_consumeCommitment_4062(uint256 varg0, uint256 varg1, bytes varg2) private {
+        v0 = _SafeAdd(_commitments[varg0], 60);
+        require(v0 <= block.timestamp, CommitmentTooNew(varg0));
+        v1 = _SafeAdd(_commitments[varg0], 0x15180);
+        require(v1 > block.timestamp, CommitmentTooOld(varg0));
+        v2 = @available_3646(varg2);
+        if (v2) {
+            _commitments[varg0] = 0;
+            require(varg1 >= 0x24ea00, DurationTooShort(varg1));
+            return ;
+        } else {
+            v3 = new bytes[](varg2.length);
+            v4 = v5 = 0;
+            while (v4 < varg2.length) {
+                v3[v4] = varg2[v4];
+                v4 += 32;
+            }
+            v3[varg2.length] = 0;
+            revert(NameNotAvailable(v3));
+        }
+    }
+
+    // Note: The function selector is not present in the original solidity code.
+    // However, we display it for the sake of completeness.
+
+    function __function_selector__( function_selector) public payable {
+        MEM[64] = 128;
+        if (msg.data.length >= 4) {
+            if (0x8d839ffe > function_selector >> 224) {
+                if (0x74694a2b > function_selector >> 224) {
+                    if (0x5d3590d5 > function_selector >> 224) {
+                        if (0x1ffc9a7 == function_selector >> 224) {
+                            supportsInterface(bytes4);
+                        } else if (0x3ccfd60b == function_selector >> 224) {
+                            withdraw();
+                        }
+                    } else if (0x5d3590d5 == function_selector >> 224) {
+                        recoverFunds(address,address,uint256);
+                    } else if (0x65a69dcf == function_selector >> 224) {
+                        makeCommitment(string,address,uint256,bytes32,address,bytes[],bool,uint16);
+                    } else {
+                        require(0x715018a6 == function_selector >> 224);
+                        renounceOwnership();
+                    }
+                } else if (0x839df945 > function_selector >> 224) {
+                    if (0x74694a2b == function_selector >> 224) {
+                        register(string,address,uint256,bytes32,address,bytes[],bool,uint16);
+                    } else {
+                        require(0x80869853 == function_selector >> 224);
+                        reverseRegistrar();
+                    }
+                } else if (0x839df945 == function_selector >> 224) {
+                    commitments(bytes32);
+                } else if (0x83e7f6ff == function_selector >> 224) {
+                    rentPrice(string,uint256);
+                } else {
+                    require(0x8a95b09f == function_selector >> 224);
+                    MIN_REGISTRATION_DURATION();
+                }
+            } else if (0xaeb8ce9b > function_selector >> 224) {
+                if (0x9791c097 > function_selector >> 224) {
+                    if (0x8d839ffe == function_selector >> 224) {
+                        minCommitmentAge();
+                    } else {
+                        require(0x8da5cb5b == function_selector >> 224);
+                        owner();
+                    }
+                } else if (0x9791c097 == function_selector >> 224) {
+                    valid(string);
+                } else if (0xa8e5fbc0 == function_selector >> 224) {
+                    nameWrapper();
+                } else {
+                    require(0xacf1a841 == function_selector >> 224);
+                    renew(string,uint256);
+                }
+            } else if (0xd3419bf3 > function_selector >> 224) {
+                if (0xaeb8ce9b == function_selector >> 224) {
+                    available(string);
+                } else {
+                    require(0xce1e09c0 == function_selector >> 224);
+                    maxCommitmentAge();
+                }
+            } else if (0xd3419bf3 == function_selector >> 224) {
+                prices();
+            } else if (0xf14fcbc8 == function_selector >> 224) {
+                commit(bytes32);
+            } else {
+                require(0xf2fde38b == function_selector >> 224);
+                transferOwnership(address);
+            }
+        }
+        fallback();
+    }
+}

@@ -1,0 +1,977 @@
+contract Decompiled {
+    // Decompiled by library.dedaub.com
+// 2026.09.25 16:34 UTC
+// Compiled using the solidity compiler version 0.8.4
+
+
+    // Data structures and variables inferred from the use of storage instructions
+    uint256 _totalSupply; // STORAGE[0x1]
+    string _name; // STORAGE[0x2]
+    string _symbol; // STORAGE[0x3]
+    mapping (uint256 => struct_1238) _tokenOfOwnerByIndex; // STORAGE[0x4]
+    mapping (address => struct_1236) mapping_5; // STORAGE[0x5]
+    mapping (uint256 => address) mapping_6; // STORAGE[0x6]
+    mapping (address => mapping (address => bool)) _isApprovedForAll; // STORAGE[0x7]
+    uint256 _nextOwnerToExplicitlySet; // STORAGE[0x8]
+    uint256 stor_9; // STORAGE[0x9]
+    uint256 _saleConfig; // STORAGE[0xa]
+    mapping (address => uint256) _allowlist; // STORAGE[0xb]
+    string array_c; // STORAGE[0xc]
+    address _owner; // STORAGE[0x0] bytes 0 to 19
+
+    struct struct_1236 { uint128 field0_0_15; uint128 field0_16_31; };
+    struct struct_1238 { address field0_0_19; uint64 field0_20_27; };
+
+    // Events
+    ApprovalForAll(address, address, bool);
+    Approval(address, address, uint256);
+    Transfer(address, address, uint256);
+    OwnershipTransferred(address, address);
+
+    function 0x12b9(uint256 varg0, bool varg1, bool varg2) private {
+        v0 = v1 = varg2;
+        if (varg2) {
+            v0 = v2 = varg1;
+        }
+        if (!v0) {
+            return v0;
+        } else {
+            return block.timestamp >= varg0;
+        }
+    }
+
+    function 0x167b(address varg0) private {
+        require(varg0, Error('ERC721A: balance query for the zero address'));
+        return mapping_5[varg0].field0_0_15;
+    }
+
+    function 0x17ce(uint256 varg0) private {
+        if (block.timestamp >= varg0) {
+            v0 = _SafeSub(block.timestamp, varg0);
+            if (v0 < 20400) {
+                v1 = _SafeSub(block.timestamp, varg0);
+                v2 = _SafeDiv(v1, 1200);
+                v3 = _SafeDiv(20400, 1200);
+                v4 = _SafeSub(10 ** 18, 0x214e8348c4f0000);
+                v5 = _SafeDiv(v4, v3);
+                v6 = _SafeMul(v2, v5);
+                v7 = _SafeSub(10 ** 18, v6);
+                return v7;
+            } else {
+                return 0x214e8348c4f0000;
+            }
+        } else {
+            return 10 ** 18;
+        }
+    }
+
+    function 0x1be7(bytes varg0, uint256 varg1, uint256 varg2, uint256 varg3) private {
+        0x20f6(varg1, varg2, varg3);
+        v0 = 0x2930(varg0, varg1, varg2, varg3);
+        require(v0, Error('ERC721A: transfer to non ERC721Receiver implementer'));
+        return ;
+    }
+
+    function 0x1fcc(address varg0) private {
+        require(varg0, Error('ERC721A: number minted query for the zero address'));
+        return mapping_5[varg0].field0_16_31;
+    }
+
+    function 0x20f6(uint256 varg0, address varg1, address varg2) private {
+        v0 = 0x271b(varg0);
+        v1 = v2 = msg.sender == address(v0.word0);
+        if (msg.sender != address(v0.word0)) {
+            v3 = 0xa1f(varg0);
+            v1 = v4 = address(v3) == msg.sender;
+        }
+        if (!v1) {
+            v1 = _isApprovedForAll[address(v0.word0)][msg.sender];
+        }
+        require(v1, Error('ERC721A: transfer caller is not owner nor approved'));
+        require(address(v0.word0) == varg2, Error('ERC721A: transfer from incorrect owner'));
+        require(varg1, Error('ERC721A: transfer to the zero address'));
+        mapping_6[varg0] = 0;
+        emit Approval(address(v0.word0), address(0x0), varg0);
+        v5 = varg2;
+        require(mapping_5[v5].field0_0_15 >= uint128(1), Panic(17)); // arithmetic overflow or underflow
+        mapping_5[v5].field0_0_15 = mapping_5[v5].field0_0_15 - uint128(1);
+        v6 = 0x35a4(mapping_5[varg1].field0_0_15, 1);
+        mapping_5[varg1].field0_0_15 = v6;
+        _tokenOfOwnerByIndex[varg0].field0_0_19 = varg1;
+        _tokenOfOwnerByIndex[varg0].field0_20_27 = uint64(block.timestamp);
+        v7 = _SafeAdd(1, varg0);
+        if (_tokenOfOwnerByIndex[v7].field0_0_19) {
+            emit Transfer(varg2, varg1, varg0);
+            return ;
+        } else if (_totalSupply <= v7) {
+            emit Transfer(varg2, varg1, varg0);
+            return ;
+        } else {
+            MEM[64] += 64;
+            _tokenOfOwnerByIndex[v7].field0_0_19 = address(v0.word0);
+            _tokenOfOwnerByIndex[v7].field0_20_27 = uint64(v0.word1);
+            emit Transfer(varg2, varg1, varg0);
+            return ;
+        }
+    }
+
+    function 0x266f(uint256 varg0, uint256 varg1) private {
+        MEM[MEM[64]] = 0;
+        v0 = v1 = _totalSupply;
+        require(address(varg1), Error('ERC721A: mint to the zero address'));
+        require(_totalSupply <= v1, Error('ERC721A: token already minted'));
+        require(varg0 <= 5, Error('ERC721A: quantity to mint too high'));
+        v2 = new struct(2);
+        v2.word0 = mapping_5[address(varg1)].field0_0_15;
+        v2.word1 = mapping_5[address(varg1)].field0_16_31;
+        v3 = 0x35a4(v2.word0, varg0);
+        v4 = 0x35a4(v2.word1, varg0);
+        v5 = v6 = 0;
+        mapping_5[address(varg1)].field0_0_15 = uint128(v3);
+        mapping_5[address(varg1)].field0_16_31 = uint128(v4);
+        _tokenOfOwnerByIndex[v1].field0_0_19 = address(varg1);
+        _tokenOfOwnerByIndex[v1].field0_20_27 = uint64(block.timestamp);
+        while (v5 < varg0) {
+            emit Transfer(0, address(varg1), v0);
+            v7 = 0x2930(MEM[64], v0, varg1, 0);
+            require(v7, Error('ERC721A: transfer to non ERC721Receiver implementer'));
+            v0 = 0x36ce(v0);
+            v5 = 0x36ce(v5);
+        }
+        _totalSupply = v0;
+        return ;
+    }
+
+    function 0x268d(uint256 varg0) private {
+        require(msg.value >= varg0, Error('Need to send more ETH.'));
+        if (msg.value <= varg0) {
+            return ;
+        } else {
+            v0 = _SafeSub(msg.value, varg0);
+            v1 = msg.sender.call().value(v0).gas(2300 * !v0);
+            require(bool(v1), 0, RETURNDATASIZE()); // checks call status, propagates error data on error
+            return ;
+        }
+    }
+
+    function 0x271b(uint256 varg0) private {
+        MEM[MEM[64]] = 0;
+        MEM[MEM[64] + 32] = 0;
+        require(_totalSupply > varg0, Error('ERC721A: owner query for nonexistent token'));
+        v0 = v1 = 0;
+        if (varg0 >= 5) {
+            v2 = _SafeSub(varg0, 5);
+            v0 = v3 = _SafeAdd(1, v2);
+        }
+        while (varg0 >= v0) {
+            v4 = new struct(2);
+            v4.word0 = _tokenOfOwnerByIndex[varg0].field0_0_19;
+            v4.word1 = _tokenOfOwnerByIndex[varg0].field0_20_27;
+            if (!_tokenOfOwnerByIndex[varg0].field0_0_19) {
+                varg0 = 0x367c(varg0);
+            } else {
+                return v4;
+            }
+        }
+        revert(Error('ERC721A: unable to determine the owner of token'));
+    }
+
+    function 0x2930(bytes varg0, uint256 varg1, address varg2, address varg3) private {
+        v0 = v1 = 0;
+        if (!varg2.code.size) {
+            return 1;
+        } else {
+            v2 = new bytes[](varg0.length);
+            v3 = v4 = 0;
+            while (v3 < varg0.length) {
+                v2[v3] = varg0[v3];
+                v3 += 32;
+            }
+            if (v3 > varg0.length) {
+                v2[varg0.length] = 0;
+            }
+            require(bool(varg2.code.size));
+            v5 = v6, /* uint256 */ v7, /* bytes4 */ v0 = varg2.onERC721Received(msg.sender, varg3, varg1, v2).gas(msg.gas);
+            if (v6) {
+                require(MEM[64] + RETURNDATASIZE() - MEM[64] >= 32);
+                require(v0 == bytes4(v0));
+                v5 = v8 = 1;
+            }
+            if (v5) {
+                return 0x150b7a0200000000000000000000000000000000000000000000000000000000 == bytes4(v0);
+            } else {
+                if (!RETURNDATASIZE()) {
+                    v9 = v10 = 96;
+                } else {
+                    v9 = v11 = new bytes[](RETURNDATASIZE());
+                    RETURNDATACOPY(v11.data, 0, RETURNDATASIZE());
+                }
+                require(MEM[v9], Error('ERC721A: transfer to non ERC721Receiver implementer'));
+                revert(v7, MEM[v9]);
+            }
+        }
+    }
+
+    function 0x2a89() private {
+        v0 = 0x3693(array_c.length);
+        v1 = new bytes[](v0);
+        v2 = v3 = v1.data;
+        v4 = 0x3693(array_c.length);
+        if (!v4) {
+            return v1;
+        } else if (31 < v4) {
+            v5 = v6 = array_c.data;
+            do {
+                MEM[v2] = STORAGE[v5];
+                v5 += 1;
+                v2 += 32;
+            } while (v3 + v4 > v2);
+            return v1;
+        } else {
+            MEM[v3] = array_c.length >> 8 << 8;
+            return v1;
+        }
+    }
+
+    function 0x2a98(uint256 varg0) private {
+        if (varg0) {
+            v0 = v1 = 0;
+            while (varg0) {
+                v0 = 0x36ce(v0);
+                varg0 = _SafeDiv(varg0, 10);
+            }
+            require(v0 <= uint64.max, Panic(65)); // failed memory allocation (too much memory)
+            v2 = new bytes[](v0);
+            if (v0) {
+                CALLDATACOPY(v2.data, msg.data.length, v0);
+            }
+            while (varg0) {
+                v0 = _SafeSub(v0, 1);
+                v3 = _SafeMod(varg0, 10);
+                v4 = _SafeAdd(48, v3);
+                require(v0 < v2.length, Panic(50)); // access an out-of-bounds or negative index of bytesN array or slice
+                MEM8[32 + v0 + v2] = (byte(bytes1(v4 << 248), 0x0)) & 0xFF;
+                varg0 = _SafeDiv(varg0, 10);
+            }
+            return v2;
+        } else {
+            return 48;
+        }
+    }
+
+    function fallback() public payable {  find similar
+        revert();
+    }
+
+    function supportsInterface(bytes4 interfaceId) public nonPayable {  find similar
+        require(msg.data.length - 4 >= 32);
+        v0 = v1 = 0x80ac58cd00000000000000000000000000000000000000000000000000000000 == interfaceId;
+        if (0x80ac58cd00000000000000000000000000000000000000000000000000000000 != interfaceId) {
+            v0 = v2 = 0x5b5e139f00000000000000000000000000000000000000000000000000000000 == interfaceId;
+        }
+        if (!v0) {
+            v0 = v3 = 0x780e9d6300000000000000000000000000000000000000000000000000000000 == interfaceId;
+        }
+        if (!v0) {
+            v0 = v4 = interfaceId == 0x1ffc9a700000000000000000000000000000000000000000000000000000000;
+        }
+        return bool(v0);
+    }
+
+    function name() public nonPayable {  find similar
+        v0 = 0x3693(_name.length);
+        v1 = new bytes[](v0);
+        v2 = v3 = v1.data;
+        v4 = 0x3693(_name.length);
+        if (v4) {
+            if (31 < v4) {
+                v5 = v6 = _name.data;
+                do {
+                    MEM[v2] = STORAGE[v5];
+                    v5 += 1;
+                    v2 += 32;
+                } while (v3 + v4 > v2);
+            } else {
+                MEM[v3] = _name.length >> 8 << 8;
+            }
+        }
+        v7 = new bytes[](v1.length);
+        v8 = v9 = 0;
+        while (v8 < v1.length) {
+            v7[v8] = v1[v8];
+            v8 += 32;
+        }
+        if (v8 > v1.length) {
+            v7[v1.length] = 0;
+        }
+        return v7;
+    }
+
+    function getApproved(uint256 tokenId) public nonPayable {  find similar
+        require(msg.data.length - 4 >= 32);
+        v0 = 0xa1f(tokenId);
+        return address(v0);
+    }
+
+    function approve(address spender, uint256 amount) public nonPayable {  find similar
+        require(msg.data.length - 4 >= 64);
+        v0 = 0x271b(amount);
+        require(spender != address(v0.word0), Error('ERC721A: approval to current owner'));
+        v1 = v2 = address(v0.word0) == msg.sender;
+        if (address(v0.word0) != msg.sender) {
+            v1 = _isApprovedForAll[address(v0.word0)][msg.sender];
+        }
+        require(v1, Error('ERC721A: approve caller is not owner nor approved for all'));
+        mapping_6[amount] = spender;
+        emit Approval(address(v0.word0), spender, amount);
+    }
+
+    function 0x35a4(uint128 varg0, uint128 varg1) private {
+        require(varg0 <= uint128.max - varg1, Panic(17)); // arithmetic overflow or underflow
+        return varg1 + varg0;
+    }
+
+    function _SafeAdd(uint256 varg0, uint256 varg1) private {
+        require(varg0 <= ~varg1, Panic(17)); // arithmetic overflow or underflow
+        return varg0 + varg1;
+    }
+
+    function _SafeDiv(uint256 varg0, uint256 varg1) private {
+        require(varg1, Panic(18)); // division by zero
+        return varg0 / varg1;
+    }
+
+    function _SafeMul(uint256 varg0, uint256 varg1) private {
+        require(!(bool(varg0) & (varg1 > uint256.max / varg0)), Panic(17)); // arithmetic overflow or underflow
+        return varg0 * varg1;
+    }
+
+    function _SafeSub(uint256 varg0, uint256 varg1) private {
+        require(varg0 >= varg1, Panic(17)); // arithmetic overflow or underflow
+        return varg0 - varg1;
+    }
+
+    function 0x367c(uint256 varg0) private {
+        require(varg0, Panic(17)); // arithmetic overflow or underflow
+        return uint256.max + varg0;
+    }
+
+    function 0x3693(uint256 varg0) private {
+        v0 = v1 = varg0 >> 1;
+        if (!(varg0 & 0x1)) {
+            v0 = v2 = v1 & 0x7f;
+        }
+        require(varg0 & 0x1 != v0 < 32, Panic(34)); // access to incorrectly encoded storage byte array
+        return v0;
+    }
+
+    function 0x36ce(uint256 varg0) private {
+        require(varg0 != uint256.max, Panic(17)); // arithmetic overflow or underflow
+        return 1 + varg0;
+    }
+
+    function _SafeMod(uint256 varg0, uint256 varg1) private {
+        require(varg1, Panic(18)); // division by zero
+        return varg0 % varg1;
+    }
+
+    function endAuctionAndSetupNonAuctionSaleInfo(uint64 mintlistPriceWei, uint64 publicPriceWei, uint32 publicSaleStartTime) public nonPayable {  find similar
+        require(msg.data.length - 4 >= 96);
+        require(msg.sender == _owner, Error('Ownable: caller is not the owner'));
+        MEM[64] = MEM[64] + 160;
+        MEM[MEM[64]] = 0;
+        MEM[MEM[64] + 32] = publicSaleStartTime;
+        MEM[MEM[64] + 64] = mintlistPriceWei;
+        MEM[MEM[64] + 96] = publicPriceWei;
+        MEM[MEM[64] + 128] = uint32(_saleConfig >> 192);
+        _saleConfig = uint32(_saleConfig >> 192) << 192 | (0xffffffff00000000ffffffffffffffffffffffffffffffffffffffffffffffff & publicPriceWei << 128 | 0xffffffff000000000000000000000000ffffffffffffffffffffffffffffffff & (mintlistPriceWei << 64 | (0xffffffffffffffffffffffffffffffff0000000000000000ffffffffffffffff & publicSaleStartTime << 32 | bytes16(_saleConfig))));
+    }
+
+    function totalSupply() public nonPayable {  find similar
+        return _totalSupply;
+    }
+
+    function transferFrom(address sender, address recipient, uint256 amount) public nonPayable {  find similar
+        require(msg.data.length - 4 >= 96);
+        0x20f6(amount, recipient, sender);
+    }
+
+    function setOwnersExplicit(uint256 quantity) public nonPayable {  find similar
+        require(msg.data.length - 4 >= 32);
+        require(msg.sender == _owner, Error('Ownable: caller is not the owner'));
+        require(stor_9 != 2, Error('ReentrancyGuard: reentrant call'));
+        stor_9 = 2;
+        v0 = v1 = _nextOwnerToExplicitlySet;
+        require(quantity, Error('quantity must be nonzero'));
+        v2 = _SafeAdd(v1, quantity);
+        v3 = v4 = _SafeSub(v2, 1);
+        v5 = _SafeSub(10000, 1);
+        if (v4 > v5) {
+            v3 = v6 = _SafeSub(10000, 1);
+        }
+        require(_totalSupply > v3, Error('not enough minted yet for this cleanup'));
+        while (v0 <= v3) {
+            if (!_tokenOfOwnerByIndex[v0].field0_0_19) {
+                v7 = 0x271b(v0);
+                _tokenOfOwnerByIndex[v0].field0_0_19 = address(v7.word0);
+                _tokenOfOwnerByIndex[v0].field0_20_27 = uint64(v7.word1);
+            }
+            v0 = 0x36ce(v0);
+        }
+        v8 = _SafeAdd(1, v3);
+        _nextOwnerToExplicitlySet = v8;
+        stor_9 = 1;
+        exit;
+    }
+
+    function tokenOfOwnerByIndex(address owner, uint256 index) public nonPayable {  find similar
+        require(msg.data.length - 4 >= 64);
+        v0 = 0x167b(owner);
+        require(index < v0, Error('ERC721A: owner index out of bounds'));
+        v1 = v2 = 0;
+        v3 = v4 = 0;
+        while (v3 < _totalSupply) {
+            v5 = new struct(2);
+            v5.word0 = _tokenOfOwnerByIndex[v3].field0_0_19;
+            v5.word1 = _tokenOfOwnerByIndex[v3].field0_20_27;
+            if (_tokenOfOwnerByIndex[v3].field0_0_19) {
+                v1 = v6 = v5.word0;
+            }
+            if (address(v1) == owner) {
+                if (v1 != index) {
+                    v1 = 0x36ce(v1);
+                } else {
+                    return v3;
+                }
+            }
+            v3 = 0x36ce(v3);
+        }
+        revert(Error('ERC721A: unable to get token of owner by index'));
+    }
+
+    function devMint(uint256 quantity) public nonPayable {  find similar
+        require(msg.data.length - 4 >= 32);
+        require(msg.sender == _owner, Error('Ownable: caller is not the owner'));
+        v0 = _SafeAdd(_totalSupply, quantity);
+        require(v0 <= 200, Error('too many already minted before dev mint'));
+        v1 = _SafeMod(quantity, 5);
+        require(!v1, Error('can only mint a multiple of the maxBatchSize'));
+        v2 = _SafeDiv(quantity, 5);
+        v3 = v4 = 0;
+        while (v3 < v2) {
+            0x266f(5, msg.sender);
+            v3 = 0x36ce(v3);
+        }
+        exit;
+    }
+
+    function allowlistMint() public payable {  find similar
+        require(msg.sender == tx.origin, Error('The caller is another contract'));
+        require(uint64(_saleConfig >> 64), Error('allowlist sale has not begun yet'));
+        require(_allowlist[msg.sender], Error('not eligible for allowlist mint'));
+        v0 = _SafeAdd(1, _totalSupply);
+        require(v0 <= 10000, Error('reached max supply'));
+        v1 = 0x367c(_allowlist[msg.sender]);
+        _allowlist[msg.sender] = v1;
+        0x266f(1, msg.sender);
+        0x268d(uint64(_saleConfig >> 64));
+    }
+
+    function isPublicSaleOn(uint256 publicPriceWei, uint256 publicSaleKey, uint256 publicSaleStartTime) public nonPayable {  find similar
+        require(msg.data.length - 4 >= 96);
+        v0 = 0x12b9(publicSaleStartTime, publicSaleKey, publicPriceWei);
+        return bool(v0);
+    }
+
+    function safeTransferFrom(address from, address to, uint256 tokenId) public nonPayable {  find similar
+        require(msg.data.length - 4 >= 96);
+        MEM[64] += 32;
+        MEM[MEM[64]] = 0;
+        0x1be7(MEM[64], tokenId, to, from);
+    }
+
+    function auctionMint(uint256 quantity) public payable {  find similar
+        require(msg.data.length - 4 >= 32);
+        require(msg.sender == tx.origin, Error('The caller is another contract'));
+        v0 = v1 = bool(uint32(_saleConfig));
+        if (uint32(_saleConfig)) {
+            v0 = block.timestamp >= uint32(_saleConfig);
+        }
+        require(v0, Error('sale has not started yet'));
+        v2 = _SafeAdd(_totalSupply, quantity);
+        require(v2 <= 8900, Error('not enough remaining reserved for auction to support desired mint amount'));
+        v3 = 0x1fcc(msg.sender);
+        v4 = _SafeAdd(v3, quantity);
+        require(v4 <= 5, Error('can not mint this many'));
+        v5 = 0x17ce(uint32(_saleConfig));
+        v6 = _SafeMul(v5, quantity);
+        0x266f(quantity, msg.sender);
+        0x268d(v6);
+    }
+
+    function tokenByIndex(uint256 index) public nonPayable {  find similar
+        require(msg.data.length - 4 >= 32);
+        require(index < _totalSupply, Error('ERC721A: global index out of bounds'));
+        return index;
+    }
+
+    function setBaseURI(string _newBaseURI) public nonPayable {  find similar
+        require(msg.data.length - 4 >= 32);
+        require(_newBaseURI <= uint64.max);
+        require(4 + _newBaseURI + 31 < msg.data.length);
+        require(msg.data[4 + _newBaseURI] <= uint64.max);
+        require(v0.data <= msg.data.length);
+        v1 = v2 = 36 + _newBaseURI;
+        require(msg.sender == _owner, Error('Ownable: caller is not the owner'));
+        v3 = 0x3693(array_c.length);
+        v4 = v5 = array_c.data;
+        if (msg.data[4 + _newBaseURI]) {
+            if (31 < msg.data[4 + _newBaseURI]) {
+                array_c.length = 1 + (msg.data[4 + _newBaseURI] + msg.data[4 + _newBaseURI]);
+                if (msg.data[4 + _newBaseURI]) {
+                    while (v2 + msg.data[4 + _newBaseURI] > v1) {
+                        STORAGE[v4] = msg.data[v1];
+                        v1 += 32;
+                        v4 += 1;
+                    }
+                }
+            } else {
+                array_c.length = bytes31(_newBaseURI.word1) | msg.data[4 + _newBaseURI] + msg.data[4 + _newBaseURI];
+            }
+        } else {
+            array_c.length = 0;
+        }
+        while (v5 + (31 + v3 >> 5) > v4) {
+            STORAGE[v4] = 0;
+            v4 += 1;
+        }
+        exit;
+    }
+
+    function amountForAuctionAndDev() public nonPayable {  find similar
+        return 8900;
+    }
+
+    function AUCTION_DROP_PER_STEP() public nonPayable {  find similar
+        v0 = _SafeDiv(20400, 1200);
+        v1 = _SafeSub(10 ** 18, 0x214e8348c4f0000);
+        v2 = _SafeDiv(v1, v0);
+        return v2;
+    }
+
+    function AUCTION_DROP_INTERVAL() public nonPayable {  find similar
+        return 1200;
+    }
+
+    function ownerOf(uint256 tokenId) public nonPayable {  find similar
+        require(msg.data.length - 4 >= 32);
+        v0 = 0x271b(tokenId);
+        return address(v0.word0);
+    }
+
+    function setAuctionSaleStartTime(uint32 timestamp) public nonPayable {  find similar
+        require(msg.data.length - 4 >= 32);
+        require(msg.sender == _owner, Error('Ownable: caller is not the owner'));
+        _saleConfig = timestamp | bytes28(_saleConfig);
+    }
+
+    function balanceOf(address account) public nonPayable {  find similar
+        require(msg.data.length - 4 >= 32);
+        v0 = 0x167b(account);
+        return v0;
+    }
+
+    function renounceOwnership() public nonPayable {  find similar
+        require(msg.sender == _owner, Error('Ownable: caller is not the owner'));
+        _owner = 0;
+        emit OwnershipTransferred(_owner, address(0x0));
+    }
+
+    function AUCTION_START_PRICE() public nonPayable {  find similar
+        return 10 ** 18;
+    }
+
+    function maxPerAddressDuringMint() public nonPayable {  find similar
+        return 5;
+    }
+
+    function owner() public nonPayable {  find similar
+        return _owner;
+    }
+
+    function setPublicSaleKey(uint32 key) public nonPayable {  find similar
+        require(msg.data.length - 4 >= 32);
+        require(msg.sender == _owner, Error('Ownable: caller is not the owner'));
+        _saleConfig = _saleConfig & 0xffffffff00000000ffffffffffffffffffffffffffffffffffffffffffffffff | key << 192;
+    }
+
+    function saleConfig() public nonPayable {  find similar
+        return uint32(_saleConfig), uint32(_saleConfig >> 32), uint64(_saleConfig >> 64), uint64(_saleConfig >> 128), uint32(_saleConfig >> 192);
+    }
+
+    function getAuctionPrice(uint256 _saleStartTime) public nonPayable {  find similar
+        require(msg.data.length - 4 >= 32);
+        v0 = 0x17ce(_saleStartTime);
+        return v0;
+    }
+
+    function getOwnershipData(uint256 tokenId) public nonPayable {  find similar
+        require(msg.data.length - 4 >= 32);
+        MEM[MEM[64]] = 0;
+        MEM[MEM[64] + 32] = 0;
+        v0 = 0x271b(tokenId);
+        return address(v0.word0), uint64(v0.word1);
+    }
+
+    function symbol() public nonPayable {  find similar
+        v0 = 0x3693(_symbol.length);
+        v1 = new bytes[](v0);
+        v2 = v3 = v1.data;
+        v4 = 0x3693(_symbol.length);
+        if (v4) {
+            if (31 < v4) {
+                v5 = v6 = _symbol.data;
+                do {
+                    MEM[v2] = STORAGE[v5];
+                    v5 += 1;
+                    v2 += 32;
+                } while (v3 + v4 > v2);
+            } else {
+                MEM[v3] = _symbol.length >> 8 << 8;
+            }
+        }
+        v7 = new bytes[](v1.length);
+        v8 = v9 = 0;
+        while (v8 < v1.length) {
+            v7[v8] = v1[v8];
+            v8 += 32;
+        }
+        if (v8 > v1.length) {
+            v7[v1.length] = 0;
+        }
+        return v7;
+    }
+
+    function setApprovalForAll(address operator, bool approved) public nonPayable {  find similar
+        require(msg.data.length - 4 >= 64);
+        require(msg.sender != operator, Error('ERC721A: approve to caller'));
+        _isApprovedForAll[msg.sender][operator] = approved;
+        emit ApprovalForAll(msg.sender, operator, approved);
+    }
+
+    function allowlist(address varg0) public nonPayable {  find similar
+        require(msg.data.length - 4 >= 32);
+        return _allowlist[varg0];
+    }
+
+    function withdrawMoney() public nonPayable {  find similar
+        require(msg.sender == _owner, Error('Ownable: caller is not the owner'));
+        require(stor_9 != 2, Error('ReentrancyGuard: reentrant call'));
+        stor_9 = 2;
+        v0, /* uint256 */ v1 = msg.sender.call().value(this.balance).gas(msg.gas);
+        if (RETURNDATASIZE() != 0) {
+            v2 = new bytes[](RETURNDATASIZE());
+            RETURNDATACOPY(v2.data, 0, RETURNDATASIZE());
+        }
+        require(v0, Error('Transfer failed.'));
+        stor_9 = 1;
+    }
+
+    function seedAllowlist(address[] addresses, uint256[] numSlots) public nonPayable {  find similar
+        v0 = v1 = 0;
+        require(msg.data.length - 4 >= 64, v1, v1);
+        require(addresses <= uint64.max, v1, v1);
+        require(4 + addresses + 31 < msg.data.length, v1, v1);
+        require(addresses.length <= uint64.max, Panic(65)); // failed memory allocation (too much memory)
+        v2 = new address[](addresses.length);
+        require(!((v2 + (0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0 & 32 + (addresses.length << 5) + 31) < v2) | (v2 + (0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0 & 32 + (addresses.length << 5) + 31) > uint64.max)), Panic(65)); // failed memory allocation (too much memory)
+        v3 = v4 = v2.data;
+        v5 = v6 = addresses.data;
+        require(4 + addresses + (addresses.length << 5) + 32 <= msg.data.length, v1, v1);
+        while (v0 < addresses.length) {
+            require(msg.data[v5] == address(msg.data[v5]));
+            MEM[v3] = msg.data[v5];
+            v0 += 1;
+            v3 += 32;
+            v5 += 32;
+        }
+        require(numSlots <= uint64.max, v1, v1);
+        v7 = v8 = 0;
+        require(4 + numSlots + 31 < msg.data.length, v8, v8);
+        require(numSlots.length <= uint64.max, Panic(65)); // failed memory allocation (too much memory)
+        v9 = new uint256[](numSlots.length);
+        require(!((v9 + (0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0 & 32 + (numSlots.length << 5) + 31) < v9) | (v9 + (0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0 & 32 + (numSlots.length << 5) + 31) > uint64.max)), Panic(65)); // failed memory allocation (too much memory)
+        v10 = v11 = v9.data;
+        v12 = v13 = numSlots.data;
+        require(4 + numSlots + (numSlots.length << 5) + 32 <= msg.data.length, v8, v8);
+        while (v7 < numSlots.length) {
+            MEM[v10] = msg.data[v12];
+            v10 += 32;
+            v12 += 32;
+            v7 += 1;
+        }
+        require(msg.sender == _owner, Error('Ownable: caller is not the owner'));
+        require(v2.length == v9.length, Error('addresses does not match numSlots length'));
+        v14 = v15 = 0;
+        while (v14 < v2.length) {
+            require(v14 < v9.length, Panic(50)); // access an out-of-bounds or negative index of bytesN array or slice
+            require(v14 < v2.length, Panic(50)); // access an out-of-bounds or negative index of bytesN array or slice
+            _allowlist[address(v2[v14])] = v9[v14];
+            v14 = 0x36ce(v14);
+        }
+        exit;
+    }
+
+    function safeTransferFrom(address from, address to, uint256 tokenId, bytes _data) public nonPayable {  find similar
+        require(msg.data.length - 4 >= 128);
+        require(_data <= uint64.max);
+        require(4 + _data + 31 < msg.data.length);
+        require(_data.length <= uint64.max, Panic(65)); // failed memory allocation (too much memory)
+        v0 = new bytes[](_data.length);
+        require(!((v0 + (0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0 & 32 + (0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0 & _data.length + 31) + 31) < v0) | (v0 + (0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0 & 32 + (0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0 & _data.length + 31) + 31) > uint64.max)), Panic(65)); // failed memory allocation (too much memory)
+        require(4 + _data + _data.length + 32 <= msg.data.length);
+        CALLDATACOPY(v0.data, _data.data, _data.length);
+        v0[_data.length] = 0;
+        0x1be7(v0, tokenId, to, from);
+    }
+
+    function tokenURI(uint256 tokenId) public nonPayable {  find similar
+        require(msg.data.length - 4 >= 32);
+        require(_totalSupply > tokenId, Error('ERC721Metadata: URI query for nonexistent token'));
+        v0 = 0x2a89();
+        if (v0.length > 0) {
+            v1 = 0x2a98(tokenId);
+            v2 = v3 = 0;
+            while (v2 < v0.length) {
+                MEM[v2 + (32 + MEM[64])] = v0[v2];
+                v2 += 32;
+            }
+            if (v2 > v0.length) {
+                MEM[v0.length + (32 + MEM[64])] = 0;
+            }
+            v4 = v5 = 0;
+            while (v4 < v1.length) {
+                MEM[v4 + (32 + MEM[64] + v0.length)] = v1[v4];
+                v4 += 32;
+            }
+            if (v4 > v1.length) {
+                MEM[v1.length + (32 + MEM[64] + v0.length)] = 0;
+            }
+            v6 = v7 = MEM[64];
+            MEM[v7] = v1.length + (32 + MEM[64] + v0.length) - v7 - 32;
+        } else {
+            v6 = v8 = MEM[64];
+            MEM[v8] = 0;
+        }
+        v9 = new uint256[](MEM[v6]);
+        v10 = v11 = 0;
+        while (v10 < MEM[v6]) {
+            MEM[v10 + v9.data] = MEM[v10 + (v6 + 32)];
+            v10 += 32;
+        }
+        if (v10 > MEM[v6]) {
+            MEM[MEM[v6] + v9.data] = 0;
+        }
+        return v9;
+    }
+
+    function AUCTION_END_PRICE() public nonPayable {  find similar
+        return 0x214e8348c4f0000;
+    }
+
+    function publicSaleMint(uint256 quantity, uint256 callerPublicSaleKey) public payable {  find similar
+        require(msg.data.length - 4 >= 64);
+        require(msg.sender == tx.origin, Error('The caller is another contract'));
+        v0 = new struct(5);
+        v0.word0 = uint32(_saleConfig);
+        v0.word1 = uint32(_saleConfig >> 32);
+        v0.word2 = uint64(_saleConfig >> 64);
+        v0.word3 = uint64(_saleConfig >> 128);
+        v0.word4 = uint32(_saleConfig >> 192);
+        require(uint32(_saleConfig >> 192) == callerPublicSaleKey, Error('called with incorrect public sale key'));
+        v1 = 0x12b9(uint32(_saleConfig >> 32), uint32(_saleConfig >> 192), uint64(_saleConfig >> 128));
+        require(v1, Error('public sale has not begun yet'));
+        v2 = _SafeAdd(_totalSupply, quantity);
+        require(v2 <= 10000, Error('reached max supply'));
+        v3 = 0x1fcc(msg.sender);
+        v4 = _SafeAdd(v3, quantity);
+        require(v4 <= 5, Error('can not mint this many'));
+        0x266f(quantity, msg.sender);
+        v5 = _SafeMul(uint64(_saleConfig >> 128), quantity);
+        0x268d(v5);
+    }
+
+    function nextOwnerToExplicitlySet() public nonPayable {  find similar
+        return _nextOwnerToExplicitlySet;
+    }
+
+    function numberMinted(address owner) public nonPayable {  find similar
+        require(msg.data.length - 4 >= 32);
+        v0 = 0x1fcc(owner);
+        return v0;
+    }
+
+    function isApprovedForAll(address owner, address operator) public nonPayable {  find similar
+        require(msg.data.length - 4 >= 64);
+        return _isApprovedForAll[owner][operator];
+    }
+
+    function transferOwnership(address newOwner) public nonPayable {  find similar
+        require(msg.data.length - 4 >= 32);
+        require(msg.sender == _owner, Error('Ownable: caller is not the owner'));
+        require(newOwner, Error('Ownable: new owner is the zero address'));
+        _owner = newOwner;
+        emit OwnershipTransferred(_owner, newOwner);
+    }
+
+    function AUCTION_PRICE_CURVE_LENGTH() public nonPayable {  find similar
+        return 20400;
+    }
+
+    function amountForDevs() public nonPayable {  find similar
+        return 200;
+    }
+
+    function 0xa1f(uint256 varg0) private {
+        require(_totalSupply > varg0, Error('ERC721A: approved query for nonexistent token'));
+        return mapping_6[varg0];
+    }
+
+    // Note: The function selector is not present in the original solidity code.
+    // However, we display it for the sake of completeness.
+
+    function __function_selector__( function_selector) public payable {
+        MEM[64] = 128;
+        if (msg.data.length >= 4) {
+            v0 = function_selector >> 224;
+            if (0x715018a6 > v0) {
+                if (0x422030ba > v0) {
+                    if (0x18160ddd > v0) {
+                        if (0x1ffc9a7 == v0) {
+                            supportsInterface(bytes4);
+                        } else if (0x6fdde03 == v0) {
+                            name();
+                        } else if (0x81812fc == v0) {
+                            getApproved(uint256);
+                        } else if (0x95ea7b3 == v0) {
+                            approve(address,uint256);
+                        } else if (0x16e6e15a == v0) {
+                            endAuctionAndSetupNonAuctionSaleInfo(uint64,uint64,uint32);
+                        }
+                    } else if (0x2f745c59 > v0) {
+                        if (0x18160ddd == v0) {
+                            totalSupply();
+                        } else if (0x23b872dd == v0) {
+                            transferFrom(address,address,uint256);
+                        } else {
+                            require(0x2d20fb60 == v0);
+                            setOwnersExplicit(uint256);
+                        }
+                    } else if (0x2f745c59 == v0) {
+                        tokenOfOwnerByIndex(address,uint256);
+                    } else if (0x375a069a == v0) {
+                        devMint(uint256);
+                    } else {
+                        require(0x41fbddbd == v0);
+                        allowlistMint();
+                    }
+                } else if (0x5666c880 > v0) {
+                    if (0x422030ba == v0) {
+                        isPublicSaleOn(uint256,uint256,uint256);
+                    } else if (0x42842e0e == v0) {
+                        safeTransferFrom(address,address,uint256);
+                    } else if (0x4d3554c3 == v0) {
+                        auctionMint(uint256);
+                    } else if (0x4f6ccce7 == v0) {
+                        tokenByIndex(uint256);
+                    } else {
+                        require(0x55f804b3 == v0);
+                        setBaseURI(string);
+                    }
+                } else if (0x6352211e > v0) {
+                    if (0x5666c880 == v0) {
+                        amountForAuctionAndDev();
+                    } else if (0x59f369fe == v0) {
+                        AUCTION_DROP_PER_STEP();
+                    } else {
+                        require(0x5cae01d3 == v0);
+                        AUCTION_DROP_INTERVAL();
+                    }
+                } else if (0x6352211e == v0) {
+                    ownerOf(uint256);
+                } else if (0x6ebc5601 == v0) {
+                    setAuctionSaleStartTime(uint32);
+                } else {
+                    require(0x70a08231 == v0);
+                    balanceOf(address);
+                }
+            } else if (0xac446002 > v0) {
+                if (0x90aa0b0f > v0) {
+                    if (0x715018a6 == v0) {
+                        renounceOwnership();
+                    } else if (0x7a1c4a56 == v0) {
+                        AUCTION_START_PRICE();
+                    } else if (0x8bc35c2f == v0) {
+                        maxPerAddressDuringMint();
+                    } else if (0x8da5cb5b == v0) {
+                        owner();
+                    } else {
+                        require(0x90028083 == v0);
+                        setPublicSaleKey(uint32);
+                    }
+                } else if (0x95d89b41 > v0) {
+                    if (0x90aa0b0f == v0) {
+                        saleConfig();
+                    } else if (0x917d009e == v0) {
+                        getAuctionPrice(uint256);
+                    } else {
+                        require(0x9231ab2a == v0);
+                        getOwnershipData(uint256);
+                    }
+                } else if (0x95d89b41 == v0) {
+                    symbol();
+                } else if (0xa22cb465 == v0) {
+                    setApprovalForAll(address,bool);
+                } else {
+                    require(0xa7cd52cb == v0);
+                    allowlist(address);
+                }
+            } else if (0xd7224ba0 > v0) {
+                if (0xc87b56dd > v0) {
+                    if (0xac446002 == v0) {
+                        withdrawMoney();
+                    } else if (0xb05863d5 == v0) {
+                        seedAllowlist(address[],uint256[]);
+                    } else {
+                        require(0xb88d4fde == v0);
+                        safeTransferFrom(address,address,uint256,bytes);
+                    }
+                } else if (0xc87b56dd == v0) {
+                    tokenURI(uint256);
+                } else if (0xcaf8a6d1 == v0) {
+                    AUCTION_END_PRICE();
+                } else {
+                    require(0xcb91d8b3 == v0);
+                    publicSaleMint(uint256,uint256);
+                }
+            } else if (0xf2fde38b > v0) {
+                if (0xd7224ba0 == v0) {
+                    nextOwnerToExplicitlySet();
+                } else if (0xdc33e681 == v0) {
+                    numberMinted(address);
+                } else {
+                    require(0xe985e9c5 == v0);
+                    isApprovedForAll(address,address);
+                }
+            } else if (0xf2fde38b == v0) {
+                transferOwnership(address);
+            } else if (0xf8a987d8 == v0) {
+                AUCTION_PRICE_CURVE_LENGTH();
+            } else {
+                require(0xfbe1aa51 == v0);
+                amountForDevs();
+            }
+        }
+        fallback();
+    }
+}
