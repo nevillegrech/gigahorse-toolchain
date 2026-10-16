@@ -19,6 +19,9 @@ class Transfer:
     statement: str | None = None
     predicate: str | None = None
     ignored_terminal_targets: tuple[str, ...] = ()
+    # A JUMP into another public function's entry (e.g. old dispatchers falling
+    # back to the fallback function): control never returns, a tail call.
+    callee: str | None = None
 
 
 @dataclass(frozen=True)
@@ -124,9 +127,15 @@ def build_transfers(
     *,
     call_returns: list[tuple[str, str, str]] | None = None,
     allow_multiple_jumps: bool = False,
+    public_tail_jumps: bool = False,
 ) -> dict[str, Transfer]:
     blocks = {block.id: block for block in program.blocks}
     members = set(function.blocks)
+    public_entries = {
+        _block_address(other.entries[0]): other.id
+        for other in (program.functions if public_tail_jumps else ())
+        if other.selectors and len(other.entries) == 1 and other.id != function.id
+    }
     continuations: defaultdict[str, set[str]] = defaultdict(set)
     if call_returns is None:
         call_returns = program.semantics.call_returns if program.semantics else []
@@ -171,6 +180,10 @@ def build_transfers(
             if op == "JUMP":
                 # Inlining changes block identities while the pushed EVM address stays
                 # unchanged. A single recovered CFG edge identifies that renamed label.
+                callee = public_entries.get(_block_address(destination)) if destination else None
+                if not successors and callee is not None:
+                    transfers[block_id] = Transfer("end", (), tail.id, callee=callee)
+                    continue
                 if len(successors) != 1:
                     if allow_multiple_jumps and successors <= members:
                         transfers[block_id] = Transfer("multi", tuple(sorted(successors)), tail.id)
@@ -263,6 +276,7 @@ def structure_function(
     call_returns: list[tuple[str, str, str]] | None = None,
     ignore_failure_paths: bool = False,
     split_shared_returns: bool = False,
+    public_tail_jumps: bool = False,
 ) -> FlowPlan:
     """Structure a function's CFG.
 
@@ -281,7 +295,11 @@ def structure_function(
         if len(function.entries) != 1:
             raise Unstructured("Function does not have one resolved entry")
         transfers = build_transfers(
-            program, function, call_returns=call_returns, allow_multiple_jumps=split_shared_returns
+            program,
+            function,
+            call_returns=call_returns,
+            allow_multiple_jumps=split_shared_returns,
+            public_tail_jumps=public_tail_jumps,
         )
         copies, resolved, unresolved, entry_copies = phi_copies(program, function, transfers)
         origin: dict[str, str] = {}
@@ -507,7 +525,14 @@ def plan_metadata(plan: FlowPlan) -> dict:
         "unresolved_phis": plan.unresolved_phis,
         "reachable_blocks": sorted(plan.reachable_blocks),
         "region": asdict(plan.region) if plan.region else None,
-        "transfers": {block: asdict(transfer) for block, transfer in plan.transfers.items()},
+        "transfers": {
+            block: {
+                key: value
+                for key, value in asdict(transfer).items()
+                if key != "callee" or value is not None
+            }
+            for block, transfer in plan.transfers.items()
+        },
         "edge_assignments": [
             {"source": source, "target": target, "copies": [asdict(copy) for copy in copies]}
             for (source, target), copies in sorted(plan.copies.items())

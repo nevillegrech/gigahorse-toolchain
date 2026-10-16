@@ -136,3 +136,51 @@ def test_phi_at_function_entry_needs_an_external_frame_value():
     plan = structure_function(program, function)
     assert "phi" in plan.unresolved_phis
     assert "phi" not in plan.resolved_phis
+
+
+def _dispatcher_with_fallback_jump(fallback_selectors):
+    """Old solc dispatch segment: no selector matched -> PUSH2 <fallback>; JUMP."""
+    blocks = [
+        Block(
+            "0x0",
+            [
+                Instruction("0x1", "CONST", ["target"], [], []),
+                Instruction("0x2", "CALLDATASIZE", ["size"], [], []),
+                Instruction("0x3", "JUMPI", [], ["target", "size"], []),
+            ],
+            ["0x10", "0x8"],
+            ["0x8"],
+        ),
+        # The native CFG has no edge into the other function's entry.
+        Block(
+            "0x8",
+            [
+                Instruction("0x9", "CONST", ["fallback"], [], []),
+                Instruction("0xc", "JUMP", [], ["fallback"], []),
+            ],
+            [],
+            [],
+        ),
+        Block("0x10", [Instruction("0x11", "STOP", [], [], [])], [], []),
+        Block("0x40", [Instruction("0x41", "STOP", [], [], [])], [], []),
+    ]
+    dispatcher = Function("0x0", ["0x0"], [], None, [], ["0x0", "0x8", "0x10"])
+    fallback = Function("0x40", ["0x40"], fallback_selectors, None, [], ["0x40"])
+    program = Program(
+        {"target": "0x10", "fallback": "0x40"}, {}, [dispatcher, fallback], blocks, [], []
+    )
+    return program, dispatcher
+
+
+def test_jump_into_public_entry_is_a_tail_call_only_when_opted_in():
+    program, dispatcher = _dispatcher_with_fallback_jump(["0x00000000"])
+    plan = structure_function(program, dispatcher, public_tail_jumps=True)
+    assert plan.region is not None and not plan.warnings
+    assert plan.transfers["0x8"].kind == "end" and plan.transfers["0x8"].callee == "0x40"
+    # Older views do not lift tail jumps: they keep the explicit CFG.
+    plain = structure_function(program, dispatcher)
+    assert plain.region is None and "Multiple jump outcomes" in plain.warnings[0]
+    # A private (selector-less) target is not a public entry.
+    program, dispatcher = _dispatcher_with_fallback_jump([])
+    plan = structure_function(program, dispatcher, public_tail_jumps=True)
+    assert plan.region is None

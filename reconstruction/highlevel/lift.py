@@ -184,7 +184,11 @@ class ProgramContext:
         )
         for function in program.functions:
             plan = structure_function(
-                program, function, ignore_failure_paths=True, split_shared_returns=True
+                program,
+                function,
+                ignore_failure_paths=True,
+                split_shared_returns=True,
+                public_tail_jumps=True,
             )
             context.plans[function.id] = plan
             context.folds[function.id] = find_revert_folds(program, function, plan, context.reverts)
@@ -647,6 +651,20 @@ class FunctionLifter:
             if stmt.opcode in {"JUMP", "JUMPI"}:
                 if raw:
                     result.append(self.raw_jump(block, stmt))
+                elif (
+                    self.plan
+                    and (transfer := self.plan.transfers.get(node)) is not None
+                    and transfer.callee is not None
+                ):
+                    # Jump into another public function's entry: it never comes back.
+                    name = self.context.function_names.get(transfer.callee, f"fn_{transfer.callee}")
+                    result.append(
+                        Return(
+                            (Call(name, ()),),
+                            evidence=frozenset({stmt.id}),
+                            rules=frozenset({"tail-call", "jump-to-public-entry"}),
+                        )
+                    )
                 continue
             result.extend(self.statement(block, stmt))
         if (
