@@ -256,3 +256,80 @@ def test_large_function_called_from_many_places_is_not_inlined(tmp_path, monkeyp
         data = encode(["uint256[]", "uint256[]"], [xs, [4, 4]])
         harness.check(bytes.fromhex(ids["d(uint256[],uint256[])"]) + data, sender=owner)
     assert harness.cases == 30
+
+
+def test_arguments_copied_whole_are_parameters(tmp_path, monkeypatch):
+    """Vyper 0.3.10 passes dx and min_dy on to _swap with one CALLDATACOPY from the
+    head, reading only the int128 arguments. Head words copied whole count as
+    parameters (Curve stableswap-ng's exchange_received printed two of its four,
+    its entry having no size check of its own); copies at computed offsets
+    (dynamic data) or of partial words do not. Here each entry also checks the
+    calldata size, and the copied words run against Py-EVM."""
+    import importlib.util
+    import json
+    from pathlib import Path
+    from types import SimpleNamespace
+
+    import pytest
+
+    from reconstruction.highlevel.lift import copied_head_words
+    from reconstruction.model import Block, Function, Instruction
+    from reconstruction_tests.decompiled_support import compiler_fixture
+
+    def context(*copies):
+        instructions = [
+            Instruction(f"0x{i}", "CALLDATACOPY", [], [f"d{i}", f"s{i}", f"n{i}"], [])
+            for i in range(len(copies))
+        ]
+        constants = {}
+        for i, (src, size) in enumerate(copies):
+            constants |= {f"d{i}": 0x80} | ({f"s{i}": src} if src is not None else {})
+            constants |= {f"n{i}": size}
+        block = Block("0x0", instructions, [], [])
+        return SimpleNamespace(blocks={"0x0": block}, constants=constants)
+
+    function = Function("0x0", ["0x0"], ["0x12345678"], None, [], ["0x0"])
+    assert copied_head_words(context((68, 64)), function) == 4
+    assert copied_head_words(context((4, 32), (100, 64)), function) == 5
+    assert copied_head_words(context((None, 64), (68, 16), (2, 32)), function) == 0
+
+    root = Path(__file__).resolve().parents[1]
+    manifest = json.loads((root / "fixtures/reconstruction/vyper-copy-v0310.json").read_text())
+    _, decompiled = compiler_fixture("vyper-copy-v0310", tmp_path / "copy")
+    text = decompiled.text
+    spec = importlib.util.spec_from_file_location("heldout", root / "scripts/evaluate-heldout.py")
+    heldout = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(heldout)
+    score = heldout.score(heldout.parse_view(text), heldout.abi_functions(manifest["abi"]))
+    assert score["arity"] == {"correct": 4, "wrong": 0} and score["wrong_claims"] == []
+    assert "CALLDATACOPY(128, 68, 64)" in text  # the copy itself stays as compiled
+
+    pytest.importorskip("eth_tester", reason="install the validation extra")
+    from eth_abi import encode
+
+    from reconstruction_tests.test_decompiled_execution import Harness
+    from reconstruction_tests.test_execution import EVMReference
+
+    reference = EVMReference(manifest)
+    owner, other = reference.tester.get_accounts()[:2]
+    harness = Harness(decompiled, reference, {}, monkeypatch)
+    ids = manifest["method_identifiers"]
+    types = ["int128", "int128", "uint256", "uint256"]
+    for values in ((1, 0, 1000, 990), (0, 1, 1000, 997), (0, 1, 1000, 998), (-2, 3, 5, 0)):
+        data = bytes.fromhex(ids["exchange(int128,int128,uint256,uint256)"]) + encode(types, values)
+        harness.check(data, sender=owner)
+        data = bytes.fromhex(ids["exchange_for(int128,int128,uint256,uint256)"]) + encode(
+            types, values
+        )
+        harness.check(data, sender=other)
+    signature = "exchange_for(int128,int128,uint256,uint256,address)"
+    data = encode([*types, "address"], [1, 0, 2000, 0, other])
+    harness.check(bytes.fromhex(ids[signature]) + data, sender=owner)
+    for account in (owner, other):
+        data = bytes.fromhex(ids["balances(address)"]) + encode(["address"], [account])
+        harness.check(data, sender=owner)
+    dirty = (
+        bytes.fromhex(ids["exchange(int128,int128,uint256,uint256)"]) + (2**200).to_bytes(32) * 4
+    )
+    harness.check(dirty, sender=owner)  # not an int128: rejected
+    assert harness.reverts >= 3

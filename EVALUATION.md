@@ -1670,3 +1670,25 @@ code lines, 114 uncertain, 5 unstructured functions, 3 unrecovered values.
 Set 3 now produces output for all 8 contracts. No other contract's view
 changes (none had such an operand). 476 passed, 17 skipped; cross-check
 1,079 agreeing.
+
+## Arguments copied whole
+
+Curve stableswap-ng's `exchange_received(int128,int128,uint256,uint256)` printed
+two parameters (run 4's wrong claim "arity 2 vs 4", unchanged since). Vyper
+0.3.10 reads `i` and `j` to check them as `int128` and passes `dx` and `min_dy`
+on to an internal function with one `CALLDATACOPY(0xe20, 68, 64)`. The
+function's entry (it has a default argument) checks no calldata size, so
+nothing else showed head words 2 and 3. Head words copied whole from a
+constant, word-aligned head offset now count as parameters; copies at
+computed offsets (dynamic data) or of partial words do not.
+
+- stableswap-ng: arity 60 -> **61 of 61**, argument types 38 -> 40 correct,
+  0 wrong claims (`results/run4-copied-arguments.json`). No other contract
+  changes (all three corpora re-rendered).
+- Wrong claims on all held-out contracts: 7 -> 6 (MetaMorpho 2, V4 position
+  manager 2, tricrypto2 2).
+- New compiled fixture `vyper-copy-v0310` (Vyper 0.3.10, a default argument):
+  the copy runs against Py-EVM through both entries, including slippage and a
+  dirty `int128`. Each entry there checks the calldata size, so its arity does
+  not depend on the rule, which a unit test covers (constant, computed and
+  partial copies). 478 passed, 17 skipped; cross-check 1,079 agreeing.

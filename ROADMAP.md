@@ -140,6 +140,12 @@ that gives Dedaub's Morpho output 192 (the table above left out closing braces).
 | --- | --- | --- |
 | Robustness | An operand Gigahorse's IR lacks (a deep stack slot outside the inferred arguments) is an UNCERTAIN unknown value instead of failing the contract. The Euler EVC now decompiles: 44/44 selectors, arity 44/44, 0 wrong claims, 3 unrecovered values; set 3 produces output for 8/8 | Recovering those values (Gigahorse's argument inference for via-IR deep stack reads); names for the EVC (dictionary coverage) |
 
+### Status update 2026-10-17: arguments copied whole
+
+| Requirement | New evidence | Still open |
+| --- | --- | --- |
+| Held-out accuracy | Head words copied whole by `CALLDATACOPY` count as parameters: stableswap-ng arity 61/61; wrong claims on all held-out contracts 7 -> 6 | MetaMorpho's whole-head memory structs (2), V4 position manager's returned struct and `bytes` (2), tricrypto2's unnamed static arrays (2) |
+
 Next priority: investigate the NFT receiver callback's unresolved PHI; add successful
 NFT mint/transfer/receiver and multisig behavior checks; improve dynamic encoders,
 interprocedural authority

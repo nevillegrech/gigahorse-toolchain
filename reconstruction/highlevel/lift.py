@@ -316,7 +316,8 @@ class FunctionLifter:
                 # struct's own check covers all its words: words the code never
                 # reads still belong to the head (printed unread).
                 extent = max((f + c for f, c in self.pointer_structs), default=0)
-                count = max(count, extent, (head or 0) // 32)
+                copied = copied_head_words(self.context, self.function)
+                count = max(count, extent, (head or 0) // 32, copied)
             if signature is not None:
                 # Head words, not parameters: a static tuple parameter spans several.
                 params = head_params(signature_params(signature))
@@ -1441,6 +1442,25 @@ def decoder_checks(
         for h, s in found
         if h >= 4 and (h - 4) % 32 == 0 and 0 < s <= 32 * 256 and s % 32 == 0
     }
+
+
+def copied_head_words(context: ProgramContext, function: Function) -> int:
+    """Head words copied whole from calldata (Vyper copies static arguments into a
+    callee's frame with one CALLDATACOPY): the number of head words up to the end
+    of the last such copy. Copies at computed offsets (dynamic data) do not count."""
+    words = 0
+    for block_id in function.blocks:
+        block = context.blocks.get(block_id)
+        for stmt in block.instructions if block else ():
+            if stmt.opcode != "CALLDATACOPY" or len(stmt.operands) != 3:
+                continue
+            start = context.constants.get(stmt.operands[1])
+            size = context.constants.get(stmt.operands[2])
+            if start is None or size is None or (start - 4) % 32 or size % 32:
+                continue
+            if 0 < size <= 32 * 64:
+                words = max(words, (start - 4 + size) // 32)
+    return words
 
 
 def decoder_pointer_reads(

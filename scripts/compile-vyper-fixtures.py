@@ -23,6 +23,7 @@ VARIANTS = {
     "v0310-codesize": ("VyperFixture.vy", "0.3.10", "codesize"),
     "calls-v0216": ("VyperCallsFixture.vy", "0.2.16", None),
     "frames-v0212": ("VyperFramesFixture.vy", "0.2.12", None),
+    "copy-v0310": ("VyperCopyFixture.vy", "0.3.10", "gas"),
 }
 
 
