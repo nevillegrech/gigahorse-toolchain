@@ -1375,3 +1375,52 @@ Tests:
   copies, reachable-only splitting, copy accounting.
 - Existing fixtures render byte-identically (8,953 code lines). 461 passed,
   17 skipped; the cross-check is unchanged at 1,079 agreeing.
+
+## Held-out run 4: `heldout-3-2026-10-16` (first scores)
+
+Set 3 was frozen in ce7ee54, before the work on helper-decoded structs, Vyper
+dispatch and structuring, and was not analyzed until that work was committed
+(639bcc9). Each contract then ran once natively (24 GB cap, 300 s native
+timeout, one at a time, smallest first); these are the first scores, before
+any tuning (`results/run4.json`). No Dedaub export was opened.
+
+| Contract | Selectors | Names correct / unresolved / wrong | Wrong claims | Code lines | Uncertain / unstructured | Time | Peak |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| maker-vat (0.5.12, no optimizer) | 28/28 | 28 / 0 / 0 | 2 | 467 | 9 / 0 | 3.4 s | 0.07 GB |
+| cow-gpv2-settlement (0.7.6) | 15/15 | 13 / 2 / 0 | 0 | 1,211 | 10 / 0 | 8.2 s | 0.14 GB |
+| metamorpho-steakhouse-usdc (0.8.21 via-IR) | 73/73 | 48 / 25 / 0 | 2 | 3,568 | 640 / 1 | 328.0 s | 0.40 GB |
+| euler-evc (0.8.24) | **failed**: native analysis error | | | | | 158.6 s | 12.43 GB |
+| curve-stableswap-ng-usde-usdc (Vyper 0.3.10) | 61/61 | 38 / 23 / 0 | 2 | 65,269 | 231 / 7 | 528.5 s | 0.79 GB |
+| uniswap-v4-position-manager (0.8.26 via-IR) | 39/39 | 25 / 14 / 0 | 2 | 2,570 | 11 / 0 | 22.4 s | 0.38 GB |
+| curve-tricrypto2 (Vyper 0.2.12) | 62/62 | 57 / 5 / 0 | 2 | 2,232 | 40 / 18 | 5.8 s | 0.11 GB |
+| uniswap-v3-swaprouter02 (0.7.6) | 39/39 | 33 / 6 / 0 | 0 | 2,177 | 4 / 0 | 11.2 s | 0.26 GB |
+
+- 7 of 8 produced output; 317/317 selectors recovered, including all of both
+  Vyper contracts (the 0.3.10 selector table, the 0.2.12 memory selector).
+  242 names correct, 75 unresolved, none wrong.
+- The Euler EVC failed in Gigahorse's IR export (`TAC_Use: non-contiguous
+  operand indices at 0x13ba`), after 159 s at 12.4 GB; the relations are kept
+  for diagnosis.
+
+Wrong claims (10), by cause:
+
+| Contract | Function | Claim | Cause |
+| --- | --- | --- | --- |
+| maker-vat | `debt()`, `vice()` | returns `int256` vs `uint256` (2) | The storage words are typed `int256` from the signed arithmetic the Vat applies to them (`add(uint, int)` helpers); the getters return that field type. The source declares `uint256`. |
+| metamorpho | `acceptCap`, `submitMarketRemoval` | arity 5 vs 1 (2) | A `MarketParams memory` struct is the whole head, no dictionary name. via-IR decodes it at entry, so neither a struct check of its own nor late validation distinguishes it from five parameters. |
+| stableswap-ng | `exchange_received` | arity 2 vs 4 | Only `i` and `j` are bound. The function's IR has no constant-offset loads of its third and fourth head words, and its body was not structured (region expansion limit), so their reads were not recovered. Vyper has no head-size check to count the head. |
+| stableswap-ng | `last_price(uint256)` | returns `uint128` vs `uint256` | The returned value is masked to 128 bits (a packed price): the return-width case the bytecode cannot settle. The legend says the source may declare wider. |
+| v4-position-manager | `getPoolAndPositionInfo` | returns 6 words vs `(PoolKey, uint256)` | A returned static struct is printed as its words; returned structs are not grouped. |
+| v4-position-manager | `unlockCallback(bytes)` | returns `(uint256, uint256)` vs `bytes` | A returned `bytes` value is printed as the encoder's head words (offset and length). |
+| tricrypto2 | `fee_calc(uint256[3])`, `calc_token_fee(uint256[3],uint256[3])` | arity 3 vs 1, 6 vs 2 (2) | Static array parameters without a dictionary name. Vyper checks nothing that marks them, and only hash-matched signatures group arrays. |
+
+Readability, also first observations:
+
+- **stableswap-ng is 65,269 code lines.** Three functions hold 43,000 of them
+  (`remove_liquidity_one_coin` twice, 16,000 lines each, and
+  `calc_withdraw_one_coin`). Vyper calls its internal functions through
+  return-address jumps, and shared-region copying repeats `get_D`/`get_y_D`
+  per call site, nested (96 loops in one function).
+- **tricrypto2: 18 unstructured functions.** 18 of its functions' payability
+  is unresolved for the same reason.
+- **MetaMorpho: 640 uncertain lines**, mostly in one unstructured function.

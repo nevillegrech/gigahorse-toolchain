@@ -108,6 +108,12 @@ that gives Dedaub's Morpho output 192 (the table above left out closing braces).
 | --- | --- | --- |
 | Readable code | Balancer 6 -> 0 and 1inch 12 -> 9 unstructured functions; UNCERTAIN lines 1,100 -> 461 (Balancer 666 -> 12); shared regions with several returns split per caller; callee copies beside calls ignored and accounted; internal `msg.sig` switches no longer split into functions (native rule) | 1inch's 9: return labels passed through calls, merged call-return contexts, shared return tails owned by another function; 15 unassociated PHIs in the newly structured 1inch functions; Curve's 13 and 15 unstructured Vyper functions |
 
+### Status update 2026-10-17 (night): held-out run 4
+
+| Requirement | New evidence | Still open |
+| --- | --- | --- |
+| Held-out accuracy | Run 4 on set 3 (frozen before the last three phases), first scores before tuning: 7/8 produced output, 317/317 selectors (both Vyper contracts included), 242 names correct, 0 wrong, 10 wrong claims (each with its cause in EVALUATION.md) | Euler EVC fails in Gigahorse's IR export; memory structs that are the whole head; returned structs and `bytes`; static arrays without a dictionary name; signed storage typing; Vyper shared-region copying (stableswap-ng 65,269 lines); Dedaub exports for set 3 |
+
 Next priority: investigate the NFT receiver callback's unresolved PHI; add successful
 NFT mint/transfer/receiver and multisig behavior checks; improve dynamic encoders,
 interprocedural authority
