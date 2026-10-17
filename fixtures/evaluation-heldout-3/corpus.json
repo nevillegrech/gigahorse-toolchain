@@ -1,0 +1,15 @@
+{
+  "selection_id": "heldout-3-2026-10-16",
+  "selected_at": "2026-10-16",
+  "rule": "Chosen and committed before any analysis and before the helper-decoded struct, Vyper dispatch and structuring work. Not analyzed until that work is finished (phase 4); Dedaub exports are opened only after the first scores are recorded.",
+  "contracts": [
+    {"id": "curve-stableswap-ng-usde-usdc", "chain_id": 1, "address": "0x02950460E2b9529D0E00284A5fA2d7bDF3fA4d72", "why": "Vyper 0.3.10 stableswap-ng pool: the selector-table dispatcher, immutables, dynamic arrays"},
+    {"id": "curve-tricrypto2", "chain_id": 1, "address": "0xD51a44d3FaE010294C616388b506AcdA1bfAAE46", "why": "Vyper 0.2.12 cryptoswap pool: linear dispatch from another compiler version and pool family"},
+    {"id": "uniswap-v4-position-manager", "chain_id": 1, "address": "0xbD216513d74C8cf14cf4747E6AaA6420FF64ee9e", "why": "solc 0.8.26 via-IR ERC721 periphery: struct parameters (PoolKey, permits), action-encoded calldata"},
+    {"id": "metamorpho-steakhouse-usdc", "chain_id": 1, "address": "0xBEEF01735c132Ada46AA9aA4c54623cAA92A64CB", "why": "solc 0.8.21 via-IR ERC4626 vault: struct and struct-array parameters, timelocks, custom errors"},
+    {"id": "uniswap-v3-swaprouter02", "chain_id": 1, "address": "0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45", "why": "solc 0.7.6 router: static struct parameters, multicall, V2 and V3 paths"},
+    {"id": "cow-gpv2-settlement", "chain_id": 1, "address": "0x9008D19f58AAbD9eD0D60971565AA8510560ab41", "why": "solc 0.7.6 settlement: arrays of structs, signatures, interactions"},
+    {"id": "maker-vat", "chain_id": 1, "address": "0x35D1b3F3D7966A1DFe207aa4514C12a259A0492B", "why": "solc 0.5.12 without the optimizer: wards auth, signed int arguments, rad/ray arithmetic"},
+    {"id": "euler-evc", "chain_id": 1, "address": "0x0C9a3dd6b8F28529d72d7f9cE918D493519EE383", "why": "solc 0.8.24 vault connector: batch struct arrays, operator bitmasks, permits, transient-style context"}
+  ]
+}

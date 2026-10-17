@@ -82,6 +82,12 @@ that gives Dedaub's Morpho output 192 (the table above left out closing braces).
 | Behavioral confidence | Objects and payloads execute exactly the replaced statements; folded-pointer assumptions are checked when executed; synthetic bytecode against Py-EVM for every new form; 425 passed, 17 skipped; cross-check 1,079 agreeing | Bounded inputs |
 | Held-out accuracy | Wrong claims unchanged (17 on run 2, 0 on run 1). New held-out set frozen before this work: `fixtures/evaluation-heldout-2/` (8 contracts, two via-IR, one Vyper), not yet analyzed | Run 3 on it, with Dedaub exports from the user |
 
+### Status update 2026-10-16 (overnight): held-out set 3 frozen
+
+| Requirement | New evidence | Still open |
+| --- | --- | --- |
+| Held-out accuracy | Runs 1-3 are calibration. Held-out set 3 frozen before the next work: `fixtures/evaluation-heldout-3/` (8 contracts: Vyper 0.3.10 and 0.2.12, two via-IR, five with struct parameters, one unoptimized), not analyzed | Wrong claims to 0 on runs 1-3 (helper-decoded structs, return widths), Vyper dispatch, unstructured functions in Balancer and 1inch; then run 4 on set 3 |
+
 Next priority: investigate the NFT receiver callback's unresolved PHI; add successful
 NFT mint/transfer/receiver and multisig behavior checks; improve dynamic encoders,
 interprocedural authority

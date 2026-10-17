@@ -1112,3 +1112,14 @@ address, and a read past the head.
 - Turning off the truth-test exclusion, or not keeping the masks, fails the
   tests.
 - 434 passed, 17 skipped; the cross-check is unchanged at 1,079 agreeing.
+
+## Held-out corpus `heldout-3-2026-10-16` (frozen, not analyzed)
+
+Runs 1-3 are calibration now. Before the next changes (structs decoded by
+helper functions, Vyper dispatch, unstructured functions), eight more verified
+mainnet runtimes were frozen in `fixtures/evaluation-heldout-3/`: two Vyper
+(0.3.10 stableswap-ng pool, 0.2.12 tricrypto2), two via-IR (Uniswap V4
+position manager, MetaMorpho), SwapRouter02 and CoW settlement (0.7.6, struct
+parameters), Maker's Vat (0.5.12, no optimizer) and the Euler EVC (0.8.24). No
+runtime equals an existing fixture's. They are run once, and scored, only after
+that work is done.

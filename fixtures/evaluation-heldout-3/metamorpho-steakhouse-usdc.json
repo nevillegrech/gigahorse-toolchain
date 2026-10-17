@@ -1,0 +1,14 @@
+{
+  "id": "metamorpho-steakhouse-usdc",
+  "chain_id": 1,
+  "address": "0xBEEF01735c132Ada46AA9aA4c54623cAA92A64CB",
+  "bytecode_sha256": "2094b76d8cf2c16f76334d8cb79bb4162638cf5a9986aaaba5964619498a44b9",
+  "bytecode_size": 19340,
+  "compiler": "0.8.21+commit.d9974bed",
+  "language": "Solidity",
+  "runtime_match": "exact_match",
+  "retrieved_at": "2026-10-17T04:58:09.982889+00:00",
+  "response_sha256": "b44a8dc09b50fc1babeb6250ba7b542d065ad7c360a6acdfd6669afd312bbf2e",
+  "source": "https://sourcify.dev/server/v2/contract/1/0xBEEF01735c132Ada46AA9aA4c54623cAA92A64CB?fields=runtimeBytecode,compilation,abi",
+  "ground_truth_note": "ABI is scoring ground truth only; never supplied to analysis"
+}

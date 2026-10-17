@@ -1,0 +1,1386 @@
+[
+ {
+  "type": "constructor",
+  "inputs": [],
+  "stateMutability": "nonpayable"
+ },
+ {
+  "name": "EVC_BatchPanic",
+  "type": "error",
+  "inputs": []
+ },
+ {
+  "name": "EVC_ChecksReentrancy",
+  "type": "error",
+  "inputs": []
+ },
+ {
+  "name": "EVC_ControlCollateralReentrancy",
+  "type": "error",
+  "inputs": []
+ },
+ {
+  "name": "EVC_ControllerViolation",
+  "type": "error",
+  "inputs": []
+ },
+ {
+  "name": "EVC_EmptyError",
+  "type": "error",
+  "inputs": []
+ },
+ {
+  "name": "EVC_InvalidAddress",
+  "type": "error",
+  "inputs": []
+ },
+ {
+  "name": "EVC_InvalidData",
+  "type": "error",
+  "inputs": []
+ },
+ {
+  "name": "EVC_InvalidNonce",
+  "type": "error",
+  "inputs": []
+ },
+ {
+  "name": "EVC_InvalidOperatorStatus",
+  "type": "error",
+  "inputs": []
+ },
+ {
+  "name": "EVC_InvalidTimestamp",
+  "type": "error",
+  "inputs": []
+ },
+ {
+  "name": "EVC_InvalidValue",
+  "type": "error",
+  "inputs": []
+ },
+ {
+  "name": "EVC_LockdownMode",
+  "type": "error",
+  "inputs": []
+ },
+ {
+  "name": "EVC_NotAuthorized",
+  "type": "error",
+  "inputs": []
+ },
+ {
+  "name": "EVC_OnBehalfOfAccountNotAuthenticated",
+  "type": "error",
+  "inputs": []
+ },
+ {
+  "name": "EVC_PermitDisabledMode",
+  "type": "error",
+  "inputs": []
+ },
+ {
+  "name": "EVC_RevertedBatchResult",
+  "type": "error",
+  "inputs": [
+   {
+    "name": "batchItemsResult",
+    "type": "tuple[]",
+    "components": [
+     {
+      "name": "success",
+      "type": "bool",
+      "internalType": "bool"
+     },
+     {
+      "name": "result",
+      "type": "bytes",
+      "internalType": "bytes"
+     }
+    ],
+    "internalType": "struct IEVC.BatchItemResult[]"
+   },
+   {
+    "name": "accountsStatusResult",
+    "type": "tuple[]",
+    "components": [
+     {
+      "name": "checkedAddress",
+      "type": "address",
+      "internalType": "address"
+     },
+     {
+      "name": "isValid",
+      "type": "bool",
+      "internalType": "bool"
+     },
+     {
+      "name": "result",
+      "type": "bytes",
+      "internalType": "bytes"
+     }
+    ],
+    "internalType": "struct IEVC.StatusCheckResult[]"
+   },
+   {
+    "name": "vaultsStatusResult",
+    "type": "tuple[]",
+    "components": [
+     {
+      "name": "checkedAddress",
+      "type": "address",
+      "internalType": "address"
+     },
+     {
+      "name": "isValid",
+      "type": "bool",
+      "internalType": "bool"
+     },
+     {
+      "name": "result",
+      "type": "bytes",
+      "internalType": "bytes"
+     }
+    ],
+    "internalType": "struct IEVC.StatusCheckResult[]"
+   }
+  ]
+ },
+ {
+  "name": "EVC_SimulationBatchNested",
+  "type": "error",
+  "inputs": []
+ },
+ {
+  "name": "InvalidIndex",
+  "type": "error",
+  "inputs": []
+ },
+ {
+  "name": "TooManyElements",
+  "type": "error",
+  "inputs": []
+ },
+ {
+  "name": "AccountStatusCheck",
+  "type": "event",
+  "inputs": [
+   {
+    "name": "account",
+    "type": "address",
+    "indexed": true,
+    "internalType": "address"
+   },
+   {
+    "name": "controller",
+    "type": "address",
+    "indexed": true,
+    "internalType": "address"
+   }
+  ],
+  "anonymous": false
+ },
+ {
+  "name": "CallWithContext",
+  "type": "event",
+  "inputs": [
+   {
+    "name": "caller",
+    "type": "address",
+    "indexed": true,
+    "internalType": "address"
+   },
+   {
+    "name": "onBehalfOfAddressPrefix",
+    "type": "bytes19",
+    "indexed": true,
+    "internalType": "bytes19"
+   },
+   {
+    "name": "onBehalfOfAccount",
+    "type": "address",
+    "indexed": false,
+    "internalType": "address"
+   },
+   {
+    "name": "targetContract",
+    "type": "address",
+    "indexed": true,
+    "internalType": "address"
+   },
+   {
+    "name": "selector",
+    "type": "bytes4",
+    "indexed": false,
+    "internalType": "bytes4"
+   }
+  ],
+  "anonymous": false
+ },
+ {
+  "name": "CollateralStatus",
+  "type": "event",
+  "inputs": [
+   {
+    "name": "account",
+    "type": "address",
+    "indexed": true,
+    "internalType": "address"
+   },
+   {
+    "name": "collateral",
+    "type": "address",
+    "indexed": true,
+    "internalType": "address"
+   },
+   {
+    "name": "enabled",
+    "type": "bool",
+    "indexed": false,
+    "internalType": "bool"
+   }
+  ],
+  "anonymous": false
+ },
+ {
+  "name": "ControllerStatus",
+  "type": "event",
+  "inputs": [
+   {
+    "name": "account",
+    "type": "address",
+    "indexed": true,
+    "internalType": "address"
+   },
+   {
+    "name": "controller",
+    "type": "address",
+    "indexed": true,
+    "internalType": "address"
+   },
+   {
+    "name": "enabled",
+    "type": "bool",
+    "indexed": false,
+    "internalType": "bool"
+   }
+  ],
+  "anonymous": false
+ },
+ {
+  "name": "LockdownModeStatus",
+  "type": "event",
+  "inputs": [
+   {
+    "name": "addressPrefix",
+    "type": "bytes19",
+    "indexed": true,
+    "internalType": "bytes19"
+   },
+   {
+    "name": "enabled",
+    "type": "bool",
+    "indexed": false,
+    "internalType": "bool"
+   }
+  ],
+  "anonymous": false
+ },
+ {
+  "name": "NonceStatus",
+  "type": "event",
+  "inputs": [
+   {
+    "name": "addressPrefix",
+    "type": "bytes19",
+    "indexed": true,
+    "internalType": "bytes19"
+   },
+   {
+    "name": "nonceNamespace",
+    "type": "uint256",
+    "indexed": true,
+    "internalType": "uint256"
+   },
+   {
+    "name": "oldNonce",
+    "type": "uint256",
+    "indexed": false,
+    "internalType": "uint256"
+   },
+   {
+    "name": "newNonce",
+    "type": "uint256",
+    "indexed": false,
+    "internalType": "uint256"
+   }
+  ],
+  "anonymous": false
+ },
+ {
+  "name": "NonceUsed",
+  "type": "event",
+  "inputs": [
+   {
+    "name": "addressPrefix",
+    "type": "bytes19",
+    "indexed": true,
+    "internalType": "bytes19"
+   },
+   {
+    "name": "nonceNamespace",
+    "type": "uint256",
+    "indexed": true,
+    "internalType": "uint256"
+   },
+   {
+    "name": "nonce",
+    "type": "uint256",
+    "indexed": false,
+    "internalType": "uint256"
+   }
+  ],
+  "anonymous": false
+ },
+ {
+  "name": "OperatorStatus",
+  "type": "event",
+  "inputs": [
+   {
+    "name": "addressPrefix",
+    "type": "bytes19",
+    "indexed": true,
+    "internalType": "bytes19"
+   },
+   {
+    "name": "operator",
+    "type": "address",
+    "indexed": true,
+    "internalType": "address"
+   },
+   {
+    "name": "accountOperatorAuthorized",
+    "type": "uint256",
+    "indexed": false,
+    "internalType": "uint256"
+   }
+  ],
+  "anonymous": false
+ },
+ {
+  "name": "OwnerRegistered",
+  "type": "event",
+  "inputs": [
+   {
+    "name": "addressPrefix",
+    "type": "bytes19",
+    "indexed": true,
+    "internalType": "bytes19"
+   },
+   {
+    "name": "owner",
+    "type": "address",
+    "indexed": true,
+    "internalType": "address"
+   }
+  ],
+  "anonymous": false
+ },
+ {
+  "name": "PermitDisabledModeStatus",
+  "type": "event",
+  "inputs": [
+   {
+    "name": "addressPrefix",
+    "type": "bytes19",
+    "indexed": true,
+    "internalType": "bytes19"
+   },
+   {
+    "name": "enabled",
+    "type": "bool",
+    "indexed": false,
+    "internalType": "bool"
+   }
+  ],
+  "anonymous": false
+ },
+ {
+  "name": "VaultStatusCheck",
+  "type": "event",
+  "inputs": [
+   {
+    "name": "vault",
+    "type": "address",
+    "indexed": true,
+    "internalType": "address"
+   }
+  ],
+  "anonymous": false
+ },
+ {
+  "name": "areChecksDeferred",
+  "type": "function",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "bool",
+    "internalType": "bool"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "name": "areChecksInProgress",
+  "type": "function",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "bool",
+    "internalType": "bool"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "name": "batch",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "items",
+    "type": "tuple[]",
+    "components": [
+     {
+      "name": "targetContract",
+      "type": "address",
+      "internalType": "address"
+     },
+     {
+      "name": "onBehalfOfAccount",
+      "type": "address",
+      "internalType": "address"
+     },
+     {
+      "name": "value",
+      "type": "uint256",
+      "internalType": "uint256"
+     },
+     {
+      "name": "data",
+      "type": "bytes",
+      "internalType": "bytes"
+     }
+    ],
+    "internalType": "struct IEVC.BatchItem[]"
+   }
+  ],
+  "outputs": [],
+  "stateMutability": "payable"
+ },
+ {
+  "name": "batchRevert",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "items",
+    "type": "tuple[]",
+    "components": [
+     {
+      "name": "targetContract",
+      "type": "address",
+      "internalType": "address"
+     },
+     {
+      "name": "onBehalfOfAccount",
+      "type": "address",
+      "internalType": "address"
+     },
+     {
+      "name": "value",
+      "type": "uint256",
+      "internalType": "uint256"
+     },
+     {
+      "name": "data",
+      "type": "bytes",
+      "internalType": "bytes"
+     }
+    ],
+    "internalType": "struct IEVC.BatchItem[]"
+   }
+  ],
+  "outputs": [],
+  "stateMutability": "payable"
+ },
+ {
+  "name": "batchSimulation",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "items",
+    "type": "tuple[]",
+    "components": [
+     {
+      "name": "targetContract",
+      "type": "address",
+      "internalType": "address"
+     },
+     {
+      "name": "onBehalfOfAccount",
+      "type": "address",
+      "internalType": "address"
+     },
+     {
+      "name": "value",
+      "type": "uint256",
+      "internalType": "uint256"
+     },
+     {
+      "name": "data",
+      "type": "bytes",
+      "internalType": "bytes"
+     }
+    ],
+    "internalType": "struct IEVC.BatchItem[]"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "batchItemsResult",
+    "type": "tuple[]",
+    "components": [
+     {
+      "name": "success",
+      "type": "bool",
+      "internalType": "bool"
+     },
+     {
+      "name": "result",
+      "type": "bytes",
+      "internalType": "bytes"
+     }
+    ],
+    "internalType": "struct IEVC.BatchItemResult[]"
+   },
+   {
+    "name": "accountsStatusCheckResult",
+    "type": "tuple[]",
+    "components": [
+     {
+      "name": "checkedAddress",
+      "type": "address",
+      "internalType": "address"
+     },
+     {
+      "name": "isValid",
+      "type": "bool",
+      "internalType": "bool"
+     },
+     {
+      "name": "result",
+      "type": "bytes",
+      "internalType": "bytes"
+     }
+    ],
+    "internalType": "struct IEVC.StatusCheckResult[]"
+   },
+   {
+    "name": "vaultsStatusCheckResult",
+    "type": "tuple[]",
+    "components": [
+     {
+      "name": "checkedAddress",
+      "type": "address",
+      "internalType": "address"
+     },
+     {
+      "name": "isValid",
+      "type": "bool",
+      "internalType": "bool"
+     },
+     {
+      "name": "result",
+      "type": "bytes",
+      "internalType": "bytes"
+     }
+    ],
+    "internalType": "struct IEVC.StatusCheckResult[]"
+   }
+  ],
+  "stateMutability": "payable"
+ },
+ {
+  "name": "call",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "targetContract",
+    "type": "address",
+    "internalType": "address"
+   },
+   {
+    "name": "onBehalfOfAccount",
+    "type": "address",
+    "internalType": "address"
+   },
+   {
+    "name": "value",
+    "type": "uint256",
+    "internalType": "uint256"
+   },
+   {
+    "name": "data",
+    "type": "bytes",
+    "internalType": "bytes"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "result",
+    "type": "bytes",
+    "internalType": "bytes"
+   }
+  ],
+  "stateMutability": "payable"
+ },
+ {
+  "name": "controlCollateral",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "targetCollateral",
+    "type": "address",
+    "internalType": "address"
+   },
+   {
+    "name": "onBehalfOfAccount",
+    "type": "address",
+    "internalType": "address"
+   },
+   {
+    "name": "value",
+    "type": "uint256",
+    "internalType": "uint256"
+   },
+   {
+    "name": "data",
+    "type": "bytes",
+    "internalType": "bytes"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "result",
+    "type": "bytes",
+    "internalType": "bytes"
+   }
+  ],
+  "stateMutability": "payable"
+ },
+ {
+  "name": "disableCollateral",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "account",
+    "type": "address",
+    "internalType": "address"
+   },
+   {
+    "name": "vault",
+    "type": "address",
+    "internalType": "address"
+   }
+  ],
+  "outputs": [],
+  "stateMutability": "payable"
+ },
+ {
+  "name": "disableController",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "account",
+    "type": "address",
+    "internalType": "address"
+   }
+  ],
+  "outputs": [],
+  "stateMutability": "payable"
+ },
+ {
+  "name": "enableCollateral",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "account",
+    "type": "address",
+    "internalType": "address"
+   },
+   {
+    "name": "vault",
+    "type": "address",
+    "internalType": "address"
+   }
+  ],
+  "outputs": [],
+  "stateMutability": "payable"
+ },
+ {
+  "name": "enableController",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "account",
+    "type": "address",
+    "internalType": "address"
+   },
+   {
+    "name": "vault",
+    "type": "address",
+    "internalType": "address"
+   }
+  ],
+  "outputs": [],
+  "stateMutability": "payable"
+ },
+ {
+  "name": "forgiveAccountStatusCheck",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "account",
+    "type": "address",
+    "internalType": "address"
+   }
+  ],
+  "outputs": [],
+  "stateMutability": "payable"
+ },
+ {
+  "name": "forgiveVaultStatusCheck",
+  "type": "function",
+  "inputs": [],
+  "outputs": [],
+  "stateMutability": "payable"
+ },
+ {
+  "name": "getAccountOwner",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "account",
+    "type": "address",
+    "internalType": "address"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "address",
+    "internalType": "address"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "name": "getAddressPrefix",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "account",
+    "type": "address",
+    "internalType": "address"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "bytes19",
+    "internalType": "bytes19"
+   }
+  ],
+  "stateMutability": "pure"
+ },
+ {
+  "name": "getCollaterals",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "account",
+    "type": "address",
+    "internalType": "address"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "address[]",
+    "internalType": "address[]"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "name": "getControllers",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "account",
+    "type": "address",
+    "internalType": "address"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "address[]",
+    "internalType": "address[]"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "name": "getCurrentOnBehalfOfAccount",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "controllerToCheck",
+    "type": "address",
+    "internalType": "address"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "onBehalfOfAccount",
+    "type": "address",
+    "internalType": "address"
+   },
+   {
+    "name": "controllerEnabled",
+    "type": "bool",
+    "internalType": "bool"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "name": "getLastAccountStatusCheckTimestamp",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "account",
+    "type": "address",
+    "internalType": "address"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "name": "getNonce",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "addressPrefix",
+    "type": "bytes19",
+    "internalType": "bytes19"
+   },
+   {
+    "name": "nonceNamespace",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "name": "getOperator",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "addressPrefix",
+    "type": "bytes19",
+    "internalType": "bytes19"
+   },
+   {
+    "name": "operator",
+    "type": "address",
+    "internalType": "address"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "name": "getRawExecutionContext",
+  "type": "function",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "context",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "name": "haveCommonOwner",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "account",
+    "type": "address",
+    "internalType": "address"
+   },
+   {
+    "name": "otherAccount",
+    "type": "address",
+    "internalType": "address"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "bool",
+    "internalType": "bool"
+   }
+  ],
+  "stateMutability": "pure"
+ },
+ {
+  "name": "isAccountOperatorAuthorized",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "account",
+    "type": "address",
+    "internalType": "address"
+   },
+   {
+    "name": "operator",
+    "type": "address",
+    "internalType": "address"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "bool",
+    "internalType": "bool"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "name": "isAccountStatusCheckDeferred",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "account",
+    "type": "address",
+    "internalType": "address"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "bool",
+    "internalType": "bool"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "name": "isCollateralEnabled",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "account",
+    "type": "address",
+    "internalType": "address"
+   },
+   {
+    "name": "vault",
+    "type": "address",
+    "internalType": "address"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "bool",
+    "internalType": "bool"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "name": "isControlCollateralInProgress",
+  "type": "function",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "bool",
+    "internalType": "bool"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "name": "isControllerEnabled",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "account",
+    "type": "address",
+    "internalType": "address"
+   },
+   {
+    "name": "vault",
+    "type": "address",
+    "internalType": "address"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "bool",
+    "internalType": "bool"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "name": "isLockdownMode",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "addressPrefix",
+    "type": "bytes19",
+    "internalType": "bytes19"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "bool",
+    "internalType": "bool"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "name": "isOperatorAuthenticated",
+  "type": "function",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "bool",
+    "internalType": "bool"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "name": "isPermitDisabledMode",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "addressPrefix",
+    "type": "bytes19",
+    "internalType": "bytes19"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "bool",
+    "internalType": "bool"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "name": "isSimulationInProgress",
+  "type": "function",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "bool",
+    "internalType": "bool"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "name": "isVaultStatusCheckDeferred",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "vault",
+    "type": "address",
+    "internalType": "address"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "bool",
+    "internalType": "bool"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "name": "name",
+  "type": "function",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "string",
+    "internalType": "string"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "name": "permit",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "signer",
+    "type": "address",
+    "internalType": "address"
+   },
+   {
+    "name": "sender",
+    "type": "address",
+    "internalType": "address"
+   },
+   {
+    "name": "nonceNamespace",
+    "type": "uint256",
+    "internalType": "uint256"
+   },
+   {
+    "name": "nonce",
+    "type": "uint256",
+    "internalType": "uint256"
+   },
+   {
+    "name": "deadline",
+    "type": "uint256",
+    "internalType": "uint256"
+   },
+   {
+    "name": "value",
+    "type": "uint256",
+    "internalType": "uint256"
+   },
+   {
+    "name": "data",
+    "type": "bytes",
+    "internalType": "bytes"
+   },
+   {
+    "name": "signature",
+    "type": "bytes",
+    "internalType": "bytes"
+   }
+  ],
+  "outputs": [],
+  "stateMutability": "payable"
+ },
+ {
+  "name": "reorderCollaterals",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "account",
+    "type": "address",
+    "internalType": "address"
+   },
+   {
+    "name": "index1",
+    "type": "uint8",
+    "internalType": "uint8"
+   },
+   {
+    "name": "index2",
+    "type": "uint8",
+    "internalType": "uint8"
+   }
+  ],
+  "outputs": [],
+  "stateMutability": "payable"
+ },
+ {
+  "name": "requireAccountAndVaultStatusCheck",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "account",
+    "type": "address",
+    "internalType": "address"
+   }
+  ],
+  "outputs": [],
+  "stateMutability": "payable"
+ },
+ {
+  "name": "requireAccountStatusCheck",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "account",
+    "type": "address",
+    "internalType": "address"
+   }
+  ],
+  "outputs": [],
+  "stateMutability": "payable"
+ },
+ {
+  "name": "requireVaultStatusCheck",
+  "type": "function",
+  "inputs": [],
+  "outputs": [],
+  "stateMutability": "payable"
+ },
+ {
+  "name": "setAccountOperator",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "account",
+    "type": "address",
+    "internalType": "address"
+   },
+   {
+    "name": "operator",
+    "type": "address",
+    "internalType": "address"
+   },
+   {
+    "name": "authorized",
+    "type": "bool",
+    "internalType": "bool"
+   }
+  ],
+  "outputs": [],
+  "stateMutability": "payable"
+ },
+ {
+  "name": "setLockdownMode",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "addressPrefix",
+    "type": "bytes19",
+    "internalType": "bytes19"
+   },
+   {
+    "name": "enabled",
+    "type": "bool",
+    "internalType": "bool"
+   }
+  ],
+  "outputs": [],
+  "stateMutability": "payable"
+ },
+ {
+  "name": "setNonce",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "addressPrefix",
+    "type": "bytes19",
+    "internalType": "bytes19"
+   },
+   {
+    "name": "nonceNamespace",
+    "type": "uint256",
+    "internalType": "uint256"
+   },
+   {
+    "name": "nonce",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ],
+  "outputs": [],
+  "stateMutability": "payable"
+ },
+ {
+  "name": "setOperator",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "addressPrefix",
+    "type": "bytes19",
+    "internalType": "bytes19"
+   },
+   {
+    "name": "operator",
+    "type": "address",
+    "internalType": "address"
+   },
+   {
+    "name": "operatorBitField",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ],
+  "outputs": [],
+  "stateMutability": "payable"
+ },
+ {
+  "name": "setPermitDisabledMode",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "addressPrefix",
+    "type": "bytes19",
+    "internalType": "bytes19"
+   },
+   {
+    "name": "enabled",
+    "type": "bool",
+    "internalType": "bool"
+   }
+  ],
+  "outputs": [],
+  "stateMutability": "payable"
+ },
+ {
+  "type": "receive",
+  "stateMutability": "payable"
+ }
+]

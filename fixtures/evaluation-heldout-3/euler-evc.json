@@ -1,0 +1,14 @@
+{
+  "id": "euler-evc",
+  "chain_id": 1,
+  "address": "0x0C9a3dd6b8F28529d72d7f9cE918D493519EE383",
+  "bytecode_sha256": "1474f000b86ff698de81e3541665f08e9d3b9b91c5d5e671a918be582a44be56",
+  "bytecode_size": 21989,
+  "compiler": "0.8.24+commit.e11b9ed9",
+  "language": "Solidity",
+  "runtime_match": "exact_match",
+  "retrieved_at": "2026-10-17T04:58:10.638241+00:00",
+  "response_sha256": "31dd0123a37dbdda0abc872d8e1e67c17f70a5ccd57e297039990c72292bcedd",
+  "source": "https://sourcify.dev/server/v2/contract/1/0x0C9a3dd6b8F28529d72d7f9cE918D493519EE383?fields=runtimeBytecode,compilation,abi",
+  "ground_truth_note": "ABI is scoring ground truth only; never supplied to analysis"
+}

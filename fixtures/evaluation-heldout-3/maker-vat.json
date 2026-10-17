@@ -1,0 +1,14 @@
+{
+  "id": "maker-vat",
+  "chain_id": 1,
+  "address": "0x35D1b3F3D7966A1DFe207aa4514C12a259A0492B",
+  "bytecode_sha256": "a9893414fa5d7bc5ce336ed0c97a55420c6349ff96b7e4005e3aaecece131f0c",
+  "bytecode_size": 13493,
+  "compiler": "0.5.12+commit.7709ece9",
+  "language": "Solidity",
+  "runtime_match": "match",
+  "retrieved_at": "2026-10-17T04:58:10.464847+00:00",
+  "response_sha256": "962fedf8489f94d1614754356a4661deeaa1346c6e5c03495019a656de0e2f98",
+  "source": "https://sourcify.dev/server/v2/contract/1/0x35D1b3F3D7966A1DFe207aa4514C12a259A0492B?fields=runtimeBytecode,compilation,abi",
+  "ground_truth_note": "ABI is scoring ground truth only; never supplied to analysis"
+}

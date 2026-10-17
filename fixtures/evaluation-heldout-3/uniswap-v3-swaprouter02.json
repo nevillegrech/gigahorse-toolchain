@@ -1,0 +1,14 @@
+{
+  "id": "uniswap-v3-swaprouter02",
+  "chain_id": 1,
+  "address": "0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45",
+  "bytecode_sha256": "73fa6fcc81954e96e46dfde91f8e282cd98868c0992ed2c7875a9618fa0711e5",
+  "bytecode_size": 24497,
+  "compiler": "0.7.6+commit.7338295f",
+  "language": "Solidity",
+  "runtime_match": "match",
+  "retrieved_at": "2026-10-17T04:58:10.154877+00:00",
+  "response_sha256": "bf341f0ac26d23c24ffacd9f7ce9bc7b3544c837f2bc77da9fe1ec8e98592a66",
+  "source": "https://sourcify.dev/server/v2/contract/1/0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45?fields=runtimeBytecode,compilation,abi",
+  "ground_truth_note": "ABI is scoring ground truth only; never supplied to analysis"
+}

@@ -1,0 +1,14 @@
+{
+  "id": "curve-stableswap-ng-usde-usdc",
+  "chain_id": 1,
+  "address": "0x02950460E2b9529D0E00284A5fA2d7bDF3fA4d72",
+  "bytecode_sha256": "722ed8c9c8f2434130766c5b5c25e336fd4f9c559725745eb09309cbcb8c58d5",
+  "bytecode_size": 23509,
+  "compiler": "0.3.10+commit.91361694",
+  "language": "Vyper",
+  "runtime_match": "match",
+  "retrieved_at": "2026-10-17T04:58:09.458934+00:00",
+  "response_sha256": "7f932d4c52c696940104659815f64334c5455edfb2f2ffeb661756ee5924e02d",
+  "source": "https://sourcify.dev/server/v2/contract/1/0x02950460E2b9529D0E00284A5fA2d7bDF3fA4d72?fields=runtimeBytecode,compilation,abi",
+  "ground_truth_note": "ABI is scoring ground truth only; never supplied to analysis"
+}

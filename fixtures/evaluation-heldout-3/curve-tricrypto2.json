@@ -1,0 +1,14 @@
+{
+  "id": "curve-tricrypto2",
+  "chain_id": 1,
+  "address": "0xD51a44d3FaE010294C616388b506AcdA1bfAAE46",
+  "bytecode_sha256": "f8325bb8a404293fdf507119337dba9ebdd27d7e3eba2e0ee5396108a7796eb0",
+  "bytecode_size": 24427,
+  "compiler": "0.2.12+commit.2c6842c",
+  "language": "Vyper",
+  "runtime_match": "match",
+  "retrieved_at": "2026-10-17T04:58:09.633964+00:00",
+  "response_sha256": "f3806b9e4f6671510cbf7838123f8f10068c17478c46bb3cf453c2bafd2340fe",
+  "source": "https://sourcify.dev/server/v2/contract/1/0xD51a44d3FaE010294C616388b506AcdA1bfAAE46?fields=runtimeBytecode,compilation,abi",
+  "ground_truth_note": "ABI is scoring ground truth only; never supplied to analysis"
+}

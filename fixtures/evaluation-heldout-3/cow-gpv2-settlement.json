@@ -1,0 +1,14 @@
+{
+  "id": "cow-gpv2-settlement",
+  "chain_id": 1,
+  "address": "0x9008D19f58AAbD9eD0D60971565AA8510560ab41",
+  "bytecode_sha256": "d6e844f4caf510d3de5c5413bb368b6d13697291cd048f04d325b53ad7465d05",
+  "bytecode_size": 16165,
+  "compiler": "0.7.6+commit.7338295f",
+  "language": "Solidity",
+  "runtime_match": "exact_match",
+  "retrieved_at": "2026-10-17T04:58:10.321562+00:00",
+  "response_sha256": "e7c63f4743d58442b1c6cec03c38474b737fc7fd4b72058b48b922f9079df1dc",
+  "source": "https://sourcify.dev/server/v2/contract/1/0x9008D19f58AAbD9eD0D60971565AA8510560ab41?fields=runtimeBytecode,compilation,abi",
+  "ground_truth_note": "ABI is scoring ground truth only; never supplied to analysis"
+}

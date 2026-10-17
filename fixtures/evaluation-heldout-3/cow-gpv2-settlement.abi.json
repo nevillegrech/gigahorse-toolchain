@@ -1,0 +1,581 @@
+[
+ {
+  "type": "constructor",
+  "inputs": [
+   {
+    "name": "authenticator_",
+    "type": "address",
+    "internalType": "contract GPv2Authentication"
+   },
+   {
+    "name": "vault_",
+    "type": "address",
+    "internalType": "contract IVault"
+   }
+  ],
+  "stateMutability": "nonpayable"
+ },
+ {
+  "name": "Interaction",
+  "type": "event",
+  "inputs": [
+   {
+    "name": "target",
+    "type": "address",
+    "indexed": true,
+    "internalType": "address"
+   },
+   {
+    "name": "value",
+    "type": "uint256",
+    "indexed": false,
+    "internalType": "uint256"
+   },
+   {
+    "name": "selector",
+    "type": "bytes4",
+    "indexed": false,
+    "internalType": "bytes4"
+   }
+  ],
+  "anonymous": false
+ },
+ {
+  "name": "OrderInvalidated",
+  "type": "event",
+  "inputs": [
+   {
+    "name": "owner",
+    "type": "address",
+    "indexed": true,
+    "internalType": "address"
+   },
+   {
+    "name": "orderUid",
+    "type": "bytes",
+    "indexed": false,
+    "internalType": "bytes"
+   }
+  ],
+  "anonymous": false
+ },
+ {
+  "name": "PreSignature",
+  "type": "event",
+  "inputs": [
+   {
+    "name": "owner",
+    "type": "address",
+    "indexed": true,
+    "internalType": "address"
+   },
+   {
+    "name": "orderUid",
+    "type": "bytes",
+    "indexed": false,
+    "internalType": "bytes"
+   },
+   {
+    "name": "signed",
+    "type": "bool",
+    "indexed": false,
+    "internalType": "bool"
+   }
+  ],
+  "anonymous": false
+ },
+ {
+  "name": "Settlement",
+  "type": "event",
+  "inputs": [
+   {
+    "name": "solver",
+    "type": "address",
+    "indexed": true,
+    "internalType": "address"
+   }
+  ],
+  "anonymous": false
+ },
+ {
+  "name": "Trade",
+  "type": "event",
+  "inputs": [
+   {
+    "name": "owner",
+    "type": "address",
+    "indexed": true,
+    "internalType": "address"
+   },
+   {
+    "name": "sellToken",
+    "type": "address",
+    "indexed": false,
+    "internalType": "contract IERC20"
+   },
+   {
+    "name": "buyToken",
+    "type": "address",
+    "indexed": false,
+    "internalType": "contract IERC20"
+   },
+   {
+    "name": "sellAmount",
+    "type": "uint256",
+    "indexed": false,
+    "internalType": "uint256"
+   },
+   {
+    "name": "buyAmount",
+    "type": "uint256",
+    "indexed": false,
+    "internalType": "uint256"
+   },
+   {
+    "name": "feeAmount",
+    "type": "uint256",
+    "indexed": false,
+    "internalType": "uint256"
+   },
+   {
+    "name": "orderUid",
+    "type": "bytes",
+    "indexed": false,
+    "internalType": "bytes"
+   }
+  ],
+  "anonymous": false
+ },
+ {
+  "name": "authenticator",
+  "type": "function",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "address",
+    "internalType": "contract GPv2Authentication"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "name": "domainSeparator",
+  "type": "function",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "bytes32",
+    "internalType": "bytes32"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "name": "filledAmount",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "",
+    "type": "bytes",
+    "internalType": "bytes"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "name": "freeFilledAmountStorage",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "orderUids",
+    "type": "bytes[]",
+    "internalType": "bytes[]"
+   }
+  ],
+  "outputs": [],
+  "stateMutability": "nonpayable"
+ },
+ {
+  "name": "freePreSignatureStorage",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "orderUids",
+    "type": "bytes[]",
+    "internalType": "bytes[]"
+   }
+  ],
+  "outputs": [],
+  "stateMutability": "nonpayable"
+ },
+ {
+  "name": "getStorageAt",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "offset",
+    "type": "uint256",
+    "internalType": "uint256"
+   },
+   {
+    "name": "length",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "bytes",
+    "internalType": "bytes"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "name": "invalidateOrder",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "orderUid",
+    "type": "bytes",
+    "internalType": "bytes"
+   }
+  ],
+  "outputs": [],
+  "stateMutability": "nonpayable"
+ },
+ {
+  "name": "preSignature",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "",
+    "type": "bytes",
+    "internalType": "bytes"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "name": "setPreSignature",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "orderUid",
+    "type": "bytes",
+    "internalType": "bytes"
+   },
+   {
+    "name": "signed",
+    "type": "bool",
+    "internalType": "bool"
+   }
+  ],
+  "outputs": [],
+  "stateMutability": "nonpayable"
+ },
+ {
+  "name": "settle",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "tokens",
+    "type": "address[]",
+    "internalType": "contract IERC20[]"
+   },
+   {
+    "name": "clearingPrices",
+    "type": "uint256[]",
+    "internalType": "uint256[]"
+   },
+   {
+    "name": "trades",
+    "type": "tuple[]",
+    "components": [
+     {
+      "name": "sellTokenIndex",
+      "type": "uint256",
+      "internalType": "uint256"
+     },
+     {
+      "name": "buyTokenIndex",
+      "type": "uint256",
+      "internalType": "uint256"
+     },
+     {
+      "name": "receiver",
+      "type": "address",
+      "internalType": "address"
+     },
+     {
+      "name": "sellAmount",
+      "type": "uint256",
+      "internalType": "uint256"
+     },
+     {
+      "name": "buyAmount",
+      "type": "uint256",
+      "internalType": "uint256"
+     },
+     {
+      "name": "validTo",
+      "type": "uint32",
+      "internalType": "uint32"
+     },
+     {
+      "name": "appData",
+      "type": "bytes32",
+      "internalType": "bytes32"
+     },
+     {
+      "name": "feeAmount",
+      "type": "uint256",
+      "internalType": "uint256"
+     },
+     {
+      "name": "flags",
+      "type": "uint256",
+      "internalType": "uint256"
+     },
+     {
+      "name": "executedAmount",
+      "type": "uint256",
+      "internalType": "uint256"
+     },
+     {
+      "name": "signature",
+      "type": "bytes",
+      "internalType": "bytes"
+     }
+    ],
+    "internalType": "struct GPv2Trade.Data[]"
+   },
+   {
+    "name": "interactions",
+    "type": "tuple[][3]",
+    "components": [
+     {
+      "name": "target",
+      "type": "address",
+      "internalType": "address"
+     },
+     {
+      "name": "value",
+      "type": "uint256",
+      "internalType": "uint256"
+     },
+     {
+      "name": "callData",
+      "type": "bytes",
+      "internalType": "bytes"
+     }
+    ],
+    "internalType": "struct GPv2Interaction.Data[][3]"
+   }
+  ],
+  "outputs": [],
+  "stateMutability": "nonpayable"
+ },
+ {
+  "name": "simulateDelegatecall",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "targetContract",
+    "type": "address",
+    "internalType": "address"
+   },
+   {
+    "name": "calldataPayload",
+    "type": "bytes",
+    "internalType": "bytes"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "response",
+    "type": "bytes",
+    "internalType": "bytes"
+   }
+  ],
+  "stateMutability": "nonpayable"
+ },
+ {
+  "name": "simulateDelegatecallInternal",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "targetContract",
+    "type": "address",
+    "internalType": "address"
+   },
+   {
+    "name": "calldataPayload",
+    "type": "bytes",
+    "internalType": "bytes"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "response",
+    "type": "bytes",
+    "internalType": "bytes"
+   }
+  ],
+  "stateMutability": "nonpayable"
+ },
+ {
+  "name": "swap",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "swaps",
+    "type": "tuple[]",
+    "components": [
+     {
+      "name": "poolId",
+      "type": "bytes32",
+      "internalType": "bytes32"
+     },
+     {
+      "name": "assetInIndex",
+      "type": "uint256",
+      "internalType": "uint256"
+     },
+     {
+      "name": "assetOutIndex",
+      "type": "uint256",
+      "internalType": "uint256"
+     },
+     {
+      "name": "amount",
+      "type": "uint256",
+      "internalType": "uint256"
+     },
+     {
+      "name": "userData",
+      "type": "bytes",
+      "internalType": "bytes"
+     }
+    ],
+    "internalType": "struct IVault.BatchSwapStep[]"
+   },
+   {
+    "name": "tokens",
+    "type": "address[]",
+    "internalType": "contract IERC20[]"
+   },
+   {
+    "name": "trade",
+    "type": "tuple",
+    "components": [
+     {
+      "name": "sellTokenIndex",
+      "type": "uint256",
+      "internalType": "uint256"
+     },
+     {
+      "name": "buyTokenIndex",
+      "type": "uint256",
+      "internalType": "uint256"
+     },
+     {
+      "name": "receiver",
+      "type": "address",
+      "internalType": "address"
+     },
+     {
+      "name": "sellAmount",
+      "type": "uint256",
+      "internalType": "uint256"
+     },
+     {
+      "name": "buyAmount",
+      "type": "uint256",
+      "internalType": "uint256"
+     },
+     {
+      "name": "validTo",
+      "type": "uint32",
+      "internalType": "uint32"
+     },
+     {
+      "name": "appData",
+      "type": "bytes32",
+      "internalType": "bytes32"
+     },
+     {
+      "name": "feeAmount",
+      "type": "uint256",
+      "internalType": "uint256"
+     },
+     {
+      "name": "flags",
+      "type": "uint256",
+      "internalType": "uint256"
+     },
+     {
+      "name": "executedAmount",
+      "type": "uint256",
+      "internalType": "uint256"
+     },
+     {
+      "name": "signature",
+      "type": "bytes",
+      "internalType": "bytes"
+     }
+    ],
+    "internalType": "struct GPv2Trade.Data"
+   }
+  ],
+  "outputs": [],
+  "stateMutability": "nonpayable"
+ },
+ {
+  "name": "vault",
+  "type": "function",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "address",
+    "internalType": "contract IVault"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "name": "vaultRelayer",
+  "type": "function",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "address",
+    "internalType": "contract GPv2VaultRelayer"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "type": "receive",
+  "stateMutability": "payable"
+ }
+]
