@@ -1123,3 +1123,78 @@ position manager, MetaMorpho), SwapRouter02 and CoW settlement (0.7.6, struct
 parameters), Maker's Vat (0.5.12, no optimizer) and the Euler EVC (0.8.24). No
 runtime equals an existing fixture's. They are run once, and scored, only after
 that work is done.
+
+## Structs decoded by helper functions, and selectors shared with internal code
+
+Calibration on runs 1-3 (set 3 stays frozen). The 8 remaining wrong argument
+counts had two causes, neither of them the one assumed:
+
+- **Balancer (4): one selector, two functions.** The native analysis marks a
+  function public when code compares `msg.sig` with a selector before reaching
+  it. The vault's swap and join paths do that inside an internal function, so
+  each of `swap`, `batchSwap`, `joinPool`, `exitPool` (and
+  `setRelayerApproval`) had a second "public" function with no arguments,
+  which the scorer read. The dispatcher passes no stack arguments, so when
+  exactly one claimant of a selector has none, the claimants with formal
+  arguments are printed as the internal functions they are (`fn_0x496a(...)`).
+- **V3 position manager (4): struct read through a decoder's pointer.** solc
+  returns a `calldata` struct parameter as a pointer from its decoder helper
+  (`fn_0x5550(4, msg.data.length)`), and the function reads field j at
+  `pointer + 32 * j`. The native argument relation does not follow the
+  pointer, so no argument was bound. The struct's own bounds check sits in the
+  helper (`calldatasize - pointer < S`); it is now found by following calls
+  made with a constant head position and `calldatasize`, and the words read
+  through the pointer become one struct parameter (`function 0x88316456(S2
+  varg0)`). Fields the code never reads are kept (unread), because the decoder
+  checks the whole struct.
+
+Two more cases came from the new fixture rather than from the held-out sets:
+
+- With an inlined decoder (via-IR), a struct that is the whole head leaves
+  only the head check. Separate parameters are validated at entry; a calldata
+  struct's members are validated where they are read. A head whose words are
+  validated late, none at entry, with at least two different types (a static
+  array's elements share one) is one struct. A uint128 check at entry (a
+  SafeCast) looks like a decoder validator, so such a function keeps its
+  separate words (`scaled` in the fixture).
+- Fields of these structs are typed from validators where they are read when
+  every other use is the same cast; the checks stay in the body and nothing
+  is enforced at entry (a field read on one branch only must not revert on the
+  other).
+
+| Set | Wrong claims before | After |
+| --- | --- | --- |
+| Run 1 (5) | 0 | 0 |
+| Run 2 (7) | 1 | 1 |
+| Run 3 (8) | 10 | 2 |
+
+- No new wrong claims, and no correct count lower in any set
+  (`results/run1-helper-structs.json`, `results/run2-helper-structs.json`,
+  `results/run3-helper-structs.json`). V3 position manager: arity 34 -> 38 of
+  38, argument types 59 -> 61 correct, the mint struct typed exactly as the
+  ABI. Balancer: arity 22 -> 26 of 26, payability 21 -> 26, returns 16 -> 17.
+- Only those two outputs changed (Balancer +11 lines for the internal
+  functions that were mislabelled public). Every existing fixture renders
+  byte-identically.
+- The three claims left are return widths: V3 `collect` (`uint128` vs
+  `uint256`), Balancer `getPoolTokenInfo` (`uint112`) and Seaport
+  `getOrderStatus` (`uint120`). The returned value is masked to the field's
+  width; solc emits the same mask for a `uint128` return and for a `uint256`
+  return of a `uint128` value (encoder cleanup vs conversion cleanup, folded
+  by the optimizer), so the bytecode does not decide the declared type. The
+  same reading is right for 41 narrow returns in 18 other functions of these
+  sets.
+
+Tests: new compiler fixture `DecoderFixture` (solc 0.8.30, optimized and
+via-IR) with the struct as the whole head, a field validated on one branch, a
+struct after a word, and a SafeCast-style check on a uint256 field.
+
+- The optimized variant scores 0 wrong claims against the compiler ABI; via-IR
+  gets every struct except the SafeCast case.
+- Both run against Py-EVM, with a dirty word in each field and a dirty field
+  on the branch that does not read it.
+- A synthetic program checks the shared-selector rule.
+- Breaking any of the seven rules (the selector rule, unread words, the
+  direct struct decoder call, field typing, entry enforcement, the argument
+  definition, the whole-head rule) fails the tests.
+- 441 passed, 17 skipped; the cross-check is unchanged at 1,079 agreeing.

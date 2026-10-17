@@ -2,6 +2,7 @@
 
 import importlib.util
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -47,9 +48,10 @@ def test_view_claims_are_right_against_the_abi(variant, tmp_path):
     text = decompiled.text
     ids = manifest["method_identifiers"]
     # Static struct parameters: one parameter each (four head words), fields in the body.
-    assert "S0 varg1, uint256 varg5)" in _header(text, ids[SETTLE])
-    assert "(S0 varg0, uint256 varg4)" in _header(
-        text, ids["settleMemory((address,address,uint256,uint256),uint256)"]
+    assert re.search(r" S\d+ varg1, uint256 varg5\)", _header(text, ids[SETTLE]))
+    assert re.search(
+        r"\(S\d+ varg0, uint256 varg4\)",
+        _header(text, ids["settleMemory((address,address,uint256,uint256),uint256)"]),
     )
     assert "struct S0 {" in text and "varg1.f2" in text
     # A word read past the one-word head is not a parameter.

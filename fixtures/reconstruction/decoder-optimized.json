@@ -1,0 +1,278 @@
+{
+  "compiler": "solc, the solidity compiler commandline interface\nVersion: 0.8.30+commit.73712a01.Linux.g++",
+  "source": "DecoderFixture.sol",
+  "source_sha256": "5ce5eb134442e1fda4e49b25261fa443fdb9380eaeacc5bdfad5a10ce92b542c",
+  "bytecode_sha256": "dbd945246537671a1c9d723e6b44e9fd7c9bda83d2fdaae86ce4e34fdade1e13",
+  "settings": {
+    "optimizer": {
+      "enabled": true,
+      "runs": 200
+    },
+    "viaIR": false,
+    "evmVersion": "cancun",
+    "metadata": {
+      "bytecodeHash": "none",
+      "appendCBOR": false
+    },
+    "outputSelection": {
+      "*": {
+        "*": [
+          "evm.deployedBytecode.object",
+          "evm.bytecode.object",
+          "evm.methodIdentifiers",
+          "storageLayout",
+          "abi"
+        ]
+      }
+    }
+  },
+  "method_identifiers": {
+    "credit(address)": "d5d44d80",
+    "open((address,uint24,int24,uint256,address))": "323e2d03",
+    "quote((address,uint24,int24,uint256,address))": "1ce4aa6e",
+    "scaled((address,uint24,int24,uint256,address))": "97d78a24",
+    "shifted(uint256,(address,uint24,int24,uint256,address))": "678478f4"
+  },
+  "storage_layout": {
+    "storage": [
+      {
+        "astId": 17,
+        "contract": "DecoderFixture.sol:DecoderFixture",
+        "label": "credit",
+        "offset": 0,
+        "slot": "0",
+        "type": "t_mapping(t_address,t_uint256)"
+      }
+    ],
+    "types": {
+      "t_address": {
+        "encoding": "inplace",
+        "label": "address",
+        "numberOfBytes": "20"
+      },
+      "t_mapping(t_address,t_uint256)": {
+        "encoding": "mapping",
+        "key": "t_address",
+        "label": "mapping(address => uint256)",
+        "numberOfBytes": "32",
+        "value": "t_uint256"
+      },
+      "t_uint256": {
+        "encoding": "inplace",
+        "label": "uint256",
+        "numberOfBytes": "32"
+      }
+    }
+  },
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "name": "credit",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "components": [
+            {
+              "internalType": "address",
+              "name": "token",
+              "type": "address"
+            },
+            {
+              "internalType": "uint24",
+              "name": "fee",
+              "type": "uint24"
+            },
+            {
+              "internalType": "int24",
+              "name": "tickLower",
+              "type": "int24"
+            },
+            {
+              "internalType": "uint256",
+              "name": "amount",
+              "type": "uint256"
+            },
+            {
+              "internalType": "address",
+              "name": "recipient",
+              "type": "address"
+            }
+          ],
+          "internalType": "struct DecoderFixture.Position",
+          "name": "p",
+          "type": "tuple"
+        }
+      ],
+      "name": "open",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "components": [
+            {
+              "internalType": "address",
+              "name": "token",
+              "type": "address"
+            },
+            {
+              "internalType": "uint24",
+              "name": "fee",
+              "type": "uint24"
+            },
+            {
+              "internalType": "int24",
+              "name": "tickLower",
+              "type": "int24"
+            },
+            {
+              "internalType": "uint256",
+              "name": "amount",
+              "type": "uint256"
+            },
+            {
+              "internalType": "address",
+              "name": "recipient",
+              "type": "address"
+            }
+          ],
+          "internalType": "struct DecoderFixture.Position",
+          "name": "p",
+          "type": "tuple"
+        }
+      ],
+      "name": "quote",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "pure",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "components": [
+            {
+              "internalType": "address",
+              "name": "token",
+              "type": "address"
+            },
+            {
+              "internalType": "uint24",
+              "name": "fee",
+              "type": "uint24"
+            },
+            {
+              "internalType": "int24",
+              "name": "tickLower",
+              "type": "int24"
+            },
+            {
+              "internalType": "uint256",
+              "name": "amount",
+              "type": "uint256"
+            },
+            {
+              "internalType": "address",
+              "name": "recipient",
+              "type": "address"
+            }
+          ],
+          "internalType": "struct DecoderFixture.Position",
+          "name": "p",
+          "type": "tuple"
+        }
+      ],
+      "name": "scaled",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "pure",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "bonus",
+          "type": "uint256"
+        },
+        {
+          "components": [
+            {
+              "internalType": "address",
+              "name": "token",
+              "type": "address"
+            },
+            {
+              "internalType": "uint24",
+              "name": "fee",
+              "type": "uint24"
+            },
+            {
+              "internalType": "int24",
+              "name": "tickLower",
+              "type": "int24"
+            },
+            {
+              "internalType": "uint256",
+              "name": "amount",
+              "type": "uint256"
+            },
+            {
+              "internalType": "address",
+              "name": "recipient",
+              "type": "address"
+            }
+          ],
+          "internalType": "struct DecoderFixture.Position",
+          "name": "p",
+          "type": "tuple"
+        }
+      ],
+      "name": "shifted",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "pure",
+      "type": "function"
+    }
+  ],
+  "creation_bytecode": "6080604052348015600e575f5ffd5b506103838061001c5f395ff3fe608060405234801561000f575f5ffd5b5060043610610055575f3560e01c80631ce4aa6e14610059578063323e2d031461007e578063678478f41461009157806397d78a24146100a4578063d5d44d80146100b7575b5f5ffd5b61006c610067366004610298565b6100d6565b60405190815260200160405180910390f35b61006c61008c366004610298565b61012c565b61006c61009f3660046102b2565b610205565b61006c6100b2366004610298565b61023b565b61006c6100c53660046102dd565b5f6020819052908152604090205481565b5f606482606001351115610103576100f460a08301608084016102dd565b6001600160a01b031692915050565b6101136040830160208401610303565b6101269062ffffff166060840135610339565b92915050565b5f5f82606001351161016d5760405162461bcd60e51b8152602060048201526006602482015265185b5bdd5b9d60d21b604482015260640160405180910390fd5b61017d6040830160208401610303565b6101909062ffffff16606084013561034c565b5f806101a260a08601608087016102dd565b6001600160a01b03166001600160a01b031681526020019081526020015f205f8282546101cf9190610339565b909155506101e2905060208301836102dd565b6001600160a01b03166101fb6060840160408501610363565b60020b1892915050565b5f61021360208301836102dd565b6001600160a01b031661022a606084013585610339565b6102349190610339565b9392505050565b5f60608201356fffffffffffffffffffffffffffffffff8116811461025e575f5ffd5b61026e6040840160208501610303565b62ffffff1661022a6060850135600261034c565b5f60a08284031215610292575f5ffd5b50919050565b5f60a082840312156102a8575f5ffd5b6102348383610282565b5f5f60c083850312156102c3575f5ffd5b823591506102d48460208501610282565b90509250929050565b5f602082840312156102ed575f5ffd5b81356001600160a01b0381168114610234575f5ffd5b5f60208284031215610313575f5ffd5b813562ffffff81168114610234575f5ffd5b634e487b7160e01b5f52601160045260245ffd5b8082018082111561012657610126610325565b808202811582820484141761012657610126610325565b5f60208284031215610373575f5ffd5b81358060020b8114610234575f5ffd"
+}

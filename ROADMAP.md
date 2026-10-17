@@ -88,6 +88,13 @@ that gives Dedaub's Morpho output 192 (the table above left out closing braces).
 | --- | --- | --- |
 | Held-out accuracy | Runs 1-3 are calibration. Held-out set 3 frozen before the next work: `fixtures/evaluation-heldout-3/` (8 contracts: Vyper 0.3.10 and 0.2.12, two via-IR, five with struct parameters, one unoptimized), not analyzed | Wrong claims to 0 on runs 1-3 (helper-decoded structs, return widths), Vyper dispatch, unstructured functions in Balancer and 1inch; then run 4 on set 3 |
 
+### Status update 2026-10-16 (overnight, later): structs decoded by helpers, shared selectors
+
+| Requirement | New evidence | Still open |
+| --- | --- | --- |
+| Held-out accuracy | Runs 1-3 (calibration) wrong claims 11 -> 3, none new, no correct count lower: Balancer's selectors shared with an internal `msg.sig` check now stay with the dispatched entry; calldata structs read through a decoder helper's pointer are one parameter (V3 position manager arity 38/38) | 3 return widths the bytecode cannot settle (masked `uint128` value returned as `uint256`) |
+| Useful function interfaces | Struct parameters from decoder pointers, from struct checks inside helpers, and (inlined decoders) from fields validated where read; unread fields kept to the checked size; fields typed where validated | A SafeCast-style check at entry hides a whole-head struct; struct fields used raw stay untyped |
+
 Next priority: investigate the NFT receiver callback's unresolved PHI; add successful
 NFT mint/transfer/receiver and multisig behavior checks; improve dynamic encoders,
 interprocedural authority

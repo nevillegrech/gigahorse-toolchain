@@ -265,6 +265,8 @@ class FunctionLifter:
         self.argument_definitions: dict[str, Expr] = {}
         self.argument_kinds: dict[str, str] = {}
         self.arity_note: str | None = None
+        # (first head word, words) of calldata structs a decoder helper returns.
+        self.pointer_structs: list[tuple[int, int]] = []
         # Memory consumers (LOG/RETURN/SHA3/CALL ids) -> MSTOREs feeding them.
         self.consumer_writers: dict[str, set[str]] = defaultdict(set)
         for consumer, writers in context.consumer_writers.items():
@@ -293,6 +295,10 @@ class FunctionLifter:
                 for argument in semantics.arguments
                 if argument.function == self.function.id
             }
+            # Fields of calldata structs read through a decoder helper's pointer.
+            self.pointer_structs, pointer_loads = decoder_pointer_reads(self.context, self.function)
+            for index, variables in pointer_loads.items():
+                by_index[index].extend(v for v in variables if v not in by_index[index])
             inferred = max(by_index) + 1 if by_index else 0
             signature = self.context.function_signatures.get(self.function.id)
             count = inferred
@@ -305,6 +311,12 @@ class FunctionLifter:
                     f"calldata words beyond the {count}-word head the ABI decoder checks "
                     "are read (printed as msg.data[...])"
                 )
+            elif signature is None:
+                # solc checks exactly the head of the declared parameters, and a
+                # struct's own check covers all its words: words the code never
+                # reads still belong to the head (printed unread).
+                extent = max((f + c for f, c in self.pointer_structs), default=0)
+                count = max(count, extent, (head or 0) // 32)
             if signature is not None:
                 # Head words, not parameters: a static tuple parameter spans several.
                 params = head_params(signature_params(signature))
@@ -370,6 +382,16 @@ class FunctionLifter:
         return (
             stmt.opcode == "ADD" and any(is_head_load(v) for v in stmt.operands)
         ) or is_head_load(variable)
+
+    def _pure_definitions(self, variable: str, depth: int = 4) -> set[str]:
+        """Ids of the pure statements (constants, arithmetic) a value is computed by."""
+        stmt = self.context.definitions.get(variable)
+        if stmt is None or stmt.opcode not in PURE or depth == 0:
+            return set()
+        found = {stmt.id}
+        for operand in stmt.operands:
+            found |= self._pure_definitions(operand, depth - 1)
+        return found
 
     def local(self, variable: str) -> Var:
         if variable not in self.names:
@@ -498,7 +520,10 @@ class FunctionLifter:
             and isinstance(args[0], Const)
             and args[0].value < 31
         ):
-            return Call(f"int{8 * (args[0].value + 1)}", (args[1],), evidence=ev)
+            # The byte-index constant is folded into the type name; keep its evidence.
+            return Call(
+                f"int{8 * (args[0].value + 1)}", (args[1],), evidence=ev | args[0].all_evidence()
+            )
         if op in {"BYTE", "SIGNEXTEND", "ADDMOD", "MULMOD"}:
             return Call(op.lower(), tuple(args), evidence=ev)
         return None
@@ -831,7 +856,16 @@ class FunctionLifter:
                 self.argument_evidence.add(stmt.id)
                 for operand in stmt.operands:
                     self.argument_evidence |= self.expr(operand).all_evidence()
+                    # A folded offset (decoder pointer + field offset) keeps only
+                    # its own statement as evidence; the pure ops behind it are
+                    # part of the same head-word read.
+                    self.argument_evidence |= self._pure_definitions(operand)
                 definition = self.pure_node(stmt, [self.expr(v) for v in stmt.operands])
+                offset = self.context.constants.get(stmt.operands[0]) if stmt.operands else None
+                if op == "CALLDATALOAD" and offset is not None:
+                    # Read through a decoder helper's pointer (a local): the head
+                    # position is known, and the definition must not need the body.
+                    definition = Index(Env("msg.data"), Const(offset), evidence=ev)
                 if definition is not None:
                     self.argument_definitions[self.names[stmt.definitions[0]]] = simplify(
                         definition
@@ -1323,6 +1357,154 @@ def decoder_head_size(context: ProgramContext, function: Function) -> int | None
             found.append(ca if stmt.opcode in {"GT", "SGT"} else ca + 1)
     found = [n for n in found if 0 < n <= 32 * 256 and n % 32 == 0]
     return max(found) if found else None
+
+
+SIZE = ("size",)
+
+
+def decoder_checks(
+    context: ProgramContext, function: Function, depth: int = 3
+) -> set[tuple[int, int]]:
+    """(H, S) of every ABI decoder bounds check `calldatasize - H < S` (a revert)
+    in the function or in a private function it calls with a constant and
+    calldatasize, as solc's decoder helpers are called (headStart, dataEnd)."""
+    functions = {f.id: f for f in context.program.functions}
+    found: set[tuple[int, int]] = set()
+    seen: set[tuple[str, frozenset]] = set()
+
+    def visit(fn: Function, env: dict[str, tuple], level: int) -> None:
+        key = (fn.id, frozenset(env.items()))
+        if key in seen:
+            return
+        seen.add(key)
+        values: dict[str, tuple] = dict(env)
+
+        def value(var: str) -> tuple | None:
+            if var in values:
+                return values[var]
+            if var in context.constants:
+                return ("const", context.constants[var])
+            stmt = context.definitions.get(var)
+            return SIZE if stmt is not None and stmt.opcode == "CALLDATASIZE" else None
+
+        statements = [
+            s for b in fn.blocks if b in context.blocks for s in context.blocks[b].instructions
+        ]
+        changed = True
+        while changed:  # blocks are not in data-flow order
+            changed = False
+            for stmt in statements:
+                if len(stmt.definitions) != 1 or len(stmt.operands) != 2:
+                    continue
+                out = stmt.definitions[0]
+                if out in values or out in context.constants:
+                    continue
+                a, b = (value(o) for o in stmt.operands)
+                result = None
+                if stmt.opcode == "SUB" and a == SIZE and b is not None and b[0] == "const":
+                    result = ("rest", b[1])
+                elif stmt.opcode == "ADD" and SIZE in (a, b):
+                    other = b if a == SIZE else a
+                    if other is not None and other[0] == "const" and other[1] > (1 << 255):
+                        result = ("rest", (1 << 256) - other[1])
+                elif stmt.opcode == "ADD" and a and b and a[0] == b[0] == "const":
+                    result = ("const", (a[1] + b[1]) % (1 << 256))
+                if result is not None:
+                    values[out] = result
+                    changed = True
+        for stmt in statements:
+            if stmt.opcode in {"LT", "GT", "SLT", "SGT"} and len(stmt.operands) == 2:
+                a, b = (value(o) for o in stmt.operands)
+                less = stmt.opcode in {"LT", "SLT"}
+                if a and b and a[0] == "rest" and b[0] == "const":
+                    found.add((a[1], b[1] if less else b[1] + 1))
+                elif a and b and b[0] == "rest" and a[0] == "const":
+                    found.add((b[1], a[1] + 1 if less else a[1]))
+            elif stmt.opcode == "CALLPRIVATE" and level < depth and stmt.operands:
+                target = context.constants.get(stmt.operands[0])
+                callee = functions.get(f"0x{target:x}") if target is not None else None
+                if callee is None:
+                    continue
+                mapped = {}
+                for formal, actual in zip(callee.formal_variables, stmt.operands[1:], strict=False):
+                    known = value(actual)
+                    if known is not None:
+                        mapped[formal] = known
+                if SIZE in mapped.values():
+                    visit(callee, mapped, level + 1)
+
+    visit(function, {}, 0)
+    return {
+        (h, s)
+        for h, s in found
+        if h >= 4 and (h - 4) % 32 == 0 and 0 < s <= 32 * 256 and s % 32 == 0
+    }
+
+
+def decoder_pointer_reads(
+    context: ProgramContext, function: Function
+) -> tuple[list[tuple[int, int]], dict[int, list[str]]]:
+    """Static calldata structs read through the pointer a decoder helper returns.
+
+    solc's ABI decoder returns a `calldata` struct parameter as a pointer (the
+    head position of its first word) and the function reads field j at
+    `pointer + 32 * j`; the struct's own check `calldatasize - pointer < S`
+    gives its size. Returns (first head word, words) per struct, and the
+    loads of each head word inside them."""
+    blocks = [context.blocks[b] for b in function.blocks if b in context.blocks]
+
+    def decoder_return(var: str) -> int | None:
+        stmt = context.definitions.get(var)
+        if stmt is None or stmt.opcode != "CALLPRIVATE":
+            return None
+        actuals = stmt.operands[1:]
+        sizes = any(
+            (d := context.definitions.get(a)) is not None and d.opcode == "CALLDATASIZE"
+            for a in actuals
+        )
+        # Called with (head position, calldatasize): the tuple decoder (4) or a
+        # struct decoder the function calls directly (4 + 32 * i).
+        heads = {context.constants.get(a) for a in actuals}
+        if not sizes or not any(h is not None and h >= 4 and (h - 4) % 32 == 0 for h in heads):
+            return None
+        pointer = context.constants.get(var)
+        return pointer if pointer is not None and pointer >= 4 and (pointer - 4) % 32 == 0 else None
+
+    reads: dict[int, list[tuple[int, str]]] = defaultdict(list)
+    for block in blocks:
+        for stmt in block.instructions:
+            if stmt.opcode != "CALLDATALOAD" or len(stmt.operands) != 1 or not stmt.definitions:
+                continue
+            operand = stmt.operands[0]
+            pointer = decoder_return(operand)
+            offset = context.constants.get(operand)
+            if pointer is None:
+                add = context.definitions.get(operand)
+                if add is not None and add.opcode == "ADD" and len(add.operands) == 2:
+                    for base, other in (add.operands, add.operands[::-1]):
+                        if decoder_return(base) is not None and other in context.constants:
+                            pointer = decoder_return(base)
+                            break
+            if pointer is None or offset is None:
+                continue
+            reads[pointer].append((offset, stmt.definitions[0]))
+    if not reads:
+        return [], {}
+    checks = decoder_checks(context, function)
+    intervals: list[tuple[int, int]] = []
+    loads: dict[int, list[str]] = defaultdict(list)
+    for pointer, items in sorted(reads.items()):
+        sizes = [s for h, s in checks if h == pointer and s >= 64]
+        if not sizes:
+            continue
+        size = min(sizes)  # the struct's own check, not a head check that includes it
+        if any(not pointer <= offset < pointer + size for offset, _ in items):
+            continue
+        intervals.append(((pointer - 4) // 32, size // 32))
+        for offset, variable in items:
+            if (offset - 4) % 32 == 0:
+                loads[(offset - 4) // 32].append(variable)
+    return intervals, dict(loads)
 
 
 def head_params(params: list[str]) -> list[str]:

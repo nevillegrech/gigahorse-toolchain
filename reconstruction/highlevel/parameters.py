@@ -18,7 +18,7 @@ from __future__ import annotations
 
 from .ir import Binary, Const, Env, Expr, If, Member, Require, Var
 from .passes import FunctionState, iter_statements
-from .types import TypedValue, map_body
+from .types import TypedValue, map_body, validator_cast
 
 MAX_WORDS = 64
 
@@ -74,6 +74,49 @@ def struct_checks(statements) -> set[tuple[int, int]]:
     return checks
 
 
+def validated_word(stmt, names: set[str]) -> tuple[str, str] | None:
+    """(word, cast) of an ABI-decoder validator on one of the head words."""
+    for name in names:
+        cast = validator_cast(stmt, name)
+        if cast is not None:
+            return name, cast
+    return None
+
+
+def lazy_whole_head(statements, arguments: list[Var]) -> tuple[int, int] | None:
+    """The whole head as one calldata struct, from where its words are validated.
+
+    The ABI decoder validates separate parameters at entry, before any of the
+    body; a calldata struct's members are validated where they are read (after
+    other code, or on one branch). A struct that is not the whole head has a
+    bounds check of its own, so with only the head check, words validated
+    late and none at entry make the head one struct. Two different validated
+    types are required (a static array's elements share one)."""
+    names = {argument.name for argument in arguments}
+    checks = struct_checks(statements)
+    if len(arguments) < 2 or checks != {(4, 32 * len(arguments))}:
+        return None
+    entry: dict[str, str] = {}
+    prefix = True
+    for stmt in statements:
+        found = validated_word(stmt, names)
+        if prefix and found is not None:
+            entry[found[0]] = found[1]
+            continue
+        if prefix and (
+            type(stmt).__name__ == "Comment"
+            or (isinstance(stmt, Require) and _length_check(stmt.condition) is not None)
+        ):
+            continue
+        prefix = False
+    if entry:
+        return None
+    late = {found for stmt in iter_statements(statements) if (found := validated_word(stmt, names))}
+    if len({cast for _, cast in late}) < 2:
+        return None
+    return 0, len(arguments)
+
+
 def signature_intervals(params: list[str]) -> list[tuple[int, int]]:
     """Head-word intervals of the static tuple parameters of a signature."""
     from .lift import static_words
@@ -89,28 +132,26 @@ def signature_intervals(params: list[str]) -> list[tuple[int, int]]:
     return intervals
 
 
-def group_struct_parameters(
-    state: FunctionState,
-    arguments: list[Var],
-    typed: dict[str, TypedValue],
-    structs: dict[tuple[str, ...], str],
+def struct_intervals(
+    statements,
     signature_params: list[str] | None = None,
-) -> list[tuple[str, list[str], str, list[str]]]:
-    """(struct parameter, its head-word arguments, struct name, field types); renames uses.
+    known: list[tuple[int, int]] = (),
+) -> list[tuple[int, int]]:
+    """(first head word, words) of each static struct parameter.
 
-    With a hash-matched signature its static tuples decide the grouping (a
-    decoder check it does not explain is ignored); otherwise the checks do."""
+    With a hash-matched signature its static tuples decide (a decoder check it
+    does not explain is ignored); otherwise the decoder's struct checks do,
+    with structs `known` otherwise: returned as pointers by a decoder helper,
+    or a lazily validated whole head (a struct that is the whole head has no
+    check of its own besides the head check)."""
     if signature_params is not None:
-        chosen = signature_intervals(signature_params)
-        return _apply(state, arguments, typed, structs, chosen)
-    checks = struct_checks(state.body)
+        return signature_intervals(signature_params)
+    intervals = [(first, count) for first, count in known if 2 <= count <= MAX_WORDS]
+    checks = struct_checks(statements)
     heads = [size for start, size in checks if start == 4]
-    if not heads:
-        return []
-    head = max(heads)
-    intervals = []
+    head = max(heads, default=0)
     for start, size in checks:
-        if (start - 4) % 32 or size % 32 or not 64 <= size <= 32 * MAX_WORDS:
+        if not heads or (start - 4) % 32 or size % 32 or not 64 <= size <= 32 * MAX_WORDS:
             continue
         first, count = (start - 4) // 32, size // 32
         if start == 4 and size >= head:
@@ -127,7 +168,19 @@ def group_struct_parameters(
         if any(first < f + c and f < first + count for f, c in chosen):
             return []
         chosen.append((first, count))
-    return _apply(state, arguments, typed, structs, chosen)
+    return chosen
+
+
+def group_struct_parameters(
+    state: FunctionState,
+    arguments: list[Var],
+    typed: dict[str, TypedValue],
+    structs: dict[tuple[str, ...], str],
+    intervals: list[tuple[int, int]],
+) -> list[tuple[str, list[str], str, list[str]]]:
+    """(struct parameter, its head-word arguments, struct name, field types) for
+    each interval of `struct_intervals`; renames uses to fields."""
+    return _apply(state, arguments, typed, structs, intervals) if intervals else []
 
 
 def _apply(
@@ -143,7 +196,7 @@ def _apply(
         if first + count > len(names):
             continue
         words = names[first : first + count]
-        if any(typed[word].kind != "word" for word in words):
+        if any(typed[word].kind not in {"word", "unread"} for word in words):
             continue
         types = tuple(typed[word].type for word in words)
         struct = structs.setdefault(types, f"S{len(structs)}")

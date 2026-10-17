@@ -112,8 +112,11 @@ class TypedValue:
     definition: Expr | None = None
 
 
-def _occurrences(statements: list[Stmt], name: str) -> list[Expr | None]:
-    """Parent of each occurrence of Var(name) (None when it is a whole expression)."""
+def _occurrences(
+    statements: list[Stmt], name: str, skip: set[int] = frozenset()
+) -> list[Expr | None]:
+    """Parent of each occurrence of Var(name) (None when it is a whole expression),
+    outside the statements whose ids are in `skip`."""
     parents: list[Expr | None] = []
 
     def scan(expr: Expr, parent: Expr | None) -> None:
@@ -124,6 +127,8 @@ def _occurrences(statements: list[Stmt], name: str) -> list[Expr | None]:
             scan(child, expr)
 
     for stmt in iter_statements(statements):
+        if id(stmt) in skip:
+            continue
         for expr in read_expressions(stmt):
             scan(expr, None)
         if isinstance(stmt, Assign):
@@ -153,6 +158,31 @@ def _validator(stmt: Stmt, name: str) -> str | None:
     return None
 
 
+def validator_cast(stmt: Stmt, name: str) -> str | None:
+    """The cast of an ABI-decoder validator on `name` in either compiled form:
+    require(x == cast(x)) or (compiled equality) require(!(x - cast(x)))."""
+    if not isinstance(stmt, Require) or stmt.kind != "require" or stmt.payload is not None:
+        return None
+    condition = stmt.condition
+    if isinstance(condition, Unary) and condition.op == "!":
+        condition = condition.operand
+        if not (isinstance(condition, Binary) and condition.op == "-"):
+            return None
+    elif not (isinstance(condition, Binary) and condition.op == "=="):
+        return None
+    for left, right in ((condition.left, condition.right), (condition.right, condition.left)):
+        if (
+            isinstance(left, Var)
+            and left.name == name
+            and isinstance(right, Call)
+            and right.name in CAST_TYPES
+            and len(right.args) == 1
+            and right.args[0] == left
+        ):
+            return right.name
+    return None
+
+
 def _entry_validators(body: list[Stmt], name: str) -> list[Stmt]:
     """Validators in the effect-free prefix of the body (where solc's ABI decoder runs)."""
     found = []
@@ -164,12 +194,46 @@ def _entry_validators(body: list[Stmt], name: str) -> list[Stmt]:
     return found
 
 
-def type_variables(state: FunctionState, names: list[str]) -> dict[str, TypedValue]:
+def _use_validated(statements: list[Stmt], name: str) -> str | None:
+    """The cast of a calldata struct field that solc validates where it is read.
+
+    A `calldata` struct's members are checked when accessed, not at entry, so
+    the validators sit in the body (some on one branch only). The field is
+    typed when every validator agrees and every other use is that cast; the
+    body keeps the checks, so nothing is enforced at entry."""
+    validators = [s for s in iter_statements(statements) if validator_cast(s, name)]
+    casts = {validator_cast(s, name) for s in validators}
+    if len(casts) != 1:
+        return None
+    validator_ids = {id(s) for s in validators}
+    parents = _occurrences(statements, name, skip=validator_ids)
+    cast = next(iter(casts))
+    if all(isinstance(p, Call) and p.name == cast for p in parents):
+        return cast
+    return None
+
+
+def type_variables(
+    state: FunctionState, names: list[str], lazy: frozenset[str] = frozenset()
+) -> dict[str, TypedValue]:
+    """Argument types from ABI validators at entry or masks at every use; for
+    `lazy` names (fields of calldata structs) also from validators where read."""
     result: dict[str, TypedValue] = {}
     for name in names:
         typed = TypedValue(name, "uint256")
         validators = _entry_validators(state.body, name)
         casts = {_validator(s, name) for s in validators}
+        if name in lazy and not (len(casts) == 1 and validators):
+            cast = _use_validated(state.body, name)
+            if cast is not None:
+                result[name] = TypedValue(
+                    name,
+                    cast,
+                    frozenset(),
+                    f"calldata struct field checked where it is read: require({name} == "
+                    f"{cast}({name})), every other use is {cast}(...)",
+                )
+                continue
         if len(casts) == 1 and validators:
             cast = next(iter(casts))
             assert cast is not None

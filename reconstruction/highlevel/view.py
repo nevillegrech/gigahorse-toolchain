@@ -45,7 +45,7 @@ from .memory_liveness import AddressModel, FreePointerVersions, Summaries, compu
 from .naming import Names, load_names, split_signature
 from .numeric import refine_160_bit_returns
 from .objects import memory_objects
-from .parameters import group_struct_parameters
+from .parameters import group_struct_parameters, lazy_whole_head, struct_intervals
 from .passes import (
     FunctionState,
     absorb_memory_plumbing,
@@ -294,6 +294,37 @@ def render_decompiled(
     return result.text, result.mapping
 
 
+def dispatched_selectors(program: Program) -> Program:
+    """A selector claimed by several functions belongs to the dispatched entry.
+
+    The native analysis marks a function public when code compares `msg.sig`
+    with a selector before reaching it; an internal function that does so
+    (Balancer's vault checks `msg.sig` inside its swap and join paths) then
+    shares the selector with the real entry. The dispatcher passes no stack
+    arguments, so when exactly one claimant has none, the others are internal
+    functions and are printed as such."""
+    claimants: dict[str, list[Function]] = {}
+    for function in program.functions:
+        for selector in function.selectors:
+            claimants.setdefault(selector, []).append(function)
+    demoted: dict[str, set[str]] = {}
+    for selector, functions in claimants.items():
+        entries = [f for f in functions if not f.formal_variables]
+        if len(functions) > 1 and len(entries) == 1:
+            for function in functions:
+                if function.formal_variables:
+                    demoted.setdefault(function.id, set()).add(selector)
+    if not demoted:
+        return program
+    functions = [
+        replace(f, selectors=[s for s in f.selectors if s not in demoted[f.id]])
+        if f.id in demoted
+        else f
+        for f in program.functions
+    ]
+    return replace(program, functions=functions)
+
+
 def build_decompiled(
     program: Program,
     relations: Path | None = None,
@@ -303,6 +334,7 @@ def build_decompiled(
 ) -> DecompiledProgram:
     if relations is None:
         relations = program.source_directory
+    program = dispatched_selectors(program)
     context = ProgramContext.build(program, relations)
     if names is None:
         names = load_names(*collect_keys(context), online=online_signatures)
@@ -606,7 +638,24 @@ def finish_function(
     drop_trivial_requires(state)
     leading_callvalue_check(state)
     trailing_stop(state)
-    typed = type_variables(state, [arg.name for arg in item.arguments])
+    # Calldata structs whose members are validated where read: returned as
+    # pointers by a decoder helper, or (inlined decoder) the whole head.
+    known = list(lifter.pointer_structs)
+    if function.selectors and not signature and not known:
+        whole = lazy_whole_head(state.body, item.arguments)
+        known += [whole] if whole else []
+    intervals = (
+        struct_intervals(state.body, split_signature(signature)[1] if signature else None, known)
+        if function.selectors
+        else []
+    )
+    # Fields of these structs are typed from validators where they are read.
+    lazy = frozenset(
+        item.arguments[index].name
+        for first, count in known
+        for index in range(first, min(first + count, len(item.arguments)))
+    )
+    typed = type_variables(state, [arg.name for arg in item.arguments], lazy)
     for name, value in typed.items():
         value.kind = lifter.argument_kinds.get(name, "word")
         value.definition = lifter.argument_definitions.get(name)
@@ -651,17 +700,7 @@ def finish_function(
         if value.type == "dynamic":
             value.type = "bytes"
             value.reason += "; decoded with abi.decode, whose source is bytes"
-    groups = (
-        group_struct_parameters(
-            state,
-            item.arguments,
-            typed,
-            context.structs,
-            split_signature(signature)[1] if signature else None,
-        )
-        if function.selectors
-        else []
-    )
+    groups = group_struct_parameters(state, item.arguments, typed, context.structs, intervals)
     remove_unused_reads(state)
     loop_conditions(state)
     # Loop conditions are formed last; a constant one (e.g. a copy loop over 0
