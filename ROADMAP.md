@@ -120,6 +120,14 @@ that gives Dedaub's Morpho output 192 (the table above left out closing braces).
 | --- | --- | --- |
 | Held-out accuracy | Runs 1-3: 0 wrong claims (was 3). Narrow integer returns print as `uint256 /* uint128 */`, the proven width as a comment, because the bytecode cannot settle the declared type; 14 functions' exact return types become unresolved (437 -> 424 exact) | The declared return width itself (not recoverable from bytecode) |
 
+### Status update 2026-10-17: Vyper 0.2 internal calls
+
+| Requirement | New evidence | Still open |
+| --- | --- | --- |
+| Readable control flow | Vyper 0.2 returns through memory resolved (native rule) and its stack loops (multi-word returns, saved frames up to 36 words) rewritten as straight-line moves; a guard keeps returns after any other stack-changing loop unresolved; Vyper's `if 0` wrapper pruned. Unstructured functions: 3pool 13 -> 8, stETH 15 -> 0, tricrypto2 18 -> 0; payability all correct in stETH and tricrypto2 | 3pool's four frames over 36 words; the return address shown as a call argument; empty loops left by the rewrite; stableswap-ng's per-call-site copies |
+| Held-out accuracy | No new wrong claims; set 3: 10 -> 7 (Vat's signed storage fixed); returns correct +25 and payability +36 across the three Vyper contracts and the Vat; other contracts' native relations identical (Balancer's analysis has two outcomes across identical runs, a pre-existing nondeterminism) | Static arrays without names, whole-head memory structs, returned structs and `bytes`, Euler EVC |
+| Behavioral confidence | Two new Vyper fixtures run against Py-EVM (internal calls on 0.2.16; saved frames on 0.2.12, where a wrong restore order fails the test); 471 passed, 17 skipped; cross-check 1,079 agreeing | Bounded inputs |
+
 Next priority: investigate the NFT receiver callback's unresolved PHI; add successful
 NFT mint/transfer/receiver and multisig behavior checks; improve dynamic encoders,
 interprocedural authority

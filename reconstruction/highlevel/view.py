@@ -20,6 +20,7 @@ from .idioms import (
 from .ir import (
     AbiCodec,
     Assign,
+    Binary,
     Call,
     Comment,
     CustomError,
@@ -972,6 +973,7 @@ def storage_declarations(
                     if written is node and isinstance(stmt, Assign):
                         values.setdefault(name, set()).add(expression_type(stmt.value))
     fields = context.program.semantics.storage_fields if context.program.semantics else []
+    signed_roots, unsigned_roots = storage_word_signedness(views)
     lines = []
     types: dict[str, str] = {}
     for name in sorted(keys, key=lambda n: _slot_order(original.get(n, n), context)):
@@ -995,6 +997,16 @@ def storage_declarations(
                 declared = f"mapping ({key} => {declared})"
         else:
             declared = _scalar_type(candidates, value_types, high - low + 1)
+        # The native model types a word signed when any alias meets a signed
+        # operation; a word the view only compares unsigned is declared uint256.
+        unsigned = (
+            declared == "int256"
+            and name in unsigned_roots
+            and name not in signed_roots
+            and not any(re.fullmatch(r"int\d+", t) for t in value_types)
+        )
+        if unsigned:
+            declared = "uint256"
         types[name] = declared
         where = f"STORAGE[{slot}]" if location == "storage" else f"TSTORAGE[{slot}]"
         if (low, high) != (0, 31):
@@ -1004,6 +1016,8 @@ def storage_declarations(
             where += f"; named after getter {getters[0][0]}() [dict]"
         if len(candidates) > 1 and not keys[name]:
             where += "; native type candidates " + "/".join(candidates)
+        if unsigned:
+            where += "; native type int256, but only compared unsigned here"
         lines.append((f"{declared} {name}; // {where}", frozenset(evidence.get(name, set()))))
     return lines, types
 
@@ -1015,6 +1029,85 @@ def _slot_order(name: str, context: ProgramContext) -> tuple:
     except ValueError:
         number = 1 << 256
     return (location != "storage", number, low)
+
+
+SIGNED_OPS = frozenset({"s<", "s>", "s<=", "s>=", "s/", "s%", "s>>"})
+UNSIGNED_COMPARISONS = frozenset({"<", ">", "<=", ">="})
+
+
+def storage_word_signedness(views: list[FunctionView]) -> tuple[set[str], set[str]]:
+    """Scalar storage roots whose loaded word reaches a signed operation (or a
+    signed cast), and those whose loaded word is an operand of an unsigned
+    comparison: directly, through locals assigned from it, or through the
+    parameter of a private function it is passed to. Signed reach is generous
+    (anywhere below a signed operation, through calls to any depth); unsigned
+    use is strict (the word itself is compared)."""
+    private = {view.name: [a.name for a in view.arguments] for view in views}
+
+    def scan(view: FunctionView, seeds: dict[str, str], signed_params: dict[str, set[int]]):
+        carries = {name: {token} for name, token in seeds.items()}
+        signed: set[str] = set()
+        unsigned: set[str] = set()
+        passed: set[tuple[str, int, str]] = set()
+
+        def tokens(expr: Expr, direct: bool = False) -> set[str]:
+            found: set[str] = set()
+            nodes = [expr] if direct else iter_expr(expr)
+            for node in nodes:
+                if isinstance(node, Var):
+                    found |= carries.get(node.name, set())
+                    root = storage_root(node)
+                    if root is not None and not root[1] and node.name not in seeds:
+                        found.add(root[0])
+            return found
+
+        for stmt in iter_statements(view.body):
+            exprs = list(read_expressions(stmt))
+            for expr in exprs:
+                for node in iter_expr(expr):
+                    if isinstance(node, Binary) and node.op in SIGNED_OPS:
+                        signed |= tokens(node.left) | tokens(node.right)
+                    elif isinstance(node, Call) and re.fullmatch(r"int\d+", node.name):
+                        signed |= {t for arg in node.args for t in tokens(arg)}
+                    elif isinstance(node, Binary) and node.op in UNSIGNED_COMPARISONS:
+                        unsigned |= tokens(node.left, True) | tokens(node.right, True)
+                    elif isinstance(node, Call) and node.name in private:
+                        for index, arg in enumerate(node.args):
+                            for token in tokens(arg, True):
+                                passed.add((node.name, index, token))
+                            if index in signed_params.get(node.name, set()):
+                                signed |= tokens(arg)
+            if isinstance(stmt, Assign) and len(stmt.targets) == 1:
+                target = stmt.targets[0]
+                if isinstance(target, Var) and is_local(target):
+                    carries.setdefault(target.name, set()).update(tokens(stmt.value))
+        return signed, unsigned, passed
+
+    # Parameters reaching a signed operation, to a fixpoint over private calls.
+    signed_params: dict[str, set[int]] = {}
+    unsigned_params: dict[str, set[int]] = {}
+    changed = True
+    while changed:
+        changed = False
+        for view in views:
+            names = private.get(view.name, [])
+            seeds = {name: str(index) for index, name in enumerate(names)}
+            signed, unsigned, _ = scan(view, seeds, signed_params)
+            found = {int(t) for t in signed if t.isdigit()}
+            if not found <= signed_params.get(view.name, set()):
+                signed_params.setdefault(view.name, set()).update(found)
+                changed = True
+            unsigned_params[view.name] = {int(t) for t in unsigned if t.isdigit()}
+    signed_roots: set[str] = set()
+    unsigned_roots: set[str] = set()
+    for view in views:
+        signed, unsigned, passed = scan(view, {}, signed_params)
+        signed_roots |= signed
+        unsigned_roots |= unsigned
+        for callee, index, token in passed:
+            if index in unsigned_params.get(callee, set()):
+                unsigned_roots.add(token)
+    return signed_roots, unsigned_roots
 
 
 def _scalar_type(candidates: list[str], written: set[str], width: int) -> str:

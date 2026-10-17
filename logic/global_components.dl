@@ -181,6 +181,88 @@
     JumpTableJump(jump, target),
     JUMPDEST(as(target, symbol)).
 
+  /**
+    Vyper 0.2 internal functions keep their return address in memory: the
+    callee's entry stores the address the call pushed (its stack top) at a
+    constant slot, and each return jumps to mload(slot). A context is entered
+    from one call block, so in a context where such an entry was reached, a
+    return through the same slot goes back to the continuation that entry
+    received. Only continuations pushed by calls into that entry count.
+  */
+  .decl CallbackEntry(entry: Block, slot: Value)
+  CallbackEntry(entry, slot) :-
+    PrivateFunctionCall(_, entry, _, _),
+    Statement_Block(store, entry),
+    Statement_Opcode(store, "MSTORE"),
+    Statement_Uses_Local(store, address, 0),
+    Variable_Value(address, slot),
+    Statement_Uses_Local(store, 0, 1).
+
+  .decl MemoryReturnJump(block: Block, target: Variable, slot: Value)
+  MemoryReturnJump(block, target, slot) :-
+    BasicBlock_Tail(block, jump),
+    Statement_Opcode(jump, "JUMP"),
+    ImmediateBlockJumpTarget(block, target),
+    Statement_Defines(load, target),
+    Statement_Opcode(load, "MLOAD"),
+    Statement_Uses_Local(load, address, 0),
+    Variable_Value(address, slot).
+
+  /**
+    A loop of one or two blocks whose round trip changes the stack height (a
+    Vyper 0.2 stack loop that was not rewritten, logic/local.dl) leaves the
+    stack positions after it unknown, so no return through memory is resolved
+    from or to the code after one. Local, static and within a function (a call
+    continues at its continuation), so it stays out of the global fixpoint.
+  */
+  .decl LocalNext(block: Block, next: Block)
+  LocalNext(block, next) :-
+    StaticBlockJumpTarget(block, value),
+    next = as(value, Block),
+    !PrivateFunctionCall(block, _, _, _).
+  LocalNext(block, next) :- FallthroughEdge(block, next).
+  LocalNext(block, next) :- PrivateFunctionCall(block, _, next, _).
+
+  .decl StackChangingLoopHead(head: Block)
+  StackChangingLoopHead(block) :-
+    LocalNext(block, block),
+    BlockStackDelta(block, delta),
+    delta != 0.
+  StackChangingLoopHead(head) :-
+    LocalNext(head, other),
+    LocalNext(other, head),
+    head != other,
+    BlockStackDelta(head, delta),
+    BlockStackDelta(other, otherDelta),
+    delta + otherDelta != 0.
+
+  .decl AfterStackChangingLoop(block: Block)
+  AfterStackChangingLoop(next) :-
+    (StackChangingLoopHead(block); AfterStackChangingLoop(block)),
+    LocalNext(block, next).
+
+  .decl MemoryReturnTarget(ctx: sens.Context, block: Block, returnAddress: Variable, continuation: Block)
+  MemoryReturnTarget(ctx, block, returnAddress, continuation) :-
+    BlockJumpTarget(ctx, block, targetVar),
+    MemoryReturnJump(block, targetVar, slot),
+    !AfterStackChangingLoop(block),
+    CallbackEntry(entry, slot),
+    BlockInputContents(ctx, entry, 0, returnAddress),
+    Variable_Value(returnAddress, value),
+    continuation = as(value, Block),
+    PrivateFunctionCall(_, entry, continuation, _),
+    !AfterStackChangingLoop(continuation),
+    JUMPDEST(as(value, symbol)).
+
+  BlockJumpValidTarget(ctx, block, targetVar, continuation) :-
+    MemoryReturnTarget(ctx, block, _, continuation),
+    BlockJumpTarget(ctx, block, targetVar).
+
+  // The pushed address is used as a jump target (through memory), so later
+  // analyses keep treating its block as a call (StatementPushesUsedLabel).
+  VariableUsedInAsJumpdest(returnAddress) :-
+    MemoryReturnTarget(_, _, returnAddress, _).
+
 
   /*
   ***********

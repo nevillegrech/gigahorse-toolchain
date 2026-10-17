@@ -1454,3 +1454,128 @@ held-out scorer reads the type before a comment.
   Run 4's first scores (set 3) stay as recorded.
 - Existing fixtures keep their length (8,953 code lines); only headers and the
   legend text change. 461 passed, 17 skipped; cross-check 1,079 agreeing.
+
+## Vyper 0.2 internal calls
+
+46 functions in the three Vyper 0.2 contracts were unstructured: Curve 3pool
+(0.2.4) 13, stETH (0.2.8) 15 and tricrypto2 (0.2.12) 18. Each one was cut off
+at its first internal call. Vyper 0.2 keeps an internal call's return address
+in memory: the call pushes `pc + 6`, the callee stores it at its entry
+(`mstore(slot, ra)`) and returns with `jump(mload(slot))`. Gigahorse follows
+only stack values, so the return had no target and everything after the call
+was dropped. The changes, all with evidence on two new compiled fixtures:
+
+- **Returns through memory (native rule).** The call is already recognized
+  (`PUSH1 6; PC; ADD` folds to the continuation). In a context where a callee's
+  entry stored its incoming stack top at a constant slot, a return through
+  `mload(slot)` goes to that address. The address must be a continuation
+  pushed by a call into that entry. The address counts as a used label, so
+  the later analyses keep the call a call. Function discovery uses it, so
+  the callees print as private functions.
+- **Stack loops (native facts, from `src/vyper_stack_loops.py`).** Vyper 0.2
+  moves multi-word values through the stack in loops whose counter is in
+  memory: a return pushes its result's words (any version), and a caller with
+  more than 10 local variables saves its frame before the call and restores it
+  after (0.2.4 to 0.2.12). A stack analysis cannot count the iterations, so it
+  loses which word is where. The count is a constant, found by executing the
+  block that sets the counter. Each loop is rewritten by the statement
+  inserter: the same loads (or stores), in the same order, before the counter
+  is set, and the loop's own load popped (or its own store made `MEM[a] =
+  MEM[a]`). Memory is unchanged: the loop writes only its counter, which is
+  outside the words moved.
+  - Only loops of up to 36 words are rewritten. The inserter gives each
+    insertion point 80 statement ids, and a 63-word frame (126 instructions)
+    collided with the next, so the local stack analysis never ended (3pool
+    timed out, then ran out of 16 GB). Larger frames also overflow the
+    analysis' 70 stack slots. 3pool has four frames over 36 words (42, 50, 53
+    and 63), which stay as they were.
+- **A guard instead of wrong data flow.** After a loop of one or two blocks
+  whose round trip changes the stack height (a stack loop that was not
+  rewritten), no return through memory is resolved, neither from the callee
+  nor to the caller's continuation. With the rewrite switched off, the
+  fixture's tuple-returning functions fall back to explicit blocks instead of
+  popping the caller's saved frame as their results, which is what the
+  first version did.
+- **Vyper's `if 0` wrapper.** Vyper 0.2 puts the internal functions behind
+  `PUSH1 0; ISZERO; PUSH; JUMPI`, which always jumps. Following the dead
+  fallthrough made the dispatcher reach every internal function (3pool's
+  dispatcher grew to 2,724 lines, 929 of them unassociated PHIs). Only this
+  exact form becomes a jump. The general rule Gigahorse disabled
+  (undeployed code's immutable placeholders look constant) stays off. A
+  first, wider version also matched solc's `new bytes(0)` (a constant
+  length tested with `ISZERO`), which is sound but changed Router02's
+  relations, so it was narrowed.
+- **A render that did not finish.** `numeric.sources` followed every
+  definition of a local with only a per-path `seen` set. That is exponential
+  in chains of merge copies, and the newly structured 3pool functions have
+  many: its render ran for over 15 minutes. It is now a fixpoint per function,
+  computed once (5 s), with the same result: a source reached around a cycle
+  is also reached on the path without it. Shifts of 256 bits or more count
+  as no source.
+
+Signed storage (Maker Vat, a separate cause from run 4): the native model
+types a storage word `int256` when any alias of it meets a signed operation.
+The Vat's `add(uint x, int y)` compares `y` signed, and the alias flow put
+`debt` and `vice` with it. The view now declares a full-width word
+`uint256` when it is compared unsigned (directly, through a local, or as a
+private function's parameter), never reaches a signed operation or signed
+cast (through calls to any depth), and is never written a signed value. The
+declaration notes the native type. Only these two Vat fields and
+SwapRouter02's `amountInCached` (private, now `uint256` as in the source)
+change.
+
+Results, every held-out contract re-analyzed natively
+(`results/runs1-2-vyper-calls.json`, `results/run3-vyper-calls.json`,
+`results/run4-vyper-calls.json`; set 3 is calibration since run 4):
+
+| Contract | Unstructured | Uncertain lines | Payability correct | Returns correct | Code lines |
+| --- | --- | --- | --- | --- | --- |
+| Curve 3pool (0.2.4) | 13 -> 8 | 55 -> 24 | 26 -> 30 of 38 | 29 -> 31 | 2,380 -> 3,063 |
+| Curve stETH (0.2.8) | 15 -> **0** | 60 -> 3 | 25 -> **39** of 39 | 23 -> 34 | 2,225 -> 1,721 |
+| Curve tricrypto2 (0.2.12) | 18 -> **0** | 40 -> 3 | 44 -> **62** of 62 | 47 -> 57 | 2,232 -> 3,130 |
+| Maker Vat | 0 | 9 | 28 of 28 | 26 -> 28 (2 wrong -> 0) | 467 |
+
+- No new wrong claims. Runs 1-3 stay at 0. Set 3 goes from 10 to 7: the
+  Vat's two by this work, stableswap-ng's `last_price` by the earlier
+  return-width change (which also moves MetaMorpho's returns 59 -> 56 and the
+  V4 position manager's 27 -> 25 to unresolved).
+- 3pool and tricrypto2 are longer because the code after every internal call
+  was missing before. 3pool keeps 8 unstructured functions, all around its
+  four frames over 36 words.
+- Every other contract's native relations are identical, apart from row
+  order (MetaMorpho) and Balancer. Balancer's analysis has two outcomes
+  across identical runs: the batch run found `0x1b0f` as a function (3,094
+  code lines, same scores), and a second run gave the previous relations,
+  which are recorded. This is in Gigahorse before this change, likely its
+  choice-domain relations under parallel evaluation, and none of the new
+  rules can apply to Balancer (no memory returns, stack loops or `if 0`).
+- The Euler EVC still fails in Gigahorse's IR export, as in run 4.
+
+Tests:
+
+- `vyper-calls-v0216` (7 functions; one-word, tuple and no-result internal
+  functions, nested, called twice from one function, from a loop, and
+  returning from inside a `for` loop): all structured, 0 wrong claims, run
+  against Py-EVM with each branch and revert.
+- `vyper-frames-v0212` (Vyper 0.2.12, saved frames of 11 to 14 words, nested
+  in an internal function): structured, run against Py-EVM. With the restore
+  loop's stores in the wrong order, the native output fails this test.
+- The loop finder on synthetic code: both counter forms, frame save and
+  restore, and no loop when the count is unknown, not a word multiple, or the
+  counter is among the words.
+- Signed storage: a word compared unsigned is declared `uint256`, including
+  through a helper's parameter, and signed reach through locals, casts and
+  calls keeps `int256` (removing the parameter or cast handling fails the
+  test). The value-source
+  fixpoint over a 60-local chain of merge copies takes under a second.
+- The 35 existing fixtures' native relations are unchanged and they render
+  byte-identically (7,079 code lines as the scorer counts them); the two new
+  fixtures add 567. 471 passed, 17 skipped; cross-check 1,079 agreeing.
+
+Not done: the return address shows as the first argument of a Vyper 0.2
+internal call (`fn_0x2ab(82, varg0)`, stored at the callee's entry). Hiding it
+needs the store proven unread, and the memory liveness cannot prove that,
+because callers keep their locals at the callee's addresses and restore them
+after the call. The rewritten loops stay as empty loops (`while (MEM[a] > 0)
+MEM[a] -= 32`). stableswap-ng (Vyper 0.3.10) is a different problem: its
+internal functions are copied per call site (65,269 lines).

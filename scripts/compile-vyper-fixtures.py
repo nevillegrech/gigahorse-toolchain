@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Compile the Vyper fixture with each pinned compiler (one per dispatcher form).
+"""Compile the Vyper fixtures with each pinned compiler (one per dispatcher form,
+and Vyper 0.2's internal calls and saved frames).
 
 Compilers are given as VERSION=PATH pairs (e.g. 0.3.10=/path/to/vyper); each
 must report that exact version. Writes vyper-<variant>.hex and .json next to
@@ -14,18 +15,20 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURES = ROOT / "fixtures/reconstruction"
-SOURCE = FIXTURES / "VyperFixture.vy"
-# variant -> (compiler version, optimization setting or None for the compiler default)
+# variant -> (source, compiler version, optimization setting or None for the default)
 VARIANTS = {
-    "v0216": ("0.2.16", None),
-    "v039": ("0.3.9", None),
-    "v0310": ("0.3.10", "gas"),
-    "v0310-codesize": ("0.3.10", "codesize"),
+    "v0216": ("VyperFixture.vy", "0.2.16", None),
+    "v039": ("VyperFixture.vy", "0.3.9", None),
+    "v0310": ("VyperFixture.vy", "0.3.10", "gas"),
+    "v0310-codesize": ("VyperFixture.vy", "0.3.10", "codesize"),
+    "calls-v0216": ("VyperCallsFixture.vy", "0.2.16", None),
+    "frames-v0212": ("VyperFramesFixture.vy", "0.2.12", None),
 }
 
 
 def compile_variant(variant: str, compiler: str) -> None:
-    version, optimize = VARIANTS[variant]
+    source, version, optimize = VARIANTS[variant]
+    source = FIXTURES / source
     reported = subprocess.check_output([compiler, "--version"], text=True).strip()
     if not reported.startswith(version + "+"):
         raise SystemExit(f"{compiler} is {reported}, not {version}")
@@ -34,7 +37,7 @@ def compile_variant(variant: str, compiler: str) -> None:
         settings["optimize"] = optimize
     request = {
         "language": "Vyper",
-        "sources": {SOURCE.name: {"content": SOURCE.read_text()}},
+        "sources": {source.name: {"content": source.read_text()}},
         "settings": settings,
     }
     result = subprocess.run(
@@ -44,7 +47,7 @@ def compile_variant(variant: str, compiler: str) -> None:
     errors = [e for e in response.get("errors", []) if e.get("severity") == "error"]
     if errors:
         raise SystemExit(json.dumps(errors, indent=2))
-    compiled = next(iter(response["contracts"][SOURCE.name].values()))
+    compiled = next(iter(response["contracts"][source.name].values()))
     runtime = compiled["evm"]["deployedBytecode"]["object"].removeprefix("0x")
     creation = compiled["evm"]["bytecode"]["object"].removeprefix("0x")
     abi = compiled["abi"]
@@ -57,8 +60,8 @@ def compile_variant(variant: str, compiler: str) -> None:
     (FIXTURES / f"{stem}.hex").write_text(runtime + "\n")
     manifest = {
         "compiler": reported,
-        "source": SOURCE.name,
-        "source_sha256": hashlib.sha256(SOURCE.read_bytes()).hexdigest(),
+        "source": source.name,
+        "source_sha256": hashlib.sha256(source.read_bytes()).hexdigest(),
         "bytecode_sha256": hashlib.sha256(bytes.fromhex(runtime)).hexdigest(),
         "settings": settings,
         "method_identifiers": identifiers,
@@ -80,7 +83,7 @@ def main() -> None:
     parser.add_argument("compilers", nargs="+", help="VERSION=PATH")
     args = parser.parse_args()
     paths = dict(item.split("=", 1) for item in args.compilers)
-    for variant, (version, _) in VARIANTS.items():
+    for variant, (_, version, _) in VARIANTS.items():
         if version in paths:
             compile_variant(variant, paths[version])
 

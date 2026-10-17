@@ -144,6 +144,19 @@ PossibleReturnAddressWithPos(as(next, Block), retCtx, retBlock, retTarget, pos) 
   // filter out cases where the function is called directly
   !postTrans.IsJumpBlockPrivateFunctionCall(_, as(next, Block)).
 
+/**
+  Vyper 0.2 returns through memory (global.MemoryReturnTarget): the jump's
+  target is loaded in the return block, so the address the call pushed (and
+  the callee stored at its entry) stands for it.
+*/
+PossibleReturnAddressWithPos(targetSetter, retCtx, retBlock, retTarget, pos) :-
+  global.MemoryReturnTarget(retCtx, retBlock, returnAddress, retTarget),
+  postTrans.Statement_Defines(targetSetStatement, returnAddress),
+  postTrans.Statement_Block(targetSetStatement, targetSetter),
+  postTrans.BasicBlock_Tail(targetSetter, jumpStmt),
+  postTrans.JUMP(jumpStmt),
+  postTrans.BlockOutLocalStackContents(targetSetter, pos, returnAddress).
+
 .decl OptPossibleReturnAddressWithPos(targetSetter:Block, retBlock:Block, retTarget:Block, pos:number)
 OptPossibleReturnAddressWithPos(targetSetter, retBlock, retTarget, pos) :-
   PossibleReturnAddressWithPos(targetSetter, _, retBlock, retTarget, pos).

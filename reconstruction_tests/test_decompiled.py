@@ -261,3 +261,91 @@ def test_output_and_map_do_not_depend_on_hash_seed(tmp_path):
         )
         results.append(json.loads(done.stdout.strip().splitlines()[-1]))
     assert results[0] == results[1]
+
+
+def test_storage_word_compared_unsigned_is_not_declared_signed():
+    """The Vat's debt: the native model types the word int256 because its helper
+    add(uint x, int y) compares y signed. The word itself is only compared
+    unsigned (directly and as the helper's x), so it is declared uint256."""
+    from types import SimpleNamespace
+
+    from reconstruction.highlevel.ir import Assign, ExprStmt, Require, Return
+    from reconstruction.highlevel.view import storage_word_signedness
+
+    def view(name, params, body):
+        return SimpleNamespace(
+            name=name, arguments=[SimpleNamespace(name=p) for p in params], body=body
+        )
+
+    y, x = Var("varg0", "y"), Var("varg1", "x")
+    total = Binary("+", x, y)
+    add = view(
+        "fn_add",
+        ["varg0", "varg1"],
+        [
+            Require(Binary("||", Binary("s>=", y, Const(0)), Binary("<=", total, x))),
+            Return((total,)),
+        ],
+    )
+    negative = view("fn_negative", ["varg0"], [Require(Binary("s<", y, Const(0)))])
+    sum_, tick = Var("v1", "s"), Var("v2", "t")
+    frob = view(
+        "frob",
+        [],
+        [
+            Assign((sum_,), Call("fn_add", (Var("varg5", "d"), Var("_debt")))),
+            Assign((Var("_debt"),), sum_),
+            Require(Binary("<=", Var("_debt"), Var("_Line"))),
+            Assign((tick,), Var("_tick")),
+            Require(Binary("s>", tick, Const(3))),
+            ExprStmt(Call("fn_negative", (Binary("+", Var("_price"), Const(1)),))),
+            ExprStmt(Call("fn_add", (Const(1), Var("_vice")))),  # as the helper's x
+            ExprStmt(Call("fn_add", (Var("_sin"), Const(1)))),  # as the helper's y
+            Require(Binary("==", Var("_fee"), Call("int128", (Var("_fee"),)))),  # sign-extended
+        ],
+    )
+    signed, unsigned = storage_word_signedness([add, negative, frob])
+    assert {"_debt", "_vice"} <= unsigned and not {"_debt", "_vice"} & signed
+    assert {"_sin", "_fee"} <= signed
+    # Signed reach is generous: through a local, and below a call's argument.
+    assert {"_tick", "_price"} <= signed
+
+
+def test_value_sources_are_a_fixpoint_over_every_definition():
+    """numeric.sources follows every definition of a local. A chain of locals with
+    two definitions each (merge copies) has 2**n paths: traced once per local, the
+    result is every source on any path, cycles included."""
+    import time
+    from types import SimpleNamespace
+
+    from reconstruction.highlevel.ir import Assign
+    from reconstruction.highlevel.numeric import _Function, sources
+
+    x, y = Var("varg0", "x"), Var("varg1", "y")
+    chain = [Assign((Var("v0", "s0"),), x), Assign((Var("v0", "s0"),), y)]
+    for i in range(1, 60):
+        previous = Var(f"v{i - 1}", f"s{i - 1}")
+        chain += [Assign((Var(f"v{i}", f"s{i}"),), previous)] * 2
+    loop = [  # a cycle without shifts, and one that shifts each time round
+        Assign((Var("a", "a"),), Var("b", "b")),
+        Assign((Var("b", "b"),), Var("a", "a")),
+        Assign((Var("a", "a"),), x),
+        Assign((Var("c", "c"),), y),
+        Assign((Var("c", "c"),), Binary(">>", Var("c", "c"), Const(128))),
+    ]
+    view = SimpleNamespace(
+        name="fn_1",
+        body=chain + loop,
+        arguments=[SimpleNamespace(name="varg0"), SimpleNamespace(name="varg1")],
+        function=SimpleNamespace(selectors=[]),
+    )
+    fn = _Function(view)
+    started = time.monotonic()
+    assert sources(Var("v59", "s59"), fn) == {
+        ("parameter", "fn_1", 0, 0),
+        ("parameter", "fn_1", 1, 0),
+    }
+    assert time.monotonic() - started < 1
+    assert sources(Var("b", "b"), fn) == {("parameter", "fn_1", 0, 0)}
+    # Shifted by 128 once more each time round, until shifted out entirely.
+    assert sources(Var("c", "c"), fn) == {("parameter", "fn_1", 1, s) for s in (0, 128)}

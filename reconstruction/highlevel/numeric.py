@@ -68,6 +68,7 @@ class _Function:
                         self.definitions[target.name].append(value)
         self.parameters = {a.name: i for i, a in enumerate(view.arguments)}
         self.public = bool(view.function.selectors)
+        self.source_cache: dict[tuple, set[Key]] = {}
 
 
 def _constant_part(expr: Expr) -> int | None:
@@ -80,43 +81,87 @@ def _constant_part(expr: Expr) -> int | None:
     return None
 
 
-def sources(expr: Expr, fn: _Function, shift: int = 0, seen: frozenset = frozenset()) -> set[Key]:
+def sources(expr: Expr, fn: _Function, shift: int = 0) -> set[Key]:
     """Where a value can come from (see the module docstring)."""
+    found, reads = _direct(expr, fn, shift)
+    for node in reads:
+        found |= _node_sources(node, fn)
+    return found
+
+
+def _direct(expr: Expr, fn: _Function, shift: int) -> tuple[set[Key], set[tuple]]:
+    """The sources of `expr` found without a local or memory-object word, and
+    the locals and words (with their shift) it reads."""
+    if shift >= 256:
+        return set(), set()  # shifted out entirely
     if isinstance(expr, Call) and expr.name in CASTS and len(expr.args) == 1:
-        return sources(expr.args[0], fn, shift, seen)
+        return _direct(expr.args[0], fn, shift)
     if isinstance(expr, Binary) and expr.op == ">>" and isinstance(expr.right, Const):
-        return sources(expr.left, fn, shift + expr.right.value, seen)
+        return _direct(expr.left, fn, shift + expr.right.value)
     if isinstance(expr, Binary) and expr.op in ARITHMETIC:
-        return {COMPUTED}
+        return {COMPUTED}, set()
     if isinstance(expr, Var):
         if expr.name in fn.parameters:
             kind = "argument" if fn.public else "parameter"
-            return {(kind, fn.name, fn.parameters[expr.name], shift)}
+            return {(kind, fn.name, fn.parameters[expr.name], shift)}, set()
         if is_local(expr):
-            if expr.name in seen:
-                return set()
-            result: set[Key] = set()
-            for value in fn.definitions.get(expr.name, []):
-                result |= sources(value, fn, shift, seen | {expr.name})
-            return result
-        return {("storage", expr.name, shift)}
+            return set(), {("local", expr.name, shift)}
+        return {("storage", expr.name, shift)}, set()
     if isinstance(expr, Index) and isinstance(expr.base, Env) and expr.base.name == "STORAGE":
         constant = _constant_part(expr.key)
-        return {("storage", f"STORAGE+{constant}", shift)} if constant is not None else set()
+        return (
+            {("storage", f"STORAGE+{constant}", shift)} if constant is not None else set()
+        ), set()
     if isinstance(expr, Field) and isinstance(expr.base, Var):
-        name = f"{expr.base.name}@{expr.offset}"
-        if name in seen:
-            return set()
-        result = set()
-        for literal in fn.definitions.get(expr.base.name, []):
-            if isinstance(literal, Allocation) and literal.values and expr.offset % 32 == 0:
-                index = expr.offset // 32
-                if index < len(literal.values):
-                    result |= sources(literal.values[index], fn, shift, seen | {name})
-        for value in fn.fields.get((expr.base.name, expr.offset), []):
-            result |= sources(value, fn, shift, seen | {name})
-        return result
-    return set()
+        return set(), {("field", expr.base.name, expr.offset, shift)}
+    return set(), set()
+
+
+def _definitions(node: tuple, fn: _Function) -> list[tuple[Expr, int]]:
+    """The values a local or memory-object word is assigned (every definition)."""
+    if node[0] == "local":
+        _, name, shift = node
+        return [(value, shift) for value in fn.definitions.get(name, [])]
+    _, base, offset, shift = node
+    values = []
+    for literal in fn.definitions.get(base, []):
+        if isinstance(literal, Allocation) and literal.values and offset % 32 == 0:
+            index = offset // 32
+            if index < len(literal.values):
+                values.append((literal.values[index], shift))
+    values.extend((value, shift) for value in fn.fields.get((base, offset), []))
+    return values
+
+
+def _node_sources(start: tuple, fn: _Function) -> set[Key]:
+    """Sources of a local or word: the least fixpoint over the definitions
+    reachable from it (every definition path), computed once per function."""
+    cache = fn.source_cache
+    if start in cache:
+        return cache[start]
+    found: dict[tuple, set[Key]] = {}
+    reads: dict[tuple, set[tuple]] = {}
+    pending = [start]
+    while pending:
+        node = pending.pop()
+        if node in found:
+            continue
+        found[node], reads[node] = set(), set()
+        for value, shift in _definitions(node, fn):
+            direct, read = _direct(value, fn, shift)
+            found[node] |= direct
+            reads[node] |= read
+        pending.extend(r for r in reads[node] if r not in found and r not in cache)
+    changed = True
+    while changed:
+        changed = False
+        for node, read in reads.items():
+            size = len(found[node])
+            for other in read:
+                found[node] |= cache[other] if other in cache else found[other]
+            changed |= len(found[node]) != size
+    cache.update(found)
+    return found[start]
 
 
 def _truth_tests(stmt) -> set[int]:

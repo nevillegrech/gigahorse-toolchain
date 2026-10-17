@@ -1,0 +1,724 @@
+{
+  "selection_id": "heldout-2026-10-16",
+  "contracts": [
+    {
+      "id": "aave-v3-pool-proxy",
+      "seconds": 1.5,
+      "peak_rss_gb": 0.03,
+      "status": "ok",
+      "decompiled_code_lines": 151,
+      "structured_code_lines": 352,
+      "unaccounted_ir_statements": 0,
+      "uncertain_lines": 3,
+      "unstructured_functions": 0,
+      "recognized_idioms": 0,
+      "events": {
+        "abi": [
+          "Upgraded"
+        ],
+        "named_in_view": [
+          "Upgraded"
+        ],
+        "unnamed_in_view": []
+      },
+      "score": {
+        "abi_functions": 5,
+        "selectors_recovered": 5,
+        "names": {
+          "correct": 5,
+          "unresolved": 0,
+          "wrong": 0
+        },
+        "arity": {
+          "correct": 5,
+          "wrong": 0
+        },
+        "argument_types": {
+          "correct": 5,
+          "unresolved": 0,
+          "wrong": 0,
+          "dynamic_unresolved": 0
+        },
+        "payability": {
+          "correct": 5,
+          "wrong": 0
+        },
+        "returns": {
+          "correct": 3,
+          "unresolved": 2,
+          "wrong": 0
+        },
+        "wrong_claims": []
+      }
+    },
+    {
+      "id": "ens-eth-registrar-controller",
+      "seconds": 3.3,
+      "peak_rss_gb": 0.07,
+      "status": "ok",
+      "decompiled_code_lines": 581,
+      "structured_code_lines": 1250,
+      "unaccounted_ir_statements": 0,
+      "uncertain_lines": 7,
+      "unstructured_functions": 0,
+      "recognized_idioms": 2,
+      "events": {
+        "abi": [
+          "NameRegistered",
+          "NameRenewed",
+          "OwnershipTransferred"
+        ],
+        "named_in_view": [
+          "NameRenewed",
+          "OwnershipTransferred"
+        ],
+        "unnamed_in_view": [
+          "Event_69e37f15"
+        ]
+      },
+      "score": {
+        "abi_functions": 20,
+        "selectors_recovered": 20,
+        "names": {
+          "correct": 18,
+          "unresolved": 2,
+          "wrong": 0
+        },
+        "arity": {
+          "correct": 20,
+          "wrong": 0
+        },
+        "argument_types": {
+          "correct": 21,
+          "unresolved": 4,
+          "wrong": 0,
+          "dynamic_unresolved": 4
+        },
+        "payability": {
+          "correct": 20,
+          "wrong": 0
+        },
+        "returns": {
+          "correct": 18,
+          "unresolved": 2,
+          "wrong": 0
+        },
+        "wrong_claims": []
+      }
+    },
+    {
+      "id": "dai",
+      "seconds": 2.0,
+      "peak_rss_gb": 0.05,
+      "status": "ok",
+      "decompiled_code_lines": 287,
+      "structured_code_lines": 679,
+      "unaccounted_ir_statements": 0,
+      "uncertain_lines": 3,
+      "unstructured_functions": 0,
+      "recognized_idioms": 2,
+      "events": {
+        "abi": [
+          "Approval",
+          "LogNote",
+          "Transfer"
+        ],
+        "named_in_view": [
+          "Approval",
+          "Transfer"
+        ],
+        "unnamed_in_view": []
+      },
+      "score": {
+        "abi_functions": 22,
+        "selectors_recovered": 22,
+        "names": {
+          "correct": 22,
+          "unresolved": 0,
+          "wrong": 0
+        },
+        "arity": {
+          "correct": 22,
+          "wrong": 0
+        },
+        "argument_types": {
+          "correct": 28,
+          "unresolved": 5,
+          "wrong": 0,
+          "dynamic_unresolved": 0
+        },
+        "payability": {
+          "correct": 22,
+          "wrong": 0
+        },
+        "returns": {
+          "correct": 16,
+          "unresolved": 6,
+          "wrong": 0
+        },
+        "wrong_claims": []
+      }
+    },
+    {
+      "id": "chainlink-eth-usd-proxy",
+      "seconds": 2.7,
+      "peak_rss_gb": 0.06,
+      "status": "ok",
+      "decompiled_code_lines": 488,
+      "structured_code_lines": 1673,
+      "unaccounted_ir_statements": 0,
+      "uncertain_lines": 10,
+      "unstructured_functions": 0,
+      "recognized_idioms": 1,
+      "events": {
+        "abi": [
+          "AnswerUpdated",
+          "NewRound",
+          "OwnershipTransferRequested",
+          "OwnershipTransferred"
+        ],
+        "named_in_view": [
+          "OwnershipTransferRequested",
+          "OwnershipTransferred"
+        ],
+        "unnamed_in_view": []
+      },
+      "score": {
+        "abi_functions": 23,
+        "selectors_recovered": 23,
+        "names": {
+          "correct": 23,
+          "unresolved": 0,
+          "wrong": 0
+        },
+        "arity": {
+          "correct": 23,
+          "wrong": 0
+        },
+        "argument_types": {
+          "correct": 8,
+          "unresolved": 1,
+          "wrong": 0,
+          "dynamic_unresolved": 0
+        },
+        "payability": {
+          "correct": 23,
+          "wrong": 0
+        },
+        "returns": {
+          "correct": 13,
+          "unresolved": 10,
+          "wrong": 0
+        },
+        "wrong_claims": []
+      }
+    },
+    {
+      "id": "tether-usdt",
+      "seconds": 2.8,
+      "peak_rss_gb": 0.06,
+      "status": "ok",
+      "decompiled_code_lines": 399,
+      "structured_code_lines": 1133,
+      "unaccounted_ir_statements": 0,
+      "uncertain_lines": 1,
+      "unstructured_functions": 0,
+      "recognized_idioms": 5,
+      "events": {
+        "abi": [
+          "AddedBlackList",
+          "Approval",
+          "Deprecate",
+          "DestroyedBlackFunds",
+          "Issue",
+          "Params",
+          "Pause",
+          "Redeem",
+          "RemovedBlackList",
+          "Transfer",
+          "Unpause"
+        ],
+        "named_in_view": [
+          "AddedBlackList",
+          "Approval",
+          "Deprecate",
+          "DestroyedBlackFunds",
+          "Issue",
+          "Params",
+          "Pause",
+          "Redeem",
+          "RemovedBlackList",
+          "Transfer",
+          "Unpause"
+        ],
+        "unnamed_in_view": []
+      },
+      "score": {
+        "abi_functions": 32,
+        "selectors_recovered": 32,
+        "names": {
+          "correct": 32,
+          "unresolved": 0,
+          "wrong": 0
+        },
+        "arity": {
+          "correct": 32,
+          "wrong": 0
+        },
+        "argument_types": {
+          "correct": 24,
+          "unresolved": 0,
+          "wrong": 0,
+          "dynamic_unresolved": 0
+        },
+        "payability": {
+          "correct": 32,
+          "wrong": 0
+        },
+        "returns": {
+          "correct": 32,
+          "unresolved": 0,
+          "wrong": 0
+        },
+        "wrong_claims": []
+      }
+    },
+    {
+      "id": "azuki-erc721a",
+      "seconds": 9.1,
+      "peak_rss_gb": 0.14,
+      "status": "ok",
+      "decompiled_code_lines": 1048,
+      "structured_code_lines": 2090,
+      "unaccounted_ir_statements": 0,
+      "uncertain_lines": 5,
+      "unstructured_functions": 0,
+      "recognized_idioms": 6,
+      "events": {
+        "abi": [
+          "Approval",
+          "ApprovalForAll",
+          "OwnershipTransferred",
+          "Transfer"
+        ],
+        "named_in_view": [
+          "Approval",
+          "ApprovalForAll",
+          "OwnershipTransferred",
+          "Transfer"
+        ],
+        "unnamed_in_view": []
+      },
+      "score": {
+        "abi_functions": 45,
+        "selectors_recovered": 45,
+        "names": {
+          "correct": 45,
+          "unresolved": 0,
+          "wrong": 0
+        },
+        "arity": {
+          "correct": 45,
+          "wrong": 0
+        },
+        "argument_types": {
+          "correct": 45,
+          "unresolved": 0,
+          "wrong": 0,
+          "dynamic_unresolved": 0
+        },
+        "payability": {
+          "correct": 45,
+          "wrong": 0
+        },
+        "returns": {
+          "correct": 40,
+          "unresolved": 5,
+          "wrong": 0
+        },
+        "wrong_claims": []
+      }
+    },
+    {
+      "id": "compound-ceth",
+      "seconds": 9.9,
+      "peak_rss_gb": 0.19,
+      "status": "ok",
+      "decompiled_code_lines": 1730,
+      "structured_code_lines": 5137,
+      "unaccounted_ir_statements": 0,
+      "uncertain_lines": 1,
+      "unstructured_functions": 0,
+      "recognized_idioms": 2,
+      "events": {
+        "abi": [
+          "AccrueInterest",
+          "Approval",
+          "Borrow",
+          "Failure",
+          "LiquidateBorrow",
+          "Mint",
+          "NewAdmin",
+          "NewComptroller",
+          "NewMarketInterestRateModel",
+          "NewPendingAdmin",
+          "NewReserveFactor",
+          "Redeem",
+          "RepayBorrow",
+          "ReservesReduced",
+          "Transfer"
+        ],
+        "named_in_view": [
+          "AccrueInterest",
+          "Approval",
+          "Borrow",
+          "Failure",
+          "LiquidateBorrow",
+          "Mint",
+          "NewAdmin",
+          "NewComptroller",
+          "NewMarketInterestRateModel",
+          "NewPendingAdmin",
+          "NewReserveFactor",
+          "Redeem",
+          "RepayBorrow",
+          "ReservesReduced",
+          "Transfer"
+        ],
+        "unnamed_in_view": []
+      },
+      "score": {
+        "abi_functions": 45,
+        "selectors_recovered": 45,
+        "names": {
+          "correct": 45,
+          "unresolved": 0,
+          "wrong": 0
+        },
+        "arity": {
+          "correct": 45,
+          "wrong": 0
+        },
+        "argument_types": {
+          "correct": 28,
+          "unresolved": 0,
+          "wrong": 0,
+          "dynamic_unresolved": 0
+        },
+        "payability": {
+          "correct": 45,
+          "wrong": 0
+        },
+        "returns": {
+          "correct": 45,
+          "unresolved": 0,
+          "wrong": 0
+        },
+        "wrong_claims": []
+      }
+    },
+    {
+      "id": "curve-3pool",
+      "seconds": 8.3,
+      "peak_rss_gb": 0.13,
+      "status": "ok",
+      "decompiled_code_lines": 3063,
+      "structured_code_lines": 4735,
+      "unaccounted_ir_statements": 0,
+      "uncertain_lines": 24,
+      "unstructured_functions": 8,
+      "recognized_idioms": 0,
+      "events": {
+        "abi": [
+          "AddLiquidity",
+          "CommitNewAdmin",
+          "CommitNewFee",
+          "NewAdmin",
+          "NewFee",
+          "RampA",
+          "RemoveLiquidity",
+          "RemoveLiquidityImbalance",
+          "RemoveLiquidityOne",
+          "StopRampA",
+          "TokenExchange"
+        ],
+        "named_in_view": [
+          "CommitNewAdmin",
+          "CommitNewFee",
+          "NewAdmin",
+          "NewFee",
+          "RampA",
+          "RemoveLiquidity",
+          "StopRampA"
+        ],
+        "unnamed_in_view": []
+      },
+      "score": {
+        "abi_functions": 38,
+        "selectors_recovered": 38,
+        "names": {
+          "correct": 38,
+          "unresolved": 0,
+          "wrong": 0
+        },
+        "arity": {
+          "correct": 38,
+          "wrong": 0
+        },
+        "argument_types": {
+          "correct": 21,
+          "unresolved": 10,
+          "wrong": 0,
+          "dynamic_unresolved": 0
+        },
+        "payability": {
+          "correct": 30,
+          "wrong": 0,
+          "unresolved": 8
+        },
+        "returns": {
+          "correct": 31,
+          "unresolved": 7,
+          "wrong": 0
+        },
+        "wrong_claims": []
+      }
+    },
+    {
+      "id": "uniswap-v2-router02",
+      "seconds": 8.6,
+      "peak_rss_gb": 0.15,
+      "status": "ok",
+      "decompiled_code_lines": 1220,
+      "structured_code_lines": 4598,
+      "unaccounted_ir_statements": 0,
+      "uncertain_lines": 1,
+      "unstructured_functions": 0,
+      "recognized_idioms": 3,
+      "events": {
+        "abi": [],
+        "named_in_view": [],
+        "unnamed_in_view": []
+      },
+      "score": {
+        "abi_functions": 24,
+        "selectors_recovered": 24,
+        "names": {
+          "correct": 24,
+          "unresolved": 0,
+          "wrong": 0
+        },
+        "arity": {
+          "correct": 24,
+          "wrong": 0
+        },
+        "argument_types": {
+          "correct": 110,
+          "unresolved": 9,
+          "wrong": 0,
+          "dynamic_unresolved": 0
+        },
+        "payability": {
+          "correct": 24,
+          "wrong": 0
+        },
+        "returns": {
+          "correct": 16,
+          "unresolved": 8,
+          "wrong": 0
+        },
+        "wrong_claims": []
+      }
+    },
+    {
+      "id": "uniswap-v3-pool-usdc-weth",
+      "seconds": 80.1,
+      "peak_rss_gb": 0.27,
+      "status": "ok",
+      "decompiled_code_lines": 1820,
+      "structured_code_lines": 16292,
+      "unaccounted_ir_statements": 0,
+      "uncertain_lines": 5,
+      "unstructured_functions": 0,
+      "recognized_idioms": 1,
+      "events": {
+        "abi": [
+          "Burn",
+          "Collect",
+          "CollectProtocol",
+          "Flash",
+          "IncreaseObservationCardinalityNext",
+          "Initialize",
+          "Mint",
+          "SetFeeProtocol",
+          "Swap"
+        ],
+        "named_in_view": [
+          "Burn",
+          "Collect",
+          "CollectProtocol",
+          "Flash",
+          "IncreaseObservationCardinalityNext",
+          "Initialize",
+          "Mint",
+          "SetFeeProtocol",
+          "Swap"
+        ],
+        "unnamed_in_view": []
+      },
+      "score": {
+        "abi_functions": 26,
+        "selectors_recovered": 26,
+        "names": {
+          "correct": 26,
+          "unresolved": 0,
+          "wrong": 0
+        },
+        "arity": {
+          "correct": 26,
+          "wrong": 0
+        },
+        "argument_types": {
+          "correct": 33,
+          "unresolved": 3,
+          "wrong": 0,
+          "dynamic_unresolved": 0
+        },
+        "payability": {
+          "correct": 26,
+          "wrong": 0
+        },
+        "returns": {
+          "correct": 12,
+          "unresolved": 14,
+          "wrong": 0
+        },
+        "wrong_claims": []
+      }
+    },
+    {
+      "id": "oneinch-router-v5",
+      "seconds": 184.1,
+      "peak_rss_gb": 16.13,
+      "status": "ok",
+      "decompiled_code_lines": 7099,
+      "structured_code_lines": 12831,
+      "unaccounted_ir_statements": 0,
+      "uncertain_lines": 449,
+      "unstructured_functions": 9,
+      "recognized_idioms": 3,
+      "events": {
+        "abi": [
+          "NonceIncreased",
+          "OrderCanceled",
+          "OrderFilled",
+          "OrderFilledRFQ",
+          "OwnershipTransferred"
+        ],
+        "named_in_view": [
+          "NonceIncreased",
+          "OrderCanceled",
+          "OrderFilled",
+          "OrderFilledRFQ",
+          "OwnershipTransferred"
+        ],
+        "unnamed_in_view": []
+      },
+      "score": {
+        "abi_functions": 45,
+        "selectors_recovered": 45,
+        "names": {
+          "correct": 21,
+          "unresolved": 24,
+          "wrong": 0
+        },
+        "arity": {
+          "correct": 45,
+          "wrong": 0
+        },
+        "argument_types": {
+          "correct": 78,
+          "unresolved": 32,
+          "wrong": 0,
+          "dynamic_unresolved": 23
+        },
+        "payability": {
+          "correct": 36,
+          "wrong": 0,
+          "unresolved": 9
+        },
+        "returns": {
+          "correct": 31,
+          "unresolved": 14,
+          "wrong": 0
+        },
+        "wrong_claims": []
+      }
+    },
+    {
+      "id": "seaport-1-5",
+      "seconds": 44.5,
+      "peak_rss_gb": 0.75,
+      "status": "ok",
+      "decompiled_code_lines": 6690,
+      "structured_code_lines": 30931,
+      "unaccounted_ir_statements": 0,
+      "uncertain_lines": 22,
+      "unstructured_functions": 1,
+      "recognized_idioms": 2,
+      "events": {
+        "abi": [
+          "CounterIncremented",
+          "OrderCancelled",
+          "OrderFulfilled",
+          "OrderValidated",
+          "OrdersMatched"
+        ],
+        "named_in_view": [
+          "CounterIncremented",
+          "OrderCancelled",
+          "OrderFulfilled"
+        ],
+        "unnamed_in_view": [
+          "Event_4b9f2d36",
+          "Event_f280791e"
+        ]
+      },
+      "score": {
+        "abi_functions": 17,
+        "selectors_recovered": 16,
+        "names": {
+          "correct": 5,
+          "unresolved": 11,
+          "wrong": 0
+        },
+        "arity": {
+          "correct": 16,
+          "wrong": 0
+        },
+        "argument_types": {
+          "correct": 2,
+          "unresolved": 13,
+          "wrong": 0,
+          "dynamic_unresolved": 16
+        },
+        "payability": {
+          "correct": 16,
+          "wrong": 0
+        },
+        "returns": {
+          "correct": 6,
+          "unresolved": 10,
+          "wrong": 0
+        },
+        "wrong_claims": []
+      }
+    }
+  ],
+  "limits": {
+    "memory_gb": 20.0,
+    "wall_seconds": 3600,
+    "native_timeout_seconds": 300,
+    "mechanism": "systemd scope MemoryMax=20.0G, swap off"
+  }
+}

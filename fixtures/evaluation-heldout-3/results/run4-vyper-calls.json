@@ -1,0 +1,491 @@
+{
+  "selection_id": "heldout-3-2026-10-16",
+  "contracts": [
+    {
+      "id": "maker-vat",
+      "seconds": 3.6,
+      "peak_rss_gb": 0.07,
+      "status": "ok",
+      "decompiled_code_lines": 467,
+      "structured_code_lines": 1148,
+      "unaccounted_ir_statements": 0,
+      "uncertain_lines": 9,
+      "unstructured_functions": 0,
+      "recognized_idioms": 3,
+      "events": {
+        "abi": [
+          "LogNote"
+        ],
+        "named_in_view": [],
+        "unnamed_in_view": []
+      },
+      "score": {
+        "abi_functions": 28,
+        "selectors_recovered": 28,
+        "names": {
+          "correct": 28,
+          "unresolved": 0,
+          "wrong": 0
+        },
+        "arity": {
+          "correct": 28,
+          "wrong": 0
+        },
+        "argument_types": {
+          "correct": 15,
+          "unresolved": 39,
+          "wrong": 0,
+          "dynamic_unresolved": 0
+        },
+        "payability": {
+          "correct": 28,
+          "wrong": 0
+        },
+        "returns": {
+          "correct": 28,
+          "unresolved": 0,
+          "wrong": 0
+        },
+        "wrong_claims": []
+      }
+    },
+    {
+      "id": "cow-gpv2-settlement",
+      "seconds": 8.8,
+      "peak_rss_gb": 0.13,
+      "status": "ok",
+      "decompiled_code_lines": 1211,
+      "structured_code_lines": 4069,
+      "unaccounted_ir_statements": 0,
+      "uncertain_lines": 10,
+      "unstructured_functions": 0,
+      "recognized_idioms": 4,
+      "events": {
+        "abi": [
+          "Interaction",
+          "OrderInvalidated",
+          "PreSignature",
+          "Settlement",
+          "Trade"
+        ],
+        "named_in_view": [
+          "Interaction",
+          "OrderInvalidated",
+          "PreSignature",
+          "Settlement",
+          "Trade"
+        ],
+        "unnamed_in_view": []
+      },
+      "score": {
+        "abi_functions": 15,
+        "selectors_recovered": 15,
+        "names": {
+          "correct": 13,
+          "unresolved": 2,
+          "wrong": 0
+        },
+        "arity": {
+          "correct": 15,
+          "wrong": 0
+        },
+        "argument_types": {
+          "correct": 13,
+          "unresolved": 0,
+          "wrong": 0,
+          "dynamic_unresolved": 7
+        },
+        "payability": {
+          "correct": 15,
+          "wrong": 0
+        },
+        "returns": {
+          "correct": 11,
+          "unresolved": 4,
+          "wrong": 0
+        },
+        "wrong_claims": []
+      }
+    },
+    {
+      "id": "metamorpho-steakhouse-usdc",
+      "seconds": 356.7,
+      "peak_rss_gb": 0.4,
+      "status": "ok",
+      "decompiled_code_lines": 3568,
+      "structured_code_lines": 8732,
+      "unaccounted_ir_statements": 0,
+      "uncertain_lines": 640,
+      "unstructured_functions": 1,
+      "recognized_idioms": 5,
+      "events": {
+        "abi": [
+          "AccrueInterest",
+          "Approval",
+          "Deposit",
+          "EIP712DomainChanged",
+          "OwnershipTransferStarted",
+          "OwnershipTransferred",
+          "ReallocateSupply",
+          "ReallocateWithdraw",
+          "RevokePendingCap",
+          "RevokePendingGuardian",
+          "RevokePendingMarketRemoval",
+          "RevokePendingTimelock",
+          "SetCap",
+          "SetCurator",
+          "SetFee",
+          "SetFeeRecipient",
+          "SetGuardian",
+          "SetIsAllocator",
+          "SetSkimRecipient",
+          "SetSupplyQueue",
+          "SetTimelock",
+          "SetWithdrawQueue",
+          "Skim",
+          "SubmitCap",
+          "SubmitGuardian",
+          "SubmitMarketRemoval",
+          "SubmitTimelock",
+          "Transfer",
+          "UpdateLastTotalAssets",
+          "Withdraw"
+        ],
+        "named_in_view": [
+          "Approval",
+          "Deposit",
+          "OwnershipTransferStarted",
+          "OwnershipTransferred",
+          "SetFee",
+          "SetFeeRecipient",
+          "Transfer",
+          "Withdraw"
+        ],
+        "unnamed_in_view": [
+          "Event_1026ceca",
+          "Event_15c027cc",
+          "Event_2ae72b44",
+          "Event_2e790886",
+          "Event_3240fc70",
+          "Event_6ce31538",
+          "Event_74dc60cb",
+          "Event_7633313a",
+          "Event_89bf199d",
+          "Event_92182833",
+          "Event_b3aa0ade",
+          "Event_bd0a63c1",
+          "Event_c40a085c",
+          "Event_cb11cc8a",
+          "Event_cbeb8ecd",
+          "Event_d28e9b90",
+          "Event_dd8bf522",
+          "Event_e0c2db6b",
+          "Event_e851bb58",
+          "Event_e86b6d33",
+          "Event_f66f28b4"
+        ]
+      },
+      "score": {
+        "abi_functions": 73,
+        "selectors_recovered": 73,
+        "names": {
+          "correct": 48,
+          "unresolved": 25,
+          "wrong": 0
+        },
+        "arity": {
+          "correct": 71,
+          "wrong": 2
+        },
+        "argument_types": {
+          "correct": 21,
+          "unresolved": 37,
+          "wrong": 0,
+          "dynamic_unresolved": 3
+        },
+        "payability": {
+          "correct": 72,
+          "wrong": 0,
+          "unresolved": 1
+        },
+        "returns": {
+          "correct": 56,
+          "unresolved": 17,
+          "wrong": 0
+        },
+        "wrong_claims": [
+          "0x6fda3868: arity 5 vs 1",
+          "0x84755b5f: arity 5 vs 1"
+        ]
+      }
+    },
+    {
+      "id": "euler-evc",
+      "seconds": 158.5,
+      "peak_rss_gb": 12.65,
+      "status": "failed",
+      "failure": "error",
+      "error": "Running Gigahorse; initial compiled runs can take several minutes.\nGigahorse relations kept in /mnt/model-ssd/scratch/gigahorse-decompiler/vyper-calls/evaluation-heldout-3/euler-evc.failed-relations\nerror: TAC_Use: non-contiguous operand indices at 0x13ba\nCommand exited with non-zero status 1\npeak_rss_kb=13262000\n"
+    },
+    {
+      "id": "curve-stableswap-ng-usde-usdc",
+      "seconds": 509.8,
+      "peak_rss_gb": 0.79,
+      "status": "ok",
+      "decompiled_code_lines": 65269,
+      "structured_code_lines": 31601,
+      "unaccounted_ir_statements": 0,
+      "uncertain_lines": 231,
+      "unstructured_functions": 7,
+      "recognized_idioms": 0,
+      "events": {
+        "abi": [
+          "AddLiquidity",
+          "ApplyNewFee",
+          "Approval",
+          "RampA",
+          "RemoveLiquidity",
+          "RemoveLiquidityImbalance",
+          "RemoveLiquidityOne",
+          "StopRampA",
+          "TokenExchange",
+          "TokenExchangeUnderlying",
+          "Transfer"
+        ],
+        "named_in_view": [
+          "AddLiquidity",
+          "Approval",
+          "RampA",
+          "RemoveLiquidity",
+          "RemoveLiquidityImbalance",
+          "StopRampA",
+          "TokenExchange",
+          "Transfer"
+        ],
+        "unnamed_in_view": [
+          "Event_6f48129d",
+          "Event_750d10a7"
+        ]
+      },
+      "score": {
+        "abi_functions": 61,
+        "selectors_recovered": 61,
+        "names": {
+          "correct": 38,
+          "unresolved": 23,
+          "wrong": 0
+        },
+        "arity": {
+          "correct": 60,
+          "wrong": 1
+        },
+        "argument_types": {
+          "correct": 38,
+          "unresolved": 37,
+          "wrong": 0,
+          "dynamic_unresolved": 8
+        },
+        "payability": {
+          "correct": 61,
+          "wrong": 0
+        },
+        "returns": {
+          "correct": 28,
+          "unresolved": 33,
+          "wrong": 0
+        },
+        "wrong_claims": [
+          "0x7e3db030: arity 2 vs 4"
+        ]
+      }
+    },
+    {
+      "id": "uniswap-v4-position-manager",
+      "seconds": 21.8,
+      "peak_rss_gb": 0.38,
+      "status": "ok",
+      "decompiled_code_lines": 2570,
+      "structured_code_lines": 5541,
+      "unaccounted_ir_statements": 0,
+      "uncertain_lines": 11,
+      "unstructured_functions": 0,
+      "recognized_idioms": 5,
+      "events": {
+        "abi": [
+          "Approval",
+          "ApprovalForAll",
+          "Subscription",
+          "Transfer",
+          "Unsubscription"
+        ],
+        "named_in_view": [
+          "Approval",
+          "ApprovalForAll",
+          "Transfer"
+        ],
+        "unnamed_in_view": [
+          "Event_97094923",
+          "Event_a0ebb1de"
+        ]
+      },
+      "score": {
+        "abi_functions": 39,
+        "selectors_recovered": 39,
+        "names": {
+          "correct": 25,
+          "unresolved": 14,
+          "wrong": 0
+        },
+        "arity": {
+          "correct": 39,
+          "wrong": 0
+        },
+        "argument_types": {
+          "correct": 24,
+          "unresolved": 25,
+          "wrong": 0,
+          "dynamic_unresolved": 9
+        },
+        "payability": {
+          "correct": 39,
+          "wrong": 0
+        },
+        "returns": {
+          "correct": 25,
+          "unresolved": 12,
+          "wrong": 2
+        },
+        "wrong_claims": [
+          "0x7ba03aad: returns ['address', 'address', 'uint256', 'uint256', 'address', 'uint256'] vs ['(address,address,uint24,int24,address)', 'uint256']",
+          "0x91dd7346: returns ['uint256', 'uint256'] vs ['bytes']"
+        ]
+      }
+    },
+    {
+      "id": "curve-tricrypto2",
+      "seconds": 17.8,
+      "peak_rss_gb": 1.02,
+      "status": "ok",
+      "decompiled_code_lines": 3130,
+      "structured_code_lines": 74917,
+      "unaccounted_ir_statements": 0,
+      "uncertain_lines": 3,
+      "unstructured_functions": 0,
+      "recognized_idioms": 0,
+      "events": {
+        "abi": [
+          "AddLiquidity",
+          "ClaimAdminFee",
+          "CommitNewAdmin",
+          "CommitNewParameters",
+          "NewAdmin",
+          "NewParameters",
+          "RampAgamma",
+          "RemoveLiquidity",
+          "RemoveLiquidityOne",
+          "StopRampA",
+          "TokenExchange"
+        ],
+        "named_in_view": [
+          "ClaimAdminFee",
+          "CommitNewAdmin",
+          "CommitNewParameters",
+          "NewAdmin",
+          "NewParameters",
+          "RampAgamma",
+          "RemoveLiquidityOne",
+          "StopRampA",
+          "TokenExchange"
+        ],
+        "unnamed_in_view": [
+          "Event_96b48648",
+          "Event_d6cc314a"
+        ]
+      },
+      "score": {
+        "abi_functions": 62,
+        "selectors_recovered": 62,
+        "names": {
+          "correct": 57,
+          "unresolved": 5,
+          "wrong": 0
+        },
+        "arity": {
+          "correct": 60,
+          "wrong": 2
+        },
+        "argument_types": {
+          "correct": 36,
+          "unresolved": 4,
+          "wrong": 0,
+          "dynamic_unresolved": 0
+        },
+        "payability": {
+          "correct": 62,
+          "wrong": 0
+        },
+        "returns": {
+          "correct": 57,
+          "unresolved": 5,
+          "wrong": 0
+        },
+        "wrong_claims": [
+          "0x572e5625: arity 3 vs 1",
+          "0xcde699fa: arity 6 vs 2"
+        ]
+      }
+    },
+    {
+      "id": "uniswap-v3-swaprouter02",
+      "seconds": 11.9,
+      "peak_rss_gb": 0.26,
+      "status": "ok",
+      "decompiled_code_lines": 2177,
+      "structured_code_lines": 5585,
+      "unaccounted_ir_statements": 0,
+      "uncertain_lines": 4,
+      "unstructured_functions": 0,
+      "recognized_idioms": 6,
+      "events": {
+        "abi": [],
+        "named_in_view": [],
+        "unnamed_in_view": []
+      },
+      "score": {
+        "abi_functions": 39,
+        "selectors_recovered": 39,
+        "names": {
+          "correct": 33,
+          "unresolved": 6,
+          "wrong": 0
+        },
+        "arity": {
+          "correct": 39,
+          "wrong": 0
+        },
+        "argument_types": {
+          "correct": 66,
+          "unresolved": 19,
+          "wrong": 0,
+          "dynamic_unresolved": 2
+        },
+        "payability": {
+          "correct": 39,
+          "wrong": 0
+        },
+        "returns": {
+          "correct": 32,
+          "unresolved": 7,
+          "wrong": 0
+        },
+        "wrong_claims": []
+      }
+    }
+  ],
+  "limits": {
+    "memory_gb": 20.0,
+    "wall_seconds": 3600,
+    "native_timeout_seconds": 300,
+    "mechanism": "systemd scope MemoryMax=20.0G, swap off"
+  }
+}

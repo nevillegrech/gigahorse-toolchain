@@ -42,3 +42,22 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
 .decl SelectorTableEntry(target: symbol, selector: symbol)
 .input SelectorTableEntry(IO="file", filename="SelectorTableEntry.facts")
 
+/**
+  Vyper 0.2 stack loops (src/vyper_stack_loops.py), moving a known number of
+  words between memory and the stack: the loads (or stores) to insert, in
+  order, before the instruction setting the loop counter; the instruction
+  before which the loop's own load is popped; and the loop's own store, which
+  then keeps the word it finds.
+*/
+.decl StackLoopLoad(stmt: symbol, order: number, address: symbol)
+.input StackLoopLoad(IO="file", filename="StackLoopLoad.facts")
+
+.decl StackLoopStore(stmt: symbol, order: number, address: symbol)
+.input StackLoopStore(IO="file", filename="StackLoopStore.facts")
+
+.decl StackLoopPop(stmt: symbol)
+.input StackLoopPop(IO="file", filename="StackLoopPop.facts")
+
+.decl StackLoopKeep(stmt: symbol)
+.input StackLoopKeep(IO="file", filename="StackLoopKeep.facts")
+

@@ -16,6 +16,7 @@ from src.common import (
     public_function_signature_filename,
 )
 from src.selector_table import selector_table
+from src.vyper_stack_loops import stack_loops
 
 opcode_output = {
     "alters_flow": bool,
@@ -300,6 +301,23 @@ class EVMBlockExporter(FactExporter):
             "SelectorTableEntry.facts",
             [(hex(target), hex(selector)) for target, selector, _ in table.entries],
         )
+
+        # Vyper 0.2 moves multi-word values through the stack in loops; the
+        # moves they make are inserted before them (vyper_stack_loops.py).
+        loops = stack_loops(bytes.fromhex(self.bytecode_hex.removeprefix("0x")))
+        for name, field in (("StackLoopLoad", "loads"), ("StackLoopStore", "stores")):
+            self.generate(
+                f"{name}.facts",
+                [
+                    (hex(loop.insert_before), order, hex(address))
+                    for loop in loops
+                    for order, address in enumerate(getattr(loop, field))
+                ],
+            )
+        pops = [(hex(loop.pop_before),) for loop in loops if loop.pop_before is not None]
+        keeps = [(hex(loop.keep_before),) for loop in loops if loop.keep_before is not None]
+        self.generate("StackLoopPop.facts", pops)
+        self.generate("StackLoopKeep.facts", keeps)
 
         self.generate("HighLevelFunctionInfo.facts", self.function_debug_data)
         self.generate("ImmutableLoads.facts", self.immutable_references)
