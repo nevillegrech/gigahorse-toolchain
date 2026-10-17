@@ -17,7 +17,7 @@ fields `varg<i>.f0` ... in the body, typed per word.
 from __future__ import annotations
 
 from .ir import Binary, Const, Env, Expr, If, Member, Require, Var
-from .passes import FunctionState, iter_statements
+from .passes import FunctionState, iter_expr, iter_statements
 from .types import TypedValue, map_body, validator_cast
 
 MAX_WORDS = 64
@@ -115,6 +115,74 @@ def lazy_whole_head(statements, arguments: list[Var]) -> tuple[int, int] | None:
     if len({cast for _, cast in late}) < 2:
         return None
     return 0, len(arguments)
+
+
+def memory_whole_head(statements, arguments: list[Var]) -> tuple[int, int] | None:
+    """The whole head as one memory struct, from the decoder's copy.
+
+    solc decodes a `memory` struct parameter by copying its words into a new
+    object at the free pointer before the body, and its modifiers, run; the
+    body building a struct from separate parameters comes after them. So when
+    the entry, after the head check, allocates the head's size and stores every
+    head word into it in order (each validated as it is copied), the head is
+    one struct (MetaMorpho's `MarketParams memory`)."""
+    from .abi_codec import _pointer_read, _pointer_update, _store
+
+    names = [argument.name for argument in arguments]
+    if len(names) < 2:
+        return None
+
+    def offset(address: Expr, pointer: str) -> int | None:
+        if isinstance(address, Var) and address.name == pointer:
+            return 0
+        if isinstance(address, Binary) and address.op == "+":
+            for base, step in ((address.left, address.right), (address.right, address.left)):
+                if isinstance(base, Var) and base.name == pointer and isinstance(step, Const):
+                    return step.value
+        if isinstance(address, Const) and address.value >= 0x80:
+            # The analysis folded the pointer: the object starts at solc's initial
+            # free pointer, as memory objects assume (checked when executed).
+            return address.value - 0x80
+        return None
+
+    pointer: str | None = None
+    stored = 0
+    allocated = False
+    for stmt in statements:
+        if pointer is None:
+            if (
+                validated_word(stmt, set(names)) is not None
+                or type(stmt).__name__ == "Comment"
+                or (isinstance(stmt, Require) and _length_check(stmt.condition) is not None)
+            ):
+                continue
+            read = _pointer_read(stmt)
+            if read is None:
+                return None
+            pointer = read.name
+            continue
+        update = _pointer_update(stmt)
+        if update is not None:
+            allocated = offset(update, pointer) == 32 * len(names)
+            continue
+        if validated_word(stmt, set(names)) is not None:
+            continue  # each word is validated as it is copied
+        if isinstance(stmt, Require) and any(
+            isinstance(node, Var) and node.name == pointer
+            for expr in stmt.expressions()
+            for node in iter_expr(expr)
+        ):
+            continue  # the allocation's own overflow check
+        store = _store(stmt)
+        if store is None or stored == len(names):
+            break
+        address, value = store
+        if offset(address, pointer) != 32 * stored:
+            break
+        if not (isinstance(value, Var) and value.name == names[stored]):
+            break
+        stored += 1
+    return (0, len(names)) if allocated and stored == len(names) else None
 
 
 def signature_intervals(params: list[str]) -> list[tuple[int, int, str | None]]:

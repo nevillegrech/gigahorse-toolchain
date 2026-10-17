@@ -138,26 +138,6 @@ def _occurrences(
     return parents
 
 
-def _validator(stmt: Stmt, name: str) -> str | None:
-    """require(x == cast(x)) as emitted by solc's ABI decoder (0.5+)."""
-    if not isinstance(stmt, Require) or stmt.payload is not None:
-        return None
-    condition = stmt.condition
-    if not (isinstance(condition, Binary) and condition.op == "=="):
-        return None
-    for left, right in ((condition.left, condition.right), (condition.right, condition.left)):
-        if (
-            isinstance(left, Var)
-            and left.name == name
-            and isinstance(right, Call)
-            and right.name in CAST_TYPES
-            and len(right.args) == 1
-            and right.args[0] == left
-        ):
-            return right.name
-    return None
-
-
 def validator_cast(stmt: Stmt, name: str) -> str | None:
     """The cast of an ABI-decoder validator on `name` in either compiled form:
     require(x == cast(x)) or (compiled equality) require(!(x - cast(x)))."""
@@ -183,11 +163,25 @@ def validator_cast(stmt: Stmt, name: str) -> str | None:
     return None
 
 
+def _entry_validator(stmt: Stmt, name: str) -> str | None:
+    """An ABI decoder validator at entry. via-IR's compiled-equality form
+    `!(x - cast(x))` is also how a SafeCast check compiles (`require(uint128(x) ==
+    x)`), and its 160-bit mask is uint160's as well as address's, so in that form
+    only bool and bytesN type an argument; the rest stay raw words."""
+    cast = validator_cast(stmt, name)
+    if cast is None:
+        return None
+    condition = stmt.condition
+    if isinstance(condition, Binary) and condition.op == "==":
+        return cast
+    return cast if cast == "bool" or cast.startswith("bytes") else None
+
+
 def _entry_validators(body: list[Stmt], name: str) -> list[Stmt]:
     """Validators in the effect-free prefix of the body (where solc's ABI decoder runs)."""
     found = []
     for stmt in body:
-        if _validator(stmt, name):
+        if _entry_validator(stmt, name):
             found.append(stmt)
         elif not (isinstance(stmt, Require) or type(stmt).__name__ == "Comment"):
             break
@@ -222,7 +216,7 @@ def type_variables(
     for name in names:
         typed = TypedValue(name, "uint256")
         validators = _entry_validators(state.body, name)
-        casts = {_validator(s, name) for s in validators}
+        casts = {_entry_validator(s, name) for s in validators}
         if name in lazy and not (len(casts) == 1 and validators):
             cast = _use_validated(state.body, name)
             if cast is not None:

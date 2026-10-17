@@ -146,6 +146,12 @@ that gives Dedaub's Morpho output 192 (the table above left out closing braces).
 | --- | --- | --- |
 | Held-out accuracy | Head words copied whole by `CALLDATACOPY` count as parameters: stableswap-ng arity 61/61; wrong claims on all held-out contracts 7 -> 6 | MetaMorpho's whole-head memory structs (2), V4 position manager's returned struct and `bytes` (2), tricrypto2's unnamed static arrays (2) |
 
+### Status update 2026-10-17: memory struct parameters
+
+| Requirement | New evidence | Still open |
+| --- | --- | --- |
+| Useful function interfaces | A `memory` struct parameter from the decoder's copy of the whole head at entry (MetaMorpho arity 73/73); via-IR `bool`/`bytesN` validators type arguments. Held-out wrong claims 6 -> 4, the rest not decidable from bytecode (returned static struct, empty `bytes`, unnamed static arrays) | via-IR address typing (needs address-use evidence: the 160-bit mask is also uint160's); memory struct field types in via-IR |
+
 Next priority: investigate the NFT receiver callback's unresolved PHI; add successful
 NFT mint/transfer/receiver and multisig behavior checks; improve dynamic encoders,
 interprocedural authority

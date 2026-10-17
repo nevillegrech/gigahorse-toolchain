@@ -361,3 +361,50 @@ def test_a_returned_32_byte_slice_is_one_word(tmp_path):
         in text
     )
     assert "return MEM[0];" in text and "return MEM[0:32];" not in text
+
+
+def test_via_ir_bool_validators_type_arguments(tmp_path):
+    """via-IR validates `bool x` as `!(x - bool(x))` (compiled equality): the
+    argument is typed bool and the check is the type's. Narrow integers and
+    160-bit words stay raw in that form: a SafeCast compiles the same way, and
+    uint160's mask is address's."""
+    _, decompiled = compiler_fixture("storage-via-ir", tmp_path / "relations")
+    text = decompiled.text
+    assert "function 0xf6e00e0f(bool varg0) public nonpayable returns (uint256)" in text
+    assert "require(!(varg0 - bool(varg0)));" not in text
+
+
+def test_memory_struct_parameter_is_the_whole_head_copied_at_entry():
+    """solc copies a `memory` struct parameter into a new object before the body
+    runs, validating each word as it copies it (MetaMorpho's MarketParams; here
+    the analysis folded the free pointer to 0x80)."""
+    from reconstruction.highlevel.ir import Assign, Require, Unary
+    from reconstruction.highlevel.parameters import memory_whole_head
+
+    mem = Env("MEM")
+    args = [Var(f"varg{i}", f"a{i}") for i in range(3)]
+    pointer = Var("v0", "p")
+
+    def check(i):
+        return Require(Unary("!", Binary("-", args[i], Call("address", (args[i],)))))
+
+    head = Require(Binary("s>=", Binary("-", Env("msg.data.length"), Const(4)), Const(96)))
+    copy = [
+        Assign((pointer,), Index(mem, Const(64))),
+        Assign((Index(mem, Const(64)),), Const(0x80 + 96)),
+        check(0),
+        Assign((Index(mem, pointer),), args[0]),
+        check(1),
+        Assign((Index(mem, Const(0xA0)),), args[1]),
+        Assign((Index(mem, Const(0xC0)),), args[2]),
+    ]
+    assert memory_whole_head([head, *copy], args) == (0, 3)
+    # Not the decoder's copy: words out of order, one missing, another size, or
+    # anything else before it.
+    swapped = [*copy[:5], Assign((Index(mem, Const(0xA0)),), args[2]), copy[6]]
+    assert memory_whole_head([head, *swapped], args) is None
+    assert memory_whole_head([head, *copy[:6]], args) is None
+    resized = [copy[0], Assign((Index(mem, Const(64)),), Const(0x80 + 128)), *copy[2:]]
+    assert memory_whole_head([head, *resized], args) is None
+    effect = Assign((Index(Env("STORAGE"), Const(0)),), Const(1))
+    assert memory_whole_head([head, effect, *copy], args) is None

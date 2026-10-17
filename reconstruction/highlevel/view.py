@@ -48,7 +48,12 @@ from .memory_liveness import AddressModel, FreePointerVersions, Summaries, compu
 from .naming import Names, load_names, split_signature
 from .numeric import refine_160_bit_returns
 from .objects import memory_objects
-from .parameters import group_struct_parameters, lazy_whole_head, struct_intervals
+from .parameters import (
+    group_struct_parameters,
+    lazy_whole_head,
+    memory_whole_head,
+    struct_intervals,
+)
 from .passes import (
     FunctionState,
     absorb_memory_plumbing,
@@ -701,18 +706,21 @@ def finish_function(
     # pointers by a decoder helper, or (inlined decoder) the whole head.
     known = list(lifter.pointer_structs)
     if function.selectors and not signature and not known:
-        whole = lazy_whole_head(state.body, item.arguments)
+        # Or a `memory` struct parameter, the whole head copied at entry.
+        whole = lazy_whole_head(state.body, item.arguments) or memory_whole_head(
+            state.body, item.arguments
+        )
         known += [whole] if whole else []
-    intervals = (
-        struct_intervals(state.body, split_signature(signature)[1] if signature else None, known)
-        if function.selectors
-        else []
-    )
     # Fields of these structs are typed from validators where they are read.
     lazy = frozenset(
         item.arguments[index].name
         for first, count in known
         for index in range(first, min(first + count, len(item.arguments)))
+    )
+    intervals = (
+        struct_intervals(state.body, split_signature(signature)[1] if signature else None, known)
+        if function.selectors
+        else []
     )
     typed = type_variables(state, [arg.name for arg in item.arguments], lazy)
     for name, value in typed.items():

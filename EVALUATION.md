@@ -1692,3 +1692,46 @@ computed offsets (dynamic data) or of partial words do not.
   dirty `int128`. Each entry there checks the calldata size, so its arity does
   not depend on the rule, which a unit test covers (constant, computed and
   partial copies). 478 passed, 17 skipped; cross-check 1,079 agreeing.
+
+## Memory struct parameters and via-IR validators
+
+MetaMorpho's `acceptCap` and `submitMarketRemoval` take a `MarketParams memory`
+(the whole head) and printed five parameters (run 4's wrong claims). via-IR
+decodes the struct by copying its words into a new object at the free
+pointer, validating each as it copies, before the body and its modifiers run:
+
+    v0 = MEM[64]; MEM[64] = v0 + 160;
+    require(!(varg0 - address(varg0))); MEM[v0] = varg0; ...
+
+A body that builds a struct from separate parameters does it after the
+modifiers (here after the curator check). So when the entry, after the head
+check, allocates exactly the head's size and stores every head word into it in
+order (each validated as it is copied), the head is one struct parameter. The
+analysis had folded the pointer to 0x80 (`MEM[160] = varg1`), which memory
+objects already assume and check when executed.
+
+via-IR writes its validators as compiled equality, `!(x - cast(x))`. Entry
+typing only accepted `x == cast(x)`, so via-IR arguments stayed raw words.
+That form now types `bool` and `bytesN` arguments. It does not type the
+rest:
+
+- a SafeCast check at entry (`require(uint128(x) == x)`) compiles the same
+  way;
+- the 160-bit mask is `uint160`'s as well as `address`'s.
+
+Accepting all casts raised argument types 876 -> 976 correct, but added six
+wrong claims (`uint160` printed as `address`, `address` refined to `uint160`),
+so it was narrowed. Typing via-IR addresses needs evidence of address use.
+
+- MetaMorpho: arity 71 -> **73 of 73**, `S0 varg0` for both functions, 0 wrong
+  claims. Its fields stay raw words (address validators in via-IR form).
+- Argument types 876 -> 883 correct (V4 pool manager +2, V4 position manager
+  +4, MetaMorpho +1); arity 924 -> 926.
+- Wrong claims on all held-out contracts: 6 -> **4**: the V4 position
+  manager's returned struct and `bytes`, and tricrypto2's two unnamed static
+  arrays. Neither kind can be settled from the bytecode: a static struct or
+  array is encoded like separate words, and `(32, 0)` is also an empty
+  `bytes`. Results: `results/run3-validators.json`,
+  `results/run4-validators.json`.
+- Four via-IR fixtures lose a line each (their `bool` validators become the
+  type); none is longer. 480 passed, 17 skipped; cross-check 1,079 agreeing.
