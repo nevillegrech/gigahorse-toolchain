@@ -114,6 +114,12 @@ that gives Dedaub's Morpho output 192 (the table above left out closing braces).
 | --- | --- | --- |
 | Held-out accuracy | Run 4 on set 3 (frozen before the last three phases), first scores before tuning: 7/8 produced output, 317/317 selectors (both Vyper contracts included), 242 names correct, 0 wrong, 10 wrong claims (each with its cause in EVALUATION.md) | Euler EVC fails in Gigahorse's IR export; memory structs that are the whole head; returned structs and `bytes`; static arrays without a dictionary name; signed storage typing; Vyper shared-region copying (stableswap-ng 65,269 lines); Dedaub exports for set 3 |
 
+### Status update 2026-10-17 (night, later): return widths as words
+
+| Requirement | New evidence | Still open |
+| --- | --- | --- |
+| Held-out accuracy | Runs 1-3: 0 wrong claims (was 3). Narrow integer returns print as `uint256 /* uint128 */`, the proven width as a comment, because the bytecode cannot settle the declared type; 14 functions' exact return types become unresolved (437 -> 424 exact) | The declared return width itself (not recoverable from bytecode) |
+
 Next priority: investigate the NFT receiver callback's unresolved PHI; add successful
 NFT mint/transfer/receiver and multisig behavior checks; improve dynamic encoders,
 interprocedural authority

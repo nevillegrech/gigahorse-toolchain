@@ -70,9 +70,11 @@ def test_view_claims_are_right_against_the_abi(variant, tmp_path):
         assert "settle" not in _header(text, ids[SETTLE]) and "(address varg0," in _header(
             text, ids[SETTLE]
         )
-    assert "price() public nonpayable returns (uint160)" in text
-    # A narrow return width is the mask's; the legend says the source may declare wider.
-    assert "// Narrow return types (uint8..uint248, int8..int248)" in text
+    # A narrow return width is the mask's: printed as a word with the width as a comment,
+    # since the source may declare that type or a wider one; the scorer reads uint256.
+    assert "price() public nonpayable returns (uint256 /* uint160 */)" in text
+    assert "// returns (uint256 /* uint128 */): the returned word is masked" in text
+    assert heldout.parse_view(text)["0x" + ids["price()"]]["returns"] == ["uint256"]
     assert "owner() public nonpayable returns (address)" in text
     # Declared wider than its mask: the uses keep address(...).
     assert "idToAddress(uint256 varg0)" in _header(text, ids["idToAddress(uint256)"])

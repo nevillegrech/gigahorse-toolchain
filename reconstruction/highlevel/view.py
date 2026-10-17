@@ -123,8 +123,8 @@ LEGEND = [
 # sign extension) on the returned value, which solc emits alike for a narrow
 # declared type and for a wider declared type holding a narrow value.
 NARROW_RETURNS = [
-    "Narrow return types (uint8..uint248, int8..int248) are the width the returned value is masked or",
-    "  sign-extended to; the source may declare a wider type for the same value (uint256 holding a uint128).",
+    "returns (uint256 /* uint128 */): the returned word is masked (or sign-extended) to the type in the",
+    "  comment; the source may declare that type or a wider one holding the value (the bytecode is the same).",
 ]
 NARROW = re.compile(r"u?int(\d+)")
 # Added when the dispatcher is a selector table printed as its chain (dispatch.py).
@@ -137,6 +137,12 @@ SELECTOR_TABLE = [
 def _narrow(kind: str) -> bool:
     match = NARROW.fullmatch(kind)
     return match is not None and int(match.group(1)) < 256
+
+
+def _printed_return(kind: str) -> str:
+    """A narrow integer return prints as a 256-bit word with its proven width as a comment:
+    the declared type may be that width or wider (see NARROW_RETURNS)."""
+    return f"uint256 /* {kind} */" if _narrow(kind) else kind
 
 
 @dataclass
@@ -847,7 +853,7 @@ def print_function(out: Printed, view: FunctionView, summary=None) -> None:
             visibility = "public /* payability unresolved */"
     else:
         visibility = "private"
-    returns = f" returns ({', '.join(view.returns)})" if view.returns else ""
+    returns = f" returns ({', '.join(map(_printed_return, view.returns))})" if view.returns else ""
     evidence = frozenset(view.argument_evidence)
     for argument in view.arguments:
         evidence |= argument.evidence

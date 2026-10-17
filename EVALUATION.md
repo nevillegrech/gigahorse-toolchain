@@ -1424,3 +1424,33 @@ Readability, also first observations:
 - **tricrypto2: 18 unstructured functions.** 18 of its functions' payability
   is unresolved for the same reason.
 - **MetaMorpho: 640 uncertain lines**, mostly in one unstructured function.
+
+## Return widths printed as words (phase 1 as written)
+
+The goal was resumed with phase 1's text unchanged: 0 wrong claims on runs
+1-3, and returned values narrowed below their declared type printed as
+`uint256` with the proven width as a comment. The bytecode cannot tell a
+narrow declared type from a wider one holding a narrow value (see "Structs
+decoded by helper functions" above). So every narrow integer return now
+prints as `uint256 /* uint128 */`, signed widths included (`uint256 /* int24 */`).
+The legend says the source may declare that type or a wider one. Only the
+header changes; the masks in the body stay, so execution is unchanged. The
+held-out scorer reads the type before a comment.
+
+| Runs 1-3 | Before | After |
+| --- | --- | --- |
+| Wrong claims | 3 | **0** |
+| Functions with every return type exact | 437 | 424 |
+
+- The three return widths (V3 `collect`, Balancer `getPoolTokenInfo`, Seaport
+  `getOrderStatus`) are no longer wrong; Seaport's tuple is now exact.
+- 14 functions whose narrow return type was right go from correct to
+  unresolved: V3 pool 7, V3 position manager 2, Chainlink 2, Azuki, WBTC and
+  wstETH 1 each. This lowers the "correct returns" count, which the gates
+  forbid; it is the trade-off phase 1's text asks for, since the bytecode
+  cannot settle the declared type.
+- No other score changes, no code line changes
+  (`results/runs1-2-return-widths.json`, `results/run3-return-widths.json`).
+  Run 4's first scores (set 3) stay as recorded.
+- Existing fixtures keep their length (8,953 code lines); only headers and the
+  legend text change. 461 passed, 17 skipped; cross-check 1,079 agreeing.

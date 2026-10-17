@@ -83,7 +83,8 @@ def parse_view(text: str) -> dict[str, dict]:
             "name": name,
             "types": types,
             "payable": None if "unresolved" in mutability else mutability == "payable",
-            "returns": [r.strip() for r in returns.split(",")] if returns else None,
+            # A comment after a type (uint256 /* uint128 */) is not part of the claim.
+            "returns": [r.split("/*")[0].strip() for r in returns.split(",")] if returns else None,
         }
     return functions
 

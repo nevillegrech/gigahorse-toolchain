@@ -70,7 +70,7 @@ def test_decoder_helper_structs_are_one_parameter(tmp_path):
     assert _struct(text, scaled).split("; ")[3] == "uint256 f3"
     score = heldout.score(heldout.parse_view(text), heldout.abi_functions(manifest["abi"]))
     assert score["wrong_claims"] == [] and score["selectors_recovered"] == len(ids)
-    assert "Narrow return types" not in text  # every return here is uint256
+    assert "the returned word is masked" not in text  # every return here is uint256
 
 
 def test_inlined_decoder_structs_from_where_fields_are_validated(tmp_path):
