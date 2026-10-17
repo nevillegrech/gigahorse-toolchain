@@ -1735,3 +1735,42 @@ so it was narrowed. Typing via-IR addresses needs evidence of address use.
   `results/run4-validators.json`.
 - Four via-IR fixtures lose a line each (their `bool` validators become the
   type); none is longer. 480 passed, 17 skipped; cross-check 1,079 agreeing.
+
+## Same-bytecode Dedaub comparison, re-measured (calibration)
+
+The seven run-2 contracts against the same Dedaub exports as in "Held-out
+run 2: same-bytecode comparison with Dedaub", with the local outputs at
+0f922e7 (`scripts/compare-dedaub.py`,
+`results/run2-dedaub-comparison-2026-10-17.json`). These exports have been
+open since that comparison, so this is calibration, not a held-out result.
+
+| Contract | Code lines (local / Dedaub) | Raw share | Public functions found (of ABI) | Names correct | Wrong claims (excl. payability) | Decoded revert reasons |
+| --- | --- | --- | --- | --- | --- | --- |
+| uniswap-v3-pool-usdc-weth | 1,823 / 1,976 | 10% / 9% | 26 / 26 (26) | 26 / 26 | 0 / 0 | 32 / 0 |
+| azuki-erc721a | 1,048 / 896 | 14% / 6% | 45 / 45 (45) | 45 / 45 | 0 / 0 | 52 / 54 |
+| aave-v3-pool-proxy | 151 / 130 | 26% / 18% | 5 / 5 (5) | 5 / 5 | 0 / 0 | 6 / 6 |
+| ens-eth-registrar-controller | 581 / 512 | 34% / 18% | 20 / 20 (20) | 18 / 20 | 0 / 0 | 4 / 4 |
+| oneinch-router-v5 | 6,662 / 3,168 | 17% / 15% | 45 / 45 (45) | 21 / 45 | 0 / 6 | 9 / 9 |
+| seaport-1-5 | 4,544 / 5,406 | 46% / 42% | 17 / 15 (17) | 5 / 13 | 0 / 13 | 0 / 0 |
+| curve-3pool (Vyper) | 3,063 / 583 | 40% / 19% | 38 / 38 (38) | 38 / 0 | 0 / 0 | 1 / 0 |
+| **total** | **17,872 / 12,671** | **28% / 25%** | **196 / 194 (196)** | **158 / 154** | **0 / 19** | **104 / 73** |
+
+Since the first comparison (22,012 / 12,671 lines, raw share 38% / 26%,
+names 120 / 154, wrong claims 17 / 19):
+
+- The local view is 1.41 times Dedaub's length (was 1.74). It is shorter on
+  Seaport and the V3 pool, about equal on Azuki, Aave and ENS.
+- The raw share is close (28% against 25%).
+- No wrong claims against Dedaub's 19 (excluding Dedaub's 26 `payable` labels
+  on the V3 pool).
+- Every public function is found, including the 38 of Curve 3pool, which
+  Dedaub prints as one dispatcher (583 lines, no names). That is why 3pool is
+  the one contract where the local view is much longer: it prints each
+  function and its internal calls.
+- Still behind:
+  - **1inch:** 2.1 times longer, with 9 unstructured functions.
+  - **Names:** Dedaub's database names all 45 of 1inch's functions and 13 of
+    Seaport's, against 21 and 5 locally.
+  - **Raw memory in ENS and Azuki:** 34% and 14% of their lines, against 18%
+    and 6% for Dedaub.
+- Parity on unseen contracts still needs Dedaub exports of set 2 or 3.
