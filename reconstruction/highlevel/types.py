@@ -110,6 +110,9 @@ class TypedValue:
     # that computes the value from calldata (e.g. msg.data[4] + 4 for arrays).
     kind: str = "word"
     definition: Expr | None = None
+    # A via-IR 160-bit validator at entry (address or uint160): typed `address`
+    # later only where the value is used as an address (numeric.py).
+    pending_address: bool = False
 
 
 def _occurrences(
@@ -175,6 +178,18 @@ def _entry_validator(stmt: Stmt, name: str) -> str | None:
     if isinstance(condition, Binary) and condition.op == "==":
         return cast
     return cast if cast == "bool" or cast.startswith("bytes") else None
+
+
+def entry_address_validators(body: list[Stmt], name: str) -> list[Stmt]:
+    """via-IR's 160-bit validators `!(x - address(x))` on `name` in the entry
+    prefix (the form _entry_validator leaves untyped)."""
+    found = []
+    for stmt in body:
+        if validator_cast(stmt, name) == "address" and not _entry_validator(stmt, name):
+            found.append(stmt)
+        elif not (isinstance(stmt, Require) or type(stmt).__name__ == "Comment"):
+            break
+    return found
 
 
 def _entry_validators(body: list[Stmt], name: str) -> list[Stmt]:
@@ -277,6 +292,8 @@ def type_variables(
                 return expr
 
             map_body(state.body, strip)
+        elif entry_address_validators(state.body, name):
+            typed.pending_address = True
         result[name] = typed
     return result
 

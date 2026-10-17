@@ -1774,3 +1774,34 @@ names 120 / 154, wrong claims 17 / 19):
   - **Raw memory in ENS and Azuki:** 34% and 14% of their lines, against 18%
     and 6% for Dedaub.
 - Parity on unseen contracts still needs Dedaub exports of set 2 or 3.
+
+## via-IR address arguments from their uses
+
+via-IR checks an address argument with `!(x - address(x))`. The 160-bit mask
+is also `uint160`'s, so the check alone stays untyped (previous section). The
+argument is now `address` when it is used as one, and its entry check then
+becomes the type's:
+
+- as a call target, compared with `msg.sender`/`tx.origin`, or as
+  `.balance`/`.code`/`.codehash`;
+- passed where a hash-matched callee signature declares `address`, in a
+  decoded call (`token.balanceOf(varg1)`) or an
+  `abi.encodeWithSelector(transfer(address,uint256), ...)` payload;
+- through private functions' parameters, as `refine_160_bit_returns` already
+  follows them.
+
+A word also used as a number (or passed where a signature declares `uint160`)
+stays raw, with its check.
+
+- Argument types 883 -> **905** correct (Permit2 +5, V4 pool manager +7, V4
+  position manager +7, MetaMorpho +3), no new wrong claims (still 4), code
+  slightly shorter (the checks become types); unaccounted IR statements
+  unchanged (`results/run3-address-use.json`, `results/run4-address-use.json`).
+- Most of MetaMorpho's address arguments stay raw: they are stored or emitted,
+  which is not evidence yet. That would need storage and event types, which
+  have the same 160-bit ambiguity.
+- Fixtures: `interaction-via-ir` and `copy-via-ir` are 9 and 7 lines shorter
+  (`function 0x6968abd3(address varg0, address varg1)` with
+  `varg0.balanceOf(varg1)`); a `uint160` used in arithmetic in
+  `parameter-via-ir` keeps its check. 481 passed, 17 skipped; cross-check 1,079
+  agreeing.

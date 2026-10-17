@@ -152,6 +152,12 @@ that gives Dedaub's Morpho output 192 (the table above left out closing braces).
 | --- | --- | --- |
 | Useful function interfaces | A `memory` struct parameter from the decoder's copy of the whole head at entry (MetaMorpho arity 73/73); via-IR `bool`/`bytesN` validators type arguments. Held-out wrong claims 6 -> 4, the rest not decidable from bytecode (returned static struct, empty `bytes`, unnamed static arrays) | via-IR address typing (needs address-use evidence: the 160-bit mask is also uint160's); memory struct field types in via-IR |
 
+### Status update 2026-10-17: via-IR address arguments
+
+| Requirement | New evidence | Still open |
+| --- | --- | --- |
+| Useful function interfaces | via-IR 160-bit checked arguments typed `address` from an address use (call target, sender comparison, balance/code, a matched callee signature's address parameter): argument types 883 -> 905 correct, no new wrong claims | Address evidence from storage writes and events (most of MetaMorpho's); names of 1inch/Seaport functions (dictionary coverage) |
+
 Next priority: investigate the NFT receiver callback's unresolved PHI; add successful
 NFT mint/transfer/receiver and multisig behavior checks; improve dynamic encoders,
 interprocedural authority

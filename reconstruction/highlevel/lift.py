@@ -1085,6 +1085,7 @@ class FunctionLifter:
             value=value,
             gas=None if isinstance(gas, Call) and gas.name == "gasleft" else gas,
             evidence=frozenset({stmt.id}) | frozenset(info.evidence),
+            signature=signature,
         )
         if low_level:
             # Raw .call with an ABI payload: returned bytes are not decoded.

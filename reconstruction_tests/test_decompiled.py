@@ -408,3 +408,20 @@ def test_memory_struct_parameter_is_the_whole_head_copied_at_entry():
     assert memory_whole_head([head, *resized], args) is None
     effect = Assign((Index(Env("STORAGE"), Const(0)),), Const(1))
     assert memory_whole_head([head, effect, *copy], args) is None
+
+
+def test_via_ir_address_arguments_need_an_address_use(tmp_path):
+    """via-IR's 160-bit validator `!(x - address(x))` is also uint160's: the argument
+    is typed address only where it is used as one (a call target, or an argument a
+    hash-matched callee signature declares address, encoded or not); a word used
+    as a number stays raw, with its check."""
+    _, decompiled = compiler_fixture("interaction-via-ir", tmp_path / "interaction")
+    text = decompiled.text
+    assert "function 0x6968abd3(address varg0, address varg1)" in text
+    assert "varg0.balanceOf(varg1)" in text
+    header = "function 0x6a8d86db(address varg0, address varg1, uint256 varg2)"
+    assert header in text  # varg1 is transfer(address,uint256)'s recipient
+    assert "address(varg" not in text.split(header, 1)[1][:600]
+    _, decompiled = compiler_fixture("parameter-via-ir", tmp_path / "parameter")
+    body = decompiled.text.split("function 0x2afe11a3(uint256 varg0)", 1)[1][:300]
+    assert "require(!(varg0 - address(varg0)));" in body and "varg0 * 3" in body

@@ -21,6 +21,7 @@ Shifts are not evidence (addresses are shifted when packed into words).
 from __future__ import annotations
 
 from collections import defaultdict
+from dataclasses import replace
 
 from .ir import (
     Allocation,
@@ -188,6 +189,63 @@ def _truth_tests(stmt) -> set[int]:
     return found
 
 
+def _signature_words(call: ExternalCallExpr) -> list[tuple[str, Expr]]:
+    """(declared type, argument) for each head word of a call whose signature is
+    hash-matched and whose printed arguments are exactly its head words."""
+    from .lift import head_params, signature_params
+
+    if not call.signature:
+        return []
+    args = call.args
+    if call.raw_input is not None:
+        # A low-level call of abi.encodeWithSelector(selector, words...).
+        encoded = call.raw_input
+        if not (isinstance(encoded, Call) and encoded.name == "abi.encodeWithSelector"):
+            return []
+        args = encoded.args[1:]
+    params = head_params(signature_params(call.signature))
+    if len(params) != len(args):
+        return []
+    return list(zip(params, args, strict=True))
+
+
+def _type_address(view, argument) -> None:
+    """A via-IR 160-bit validator (address or uint160) on a value used as an
+    address: the argument is `address`, the entry check is its type's."""
+    from .passes import statement_ids
+    from .types import entry_address_validators
+
+    validators = entry_address_validators(view.body, argument.name)
+    removed = {id(stmt) for stmt in validators}
+    view.body[:] = [stmt for stmt in view.body if id(stmt) not in removed]
+    argument.type = "address"
+    argument.enforcement = "revert"
+    argument.evidence = frozenset().union(*(statement_ids(stmt) for stmt in validators))
+    # The checks are the type's now: their IR statements decode the argument.
+    view.argument_evidence |= argument.evidence
+    argument.reason = (
+        f"ABI decoder check require({argument.name} == address({argument.name})) at "
+        "function entry (via-IR form), and used as an address (call target, sender "
+        "comparison or balance/code)"
+    )
+
+    def strip(expr: Expr) -> Expr:
+        if (
+            isinstance(expr, Call)
+            and expr.name == "address"
+            and len(expr.args) == 1
+            and isinstance(expr.args[0], Var)
+            and expr.args[0].name == argument.name
+        ):
+            inner = expr.args[0]
+            return replace(inner, evidence=inner.evidence | expr.evidence, typed="address")
+        return expr
+
+    from .types import map_body
+
+    map_body(view.body, strip)
+
+
 def refine_160_bit_returns(views) -> int:
     """Retype `address` arguments and returned `address(x)` values that are numbers as
     uint160 (the same 160-bit mask); returns the number of changes."""
@@ -215,6 +273,12 @@ def refine_160_bit_returns(views) -> int:
                         addresses |= sources(node.base, fn)
                     elif isinstance(node, ExternalCallExpr):
                         addresses |= sources(node.target, fn)
+                        # A hash-matched callee signature types what is passed to it.
+                        for kind, argument in _signature_words(node):
+                            if kind == "address":
+                                addresses |= sources(argument, fn)
+                            elif kind == "uint160":
+                                numeric |= sources(argument, fn)
                     elif isinstance(node, Call) and node.name in functions:
                         calls.append((fn, node))
     # A private function's numeric (or address) parameter marks its callers' arguments.
@@ -237,6 +301,11 @@ def refine_160_bit_returns(views) -> int:
         kind = "argument" if fn.public else "parameter"
         for index, argument in enumerate(fn.view.arguments):
             key = (kind, fn.name, index, 0)
+            if getattr(argument, "pending_address", False):
+                if key in addresses and key not in numeric:
+                    _type_address(fn.view, argument)
+                    rewritten += 1
+                continue
             if argument.type == "address" and key in numeric and key not in addresses:
                 argument.type = "uint160"
                 argument.reason += (

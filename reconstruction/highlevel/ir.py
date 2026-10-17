@@ -192,6 +192,8 @@ class ExternalCallExpr(Expr):
     value: Expr | None = None
     gas: Expr | None = None
     raw_input: Expr | None = None
+    # The hash-matched signature the method name comes from ([dict]), if any.
+    signature: str | None = field(default=None, compare=False)
 
     def children(self) -> tuple[Expr, ...]:
         items = [self.target, *self.args]

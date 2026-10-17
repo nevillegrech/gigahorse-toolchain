@@ -186,6 +186,7 @@ class Forwarder:
             value=call.value,
             gas=call.gas,
             evidence=call.all_evidence() | selector_fact.evidence,
+            signature=signature,
         )
         stmt.meta["selector"] = selector
         stmt.meta["input"] = (start, end)
