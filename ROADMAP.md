@@ -95,6 +95,13 @@ that gives Dedaub's Morpho output 192 (the table above left out closing braces).
 | Held-out accuracy | Runs 1-3 (calibration) wrong claims 11 -> 3, none new, no correct count lower: Balancer's selectors shared with an internal `msg.sig` check now stay with the dispatched entry; calldata structs read through a decoder helper's pointer are one parameter (V3 position manager arity 38/38) | 3 return widths the bytecode cannot settle (masked `uint128` value returned as `uint256`): kept narrow by the user's choice, with a legend note that the source may declare wider |
 | Useful function interfaces | Struct parameters from decoder pointers, from struct checks inside helpers, and (inlined decoders) from fields validated where read; unread fields kept to the checked size; fields typed where validated | A SafeCast-style check at entry hides a whole-head struct; struct fields used raw stay untyped |
 
+### Status update 2026-10-17: Vyper dispatch
+
+| Requirement | New evidence | Still open |
+| --- | --- | --- |
+| Held-out accuracy | Curve 3pool 0/38 -> 38/38 and Curve stETH 0/39 -> 39/39 selectors, all names correct, 0 wrong claims; the 18 Solidity contracts' native relations byte-identical after the Datalog changes; runs 1-3 wrong claims stay 3 (return widths) | Unstructured Vyper functions (13 and 15 in the two Curve pools) |
+| Useful function interfaces | Four Vyper dispatch forms (0.2 memory selector, 0.3.9 xor, 0.3.10 sparse and dense tables, the last two found by executing the dispatcher); table dispatchers printed as their selector chain; payability from dispatcher paths, merged checks and reentrancy locks; static arrays from signatures | Vyper `__default__` behind a table (the chain is then not printed) |
+
 Next priority: investigate the NFT receiver callback's unresolved PHI; add successful
 NFT mint/transfer/receiver and multisig behavior checks; improve dynamic encoders,
 interprocedural authority

@@ -1,0 +1,533 @@
+{
+  "selection_id": "heldout-2-2026-10-16",
+  "contracts": [
+    {
+      "id": "wbtc",
+      "seconds": 1.9,
+      "peak_rss_gb": 0.05,
+      "status": "ok",
+      "decompiled_code_lines": 261,
+      "structured_code_lines": 785,
+      "unaccounted_ir_statements": 0,
+      "uncertain_lines": 1,
+      "unstructured_functions": 0,
+      "recognized_idioms": 4,
+      "events": {
+        "abi": [
+          "Approval",
+          "Burn",
+          "Mint",
+          "MintFinished",
+          "OwnershipRenounced",
+          "OwnershipTransferred",
+          "Pause",
+          "Transfer",
+          "Unpause"
+        ],
+        "named_in_view": [
+          "Approval",
+          "Burn",
+          "Mint",
+          "OwnershipTransferred",
+          "Pause",
+          "Transfer",
+          "Unpause"
+        ],
+        "unnamed_in_view": []
+      },
+      "score": {
+        "abi_functions": 24,
+        "selectors_recovered": 24,
+        "names": {
+          "correct": 24,
+          "unresolved": 0,
+          "wrong": 0
+        },
+        "arity": {
+          "correct": 24,
+          "wrong": 0
+        },
+        "argument_types": {
+          "correct": 19,
+          "unresolved": 0,
+          "wrong": 0,
+          "dynamic_unresolved": 0
+        },
+        "payability": {
+          "correct": 24,
+          "wrong": 0
+        },
+        "returns": {
+          "correct": 24,
+          "unresolved": 0,
+          "wrong": 0
+        },
+        "wrong_claims": []
+      }
+    },
+    {
+      "id": "wsteth",
+      "seconds": 2.3,
+      "peak_rss_gb": 0.05,
+      "status": "ok",
+      "decompiled_code_lines": 377,
+      "structured_code_lines": 961,
+      "unaccounted_ir_statements": 0,
+      "uncertain_lines": 1,
+      "unstructured_functions": 0,
+      "recognized_idioms": 3,
+      "events": {
+        "abi": [
+          "Approval",
+          "Transfer"
+        ],
+        "named_in_view": [
+          "Approval",
+          "Transfer"
+        ],
+        "unnamed_in_view": []
+      },
+      "score": {
+        "abi_functions": 21,
+        "selectors_recovered": 21,
+        "names": {
+          "correct": 21,
+          "unresolved": 0,
+          "wrong": 0
+        },
+        "arity": {
+          "correct": 21,
+          "wrong": 0
+        },
+        "argument_types": {
+          "correct": 24,
+          "unresolved": 2,
+          "wrong": 0,
+          "dynamic_unresolved": 0
+        },
+        "payability": {
+          "correct": 21,
+          "wrong": 0
+        },
+        "returns": {
+          "correct": 20,
+          "unresolved": 1,
+          "wrong": 0
+        },
+        "wrong_claims": []
+      }
+    },
+    {
+      "id": "permit2",
+      "seconds": 4.2,
+      "peak_rss_gb": 0.11,
+      "status": "ok",
+      "decompiled_code_lines": 1101,
+      "structured_code_lines": 2605,
+      "unaccounted_ir_statements": 0,
+      "uncertain_lines": 7,
+      "unstructured_functions": 0,
+      "recognized_idioms": 0,
+      "events": {
+        "abi": [
+          "Approval",
+          "Lockdown",
+          "NonceInvalidation",
+          "Permit",
+          "UnorderedNonceInvalidation"
+        ],
+        "named_in_view": [],
+        "unnamed_in_view": [
+          "Event_3704902f",
+          "Event_55eb90d8",
+          "Event_89b1add1",
+          "Event_c6a377bf",
+          "Event_da9fa7c1"
+        ]
+      },
+      "score": {
+        "abi_functions": 15,
+        "selectors_recovered": 15,
+        "names": {
+          "correct": 2,
+          "unresolved": 13,
+          "wrong": 0
+        },
+        "arity": {
+          "correct": 15,
+          "wrong": 0
+        },
+        "argument_types": {
+          "correct": 3,
+          "unresolved": 28,
+          "wrong": 0,
+          "dynamic_unresolved": 15
+        },
+        "payability": {
+          "correct": 15,
+          "wrong": 0
+        },
+        "returns": {
+          "correct": 13,
+          "unresolved": 2,
+          "wrong": 0
+        },
+        "wrong_claims": []
+      }
+    },
+    {
+      "id": "ens-public-resolver",
+      "seconds": 7.1,
+      "peak_rss_gb": 0.17,
+      "status": "ok",
+      "decompiled_code_lines": 2115,
+      "structured_code_lines": 5864,
+      "unaccounted_ir_statements": 0,
+      "uncertain_lines": 8,
+      "unstructured_functions": 0,
+      "recognized_idioms": 3,
+      "events": {
+        "abi": [
+          "ABIChanged",
+          "AddrChanged",
+          "AddressChanged",
+          "ApprovalForAll",
+          "Approved",
+          "ContenthashChanged",
+          "DNSRecordChanged",
+          "DNSRecordDeleted",
+          "DNSZonehashChanged",
+          "InterfaceChanged",
+          "NameChanged",
+          "PubkeyChanged",
+          "TextChanged",
+          "VersionChanged"
+        ],
+        "named_in_view": [
+          "ABIChanged",
+          "AddrChanged",
+          "AddressChanged",
+          "ApprovalForAll",
+          "ContenthashChanged",
+          "DNSRecordChanged",
+          "DNSRecordDeleted",
+          "DNSZonehashChanged",
+          "InterfaceChanged",
+          "NameChanged",
+          "PubkeyChanged",
+          "TextChanged"
+        ],
+        "unnamed_in_view": [
+          "Event_c6621ccb",
+          "Event_f0ddb3b0"
+        ]
+      },
+      "score": {
+        "abi_functions": 30,
+        "selectors_recovered": 30,
+        "names": {
+          "correct": 25,
+          "unresolved": 5,
+          "wrong": 0
+        },
+        "arity": {
+          "correct": 30,
+          "wrong": 0
+        },
+        "argument_types": {
+          "correct": 28,
+          "unresolved": 30,
+          "wrong": 0,
+          "dynamic_unresolved": 1
+        },
+        "payability": {
+          "correct": 30,
+          "wrong": 0
+        },
+        "returns": {
+          "correct": 19,
+          "unresolved": 11,
+          "wrong": 0
+        },
+        "wrong_claims": []
+      }
+    },
+    {
+      "id": "curve-steth-pool",
+      "seconds": 4.3,
+      "peak_rss_gb": 0.09,
+      "status": "ok",
+      "decompiled_code_lines": 2225,
+      "structured_code_lines": 3258,
+      "unaccounted_ir_statements": 0,
+      "uncertain_lines": 60,
+      "unstructured_functions": 15,
+      "recognized_idioms": 0,
+      "events": {
+        "abi": [
+          "AddLiquidity",
+          "CommitNewAdmin",
+          "CommitNewFee",
+          "NewAdmin",
+          "NewFee",
+          "RampA",
+          "RemoveLiquidity",
+          "RemoveLiquidityImbalance",
+          "RemoveLiquidityOne",
+          "StopRampA",
+          "TokenExchange",
+          "TokenExchangeUnderlying"
+        ],
+        "named_in_view": [
+          "CommitNewAdmin",
+          "CommitNewFee",
+          "NewAdmin",
+          "NewFee"
+        ],
+        "unnamed_in_view": []
+      },
+      "score": {
+        "abi_functions": 39,
+        "selectors_recovered": 39,
+        "names": {
+          "correct": 39,
+          "unresolved": 0,
+          "wrong": 0
+        },
+        "arity": {
+          "correct": 39,
+          "wrong": 0
+        },
+        "argument_types": {
+          "correct": 20,
+          "unresolved": 8,
+          "wrong": 0,
+          "dynamic_unresolved": 0
+        },
+        "payability": {
+          "correct": 25,
+          "wrong": 0,
+          "unresolved": 14
+        },
+        "returns": {
+          "correct": 23,
+          "unresolved": 16,
+          "wrong": 0
+        },
+        "wrong_claims": []
+      }
+    },
+    {
+      "id": "uniswap-v4-pool-manager",
+      "seconds": 68.6,
+      "peak_rss_gb": 0.2,
+      "status": "ok",
+      "decompiled_code_lines": 2941,
+      "structured_code_lines": 5709,
+      "unaccounted_ir_statements": 0,
+      "uncertain_lines": 45,
+      "unstructured_functions": 1,
+      "recognized_idioms": 4,
+      "events": {
+        "abi": [
+          "Approval",
+          "Donate",
+          "Initialize",
+          "ModifyLiquidity",
+          "OperatorSet",
+          "OwnershipTransferred",
+          "ProtocolFeeControllerUpdated",
+          "ProtocolFeeUpdated",
+          "Swap",
+          "Transfer"
+        ],
+        "named_in_view": [
+          "Approval",
+          "OwnershipTransferred",
+          "Transfer"
+        ],
+        "unnamed_in_view": [
+          "Event_29ef05ca",
+          "Event_40e9cecb",
+          "Event_b4bd8ef5",
+          "Event_ceb576d9",
+          "Event_dd466e67",
+          "Event_e9c42593",
+          "Event_f208f491"
+        ]
+      },
+      "score": {
+        "abi_functions": 33,
+        "selectors_recovered": 33,
+        "names": {
+          "correct": 16,
+          "unresolved": 17,
+          "wrong": 0
+        },
+        "arity": {
+          "correct": 33,
+          "wrong": 0
+        },
+        "argument_types": {
+          "correct": 19,
+          "unresolved": 38,
+          "wrong": 0,
+          "dynamic_unresolved": 5
+        },
+        "payability": {
+          "correct": 32,
+          "wrong": 0,
+          "unresolved": 1
+        },
+        "returns": {
+          "correct": 19,
+          "unresolved": 14,
+          "wrong": 0
+        },
+        "wrong_claims": []
+      }
+    },
+    {
+      "id": "uniswap-v3-position-manager",
+      "seconds": 11.5,
+      "peak_rss_gb": 0.24,
+      "status": "ok",
+      "decompiled_code_lines": 1677,
+      "structured_code_lines": 6436,
+      "unaccounted_ir_statements": 0,
+      "uncertain_lines": 4,
+      "unstructured_functions": 0,
+      "recognized_idioms": 3,
+      "events": {
+        "abi": [
+          "Approval",
+          "ApprovalForAll",
+          "Collect",
+          "DecreaseLiquidity",
+          "IncreaseLiquidity",
+          "Transfer"
+        ],
+        "named_in_view": [
+          "Approval",
+          "ApprovalForAll",
+          "Collect",
+          "DecreaseLiquidity",
+          "IncreaseLiquidity",
+          "Transfer"
+        ],
+        "unnamed_in_view": []
+      },
+      "score": {
+        "abi_functions": 38,
+        "selectors_recovered": 38,
+        "names": {
+          "correct": 34,
+          "unresolved": 4,
+          "wrong": 0
+        },
+        "arity": {
+          "correct": 38,
+          "wrong": 0
+        },
+        "argument_types": {
+          "correct": 61,
+          "unresolved": 12,
+          "wrong": 0,
+          "dynamic_unresolved": 0
+        },
+        "payability": {
+          "correct": 38,
+          "wrong": 0
+        },
+        "returns": {
+          "correct": 32,
+          "unresolved": 5,
+          "wrong": 1
+        },
+        "wrong_claims": [
+          "0xfc6f7865: returns ['uint128', 'uint128'] vs ['uint256', 'uint256']"
+        ]
+      }
+    },
+    {
+      "id": "balancer-v2-vault",
+      "seconds": 333.4,
+      "peak_rss_gb": 0.47,
+      "status": "ok",
+      "decompiled_code_lines": 4014,
+      "structured_code_lines": 9651,
+      "unaccounted_ir_statements": 69,
+      "uncertain_lines": 666,
+      "unstructured_functions": 6,
+      "recognized_idioms": 2,
+      "events": {
+        "abi": [
+          "AuthorizerChanged",
+          "ExternalBalanceTransfer",
+          "FlashLoan",
+          "InternalBalanceChanged",
+          "PausedStateChanged",
+          "PoolBalanceChanged",
+          "PoolBalanceManaged",
+          "PoolRegistered",
+          "RelayerApprovalChanged",
+          "Swap",
+          "TokensDeregistered",
+          "TokensRegistered"
+        ],
+        "named_in_view": [
+          "AuthorizerChanged",
+          "ExternalBalanceTransfer",
+          "FlashLoan",
+          "InternalBalanceChanged",
+          "PausedStateChanged",
+          "PoolBalanceChanged",
+          "PoolBalanceManaged",
+          "PoolRegistered",
+          "RelayerApprovalChanged",
+          "Swap",
+          "TokensDeregistered",
+          "TokensRegistered"
+        ],
+        "unnamed_in_view": []
+      },
+      "score": {
+        "abi_functions": 26,
+        "selectors_recovered": 26,
+        "names": {
+          "correct": 19,
+          "unresolved": 7,
+          "wrong": 0
+        },
+        "arity": {
+          "correct": 26,
+          "wrong": 0
+        },
+        "argument_types": {
+          "correct": 26,
+          "unresolved": 13,
+          "wrong": 0,
+          "dynamic_unresolved": 10
+        },
+        "payability": {
+          "correct": 26,
+          "wrong": 0
+        },
+        "returns": {
+          "correct": 17,
+          "unresolved": 8,
+          "wrong": 1
+        },
+        "wrong_claims": [
+          "0xb05f8e48: returns ['uint112', 'uint112', 'uint256', 'uint256'] vs ['uint256', 'uint256', 'uint256', 'address']"
+        ]
+      }
+    }
+  ],
+  "limits": {
+    "memory_gb": 24.0,
+    "wall_seconds": 3600,
+    "native_timeout_seconds": 1800,
+    "mechanism": "systemd scope MemoryMax=24.0G, swap off"
+  }
+}

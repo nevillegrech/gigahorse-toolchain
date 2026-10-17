@@ -117,9 +117,10 @@ def lazy_whole_head(statements, arguments: list[Var]) -> tuple[int, int] | None:
     return 0, len(arguments)
 
 
-def signature_intervals(params: list[str]) -> list[tuple[int, int]]:
-    """Head-word intervals of the static tuple parameters of a signature."""
-    from .lift import static_words
+def signature_intervals(params: list[str]) -> list[tuple[int, int, str | None]]:
+    """Head-word intervals of the static tuples and one-dimensional static arrays
+    of a signature: (first word, words, the array type or None for a tuple)."""
+    from .lift import is_static_abi, static_words
 
     intervals = []
     position = 0
@@ -127,17 +128,26 @@ def signature_intervals(params: list[str]) -> list[tuple[int, int]]:
         words = static_words(param)
         count = len(words) if words is not None else 1
         if words is not None and param.startswith("(") and count >= 2:
-            intervals.append((position, count))
+            intervals.append((position, count, None))
+        elif words is not None and param.endswith("]") and count >= 2:
+            element = param[: param.rindex("[")]
+            if is_static_abi(element) and "[" not in element:
+                intervals.append((position, count, param))
         position += count
     return intervals
+
+
+def member(kind: str, index: int) -> str:
+    """Member name of a parameter group's word: `[i]` of an array, `f<i>` of a struct."""
+    return f"[{index}]" if kind.endswith("]") else f"f{index}"
 
 
 def struct_intervals(
     statements,
     signature_params: list[str] | None = None,
     known: list[tuple[int, int]] = (),
-) -> list[tuple[int, int]]:
-    """(first head word, words) of each static struct parameter.
+) -> list[tuple[int, int, str | None]]:
+    """(first head word, words, array type or None) of each static struct or array parameter.
 
     With a hash-matched signature its static tuples decide (a decoder check it
     does not explain is ignored); otherwise the decoder's struct checks do,
@@ -146,7 +156,7 @@ def struct_intervals(
     check of its own besides the head check)."""
     if signature_params is not None:
         return signature_intervals(signature_params)
-    intervals = [(first, count) for first, count in known if 2 <= count <= MAX_WORDS]
+    intervals = [(first, count, None) for first, count in known if 2 <= count <= MAX_WORDS]
     checks = struct_checks(statements)
     heads = [size for start, size in checks if start == 4]
     head = max(heads, default=0)
@@ -158,16 +168,16 @@ def struct_intervals(
             continue  # the head check itself: it proves nothing about grouping
         if first * 32 + size > head:
             continue
-        intervals.append((first, count))
+        intervals.append((first, count, None))
     # Outermost intervals; one partly overlapping another is not a struct layout.
     intervals.sort(key=lambda item: (item[0], -item[1]))
-    chosen: list[tuple[int, int]] = []
-    for first, count in intervals:
-        if any(f <= first and first + count <= f + c for f, c in chosen):
+    chosen: list[tuple[int, int, str | None]] = []
+    for first, count, array in intervals:
+        if any(f <= first and first + count <= f + c for f, c, _ in chosen):
             continue
-        if any(first < f + c and f < first + count for f, c in chosen):
+        if any(first < f + c and f < first + count for f, c, _ in chosen):
             return []
-        chosen.append((first, count))
+        chosen.append((first, count, array))
     return chosen
 
 
@@ -176,10 +186,10 @@ def group_struct_parameters(
     arguments: list[Var],
     typed: dict[str, TypedValue],
     structs: dict[tuple[str, ...], str],
-    intervals: list[tuple[int, int]],
+    intervals: list[tuple[int, int, str | None]],
 ) -> list[tuple[str, list[str], str, list[str]]]:
-    """(struct parameter, its head-word arguments, struct name, field types) for
-    each interval of `struct_intervals`; renames uses to fields."""
+    """(group parameter, its head-word arguments, struct name or array type, word types)
+    for each interval of `struct_intervals`; renames uses to members."""
     return _apply(state, arguments, typed, structs, intervals) if intervals else []
 
 
@@ -188,31 +198,33 @@ def _apply(
     arguments: list[Var],
     typed: dict[str, TypedValue],
     structs: dict[tuple[str, ...], str],
-    chosen: list[tuple[int, int]],
+    chosen: list[tuple[int, int, str | None]],
 ) -> list[tuple[str, list[str], str, list[str]]]:
     names = [argument.name for argument in arguments]
     groups: list[tuple[str, list[str], str, list[str]]] = []
-    for first, count in chosen:
+    for first, count, array in chosen:
         if first + count > len(names):
             continue
         words = names[first : first + count]
         if any(typed[word].kind not in {"word", "unread"} for word in words):
             continue
         types = tuple(typed[word].type for word in words)
-        struct = structs.setdefault(types, f"S{len(structs)}")
-        groups.append((words[0], words, struct, list(types)))
+        kind = array if array is not None else structs.setdefault(types, f"S{len(structs)}")
+        groups.append((words[0], words, kind, list(types)))
     if not groups:
         return []
     fields = {
-        word: (group, index) for group, words, _, _ in groups for index, word in enumerate(words)
+        word: (group, member(kind, index))
+        for group, words, kind, _ in groups
+        for index, word in enumerate(words)
     }
 
     def rename(expr: Expr) -> Expr:
         if isinstance(expr, Var) and expr.name in fields:
-            group, index = fields[expr.name]
+            group, name = fields[expr.name]
             return Member(
                 Var(group, None, evidence=expr.evidence),
-                f"f{index}",
+                name,
                 evidence=expr.evidence,
                 rules=expr.rules | {"struct-parameter"},
             )

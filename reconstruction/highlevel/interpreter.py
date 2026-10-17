@@ -60,6 +60,7 @@ from .ir import (
     struct_fields,
 )
 from .lift import DYNAMIC_MARKERS
+from .parameters import member
 from .view import DecompiledProgram, FunctionView
 
 MASK = (1 << 256) - 1
@@ -323,10 +324,11 @@ class DecompiledMachine:
                 elif argument.enforcement == "revert" and _cast(argument.type, word) != word:
                     raise _Halt(b"", True)
                 frame.values[argument.name] = word
-            # A static struct parameter's fields are its head words (printed varg<i>.f<j>).
-            for group, words, _, _ in view.parameter_groups:
+            # A static struct (array) parameter's members are its head words
+            # (printed varg<i>.f<j>, resp. varg<i>[j]).
+            for group, words, kind, _ in view.parameter_groups:
                 for index, word_name in enumerate(words):
-                    frame.values[f"{group}.f{index}"] = frame.values[word_name]
+                    frame.values[f"{group}.{member(kind, index)}"] = frame.values[word_name]
         else:
             # A private parameter typed from masks: the callee cleans every use of it,
             # so the printed type stands for that cast (e.g. `address varg1`).

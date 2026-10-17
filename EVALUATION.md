@@ -1203,3 +1203,99 @@ struct after a word, and a SafeCast-style check on a uint256 field.
   direct struct decoder call, field typing, entry enforcement, the argument
   definition, the whole-head rule) fails the tests.
 - 441 passed, 17 skipped; the cross-check is unchanged at 1,079 agreeing.
+
+## Vyper dispatch
+
+The two Vyper contracts in runs 1-3 had no public functions at all: Curve
+3pool (Vyper 0.2.4, 38 functions) and Curve stETH (0.2.8, 39) printed as one
+dispatcher. Newer Vyper compilers dispatch in two more ways, so four compiled
+fixtures cover them (`VyperFixture.vy`, 13 functions each):
+
+| Compiler | Dispatch | Fixture |
+| --- | --- | --- |
+| Vyper 0.2.x | `mstore(28, calldataload(0))`, then `mload(0) == selector` per function | `vyper-v0216` |
+| Vyper 0.3.9 | `shr(224, calldataload(0))` on the stack, `xor` per function | `vyper-v039` |
+| Vyper 0.3.10, gas | the selector picks a bucket from a table in the code; `jump(mload(0))` | `vyper-v0310` |
+| Vyper 0.3.10, codesize | a hashed table entry holds (selector, handler, flags); checked, then jumped to | `vyper-v0310-codesize` |
+
+What was missing, and what changed:
+
+- **Vyper 0.2 (native rule).** Gigahorse already matches the
+  `eq`/`iszero`/`jumpi` comparison, but only accepts a selector that comes
+  from `calldataload(0)` shifted or divided. A selector read back as
+  `mload(0)` after `mstore(28, calldataload(0))` is now one. Without this rule
+  Curve 3pool has 0 public functions; with it, 38.
+- **Selector tables (native facts from execution).** The jump target is read
+  from code through memory, which a stack analysis cannot follow.
+  `src/selector_table.py` runs the dispatcher prefix on concrete calldata
+  instead of matching either layout:
+  - a jump every probe selector reaches is a bucket jump, and its targets are
+    the buckets;
+  - a jump only some selectors reach checks the selector first, so each
+    selector that reaches it is dispatched to that handler;
+  - probing with a call value and short calldata gives the dispatcher's own
+    checks per entry.
+  The targets become `JumpTableTarget` facts (new CFG edges, mapped to each
+  analysis' cloned statement ids); dense-table handlers also become public
+  functions (`SelectorTableEntry`).
+- **A guard that hid every Vyper 0.3 function.** The Vyper transformation is
+  switched off when Solidity-style dispatch (`eq` with a constant, then
+  `jumpi`) appears anywhere. Vyper 0.3's reentrancy check,
+  `sload(lock) == 2`, matched it, so a single `@nonreentrant` function left
+  the whole contract with no public functions. Only a selector-sized constant
+  compared with the dispatcher's selector counts now.
+- **The table dispatcher printed as its selector chain.** The lifted
+  dispatcher is an unstructured computed jump. It prints instead as
+  `if (msg.sig == ...) return f();` per function, with the dispatcher's own
+  checks for dense entries, and `revert()` last, which is only printed when
+  executing the dispatcher with unrouted selectors shows exactly
+  `revert(0, 0)`. Every routed selector must have a public function, or the
+  original form is kept. The original statements are the chain's evidence.
+- **Payability.**
+  - A `require(!msg.value)` in the dispatcher marks every function dispatched
+    after it on the same path. Vyper 0.2.16 checks once, after its payable
+    functions.
+  - Vyper 0.3 merges the value and calldata-size checks; the merged check is
+    split into the two.
+  - Vyper 0.2 checks its `@nonreentrant` lock before the value. A data-less
+    require and a store before the check do not change what a call with value
+    does (it reverts without data either way), so the check still marks a
+    public function.
+- **Static arrays from signatures.** A hash-matched signature's `uint256[3]`
+  groups its three head words into one parameter (`uint256[3] varg0`, uses
+  `varg0[i]`), like its tuples.
+
+Results, with every run 1-3 contract re-analyzed natively after the Datalog
+changes (`results/runs1-2-vyper-dispatch.json`,
+`results/run3-vyper-dispatch.json`):
+
+| Contract | Before | After |
+| --- | --- | --- |
+| Curve 3pool | 0/38 selectors | 38/38, 38 names correct, 0 wrong claims |
+| Curve stETH | 0/39 selectors | 39/39, 39 names correct, 0 wrong claims |
+| 18 Solidity contracts | | native relations byte-identical to before; scores and lengths unchanged |
+
+- Total wrong claims on runs 1-3: 3, the documented return widths.
+- The Curve views are longer (1,767 -> 2,380 and 1,318 -> 2,225 code lines)
+  because their functions now print one by one. 13 and 15 of those functions
+  are still unstructured, and the uncertain lines rose (37 -> 55, 30 -> 60).
+- 1inch needs Gigahorse's scalable fallback, which starts at half the native
+  timeout. With a 1,800 s timeout, the default configuration runs until it
+  passes 24 GB, and also 32 GB; this happens with the previous Datalog too.
+  With the 300 s timeout of the earlier runs it finishes at 17.75 GB.
+
+Tests:
+
+- The four Vyper fixtures recover all 13 functions with 0 wrong claims and all
+  payability right, and run against Py-EVM: value sent to nonpayable
+  functions, underflow, owner checks, dirty address and bool words, short and
+  unknown calldata, a locked add_liquidity.
+- The recognizer finds nothing on the linear dispatchers or on solc code, the
+  sparse bucket jump with every routed selector, and the dense entries with
+  payability and minimum sizes. A fallback that does not revert is not
+  vouched for.
+- Breaking any of seven rules fails the tests: the chain, dispatcher value
+  checks, the merged check, signature arrays, the lock prefix, dense entry
+  checks, the fallback check.
+- Existing fixtures render byte-identically (8,953 code lines). 455 passed,
+  17 skipped; the cross-check is unchanged at 1,079 agreeing.

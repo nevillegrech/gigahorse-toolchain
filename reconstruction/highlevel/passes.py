@@ -593,20 +593,68 @@ def trailing_stop(state: FunctionState) -> None:
         state.elided.append(Elision(statement_ids(stop), "STOP at the end of the function body"))
 
 
-def leading_callvalue_check(state: FunctionState) -> None:
-    """A first-statement require(!msg.value) is the compiler's nonpayable check."""
+def _before_value_check(stmt: Stmt) -> bool:
+    """A statement that may precede the nonpayable check without changing what a call
+    with value does: it reverts without data or writes state (rolled back by the
+    check's revert), and calls nothing (Vyper's @nonreentrant lock)."""
+    if isinstance(stmt, Comment):
+        return True
+    if not (isinstance(stmt, Require) and stmt.payload is None) and not isinstance(stmt, Assign):
+        return False
+    return not any(
+        isinstance(node, (Call, ExternalCallExpr))
+        for expr in stmt.expressions()
+        for node in iter_expr(expr)
+    )
+
+
+def leading_callvalue_check(state: FunctionState, public: bool = False) -> None:
+    """A leading require(!msg.value) is the compiler's nonpayable check.
+
+    Vyper merges it with the calldata size check, require(!(msg.value | x)),
+    which is require(!msg.value) then require(!x) (both revert without data), and
+    in a public function puts its reentrancy lock (a data-less require and a
+    store) before it: a call with value reverts without data either way. (The
+    dispatcher's own check stays in its body: it applies to what it dispatches.)"""
     for index, stmt in enumerate(state.body):
-        if isinstance(stmt, Comment):
-            continue
         if (
             isinstance(stmt, Require)
             and stmt.payload is None
             and isinstance(stmt.condition, Unary)
             and stmt.condition.op == "!"
-            and stmt.condition.operand == Env("msg.value")
+            and (
+                stmt.condition.operand == Env("msg.value")
+                or (
+                    isinstance(stmt.condition.operand, Binary)
+                    and stmt.condition.operand.op == "|"
+                    and Env("msg.value")
+                    in (stmt.condition.operand.left, stmt.condition.operand.right)
+                )
+            )
         ):
-            state.nonpayable = state.body.pop(index)
-        return
+            operand = stmt.condition.operand
+            if operand == Env("msg.value"):
+                state.nonpayable = state.body.pop(index)
+            elif isinstance(operand, Binary) and operand.op == "|":
+                for value, other in ((operand.left, operand.right), (operand.right, operand.left)):
+                    if value == Env("msg.value"):
+                        state.nonpayable = replace(
+                            stmt,
+                            condition=Unary(
+                                "!", value, evidence=stmt.condition.evidence | operand.evidence
+                            ),
+                        )
+                        state.body[index] = replace(
+                            stmt,
+                            condition=simplify(Unary("!", other)),
+                            evidence=frozenset(),
+                            hidden=frozenset(),
+                            rules=stmt.rules | {"split-value-check"},
+                        )
+                        break
+            return
+        if not (_before_value_check(stmt) if public else isinstance(stmt, Comment)):
+            return
 
 
 def loop_conditions(state: FunctionState) -> None:

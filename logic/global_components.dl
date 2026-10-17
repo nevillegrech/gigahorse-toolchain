@@ -168,6 +168,19 @@
     JUMPDEST(as(targetValue, symbol)).
    .plan 1:(2,1,3)
 
+  /**
+    A jump to an address read from a selector table (Vyper 0.3.10+), with the
+    targets executing the dispatcher reaches (src/selector_table.py), in this
+    analysis' statement ids (filled per instance from JumpTableTarget).
+  */
+  .decl JumpTableJump(jump: Statement, target: symbol)
+
+  BlockJumpValidTarget(ctx, block, targetVar, as(target, Block)) :-
+    BlockJumpTarget(ctx, block, targetVar),
+    BasicBlock_Tail(block, jump),
+    JumpTableJump(jump, target),
+    JUMPDEST(as(target, symbol)).
+
 
   /*
   ***********

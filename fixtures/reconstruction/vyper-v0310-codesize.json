@@ -1,0 +1,267 @@
+{
+  "compiler": "0.3.10+commit.9136169",
+  "source": "VyperFixture.vy",
+  "source_sha256": "713976048df34ec4383989d5a280e59562d865648b4b07d35fa62add3d8c7d2f",
+  "bytecode_sha256": "dcee9eb6ea3e39dec4f3582acc2ac003e5e0e9b61163b19ef433b23d87617e95",
+  "settings": {
+    "outputSelection": {
+      "*": [
+        "evm.bytecode",
+        "evm.deployedBytecode",
+        "abi"
+      ]
+    },
+    "optimize": "codesize"
+  },
+  "method_identifiers": {
+    "deposit()": "d0e30db0",
+    "transfer(address,uint256)": "a9059cbb",
+    "set_fee(uint256)": "1aa02d59",
+    "pause(bool)": "02329a29",
+    "quote(uint256,int128)": "ce8789ec",
+    "scaled(int128,uint256)": "7ae645aa",
+    "pick(address,address,bool)": "6b7a8b10",
+    "add_liquidity(uint256[2],uint256)": "0b4c7e4d",
+    "balances(address)": "27e235e3",
+    "total()": "2ddbd13a",
+    "owner()": "8da5cb5b",
+    "fee()": "ddca3f43",
+    "paused()": "5c975abb"
+  },
+  "abi": [
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "name": "owner",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "name": "amount",
+          "type": "uint256"
+        }
+      ],
+      "name": "Deposit",
+      "type": "event"
+    },
+    {
+      "inputs": [],
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "constructor"
+    },
+    {
+      "inputs": [],
+      "name": "deposit",
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "payable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "name": "to",
+          "type": "address"
+        },
+        {
+          "name": "amount",
+          "type": "uint256"
+        }
+      ],
+      "name": "transfer",
+      "outputs": [
+        {
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "name": "fee",
+          "type": "uint256"
+        }
+      ],
+      "name": "set_fee",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "name": "flag",
+          "type": "bool"
+        }
+      ],
+      "name": "pause",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "name": "amount",
+          "type": "uint256"
+        },
+        {
+          "name": "i",
+          "type": "int128"
+        }
+      ],
+      "name": "quote",
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "name": "x",
+          "type": "int128"
+        },
+        {
+          "name": "y",
+          "type": "uint256"
+        }
+      ],
+      "name": "scaled",
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "name": "a",
+          "type": "address"
+        },
+        {
+          "name": "b",
+          "type": "address"
+        },
+        {
+          "name": "first",
+          "type": "bool"
+        }
+      ],
+      "name": "pick",
+      "outputs": [
+        {
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "pure",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "name": "amounts",
+          "type": "uint256[2]"
+        },
+        {
+          "name": "min_mint",
+          "type": "uint256"
+        }
+      ],
+      "name": "add_liquidity",
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "name": "arg0",
+          "type": "address"
+        }
+      ],
+      "name": "balances",
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "total",
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "owner",
+      "outputs": [
+        {
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "fee",
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "paused",
+      "outputs": [
+        {
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ],
+  "creation_bytecode": "3461001f573360035560036004556103f7610023610000396103f7610000f35b5f80fd5f3560e01c6005610397601b395f51600760078260ff16848460181c0260181c06028260081c61ffff1601601939505f51818160181c1460033611166100445761038f565b8060fe16361034826001160217610393578060081c61ffff16565b6004358060a01c6103935760405260016040516020525f5260405f205460605260206060f35b60025460405260206040f35b60035460405260206040f35b60045460405260206040f35b60055460405260206040f35b600554156101185760066040527f706175736564000000000000000000000000000000000000000000000000000060605260405060405180606001601f825f031636823750506308c379a05f526020602052601f19601f6040510116604401601cfd5b6001336020525f5260405f208054348101818110610393579050815550600254348101818110610393579050600255337fe1fffcc4923d04b559f4d29a8bfc6cda04eb5b0d3c460751c2402c5c5cc9109c3460405260206040a26001336020525f5260405f205460405260206040f35b6004358060a01c610393576040526001336020525f5260405f208054602435808203828111610393579050905081555060016040516020525f5260405f2080546024358082018281106103935790509050815550600160605260206060f35b60035433186103935760646004351161039357600435600455005b6004358060011c61039357604052600354331861039357604051600555005b60243580600f0b8118610393576040527fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff60405113610269576004356060526020606061029f565b60043560045480606403606481116103935790508082028115838383041417156103935790509050606481049050606052602060605bf35b60043580600f0b8118610393576040526040515f811261039357602435808202811583838304141715610393579050905060605260206060f35b6004358060a01c610393576040526024358060a01c610393576060526044358060011c6103935760805260805115610316576020604061031b565b602060605bf35b5f546002146103935760025f55600435602435808201828110610393579050905060405260443560405110610393576001336020525f5260405f208054604051808201828110610393579050905081555060025460405180820182811061039357905090506002556020604060035f55f35b5f5ffd5b5f80fdf0bd039c0d27e235e3005f250b4c7e4d031d651aa02d5901e725ddca3f43009d056b7a8b1002db6502329a290202255c975abb00a905ce8789ec022145d0e30db000b5047ae645aa02a1452ddbd13a0085058da5cb5b009105a9059cbb018845841903f78205185b00a16576797065728300030a0016"
+}

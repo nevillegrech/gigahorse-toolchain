@@ -787,6 +787,26 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
     Variable_Value(castConst, "0xffffffff"),
     Statement_Defines(cast, castedSelector).
 
+  // Vyper 0.2: the dispatcher stores the selector with mstore(28, calldataload(0))
+  // and reads it back as mload(0) for each comparison.
+  FunctionSelectorVariable(selector):-
+    VyperSelectorStore(_),
+    MLOAD(load),
+    Statement_Uses_Local(load, zeroVar, 0),
+    Variable_Value(zeroVar, "0x0"),
+    Statement_Defines(load, selector).
+
+  .decl VyperSelectorStore(store: Statement)
+  VyperSelectorStore(store):-
+    MSTORE(store),
+    Statement_Uses_Local(store, offsetVar, 0),
+    Variable_Value(offsetVar, "0x1c"),
+    Statement_Uses_Local(store, valueVar, 1),
+    Statement_Defines(load, valueVar),
+    CALLDATALOAD(load),
+    Statement_Uses_Local(load, zeroVar, 0),
+    Variable_Value(zeroVar, "0x0").
+
 }
 
 .comp PreTransLocalAnalysis : LocalAnalysis {

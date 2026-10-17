@@ -11,6 +11,12 @@ COPY_CODE_FULL(incompleteGlobal, postTrans)
 
 .init global = ExperimentalCompleteOptimizedGlobalAnalysis<CONTEXT_SENSITIVITY>
 
+// Selector-table jumps in the transformed program's ids (cloned copies included).
+incompleteGlobal.JumpTableJump(stmt, target),
+global.JumpTableJump(stmt, target) :-
+  JumpTableTarget(jump, target),
+  PreTransStatement_OriginalStatement(stmt, as(jump, Statement)).
+
 global.StatementPushesUsedLabel(stmt):-
   incompleteGlobal.VariableUsedInAsJumpdest(pushedVar),
   postTrans.Statement_Defines(stmt, pushedVar).

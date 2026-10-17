@@ -9,6 +9,7 @@ from pathlib import Path
 
 from ..model import Function, Program
 from .abi_codec import recognize_abi_coders
+from .dispatch import dispatch_value_checks, table_dispatcher, uses_table
 from .errors import recognize_error_payloads
 from .idioms import (
     recognize_arithmetic_helpers,
@@ -126,6 +127,11 @@ NARROW_RETURNS = [
     "  sign-extended to; the source may declare a wider type for the same value (uint256 holding a uint128).",
 ]
 NARROW = re.compile(r"u?int(\d+)")
+# Added when the dispatcher is a selector table printed as its chain (dispatch.py).
+SELECTOR_TABLE = [
+    "Selector table (Vyper 0.3.10+): the dispatcher's chain of `if (msg.sig == ...)` is what executing its",
+    "  table lookup does for each selector (src/selector_table.py), not the compiled control flow.",
+]
 
 
 def _narrow(kind: str) -> bool:
@@ -420,11 +426,14 @@ def build_decompiled(
             )
     for view in views:
         view.rejected_signature = context.rejected_signatures.get(view.function.id)
+    table_dispatcher(program.runtime_bytecode, views)
     dispatcher_value_check = _dispatcher_nonpayable(views)
-    if dispatcher_value_check is not None:
-        for view in views:
-            if view.function.selectors and view.nonpayable is None:
-                view.nonpayable_by_dispatcher = dispatcher_value_check
+    dispatched_checks = dispatch_value_checks(views)
+    for view in views:
+        if view.function.selectors and view.nonpayable is None:
+            check = dispatcher_value_check or dispatched_checks.get(view.name)
+            if check is not None:
+                view.nonpayable_by_dispatcher = check
     provisional = DecompiledProgram(context, views, {}, "", {})
     recognitions = recognize_string_getters(provisional)
     recognitions += recognize_arithmetic_helpers(provisional)
@@ -446,6 +455,8 @@ def build_decompiled(
     legend = list(LEGEND)
     if any(v.function.selectors and any(map(_narrow, v.returns or [])) for v in views):
         legend += NARROW_RETURNS
+    if uses_table(views):
+        legend += SELECTOR_TABLE
     for line in legend:
         out.emit("// " + line, 0)
     out.emit("", 0)
@@ -654,7 +665,7 @@ def finish_function(
     unused_call_results(state)
     constant_branches(state)
     drop_trivial_requires(state)
-    leading_callvalue_check(state)
+    leading_callvalue_check(state, public=bool(function.selectors))
     trailing_stop(state)
     # Calldata structs whose members are validated where read: returned as
     # pointers by a decoder helper, or (inlined decoder) the whole head.
@@ -992,7 +1003,8 @@ def used_structs(views: list[FunctionView]) -> list[str]:
     found: dict[str, list[str]] = {}
     for view in views:
         for _, _, struct, types in view.parameter_groups:
-            found[struct] = types
+            if not struct.endswith("]"):  # arrays need no declaration
+                found[struct] = types
         for stmt in iter_statements(view.body):
             for expr in stmt.expressions():
                 for node in iter_expr(expr):

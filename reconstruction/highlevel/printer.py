@@ -192,6 +192,8 @@ def _expr(expr: Expr, context: int) -> str:
     if isinstance(expr, Index):
         return f"{_postfix(expr.base)}[{_expr(expr.key, 0)}]"
     if isinstance(expr, Member):
+        if expr.name.startswith("["):  # an element of a static array parameter
+            return f"{_postfix(expr.base)}{expr.name}"
         return f"{_postfix(expr.base)}.{expr.name}"
     if isinstance(expr, Slice):
         if expr.start == expr.end:

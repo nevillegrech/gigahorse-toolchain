@@ -15,6 +15,7 @@ from src.common import (
     event_signature_filename,
     public_function_signature_filename,
 )
+from src.selector_table import selector_table
 
 opcode_output = {
     "alters_flow": bool,
@@ -287,6 +288,18 @@ class EVMBlockExporter(FactExporter):
         dasm = get_disassembly(instructions, dict(push_value))
         with open(self.get_out_file_path("contract.dasm"), "w") as f:
             f.write(dasm)
+
+        # Selector-table dispatchers (Vyper 0.3.10+) jump to addresses read from
+        # code; their targets come from executing the dispatcher (selector_table.py).
+        table = selector_table(bytes.fromhex(self.bytecode_hex.removeprefix("0x")))
+        self.generate(
+            "JumpTableTarget.facts",
+            sorted((hex(jump), hex(t)) for jump, targets in table.jumps.items() for t in targets),
+        )
+        self.generate(
+            "SelectorTableEntry.facts",
+            [(hex(target), hex(selector)) for target, selector, _ in table.entries],
+        )
 
         self.generate("HighLevelFunctionInfo.facts", self.function_debug_data)
         self.generate("ImmutableLoads.facts", self.immutable_references)

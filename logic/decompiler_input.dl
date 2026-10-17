@@ -30,3 +30,15 @@ ByteCodeHex(substr(bytecode, 2, strlen(bytecode))):-
   _ByteCodeHex(bytecode),
   contains("0x", bytecode).
 
+/**
+  Selector-table dispatchers (Vyper 0.3.10+, src/selector_table.py): a jump to
+  an address read from a code table, with the targets executing the dispatcher
+  reaches; and, where the dispatcher checks the selector before such a jump,
+  the handler each selector reaches.
+*/
+.decl JumpTableTarget(jump: symbol, target: symbol)
+.input JumpTableTarget(IO="file", filename="JumpTableTarget.facts")
+
+.decl SelectorTableEntry(target: symbol, selector: symbol)
+.input SelectorTableEntry(IO="file", filename="SelectorTableEntry.facts")
+

@@ -101,6 +101,14 @@ PreTransStatement_OriginalStatement(heurClStmt, ogStmt) :-
 ValidSelector(optionalSelector):-
   blockCloner.analysis.ValidSelector(optionalSelector).
 
+// The cloner's analysis runs before heuristic cloning: original or revert-cloned ids.
+blockCloner.analysis.JumpTableJump(as(jump, Statement), target) :-
+  JumpTableTarget(jump, target).
+
+blockCloner.analysis.JumpTableJump(clone, target) :-
+  JumpTableTarget(jump, target),
+  revertCloner.StatementToClonedStatement(_, as(jump, Statement), clone).
+
 /**
   When we don't manage to find any ValidSelectors (other than $NoSelector())
   we should just propagate everything `preTrans` gives us.
@@ -151,6 +159,22 @@ insertor.insertOps(jumpDestStmt,
    preTrans.Statement_Uses_Local(jumpStmt, pushedVar, 0),
    preTrans.BasicBlock_Tail(block, jumpStmt).
 
+/**
+  Solidity-style dispatch (a selector compared with EQ, then JUMPI to the function)
+  turns the Vyper fallthrough transformation off. A small constant compared with a
+  local value is not dispatch: Vyper 0.3's reentrancy check is sload(lock) == 2.
+*/
+.decl SolidityStyleDispatch()
+
+SolidityStyleDispatch() :-
+  preTrans.BlockComparesSig(_, hash, $SelectorStackIndex(_, _)),
+  @hex_to_number(hash) >= 16777216.
+
+SolidityStyleDispatch() :-
+  preTrans.BlockComparesSig(_, hash, $SelectorVariable(var)),
+  preTrans.FunctionSelectorVariable(var),
+  @hex_to_number(hash) >= 16777216.
+
 // Vyper transformation
 insertor.insertOps(functionStartStmt,
   LIST(
@@ -163,7 +187,22 @@ insertor.insertOps(functionStartStmt,
    ValidSelector(selector),
    preTrans.BasicBlock_Tail(block, tail),
    preTrans.Statement_Next(tail, functionStartStmt),
-   !preTrans.BlockComparesSig(_, _, _).
+   !SolidityStyleDispatch().
+
+// Selector-table handlers (dense Vyper 0.3.10+ tables): the dispatcher checks the
+// selector against the table entry, then jumps to the handler; mark its start
+// like the fallthrough starts above.
+insertor.insertOps(insertStmt,
+  LIST(
+    STMT(PUSH4, MAKE_LABEL_REFERENCE(hash)),
+    STMT(JUMP, cat("PublicFunctionJump:", hash)),
+    STMT(JUMPDEST, MAKE_LABEL_REFERENCE(hash))
+  )
+) :-
+   SelectorTableEntry(target, hash),
+   PreTransStatement_OriginalStatement(jumpdest, as(target, Statement)),
+   preTrans.JUMPDEST(jumpdest),
+   preTrans.Statement_Next(jumpdest, insertStmt).
 
 // transformation for pattern in via-ir contracts
 insertor.insertOps(functionStartStmt,
@@ -297,7 +336,7 @@ postTrans.PublicFunction(block, hash, selector):-
    postTrans.Statement_Block(stmt, block),
    preTrans.BlockComparesSigVyper(_, hash, selector),
    ValidSelector(selector),
-   !preTrans.BlockComparesSig(_, _, _),
+   !SolidityStyleDispatch(),
    ISLABEL(meta), hash = GET_LABEL_REFERENCE(meta).
 
 postTrans.PublicFunction(block, hash, selector) :-
@@ -308,6 +347,20 @@ postTrans.PublicFunction(block, hash, selector) :-
    ValidSelector(selector),
    !preTrans.BlockComparesSig(_, hash, _),
    ISLABEL(meta), hash = GET_LABEL_REFERENCE(meta).
+
+// For selector-table handlers
+postTrans.PublicFunctionJump(block, hash, $NoSelector()) :-
+   insertor.MetaData(stmt, meta),
+   insertor.PublicFunctionJumpMetadata(meta, hash),
+   postTrans.Statement_Block(stmt, block),
+   SelectorTableEntry(_, as(hash, symbol)).
+
+postTrans.PublicFunction(block, as(selector, Value), $NoSelector()) :-
+   insertor.MetaData(stmt, meta),
+   postTrans.JUMPDEST(stmt),
+   postTrans.Statement_Block(stmt, block),
+   SelectorTableEntry(_, selector),
+   ISLABEL(meta), selector = GET_LABEL_REFERENCE(meta).
 
 // For receive functions
 postTrans.PublicFunction(block, hash, $NoSelector()) :-
