@@ -70,7 +70,7 @@
     {
       "id": "azuki-erc721a",
       "seconds": 2.0,
-      "peak_rss_gb": 0.12,
+      "peak_rss_gb": 0.13,
       "status": "ok",
       "decompiled_code_lines": 1048,
       "structured_code_lines": 2090,
@@ -125,7 +125,7 @@
     },
     {
       "id": "aave-v3-pool-proxy",
-      "seconds": 0.3,
+      "seconds": 0.4,
       "peak_rss_gb": 0.03,
       "status": "ok",
       "decompiled_code_lines": 151,
@@ -175,7 +175,7 @@
     },
     {
       "id": "ens-eth-registrar-controller",
-      "seconds": 1.1,
+      "seconds": 1.0,
       "peak_rss_gb": 0.07,
       "status": "ok",
       "decompiled_code_lines": 581,
@@ -230,7 +230,7 @@
     },
     {
       "id": "oneinch-router-v5",
-      "seconds": 11.7,
+      "seconds": 12.9,
       "peak_rss_gb": 0.44,
       "status": "ok",
       "decompiled_code_lines": 7084,
@@ -289,7 +289,7 @@
     },
     {
       "id": "seaport-1-5",
-      "seconds": 19.0,
+      "seconds": 20.2,
       "peak_rss_gb": 0.74,
       "status": "ok",
       "decompiled_code_lines": 6690,

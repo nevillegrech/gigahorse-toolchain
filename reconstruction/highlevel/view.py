@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import re
 from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
 
@@ -116,6 +117,20 @@ LEGEND = [
     "Hidden memory writes: proven unread, or ABI temporaries of a represented call/event/return that are not",
     "  re-read through the same pointer (solc memory discipline; such lines carry rule assumes-solc-memory-discipline).",
 ]
+
+# Added when a function returns a narrow integer: its width comes from a mask (or a
+# sign extension) on the returned value, which solc emits alike for a narrow
+# declared type and for a wider declared type holding a narrow value.
+NARROW_RETURNS = [
+    "Narrow return types (uint8..uint248, int8..int248) are the width the returned value is masked or",
+    "  sign-extended to; the source may declare a wider type for the same value (uint256 holding a uint128).",
+]
+NARROW = re.compile(r"u?int(\d+)")
+
+
+def _narrow(kind: str) -> bool:
+    match = NARROW.fullmatch(kind)
+    return match is not None and int(match.group(1)) < 256
 
 
 @dataclass
@@ -428,7 +443,10 @@ def build_decompiled(
     for view in views:
         view.returns = _returns(view.body, field_types)
     out = Printed(offsets={s.id: s.original_statements for s in context.statements.values()})
-    for line in LEGEND:
+    legend = list(LEGEND)
+    if any(v.function.selectors and any(map(_narrow, v.returns or [])) for v in views):
+        legend += NARROW_RETURNS
+    for line in legend:
         out.emit("// " + line, 0)
     out.emit("", 0)
     out.emit("contract Decompiled {", 0)
@@ -484,7 +502,7 @@ def build_decompiled(
     mapping = {
         "schema_version": 1,
         "view": "decompiled",
-        "legend": LEGEND,
+        "legend": legend,
         "lines": out.entries,
         "elided": elided,
         "argument_types": [

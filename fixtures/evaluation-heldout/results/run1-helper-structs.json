@@ -126,7 +126,7 @@
     },
     {
       "id": "compound-ceth",
-      "seconds": 3.3,
+      "seconds": 3.4,
       "peak_rss_gb": 0.19,
       "status": "ok",
       "decompiled_code_lines": 1730,

@@ -119,8 +119,8 @@
     },
     {
       "id": "uniswap-v3-position-manager",
-      "seconds": 4.9,
-      "peak_rss_gb": 0.23,
+      "seconds": 4.6,
+      "peak_rss_gb": 0.24,
       "status": "ok",
       "decompiled_code_lines": 1677,
       "structured_code_lines": 6436,
@@ -181,7 +181,7 @@
     },
     {
       "id": "balancer-v2-vault",
-      "seconds": 14.9,
+      "seconds": 14.6,
       "peak_rss_gb": 0.52,
       "status": "ok",
       "decompiled_code_lines": 4014,
@@ -255,7 +255,7 @@
     },
     {
       "id": "ens-public-resolver",
-      "seconds": 3.5,
+      "seconds": 3.6,
       "peak_rss_gb": 0.17,
       "status": "ok",
       "decompiled_code_lines": 2115,
@@ -333,7 +333,7 @@
     {
       "id": "permit2",
       "seconds": 1.8,
-      "peak_rss_gb": 0.11,
+      "peak_rss_gb": 0.1,
       "status": "ok",
       "decompiled_code_lines": 1101,
       "structured_code_lines": 2605,
@@ -390,8 +390,8 @@
     },
     {
       "id": "uniswap-v4-pool-manager",
-      "seconds": 59.3,
-      "peak_rss_gb": 0.21,
+      "seconds": 59.4,
+      "peak_rss_gb": 0.2,
       "status": "ok",
       "decompiled_code_lines": 2941,
       "structured_code_lines": 5709,

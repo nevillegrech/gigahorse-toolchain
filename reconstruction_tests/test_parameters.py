@@ -71,6 +71,8 @@ def test_view_claims_are_right_against_the_abi(variant, tmp_path):
             text, ids[SETTLE]
         )
     assert "price() public nonpayable returns (uint160)" in text
+    # A narrow return width is the mask's; the legend says the source may declare wider.
+    assert "// Narrow return types (uint8..uint248, int8..int248)" in text
     assert "owner() public nonpayable returns (address)" in text
     # Declared wider than its mask: the uses keep address(...).
     assert "idToAddress(uint256 varg0)" in _header(text, ids["idToAddress(uint256)"])

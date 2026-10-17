@@ -1183,7 +1183,12 @@ Two more cases came from the new fixture rather than from the held-out sets:
   return of a `uint128` value (encoder cleanup vs conversion cleanup, folded
   by the optimizer), so the bytecode does not decide the declared type. The
   same reading is right for 41 narrow returns in 18 other functions of these
-  sets.
+  sets. Widening every mask-only return to `uint256` would remove the three
+  claims but turn those 18 functions from correct to unresolved; the user
+  chose to keep the narrow reading and say what it rests on. A view that
+  prints a narrow return now carries a legend note: the width is the mask's,
+  and the source may declare a wider type for the same value. These three are
+  recorded as limits the bytecode cannot settle, not as open defects.
 
 Tests: new compiler fixture `DecoderFixture` (solc 0.8.30, optimized and
 via-IR) with the struct as the whole head, a field validated on one branch, a
