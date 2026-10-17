@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from src import tac_schema as schema
+from src.opcodes import OPCODES
 
 if TYPE_CHECKING:
     from .behavior import BehaviorInfo
@@ -16,6 +17,12 @@ if TYPE_CHECKING:
     from .returns import ReturnLayout
     from .semantics import SemanticInfo
     from .signatures import SignatureInfo
+
+
+def _operand_count(opcode: str) -> int | None:
+    """Operands an EVM opcode takes; None for the IR's variable-arity operations."""
+    info = OPCODES.get(opcode)
+    return info.pop_words() if info is not None else None
 
 
 def sort_key(identifier: str) -> tuple[int, str]:
@@ -148,6 +155,8 @@ def load_program(directory: Path) -> Program:
 
     # (statement, operand index) -> the variables the IR gives for that one operand.
     ambiguous: defaultdict[tuple[str, int], set[str]] = defaultdict(set)
+    # (statement, operand index) -> a variable standing for an operand the IR lacks.
+    missing: dict[tuple[str, int], str] = {}
 
     def indexed(relation: schema.RelationDef) -> dict[str, list[str]]:
         grouped: defaultdict[str, dict[int, str]] = defaultdict(dict)
@@ -171,7 +180,18 @@ def load_program(directory: Path) -> Program:
             grouped[key][position] = variable
         for key, positions in grouped.items():
             if sorted(positions) != list(range(len(positions))):
-                raise ValueError(f"{relation.name}: non-contiguous operand indices at {key}")
+                if relation != schema.tac_use:
+                    raise ValueError(f"{relation.name}: non-contiguous operand indices at {key}")
+                # An operand the analysis did not recover (a stack slot deeper
+                # than the function's inferred arguments): an unknown value, when
+                # the operands still fit the opcode.
+                arity = _operand_count(opcodes.get(key, ""))
+                if min(positions) < 0 or (arity is not None and max(positions) >= arity):
+                    raise ValueError(f"{relation.name}: non-contiguous operand indices at {key}")
+                for position in range(max(positions)):
+                    if position not in positions:
+                        missing[(key, position)] = f"{key}_missing{position}"
+                        positions[position] = missing[(key, position)]
         result = {
             key: [positions[i] for i in sorted(positions)] for key, positions in grouped.items()
         }
@@ -194,6 +214,16 @@ def load_program(directory: Path) -> Program:
         warnings.append(
             f"Statement {key} has {len(candidates)} IR values for operand {position} "
             f"({', '.join(operands[phi])}); modeled as an unordered PHI {phi}."
+        )
+    for (key, position), variable in sorted(missing.items()):
+        phi = f"{key}_phi{position}"
+        opcodes[phi] = "PHI"
+        definitions[phi] = [variable]
+        operands[phi] = []
+        synthetic_origins[phi] = key
+        warnings.append(
+            f"Statement {key} has no IR value for operand {position} (a stack slot the "
+            f"analysis did not recover); modeled as an unordered PHI {phi} with no inputs."
         )
     formals = indexed(schema.formal_args)
     origins: defaultdict[str, set[str]] = defaultdict(set)

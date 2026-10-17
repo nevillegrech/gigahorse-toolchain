@@ -892,14 +892,12 @@ class FunctionLifter:
             return []
         if op == "PHI":
             target = self.local(stmt.definitions[0])
-            return [
-                Assign(
-                    (target,),
-                    Call("phi", tuple(args)),
-                    evidence=ev,
-                    uncertain="PHI inputs are not associated with predecessors",
-                )
-            ]
+            uncertain = (
+                "PHI inputs are not associated with predecessors"
+                if args
+                else "value not recovered by the analysis (a stack slot it did not model)"
+            )
+            return [Assign((target,), Call("phi", tuple(args)), evidence=ev, uncertain=uncertain)]
         accesses = self.context.accesses.get(stmt.id, [])
         if op in {"SLOAD", "TLOAD"}:
             path = self.storage_path(accesses[0]) if len(accesses) == 1 else None

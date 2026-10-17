@@ -93,6 +93,25 @@ def test_conflicting_operand_is_merged_without_choosing(facts, tmp_path):
     assert "phi(" in (output / "decompiled.sol.txt").read_text()
 
 
+def test_missing_operand_is_an_unknown_value(facts, tmp_path):
+    """An operand the IR lacks (a stack slot the analysis did not model, as when
+    via-IR code reads deep with DUP; the Euler EVC failed on one) is an unknown
+    value, never a guess, while the operands still fit the opcode. Too many
+    operands for the opcode still fail (above)."""
+    rows = [r for r in (facts / "TAC_Use.csv").read_text().splitlines() if r != "0x10\tslot\t0"]
+    (facts / "TAC_Use.csv").write_text("\n".join(rows) + "\n")
+    program = load_program(facts)
+    instructions = program.blocks[0].instructions
+    phi = next(i for i in instructions if i.opcode == "PHI")
+    store = next(i for i in instructions if i.opcode == "SSTORE")
+    assert phi.definitions == ["0x10_missing0"] and phi.operands == []
+    assert store.operands == ["0x10_missing0", "loaded"]
+    assert any("no IR value for operand 0" in w for w in program.warnings)
+    output = tmp_path / "bundle"
+    write_bundle(facts, output, {})
+    assert "value not recovered by the analysis" in (output / "decompiled.sol.txt").read_text()
+
+
 def test_missing_relations_fail_explicitly(facts):
     (facts / "TAC_Use.csv").unlink()
     with pytest.raises(FileNotFoundError, match="TAC_Use"):

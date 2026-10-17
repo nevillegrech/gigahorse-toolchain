@@ -1644,3 +1644,29 @@ Tests:
   `returns (uint256)`), with the same line counts; the cross-check executes
   them. The 37 existing fixtures' native relations are unchanged. 475 passed,
   17 skipped; cross-check 1,079 agreeing.
+
+## Operands the analysis did not recover (Euler EVC)
+
+The Euler EVC (set 3) produced no output in run 4: loading Gigahorse's IR
+stopped at `TAC_Use: non-contiguous operand indices`. One `DIV` had its divisor
+but no dividend. The dividend is read with `DUP11`, deep in the caller's
+stack (via-IR code does this), and that slot is not among the arguments
+Gigahorse inferred for the function, so the IR has no value for it. A
+compiled reproducer (a via-IR function writing through a raw memory pointer)
+fails the same way.
+
+Such an operand is now an unknown value: an unordered PHI with no inputs,
+printed `v0 = phi(); // UNCERTAIN: value not recovered by the analysis`, with a
+warning. This applies only when the operands still fit the opcode (two for
+`DIV`); too many operands or a negative index still reject the relations,
+as before.
+
+The Euler EVC's first scores (`results/run4-missing-operands.json`; its
+native relations are from the same run, nothing in between targeted it):
+44/44 selectors, 2 names correct and 42 unresolved (the dictionary lacks
+the EVC's functions), 0 wrong names, arity 44/44, payability 42 correct and 2
+unresolved, returns 37 correct and 7 unresolved, **0 wrong claims**; 2,726
+code lines, 114 uncertain, 5 unstructured functions, 3 unrecovered values.
+Set 3 now produces output for all 8 contracts. No other contract's view
+changes (none had such an operand). 476 passed, 17 skipped; cross-check
+1,079 agreeing.
