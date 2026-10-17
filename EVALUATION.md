@@ -1579,3 +1579,68 @@ because callers keep their locals at the callee's addresses and restore them
 after the call. The rewritten loops stay as empty loops (`while (MEM[a] > 0)
 MEM[a] -= 32`). stableswap-ng (Vyper 0.3.10) is a different problem: its
 internal functions are copied per call site (65,269 lines).
+
+## Inlining cost limit and one-word returns
+
+Curve stableswap-ng (Vyper 0.3.10) printed 65,269 code lines, three functions
+holding 43,000 of them. Gigahorse found its 24 internal functions, but its
+inliner then copied most of them into every call site: the pool math
+(`get_D`, `get_y`, up to 653 statements, called 3 to 12 times) appeared once
+per call, nested. Vyper passes array arguments and result buffers as memory
+pointers, which the inliner's memory heuristics (written for solc's
+allocation helpers) take as reasons to inline.
+
+- **Inlining limit (native rule).** A function of at least 100 statements is
+  not inlined when its copies would add more than 500 statements ((call sites
+  - 1) x size). Its callers can still be inlined, and it does not ask for
+  another inlining round. Small helpers called many times (solc's, 14 to 38
+  statements at 46 to 57 sites) are still inlined.
+- **One-word returns.** Without inlining, a public function often ends with
+  `fn_0x4abb(0xb00); return MEM[0xb00:0xb20];`: the callee wrote the result
+  through the pointer. A return of exactly 32 bytes is the word at that
+  address, so it prints as `return MEM[0xb00];` with `returns (uint256)` (the
+  raw-word default; the scorer counts it correct only when the ABI says
+  `uint256`).
+
+Results, every held-out contract re-analyzed natively
+(`results/runs1-2-inlining.json`, `results/run3-inlining.json`,
+`results/run4-inlining.json`), against the previous section's runs:
+
+| Contract | Code lines | Uncertain lines | Other |
+| --- | --- | --- | --- |
+| Curve stableswap-ng | 65,269 -> **12,172** | 231 -> 113 | unstructured 7 -> 1; returns correct 28 -> 45 of 61; 509.8 s -> 66.1 s |
+| Seaport 1.5 | 6,690 -> 4,544 | 22 -> 13 | |
+| 1inch router | 7,099 -> 6,662 | 449 -> 409 | |
+| ENS public resolver | 2,115 -> 1,574 | | |
+| MetaMorpho | 3,568 -> 3,177 | | |
+| Balancer vault | 3,313 -> 3,051 | | unaccounted IR statements 65 -> 56 (a second run reproduced it) |
+| V4 pool manager | 2,941 -> 2,664 | 45 -> 29 | |
+| V4 position manager | 2,570 -> 2,358 | 11 -> 12 | one call now prints its arguments, marked "ABI input length not verified" |
+| Permit2 | 1,101 -> 825 | 7 -> 2 | |
+| CoW settlement | 1,211 -> 1,115 | | |
+| V3 pool | 1,820 -> 1,823 | | `getSurroundingObservations` and `binarySearch` are now functions, as in the source; the observations slot is their parameter, so its three packed fields lose their `stor_8_*` names |
+
+- All held-out contracts: 116,474 -> 58,742 code lines, 1,520 -> 1,332
+  uncertain lines. Every score count is the same or higher (returns correct
+  674 -> 691), and wrong claims stay at 7. Recognized idioms and decoded
+  events are unchanged. The other 16 contracts' native relations are
+  identical.
+- The inliner limit fires on more contracts than the call graph before
+  inlining suggests (11, not 5): functions grow as their callees are inlined
+  in earlier rounds.
+
+Tests:
+
+- New compiled fixture `InliningFixture` (solc 0.8.30): `_mix` reads calldata
+  through its argument and is called seven times. With the previous inliner
+  the optimized view printed it eight times (505 code lines, no private
+  function); now once (177 lines). It runs against Py-EVM (30 cases), and the
+  previous inliner's relations fail the test. In the via-IR variant solc
+  inlines `_mix` itself.
+- A first version of that fixture, passing a raw memory pointer in via-IR,
+  fails in Gigahorse's IR export with the error that stops the Euler EVC
+  (`TAC_Use: non-contiguous operand indices`): a small reproducer for later.
+- The one-word return rule changes four fixture views (`return MEM[0];` with
+  `returns (uint256)`), with the same line counts; the cross-check executes
+  them. The 37 existing fixtures' native relations are unchanged. 475 passed,
+  17 skipped; cross-check 1,079 agreeing.

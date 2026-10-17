@@ -133,9 +133,24 @@ FunCalledByDynamicCall(fun):-
     !ThrowBlock(block),
     !In_LocalBlockEdge(block, _).
 
+  /**
+    Inlining copies a function into every call site. A large function called
+    from several sites stays a function when its copies would add more than
+    500 statements: Curve stableswap-ng's pool math (up to 653 statements,
+    called 3 to 12 times) made its view 65,269 code lines.
+  */
+  .decl CostlyToInline(fun: Function)
+  CostlyToInline(fun):-
+    In_IsFunction(fun),
+    size = count : In_Statement_Function(_, fun),
+    size >= 100,
+    calls = count : In_CallGraphEdge(_, fun),
+    (calls - 1) * size > 500.
+
   CGEToInlineCandidate(caller, callee):-
     InlineCandidate(callee, _),
     SafelyInlinableFunction(callee),
+    !CostlyToInline(callee),
     In_CallGraphEdge(callerBlock, callee),
     In_InFunction(callerBlock, caller).
 
@@ -144,6 +159,7 @@ FunCalledByDynamicCall(fun):-
   FunctionToInline(func):-
     InlineCandidate(func, _),
     SafelyInlinableFunction(func),
+    !CostlyToInline(func),
     In_IsFunction(func),
     !IsPublicFunction(func),
     !FunctionIsInner(func),

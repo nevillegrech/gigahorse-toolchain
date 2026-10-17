@@ -253,6 +253,7 @@ IsUtilFunc(fun):-
 NeedsMoreInlining(fun):-
   inliner.InlineCandidate(fun, _),
   inliner.SafelyInlinableFunction(fun),
+  !inliner.CostlyToInline(fun),
   !inliner.FunctionToInline(fun),
   !IsPublicFunction(fun).
 

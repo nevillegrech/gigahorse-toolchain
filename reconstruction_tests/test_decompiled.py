@@ -349,3 +349,15 @@ def test_value_sources_are_a_fixpoint_over_every_definition():
     assert sources(Var("b", "b"), fn) == {("parameter", "fn_1", 0, 0)}
     # Shifted by 128 once more each time round, until shifted out entirely.
     assert sources(Var("c", "c"), fn) == {("parameter", "fn_1", 1, s) for s in (0, 128)}
+
+
+def test_a_returned_32_byte_slice_is_one_word(tmp_path):
+    """RETURN(p, 32) returns exactly the word MEM[p]: one uint256 result (the raw
+    word default), whatever wrote it (here a word written in a loop's first round)."""
+    _, decompiled = compiler_fixture("expression-via-ir", tmp_path / "relations")
+    text = decompiled.text
+    assert (
+        "function 0x0c77fa26(uint256 varg0, uint256 varg1) public nonpayable returns (uint256)"
+        in text
+    )
+    assert "return MEM[0];" in text and "return MEM[0:32];" not in text

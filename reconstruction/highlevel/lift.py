@@ -1195,6 +1195,10 @@ class FunctionLifter:
             )
         if isinstance(args[1], Const) and args[1].value == 0:
             return Return((), evidence=ev)
+        if isinstance(args[1], Const) and args[1].value == 32:
+            # Exactly one word: the 32 bytes returned are the word MEM[p] (a
+            # callee wrote it through a pointer, as Vyper's return buffers do).
+            return Return((Index(MEM, args[0]),), evidence=ev, rules=frozenset({"return-word"}))
         return Return(
             (), Slice("MEM", args[0], simplify(Binary("+", args[0], args[1]))), evidence=ev
         )

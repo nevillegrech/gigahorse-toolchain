@@ -214,3 +214,45 @@ def test_saved_frames_are_restored_around_internal_calls(tmp_path, monkeypatch):
         harness.check(data, sender=owner)
     harness.check(bytes.fromhex(ids["total()"]), sender=owner)
     assert harness.reverts >= 2  # _bump's limit, an overflow
+
+
+def test_large_function_called_from_many_places_is_not_inlined(tmp_path, monkeypatch):
+    """_mix reads calldata through its argument (a candidate for Gigahorse's
+    inliner) and is called seven times: inlined, its copies would add more than
+    500 statements, so it stays one function (the inliner printed it eight times
+    before, 505 code lines against 177). The view runs against Py-EVM."""
+    import json
+    from pathlib import Path
+
+    import pytest
+
+    from reconstruction_tests.decompiled_support import compiler_fixture
+
+    root = Path(__file__).resolve().parents[1] / "fixtures/reconstruction"
+    manifest = json.loads((root / "inlining-optimized.json").read_text())
+    _, decompiled = compiler_fixture("inlining-optimized", tmp_path / "inlining")
+    text = decompiled.text
+    assert text.count("0xf4243") == 1  # _mix's 1_000_003, printed once
+    assert text.count("    function fn_0x") == 1  # _mix (beside the named _Safe* helpers)
+    assert "not structured" not in text
+
+    pytest.importorskip("eth_tester", reason="install the validation extra")
+    from eth_abi import encode
+
+    from reconstruction_tests.test_decompiled_execution import Harness
+    from reconstruction_tests.test_execution import EVMReference
+
+    reference = EVMReference(manifest)
+    owner = reference.tester.get_accounts()[0]
+    initial = {slot: reference.storage(slot) for slot in range(8) if reference.storage(slot)}
+    harness = Harness(decompiled, reference, initial, monkeypatch)
+    ids = manifest["method_identifiers"]
+    arrays = ([], [5], [1, 2, 3], [2**255, 7], list(range(9)))
+    for xs in arrays:
+        for signature in ("a(uint256[])", "b(uint256[])", "e(uint256[])", "f(uint256[])"):
+            harness.check(bytes.fromhex(ids[signature]) + encode(["uint256[]"], [xs]), sender=owner)
+        data = encode(["uint256[]", "uint256"], [xs, 17])
+        harness.check(bytes.fromhex(ids["c(uint256[],uint256)"]) + data, sender=owner)
+        data = encode(["uint256[]", "uint256[]"], [xs, [4, 4]])
+        harness.check(bytes.fromhex(ids["d(uint256[],uint256[])"]) + data, sender=owner)
+    assert harness.cases == 30

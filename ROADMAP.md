@@ -128,6 +128,12 @@ that gives Dedaub's Morpho output 192 (the table above left out closing braces).
 | Held-out accuracy | No new wrong claims; set 3: 10 -> 7 (Vat's signed storage fixed); returns correct +25 and payability +36 across the three Vyper contracts and the Vat; other contracts' native relations identical (Balancer's analysis has two outcomes across identical runs, a pre-existing nondeterminism) | Static arrays without names, whole-head memory structs, returned structs and `bytes`, Euler EVC |
 | Behavioral confidence | Two new Vyper fixtures run against Py-EVM (internal calls on 0.2.16; saved frames on 0.2.12, where a wrong restore order fails the test); 471 passed, 17 skipped; cross-check 1,079 agreeing | Bounded inputs |
 
+### Status update 2026-10-17: inlining cost limit
+
+| Requirement | New evidence | Still open |
+| --- | --- | --- |
+| Readable code | Functions of 100+ statements are no longer inlined when the copies would add more than 500 statements; a returned 32-byte slice prints as one word. Held-out code lines 116,474 -> 58,742 (stableswap-ng 65,269 -> 12,172, Seaport 6,690 -> 4,544); uncertain lines 1,520 -> 1,332; every score count the same or higher, wrong claims unchanged | Names of packed storage fields reached through a storage-reference parameter (V3 observations); Euler EVC's IR export error, now with a small compiled reproducer |
+
 Next priority: investigate the NFT receiver callback's unresolved PHI; add successful
 NFT mint/transfer/receiver and multisig behavior checks; improve dynamic encoders,
 interprocedural authority
