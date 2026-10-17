@@ -1299,3 +1299,79 @@ Tests:
   checks, the fallback check.
 - Existing fixtures render byte-identically (8,953 code lines). 455 passed,
   17 skipped; the cross-check is unchanged at 1,079 agreeing.
+
+## Unstructured functions in Balancer and 1inch
+
+Before: 18 unstructured functions (Balancer 6, 1inch 12) and 1,100 UNCERTAIN
+lines (666 and 434), nearly all of them PHI assignments that unstructured code
+cannot associate with predecessors.
+
+What was structured:
+
+- **Balancer `fn_0x23f4`: a shared region with two returns.** An internal
+  function is inlined into one region entered from two call sites, and returns
+  from two places, both through the same return-address PHI. The splitter
+  copied the region per caller but took only one return jump, so the other
+  return's path looked like a second entry. All return jumps through the PHI
+  now form the region's exits; each caller's copy returns to its own
+  continuation. Balancer's uncertain lines go from 666 to 12.
+- **Balancer's five pseudo-functions: a `msg.sig` switch.** The vault's
+  signature type-hash lookup switches on `msg.sig` inside an internal function
+  (`if eq(selector, ...)`). The native analysis took each case for a public
+  function entry (phase 1 printed them as internal functions; they still could
+  not be structured). solc and Vyper emit the dispatcher first, so a selector
+  comparison that repeats one at a lower address no longer starts a function
+  (native rule). The cases are blocks of the lookup function again, which is
+  structured. Without the rule, `SwitchFixture` gets each switched selector
+  twice.
+- **1inch `fn_0x14b2`, `fn_0x18bd`, `fn_0x32d7`: copies of a callee next to
+  the call.** A call block also had an edge into a copy of the callee's
+  entry, named after the caller (`0x54b00x14b2`), whose return jump is
+  unresolved. The call already runs the callee, so when the call has a single
+  continuation such edges are ignored. The copies are then unreachable, and
+  their statements are accounted for as "callee_copy_not_executed". Splitting
+  shared regions now only considers jumps the function can reach. These three
+  now print as structured code, but 15 of their PHI assignments still have no
+  recorded predecessor association. They stay marked UNCERTAIN rather than
+  guessed, which is why 1inch's count rises by 15.
+
+| Contract | Unstructured functions | UNCERTAIN lines | Code lines |
+| --- | --- | --- | --- |
+| Balancer vault | 6 -> 0 | 666 -> 12 | 4,014 -> 3,313 |
+| 1inch v5 router | 12 -> 9 | 434 -> 449 | 7,084 -> 7,099 |
+| Both | 18 -> 9 | 1,100 -> 461 | |
+
+Still unstructured (all 1inch), by cause:
+
+- `uniswapV3Swap`, `uniswapV3SwapTo`, `uniswapV3SwapToWithPermit`: a shared
+  region whose return address for one caller is not a constant but the result
+  of another internal call, which passes the return label through. The
+  splitter needs a constant per caller.
+- `0x62e238bb`, `0xd365c695`, `0xe5d7bde6`: a call to `0x3e31` for which the
+  native call-return relation lists two continuations (`0x1d1b`, `0x1db0`).
+  solc pushes the return address of the next internal call before this one, and
+  the native analysis merges the two contexts.
+- `0x3c15fd91`, `0x3eca9c0a`, `0x70ccbd31`: a jump to a constant address
+  (`0x42e`, `0x31d`), solc's return-encoding tail shared by several public
+  functions. The native analysis assigns it to another function and records no
+  edge.
+
+Every change was checked against all 20 run 1-3 contracts re-analyzed
+natively (`results/runs1-2-structuring.json`, `results/run3-structuring.json`):
+only Balancer's native relations change; the 19 others are byte-identical;
+no wrong claim is new, no correct count lower (3 wrong claims, the return
+widths). Every compiler and deployed fixture with a snapshot re-analyzed
+natively gives the same relations as its snapshot.
+
+Tests:
+
+- Synthetic CFGs cover a shared region with two returns per caller and a call
+  with a copy of its callee (structured, copy not printed, accounted for). Any
+  other second target, or a second continuation, stays explicit.
+- The new compiler fixture `SwitchFixture` (an EQ-compared `msg.sig` switch in
+  an internal function, optimized and via-IR) has only its real public
+  functions, structured, executed against Py-EVM.
+- Breaking any of the four rules fails the tests: all exits, ignoring callee
+  copies, reachable-only splitting, copy accounting.
+- Existing fixtures render byte-identically (8,953 code lines). 461 passed,
+  17 skipped; the cross-check is unchanged at 1,079 agreeing.

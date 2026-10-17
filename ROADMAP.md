@@ -102,6 +102,12 @@ that gives Dedaub's Morpho output 192 (the table above left out closing braces).
 | Held-out accuracy | Curve 3pool 0/38 -> 38/38 and Curve stETH 0/39 -> 39/39 selectors, all names correct, 0 wrong claims; the 18 Solidity contracts' native relations byte-identical after the Datalog changes; runs 1-3 wrong claims stay 3 (return widths) | Unstructured Vyper functions (13 and 15 in the two Curve pools) |
 | Useful function interfaces | Four Vyper dispatch forms (0.2 memory selector, 0.3.9 xor, 0.3.10 sparse and dense tables, the last two found by executing the dispatcher); table dispatchers printed as their selector chain; payability from dispatcher paths, merged checks and reentrancy locks; static arrays from signatures | Vyper `__default__` behind a table (the chain is then not printed) |
 
+### Status update 2026-10-17 (later): unstructured functions
+
+| Requirement | New evidence | Still open |
+| --- | --- | --- |
+| Readable code | Balancer 6 -> 0 and 1inch 12 -> 9 unstructured functions; UNCERTAIN lines 1,100 -> 461 (Balancer 666 -> 12); shared regions with several returns split per caller; callee copies beside calls ignored and accounted; internal `msg.sig` switches no longer split into functions (native rule) | 1inch's 9: return labels passed through calls, merged call-return contexts, shared return tails owned by another function; 15 unassociated PHIs in the newly structured 1inch functions; Curve's 13 and 15 unstructured Vyper functions |
+
 Next priority: investigate the NFT receiver callback's unresolved PHI; add successful
 NFT mint/transfer/receiver and multisig behavior checks; improve dynamic encoders,
 interprocedural authority

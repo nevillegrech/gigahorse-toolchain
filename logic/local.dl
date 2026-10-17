@@ -130,6 +130,27 @@ ValidSelector(optionalSelector):-
 
 INITIALIZE_STATEMENT_INSERTOR_FROM(insertor, preTrans, postTrans)
 
+/**
+  An internal function switching on msg.sig (Balancer's type-hash lookup)
+  compares selectors the dispatcher already compared. solc and Vyper emit the
+  dispatcher first, so a comparison of a selector that is also compared at a
+  lower address does not start a public function: its target stays a block of
+  the function it is in.
+*/
+.decl LaterSelectorCompare(block: Block)
+LaterSelectorCompare(block) :-
+  preTrans.BlockComparesSig(block, hash, _),
+  preTrans.BlockComparesSig(other, hash, _),
+  match("0x[0-9a-f]+", as(block, symbol)),
+  match("0x[0-9a-f]+", as(other, symbol)),
+  @hex_to_number(as(other, symbol)) < @hex_to_number(as(block, symbol)).
+
+.decl LaterSelectorCase(start: Block)
+LaterSelectorCase(as(target, Block)) :-
+  LaterSelectorCompare(block),
+  preTrans.ImmediateBlockJumpTarget(block, var),
+  preTrans.Variable_Value(var, target).
+
 
 // This one removes conditional calls
 insertor.removeOp(jumpStmt),
@@ -149,6 +170,7 @@ insertor.insertOps(jumpDestStmt,
 ) :-
    (preTrans.BlockComparesSig(block, hash, selector);
    preTrans.FallBackFunctionInfo(block, start, hash, selector)),
+   !LaterSelectorCompare(block),
    preTrans.PublicFunction(start, hash, selector),
    ValidSelector(selector),
    preTrans.Statement_Block(jumpDestStmt, start),
@@ -375,6 +397,7 @@ postTrans.PublicFunction(block , hash, selector):-
   (preTrans.BlockComparesSig(_, hash, selector);
   preTrans.FallBackFunctionInfo(_, _, hash, selector)),
   preTrans.PublicFunction(block, hash, selector),
+  !LaterSelectorCase(block),
   ValidSelector(selector).
 
 // Code chunking logic reserved for future EIP

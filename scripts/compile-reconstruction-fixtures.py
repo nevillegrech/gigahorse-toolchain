@@ -25,6 +25,7 @@ def main():
         ("FailureFixture", "failure"),
         ("ParameterFixture", "parameter"),
         ("DecoderFixture", "decoder"),
+        ("SwitchFixture", "switch"),
     ):
         compile_fixture(contract, prefix, version)
 

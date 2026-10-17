@@ -1,0 +1,121 @@
+{
+  "compiler": "solc, the solidity compiler commandline interface\nVersion: 0.8.30+commit.73712a01.Linux.g++",
+  "source": "SwitchFixture.sol",
+  "source_sha256": "e8355fe56daa213712cadb53a5a9f88df68f3a301ab48409c649311d6f833243",
+  "bytecode_sha256": "7fe953a1de21c161c5255c6438f9b194339e68a51072f1e3bd66ef7da9877932",
+  "settings": {
+    "optimizer": {
+      "enabled": true,
+      "runs": 200
+    },
+    "viaIR": false,
+    "evmVersion": "cancun",
+    "metadata": {
+      "bytecodeHash": "none",
+      "appendCBOR": false
+    },
+    "outputSelection": {
+      "*": {
+        "*": [
+          "evm.deployedBytecode.object",
+          "evm.bytecode.object",
+          "evm.methodIdentifiers",
+          "storageLayout",
+          "abi"
+        ]
+      }
+    }
+  },
+  "method_identifiers": {
+    "calls()": "305f72b7",
+    "first(uint256)": "0b3f62f5",
+    "other()": "85295877",
+    "second(uint256)": "7896dfe3"
+  },
+  "storage_layout": {
+    "storage": [
+      {
+        "astId": 4,
+        "contract": "SwitchFixture.sol:SwitchFixture",
+        "label": "calls",
+        "offset": 0,
+        "slot": "0",
+        "type": "t_uint256"
+      }
+    ],
+    "types": {
+      "t_uint256": {
+        "encoding": "inplace",
+        "label": "uint256",
+        "numberOfBytes": "32"
+      }
+    }
+  },
+  "abi": [
+    {
+      "inputs": [],
+      "name": "calls",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "x",
+          "type": "uint256"
+        }
+      ],
+      "name": "first",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "other",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "x",
+          "type": "uint256"
+        }
+      ],
+      "name": "second",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "creation_bytecode": "6080604052348015600e575f5ffd5b5061018f8061001c5f395ff3fe608060405234801561000f575f5ffd5b506004361061004a575f3560e01c80630b3f62f51461004e578063305f72b7146100735780637896dfe31461007b578063852958771461008e575b5f5ffd5b61006161005c366004610159565b610096565b60405190815260200160405180910390f35b6100615f5481565b610061610089366004610159565b6100bd565b6100616100cf565b5f60015f5f8282546100a89190610170565b909155506100b79050826100df565b92915050565b5f60025f5f8282546100a89190610170565b5f6100da5f546100df565b905090565b5f7f42cd9f60f3f65c2070aa32043d8ac7ddaa9c97b48b932c3e283f07edabe2dd7e7f7fd7e54047fe0bd1d7ad925b03cb57f95b081c0b2949a64ca99e267ac268727e823560e01c630b3f62f5811461014557637896dfe3811461014d57849350610151565b829350610151565b8193505b505050919050565b5f60208284031215610169575f5ffd5b5035919050565b808201808211156100b757634e487b7160e01b5f52601160045260245ffd"
+}

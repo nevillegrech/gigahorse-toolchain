@@ -544,7 +544,30 @@ def classify_unprinted(context: ProgramContext, accounted: set[str]) -> dict[str
     """
     from ..render import PURE
 
-    result: dict[str, set[str]] = {"control_transfer": set(), "dead_or_control_only_pure": set()}
+    result: dict[str, set[str]] = {
+        "control_transfer": set(),
+        "dead_or_control_only_pure": set(),
+        "callee_copy_not_executed": set(),
+    }
+    # Copies of a callee's blocks next to a call that runs the callee: entered
+    # only by the call's ignored edges, so they are not part of the structured flow.
+    for function in context.program.functions:
+        plan = context.plans.get(function.id)
+        if plan is None or plan.region is None:
+            continue
+        members = set(function.blocks)
+        todo = [c for t in plan.transfers.values() for c in t.ignored_callee_copies]
+        seen: set[str] = set()
+        while todo:
+            node = todo.pop()
+            if node in seen or node in plan.reachable_blocks or node not in members:
+                continue
+            seen.add(node)
+            block = context.blocks[node]
+            result["callee_copy_not_executed"] |= {
+                s.id for s in block.instructions if s.id not in accounted
+            }
+            todo.extend(block.successors)
     for sid, stmt in context.statements.items():
         if sid not in accounted and stmt.opcode in {"JUMP", "JUMPI"}:
             result["control_transfer"].add(sid)

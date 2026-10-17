@@ -22,6 +22,9 @@ class Transfer:
     # A JUMP into another public function's entry (e.g. old dispatchers falling
     # back to the fallback function): control never returns, a tail call.
     callee: str | None = None
+    # A CALLPRIVATE's edges into a copy of the callee's entry inside this function
+    # (left by the native analysis next to the call): the call already runs it.
+    ignored_callee_copies: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -136,6 +139,7 @@ def build_transfers(
         for other in (program.functions if public_tail_jumps else ())
         if other.selectors and len(other.entries) == 1 and other.id != function.id
     }
+    callee_entries = {f.id: f.entries[0] for f in program.functions if len(f.entries) == 1}
     continuations: defaultdict[str, set[str]] = defaultdict(set)
     if call_returns is None:
         call_returns = program.semantics.call_returns if program.semantics else []
@@ -204,11 +208,25 @@ def build_transfers(
                 )
         elif op == "CALLPRIVATE":
             targets = continuations[block_id] | successors
+            callee = program.constants.get(tail.operands[0]) if tail and tail.operands else None
+            callee_entry = callee_entries.get(callee)
+            copies = {
+                target
+                for target in targets - continuations[block_id]
+                if callee_entry is not None and target == f"{callee_entry}{function.id}"
+            }
+            if len(continuations[block_id]) == 1 and copies:
+                targets = targets - copies
             if len(targets) > 1 or targets - members:
                 raise Unstructured(f"Ambiguous internal call continuation at {block_id}")
             transfers[block_id] = Transfer(
-                "goto" if targets else "end", tuple(targets), tail.id if tail else None
+                "goto" if targets else "end",
+                tuple(targets),
+                tail.id if tail else None,
+                ignored_callee_copies=tuple(sorted(copies)) if len(targets) == 1 else (),
             )
+            if len(targets) != 1 and copies:
+                raise Unstructured(f"Ambiguous internal call continuation at {block_id}")
         elif len(successors) == 1:
             transfers[block_id] = Transfer("goto", tuple(successors))
         elif successors:
@@ -654,25 +672,39 @@ def split_shared_regions(
         return None
 
     for _ in range(max_rounds):
-        multis = sorted(node for node, t in transfers.items() if t.kind == "multi")
+        # Only jumps the function can reach (a callee copy left beside a call is not).
+        live = _reach(function.entries[0], {n: t.targets for n, t in transfers.items()})
+        multis = sorted(node for node, t in transfers.items() if t.kind == "multi" and node in live)
         if not multis:
             return transfers, copies, origin
         predecessors: defaultdict[str, set[str]] = defaultdict(set)
         for source, transfer in transfers.items():
             for target in transfer.targets:
                 predecessors[target].add(source)
+
+        def jump_phi(node: str) -> tuple[str, Instruction] | None:
+            jump = next(
+                (
+                    s
+                    for s in blocks[original(node)].instructions
+                    if s.id == transfers[node].statement
+                ),
+                None,
+            )
+            return dispatch_phi(jump.operands[0]) if jump is not None and jump.operands else None
+
         j = multis[0]
-        jump = next(
-            (s for s in blocks[original(j)].instructions if s.id == transfers[j].statement), None
-        )
-        found = dispatch_phi(jump.operands[0]) if jump is not None and jump.operands else None
+        found = jump_phi(j)
         if found is None:
             raise Unstructured(f"Multiple jump outcomes at {j}")
         phi_block, phi = found
+        # Every return of the shared region jumps through the same PHI (a function
+        # with several return statements has several such jumps).
+        exits = [m for m in multis if (f := jump_phi(m)) is not None and f[1].id == phi.id]
         heads = [n for n in transfers if original(n) == phi_block]
-        # The region ends at j (its outgoing edges lead back to the callers) and
-        # starts at the nearest copy of the head: paths through other copies are cut.
-        edges = {n: (() if n == j else t.targets) for n, t in transfers.items()}
+        # The region ends at its exits (their outgoing edges lead back to the callers)
+        # and starts at the nearest copy of the head: paths through other copies are cut.
+        edges = {n: (() if n in exits else t.targets) for n, t in transfers.items()}
         forward = {
             h: _reach(
                 h,
@@ -687,26 +719,28 @@ def split_shared_regions(
         if len(candidates) != 1:
             raise Unstructured(f"Ambiguous shared region head for {j}")
         head = candidates[0]
+        exits = [e for e in exits if e in forward[head]]
         reverse = {n: tuple(predecessors[n]) for n in transfers}
-        region = forward[head] & _reach(j, reverse)
+        region = forward[head] & set().union(*(_reach(e, reverse) for e in exits))
         if any(not predecessors[n] <= region for n in region - {head}):
             raise Unstructured(f"Shared region at {head} has several entries")
         callers = sorted(predecessors[head] - region)
         if not callers or predecessors[head] & region:
             raise Unstructured(f"Shared region at {head} is not a plain call target")
-        continuation = {}
+        continuation: dict[tuple[str, str], str] = {}
         for caller in callers:
             values = phi_values.get((phi.id, original(caller)), set())
             if len(values) != 1:
                 raise Unstructured(f"Return address of {caller} into {head} is unknown")
-            matches = [
-                t
-                for t in transfers[j].targets
-                if _block_address(original(t)) == _address(next(iter(values)))
-            ]
-            if len(matches) != 1:
-                raise Unstructured(f"Return address of {caller} into {head} is not a successor")
-            continuation[caller] = matches[0]
+            for exit_node in exits:
+                matches = [
+                    t
+                    for t in transfers[exit_node].targets
+                    if _block_address(original(t)) == _address(next(iter(values)))
+                ]
+                if len(matches) != 1:
+                    raise Unstructured(f"Return address of {caller} into {head} is not a successor")
+                continuation[(caller, exit_node)] = matches[0]
         if len(transfers) + len(region) * len(callers) > max_nodes:
             raise Unstructured("Shared-region duplication limit exceeded")
         for caller in callers:
@@ -715,8 +749,8 @@ def split_shared_regions(
             for n, new in rename.items():
                 origin[new] = original(n)
                 t = transfers[n]
-                if n == j:
-                    transfers[new] = Transfer("goto", (continuation[caller],), t.statement)
+                if n in exits:
+                    transfers[new] = Transfer("goto", (continuation[(caller, n)],), t.statement)
                 else:
                     transfers[new] = Transfer(
                         t.kind,
@@ -728,7 +762,7 @@ def split_shared_regions(
             for (a, b), values in list(copies.items()):
                 if a in region and b in region:
                     copies[(rename[a], rename[b])] = values
-                elif a == j and b == continuation[caller]:
+                elif a in exits and b == continuation[(caller, a)]:
                     copies[(rename[a], b)] = values
             if (caller, head) in copies:
                 copies[(caller, rename[head])] = copies[(caller, head)]

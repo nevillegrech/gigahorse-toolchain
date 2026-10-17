@@ -1,0 +1,64 @@
+{
+ "schema_version": 1,
+ "source_relation": "SemanticMemoryConsumerWrite",
+ "bytecode_sha256": "d73bf5abc9ad580277a70cacf0a87052b58d25eea861735efb9433df37dc4dcf",
+ "tac_op_sha256": "6f3bcc0f957d4e640878aee4ff583ba7daa8bf8c0050ccea564a32bbd15339de",
+ "SemanticMemoryConsumerWrite": [
+  [
+   "0x38d",
+   "0x384",
+   "0",
+   "0",
+   "4"
+  ],
+  [
+   "0x38d",
+   "0x389",
+   "4",
+   "0",
+   "32"
+  ],
+  [
+   "0x44c",
+   "0x443",
+   "0",
+   "0",
+   "4"
+  ],
+  [
+   "0x44c",
+   "0x448",
+   "4",
+   "0",
+   "32"
+  ],
+  [
+   "0x8bf",
+   "0x8be",
+   "0",
+   "0",
+   "32"
+  ],
+  [
+   "0x8e6",
+   "0x8e5",
+   "0",
+   "0",
+   "32"
+  ],
+  [
+   "0xcc",
+   "0xcb",
+   "0",
+   "0",
+   "32"
+  ],
+  [
+   "0xff",
+   "0xfe",
+   "0",
+   "0",
+   "32"
+  ]
+ ]
+}
