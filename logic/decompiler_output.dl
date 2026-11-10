@@ -44,7 +44,7 @@ PolymorphicStackIndex(block, stackIndex) :-
 DEBUG_OUTPUT(PHILocation)
 PHILocation(defBlock, defBlockIndex, cat(cat(defBlock, "_"), defBlockIndexHex)) :-
    PolymorphicStackIndex(block, stackIndex),
-   lastFunctional.PHIVarIntroductionPoint(block, stackIndex, defBlock, defBlockIndex),
+   lastFunctional.PHIVarIntroductionPointUnfiltered(block, stackIndex, defBlock, defBlockIndex),
    defBlockIndexHex = @number_to_hex(defBlockIndex).
 
 PHILocation(defBlock, defIndex, phiStmt) :-
@@ -311,8 +311,19 @@ TAC_Use(stmt, as(phiStmt, TACVariable), n) :-
   CheckIsStackIndex(stackIndex),
   TAC_Block(stmt, block),
   PolymorphicStackIndex(block, stackIndex),
-  lastFunctional.PHIVarIntroductionPoint(block, stackIndex, defBlock, defBlockIndex),
+  lastFunctional.PHIVarIntroductionPointUnfiltered(block, stackIndex, defBlock, defBlockIndex),
+  1 = count: lastFunctional.PHIVarIntroductionPointUnfiltered(block, stackIndex, _, _),
   PHILocation(defBlock, defBlockIndex, phiStmt).
+
+TAC_Use(stmt, as(var_id, TACVariable), n) :-
+  lastFunctional.FunctionalStatement_Uses_Local(stmt, stackIndex, n),
+  CheckIsStackIndex(stackIndex),
+  TAC_Block(stmt, block),
+  PolymorphicStackIndex(block, stackIndex),
+  lastFunctional.PostFunctionalBlockInputContents(block, stackIndex, phiVar),
+  lastFunctional.PHIStmtAndVariable(_, _, _, var_id, phiVar),
+  1 != count: lastFunctional.PHIVarIntroductionPointUnfiltered(block, stackIndex, _, _).
+
 
 TAC_Block(stmt, block) :-
   IRStatement_Block(stmt, block),
