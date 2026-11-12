@@ -1048,6 +1048,17 @@ IsStackIndexLessThan(n, maximum) :- n = range(0, maximum, 1).
     BlockComparesSig(block2, sigHash2, _),
     JUMPDEST(as(functionStart, Statement)),
     sigHash1 != sigHash2.
+
+  PublicFunctionStartShared(sigHash1, as(functionStart, Block)):-
+    BlockComparesSig(block1, sigHash1, _),
+    ImmediateBlockJumpTarget(block1, var1),
+    Variable_Value(var1, functionStart),
+    BlockComparesSigFallthroughSolidity(block2, sigHash2, _),
+    FallthroughEdge(block2, as(functionStart, Block)),
+    JUMPDEST(as(functionStart, Statement)),
+    sigHash1 != sigHash2.
+
+
 }
 
 /**

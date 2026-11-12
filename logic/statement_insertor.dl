@@ -364,6 +364,17 @@ INITIALIZE_STATEMENT_INSERTOR(_insertor, to)
     // Make sure we don't break any CODECOPY stmts
     !analysis.CODECOPYStatement(_, as(to,Value), _).
 
+  // Allows cloning in cases where the cloning candidate is used once
+  // if a candidate is only pushed once but is also a fallthrough, we clone it nonetheless
+  BlockToClone(from, to):-
+    BlockPushesBlockToStack(fromB, from, to),
+    analysis.FallthroughEdge(otherFrom, to),
+    BlockCloningCandidate(to),
+    fromB != otherFrom,
+    !FallthroughBlock(to),
+    // Make sure we don't break any CODECOPY stmts
+    !analysis.CODECOPYStatement(_, as(to,Value), _).
+
   // if a cloned block pushes a cloning candidate we also clone that candidate
   BlockToClone(from, to):-
     BlockToClone(_, blockToClone),
